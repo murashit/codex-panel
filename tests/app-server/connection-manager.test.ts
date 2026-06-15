@@ -54,7 +54,6 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      silentConnectionHandlers(),
       (codexPath, cwd, handlers) =>
         new AppServerClient(codexPath, cwd, handlers, 5, (transportHandlers) => {
           transport = new SilentTransport(transportHandlers);
@@ -62,7 +61,7 @@ describe("ConnectionManager", () => {
         }),
     );
 
-    await expect(manager.connect()).rejects.toThrow("Codex app-server request timed out: initialize");
+    await expect(manager.connect(silentConnectionHandlers())).rejects.toThrow("Codex app-server request timed out: initialize");
 
     expect(transport.running).toBe(false);
     expect(manager.currentClient()).toBeNull();
@@ -73,7 +72,6 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      silentConnectionHandlers(),
       (codexPath, cwd, handlers) =>
         new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
           transport = new SilentTransport(transportHandlers);
@@ -81,8 +79,8 @@ describe("ConnectionManager", () => {
         }),
     );
 
-    const first = manager.connect();
-    const second = manager.connect();
+    const first = manager.connect(silentConnectionHandlers());
+    const second = manager.connect(silentConnectionHandlers());
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
 
     await expect(first).resolves.toMatchObject({ codexHome: "/tmp/codex" });
@@ -97,7 +95,6 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      { ...silentConnectionHandlers(), onExit },
       (codexPath, cwd, handlers) =>
         new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
           transport = new SilentTransport(transportHandlers);
@@ -105,7 +102,7 @@ describe("ConnectionManager", () => {
         }),
     );
 
-    const connecting = manager.connect();
+    const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
     transport.emitExit();
 
     await expect(connecting).rejects.toThrow("Codex app-server exited: unknown");
@@ -119,7 +116,6 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      { ...silentConnectionHandlers(), onExit },
       (codexPath, cwd, handlers) =>
         new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
           transport = new SilentTransport(transportHandlers);
@@ -127,7 +123,7 @@ describe("ConnectionManager", () => {
         }),
     );
 
-    const connecting = manager.connect();
+    const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
     manager.disconnect();
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
 

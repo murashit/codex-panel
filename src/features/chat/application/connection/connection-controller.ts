@@ -46,6 +46,20 @@ export interface ChatConnectionControllerHost {
   notifyConnectionFailed: () => void;
 }
 
+type ChatConnectionExitHost = Pick<
+  ChatConnectionControllerHost,
+  "connectionWork" | "invalidateResumeWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence" | "refreshLiveState"
+>;
+
+export function handleChatConnectionExit(host: ChatConnectionExitHost): void {
+  host.connectionWork.invalidate();
+  host.invalidateResumeWork();
+  host.setStatus(STATUS_CONNECTION_STOPPED, { kind: "disconnected", message: STATUS_CONNECTION_STOPPED });
+  host.stateStore.dispatch({ type: "connection/scoped-cleared" });
+  host.resetThreadTurnPresence(false);
+  host.refreshLiveState();
+}
+
 export class ChatConnectionController {
   constructor(private readonly host: ChatConnectionControllerHost) {}
 
@@ -72,12 +86,7 @@ export class ChatConnectionController {
   }
 
   handleExit(): void {
-    this.invalidate();
-    this.host.invalidateResumeWork();
-    this.host.setStatus(STATUS_CONNECTION_STOPPED, { kind: "disconnected", message: STATUS_CONNECTION_STOPPED });
-    this.host.stateStore.dispatch({ type: "connection/scoped-cleared" });
-    this.host.resetThreadTurnPresence(false);
-    this.host.refreshLiveState();
+    handleChatConnectionExit(this.host);
   }
 
   async refreshThreads(): Promise<void> {

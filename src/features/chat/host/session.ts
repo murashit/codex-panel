@@ -1,6 +1,6 @@
 import { Notice, type App, type Component, type EventRef } from "obsidian";
 
-import { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import { getThreadTitle } from "../../../domain/threads/model";
@@ -41,7 +41,7 @@ import type { ThreadRenameEditorController } from "../application/threads/rename
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeController } from "../application/threads/resume-controller";
 import { createThreadParts, createThreadSelectionActions } from "../application/threads/composition";
-import { createChatConnectionBundle, createChatConnectionEventRouter, type ChatConnectionBundle } from "./connection-bundle";
+import { createChatConnectionBundle, type ChatConnectionBundle } from "./connection-bundle";
 import type { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import { pendingRequestsSignature } from "../domain/pending-requests/signatures";
 import { createChatPanelGoalSurface } from "../panel/surface/goal-surface";
@@ -300,25 +300,14 @@ export class ChatPanelSession {
   }
 
   private createSessionParts(): ChatPanelSessionParts {
-    const connectionHandlers = createChatConnectionEventRouter({
-      deferLiveStateRefresh: () => {
-        this.deferLiveStateRefresh();
-      },
-    });
-    const connection = new ConnectionManager(
-      () => this.environment.plugin.settingsRef.settings.codexPath,
-      this.environment.plugin.settingsRef.vaultPath,
-      connectionHandlers.handlers,
-    );
     const sideEffects = this.createSideEffects();
-    const currentClient = () => connection.currentClient();
     const ensureConnected = () => this.parts.connection.controller.ensureConnected();
     const refreshThreads = () => this.parts.connection.controller.refreshThreads();
     const refreshSkills = (forceReload?: boolean) => this.parts.connection.controller.refreshSkills(forceReload);
 
     const runtimeSettings = createChatRuntimeSettingsActions({
       stateStore: this.stateStore,
-      currentClient,
+      currentClient: () => this.parts.connection.manager.currentClient(),
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       collaborationModeLabel: () => this.collaborationModeLabel(),
       addSystemMessage: sideEffects.status.addSystemMessage,
@@ -340,7 +329,7 @@ export class ChatPanelSession {
         getClosing: () => this.closing,
       },
       client: {
-        getClient: currentClient,
+        getClient: () => this.parts.connection.manager.currentClient(),
         ensureConnected,
       },
       status: sideEffects.status,
@@ -419,13 +408,10 @@ export class ChatPanelSession {
     const serverParts = createChatConnectionBundle({
       stateStore: this.stateStore,
       vaultPath: this.environment.plugin.settingsRef.vaultPath,
-      connection,
+      codexPath: () => this.environment.plugin.settingsRef.settings.codexPath,
       connectionWork: this.connectionWork,
       deferredTasks: this.deferredTasks,
       threadSurfaces: this.environment.plugin.threadSurfaces,
-      client: {
-        currentClient,
-      },
       refresh: {
         refreshThreads,
         refreshSkills,
@@ -444,10 +430,15 @@ export class ChatPanelSession {
       refreshLiveState: () => {
         this.refreshLiveState();
       },
+      deferLiveStateRefresh: () => {
+        this.deferLiveStateRefresh();
+      },
       configuredCommand: () => this.environment.plugin.settingsRef.settings.codexPath,
     });
-    const { connectionController, inboundController } = serverParts;
-    connectionHandlers.attach({ inbound: inboundController, connectionController });
+    const {
+      connection: { controller: connectionController, manager: connection },
+      inboundController,
+    } = serverParts;
     const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
 
     const toolbarActions = createChatPanelToolbarActions(
@@ -534,7 +525,7 @@ export class ChatPanelSession {
           },
         },
         client: {
-          getClient: currentClient,
+          getClient: () => this.parts.connection.manager.currentClient(),
           ensureConnected,
         },
         status: sideEffects.status,

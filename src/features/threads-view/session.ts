@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/connection/client";
-import { ConnectionManager, StaleConnectionError } from "../../app-server/connection/connection-manager";
+import { ConnectionManager, type ConnectionManagerHandlers, StaleConnectionError } from "../../app-server/connection/connection-manager";
 import { listThreads, readCompletedConversationSummariesPage } from "../../app-server/services/threads";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
@@ -73,7 +73,11 @@ export class CodexThreadsSession {
 
   constructor(private readonly environment: CodexThreadsSessionEnvironment) {
     this.deferredTasks = createThreadsViewDeferredTasks(() => this.viewWindow());
-    this.connection = new ConnectionManager(() => this.host.settings.codexPath, this.host.vaultPath, {
+    this.connection = new ConnectionManager(() => this.host.settings.codexPath, this.host.vaultPath);
+  }
+
+  private connectionHandlers(): ConnectionManagerHandlers {
+    return {
       onNotification: () => {
         this.scheduleRefresh();
       },
@@ -91,7 +95,7 @@ export class CodexThreadsSession {
         this.status = { kind: "error", message: "Codex app-server stopped." };
         this.render();
       },
-    });
+    };
   }
 
   open(): void {
@@ -178,7 +182,7 @@ export class CodexThreadsSession {
 
     const connection = this.beginConnectionWork();
     const promise = this.connection
-      .connect()
+      .connect(this.connectionHandlers())
       .then(() => {
         if (this.isStaleConnectionWork(connection)) throw new StaleConnectionError();
         this.client = this.connection.currentClient();

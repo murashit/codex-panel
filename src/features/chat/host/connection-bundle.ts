@@ -1,10 +1,9 @@
 import { Notice } from "obsidian";
 
-import type { AppServerClient } from "../../../app-server/connection/client";
-import type { ConnectionManager, ConnectionManagerHandlers } from "../../../app-server/connection/connection-manager";
+import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { ThreadSurfaceBroadcaster } from "../application/ports/chat-host";
 import type { ChatConnectionWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
-import { ChatConnectionController } from "../application/connection/connection-controller";
+import { ChatConnectionController, handleChatConnectionExit } from "../application/connection/connection-controller";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
 import { createChatServerThreadActions, type ChatServerThreadActions } from "../app-server/actions/threads";
@@ -18,17 +17,16 @@ import type { AutoTitleController } from "../application/threads/auto-title-cont
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 
 export interface ChatConnectionBundle {
-  connectionController: ChatConnectionController;
+  connection: {
+    manager: ConnectionManager;
+    controller: ChatConnectionController;
+  };
   inboundController: ChatInboundController;
   serverActions: {
     threads: ChatServerThreadActions;
     metadata: ChatServerMetadataActions;
     diagnostics: ChatServerDiagnosticsActions;
   };
-}
-
-interface ChatConnectionClientPorts {
-  currentClient: () => AppServerClient | null;
 }
 
 interface ChatConnectionRefreshPorts {
@@ -45,11 +43,10 @@ interface ChatConnectionBundleStatus {
 export interface ChatConnectionBundleContext {
   stateStore: ChatStateStore;
   vaultPath: string;
-  connection: ConnectionManager;
+  codexPath: () => string;
   connectionWork: ChatConnectionWorkTracker;
   deferredTasks: ChatViewDeferredTasks;
   threadSurfaces: ThreadSurfaceBroadcaster;
-  client: ChatConnectionClientPorts;
   refresh: ChatConnectionRefreshPorts;
   goals: GoalActions;
   autoTitle: AutoTitleController;
@@ -59,21 +56,18 @@ export interface ChatConnectionBundleContext {
   refreshDeferredDiagnostics: () => Promise<void>;
   refreshTabHeader: () => void;
   refreshLiveState: () => void;
+  deferLiveStateRefresh: () => void;
   configuredCommand: () => string;
 }
 
-export interface ChatConnectionEventTargets {
-  inbound: ChatInboundController;
-  connectionController: ChatConnectionController;
-}
-
 export function createChatConnectionBundle(context: ChatConnectionBundleContext): ChatConnectionBundle {
-  const { stateStore, vaultPath, connection, connectionWork, deferredTasks, threadSurfaces, client, refresh, goals, autoTitle, status } =
-    context;
+  const { stateStore, vaultPath, connectionWork, deferredTasks, threadSurfaces, refresh, goals, autoTitle, status } = context;
+  const connection = new ConnectionManager(context.codexPath, vaultPath);
+  const currentClient = () => connection.currentClient();
   const serverMetadata = createChatServerMetadataActions({
     stateStore,
     vaultPath,
-    currentClient: client.currentClient,
+    currentClient,
     publishAppServerMetadata: (metadata) => {
       threadSurfaces.publishAppServerMetadata(metadata);
     },
@@ -81,7 +75,7 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
   const serverDiagnostics = createChatServerDiagnosticsActions({
     stateStore,
     vaultPath,
-    currentClient: client.currentClient,
+    currentClient,
     publishAppServerMetadata: (metadata) => {
       threadSurfaces.publishAppServerMetadata(metadata);
     },
@@ -90,7 +84,7 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
   const serverThreads = createChatServerThreadActions({
     stateStore,
     vaultPath,
-    currentClient: client.currentClient,
+    currentClient,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     publishThreadList: (threads) => {
       threadSurfaces.applyThreadListSnapshot(threads);
@@ -100,7 +94,7 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     },
   });
   const serverRequestHost = {
-    currentClient: client.currentClient,
+    currentClient,
   };
   const inboundController = new ChatInboundController(stateStore, {
     refreshThreads: () => {
@@ -128,10 +122,39 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
     rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
   });
-  const connectionController = new ChatConnectionController({
+  const connectionExitHost = {
     stateStore,
-    connection,
     connectionWork,
+    invalidateResumeWork: context.invalidateResumeWork,
+    setStatus: status.set,
+    resetThreadTurnPresence: (hadTurns: boolean) => {
+      autoTitle.resetThreadTurnPresence(hadTurns);
+    },
+    refreshLiveState: context.refreshLiveState,
+  };
+  const connectionController = new ChatConnectionController({
+    ...connectionExitHost,
+    connection: {
+      connect: () =>
+        connection.connect({
+          onNotification: (notification) => {
+            inboundController.handleNotification(notification);
+            context.deferLiveStateRefresh();
+          },
+          onServerRequest: (request) => {
+            inboundController.handleServerRequest(request);
+            context.deferLiveStateRefresh();
+          },
+          onLog: (message) => {
+            inboundController.handleAppServerLog(message);
+          },
+          onExit: () => {
+            handleChatConnectionExit(connectionExitHost);
+          },
+        }),
+      currentClient,
+      isConnected: () => connection.isConnected(),
+    },
     metadata: {
       refreshPublishedAppServerMetadata: () => serverMetadata.refreshPublishedAppServerMetadata(),
       refreshPublishedSkills: (forceReload) => serverMetadata.refreshPublishedSkills(forceReload),
@@ -139,7 +162,6 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     diagnostics: {
       refreshPublishedDiagnosticProbes: () => serverDiagnostics.refreshPublishedDiagnosticProbes(),
     },
-    invalidateResumeWork: context.invalidateResumeWork,
     loadSharedThreadList: context.loadSharedThreadList,
     scheduleDeferredDiagnostics: () => {
       deferredTasks.scheduleDiagnostics(() => {
@@ -150,9 +172,6 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
       deferredTasks.clearDiagnostics();
     },
     refreshTabHeader: context.refreshTabHeader,
-    resetThreadTurnPresence: (hadTurns) => {
-      autoTitle.resetThreadTurnPresence(hadTurns);
-    },
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
     configuredCommand: context.configuredCommand,
@@ -163,44 +182,15 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
   });
 
   return {
-    connectionController,
+    connection: {
+      manager: connection,
+      controller: connectionController,
+    },
     inboundController,
     serverActions: {
       threads: serverThreads,
       metadata: serverMetadata,
       diagnostics: serverDiagnostics,
-    },
-  };
-}
-
-export function createChatConnectionEventRouter(callbacks: { deferLiveStateRefresh: () => void }): {
-  handlers: ConnectionManagerHandlers;
-  attach: (targets: ChatConnectionEventTargets) => void;
-} {
-  let targets: ChatConnectionEventTargets | null = null;
-  const currentTargets = () => {
-    if (!targets) throw new Error("Codex app-server connection event received before chat session parts were initialized.");
-    return targets;
-  };
-  return {
-    handlers: {
-      onNotification: (notification) => {
-        currentTargets().inbound.handleNotification(notification);
-        callbacks.deferLiveStateRefresh();
-      },
-      onServerRequest: (request) => {
-        currentTargets().inbound.handleServerRequest(request);
-        callbacks.deferLiveStateRefresh();
-      },
-      onLog: (message) => {
-        currentTargets().inbound.handleAppServerLog(message);
-      },
-      onExit: () => {
-        currentTargets().connectionController.handleExit();
-      },
-    },
-    attach: (nextTargets) => {
-      targets = nextTargets;
     },
   };
 }

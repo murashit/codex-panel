@@ -32,7 +32,6 @@ export class ConnectionManager {
   constructor(
     private readonly codexPath: () => string,
     private readonly cwd: string,
-    private readonly handlers: ConnectionManagerHandlers,
     private readonly clientFactory: AppServerClientFactory = (codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers),
   ) {}
 
@@ -44,7 +43,7 @@ export class ConnectionManager {
     return Boolean(this.currentClient());
   }
 
-  async connect(): Promise<ServerInitialization> {
+  async connect(handlers: ConnectionManagerHandlers): Promise<ServerInitialization> {
     const currentClient = this.currentClient();
     if (currentClient) {
       return appServerInitializationFromResponse(currentClient.initializeResponse);
@@ -55,20 +54,20 @@ export class ConnectionManager {
     const client = this.clientFactory(this.codexPath(), this.cwd, {
       onNotification: (notification) => {
         if (this.isStale(generation)) return;
-        this.handlers.onNotification(notification);
+        handlers.onNotification(notification);
       },
       onServerRequest: (request) => {
         if (this.isStale(generation)) return;
-        this.handlers.onServerRequest(request);
+        handlers.onServerRequest(request);
       },
       onLog: (message) => {
         if (this.isStale(generation)) return;
-        this.handlers.onLog(message);
+        handlers.onLog(message);
       },
       onExit: () => {
         if (this.isStale(generation)) return;
         this.state = { kind: "disconnected", generation };
-        this.handlers.onExit();
+        handlers.onExit();
       },
     });
     const promise = client

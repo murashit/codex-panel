@@ -40,21 +40,25 @@ vi.mock("../../../src/app-server/connection/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {
-    constructor(
-      _codexPath: () => string,
-      _cwd: string,
-      private readonly handlers: {
-        onNotification: (notification: ServerNotification) => void;
-        onServerRequest: (request: unknown) => void;
-        onLog: (message: string) => void;
-        onExit: () => void;
-      },
-    ) {
-      connectionMock.state.onNotification = handlers.onNotification;
-      connectionMock.state.onExit = handlers.onExit;
+    private handlers: {
+      onNotification: (notification: ServerNotification) => void;
+      onServerRequest: (request: unknown) => void;
+      onLog: (message: string) => void;
+      onExit: () => void;
+    } | null;
+
+    constructor(_codexPath: () => string, _cwd: string) {
+      this.handlers = null;
     }
 
-    connect(): Promise<unknown> {
+    connect(handlers: {
+      onNotification: (notification: ServerNotification) => void;
+      onServerRequest: (request: unknown) => void;
+      onLog: (message: string) => void;
+      onExit: () => void;
+    }): Promise<unknown> {
+      this.handlers = handlers;
+      this.publishHandlers(handlers);
       connectionMock.state.connectCalls += 1;
       connectionMock.state.connected = true;
       return Promise.resolve({
@@ -83,7 +87,12 @@ vi.mock("../../../src/app-server/connection/connection-manager", () => {
 
     exit(): void {
       connectionMock.state.connected = false;
-      this.handlers.onExit();
+      this.handlers?.onExit();
+    }
+
+    private publishHandlers(handlers: NonNullable<ConnectionManager["handlers"]>): void {
+      connectionMock.state.onNotification = handlers.onNotification;
+      connectionMock.state.onExit = handlers.onExit;
     }
   }
 
