@@ -10,6 +10,28 @@ const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
 const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs"];
 const typeScriptConfigFiles = ["*.config.ts"];
 const lintedTypeScriptFiles = [...typeScriptFiles, ...typeScriptConfigFiles];
+const unsafeTypeScriptRules = {
+  "@typescript-eslint/no-unsafe-argument": "error",
+  "@typescript-eslint/no-unsafe-assignment": "error",
+  "@typescript-eslint/no-unsafe-call": "error",
+  "@typescript-eslint/no-unsafe-member-access": "error",
+};
+const projectTypeScriptRules = {
+  "@typescript-eslint/consistent-type-imports": "error",
+  "@typescript-eslint/no-explicit-any": "error",
+  "@typescript-eslint/no-floating-promises": "error",
+  "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+  ...unsafeTypeScriptRules,
+  "react-hooks/exhaustive-deps": "error",
+  "react-hooks/rules-of-hooks": "error",
+};
+const testTypeScriptRelaxations = {
+  "@typescript-eslint/no-unsafe-assignment": "off",
+  "@typescript-eslint/no-unsafe-call": "off",
+  "@typescript-eslint/no-unsafe-member-access": "off",
+  "@typescript-eslint/no-unnecessary-type-assertion": "off",
+  "@typescript-eslint/require-await": "off",
+};
 const preactFormRestrictions = [
   {
     selector: "JSXAttribute[name.name=/^(defaultValue|defaultChecked)$/]",
@@ -589,12 +611,7 @@ export default defineConfig([
       },
     },
     rules: {
-      "@typescript-eslint/consistent-type-imports": "error",
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-      "react-hooks/exhaustive-deps": "error",
-      "react-hooks/rules-of-hooks": "error",
+      ...projectTypeScriptRules,
     },
   },
   {
@@ -612,11 +629,7 @@ export default defineConfig([
   {
     files: ["tests/**/*.{ts,tsx}"],
     rules: {
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-call": "off",
-      "@typescript-eslint/no-unsafe-member-access": "off",
-      "@typescript-eslint/no-unnecessary-type-assertion": "off",
-      "@typescript-eslint/require-await": "off",
+      ...testTypeScriptRelaxations,
       ...restrictedSyntaxRule(generatedAppServerThreadImportRestrictions),
     },
   },
