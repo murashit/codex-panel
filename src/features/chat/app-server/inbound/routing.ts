@@ -15,13 +15,23 @@ export type ServerRequestRoute =
   | { kind: "unknown"; request: ServerRequest }
   | { kind: "inactive"; request: ServerRequest };
 
+type ServerNotificationMethod = ServerNotification["method"];
+type ServerRequestMethod = ServerRequest["method"];
+type RoutedNotification<M extends ServerNotificationMethod> = Extract<ServerNotification, { method: M }>;
+export type StreamUpdateNotification = RoutedNotification<StreamUpdateNotificationMethod>;
+export type TurnLifecycleNotification = RoutedNotification<TurnLifecycleNotificationMethod>;
+export type ThreadLifecycleNotification = RoutedNotification<ThreadLifecycleNotificationMethod>;
+type RequestResolvedNotification = RoutedNotification<"serverRequest/resolved">;
+export type DiagnosticStatusNotification = RoutedNotification<DiagnosticStatusNotificationMethod>;
+export type UserVisibleNoticeNotification = RoutedNotification<UserVisibleNoticeNotificationMethod>;
+
 export type ServerNotificationRoute =
-  | { kind: "streamUpdate"; notification: ServerNotification }
-  | { kind: "turnLifecycle"; notification: ServerNotification }
-  | { kind: "threadLifecycle"; notification: ServerNotification }
-  | { kind: "requestResolved"; notification: Extract<ServerNotification, { method: "serverRequest/resolved" }> }
-  | { kind: "diagnosticStatus"; notification: ServerNotification }
-  | { kind: "userVisibleNotice"; notification: ServerNotification }
+  | { kind: "streamUpdate"; notification: StreamUpdateNotification }
+  | { kind: "turnLifecycle"; notification: TurnLifecycleNotification }
+  | { kind: "threadLifecycle"; notification: ThreadLifecycleNotification }
+  | { kind: "requestResolved"; notification: RequestResolvedNotification }
+  | { kind: "diagnosticStatus"; notification: DiagnosticStatusNotification }
+  | { kind: "userVisibleNotice"; notification: UserVisibleNoticeNotification }
   | { kind: "unhandled"; notification: ServerNotification }
   | { kind: "inactive"; notification: ServerNotification };
 
@@ -30,8 +40,6 @@ interface MessageScope {
   turnId: string | null;
 }
 
-type ServerNotificationMethod = ServerNotification["method"];
-type ServerRequestMethod = ServerRequest["method"];
 type ServerRequestRouteKindByMethod = Record<ServerRequestMethod, Exclude<ServerRequestRoute["kind"], "inactive" | "unknown">>;
 type ServerNotificationScopeExtractors = {
   [Method in ServerNotificationMethod]: (notification: Extract<ServerNotification, { method: Method }>) => MessageScope;
@@ -40,7 +48,7 @@ type ServerRequestScopeExtractors = {
   [Method in ServerRequestMethod]: (request: Extract<ServerRequest, { method: Method }>) => MessageScope;
 };
 
-const THREAD_CATALOG_NOTIFICATION_METHODS = ["thread/archived", "thread/unarchived", "thread/name/updated"] as const;
+const GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS = ["thread/archived", "thread/unarchived", "thread/name/updated"] as const;
 
 const STREAM_UPDATE_NOTIFICATION_METHODS = [
   "item/agentMessage/delta",
@@ -333,11 +341,11 @@ function stringParam(params: Record<string, unknown> | null, key: string): strin
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function isThreadCatalogNotification(notification: ServerNotification): boolean {
-  return notificationMethodIn(notification.method, THREAD_CATALOG_NOTIFICATION_METHODS);
+function isThreadCatalogNotification(notification: ServerNotification): notification is ThreadLifecycleNotification {
+  return notificationMethodIn(notification.method, GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS);
 }
 
-function isStreamUpdateNotification(notification: ServerNotification): boolean {
+function isStreamUpdateNotification(notification: ServerNotification): notification is StreamUpdateNotification {
   return notificationMethodIn(notification.method, STREAM_UPDATE_NOTIFICATION_METHODS);
 }
 
@@ -349,22 +357,22 @@ function isTurnScopedMessageForIdleActiveThread(message: ServerNotification | Se
   return scope.activeThreadId !== null && scope.activeTurnId === null && messageTurnId(message) !== null;
 }
 
-function isTurnLifecycleNotification(notification: ServerNotification): boolean {
+function isTurnLifecycleNotification(notification: ServerNotification): notification is TurnLifecycleNotification {
   return notificationMethodIn(notification.method, TURN_LIFECYCLE_NOTIFICATION_METHODS);
 }
 
-function isThreadLifecycleNotification(notification: ServerNotification): boolean {
+function isThreadLifecycleNotification(notification: ServerNotification): notification is ThreadLifecycleNotification {
   return notificationMethodIn(notification.method, THREAD_LIFECYCLE_NOTIFICATION_METHODS);
 }
 
-function isDiagnosticStatusNotification(notification: ServerNotification): boolean {
+function isDiagnosticStatusNotification(notification: ServerNotification): notification is DiagnosticStatusNotification {
   return notificationMethodIn(notification.method, DIAGNOSTIC_STATUS_NOTIFICATION_METHODS);
 }
 
-function isUserVisibleNoticeNotification(notification: ServerNotification): boolean {
+function isUserVisibleNoticeNotification(notification: ServerNotification): notification is UserVisibleNoticeNotification {
   return notificationMethodIn(notification.method, USER_VISIBLE_NOTICE_NOTIFICATION_METHODS);
 }
 
-function notificationMethodIn(method: ServerNotificationMethod, methods: readonly ServerNotificationMethod[]): boolean {
-  return methods.includes(method);
+function notificationMethodIn<M extends ServerNotificationMethod>(method: ServerNotificationMethod, methods: readonly M[]): method is M {
+  return (methods as readonly ServerNotificationMethod[]).includes(method);
 }

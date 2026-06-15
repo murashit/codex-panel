@@ -146,12 +146,10 @@ function controllerFixture(
   });
   const host = {
     stateStore,
-    operations: {
-      renameThread: async (threadId: string, value: string, options?: { shouldPublish?: () => boolean }) => {
-        await currentClient().setThreadName(threadId, value);
-        if (options?.shouldPublish?.() ?? true) notifyThreadRenamed(threadId, value);
-        return true;
-      },
+    renameGeneratedTitle: async (threadId: string, value: string, options: { shouldPublish: () => boolean }) => {
+      await currentClient().setThreadName(threadId, value);
+      if (options.shouldPublish()) notifyThreadRenamed(threadId, value);
+      return true;
     },
     titleService,
   } satisfies ConstructorParameters<typeof AutoTitleController>[0];

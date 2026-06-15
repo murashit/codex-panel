@@ -27,14 +27,14 @@ export class CodexPanelRuntime {
       runWithClient: (context, operation, options) => this.runWithAppServerClient(context, operation, options),
     },
   });
-  readonly panels: WorkspacePanelCoordinator;
-  readonly threadCatalog: SharedThreadCatalog;
+  private readonly panels: WorkspacePanelCoordinator;
+  private readonly threadCatalog: SharedThreadCatalog;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
     this.panels = new WorkspacePanelCoordinator({
       app: options.app,
       refreshThreadsViewLiveState: () => {
-        this.threadCatalog.refreshThreadsViewLiveState();
+        this.refreshThreadsViewLiveState();
       },
     });
     this.threadCatalog = new SharedThreadCatalog({

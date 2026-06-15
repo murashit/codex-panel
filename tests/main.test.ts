@@ -3,24 +3,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FileSystemAdapter } from "obsidian";
 
-import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
+import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../src/constants";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import type CodexPanelPlugin from "../src/main";
 import type { CodexChatView } from "../src/features/chat/host/view";
 import type { CodexChatHost } from "../src/features/chat/host/runtime";
 import type { Thread } from "../src/domain/threads/model";
-import type { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
-import type { SharedThreadCatalog } from "../src/workspace/shared-thread-catalog";
+import { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
 import { installObsidianDomShims } from "./support/dom";
 
 installObsidianDomShims();
 
-function panels(plugin: CodexPanelPlugin): WorkspacePanelCoordinator {
-  return plugin.runtime.panels;
+function panels(plugin: CodexPanelPlugin) {
+  return new WorkspacePanelCoordinator({
+    app: plugin.app,
+    refreshThreadsViewLiveState: vi.fn(),
+  });
 }
 
-function threadCatalog(plugin: CodexPanelPlugin): SharedThreadCatalog {
-  return plugin.runtime.threadCatalog;
+function threadCatalog(plugin: CodexPanelPlugin) {
+  return plugin.runtime.chatHost().threadCatalog;
 }
 
 describe("CodexPanelPlugin boot restored panel loading", () => {
@@ -263,6 +265,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
   it("marks snapshots for the last focused Codex panel", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexThreadsView } = await import("../src/features/threads-view/view");
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
     vi.spyOn((firstLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
@@ -273,21 +276,28 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn((secondLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "second", threadId: "thread-2" }),
     );
-    const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
     const activeLeafHandlers: ((leaf: TestLeaf | null) => void)[] = [];
-    (plugin.app.workspace.on as ReturnType<typeof vi.fn>).mockImplementation((name: string, handler: (leaf: TestLeaf | null) => void) => {
-      if (name === "active-leaf-change") activeLeafHandlers.push(handler);
-      return {};
-    });
-    const refreshLiveState = vi.spyOn(threadCatalog(plugin), "refreshThreadsViewLiveState").mockImplementation(() => undefined);
+    const refreshThreadsViewLiveState = vi.fn();
+    const threadsView = Object.assign(Object.create(CodexThreadsView.prototype), {
+      refreshLiveState: refreshThreadsViewLiveState,
+    }) as InstanceType<typeof CodexThreadsView>;
+    const threadsLeaf = leaf();
+    threadsLeaf.view = threadsView;
+    const pluginWithThreads = await pluginWithLeaves([firstLeaf, secondLeaf], { threadsLeaves: [threadsLeaf] });
+    (pluginWithThreads.app.workspace.on as ReturnType<typeof vi.fn>).mockImplementation(
+      (name: string, handler: (leaf: TestLeaf | null) => void) => {
+        if (name === "active-leaf-change") activeLeafHandlers.push(handler);
+        return {};
+      },
+    );
 
-    await plugin.onload();
+    await pluginWithThreads.onload();
     const activeLeafHandler = activeLeafHandlers.at(0);
     if (!activeLeafHandler) throw new Error("Expected active leaf handler to be registered.");
     activeLeafHandler(secondLeaf);
 
-    expect(refreshLiveState).toHaveBeenCalledOnce();
-    expect(panels(plugin).getOpenPanelSnapshots()).toMatchObject([
+    expect(refreshThreadsViewLiveState).toHaveBeenCalledOnce();
+    expect(pluginWithThreads.runtime.threadsHost().getOpenPanelSnapshots()).toMatchObject([
       { viewId: "first", lastFocused: false },
       { viewId: "second", lastFocused: true },
     ]);
@@ -552,7 +562,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
   });
 });
 
-async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
+async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[], options: { threadsLeaves?: ReturnType<typeof leaf>[] } = {}) {
   const { default: CodexPanelPlugin } = await import("../src/main");
   const adapter = new FileSystemAdapter();
   vi.spyOn(adapter, "getBasePath").mockReturnValue("/vault");
@@ -562,7 +572,11 @@ async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[]) {
         adapter,
       },
       workspace: {
-        getLeavesOfType: vi.fn((type: string) => (type === VIEW_TYPE_CODEX_PANEL ? leaves : [])),
+        getLeavesOfType: vi.fn((type: string) => {
+          if (type === VIEW_TYPE_CODEX_PANEL) return leaves;
+          if (type === VIEW_TYPE_CODEX_THREADS) return options.threadsLeaves ?? [];
+          return [];
+        }),
         revealLeaf: vi.fn().mockResolvedValue(undefined),
         getRightLeaf: vi.fn(() => null),
         getMostRecentLeaf: vi.fn(() => null),

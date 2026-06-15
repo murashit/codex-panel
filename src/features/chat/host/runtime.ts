@@ -1,13 +1,15 @@
 import { Notice, type App, type Component, type EventRef } from "obsidian";
 
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import { renameThreadOnAppServer, threadRenameFromValue } from "../../../app-server/services/thread-rename";
 import type { ArchiveExportAdapter } from "../../../app-server/services/thread-archive-markdown";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import type { SharedThreadCatalog } from "../../../workspace/shared-thread-catalog";
+import { PendingRequestController } from "../application/pending-requests/controller";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
-import type { ChatConnectionPhase, ChatAction, ChatState } from "../application/state/root-reducer";
+import { activeTurnId, type ChatConnectionPhase, type ChatAction, type ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatViewDeferredTasks, ChatResumeWorkTracker } from "../application/lifecycle";
 import type { ChatConnectionController } from "../application/connection/connection-controller";
@@ -19,16 +21,17 @@ import type { IdentitySync } from "../application/threads/identity-sync";
 import { activeThreadRenameTitleContext, type ThreadRenameEditorController } from "../application/threads/rename-editor-controller";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeController } from "../application/threads/resume-controller";
-import { createThreadParts, createThreadSelectionActions } from "../application/threads/composition";
+import { createThreadParts } from "../application/threads/composition";
+import { createSelectionActions } from "../application/threads/selection-actions";
 import type { ComposerSubmitActions } from "../application/conversation/composer-submit-actions";
-import { createConversationParts } from "./conversation";
-import { createConversationComposer } from "./composer";
+import { createConversationTurnActions } from "../application/conversation/composition";
 import { createChatConnectionBundle, type ChatConnectionBundle } from "./connection-bundle";
-import type { ChatComposerController } from "../panel/composer-controller";
+import { ChatComposerController } from "../panel/composer-controller";
 import type { ChatPanelComposerSurface, ChatPanelGoalSurface, ChatPanelToolbarSurface } from "../panel/surface/model";
 import { chatPanelComposerProjection } from "../panel/surface/composer-projection";
 import type { ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
-import type { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
+import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
+import { MessageStreamScrollBridge } from "../panel/surface/message-stream-scroll";
 import { createChatPanelGoalSurface } from "../panel/surface/goal-surface";
 import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import type { ToolbarActions } from "../ui/toolbar";
@@ -39,6 +42,7 @@ import { ThreadTitleService } from "../../threads/thread-title-service";
 import { messageStreamItems } from "../application/state/message-stream";
 import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
 import type { ChatTurnDiffViewState } from "../domain/turn-diff";
+import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effective";
 
 export interface CodexChatHost {
   readonly settingsRef: PluginSettingsRef;
@@ -170,22 +174,6 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
     environment.plugin.settingsRef.vaultPath,
   );
   const currentClient = () => connection.currentClient();
-  let connectionController: ChatConnectionController;
-  const threadOperations = new ThreadOperations({
-    connection: {
-      ensureConnected: () => connectionController.ensureConnected(),
-      currentClient,
-    },
-    settings: {
-      current: () => environment.plugin.settingsRef.settings,
-      vaultPath: environment.plugin.settingsRef.vaultPath,
-    },
-    archiveAdapter: environment.obsidian.archiveAdapter,
-    catalog: environment.plugin.threadCatalog,
-    notice: (text) => {
-      new Notice(text);
-    },
-  });
   const titleService = new ThreadTitleService({
     settings: {
       current: () => environment.plugin.settingsRef.settings,
@@ -198,8 +186,20 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
   });
   const autoTitle = new AutoTitleController({
     stateStore,
-    operations: threadOperations,
     titleService,
+    renameGeneratedTitle: async (threadId, title, options) => {
+      const rename = threadRenameFromValue(title);
+      if (!rename) return false;
+      const client = currentClient();
+      if (!client) return false;
+
+      const result = await renameThreadOnAppServer(client, threadId, rename);
+      if (currentClient() !== client) return false;
+      if (options.shouldPublish()) {
+        environment.plugin.threadCatalog.renameThreadInCatalog(threadId, result.name);
+      }
+      return true;
+    },
   });
   const goalSync = createThreadGoalSyncActions({
     stateStore,
@@ -242,10 +242,25 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
     connection: { controller },
     inboundController,
   } = serverParts;
-  connectionController = controller;
+  const connectionController = controller;
   const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
   const ensureConnected = () => connectionController.ensureConnected();
   const fetchActiveThreads = () => connectionController.fetchActiveThreads();
+  const threadOperations = new ThreadOperations({
+    connection: {
+      ensureConnected,
+      currentClient,
+    },
+    settings: {
+      current: () => environment.plugin.settingsRef.settings,
+      vaultPath: environment.plugin.settingsRef.vaultPath,
+    },
+    archiveAdapter: environment.obsidian.archiveAdapter,
+    catalog: environment.plugin.threadCatalog,
+    notice: (text) => {
+      new Notice(text);
+    },
+  });
 
   const runtimeSettings = createChatRuntimeSettingsActions({
     stateStore,
@@ -325,52 +340,61 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
       requestReasoningEffort: (effort) => runtimeSettings.requestReasoningEffortFromUi(effort),
     },
   };
-  const composer = createConversationComposer(
-    {
-      app: environment.obsidian.app,
-      settingsRef: environment.plugin.settingsRef,
-      stateStore,
-      viewId: environment.obsidian.viewId,
-      surface: {
-        composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
-      },
-      liveState: {
-        refresh: () => {
-          context.refreshLiveState();
-        },
-      },
+  const messageStreamScrollBridge = new MessageStreamScrollBridge();
+  const composerController = new ChatComposerController({
+    app: environment.obsidian.app,
+    stateStore,
+    viewId: environment.obsidian.viewId,
+    sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
+    scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges,
+    canInterrupt: (state) => {
+      return state.turn.lifecycle.kind !== "idle" && Boolean(state.activeThread.id && activeTurnId(state));
     },
-    {
-      runtimeSettings,
+    composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
+    currentModelForSuggestions: () => {
+      const current = stateStore.getState();
+      return currentModel(runtimeSnapshotForChatState(current), runtimeConfigOrDefault(current.connection.runtimeConfig));
     },
-  );
+    threadScrollFromComposer: (action) => {
+      messageStreamScrollBridge.scrollFromComposer(action);
+    },
+    togglePlan: () => void runtimeSettings.toggleCollaborationMode(),
+    toggleAutoReview: () => void runtimeSettings.toggleAutoReview(),
+    toggleFast: () => void runtimeSettings.toggleFastMode(),
+    onDraftChange: () => {
+      context.refreshLiveState();
+    },
+    onHeightChange: () => {
+      messageStreamScrollBridge.repinMessageStreamToBottomIfPinned();
+    },
+  });
   const threadActions = threadParts.createManagementActions({
     setText: (text) => {
-      composer.controller.setDraft(text, { focus: true });
+      composerController.setDraft(text, { focus: true });
     },
   });
   const toolbarPanels = createToolbarPanelActions({
     stateStore,
     threadActions,
   });
-  const selection = createThreadSelectionActions(
-    {
-      workspace: environment.plugin.workspace,
-      state: {
-        stateStore,
-      },
-      thread: {
-        resumeThread: (threadId) => resume.resumeThread(threadId),
-      },
-      status,
+  const selection = createSelectionActions({
+    stateStore,
+    closeForThreadSelection: () => {
+      toolbarPanels.closeForThreadSelection();
     },
-    {
-      closeForThreadSelection: () => {
-        toolbarPanels.closeForThreadSelection();
-      },
-    },
-  );
+    focusThreadInOpenView: (threadId) => environment.plugin.workspace.focusThreadInOpenView(threadId),
+    resumeThread: (threadId) => resume.resumeThread(threadId),
+    addSystemMessage: status.addSystemMessage,
+  });
 
+  const pendingRequests = new PendingRequestController({
+    stateStore,
+    responder: inboundController,
+    composerHasFocus: () => composerController.hasFocus(),
+    refreshLiveState: () => {
+      context.refreshLiveState();
+    },
+  });
   const reconnectHost: ChatReconnectActionsHost = {
     stateStore,
     invalidateConnectionWork: () => {
@@ -395,6 +419,54 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
     },
   };
   const reconnect = () => reconnectPanel(reconnectHost);
+  const turnActions = createConversationTurnActions(
+    {
+      vaultPath: environment.plugin.settingsRef.vaultPath,
+      stateStore,
+      client: {
+        currentClient,
+        ensureConnected,
+      },
+      status,
+      runtime: {
+        connectionDiagnosticDetails: () => context.connectionDiagnosticDetails(),
+        modelStatusLines: () => context.modelStatusLines(),
+        effortStatusLines: () => context.effortStatusLines(),
+        statusSummaryLines: () => context.statusSummaryLines(),
+        mcpStatusLines: () => serverDiagnostics.mcpStatusLines(),
+      },
+      thread: {
+        ensureRestoredThreadLoaded: () => restoration.ensureLoaded((threadId) => resume.resumeThread(threadId)),
+        startNewThread: () => context.startNewThread(),
+        selectThread: (threadId) => selection.selectThread(threadId),
+        notifyIdentityChanged: () => {
+          context.notifyActiveThreadIdentityChanged();
+        },
+        resetTurnPresence: (hadTurns) => {
+          autoTitle.resetThreadTurnPresence(hadTurns);
+        },
+      },
+      composer: {
+        codexInput: (text) => composerController.codexInput(text),
+        trimmedDraft: () => composerController.trimmedDraft,
+        setDraft: (text, options) => {
+          composerController.setDraft(text, options);
+        },
+      },
+      scroll: {
+        followBottom: () => {
+          context.messageScrollIntent.followBottom();
+        },
+      },
+    },
+    {
+      threadStarter: serverThreads,
+      runtimeSettings,
+      threadActions,
+      reconnectPanel: reconnect,
+      goals,
+    },
+  );
 
   const toolbarActions = createChatPanelToolbarActions(
     {
@@ -434,79 +506,46 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
       goals,
     },
   );
-  const conversationParts = createConversationParts(
-    {
-      obsidian: {
-        app: environment.obsidian.app,
-        owner: environment.obsidian.owner,
-        viewId: environment.obsidian.viewId,
-      },
-      settingsRef: environment.plugin.settingsRef,
-      workspace: environment.plugin.workspace,
-      state: {
-        stateStore,
-      },
-      composer,
-      lifecycle: {
-        messageScrollIntent: context.messageScrollIntent,
-      },
-      surface: {
-        pendingRequestsSignature: () =>
-          pendingRequestsSignature(
-            context.state().requests.approvals,
-            context.state().requests.pendingUserInputs,
-            context.state().requests.userInputDrafts,
-          ),
-      },
-      runtime: {
-        connectionDiagnosticDetails: () => context.connectionDiagnosticDetails(),
-        modelStatusLines: () => context.modelStatusLines(),
-        effortStatusLines: () => context.effortStatusLines(),
-        statusSummaryLines: () => context.statusSummaryLines(),
-        mcpStatusLines: () => serverDiagnostics.mcpStatusLines(),
-      },
-      liveState: {
-        refresh: () => {
-          context.refreshLiveState();
-        },
-      },
-      client: {
-        getClient: currentClient,
-        ensureConnected,
-      },
-      status,
-      thread: {
-        ensureRestoredThreadLoaded: () => restoration.ensureLoaded((threadId) => resume.resumeThread(threadId)),
-        startNewThread: () => context.startNewThread(),
-        selectThread: (threadId) => selection.selectThread(threadId),
-        notifyIdentityChanged: () => {
-          context.notifyActiveThreadIdentityChanged();
-        },
-        resetTurnPresence: (hadTurns) => {
-          autoTitle.resetThreadTurnPresence(hadTurns);
-        },
-      },
-      scroll: {
-        forceBottom: () => {
-          context.messageScrollIntent.forceBottom();
-        },
-        followBottom: () => {
-          context.messageScrollIntent.followBottom();
-        },
+  const messageStreamPresenter = new MessageStreamPresenter({
+    obsidian: {
+      app: environment.obsidian.app,
+      owner: environment.obsidian.owner,
+    },
+    state: {
+      store: stateStore,
+    },
+    workspace: {
+      vaultPath: environment.plugin.settingsRef.vaultPath,
+    },
+    scroll: {
+      consumeIntent: () => context.messageScrollIntent.consumeIntent(),
+      registerVirtualizer: messageStreamScrollBridge.registerVirtualizer,
+      dispose: () => {
+        messageStreamScrollBridge.dispose();
       },
     },
-    {
-      controller: inboundController,
-      threadStarter: serverThreads,
-      runtimeSettings,
-      threadActions,
-      reconnectPanel: reconnect,
-      goals,
-      history,
+    history: {
+      loadOlderTurns: () => void history.loadOlder(),
     },
-  );
-  const { composerSubmit, messageStreamPresenter } = conversationParts;
-  const composerController = composer.controller;
+    actions: {
+      rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),
+      forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
+      implementPlan: (item: MessageStreamItem) => void turnActions.planImplementation.implement(item),
+      openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
+    },
+    requests: {
+      pendingSignature: () =>
+        pendingRequestsSignature(
+          context.state().requests.approvals,
+          context.state().requests.pendingUserInputs,
+          context.state().requests.userInputDrafts,
+        ),
+      pendingSnapshot: () => pendingRequests.snapshot(),
+      pendingActions: () => pendingRequests.actions(),
+      consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
+    },
+  });
+  const composerSubmit = turnActions.composerSubmit;
 
   return {
     connection: {

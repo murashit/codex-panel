@@ -36,10 +36,15 @@ import { messageStreamItems } from "../../application/state/message-stream";
 import { reconcileCompletedTurnItems } from "../../domain/message-stream/completed-turn-reconciliation";
 import {
   routeServerNotification,
+  type DiagnosticStatusNotification,
   type DiagnosticStatusNotificationMethod,
+  type StreamUpdateNotification,
   type StreamUpdateNotificationMethod,
+  type ThreadLifecycleNotification,
   type ThreadLifecycleNotificationMethod,
+  type TurnLifecycleNotification,
   type TurnLifecycleNotificationMethod,
+  type UserVisibleNoticeNotification,
   type UserVisibleNoticeNotificationMethod,
 } from "./routing";
 
@@ -323,64 +328,59 @@ export function planChatNotification(
   }
 }
 
-function planStreamUpdate(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
+function planStreamUpdate(state: ChatState, notification: StreamUpdateNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
   return planNotificationWithStateByMethod(state, notification, STREAM_UPDATE_PLANNERS, localItemId);
 }
 
-function planTurnLifecycle(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
+function planTurnLifecycle(
+  state: ChatState,
+  notification: TurnLifecycleNotification,
+  localItemId: LocalItemIdFactory,
+): ChatNotificationPlan {
   return planNotificationWithStateByMethod(state, notification, TURN_LIFECYCLE_PLANNERS, localItemId);
 }
 
-function planThreadLifecycle(state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
+function planThreadLifecycle(
+  state: ChatState,
+  notification: ThreadLifecycleNotification,
+  localItemId: LocalItemIdFactory,
+): ChatNotificationPlan {
   return planNotificationWithStateByMethod(state, notification, THREAD_LIFECYCLE_PLANNERS, localItemId);
 }
 
-function planDiagnosticStatus(notification: ServerNotification): ChatNotificationPlan {
+function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatNotificationPlan {
   return planNotificationByMethod(notification, DIAGNOSTIC_STATUS_PLANNERS);
 }
 
-function planUserVisibleNotice(notification: ServerNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
+function planUserVisibleNotice(notification: UserVisibleNoticeNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
   return planNotificationWithLocalItemIdByMethod(notification, USER_VISIBLE_NOTICE_PLANNERS, localItemId);
 }
 
 function planNotificationByMethod<M extends ServerNotification["method"]>(
-  notification: ServerNotification,
+  notification: Extract<ServerNotification, { method: M }>,
   planners: ServerNotificationPlannerMap<M>,
 ): ChatNotificationPlan {
-  const planner = (planners as Partial<Record<ServerNotification["method"], (notification: ServerNotification) => ChatNotificationPlan>>)[
-    notification.method
-  ];
-  return planner ? planner(notification) : EMPTY_PLAN;
+  const planner = planners[notification.method];
+  return planner(notification);
 }
 
 function planNotificationWithLocalItemIdByMethod<M extends ServerNotification["method"]>(
-  notification: ServerNotification,
+  notification: Extract<ServerNotification, { method: M }>,
   planners: ServerNotificationLocalPlannerMap<M>,
   localItemId: LocalItemIdFactory,
 ): ChatNotificationPlan {
-  const planner = (
-    planners as Partial<
-      Record<ServerNotification["method"], (notification: ServerNotification, localItemId: LocalItemIdFactory) => ChatNotificationPlan>
-    >
-  )[notification.method];
-  return planner ? planner(notification, localItemId) : EMPTY_PLAN;
+  const planner = planners[notification.method];
+  return planner(notification, localItemId);
 }
 
 function planNotificationWithStateByMethod<M extends ServerNotification["method"]>(
   state: ChatState,
-  notification: ServerNotification,
+  notification: Extract<ServerNotification, { method: M }>,
   planners: ServerNotificationStatePlannerMap<M>,
   localItemId: LocalItemIdFactory,
 ): ChatNotificationPlan {
-  const planner = (
-    planners as Partial<
-      Record<
-        ServerNotification["method"],
-        (state: ChatState, notification: ServerNotification, localItemId: LocalItemIdFactory) => ChatNotificationPlan
-      >
-    >
-  )[notification.method];
-  return planner ? planner(state, notification, localItemId) : EMPTY_PLAN;
+  const planner = planners[notification.method];
+  return planner(state, notification, localItemId);
 }
 
 function plannerMethods<M extends ServerNotification["method"]>(planners: Record<M, unknown>): readonly M[] {

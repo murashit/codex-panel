@@ -55,7 +55,7 @@ export interface ConversationTurnActionsRefs {
   goals: GoalActions;
 }
 
-export interface ConversationThreadStarter {
+interface ConversationThreadStarter {
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
 }
 

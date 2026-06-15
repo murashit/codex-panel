@@ -2,7 +2,6 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import type { ThreadTitleService } from "../../../threads/thread-title-service";
 import type { GoalActions } from "./goal-actions";
-import { createSelectionActions } from "./selection-actions";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
 import type { AutoTitleController } from "./auto-title-controller";
@@ -128,44 +127,9 @@ export function createThreadParts(context: ThreadPartsContext) {
   return {
     history,
     createManagementActions,
-    goals,
     restoration,
     resume,
     identity,
     rename,
-    autoTitle,
   };
-}
-
-interface ThreadSelectionActionsContext {
-  workspace: {
-    focusThreadInOpenView: (threadId: string) => Promise<boolean>;
-  };
-  state: {
-    stateStore: ChatStateStore;
-  };
-  status: {
-    addSystemMessage: (text: string) => void;
-  };
-  thread: {
-    resumeThread: (threadId: string) => Promise<void>;
-  };
-}
-
-export function createThreadSelectionActions(
-  context: ThreadSelectionActionsContext,
-  refs: {
-    closeForThreadSelection: () => void;
-  },
-) {
-  const { workspace, thread, status } = context;
-  const stateStore = context.state.stateStore;
-
-  return createSelectionActions({
-    stateStore,
-    closeForThreadSelection: refs.closeForThreadSelection,
-    focusThreadInOpenView: workspace.focusThreadInOpenView,
-    resumeThread: thread.resumeThread,
-    addSystemMessage: status.addSystemMessage,
-  });
 }

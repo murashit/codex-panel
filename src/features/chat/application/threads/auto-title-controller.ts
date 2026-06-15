@@ -1,15 +1,14 @@
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
-import type { ThreadOperations } from "../../../threads/thread-operations";
 import type { ThreadTitleService } from "../../../threads/thread-title-service";
 import type { ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 export interface AutoTitleControllerHost {
   stateStore: ChatStateStore;
-  operations: Pick<ThreadOperations, "renameThread">;
   titleService: Pick<ThreadTitleService, "completedTurnContext" | "generate">;
+  renameGeneratedTitle(threadId: string, title: string, options: { shouldPublish: () => boolean }): Promise<boolean>;
 }
 
 export class AutoTitleController {
@@ -47,7 +46,7 @@ export class AutoTitleController {
       const title = await this.generateTitle(context);
       if (!title || !this.threadCanReceiveGeneratedTitle(threadId)) return;
 
-      const renamed = await this.host.operations.renameThread(threadId, title, {
+      const renamed = await this.host.renameGeneratedTitle(threadId, title, {
         shouldPublish: () => this.threadCanReceiveGeneratedTitle(threadId),
       });
       if (!renamed) return;
