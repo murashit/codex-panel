@@ -1,8 +1,9 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import type { ThreadCatalogFacade } from "../application/ports/chat-host";
-import type { ChatConnectionWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
+import type { ChatViewDeferredTasks } from "../application/lifecycle";
 import { ChatConnectionController, handleChatConnectionExit } from "../application/connection/connection-controller";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
@@ -39,7 +40,7 @@ export interface ChatConnectionBundleContext {
   connection: ConnectionManager;
   stateStore: ChatStateStore;
   vaultPath: string;
-  connectionWork: ChatConnectionWorkTracker;
+  connectionWork: ConnectionWorkTracker;
   deferredTasks: ChatViewDeferredTasks;
   threadCatalog: Pick<
     ThreadCatalogFacade,

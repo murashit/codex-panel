@@ -4,13 +4,13 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
 import {
   ChatConnectionController,
   type ChatConnectionAdapter,
   type ChatConnectionDiagnosticsActions,
   type ChatConnectionMetadataActions,
 } from "../../../../src/features/chat/application/connection/connection-controller";
-import { ChatConnectionWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 
 function createController({ connected = false, client = {} as AppServerClient } = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -37,7 +37,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
   const host = {
     stateStore,
     connection,
-    connectionWork: new ChatConnectionWorkTracker(),
+    connectionWork: new ConnectionWorkTracker(),
     metadata,
     diagnostics,
     invalidateResumeWork: vi.fn(),

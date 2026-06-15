@@ -18,3 +18,29 @@ export function transitionConnectionWorkLifecycle(
       return state.kind === "idle" ? state : { kind: "idle" };
   }
 }
+
+export class ConnectionWorkTracker {
+  private state: ConnectionWorkLifecycleState = { kind: "idle" };
+
+  active(): ActiveConnectionWork | null {
+    return this.state.kind === "connecting" ? this.state : null;
+  }
+
+  begin(): ActiveConnectionWork {
+    const connection: ActiveConnectionWork = { kind: "connecting", promise: null };
+    this.state = transitionConnectionWorkLifecycle(this.state, { type: "started", connection });
+    return connection;
+  }
+
+  finish(connection: ActiveConnectionWork, promise: Promise<void>): void {
+    this.state = transitionConnectionWorkLifecycle(this.state, { type: "finished", connection, promise });
+  }
+
+  invalidate(): void {
+    this.state = transitionConnectionWorkLifecycle(this.state, { type: "invalidated" });
+  }
+
+  isStale(connection: ActiveConnectionWork): boolean {
+    return this.state !== connection;
+  }
+}

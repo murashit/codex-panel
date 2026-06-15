@@ -1,10 +1,3 @@
-import {
-  transitionConnectionWorkLifecycle,
-  type ActiveConnectionWork,
-  type ConnectionWorkLifecycleEvent,
-  type ConnectionWorkLifecycleState,
-} from "../../../shared/lifecycle/connection-work";
-
 export interface RestoredThreadState {
   threadId: string;
   title: string | null;
@@ -14,10 +7,6 @@ export interface RestoredThreadState {
 export type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; threadId: string };
 export type ActiveChatResume = Extract<ChatResumeLifecycleState, { kind: "resuming" }>;
 type ChatResumeLifecycleEvent = { type: "started"; resume: ActiveChatResume } | { type: "invalidated" };
-
-export type ChatConnectionLifecycleState = ConnectionWorkLifecycleState;
-export type ActiveChatConnection = ActiveConnectionWork;
-type ChatConnectionLifecycleEvent = ConnectionWorkLifecycleEvent;
 
 export type RestoredThreadLifecycleState =
   | { kind: "idle" }
@@ -40,32 +29,6 @@ export interface ChatViewDeferredTasks {
   clearAll(): void;
 }
 
-export class ChatConnectionWorkTracker {
-  private state: ChatConnectionLifecycleState = { kind: "idle" };
-
-  active(): ActiveChatConnection | null {
-    return this.state.kind === "connecting" ? this.state : null;
-  }
-
-  begin(): ActiveChatConnection {
-    const connection: ActiveChatConnection = { kind: "connecting", promise: null };
-    this.state = transitionChatConnectionLifecycle(this.state, { type: "started", connection });
-    return connection;
-  }
-
-  finish(connection: ActiveChatConnection, promise: Promise<void>): void {
-    this.state = transitionChatConnectionLifecycle(this.state, { type: "finished", connection, promise });
-  }
-
-  invalidate(): void {
-    this.state = transitionChatConnectionLifecycle(this.state, { type: "invalidated" });
-  }
-
-  isStale(connection: ActiveChatConnection): boolean {
-    return this.state !== connection;
-  }
-}
-
 export class ChatResumeWorkTracker {
   private state: ChatResumeLifecycleState = { kind: "idle" };
 
@@ -82,13 +45,6 @@ export class ChatResumeWorkTracker {
   isStale(resume: ActiveChatResume): boolean {
     return this.state !== resume;
   }
-}
-
-function transitionChatConnectionLifecycle(
-  state: ChatConnectionLifecycleState,
-  event: ChatConnectionLifecycleEvent,
-): ChatConnectionLifecycleState {
-  return transitionConnectionWorkLifecycle(state, event);
 }
 
 function transitionChatResumeLifecycle(state: ChatResumeLifecycleState, event: ChatResumeLifecycleEvent): ChatResumeLifecycleState {

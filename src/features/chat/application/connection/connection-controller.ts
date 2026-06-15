@@ -1,9 +1,9 @@
 import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
+import type { ActiveConnectionWork, ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";
 import type { ChatConnectionPhase } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { ChatConnectionWorkTracker, ActiveChatConnection } from "../lifecycle";
 import {
   missingCommandConnectionErrorMessage,
   STATUS_CONNECTED,
@@ -30,7 +30,7 @@ export interface ChatConnectionDiagnosticsActions {
 export interface ChatConnectionControllerHost {
   stateStore: ChatStateStore;
   connection: ChatConnectionAdapter;
-  connectionWork: ChatConnectionWorkTracker;
+  connectionWork: ConnectionWorkTracker;
   metadata: ChatConnectionMetadataActions;
   diagnostics: ChatConnectionDiagnosticsActions;
   invalidateResumeWork: () => void;
@@ -122,7 +122,7 @@ export class ChatConnectionController {
     await this.host.metadata.refreshPublishedSkills(forceReload);
   }
 
-  private async initializeConnection(connection: ActiveChatConnection): Promise<void> {
+  private async initializeConnection(connection: ActiveConnectionWork): Promise<void> {
     this.host.setStatus(STATUS_CONNECTION_STARTING, { kind: "connecting" });
     try {
       const initialization = await this.host.connection.connect();

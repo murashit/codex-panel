@@ -2,11 +2,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  ChatConnectionWorkTracker,
-  ChatResumeWorkTracker,
-  transitionRestoredThreadLifecycle,
-} from "../../../src/features/chat/application/lifecycle";
+import { ConnectionWorkTracker } from "../../../src/shared/lifecycle/connection-work";
+import { ChatResumeWorkTracker, transitionRestoredThreadLifecycle } from "../../../src/features/chat/application/lifecycle";
 import { createChatViewDeferredTasks } from "../../../src/features/chat/host/lifecycle";
 
 describe("createChatViewDeferredTasks", () => {
@@ -35,7 +32,7 @@ describe("createChatViewDeferredTasks", () => {
 
 describe("chat view lifecycle transitions", () => {
   it("tracks active connection work by identity", () => {
-    const tracker = new ChatConnectionWorkTracker();
+    const tracker = new ConnectionWorkTracker();
     const connection = tracker.begin();
     const stale = { kind: "connecting" as const, promise: Promise.resolve() };
 
@@ -63,7 +60,7 @@ describe("chat view lifecycle transitions", () => {
   it("keeps stale connection completions from clearing the active connection", () => {
     const firstPromise = Promise.resolve();
     const secondPromise = Promise.resolve();
-    const tracker = new ChatConnectionWorkTracker();
+    const tracker = new ConnectionWorkTracker();
     const first = tracker.begin();
     first.promise = firstPromise;
     const second = tracker.begin();

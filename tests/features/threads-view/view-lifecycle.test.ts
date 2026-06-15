@@ -2,11 +2,10 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+import { transitionConnectionWorkLifecycle, type ActiveConnectionWork } from "../../../src/shared/lifecycle/connection-work";
 import {
   createThreadsViewDeferredTasks,
-  transitionThreadsViewConnectionLifecycle,
   transitionThreadsViewRefreshLifecycle,
-  type ActiveThreadsViewConnection,
   type ActiveThreadsViewRefresh,
 } from "../../../src/features/threads-view/view-lifecycle";
 
@@ -67,13 +66,13 @@ describe("threads view lifecycle transitions", () => {
   it("keeps stale connection completion from clearing the active connection", () => {
     const firstPromise = Promise.resolve();
     const secondPromise = Promise.resolve();
-    const first: ActiveThreadsViewConnection = { kind: "connecting", promise: firstPromise };
-    const second: ActiveThreadsViewConnection = { kind: "connecting", promise: secondPromise };
-    const state = transitionThreadsViewConnectionLifecycle({ kind: "idle" }, { type: "started", connection: second });
+    const first: ActiveConnectionWork = { kind: "connecting", promise: firstPromise };
+    const second: ActiveConnectionWork = { kind: "connecting", promise: secondPromise };
+    const state = transitionConnectionWorkLifecycle({ kind: "idle" }, { type: "started", connection: second });
 
-    expect(transitionThreadsViewConnectionLifecycle(state, { type: "finished", connection: first, promise: firstPromise })).toBe(state);
-    expect(transitionThreadsViewConnectionLifecycle(state, { type: "finished", connection: second, promise: firstPromise })).toBe(state);
-    expect(transitionThreadsViewConnectionLifecycle(state, { type: "finished", connection: second, promise: secondPromise })).toEqual({
+    expect(transitionConnectionWorkLifecycle(state, { type: "finished", connection: first, promise: firstPromise })).toBe(state);
+    expect(transitionConnectionWorkLifecycle(state, { type: "finished", connection: second, promise: firstPromise })).toBe(state);
+    expect(transitionConnectionWorkLifecycle(state, { type: "finished", connection: second, promise: secondPromise })).toEqual({
       kind: "idle",
     });
   });

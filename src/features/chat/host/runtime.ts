@@ -2,11 +2,12 @@ import { Notice, type App, type Component, type EventRef } from "obsidian";
 
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { ArchiveExportAdapter } from "../../../app-server/services/thread-archive-markdown";
+import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import type { ChatConnectionPhase, ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
-import type { ChatViewDeferredTasks, ChatConnectionWorkTracker, ChatResumeWorkTracker } from "../application/lifecycle";
+import type { ChatViewDeferredTasks, ChatResumeWorkTracker } from "../application/lifecycle";
 import type { ChatConnectionController } from "../application/connection/connection-controller";
 import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
 import { AutoTitleController } from "../application/threads/auto-title-controller";
@@ -101,7 +102,7 @@ export interface ChatPanelRuntimeContext {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
   deferredTasks: ChatViewDeferredTasks;
-  connectionWork: ChatConnectionWorkTracker;
+  connectionWork: ConnectionWorkTracker;
   resumeWork: ChatResumeWorkTracker;
   messageScrollIntent: ChatMessageScrollIntentState;
   state(): ChatState;

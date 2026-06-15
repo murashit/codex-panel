@@ -3,6 +3,7 @@ import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import { getThreadTitle } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
+import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { shortThreadId } from "../../../utils";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
@@ -14,7 +15,7 @@ import {
   statusSummaryLines as buildStatusSummaryLines,
 } from "../presentation/runtime/status";
 import { createChatViewDeferredTasks } from "./lifecycle";
-import { ChatConnectionWorkTracker, ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../application/lifecycle";
+import { ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../application/lifecycle";
 import { connectionDiagnosticsModel } from "../panel/surface/toolbar-projection";
 import { openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../presentation/runtime/messages";
@@ -58,7 +59,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   private readonly parts: ChatPanelRuntimeParts;
 
   private readonly deferredTasks: ChatViewDeferredTasks;
-  private readonly connectionWork = new ChatConnectionWorkTracker();
+  private readonly connectionWork = new ConnectionWorkTracker();
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly messageScrollIntent: ChatMessageScrollIntentState = createChatMessageScrollIntentState();
   private readonly localItemIds: LocalChatItemIdFactory = createLocalChatItemIdFactory();
