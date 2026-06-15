@@ -6,6 +6,7 @@ import { listThreads } from "../../app-server/services/threads";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
+import type { SharedThreadCatalog } from "../../workspace/shared-thread-catalog";
 import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
 import { ThreadOperations } from "../threads/thread-operations";
 import { ThreadTitleService } from "../threads/thread-title-service";
@@ -34,17 +35,16 @@ import {
 export interface CodexThreadsHost {
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
-  readonly threadCatalog: {
-    archiveThreadInCatalog(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-    renameThreadInCatalog(threadId: string, name: string | null): void;
-    refreshFromOpenSurface(): void;
-    refreshThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-    cachedThreads(): readonly Thread[] | null;
-  };
+  readonly threadCatalog: ThreadsThreadCatalog;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
 }
+
+export type ThreadsThreadCatalog = Pick<
+  SharedThreadCatalog,
+  "archiveThreadInCatalog" | "renameThreadInCatalog" | "refreshFromOpenSurface" | "refreshThreads" | "cachedThreads"
+>;
 
 export interface CodexThreadsSessionEnvironment {
   root: HTMLElement;
@@ -87,14 +87,7 @@ export class CodexThreadsSession {
         vaultPath: this.host.vaultPath,
       },
       archiveAdapter: () => this.environment.archiveAdapter(),
-      catalog: {
-        archiveThreadInCatalog: (threadId, options) => {
-          this.host.threadCatalog.archiveThreadInCatalog(threadId, options);
-        },
-        renameThreadInCatalog: (threadId, name) => {
-          this.host.threadCatalog.renameThreadInCatalog(threadId, name);
-        },
-      },
+      catalog: this.host.threadCatalog,
       notice: (message) => {
         new Notice(message);
       },

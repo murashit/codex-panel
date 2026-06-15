@@ -67,8 +67,11 @@ export class ThreadOperations {
     if (result.exportedPath) {
       this.host.notice(`Saved archived thread to ${result.exportedPath}.`);
     }
-    const notificationOptions = options.closeOpenPanels === undefined ? undefined : { closeOpenPanels: options.closeOpenPanels };
-    this.host.catalog.archiveThreadInCatalog(threadId, notificationOptions);
+    if (options.closeOpenPanels === undefined) {
+      this.host.catalog.archiveThreadInCatalog(threadId);
+    } else {
+      this.host.catalog.archiveThreadInCatalog(threadId, { closeOpenPanels: options.closeOpenPanels });
+    }
     return result;
   }
 }

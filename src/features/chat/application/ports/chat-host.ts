@@ -1,6 +1,5 @@
-import type { Thread } from "../../../../domain/threads/model";
-import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import type { CodexPanelSettings } from "../../../../settings/model";
+import type { SharedThreadCatalog } from "../../../../workspace/shared-thread-catalog";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 
 export interface CodexChatHost {
@@ -20,14 +19,15 @@ export interface WorkspacePanels {
   openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
 }
 
-export interface ThreadCatalogFacade {
-  archiveThreadInCatalog(threadId: string): void;
-  renameThreadInCatalog(threadId: string, name: string | null): void;
-  refreshThreadsViewLiveState(): void;
-  refreshFromOpenSurface(): void;
-  applyThreads(threads: readonly Thread[]): void;
-  publishAppServerMetadata(metadata: SharedServerMetadata): void;
-  refreshThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-  cachedThreads(): readonly Thread[] | null;
-  cachedAppServerMetadata(): SharedServerMetadata | null;
-}
+export type ThreadCatalogFacade = Pick<
+  SharedThreadCatalog,
+  | "archiveThreadInCatalog"
+  | "renameThreadInCatalog"
+  | "refreshThreadsViewLiveState"
+  | "refreshFromOpenSurface"
+  | "applyThreads"
+  | "publishAppServerMetadata"
+  | "refreshThreads"
+  | "cachedThreads"
+  | "cachedAppServerMetadata"
+>;

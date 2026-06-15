@@ -102,7 +102,7 @@ export function cachedSharedServerMetadata(state: SharedAppServerState, context:
   return null;
 }
 
-export function cachedSharedModels(state: SharedAppServerState, context: SharedAppServerCacheContext): ModelMetadata[] | null {
+export function cachedSharedModels(state: SharedAppServerState, context: SharedAppServerCacheContext): readonly ModelMetadata[] | null {
   if (!sharedAppServerCacheContextIsComplete(context)) return null;
   return state.availableModels.kind === "loaded" && sharedAppServerCacheContextMatches(state.availableModels.context, context)
     ? cloneModelMetadata(state.availableModels.data)

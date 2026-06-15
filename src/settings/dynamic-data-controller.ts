@@ -6,6 +6,7 @@ import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
+import type { SharedThreadCatalog } from "../workspace/shared-thread-catalog";
 import { archivedThreadDisplayTitle } from "./archived-thread-title";
 import { loadHookData, loadSettingsData } from "./app-server-data";
 import {
@@ -20,12 +21,10 @@ import type { CodexPanelSettings } from "./model";
 export interface SettingsDynamicDataHost {
   settings: CodexPanelSettings;
   vaultPath: string;
-  threadCatalog: {
-    refreshFromOpenSurface(): void;
-    cachedModels(): ModelMetadata[] | null;
-    publishModels(models: ModelMetadata[]): void;
-  };
+  threadCatalog: SettingsThreadCatalog;
 }
+
+export type SettingsThreadCatalog = Pick<SharedThreadCatalog, "refreshFromOpenSurface" | "cachedModels" | "publishModels">;
 
 interface SettingsDynamicDataControllerCallbacks {
   display(): void;
@@ -61,7 +60,7 @@ export class SettingsDynamicDataController {
     private readonly host: SettingsDynamicDataHost,
     private readonly callbacks: SettingsDynamicDataControllerCallbacks,
   ) {
-    this.models = host.threadCatalog.cachedModels() ?? [];
+    this.models = [...(host.threadCatalog.cachedModels() ?? [])];
   }
 
   maybeAutoLoadSettingsData(): void {
@@ -74,7 +73,7 @@ export class SettingsDynamicDataController {
     this.settingsDataAutoLoadStarted = false;
     this.settingsDynamicOperationId += 1;
     this.settingsDataRefreshLifecycle = { kind: "idle" };
-    this.models = this.host.threadCatalog.cachedModels() ?? [];
+    this.models = [...(this.host.threadCatalog.cachedModels() ?? [])];
     this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
     this.hooks = [];
     this.hookWarnings = [];

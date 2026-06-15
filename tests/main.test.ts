@@ -9,10 +9,8 @@ import type CodexPanelPlugin from "../src/main";
 import type { CodexChatView } from "../src/features/chat/host/view";
 import type { CodexChatHost } from "../src/features/chat/application/ports/chat-host";
 import type { Thread } from "../src/domain/threads/model";
-import type { SharedAppServerCache } from "../src/app-server/services/shared-cache";
-import type { SharedAppServerCacheContext } from "../src/app-server/services/shared-cache-state";
 import type { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
-import type { ThreadSurfaceActions } from "../src/workspace/thread-surface-actions";
+import type { SharedThreadCatalog } from "../src/workspace/shared-thread-catalog";
 import { installObsidianDomShims } from "./support/dom";
 
 installObsidianDomShims();
@@ -21,23 +19,8 @@ function panels(plugin: CodexPanelPlugin): WorkspacePanelCoordinator {
   return plugin.runtime.panels;
 }
 
-function threadSurfaces(plugin: CodexPanelPlugin): ThreadSurfaceActions {
-  return plugin.runtime.threadSurfaces;
-}
-
-function sharedAppServerCache(plugin: CodexPanelPlugin): SharedAppServerCache {
-  return plugin.runtime.sharedAppServerCache;
-}
-
-function sharedAppServerCacheContext(
-  plugin: CodexPanelPlugin,
-  overrides: Partial<SharedAppServerCacheContext> = {},
-): SharedAppServerCacheContext {
-  return {
-    codexPath: plugin.settings.codexPath,
-    vaultPath: plugin.vaultPath,
-    ...overrides,
-  };
+function threadCatalog(plugin: CodexPanelPlugin): SharedThreadCatalog {
+  return plugin.runtime.threadCatalog;
 }
 
 describe("CodexPanelPlugin boot restored panel loading", () => {
@@ -296,7 +279,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       if (name === "active-leaf-change") activeLeafHandlers.push(handler);
       return {};
     });
-    const refreshLiveState = vi.spyOn(threadSurfaces(plugin), "refreshThreadsViewLiveState").mockImplementation(() => undefined);
+    const refreshLiveState = vi.spyOn(threadCatalog(plugin), "refreshThreadsViewLiveState").mockImplementation(() => undefined);
 
     await plugin.onload();
     const activeLeafHandler = activeLeafHandlers.at(0);
@@ -380,7 +363,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
-    threadSurfaces(plugin).applyThreadArchived("thread-1");
+    threadCatalog(plugin).archiveThreadInCatalog("thread-1");
 
     expect(refreshSharedThreadList).not.toHaveBeenCalled();
   });
@@ -398,13 +381,13 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
-    threadSurfaces(plugin).applyThreadArchived("thread-1");
+    threadCatalog(plugin).archiveThreadInCatalog("thread-1");
 
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
 
-    threadSurfaces(plugin).applyThreadArchived("thread-1", { closeOpenPanels: true });
+    threadCatalog(plugin).archiveThreadInCatalog("thread-1", { closeOpenPanels: true });
 
     expect(restoredMatchingLeaf.detach).toHaveBeenCalledOnce();
     expect(matchingLeaf.detach).toHaveBeenCalledOnce();
@@ -420,7 +403,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
-    threadSurfaces(plugin).applyThreadRenamed("thread-1", "Renamed thread");
+    threadCatalog(plugin).renameThreadInCatalog("thread-1", "Renamed thread");
 
     expect(refreshSharedThreadList).not.toHaveBeenCalled();
   });
@@ -436,9 +419,8 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     );
     const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
 
-    const context = sharedAppServerCacheContext(plugin);
-    const first = sharedAppServerCache(plugin).refreshThreadList(context, fetchThreads);
-    const second = sharedAppServerCache(plugin).refreshThreadList(context, secondFetch);
+    const first = threadCatalog(plugin).refreshThreads(fetchThreads);
+    const second = threadCatalog(plugin).refreshThreads(secondFetch);
 
     expect(fetchThreads).toHaveBeenCalledOnce();
     expect(secondFetch).not.toHaveBeenCalled();
@@ -446,13 +428,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     await expect(first).resolves.toEqual([thread("first")]);
     await expect(second).resolves.toEqual([thread("first")]);
-    expect(sharedAppServerCache(plugin).cachedThreadList(context)).toEqual([thread("first")]);
+    expect(threadCatalog(plugin).cachedThreads()).toEqual([thread("first")]);
   });
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
     const plugin = await pluginWithLeaves([]);
-    const firstContext = sharedAppServerCacheContext(plugin, { codexPath: "codex-a" });
-    const secondContext = sharedAppServerCacheContext(plugin, { codexPath: "codex-b" });
+    plugin.settings.codexPath = "codex-a";
     let resolveFirst!: (threads: Thread[]) => void;
     const firstFetch = vi.fn(
       () =>
@@ -462,28 +443,29 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     );
     const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
 
-    const first = sharedAppServerCache(plugin).refreshThreadList(firstContext, firstFetch);
-    const second = sharedAppServerCache(plugin).refreshThreadList(secondContext, secondFetch);
+    const first = threadCatalog(plugin).refreshThreads(firstFetch);
+    plugin.settings.codexPath = "codex-b";
+    const second = threadCatalog(plugin).refreshThreads(secondFetch);
 
     expect(firstFetch).toHaveBeenCalledOnce();
     expect(secondFetch).toHaveBeenCalledOnce();
     await expect(second).resolves.toEqual([thread("second")]);
-    expect(sharedAppServerCache(plugin).cachedThreadList(secondContext)).toEqual([thread("second")]);
+    expect(threadCatalog(plugin).cachedThreads()).toEqual([thread("second")]);
 
     resolveFirst([thread("first")]);
     await expect(first).resolves.toEqual([thread("first")]);
-    expect(sharedAppServerCache(plugin).cachedThreadList(secondContext)).toEqual([thread("second")]);
-    expect(sharedAppServerCache(plugin).cachedThreadList(firstContext)).toBeNull();
+    expect(threadCatalog(plugin).cachedThreads()).toEqual([thread("second")]);
+    plugin.settings.codexPath = "codex-a";
+    expect(threadCatalog(plugin).cachedThreads()).toBeNull();
   });
 
   it("keeps the previous shared thread list when refresh fails", async () => {
     const plugin = await pluginWithLeaves([]);
-    const context = sharedAppServerCacheContext(plugin);
-    await sharedAppServerCache(plugin).refreshThreadList(context, () => Promise.resolve([thread("cached")]));
+    await threadCatalog(plugin).refreshThreads(() => Promise.resolve([thread("cached")]));
 
-    await expect(sharedAppServerCache(plugin).refreshThreadList(context, () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
+    await expect(threadCatalog(plugin).refreshThreads(() => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
 
-    expect(sharedAppServerCache(plugin).cachedThreadList(context)).toEqual([thread("cached")]);
+    expect(threadCatalog(plugin).cachedThreads()).toEqual([thread("cached")]);
   });
 
   it("refreshes shared thread lists from a connected chat panel", async () => {
@@ -502,7 +484,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     const plugin = await pluginWithLeaves([disconnectedLeaf, connectedLeaf]);
 
-    threadSurfaces(plugin).invalidateThreadsFromOpenSurface();
+    threadCatalog(plugin).refreshFromOpenSurface();
 
     expect(disconnectedRefresh).not.toHaveBeenCalled();
     expect(connectedRefresh).toHaveBeenCalledOnce();
@@ -533,7 +515,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const plugin = await pluginWithLeaves(leaves);
 
     sourceLeaf.detach();
-    threadSurfaces(plugin).applyThreadArchived("thread-1");
+    threadCatalog(plugin).archiveThreadInCatalog("thread-1");
 
     expect(sourceRefresh).not.toHaveBeenCalled();
     expect(remainingRefresh).not.toHaveBeenCalled();

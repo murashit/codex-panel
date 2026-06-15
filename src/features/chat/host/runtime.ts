@@ -142,14 +142,7 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
       vaultPath: environment.plugin.settingsRef.vaultPath,
     },
     archiveAdapter: environment.obsidian.archiveAdapter,
-    catalog: {
-      archiveThreadInCatalog: (threadId) => {
-        environment.plugin.threadCatalog.archiveThreadInCatalog(threadId);
-      },
-      renameThreadInCatalog: (threadId, name) => {
-        environment.plugin.threadCatalog.renameThreadInCatalog(threadId, name);
-      },
-    },
+    catalog: environment.plugin.threadCatalog,
     notice: (text) => {
       new Notice(text);
     },

@@ -6,18 +6,18 @@ import { getThreadTitle } from "../../domain/threads/model";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import { shortThreadId } from "../../utils";
+import type { SharedThreadCatalog } from "../../workspace/shared-thread-catalog";
 
 export interface ThreadPickerHost {
   readonly app: App;
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
-  readonly threadCatalog: {
-    cachedThreads(): readonly Thread[] | null;
-    refreshThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-  };
+  readonly threadCatalog: ThreadPickerCatalog;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
+
+export type ThreadPickerCatalog = Pick<SharedThreadCatalog, "cachedThreads" | "refreshThreads">;
 
 interface ThreadSuggestion {
   thread: Thread;

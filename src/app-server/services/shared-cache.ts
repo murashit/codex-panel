@@ -80,7 +80,7 @@ export class SharedAppServerCache {
     this.state = applySharedModels(this.state, context, models);
   }
 
-  cachedModels(context: SharedAppServerCacheContext): ModelMetadata[] | null {
+  cachedModels(context: SharedAppServerCacheContext): readonly ModelMetadata[] | null {
     return cachedSharedModels(this.state, context);
   }
 }

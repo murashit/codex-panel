@@ -21,9 +21,9 @@ export interface CodexPanelRuntimeOptions {
 }
 
 export class CodexPanelRuntime {
-  readonly sharedAppServerCache = new SharedAppServerCache();
+  private readonly sharedAppServerCache = new SharedAppServerCache();
   readonly panels: WorkspacePanelCoordinator;
-  readonly threadSurfaces: ThreadSurfaceActions;
+  private readonly threadSurfaces: ThreadSurfaceActions;
   readonly threadCatalog: SharedThreadCatalog;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
@@ -95,29 +95,7 @@ export class CodexPanelRuntime {
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
         openTurnDiff: (state) => this.openTurnDiff(state),
       },
-      threadCatalog: {
-        archiveThreadInCatalog: (threadId) => {
-          this.threadCatalog.archiveThreadInCatalog(threadId);
-        },
-        renameThreadInCatalog: (threadId, name) => {
-          this.threadCatalog.renameThreadInCatalog(threadId, name);
-        },
-        refreshThreadsViewLiveState: () => {
-          this.threadCatalog.refreshThreadsViewLiveState();
-        },
-        refreshFromOpenSurface: () => {
-          this.threadCatalog.refreshFromOpenSurface();
-        },
-        applyThreads: (threads) => {
-          this.threadCatalog.applyThreads(threads);
-        },
-        publishAppServerMetadata: (metadata) => {
-          this.threadCatalog.publishAppServerMetadata(metadata);
-        },
-        refreshThreads: (fetchThreads) => this.threadCatalog.refreshThreads(fetchThreads),
-        cachedThreads: () => this.threadCatalog.cachedThreads(),
-        cachedAppServerMetadata: () => this.threadCatalog.cachedAppServerMetadata(),
-      },
+      threadCatalog: this.threadCatalog,
     };
   }
 
@@ -125,19 +103,7 @@ export class CodexPanelRuntime {
     return {
       settings: this.options.settingsRef.settings,
       vaultPath: this.options.settingsRef.vaultPath,
-      threadCatalog: {
-        archiveThreadInCatalog: (threadId, options) => {
-          this.threadCatalog.archiveThreadInCatalog(threadId, options);
-        },
-        renameThreadInCatalog: (threadId, name) => {
-          this.threadCatalog.renameThreadInCatalog(threadId, name);
-        },
-        refreshFromOpenSurface: () => {
-          this.threadCatalog.refreshFromOpenSurface();
-        },
-        refreshThreads: (fetchThreads) => this.threadCatalog.refreshThreads(fetchThreads),
-        cachedThreads: () => this.threadCatalog.cachedThreads(),
-      },
+      threadCatalog: this.threadCatalog,
       openNewPanel: () => this.panels.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
       getOpenPanelSnapshots: () => this.panels.getOpenPanelSnapshots(),
@@ -152,18 +118,7 @@ export class CodexPanelRuntime {
       refreshOpenViews: () => {
         this.threadSurfaces.refreshOpenViews();
       },
-      threadCatalog: {
-        refreshFromOpenSurface: () => {
-          this.threadCatalog.refreshFromOpenSurface();
-        },
-        cachedModels: () => {
-          const models = this.threadCatalog.cachedModels();
-          return models ? [...models] : null;
-        },
-        publishModels: (models) => {
-          this.threadCatalog.publishModels(models);
-        },
-      },
+      threadCatalog: this.threadCatalog,
     };
   }
 
@@ -172,10 +127,7 @@ export class CodexPanelRuntime {
       app: this.options.app,
       settings: this.options.settingsRef.settings,
       vaultPath: this.options.settingsRef.vaultPath,
-      threadCatalog: {
-        cachedThreads: () => this.threadCatalog.cachedThreads(),
-        refreshThreads: (fetchThreads) => this.threadCatalog.refreshThreads(fetchThreads),
-      },
+      threadCatalog: this.threadCatalog,
       openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
     };
