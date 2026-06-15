@@ -7,15 +7,8 @@ const MAX_CONTEXT_CHARS = 4_000;
 
 export function threadTitleContextFromMessageStreamItems(turnId: string, items: readonly MessageStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
-  const userRequest =
-    turnItems.find((item) => item.kind === "message" && item.role === "user")?.text.trim() ??
-    precedingUnscopedTitleSeed(turnId, items) ??
-    "";
-  const assistantResponse =
-    [...turnItems]
-      .reverse()
-      .find((item): item is MessageStreamMessageItem => item.kind === "message" && isCompletedTurnOutcomeMessage(item))
-      ?.text.trim() ?? "";
+  const userRequest = turnItems.find(isUserMessageStreamItem)?.text.trim() ?? precedingUnscopedTitleSeed(turnId, items) ?? "";
+  const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeMessageItem)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
   return {
     userRequest: truncateForPrompt(userRequest),
@@ -32,6 +25,14 @@ export function firstThreadTitleContextFromMessageStreamItems(items: readonly Me
     if (context) return context;
   }
   return null;
+}
+
+function isUserMessageStreamItem(item: MessageStreamItem): item is MessageStreamMessageItem & { role: "user" } {
+  return item.kind === "message" && item.role === "user";
+}
+
+function isCompletedTurnOutcomeMessageItem(item: MessageStreamItem): item is MessageStreamMessageItem {
+  return item.kind === "message" && isCompletedTurnOutcomeMessage(item);
 }
 
 function precedingUnscopedTitleSeed(turnId: string, items: readonly MessageStreamItem[]): string | null {
