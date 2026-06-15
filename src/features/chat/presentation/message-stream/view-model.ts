@@ -30,7 +30,7 @@ export interface MessageStreamPresentationBlockInput {
   turnDiffs?: ReadonlyMap<string, string> | undefined;
 }
 
-export type MessageStreamPresentationBlock =
+type MessageStreamPresentationBlock =
   | {
       kind: "historyBar";
       key: "history-bar";
@@ -123,7 +123,7 @@ export function messageStreamViewHasEmptyBlock(blocks: readonly MessageStreamVie
   return blocks.some((block) => block.kind === "empty");
 }
 
-export function messageStreamPresentationBlocks(input: MessageStreamPresentationBlockInput): MessageStreamPresentationBlock[] {
+function messageStreamPresentationBlocks(input: MessageStreamPresentationBlockInput): MessageStreamPresentationBlock[] {
   const blocks: MessageStreamPresentationBlock[] = [];
 
   if (input.activeThreadId && input.historyCursor) {

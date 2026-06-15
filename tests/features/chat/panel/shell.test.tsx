@@ -6,7 +6,6 @@ import { act } from "preact/test-utils";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
-import type { ChatPanelComposerShellState, ChatPanelMessageStreamShellState } from "../../../../src/features/chat/panel/shell-state";
 import type {
   ChatPanelComposerSurface,
   ChatPanelGoalSurface,
@@ -41,7 +40,7 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("updates signal-aware shell components from the state store without remounting the shell", async () => {
+  it("updates shell components from the state store", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -50,8 +49,6 @@ describe("ChatPanelShell", () => {
       renderChatPanelShell(container, shellProps(store));
       await settleShellEffects();
     });
-    const body = container.querySelector<HTMLElement>('[data-codex-panel-shell-region="body"]');
-    const toolbar = container.querySelector<HTMLElement>('[data-codex-panel-shell-region="toolbar"]');
 
     await act(async () => {
       store.dispatch({ type: "composer/draft-set", draft: "ready", clearSuggestions: true });
@@ -64,78 +61,6 @@ describe("ChatPanelShell", () => {
 
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("ready");
     expect(container.querySelector(".codex-panel__message-block .test-message-count")?.textContent).toBe("1");
-    expect(container.querySelector<HTMLElement>('[data-codex-panel-shell-region="body"]')).toBe(body);
-    expect(container.querySelector<HTMLElement>('[data-codex-panel-shell-region="toolbar"]')).toBe(toolbar);
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("does not invalidate unrelated shell parts for composer-only state changes", async () => {
-    const store = createChatStateStore();
-    store.dispatch({
-      type: "thread-list/applied",
-      threads: [{ id: "thread-1", name: "Thread", preview: "", archived: false, createdAt: 1, updatedAt: 1 }],
-    });
-    store.dispatch({ type: "ui/panel-set", panel: "history" });
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const testShell = trackedShellParts();
-
-    await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts: testShell.parts });
-      await settleShellEffects();
-    });
-    const messageStream = container.querySelector<HTMLElement>('[data-codex-panel-shell-region="message-stream"]');
-    testShell.composerRenderState.mockClear();
-    testShell.messageStreamRenderState.mockClear();
-
-    await act(async () => {
-      store.dispatch({ type: "composer/draft-set", draft: "composer only", clearSuggestions: true });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("composer only");
-    expect(container.querySelector<HTMLElement>('[data-codex-panel-shell-region="message-stream"]')).toBe(messageStream);
-    expect(testShell.composerRenderState).toHaveBeenCalledOnce();
-    expect(testShell.composerRenderState.mock.calls[0]?.[0].composer.draft).toBe("composer only");
-    expect(testShell.messageStreamRenderState).not.toHaveBeenCalled();
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("does not invalidate the toolbar for message-stream-only state changes", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const testShell = trackedShellParts();
-
-    await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts: testShell.parts });
-      await settleShellEffects();
-    });
-    const toolbar = container.querySelector<HTMLElement>('[data-codex-panel-shell-region="toolbar"]');
-    testShell.toolbarConnected.mockClear();
-    testShell.messageStreamRenderState.mockClear();
-
-    await act(async () => {
-      store.dispatch({
-        type: "message-stream/system-item-added",
-        item: { id: "system-1", kind: "system", role: "system", text: "Stream only." },
-      });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector(".codex-panel__message-block .test-message-count")?.textContent).toBe("1");
-    expect(container.querySelector<HTMLElement>('[data-codex-panel-shell-region="toolbar"]')).toBe(toolbar);
-    expect(testShell.messageStreamRenderState).toHaveBeenCalledOnce();
-    const messageStreamCall = testShell.messageStreamRenderState.mock.calls[0];
-    if (!messageStreamCall) throw new Error("Expected the message stream render state to run.");
-    expect(messageStreamItems(messageStreamCall[0].messageStream)).toHaveLength(1);
-    expect(testShell.toolbarConnected).not.toHaveBeenCalled();
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -164,69 +89,6 @@ describe("ChatPanelShell", () => {
 
     expect(container.querySelector(".codex-panel__toolbar")).not.toBeNull();
     expect(container.firstElementChild?.classList.contains("codex-panel__toolbar")).toBe(true);
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("repairs a damaged shell only through an explicit shell render", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const parts = shellParts();
-
-    await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
-      await settleShellEffects();
-    });
-
-    container.querySelector<HTMLElement>(":scope .codex-panel__messages")?.remove();
-
-    await act(async () => {
-      store.dispatch({
-        type: "message-stream/system-item-added",
-        item: { id: "system-1", kind: "system", role: "system", text: "Restored." },
-      });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector(".codex-panel__messages")).toBeNull();
-
-    await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector(".codex-panel__messages .test-message-count")?.textContent).toBe("1");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("repairs shell ownership markers independently from presentation classes on explicit render", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const parts = shellParts();
-
-    await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
-      await settleShellEffects();
-    });
-    const messageStream = container.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(messageStream).not.toBeNull();
-    messageStream?.removeAttribute("data-codex-panel-shell-region");
-
-    await act(async () => {
-      store.dispatch({ type: "composer/draft-set", draft: "repair marker" });
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector<HTMLElement>('[data-codex-panel-shell-region="message-stream"]')).not.toBe(messageStream);
-    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("repair marker");
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -331,94 +193,71 @@ function shellProps(store: ReturnType<typeof createChatStateStore>) {
   };
 }
 
-interface TestShellParts {
-  parts: ChatPanelShellParts;
-  composerRenderState: ReturnType<
-    typeof vi.fn<(state: ChatPanelComposerShellState) => ReturnType<ChatPanelShellParts["composer"]["controller"]["renderState"]>>
-  >;
-  messageStreamRenderState: ReturnType<
-    typeof vi.fn<(state: ChatPanelMessageStreamShellState) => ReturnType<ChatPanelShellParts["messageStream"]["renderState"]>>
-  >;
-  toolbarConnected: ReturnType<typeof vi.fn<() => boolean>>;
-}
-
 function shellParts(): ChatPanelShellParts {
-  return trackedShellParts().parts;
-}
-
-function trackedShellParts(): TestShellParts {
-  const toolbarConnected = vi.fn(() => false);
-  const surface = surfaceFixture({ toolbarConnected });
-  const messageStreamRenderState = vi.fn((state: ChatPanelMessageStreamShellState) => ({
-    blocks: [
-      {
-        key: "count",
-        node: <div className="test-message-count">{String(messageStreamItems(state.messageStream).length)}</div>,
-      },
-    ],
-    consumeScrollIntent: () => "auto" as const,
-  }));
-  const composerRenderState = vi.fn((state: ChatPanelComposerShellState) => ({
-    viewId: "view",
-    draft: state.composer.draft,
-    busy: false,
-    canInterrupt: false,
-    normalPlaceholder: "Ask Codex to work on this task...",
-    suggestions: [],
-    selectedSuggestionIndex: 0,
-    callbacks: {
-      onInput: vi.fn(),
-      onUpdateSuggestions: vi.fn(),
-      onKeydown: vi.fn(),
-      onSendOrInterrupt: vi.fn(),
-      onHeightChange: vi.fn(),
-      onSuggestionHover: vi.fn(),
-      onSuggestionInsert: vi.fn(),
-    },
-    meta: {
-      fatal: null,
-      context: {
-        cells: [
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-          { text: "⣀", placeholder: true },
-        ],
-        percent: "--%",
-      },
-      statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-      model: "default",
-      effort: null,
-      planActive: false,
-      autoReviewActive: false,
-      fastActive: false,
-      modelChoices: [],
-      effortChoices: [],
-    },
-    onComposer: () => undefined,
-  }));
+  const surface = surfaceFixture();
   return {
-    parts: {
-      toolbar: {
-        surface: surface.toolbar,
-        actions: toolbarActionsFixture(),
+    toolbar: {
+      surface: surface.toolbar,
+      actions: toolbarActionsFixture(),
+    },
+    goal: surface.goal,
+    messageStream: {
+      renderState: (state) => ({
+        blocks: [
+          {
+            key: "count",
+            node: <div className="test-message-count">{String(messageStreamItems(state.messageStream).length)}</div>,
+          },
+        ],
+        consumeScrollIntent: () => "auto" as const,
+      }),
+    },
+    composer: {
+      controller: {
+        renderState: (state) => ({
+          viewId: "view",
+          draft: state.composer.draft,
+          busy: false,
+          canInterrupt: false,
+          normalPlaceholder: "Ask Codex to work on this task...",
+          suggestions: [],
+          selectedSuggestionIndex: 0,
+          callbacks: {
+            onInput: vi.fn(),
+            onUpdateSuggestions: vi.fn(),
+            onKeydown: vi.fn(),
+            onSendOrInterrupt: vi.fn(),
+            onHeightChange: vi.fn(),
+            onSuggestionHover: vi.fn(),
+            onSuggestionInsert: vi.fn(),
+          },
+          meta: {
+            fatal: null,
+            context: {
+              cells: [
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+              ],
+              percent: "--%",
+            },
+            statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+            model: "default",
+            effort: null,
+            planActive: false,
+            autoReviewActive: false,
+            fastActive: false,
+            modelChoices: [],
+            effortChoices: [],
+          },
+          onComposer: () => undefined,
+        }),
       },
-      goal: surface.goal,
-      messageStream: {
-        renderState: messageStreamRenderState,
-      },
-      composer: {
-        controller: {
-          renderState: composerRenderState,
-        },
-        actions: {
-          submit: vi.fn(),
-        },
+      actions: {
+        submit: vi.fn(),
       },
     },
-    composerRenderState,
-    messageStreamRenderState,
-    toolbarConnected,
   };
 }
 

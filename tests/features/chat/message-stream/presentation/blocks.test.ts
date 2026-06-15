@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { messageStreamPresentationBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
+import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 describe("message stream presentation blocks", () => {
   it("keeps the empty state after the history affordance", () => {
-    const blocks = messageStreamPresentationBlocks({
+    const blocks = messageStreamViewBlocks({
       activeThreadId: "thread",
       activeTurnId: null,
       historyCursor: "cursor",
@@ -17,7 +17,7 @@ describe("message stream presentation blocks", () => {
   });
 
   it("moves active task progress out of the persisted layout into live blocks", () => {
-    const blocks = messageStreamPresentationBlocks({
+    const blocks = messageStreamViewBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -25,12 +25,12 @@ describe("message stream presentation blocks", () => {
       items: [userMessage("u1", "turn"), taskProgressItem("task", "turn"), assistantMessage("a1", "turn")],
     });
 
-    expect(blocks.map((block) => block.kind)).toEqual(["item", "item", "liveTask"]);
-    expect(blocks.find((block) => block.kind === "liveTask")).toMatchObject({ key: "live-task:task" });
+    expect(blocks.map((block) => block.kind)).toEqual(["text", "text", "work"]);
+    expect(blocks.find((block) => block.key === "live-task:task")).toMatchObject({ kind: "work" });
   });
 
   it("anchors active agent summaries at the first active agent item", () => {
-    const blocks = messageStreamPresentationBlocks({
+    const blocks = messageStreamViewBlocks({
       activeThreadId: "thread",
       activeTurnId: "turn",
       historyCursor: null,
@@ -38,7 +38,7 @@ describe("message stream presentation blocks", () => {
       items: [userMessage("u1", "turn"), agentItem("agent", "turn")],
     });
 
-    expect(blocks.map((block) => block.kind)).toEqual(["item", "item", "liveAgentSummary"]);
+    expect(blocks.map((block) => block.kind)).toEqual(["text", "work", "liveAgentSummary"]);
     expect(blocks.find((block) => block.kind === "liveAgentSummary")).toMatchObject({ key: "live-agents:turn" });
   });
 });

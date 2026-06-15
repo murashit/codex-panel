@@ -1,20 +1,4 @@
-interface ElementOptions {
-  cls?: string | string[];
-  text?: string;
-  attr?: Record<string, string>;
-}
-
-declare global {
-  interface HTMLElement {
-    addClass(className: string): void;
-    createDiv(options?: ElementOptions): HTMLDivElement;
-    createEl<K extends keyof HTMLElementTagNameMap>(tag: K, options?: ElementOptions): HTMLElementTagNameMap[K];
-    createSpan(options?: ElementOptions): HTMLSpanElement;
-    empty(): void;
-    setCssProps(props: Record<string, string>): void;
-    setAttr(name: string, value: string): void;
-  }
-}
+import { installObsidianElementHelpers } from "../support/obsidian-dom";
 
 export type App = Record<string, never>;
 
@@ -451,82 +435,5 @@ export function setIcon(element: HTMLElement, icon: string): void {
 }
 
 function ensureElementHelpers(): void {
-  if (typeof HTMLElement === "undefined") return;
-
-  const NodeCtor = nodeConstructor();
-  if (!Object.getOwnPropertyDescriptor(NodeCtor.prototype, "doc")) {
-    Object.defineProperty(NodeCtor.prototype, "doc", {
-      configurable: true,
-      get(this: Node): Document {
-        return this.ownerDocument ?? document;
-      },
-    });
-  }
-
-  if (!Object.getOwnPropertyDescriptor(NodeCtor.prototype, "win")) {
-    Object.defineProperty(NodeCtor.prototype, "win", {
-      configurable: true,
-      get(this: Node): Window {
-        return this.ownerDocument?.defaultView ?? window;
-      },
-    });
-  }
-
-  HTMLElement.prototype.addClass = function addClass(className: string): void {
-    this.classList.add(className);
-  };
-
-  HTMLElement.prototype.empty = function empty(): void {
-    this.replaceChildren();
-  };
-
-  HTMLElement.prototype.setAttr = function setAttr(name: string, value: string): void {
-    this.setAttribute(name, value);
-  };
-
-  HTMLElement.prototype.setCssProps = function setCssProps(props: Record<string, string>): void {
-    for (const [key, value] of Object.entries(props)) {
-      this.style.setProperty(key, value);
-    }
-  };
-
-  HTMLElement.prototype.createEl = function createEl<K extends keyof HTMLElementTagNameMap>(
-    tag: K,
-    options: ElementOptions = {},
-  ): HTMLElementTagNameMap[K] {
-    const child = document.createElement(tag);
-    applyOptions(child, options);
-    this.append(child);
-    return child;
-  };
-
-  HTMLElement.prototype.createDiv = function createDiv(options: ElementOptions = {}): HTMLDivElement {
-    return this.createEl("div", options);
-  };
-
-  HTMLElement.prototype.createSpan = function createSpan(options: ElementOptions = {}): HTMLSpanElement {
-    return this.createEl("span", options);
-  };
-}
-
-function nodeConstructor(): typeof Node {
-  const defaultView = document.defaultView;
-  if (defaultView === null) throw new Error("Expected document.defaultView to install Obsidian DOM helpers.");
-  return (globalThis as typeof globalThis & { Node?: typeof Node }).Node ?? defaultView.Node;
-}
-
-function applyOptions(element: HTMLElement, options: ElementOptions): void {
-  if (Array.isArray(options.cls)) {
-    element.classList.add(...options.cls.filter(Boolean));
-  } else if (options.cls) {
-    element.className = options.cls;
-  }
-
-  if (options.text !== undefined) {
-    element.textContent = options.text;
-  }
-
-  for (const [name, value] of Object.entries(options.attr ?? {})) {
-    element.setAttribute(name, value);
-  }
+  installObsidianElementHelpers();
 }

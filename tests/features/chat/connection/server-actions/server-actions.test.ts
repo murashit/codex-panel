@@ -9,7 +9,7 @@ import {
   type McpServerStatus,
 } from "../../../../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../../src/domain/server/metadata";
-import { emptyRuntimeConfigSnapshot } from "../../../../../src/app-server/protocol/runtime-config";
+import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import type { RateLimitSnapshot } from "../../../../../src/app-server/protocol/runtime-metrics";
 import { threadFromThreadRecord } from "../../../../../src/app-server/protocol/thread";
 import { createChatServerDiagnosticsActions } from "../../../../../src/features/chat/app-server/actions/diagnostics";

@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  runtimeConfigSnapshotFromAppServerConfig,
-  type ConfigReadResult,
-  type RuntimeConfigSnapshot,
-} from "../../src/app-server/protocol/runtime-config";
+import { runtimeConfigSnapshotFromAppServerConfig, type ConfigReadResult } from "../../src/app-server/protocol/runtime-config";
+import type { RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../src/features/chat/application/runtime/messages";
 import { compactReasoningEffortLabel } from "../../src/features/chat/presentation/runtime/messages";
 import {
   autoReviewActive,
-  currentApprovalsReviewer,
   currentModel,
   currentReasoningEffort,
   currentServiceTier,
@@ -185,23 +181,23 @@ describe("runtime settings", () => {
     expect(pendingRuntimeSettingsPatch(activeRuntimeSnapshot, snapshotConfig(activeRuntimeSnapshot)).update).not.toHaveProperty("effort");
   });
 
-  it("resolves approval reviewer from requested, active, then effective config", () => {
+  it("resolves auto-review mode from requested, active, then effective config", () => {
     const requested = runtimeSnapshot({
       requestedApprovalsReviewer: setPendingRuntimeSetting("user"),
       activeApprovalsReviewer: "auto_review",
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
     });
     const active = runtimeSnapshot({
-      activeApprovalsReviewer: "auto_review",
+      activeApprovalsReviewer: "user",
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
     });
     const configured = runtimeSnapshot({
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
     });
 
-    expect(currentApprovalsReviewer(requested, snapshotConfig(requested))).toBe("user");
-    expect(currentApprovalsReviewer(active, snapshotConfig(active))).toBe("auto_review");
-    expect(currentApprovalsReviewer(configured, snapshotConfig(configured))).toBe("guardian_subagent");
+    expect(autoReviewActive(requested, snapshotConfig(requested))).toBe(false);
+    expect(autoReviewActive(active, snapshotConfig(active))).toBe(false);
+    expect(autoReviewActive(configured, snapshotConfig(configured))).toBe(true);
   });
 
   it("uses the active reviewer before configured reviewer", () => {
@@ -210,7 +206,6 @@ describe("runtime settings", () => {
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
     });
 
-    expect(currentApprovalsReviewer(snapshot, snapshotConfig(snapshot))).toBe("user");
     expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(false);
   });
 
@@ -219,7 +214,6 @@ describe("runtime settings", () => {
       activeApprovalsReviewer: "guardian_subagent",
     });
 
-    expect(currentApprovalsReviewer(snapshot, snapshotConfig(snapshot))).toBe("guardian_subagent");
     expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
   });
 
@@ -230,7 +224,6 @@ describe("runtime settings", () => {
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
     });
 
-    expect(currentApprovalsReviewer(snapshot, snapshotConfig(snapshot))).toBe("user");
     expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(false);
   });
 
@@ -244,7 +237,6 @@ describe("runtime settings", () => {
     });
 
     expect(runtimeConfigOrDefault(runtimeConfig).profile).toBe("auto");
-    expect(currentApprovalsReviewer(snapshot, snapshotConfig(snapshot))).toBe("auto_review");
     expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
   });
 
@@ -329,7 +321,6 @@ describe("runtime settings", () => {
     const snapshot = runtimeSnapshot({ requestedApprovalsReviewer: setPendingRuntimeSetting("auto_review") });
 
     expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
-    expect(currentApprovalsReviewer(snapshot, snapshotConfig(snapshot))).toBe("auto_review");
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: { approvalsReviewer: "auto_review" },
     });

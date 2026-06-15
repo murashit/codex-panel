@@ -12,7 +12,7 @@ describe("app-server runtime metrics", () => {
   it("projects the codex rate limit bucket when multi-bucket limits are available", () => {
     expect(
       rateLimitSnapshotFromAccountRateLimitsResponse({
-        rateLimits: appServerRateLimitFixture("legacy", 12),
+        rateLimits: appServerRateLimitFixture("single-bucket", 12),
         rateLimitsByLimitId: {
           other: appServerRateLimitFixture("other", 34),
           codex: appServerRateLimitFixture("codex", 56),
@@ -21,21 +21,21 @@ describe("app-server runtime metrics", () => {
     ).toMatchObject({ limitId: "codex", primary: { usedPercent: 56 } });
   });
 
-  it("falls back to the legacy rate limit snapshot when no codex bucket is available", () => {
+  it("falls back to the single-bucket rate limit snapshot when no codex bucket is available", () => {
     expect(
       rateLimitSnapshotFromAccountRateLimitsResponse({
-        rateLimits: appServerRateLimitFixture("legacy", 12),
+        rateLimits: appServerRateLimitFixture("single-bucket", 12),
         rateLimitsByLimitId: {
           other: appServerRateLimitFixture("other", 34),
         },
       }),
-    ).toMatchObject({ limitId: "legacy", primary: { usedPercent: 12 } });
+    ).toMatchObject({ limitId: "single-bucket", primary: { usedPercent: 12 } });
   });
 
   it("summarizes account rate limit response availability", () => {
     expect(
       accountRateLimitsSummaryFromResponse({
-        rateLimits: appServerRateLimitFixture("legacy", 12),
+        rateLimits: appServerRateLimitFixture("single-bucket", 12),
         rateLimitsByLimitId: {
           codex: appServerRateLimitFixture("codex", 56),
           other: appServerRateLimitFixture("other", 34),
@@ -45,7 +45,7 @@ describe("app-server runtime metrics", () => {
 
     expect(
       accountRateLimitsSummaryFromResponse({
-        rateLimits: appServerRateLimitFixture("legacy", 12),
+        rateLimits: appServerRateLimitFixture("single-bucket", 12),
         rateLimitsByLimitId: null,
       }),
     ).toBe("available");

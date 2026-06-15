@@ -1,11 +1,11 @@
 export type ConnectionWorkLifecycleState = { kind: "idle" } | { kind: "connecting"; promise: Promise<void> | null };
 export type ActiveConnectionWork = Extract<ConnectionWorkLifecycleState, { kind: "connecting" }>;
-export type ConnectionWorkLifecycleEvent =
+type ConnectionWorkLifecycleEvent =
   | { type: "started"; connection: ActiveConnectionWork }
   | { type: "finished"; connection: ActiveConnectionWork; promise: Promise<void> }
   | { type: "invalidated" };
 
-export function transitionConnectionWorkLifecycle(
+function transitionConnectionWorkLifecycle(
   state: ConnectionWorkLifecycleState,
   event: ConnectionWorkLifecycleEvent,
 ): ConnectionWorkLifecycleState {

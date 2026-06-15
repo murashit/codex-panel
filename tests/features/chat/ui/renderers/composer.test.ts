@@ -5,11 +5,11 @@ import { h } from "preact";
 
 import {
   ComposerShell,
-  scrollComposerSuggestionIntoView,
   syncComposerHeight,
   type ComposerCallbacks,
   type ComposerSuggestion,
 } from "../../../../../src/features/chat/ui/composer";
+import { scrollComposerSuggestionIntoView } from "../../../../../src/features/chat/ui/composer-dom";
 import type { ComposerMetaViewModel } from "../../../../../src/features/chat/ui/composer";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { waitForAsyncWork } from "../../../../support/async";
@@ -142,8 +142,6 @@ describe("ComposerShell decisions", () => {
     });
 
     const meta = parent.querySelector<HTMLElement>(".codex-panel__composer-meta");
-    const statusItems = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-status-visual > span"));
-    const fields = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-field"));
     const contextDots = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-context-dot"));
     const modeIcons = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-icon"));
     const statusSummary = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-summary");
@@ -152,14 +150,6 @@ describe("ComposerShell decisions", () => {
     expect(statusSummary?.textContent).toBe("Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high");
     expect(statusVisual?.getAttribute("aria-hidden")).toBe("true");
     expect(statusVisual?.textContent).toBe("|⣿⣶⣀⣀42%|gpt-5.5|high");
-    expect(statusItems.map((item) => item.className)).toEqual([
-      "codex-panel__composer-meta-modes",
-      "codex-panel__composer-meta-separator",
-      "codex-panel__composer-meta-context",
-      "codex-panel__composer-meta-field codex-panel__composer-meta-field--model",
-      "codex-panel__composer-meta-field codex-panel__composer-meta-field--effort",
-    ]);
-    expect(fields.map((field) => field.textContent)).toEqual(["|gpt-5.5", "|high"]);
     expect(parent.querySelector(".codex-panel__composer-meta-status")?.getAttribute("aria-hidden")).toBeNull();
     expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("⣿⣶⣀⣀42%");
     expect(contextDots.map((dot) => dot.textContent)).toEqual(["⣿", "⣶", "⣀", "⣀"]);

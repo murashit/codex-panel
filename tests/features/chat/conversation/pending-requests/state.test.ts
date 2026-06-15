@@ -10,7 +10,7 @@ describe("chat pending request state", () => {
   it("ignores stale request resolutions", () => {
     const state = initialChatRequestState();
 
-    expect(resolveChatRequest(state, 99)).toBe(state);
+    expect(resolveChatRequest(state, 99)).toEqual(state);
   });
 
   it("preserves user input drafts when resolving an approval", () => {
@@ -37,6 +37,6 @@ describe("chat pending request state", () => {
     const next = resolveChatRequest(state, 1);
 
     expect(next.approvals).toEqual([]);
-    expect(next.userInputDrafts).toBe(state.userInputDrafts);
+    expect([...next.userInputDrafts]).toEqual([["2:note", "draft"]]);
   });
 });

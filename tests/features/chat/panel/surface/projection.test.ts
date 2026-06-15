@@ -4,11 +4,8 @@ import { describe, expect, it } from "vitest";
 import { h, type ComponentChild } from "preact";
 
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
-import {
-  runtimeConfigSnapshotFromAppServerConfig,
-  type ConfigReadResult,
-  type RuntimeConfigSnapshot,
-} from "../../../../../src/app-server/protocol/runtime-config";
+import { runtimeConfigSnapshotFromAppServerConfig, type ConfigReadResult } from "../../../../../src/app-server/protocol/runtime-config";
+import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../../../src/features/chat/presentation/runtime/status";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";

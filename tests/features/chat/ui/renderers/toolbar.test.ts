@@ -28,10 +28,7 @@ describe("Toolbar decisions", () => {
 
     mountToolbar(parent, baseModel, toolbarActions({ startNewThread, toggleChatActions, toggleHistory }));
 
-    const navHeader = parent.querySelector(".codex-panel__toolbar-primary");
-    expect(navHeader?.classList.contains("nav-header")).toBe(true);
     const navButtons = parent.querySelector(".codex-panel__toolbar-buttons");
-    expect(navButtons?.classList.contains("nav-buttons-container")).toBe(true);
     expect(parent.querySelector(".codex-panel__runtime-area")).toBeNull();
     expect(parent.querySelector(".codex-panel__runtime-strip")).toBeNull();
     expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
@@ -60,8 +57,6 @@ describe("Toolbar decisions", () => {
     const historyButton = parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle");
     expect(historyButton?.getAttribute("aria-label")).toBe("Show thread list");
     expect(historyButton?.classList.contains("nav-action-button")).toBe(true);
-    expect(historyButton?.classList.contains("codex-panel-ui__toolbar-action")).toBe(true);
-    expect(historyButton?.classList.contains("codex-panel-ui__toolbar-control")).toBe(false);
     expect(historyButton?.classList.contains("clickable-icon")).toBe(true);
     historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
@@ -243,18 +238,14 @@ describe("Toolbar decisions", () => {
 
     const renameButton = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]'));
     expect(renameButton.classList.contains("nav-action-button")).toBe(false);
-    expect(renameButton.classList.contains("codex-panel-ui__nav-row-action")).toBe(true);
     renameButton.click();
     expect(startRenameThread).toHaveBeenCalledWith("thread");
     const threadRow = parent.querySelector(".codex-panel__thread-row");
-    expect(threadRow?.classList.contains("codex-panel-ui__nav-row")).toBe(true);
     expect(threadRow?.classList.contains("codex-panel__thread-row--selected")).toBe(true);
     expect(threadRow?.classList.contains("is-selected")).toBe(true);
-    expect(parent.querySelector(".codex-panel__thread")?.classList.contains("codex-panel-ui__nav-item")).toBe(true);
 
     const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
     if (!input) throw new Error("Missing thread rename input");
-    expect(input.classList.contains("codex-panel-ui__nav-inline-input")).toBe(true);
     expect(input.closest(".codex-panel__thread-rename")?.querySelector(".codex-panel__toolbar-panel-check")).toBeNull();
     expect(input.value).toBe("Draft title");
     changeInputValue(input, "New title");

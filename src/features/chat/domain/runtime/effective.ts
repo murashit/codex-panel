@@ -28,7 +28,7 @@ export function currentReasoningEffort(snapshot: RuntimeSnapshot, config: Runtim
   return snapshot.activeReasoningEffort ?? config.reasoningEffort;
 }
 
-export function currentApprovalsReviewer(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): ApprovalsReviewer | null {
+function currentApprovalsReviewer(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): ApprovalsReviewer | null {
   if (snapshot.requestedApprovalsReviewer.kind === "set") return snapshot.requestedApprovalsReviewer.value;
   if (snapshot.requestedApprovalsReviewer.kind === "resetToConfig") return config.approvalsReviewer;
   return snapshot.activeApprovalsReviewer ?? config.approvalsReviewer;

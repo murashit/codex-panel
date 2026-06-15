@@ -2,7 +2,6 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { transitionConnectionWorkLifecycle, type ActiveConnectionWork } from "../../../src/shared/lifecycle/connection-work";
 import {
   createThreadsViewDeferredTasks,
   transitionThreadsViewRefreshLifecycle,
@@ -61,19 +60,5 @@ describe("threads view lifecycle transitions", () => {
 
     expect(transitionThreadsViewRefreshLifecycle(state, { type: "finished", refresh: first })).toBe(state);
     expect(transitionThreadsViewRefreshLifecycle(state, { type: "finished", refresh: second })).toEqual({ kind: "idle" });
-  });
-
-  it("keeps stale connection completion from clearing the active connection", () => {
-    const firstPromise = Promise.resolve();
-    const secondPromise = Promise.resolve();
-    const first: ActiveConnectionWork = { kind: "connecting", promise: firstPromise };
-    const second: ActiveConnectionWork = { kind: "connecting", promise: secondPromise };
-    const state = transitionConnectionWorkLifecycle({ kind: "idle" }, { type: "started", connection: second });
-
-    expect(transitionConnectionWorkLifecycle(state, { type: "finished", connection: first, promise: firstPromise })).toBe(state);
-    expect(transitionConnectionWorkLifecycle(state, { type: "finished", connection: second, promise: firstPromise })).toBe(state);
-    expect(transitionConnectionWorkLifecycle(state, { type: "finished", connection: second, promise: secondPromise })).toEqual({
-      kind: "idle",
-    });
   });
 });

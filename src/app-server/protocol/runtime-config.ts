@@ -2,9 +2,6 @@ import { approvalPolicyOrNull, approvalsReviewerOrNull, parseServiceTier } from 
 import { normalizedRuntimeReasoningEffort } from "../../domain/runtime/config";
 import type { ReasoningSummary, SandboxMode, RuntimeConfigSnapshot, Verbosity, WebSearchMode } from "../../domain/runtime/config";
 
-export { emptyRuntimeConfigSnapshot } from "../../domain/runtime/config";
-export type { RuntimeConfigSnapshot } from "../../domain/runtime/config";
-
 interface ConfigLayerRecord {
   name: { type: string; profile?: unknown; [key: string]: unknown };
   config: unknown;

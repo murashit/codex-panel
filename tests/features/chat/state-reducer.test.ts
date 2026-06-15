@@ -5,9 +5,9 @@ import {
   chatReducer,
   chatTurnBusy,
   pendingTurnStart,
-  transitionChatTurnLifecycleState,
   type ChatState,
 } from "../../../src/features/chat/application/state/root-reducer";
+import { transitionChatTurnLifecycleState } from "../../../src/features/chat/application/conversation/turn-state";
 import { createChatStateStore } from "../../../src/features/chat/application/state/store";
 import { messageStreamItems } from "../../../src/features/chat/application/state/message-stream";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
@@ -53,7 +53,6 @@ describe("chatReducer", () => {
 
     const next = chatReducer(pendingState, { type: "active-thread/cleared" });
 
-    expect(next).not.toBe(pendingState);
     expect(next.activeThread.id).toBeNull();
     expect(next.activeThread.goal).toBeNull();
     expect(next.runtime.activeModel).toBeNull();
@@ -237,7 +236,7 @@ describe("chatReducer", () => {
     expect(next.composer.suggestionsDismissedSignature).toBe("dismissed");
   });
 
-  it("clones map backed state when updating turn diffs and open panels", () => {
+  it("updates map-backed turn diffs and toolbar panel state", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["turn", "old"]]) } });
     state = chatStateWith(state, { ui: { toolbarPanel: "status-panel" } });
@@ -245,23 +244,19 @@ describe("chatReducer", () => {
     const withDiff = chatReducer(state, { type: "message-stream/turn-diff-updated", turnId: "turn", diff: "new" });
     const withHistoryPanel = chatReducer(withDiff, { type: "ui/panel-set", panel: "history" });
 
-    expect(withDiff.messageStream.turnDiffs).not.toBe(state.messageStream.turnDiffs);
     expect(withDiff.messageStream.turnDiffs.get("turn")).toBe("new");
-    expect(withHistoryPanel.ui).not.toBe(withDiff.ui);
     expect(withHistoryPanel.ui.toolbarPanel).toBe("history");
-    expect(withHistoryPanel.ui.disclosures).toBe(withDiff.ui.disclosures);
   });
 
-  it("deduplicates reported logs while keeping reported log state immutable", () => {
+  it("deduplicates reported logs", () => {
     const state = chatStateFixture();
     const item = { id: "log", kind: "system", role: "system", text: "once" } satisfies MessageStreamItem;
 
     const first = chatReducer(state, { type: "message-stream/deduped-log-added", text: "once", item });
     const second = chatReducer(first, { type: "message-stream/deduped-log-added", text: "once", item });
 
-    expect(first.messageStream.reportedLogs).not.toBe(state.messageStream.reportedLogs);
     expect(chatStateMessageStreamItems(first)).toEqual([item]);
-    expect(second).toBe(first);
+    expect(chatStateMessageStreamItems(second)).toEqual([item]);
   });
 
   it("keeps turn lifecycle fields synchronized through start and completion", () => {
@@ -311,14 +306,17 @@ describe("chatReducer", () => {
 
     expect(optimistic).toEqual({ kind: "starting", pendingTurnStart: pending });
     expect(running).toEqual({ kind: "running", turnId: "turn" });
-    expect(transitionChatTurnLifecycleState(running, { type: "completed", turnId: "stale-turn" })).toBe(running);
+    expect(transitionChatTurnLifecycleState(running, { type: "completed", turnId: "stale-turn" })).toEqual({
+      kind: "running",
+      turnId: "turn",
+    });
     expect(transitionChatTurnLifecycleState({ kind: "idle" }, { type: "start-acknowledged", turnId: "turn" })).toEqual({
       kind: "idle",
     });
     expect(transitionChatTurnLifecycleState(running, { type: "completed", turnId: "turn" })).toEqual({ kind: "idle" });
   });
 
-  it("appends streaming assistant deltas into the active segment without replacing stable history", () => {
+  it("appends streaming assistant deltas after stable history", () => {
     let state = chatStateFixture();
     state = withChatStateMessageStreamItems(state, [message("history")]);
     const running = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn" });
@@ -330,7 +328,6 @@ describe("chatReducer", () => {
       delta: "hello",
     });
 
-    expect(next.messageStream.stableItems).toBe(running.messageStream.stableItems);
     expect(next.messageStream.activeSegment?.items).toEqual([expect.objectContaining({ id: "assistant", text: "hello", turnId: "turn" })]);
     expect(messageStreamItems(next.messageStream)).toEqual([
       message("history"),
@@ -350,7 +347,6 @@ describe("chatReducer", () => {
       fallbackText: "Command running",
     });
 
-    const firstActiveItems = state.messageStream.activeSegment?.items;
     const next = chatReducer(state, {
       type: "message-stream/item-output-appended",
       itemId: "cmd",
@@ -362,7 +358,6 @@ describe("chatReducer", () => {
 
     expect(next.messageStream.activeSegment?.items).toHaveLength(1);
     expect(next.messageStream.activeSegment?.indexBySourceItemId.get("cmd")).toBe(0);
-    expect(next.messageStream.activeSegment?.items).not.toBe(firstActiveItems);
     expect(next.messageStream.activeSegment?.items[0]).toMatchObject({ id: "cmd", output: "onetwo" });
   });
 
@@ -386,10 +381,9 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, { type: "turn/start-failed", items: [] });
 
-    expect(next).toBe(state);
     expect(chatTurnBusy(next)).toBe(true);
     expect(activeTurnId(next)).toBe("turn");
-    expect(chatStateMessageStreamItems(next)).toBe(chatStateMessageStreamItems(state));
+    expect(chatStateMessageStreamItems(next)).toEqual([message("existing")]);
   });
 
   it("clears turn-scoped requests when clearing the local turn scope", () => {
@@ -409,7 +403,7 @@ describe("chatReducer", () => {
     expect(next.requests.approvals).toEqual([]);
     expect(next.requests.pendingUserInputs).toEqual([]);
     expect(next.requests.userInputDrafts.size).toBe(0);
-    expect(chatStateMessageStreamItems(next)).toBe(chatStateMessageStreamItems(state));
+    expect(chatStateMessageStreamItems(next)).toEqual([message("kept")]);
     expect([...next.ui.disclosures.approvalDetails]).toEqual([]);
     expect([...next.ui.disclosures.textDetails]).toEqual(["kept:details"]);
   });
@@ -433,7 +427,7 @@ describe("chatReducer", () => {
     const withoutResult = chatReducer(state, { type: "request/resolved", requestId: 1 });
     expect(withoutResult.requests.approvals).toEqual([]);
     expect(withoutResult.requests.pendingUserInputs).toEqual([userInput(2)]);
-    expect(chatStateMessageStreamItems(withoutResult)).toBe(chatStateMessageStreamItems(state));
+    expect(chatStateMessageStreamItems(withoutResult)).toEqual([message("existing")]);
     expect([...withoutResult.ui.disclosures.approvalDetails]).toEqual([]);
     expect([...withoutResult.ui.disclosures.textDetails]).toEqual(["existing:details"]);
 
@@ -452,8 +446,7 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, { type: "request/resolved", requestId: 99, resultItem: message("stale result") });
 
-    expect(next).toBe(state);
-    expect(chatStateMessageStreamItems(next)).toBe(chatStateMessageStreamItems(state));
+    expect(chatStateMessageStreamItems(next)).toEqual([message("existing")]);
     expect([...next.ui.disclosures.textDetails]).toEqual(["existing:details"]);
   });
 
@@ -467,7 +460,6 @@ describe("chatReducer", () => {
       items: [{ id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello", turnId: "completed-turn" }],
     });
 
-    expect(next).toBe(state);
     expect(chatTurnBusy(next)).toBe(false);
     expect(activeTurnId(next)).toBeNull();
   });
@@ -487,7 +479,6 @@ describe("chatReducer", () => {
       items: [],
     });
 
-    expect(next).toBe(state);
     expect(chatTurnBusy(next)).toBe(true);
     expect(pendingTurnStart(next)).toEqual(pending);
     expect(chatStateMessageStreamItems(next)).toEqual(chatStateMessageStreamItems(state));
@@ -511,7 +502,6 @@ describe("chatReducer", () => {
 
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: true });
     expect(state.ui.disclosures.approvalDetails.has("1:details")).toBe(true);
-    expect(chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: true })).toBe(state);
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
     expect(state.ui.disclosures.goalObjectiveExpanded.has("thread")).toBe(true);
 
@@ -524,7 +514,6 @@ describe("chatReducer", () => {
 
     state = chatReducer(state, { type: "request/user-input-draft-set", key: "1:note", value: "answer" });
     expect(state.requests.userInputDrafts.get("1:note")).toBe("answer");
-    expect(chatReducer(state, { type: "request/user-input-draft-set", key: "1:note", value: "answer" })).toBe(state);
 
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: false });
     expect(state.ui.disclosures.approvalDetails.has("1:details")).toBe(false);

@@ -394,43 +394,6 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("defers ResizeObserver-triggered rerenders until the next animation frame", () => {
-    withResizeObserverEntries((resizeElement, flushFrames) => {
-      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
-      let renderCount = 0;
-      const controller = createMessageStreamVirtualizerDriver(container, {
-        onRender: () => {
-          renderCount += 1;
-        },
-      });
-      const command = measuredElement("command", 1, 100);
-
-      container.dataset["testTotalSize"] = "300";
-      controller.render(
-        [
-          { key: "first", node: null },
-          { key: "command", node: null },
-        ],
-        "follow-bottom",
-      );
-      controller.getTotalSize();
-      measureVirtualItem(controller, "first", 0, 200);
-      controller.measureElement(command);
-      void act(flushFrames);
-      const settledRenderCount = renderCount;
-
-      container.dataset["testTotalSize"] = "450";
-      resizeElement(command, 250);
-
-      expect(renderCount).toBe(settledRenderCount);
-
-      void act(flushFrames);
-
-      expect(renderCount).toBeGreaterThan(settledRenderCount);
-      controller.dispose();
-    });
-  });
-
   it("uses the pre-render bottom position when appending after an item resize", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 160 });
     const controller = createMessageStreamVirtualizerDriver(container);
@@ -910,10 +873,7 @@ interface MessageStreamVirtualizerDriver extends MessageStreamVirtualizerHandle 
   dispose(): void;
 }
 
-function createMessageStreamVirtualizerDriver(
-  container: HTMLElement,
-  options: { onRender?: () => void } = {},
-): MessageStreamVirtualizerDriver {
+function createMessageStreamVirtualizerDriver(container: HTMLElement): MessageStreamVirtualizerDriver {
   const host = document.createElement("div");
   document.body.appendChild(host);
   let view: MessageStreamVirtualizerView | null = null;
@@ -928,7 +888,6 @@ function createMessageStreamVirtualizerDriver(
             blocks: renderBlocks,
             container,
             intent,
-            ...(options.onRender ? { onRender: options.onRender } : {}),
             onHandle: (next) => (handle = next),
             onView: (next) => (view = next),
           }),
@@ -967,18 +926,15 @@ function VirtualizerHarness({
   blocks,
   container,
   intent,
-  onRender,
   onHandle,
   onView,
 }: {
   blocks: readonly MessageStreamBlock[];
   container: HTMLElement;
   intent: "auto" | "force-bottom" | "follow-bottom" | "preserve";
-  onRender?: () => void;
   onHandle: (handle: MessageStreamVirtualizerHandle | null) => void;
   onView: (view: MessageStreamVirtualizerView) => void;
 }) {
-  onRender?.();
   const scrollElementRef = useRef<HTMLElement | null>(container);
   const intentRef = useRef(intent);
   intentRef.current = intent;

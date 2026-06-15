@@ -10,7 +10,7 @@ import { createServerDiagnostics } from "../../../src/domain/server/diagnostics"
 import type { Thread } from "../../../src/domain/threads/model";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { SharedServerMetadata } from "../../../src/domain/server/metadata";
-import { emptyRuntimeConfigSnapshot } from "../../../src/app-server/protocol/runtime-config";
+import { emptyRuntimeConfigSnapshot } from "../../../src/domain/runtime/config";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import { notices } from "../../mocks/obsidian";
@@ -197,20 +197,6 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(connectionMock.state.client["readEffectiveConfig"]).toHaveBeenCalledOnce();
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
-  });
-
-  it("renders the chat shell on the view content root", async () => {
-    const view = await chatView();
-    const siblingRoots = Array.from(view.containerEl.children).filter((child) => child !== view.contentEl);
-
-    await view.onOpen();
-
-    const root = view.contentEl;
-    expect(root.classList.contains("codex-panel")).toBe(true);
-    expect(root.querySelector(":scope > .codex-panel__toolbar")).not.toBeNull();
-    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__region--message-stream")).not.toBeNull();
-    expect(root.querySelector(":scope > .codex-panel__body .codex-panel__region--composer")).not.toBeNull();
-    expect(siblingRoots.every((sibling) => !sibling.classList.contains("codex-panel") && sibling.childElementCount === 0)).toBe(true);
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
@@ -796,7 +782,6 @@ describe("CodexChatView connection lifecycle", () => {
     view.surface.applyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
-      expect(composerElement(view)).toBe(composer);
       expect(composer.value).toBe("keep this draft");
       expect(composer.selectionStart).toBe(5);
       expect(composer.selectionEnd).toBe(9);

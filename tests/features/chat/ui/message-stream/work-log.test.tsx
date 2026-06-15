@@ -138,7 +138,7 @@ describe("work log renderer decisions", () => {
           id: "tool-1",
           kind: "tool",
           role: "tool",
-          text: "legacy text",
+          text: "fallback text",
           toolName: "web search",
           operation: "search",
           primaryTarget: { kind: "value", value: "codex app-server" },

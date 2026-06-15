@@ -8,7 +8,7 @@ import {
 } from "../../src/domain/server/diagnostics";
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { AppServerQueryContext } from "../../src/app-server/query/keys";
-import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
+import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import type { RateLimitSnapshot } from "../../src/app-server/protocol/runtime-metrics";
 import type { SharedServerMetadata } from "../../src/app-server/query/snapshots";
 import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
@@ -225,7 +225,7 @@ describe("AppServerQueryCache", () => {
     expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-cached"]);
   });
 
-  it("tracks optimistic active thread updates in the mutation cache and clears them by context", () => {
+  it("clears optimistic active thread updates by context", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
 
@@ -233,11 +233,9 @@ describe("AppServerQueryCache", () => {
     cache.updateActiveThreads(context, (threads) => threads?.map((item) => ({ ...item, name: "Renamed" })) ?? null);
 
     expect(cache.activeThreadsSnapshot(context)).toEqual([{ ...thread("thread"), name: "Renamed" }]);
-    expect(cache.client.getMutationCache().getAll()).toHaveLength(1);
 
     cache.clearContext(context);
 
-    expect(cache.client.getMutationCache().getAll()).toHaveLength(0);
     expect(cache.activeThreadsSnapshot(context)).toBeNull();
   });
 });

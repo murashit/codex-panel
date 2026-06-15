@@ -9,7 +9,7 @@ import { createChatStateStore } from "../../../../src/features/chat/application/
 import { runtimeSnapshotForChatState } from "../../../../src/features/chat/application/runtime/snapshot";
 import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/application/state/actions";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
+import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { chatStateFixture, chatStateWith } from "../support/state";
 

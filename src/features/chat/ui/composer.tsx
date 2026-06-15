@@ -553,5 +553,3 @@ function ComposerSuggestions({
     </div>
   );
 }
-
-export { scrollComposerSuggestionIntoView };
