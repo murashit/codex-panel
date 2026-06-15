@@ -37,7 +37,7 @@ describe("Toolbar decisions", () => {
     expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("aria-label"))).toEqual([
       "Show thread list",
       "Show chat actions",
-      "Show Codex status and settings",
+      "Show status",
     ]);
     expect(parent.querySelector(".codex-panel__plan-toggle")).toBeNull();
     expect(parent.querySelector(".codex-panel__auto-review-toggle")).toBeNull();
@@ -53,7 +53,7 @@ describe("Toolbar decisions", () => {
     const statusButton = parent.querySelector(".codex-panel__status-menu-toggle");
     expect(statusButton?.tagName).toBe("BUTTON");
     expect(statusButton?.getAttribute("role")).toBeNull();
-    expect(statusButton?.getAttribute("aria-label")).toBe("Show Codex status and settings");
+    expect(statusButton?.getAttribute("aria-label")).toBe("Show status");
     expect((statusButton as HTMLElement | null)?.dataset["icon"]).toBe("waypoints");
     expect(statusButton?.classList.contains("nav-action-button")).toBe(true);
     expect(statusButton?.classList.contains("clickable-icon")).toBe(true);
@@ -75,7 +75,7 @@ describe("Toolbar decisions", () => {
     expect(parent.querySelector(".codex-panel__history-toggle")?.classList.contains("is-active")).toBe(true);
     expect(parent.querySelector(".codex-panel__new-chat")?.getAttribute("aria-label")).toBe("Hide chat actions");
     expect(parent.querySelector(".codex-panel__new-chat")?.classList.contains("is-active")).toBe(true);
-    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Hide Codex status and settings");
+    expect(parent.querySelector(".codex-panel__status-menu-toggle")?.getAttribute("aria-label")).toBe("Hide status");
     expect(parent.querySelector(".codex-panel__status-menu-toggle")?.classList.contains("is-active")).toBe(true);
   });
 
@@ -175,7 +175,7 @@ describe("Toolbar decisions", () => {
     expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection");
     expect(parent.textContent).toContain("Process");
     expect(parent.textContent).toContain("App Server Checks");
-    expect(parent.textContent).toContain("Effective Codex config");
+    expect(parent.textContent).toContain("Debug details");
     expect(parent.textContent).toContain("Refresh status");
     expect(parent.textContent).not.toContain("Refresh diagnostics");
     expect(parent.textContent).not.toContain("Refresh thread list");
@@ -188,7 +188,7 @@ describe("Toolbar decisions", () => {
     expect(refreshStatus).toHaveBeenCalled();
   });
 
-  it("renders effective config inside the status menu without a separate toggle", () => {
+  it("renders raw debug details inside a collapsed status menu section", () => {
     const parent = document.createElement("div");
 
     mountToolbar(
@@ -196,16 +196,20 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         statusPanelOpen: true,
         openPanel: "status",
-        configSections: [{ title: "Runtime", rows: [{ key: "model", value: "gpt-5.5" }] }],
+        debugDetails: JSON.stringify({ runtimeConfig: { model: "gpt-5.5" } }, null, 2),
       }),
       toolbarActions(),
     );
 
     expect(parent.querySelector(".codex-panel__region--config")).toBeNull();
-    expect(parent.querySelector(".codex-panel__toolbar-panel .codex-panel__config")?.textContent).toContain("Effective Codex config");
+    const details = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__debug-details"));
+    expect(details.open).toBe(false);
+    expect(details.querySelector("summary")?.textContent).toBe("Debug details");
+    expect(details.querySelector("pre")?.textContent).toContain('"model": "gpt-5.5"');
+    expect(parent.querySelector(".codex-panel__toolbar-panel .codex-panel__config")).toBeNull();
+    expect(parent.textContent).not.toContain("Effective Codex config");
     expect(parent.textContent).not.toContain("Show effective config");
     expect(parent.textContent).not.toContain("Hide effective config");
-    expect(parent.textContent).toContain("gpt-5.5");
   });
 
   it("renders thread list rename actions and an inline rename editor", () => {
@@ -366,7 +370,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     historyOpen: false,
     statusPanelOpen: false,
     rateLimit: null,
-    configSections: [],
+    debugDetails: "{}",
     openPanel: null,
     threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
     connectLabel: "Reconnect",

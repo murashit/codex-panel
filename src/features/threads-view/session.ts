@@ -39,7 +39,7 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
 }
 
-export type ThreadsThreadCatalog = Pick<
+type ThreadsThreadCatalog = Pick<
   SharedThreadCatalog,
   "archiveThreadInCatalog" | "renameThreadInCatalog" | "refreshFromOpenSurface" | "refreshThreads" | "cachedThreads"
 >;

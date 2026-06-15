@@ -25,15 +25,7 @@ import {
   pendingRuntimeSettingsPatch,
   serviceTierRequestForThreadStart,
 } from "../../src/features/chat/application/runtime/thread-settings-update";
-import { contextSummary, runtimeConfigSections, rateLimitSummary } from "../../src/features/chat/presentation/runtime/status";
-
-function runtimeRows(snapshot: RuntimeSnapshot): Record<string, string> {
-  return Object.fromEntries(
-    runtimeConfigSections(snapshot, "/vault")
-      .find((section) => section.title === "Runtime")
-      ?.rows.map((row) => [row.key, row.value]) ?? [],
-  );
-}
+import { contextSummary, rateLimitSummary } from "../../src/features/chat/presentation/runtime/status";
 
 describe("runtime settings", () => {
   it("formats runtime override messages", () => {
@@ -86,13 +78,7 @@ describe("runtime settings", () => {
       collaborationModeWarning: null,
     });
 
-    const runtimeRows = Object.fromEntries(
-      runtimeConfigSections(snapshot, "/vault")
-        .find((section) => section.title === "Runtime")
-        ?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-    expect(runtimeRows["effective mode"]).toBe("(not reported)");
-    expect(runtimeRows["requested mode"]).toBe("(none)");
+    expect(snapshot.selectedCollaborationMode).toBe("default");
   });
 
   it("keeps model reset tied to config when active thread model differs", () => {
@@ -280,8 +266,7 @@ describe("runtime settings", () => {
     expect(currentModel(snapshot, snapshotConfig(snapshot))).toBe("gpt-profile");
     expect(currentReasoningEffort(snapshot, snapshotConfig(snapshot))).toBe("high");
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
-    expect(runtimeRows(snapshot)["effective service tier"]).toBe("fast");
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("on");
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("fast");
   });
 
@@ -292,7 +277,7 @@ describe("runtime settings", () => {
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("flex");
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("off");
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
   });
 
   it("treats the catalog Fast service tier id as fast mode while preserving the id", () => {
@@ -307,9 +292,7 @@ describe("runtime settings", () => {
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("priority");
-    expect(runtimeRows(snapshot)["effective service tier"]).toBe("priority");
     expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("on");
     expect(fastRuntimeServiceTierRequestValue(snapshot, snapshotConfig(snapshot))).toBe("priority");
   });
 
@@ -324,9 +307,7 @@ describe("runtime settings", () => {
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("default");
-    expect(runtimeRows(snapshot)["effective service tier"]).toBe("default");
     expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("off");
   });
 
   it("uses requested service tier above active and configured service tiers", () => {
@@ -337,7 +318,7 @@ describe("runtime settings", () => {
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBeNull();
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("off");
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
   });
 
   it("resolves requested approval reviewer without adding it to turn runtime settings", () => {
@@ -363,105 +344,6 @@ describe("runtime settings", () => {
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot)).update).not.toHaveProperty("effort");
   });
 
-  it("separates effective runtime, config defaults, and pending changes in status details", () => {
-    const sections = runtimeConfigSections(
-      runtimeSnapshot({
-        activeModel: "gpt-5-active",
-        activeReasoningEffort: "low",
-        activeCollaborationMode: "plan",
-        selectedCollaborationMode: "plan",
-        requestedModel: setPendingRuntimeSetting("gpt-5-pending"),
-      }),
-      "/vault",
-    );
-    const runtimeRows = Object.fromEntries(
-      sections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-
-    expect(runtimeRows).toMatchObject({
-      "effective model": "gpt-5-pending",
-      "configured model": "gpt-5.5",
-      "thread model": "gpt-5-active",
-      "requested model": "gpt-5-pending",
-      "effective effort": "low",
-      "configured effort": "high",
-      "thread effort": "low",
-      "requested effort": "(none)",
-      "effective mode": "Plan",
-      "requested mode": "(none)",
-      "configured service tier": "flex",
-      "thread service tier": "(not reported)",
-      "requested service tier": "(none)",
-    });
-
-    const resetSections = runtimeConfigSections(
-      runtimeSnapshot({
-        requestedReasoningEffort: resetRuntimeSettingToConfig(),
-      }),
-      "/vault",
-    );
-    const resetRuntimeRows = Object.fromEntries(
-      resetSections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-    expect(resetRuntimeRows["requested effort"]).toBe("(reset to config)");
-  });
-
-  it("labels unset config values as Codex defaults when no concrete value is reported", () => {
-    const sections = runtimeConfigSections(
-      runtimeSnapshot({
-        runtimeConfig: runtimeConfigFixture({}),
-      }),
-      "/vault",
-    );
-    const scopeRows = Object.fromEntries(
-      sections.find((section) => section.title === "Scope")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-    const runtimeRows = Object.fromEntries(
-      sections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-    const policyRows = Object.fromEntries(
-      sections.find((section) => section.title === "Policy")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-
-    expect(scopeRows["model provider"]).toBe("(Codex default)");
-    expect(runtimeRows).toMatchObject({
-      "effective model": "(Codex default)",
-      "configured model": "(not reported)",
-      "thread model": "(not reported)",
-      "requested model": "(none)",
-      "configured service tier": "(Codex default)",
-      "thread service tier": "(not reported)",
-      "requested service tier": "(none)",
-      "fast mode": "Codex default",
-    });
-    expect(policyRows).toMatchObject({
-      "effective approval": "(Codex default)",
-      "configured approval": "(Codex default)",
-      "thread approval": "(not reported)",
-      "active permissions": "(not reported)",
-      "configured reviewer": "(Codex default)",
-      sandbox: "(Codex default)",
-      "web search": "(Codex default)",
-    });
-  });
-
-  it("uses catalog default reasoning efforts from model metadata", () => {
-    const model = { ...modelFixture("gpt-catalog-default"), isDefault: true, defaultReasoningEffort: "extreme" };
-    const sections = runtimeConfigSections(
-      runtimeSnapshot({
-        runtimeConfig: runtimeConfigFixture({}),
-        availableModels: [model],
-      }),
-      "/vault",
-    );
-    const runtimeRows = Object.fromEntries(
-      sections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-
-    expect(runtimeRows["configured model"]).toBe("gpt-catalog-default");
-    expect(runtimeRows["configured effort"]).toBe("extreme");
-  });
-
   it("uses the explicit config when finding supported reasoning efforts", () => {
     const snapshot = runtimeSnapshot({
       requestedModel: resetRuntimeSettingToConfig(),
@@ -476,95 +358,11 @@ describe("runtime settings", () => {
     expect(supportedReasoningEfforts(snapshot, explicitConfig)).toEqual(["high"]);
   });
 
-  it("shows effective profile runtime and policy values in status details", () => {
-    const profileConfig = {
-      model: "gpt-profile",
-      model_provider: "profile-provider",
-      model_reasoning_effort: "high",
-      model_reasoning_summary: "detailed",
-      model_verbosity: "high",
-      approval_policy: "never",
-      approvals_reviewer: "auto_review",
-      web_search: "live",
-      service_tier: "fast",
-    };
-    const sections = runtimeConfigSections(
-      runtimeSnapshot({
-        runtimeConfig: runtimeConfigFixture(profileConfig, [configLayer({}, null), configLayer(profileConfig, "auto")]),
-      }),
-      "/vault",
-    );
-    const scopeRows = Object.fromEntries(
-      sections.find((section) => section.title === "Scope")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-    const runtimeRows = Object.fromEntries(
-      sections.find((section) => section.title === "Runtime")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-    const policyRows = Object.fromEntries(
-      sections.find((section) => section.title === "Policy")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-
-    expect(scopeRows["profile"]).toBe("auto");
-    expect(scopeRows["model provider"]).toBe("profile-provider");
-    expect(runtimeRows).toMatchObject({
-      "effective model": "gpt-profile",
-      "configured model": "gpt-profile",
-      "thread model": "(not reported)",
-      "requested model": "(none)",
-      "effective effort": "high",
-      "configured effort": "high",
-      "thread effort": "(not reported)",
-      "requested effort": "(none)",
-      "reasoning summary": "detailed",
-      verbosity: "high",
-      "effective service tier": "fast",
-      "configured service tier": "fast",
-      "thread service tier": "(not reported)",
-      "requested service tier": "(none)",
-      "fast mode": "on",
-    });
-    expect(policyRows["effective approval"]).toBe("never");
-    expect(policyRows["configured approval"]).toBe("never");
-    expect(policyRows["thread approval"]).toBe("(not reported)");
-    expect(policyRows["active permissions"]).toBe("(not reported)");
-    expect(policyRows["effective reviewer"]).toBe("auto_review");
-    expect(policyRows["auto-review"]).toBe("on");
-    expect(policyRows["configured reviewer"]).toBe("auto_review");
-    expect(policyRows["thread reviewer"]).toBe("(not reported)");
-    expect(policyRows["requested reviewer"]).toBe("(none)");
-    expect(policyRows["web search"]).toBe("live");
-  });
-
-  it("shows active and configured reviewer inputs in status details", () => {
-    const sections = runtimeConfigSections(
-      runtimeSnapshot({
-        activeApprovalsReviewer: "guardian_subagent",
-        activeApprovalPolicy: "never",
-        activePermissionProfile: { id: ":workspace", extends: ":default" },
-        runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
-      }),
-      "/vault",
-    );
-    const policyRows = Object.fromEntries(
-      sections.find((section) => section.title === "Policy")?.rows.map((row) => [row.key, row.value]) ?? [],
-    );
-
-    expect(policyRows).toMatchObject({
-      "effective approval": "never",
-      "thread approval": "never",
-      "active permissions": ":workspace extends :default",
-      "effective reviewer": "guardian_subagent",
-      "auto-review": "on",
-      "configured reviewer": "auto_review",
-      "thread reviewer": "guardian_subagent",
-    });
-  });
-
   it("summarizes service tier and context meter state from one runtime snapshot", () => {
     const snapshot = runtimeSnapshot({ requestedServiceTier: setPendingRuntimeSetting("fast"), activeThreadId: "thread" });
 
-    expect(runtimeRows(snapshot)["effective service tier"]).toBe("fast");
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("on");
+    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
     expect(contextSummary(snapshot)).toMatchObject({
       label: "Context 0%",
       title: "Context: 0 / 100,000 (0%). No turns in this thread yet.",
@@ -604,8 +402,8 @@ describe("runtime settings", () => {
       requestedServiceTier: setPendingRuntimeSetting("off"),
     });
 
-    expect(runtimeRows(snapshot)["effective service tier"]).toBe("(Codex default)");
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("off");
+    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBeNull();
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBeNull();
   });
 
@@ -615,8 +413,8 @@ describe("runtime settings", () => {
       requestedServiceTier: resetRuntimeSettingToConfig(),
     });
 
-    expect(runtimeRows(snapshot)["effective service tier"]).toBe("fast");
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("on");
+    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBeNull();
   });
 
@@ -629,7 +427,7 @@ describe("runtime settings", () => {
       availableModels: [model],
     });
 
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("on");
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("priority");
   });
 
@@ -642,8 +440,8 @@ describe("runtime settings", () => {
   it("passes through configured non-fast service tier ids", () => {
     const snapshot = runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({ service_tier: "flex" }) });
 
-    expect(runtimeRows(snapshot)["effective service tier"]).toBe("flex");
-    expect(runtimeRows(snapshot)["fast mode"]).toBe("off");
+    expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("flex");
+    expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("flex");
   });
 

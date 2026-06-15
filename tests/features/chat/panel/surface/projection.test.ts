@@ -57,6 +57,27 @@ describe("chat panel surface projections", () => {
     unmountUiRoot(parent);
   });
 
+  it("renders raw runtime debug details from toolbar state sources", () => {
+    const state = createChatState();
+    state.ui.toolbarPanel = "status-panel";
+    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-debug", approval_policy: "on-request" });
+    state.connection.availableModels = [modelFixture("gpt-debug")];
+    state.runtime.requestedModel = { kind: "set", value: "gpt-debug" };
+
+    const parent = renderWithShellState(state, h(ChatPanelToolbar, { surface: toolbarSurfaceFixture(), actions: toolbarActionsFixture() }));
+
+    const debugContent = parent.querySelector(".codex-panel__debug-details-content")?.textContent;
+    if (!debugContent) throw new Error("Expected toolbar debug details");
+    const debugDetails = JSON.parse(debugContent) as Record<string, unknown>;
+
+    expect(debugDetails["vaultPath"]).toBe("/vault");
+    expect(debugDetails["configuredCommand"]).toBe("codex");
+    expect(debugDetails["runtimeConfig"]).toMatchObject({ model: "gpt-debug", approvalPolicy: "on-request" });
+    expect(debugDetails["runtime"]).toMatchObject({ requestedModel: { kind: "set", value: "gpt-debug" } });
+    expect(debugDetails["availableModels"]).toMatchObject([{ model: "gpt-debug" }]);
+    unmountUiRoot(parent);
+  });
+
   it("builds composer meta from context and runtime state", () => {
     const state = createChatState();
     state.activeThread.id = "thread-1";

@@ -29,7 +29,6 @@
 .codex-panel__limit-panel {
   margin-top: var(--codex-panel-panel-gap);
   padding-top: var(--codex-panel-item-gap);
-  border-top: var(--codex-panel-divider-muted);
 }
 
 .codex-panel__limit-panel-title {
@@ -148,7 +147,6 @@
 .codex-panel__connection-diagnostics {
   margin-top: var(--codex-panel-panel-gap);
   padding-top: var(--codex-panel-item-gap);
-  border-top: var(--codex-panel-divider-muted);
 }
 
 .codex-panel__connection-diagnostics-title {

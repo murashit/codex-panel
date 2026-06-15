@@ -24,7 +24,7 @@ export interface SettingsDynamicDataHost {
   threadCatalog: SettingsThreadCatalog;
 }
 
-export type SettingsThreadCatalog = Pick<SharedThreadCatalog, "refreshFromOpenSurface" | "cachedModels" | "publishModels">;
+type SettingsThreadCatalog = Pick<SharedThreadCatalog, "refreshFromOpenSurface" | "cachedModels" | "publishModels">;
 
 interface SettingsDynamicDataControllerCallbacks {
   display(): void;

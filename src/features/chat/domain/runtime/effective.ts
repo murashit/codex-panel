@@ -1,6 +1,6 @@
 import { cloneRuntimeConfigSnapshot, emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import { findModelMetadataByIdOrName, type ModelMetadata } from "../../../../domain/catalog/metadata";
-import type { ApprovalPolicy, ApprovalsReviewer } from "../../../../domain/runtime/policy";
+import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import { supportedEffortsForModelMetadata, type ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "./snapshot";
 
@@ -32,10 +32,6 @@ export function currentApprovalsReviewer(snapshot: RuntimeSnapshot, config: Runt
   if (snapshot.requestedApprovalsReviewer.kind === "set") return snapshot.requestedApprovalsReviewer.value;
   if (snapshot.requestedApprovalsReviewer.kind === "resetToConfig") return config.approvalsReviewer;
   return snapshot.activeApprovalsReviewer ?? config.approvalsReviewer;
-}
-
-export function currentApprovalPolicy(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): ApprovalPolicy | null {
-  return snapshot.activeApprovalPolicy ?? config.approvalPolicy;
 }
 
 export function autoReviewActive(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): boolean {

@@ -3,7 +3,7 @@ import { h } from "preact";
 
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
-import { runtimeConfigSections, rateLimitSummary } from "../../presentation/runtime/status";
+import { rateLimitSummary } from "../../presentation/runtime/status";
 import { connectionDiagnosticSections } from "../../application/connection/diagnostics-display";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../application/state/root-reducer";
@@ -12,7 +12,7 @@ import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewMo
 import type { ChatPanelToolbarSurface } from "./model";
 import { runtimeSnapshotForToolbarShellState } from "./runtime-snapshot";
 
-type ToolbarState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "ui">;
+type ToolbarState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "runtime" | "ui">;
 
 interface ToolbarViewModelInput {
   state: ToolbarState;
@@ -68,7 +68,7 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
     historyOpen: projection.historyOpen,
     statusPanelOpen: projection.statusPanelOpen,
     rateLimit: limit,
-    configSections: runtimeConfigSections(snapshot, input.vaultPath),
+    debugDetails: runtimeDebugDetails(input),
     openPanel: projection.openPanel,
     threads: projection.threads,
     connectLabel: input.connected ? "Reconnect" : "Connect",
@@ -78,6 +78,20 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
       configuredCommand: input.configuredCommand,
     }),
   };
+}
+
+function runtimeDebugDetails(input: ToolbarViewModelInput): string {
+  return JSON.stringify(
+    {
+      vaultPath: input.vaultPath,
+      configuredCommand: input.configuredCommand,
+      runtimeConfig: input.state.connection.runtimeConfig,
+      runtime: input.state.runtime,
+      availableModels: input.state.connection.availableModels,
+    },
+    null,
+    2,
+  );
 }
 
 function toolbarStateProjection(input: Pick<ToolbarViewModelInput, "state" | "turnBusy" | "archiveExportEnabled">): ToolbarStateProjection {

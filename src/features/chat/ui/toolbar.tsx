@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode, TargetedKeyboardEvent } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import type { RuntimeConfigSection, RateLimitSummary } from "../presentation/runtime/status";
+import type { RateLimitSummary } from "../presentation/runtime/status";
 import { IconButton } from "../../../shared/ui/components";
 
 type ButtonProps = ButtonHTMLAttributes & {
@@ -38,7 +38,7 @@ export interface ToolbarViewModel {
   historyOpen: boolean;
   statusPanelOpen: boolean;
   rateLimit: RateLimitSummary | null;
-  configSections: RuntimeConfigSection[];
+  debugDetails: string;
   openPanel: "history" | "chat-actions" | "status" | null;
   threads: ToolbarThreadRow[];
   connectLabel: string;
@@ -116,7 +116,7 @@ function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: To
   return (
     <ToolbarIconButton
       icon="waypoints"
-      label={model.statusPanelOpen ? "Hide Codex status and settings" : "Show Codex status and settings"}
+      label={model.statusPanelOpen ? "Hide status" : "Show status"}
       className={["codex-panel__status-menu-toggle", model.statusPanelOpen ? "is-active" : ""].filter(Boolean).join(" ")}
       aria-expanded={model.statusPanelOpen ? "true" : "false"}
       onClick={actions.toggleStatusPanel}
@@ -170,7 +170,7 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
       </div>
       <RateLimitPanel rateLimit={model.rateLimit} />
       <ConnectionDiagnostics sections={model.diagnostics} />
-      <RuntimeConfigPanel sections={model.configSections} />
+      <DebugDetails details={model.debugDetails} />
     </>
   );
 }
@@ -243,30 +243,12 @@ function DiagnosticSection({ section }: { section: ToolbarDiagnosticSection }): 
   );
 }
 
-function RuntimeConfigPanel({ sections }: { sections: RuntimeConfigSection[] }): UiNode {
+function DebugDetails({ details }: { details: string }): UiNode {
   return (
-    <div className="codex-panel__config">
-      <div className="codex-panel__config-title">Effective Codex config</div>
-      <dl className="codex-panel__config-list">
-        {sections.map((section) => (
-          <FragmentedConfigSection key={section.title} section={section} />
-        ))}
-      </dl>
-    </div>
-  );
-}
-
-function FragmentedConfigSection({ section }: { section: RuntimeConfigSection }): UiNode {
-  return (
-    <>
-      <div className="codex-panel__config-section">{section.title}</div>
-      {section.rows.map((row) => (
-        <div key={`${row.key}\n${row.value}`} className="codex-panel__config-row">
-          <dt>{row.key}</dt>
-          <dd>{row.value}</dd>
-        </div>
-      ))}
-    </>
+    <details className="codex-panel__debug-details">
+      <summary className="codex-panel__debug-details-summary">Debug details</summary>
+      <pre className="codex-panel__debug-details-content">{details}</pre>
+    </details>
   );
 }
 

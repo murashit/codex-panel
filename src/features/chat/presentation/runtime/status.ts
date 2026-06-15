@@ -1,27 +1,15 @@
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { jsonPreview } from "../../../../utils";
-import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
-import { defaultEffortForModelMetadata } from "../../../../domain/catalog/metadata";
 import {
-  currentApprovalsReviewer,
-  currentApprovalPolicy,
   currentServiceTier,
   currentModel,
   currentReasoningEffort,
-  autoReviewActive,
-  fastModeActive,
   runtimeConfigOrDefault,
   supportedReasoningEfforts,
 } from "../../domain/runtime/effective";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { effectiveCollaborationMode } from "../../domain/runtime/pending-settings";
-import {
-  collaborationModeLabel,
-  fastModeLabel as formatFastModeLabel,
-  pendingRuntimeSettingLabel,
-  serviceTierLabel as formatServiceTierLabel,
-} from "./messages";
+import { pendingRuntimeSettingLabel, serviceTierLabel as formatServiceTierLabel } from "./messages";
 
 export interface ContextSummary {
   label: string;
@@ -46,11 +34,6 @@ interface RateLimitSummaryRow {
   level: "ok" | "warn" | "danger";
 }
 
-export interface RuntimeConfigSection {
-  title: string;
-  rows: { key: string; value: string }[];
-}
-
 export interface StatusSummaryLinesInput {
   activeThreadId: RuntimeSnapshot["activeThreadId"];
   snapshot: RuntimeSnapshot;
@@ -71,18 +54,9 @@ export interface EffortStatusLinesInput {
 }
 
 const CODEX_DEFAULT_LABEL = "(Codex default)";
-const NOT_REPORTED_LABEL = "(not reported)";
 
 function serviceTierLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
   return formatServiceTierLabel(currentServiceTier(snapshot, config));
-}
-
-function fastModeLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
-  return formatFastModeLabel({
-    requestedOff: snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off",
-    active: fastModeActive(snapshot, config),
-    serviceTier: currentServiceTier(snapshot, config),
-  });
 }
 
 export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null {
@@ -146,75 +120,6 @@ export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs: number): Rate
   };
 }
 
-export function runtimeConfigSections(snapshot: RuntimeSnapshot, vaultPath: string): RuntimeConfigSection[] {
-  const config = runtimeConfigOrDefault(snapshot.runtimeConfig);
-  return [
-    {
-      title: "Scope",
-      rows: [
-        { key: "cwd", value: vaultPath },
-        { key: "profile", value: config.profile ?? "(default)" },
-        { key: "model provider", value: stringValue(config.modelProvider, CODEX_DEFAULT_LABEL) },
-      ],
-    },
-    {
-      title: "Runtime",
-      rows: [
-        { key: "effective model", value: currentModel(snapshot, config) ?? CODEX_DEFAULT_LABEL },
-        { key: "configured model", value: configuredModel(snapshot, config) ?? NOT_REPORTED_LABEL },
-        { key: "thread model", value: activeRuntimeValueLabel(snapshot.activeModel) },
-        { key: "requested model", value: pendingRuntimeSettingLabel(snapshot.requestedModel) },
-        { key: "effective effort", value: currentReasoningEffort(snapshot, config) ?? CODEX_DEFAULT_LABEL },
-        { key: "configured effort", value: configuredReasoningEffort(snapshot, config) ?? NOT_REPORTED_LABEL },
-        { key: "thread effort", value: activeRuntimeValueLabel(snapshot.activeReasoningEffort) },
-        { key: "requested effort", value: pendingRuntimeSettingLabel(snapshot.requestedReasoningEffort) },
-        { key: "reasoning summary", value: stringValue(config.reasoningSummary, CODEX_DEFAULT_LABEL) },
-        { key: "verbosity", value: stringValue(config.verbosity, CODEX_DEFAULT_LABEL) },
-        { key: "effective mode", value: activeCollaborationModeLabel(snapshot.activeCollaborationMode) },
-        {
-          key: "requested mode",
-          value:
-            snapshot.selectedCollaborationMode === effectiveCollaborationMode(snapshot.activeCollaborationMode)
-              ? "(none)"
-              : collaborationModeLabel(snapshot.selectedCollaborationMode),
-        },
-        { key: "effective service tier", value: serviceTierLabel(snapshot, config) },
-        { key: "configured service tier", value: config.serviceTier ?? CODEX_DEFAULT_LABEL },
-        { key: "thread service tier", value: activeRuntimeValueLabel(snapshot.activeServiceTier) },
-        { key: "requested service tier", value: pendingRuntimeSettingLabel(snapshot.requestedServiceTier) },
-        { key: "fast mode", value: fastModeLabel(snapshot, config) },
-        { key: "context window", value: tokenLimitLabel(config.modelContextWindow) },
-        { key: "auto compact limit", value: tokenLimitLabel(config.autoCompactTokenLimit) },
-      ],
-    },
-    {
-      title: "Policy",
-      rows: [
-        { key: "effective approval", value: stringValue(currentApprovalPolicy(snapshot, config), CODEX_DEFAULT_LABEL) },
-        { key: "configured approval", value: stringValue(config.approvalPolicy, CODEX_DEFAULT_LABEL) },
-        { key: "thread approval", value: stringValue(snapshot.activeApprovalPolicy, NOT_REPORTED_LABEL) },
-        { key: "active permissions", value: activePermissionProfileLabel(snapshot.activePermissionProfile) },
-        { key: "effective reviewer", value: currentApprovalsReviewer(snapshot, config) ?? NOT_REPORTED_LABEL },
-        { key: "auto-review", value: autoReviewActive(snapshot, config) ? "on" : "off" },
-        { key: "configured reviewer", value: config.approvalsReviewer ?? CODEX_DEFAULT_LABEL },
-        { key: "thread reviewer", value: activeRuntimeValueLabel(snapshot.activeApprovalsReviewer) },
-        { key: "requested reviewer", value: pendingRuntimeSettingLabel(snapshot.requestedApprovalsReviewer) },
-        { key: "sandbox", value: stringValue(config.sandboxMode, CODEX_DEFAULT_LABEL) },
-        { key: "workspace network", value: stringValue(config.workspaceNetworkAccess, CODEX_DEFAULT_LABEL) },
-        { key: "writable roots", value: writableRootsLabel(config.writableRoots) },
-        { key: "web search", value: stringValue(config.webSearch, CODEX_DEFAULT_LABEL) },
-      ],
-    },
-    {
-      title: "Features",
-      rows: [
-        { key: "tool web search", value: stringValue(config.rawToolWebSearch, CODEX_DEFAULT_LABEL) },
-        { key: "apps", value: enabledAppsLabel(config.rawApps) },
-      ],
-    },
-  ];
-}
-
 export function statusSummaryLines(input: StatusSummaryLinesInput): string[] {
   const context = contextSummary(input.snapshot);
   const limit = rateLimitSummary(input.snapshot, input.nowMs);
@@ -249,32 +154,6 @@ export function effortStatusLines(input: EffortStatusLinesInput): string[] {
 
 function contextUsageTokens(usage: ThreadTokenUsage): number {
   return usage.last.inputTokens > 0 ? usage.last.inputTokens : usage.last.totalTokens;
-}
-
-function configuredModel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string | null {
-  if (config.model) return config.model;
-  return sortedModelMetadata(snapshot.availableModels).find((model) => model.isDefault)?.model ?? null;
-}
-
-function configuredReasoningEffort(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string | null {
-  if (config.rawReasoningEffort) return config.rawReasoningEffort;
-  const model = configuredModel(snapshot, config);
-  return defaultEffortForModelMetadata(
-    sortedModelMetadata(snapshot.availableModels).find((availableModel) => availableModel.model === model) ?? null,
-  );
-}
-
-function activeRuntimeValueLabel(value: string | null): string {
-  return value ?? NOT_REPORTED_LABEL;
-}
-
-function activeCollaborationModeLabel(value: RuntimeSnapshot["activeCollaborationMode"]): string {
-  return value ? collaborationModeLabel(value) : NOT_REPORTED_LABEL;
-}
-
-function activePermissionProfileLabel(profile: RuntimeSnapshot["activePermissionProfile"]): string {
-  if (!profile) return NOT_REPORTED_LABEL;
-  return profile.extends ? `${profile.id} extends ${profile.extends}` : profile.id;
 }
 
 function usageLimitStatusLines(limit: RateLimitSummary): string[] {
@@ -365,44 +244,11 @@ function capitalize(value: string): string {
   return value.length === 0 ? value : value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function tokenLimitLabel(value: unknown): string {
-  const tokens = toNumber(value);
-  return tokens === null ? CODEX_DEFAULT_LABEL : formatTokenCount(tokens);
-}
-
-function writableRootsLabel(value: unknown): string {
-  if (!Array.isArray(value)) return CODEX_DEFAULT_LABEL;
-  if (value.length === 0) return "none";
-  if (value.length === 1) return String(value[0]);
-  return `${String(value.length)} roots`;
-}
-
-function enabledAppsLabel(apps: unknown): string {
-  const appConfig = asRecord(apps);
-  const enabled = Object.entries(appConfig)
-    .filter(([key, app]) => key !== "_default" && asRecord(app)["enabled"] === true)
-    .map(([key]) => key)
-    .sort();
-  if (enabled.length > 0) return enabled.join(", ");
-  const defaultConfig = asRecord(appConfig["_default"]);
-  return stringValue(defaultConfig["enabled"], CODEX_DEFAULT_LABEL);
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-}
-
 function stringValue(value: unknown, fallback = ""): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
   if (value === null || value === undefined) return fallback;
   return jsonPreview(value);
-}
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "bigint") return Number(value);
-  return null;
 }
 
 function formatTokenCount(value: number): string {

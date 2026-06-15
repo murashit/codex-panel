@@ -58,10 +58,6 @@ export function supportedEffortsForModelMetadata(model: ModelMetadata | null): R
   );
 }
 
-export function defaultEffortForModelMetadata(model: ModelMetadata | null): ReasoningEffort | null {
-  return normalizeReasoningEffort(model?.defaultReasoningEffort);
-}
-
 export function sortedModelMetadata(models: readonly ModelMetadata[]): ModelMetadata[] {
   return [...models]
     .filter((model) => !model.hidden)

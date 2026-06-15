@@ -83,7 +83,7 @@ By default, `Enter` sends and `Shift+Enter` inserts a newline. You can switch se
 - Inspect context usage from the composer status row.
 - Toggle Plan mode, fast mode, and approval auto-review for subsequent turns.
 - Set the model and reasoning effort for subsequent turns when supported by Codex.
-- Inspect usage limits, connection diagnostics, MCP servers, enabled skills, effective Codex config, and discovered hooks from the toolbar, settings, or slash commands.
+- Inspect usage limits, connection diagnostics, MCP servers, enabled skills, runtime debug details, and discovered hooks from the toolbar, settings, or slash commands.
 
 ### Obsidian-native workflows
 

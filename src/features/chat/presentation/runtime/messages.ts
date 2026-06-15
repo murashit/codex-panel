@@ -22,9 +22,3 @@ export function pendingRuntimeSettingLabel(
 export function serviceTierLabel(value: string | null): string {
   return value ?? "(Codex default)";
 }
-
-export function fastModeLabel(input: { requestedOff: boolean; active: boolean; serviceTier: string | null }): string {
-  if (input.requestedOff) return "off";
-  if (input.active) return "on";
-  return input.serviceTier ? "off" : "Codex default";
-}

@@ -435,7 +435,7 @@ describe("CodexChatView connection lifecycle", () => {
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("Restored thread");
     });
-    requiredButton(view.containerEl, '[aria-label="Show Codex status and settings"]').click();
+    requiredButton(view.containerEl, '[aria-label="Show status"]').click();
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("gpt-cached");
     });

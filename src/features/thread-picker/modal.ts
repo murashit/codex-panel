@@ -17,7 +17,7 @@ export interface ThreadPickerHost {
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
 
-export type ThreadPickerCatalog = Pick<SharedThreadCatalog, "cachedThreads" | "refreshThreads">;
+type ThreadPickerCatalog = Pick<SharedThreadCatalog, "cachedThreads" | "refreshThreads">;
 
 interface ThreadSuggestion {
   thread: Thread;
