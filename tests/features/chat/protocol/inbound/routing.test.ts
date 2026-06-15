@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { routeServerNotification, routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/routing";
+import {
+  ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND,
+  routeServerNotification,
+  routeServerRequest,
+} from "../../../../../src/features/chat/app-server/inbound/routing";
+import {
+  PLANNED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND,
+  planChatNotification,
+} from "../../../../../src/features/chat/app-server/inbound/notification-plan";
+import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
 
 describe("chat inbound routing", () => {
+  it("keeps routed notification methods covered by matching planners", () => {
+    expect(sortedMethods(PLANNED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND)).toEqual(
+      sortedMethods(ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND),
+    );
+  });
+
   it("routes turn-scoped app-server messages for the active scope", () => {
     const notification = {
       method: "turn/completed",
@@ -97,6 +112,22 @@ describe("chat inbound routing", () => {
     );
   });
 
+  it("keeps active-thread, broadcast, and targeted-thread notification routing distinct", () => {
+    expect(routeServerNotification(threadSettingsUpdatedNotification(), activeScope).kind).toBe("threadLifecycle");
+    expect(
+      routeServerNotification(
+        {
+          method: "thread/settings/updated",
+          params: { ...threadSettingsUpdatedNotification().params, threadId: "thread-other" },
+        },
+        activeScope,
+      ).kind,
+    ).toBe("inactive");
+
+    expect(routeServerNotification({ method: "skills/changed", params: {} }, activeScope).kind).toBe("diagnosticStatus");
+    expect(routeServerNotification(threadArchivedNotification("thread-other"), activeScope).kind).toBe("threadLifecycle");
+  });
+
   it("keeps active-thread-only lifecycle notifications scoped to the active thread", () => {
     const notification = threadSettingsUpdatedNotification();
     expect(
@@ -186,6 +217,18 @@ describe("chat inbound routing", () => {
         activeScope,
       ).kind,
     ).toBe("inactive");
+  });
+
+  it("safely ignores unknown runtime notifications in the planner", () => {
+    const state = createChatState();
+    state.activeThread.id = "thread-active";
+    state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+    const notification = {
+      method: "future/notification",
+      params: { threadId: "thread-active", turnId: "turn-active" },
+    } as unknown as ServerNotification;
+
+    expect(planChatNotification(state, notification, (prefix) => `${prefix}-1`)).toEqual({ actions: [], effects: [] });
   });
 
   it("still scopes app-server notifications that Codex Panel does not handle", () => {
@@ -378,10 +421,14 @@ function turnStartedNotification(): ServerNotification {
   };
 }
 
-function threadArchivedNotification(): ServerNotification {
+function sortedMethods(methodsByRouteKind: Record<string, readonly string[]>): Record<string, readonly string[]> {
+  return Object.fromEntries(Object.entries(methodsByRouteKind).map(([kind, methods]) => [kind, [...methods].sort()]));
+}
+
+function threadArchivedNotification(threadId = "thread-active"): ServerNotification {
   return {
     method: "thread/archived",
-    params: { threadId: "thread-active" },
+    params: { threadId },
   };
 }
 

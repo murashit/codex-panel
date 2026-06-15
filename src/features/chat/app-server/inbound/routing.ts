@@ -101,6 +101,15 @@ const USER_VISIBLE_NOTICE_NOTIFICATION_METHODS = [
 
 export type UserVisibleNoticeNotificationMethod = (typeof USER_VISIBLE_NOTICE_NOTIFICATION_METHODS)[number];
 
+export const ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND = {
+  streamUpdate: STREAM_UPDATE_NOTIFICATION_METHODS,
+  turnLifecycle: TURN_LIFECYCLE_NOTIFICATION_METHODS,
+  threadLifecycle: THREAD_LIFECYCLE_NOTIFICATION_METHODS,
+  requestResolved: ["serverRequest/resolved"],
+  diagnosticStatus: DIAGNOSTIC_STATUS_NOTIFICATION_METHODS,
+  userVisibleNotice: USER_VISIBLE_NOTICE_NOTIFICATION_METHODS,
+} satisfies Record<Exclude<ServerNotificationRoute["kind"], "inactive" | "unhandled">, readonly ServerNotificationMethod[]>;
+
 const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = {
   error: threadTurnNotificationScope,
   "thread/started": threadStartedNotificationScope,
