@@ -1,9 +1,9 @@
 import { MutationObserver, QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
 
 import type { AppServerClient } from "../connection/client";
-import { listModelMetadata } from "../services/catalog";
-import { readRateLimitMetadataProbe, readRuntimeConfigSnapshot, readSkillMetadataProbe } from "../services/metadata";
-import { listThreads } from "../services/threads";
+import { listModelMetadata } from "../catalog/data";
+import { readRateLimitMetadataProbe, readRuntimeConfigSnapshot, readSkillMetadataProbe } from "./metadata-probes";
+import { listThreads } from "../threads/data";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
 import type { Thread } from "../../domain/threads/model";

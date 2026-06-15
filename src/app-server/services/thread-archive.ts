@@ -1,7 +1,7 @@
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { AppServerClient } from "../connection/client";
 import { exportArchivedThreadMarkdown, type ArchiveExportAdapter } from "./thread-archive-markdown";
-import { readThreadForArchiveExport } from "./threads";
+import { readThreadForArchiveExport } from "../threads/data";
 
 export interface ArchiveThreadOptions {
   settings: ArchiveExportSettings;

@@ -41,12 +41,7 @@ export interface CodexThreadsHost {
 
 type ThreadsThreadCatalog = Pick<
   SharedThreadCatalog,
-  | "archiveThreadInCatalog"
-  | "renameThreadInCatalog"
-  | "refreshFromOpenSurface"
-  | "refreshActiveThreads"
-  | "activeThreadsSnapshot"
-  | "observeActiveThreadsResult"
+  "archiveThreadInCatalog" | "renameThreadInCatalog" | "refreshActiveThreads" | "activeThreadsSnapshot" | "observeActiveThreadsResult"
 >;
 
 export interface CodexThreadsSessionEnvironment {

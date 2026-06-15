@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/services/threads";
+import { rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/threads/data";
 import { inheritedForkThreadName } from "../../../../domain/threads/model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import {

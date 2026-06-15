@@ -1288,7 +1288,6 @@ interface ChatHostFixtureOverrides {
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   archiveThreadInCatalog?: CodexChatHost["threadCatalog"]["archiveThreadInCatalog"];
   renameThreadInCatalog?: CodexChatHost["threadCatalog"]["renameThreadInCatalog"];
-  refreshFromOpenSurface?: CodexChatHost["threadCatalog"]["refreshFromOpenSurface"];
   refreshThreadsViewLiveState?: CodexChatHost["threadCatalog"]["refreshThreadsViewLiveState"];
   setActiveThreads?: CodexChatHost["threadCatalog"]["setActiveThreads"];
   updateAppServerMetadata?: CodexChatHost["threadCatalog"]["updateAppServerMetadata"];
@@ -1365,7 +1364,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
     threadCatalog: {
       archiveThreadInCatalog: overrides.archiveThreadInCatalog ?? vi.fn(),
       renameThreadInCatalog: overrides.renameThreadInCatalog ?? vi.fn(),
-      refreshFromOpenSurface: overrides.refreshFromOpenSurface ?? vi.fn(),
       refreshThreadsViewLiveState: overrides.refreshThreadsViewLiveState ?? vi.fn(),
       setActiveThreads:
         overrides.setActiveThreads ??

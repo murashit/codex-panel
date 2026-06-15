@@ -1,8 +1,8 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerObservedQueryResult } from "../app-server/query/cache";
 import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
-import { setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
-import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
+import { setHookItemEnabled, trustHookItem } from "../app-server/catalog/data";
+import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads/data";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
@@ -27,7 +27,7 @@ export interface SettingsDynamicDataHost {
 
 type SettingsThreadCatalog = Pick<
   SharedThreadCatalog,
-  | "refreshFromOpenSurface"
+  | "invalidateThreadsFromOpenSurface"
   | "modelsSnapshot"
   | "observeModelsResult"
   | "fetchModels"
@@ -331,7 +331,7 @@ export class SettingsDynamicDataController {
         status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
         operationId,
       });
-      this.host.threadCatalog.refreshFromOpenSurface();
+      this.host.threadCatalog.invalidateThreadsFromOpenSurface();
     } catch (error) {
       if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {

@@ -11,7 +11,7 @@ import {
   type McpServerStartupStatus,
   type McpServerStatusSummary,
 } from "../../../../domain/server/diagnostics";
-import { readRateLimitMetadataProbe } from "../../../../app-server/services/metadata";
+import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { mcpStatusLines as buildMcpStatusLines } from "../../application/connection/diagnostics-display";
 import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";

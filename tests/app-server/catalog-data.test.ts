@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
-import { listHookData, listSkillCatalog } from "../../src/app-server/services/catalog";
+import { listHookData, listSkillCatalog } from "../../src/app-server/catalog/data";
 
-describe("app-server catalog services", () => {
+describe("app-server catalog data adapters", () => {
   it("returns enabled skill options while preserving total app-server skill count", async () => {
     const client = {
       listSkills: vi.fn().mockResolvedValue({

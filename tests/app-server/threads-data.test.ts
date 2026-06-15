@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
-import { listThreads } from "../../src/app-server/services/threads";
+import { listThreads } from "../../src/app-server/threads/data";
 
-describe("app-server thread services", () => {
+describe("app-server thread data adapters", () => {
   it("maps listed threads to domain threads with archive state", async () => {
     const clientListThreads = vi.fn().mockResolvedValue({
       data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20 }],

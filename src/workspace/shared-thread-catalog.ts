@@ -106,10 +106,6 @@ export class SharedThreadCatalog {
     }
   }
 
-  refreshFromOpenSurface(): void {
-    this.invalidateThreadsFromOpenSurface();
-  }
-
   invalidateThreadsFromOpenSurface(): void {
     this.options.surfaces.invalidateThreadsFromOpenSurface();
   }

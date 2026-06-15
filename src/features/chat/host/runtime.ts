@@ -71,7 +71,6 @@ type ChatThreadCatalog = Pick<
   | "archiveThreadInCatalog"
   | "renameThreadInCatalog"
   | "refreshThreadsViewLiveState"
-  | "refreshFromOpenSurface"
   | "setActiveThreads"
   | "updateAppServerMetadata"
   | "refreshActiveThreads"

@@ -427,7 +427,6 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     threadCatalog: {
       archiveThreadInCatalog: vi.fn(),
       renameThreadInCatalog: vi.fn(),
-      refreshFromOpenSurface: vi.fn(),
       refreshActiveThreads: vi.fn(async () => {
         const client = connectionMock.state.client;
         if (!client) return [];

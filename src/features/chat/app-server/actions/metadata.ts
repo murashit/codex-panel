@@ -3,7 +3,7 @@ import {
   readSkillMetadataProbe,
   type RateLimitMetadataProbeResult,
   type SkillMetadataProbeResult,
-} from "../../../../app-server/services/metadata";
+} from "../../../../app-server/query/metadata-probes";
 import { diagnosticsWithProbe } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";

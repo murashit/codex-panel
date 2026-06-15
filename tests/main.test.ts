@@ -524,7 +524,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     const plugin = await pluginWithLeaves([disconnectedLeaf, connectedLeaf]);
 
-    threadCatalog(plugin).refreshFromOpenSurface();
+    plugin.runtime.settingTabHost().threadCatalog.invalidateThreadsFromOpenSurface();
 
     expect(disconnectedRefresh).not.toHaveBeenCalled();
     expect(connectedRefresh).toHaveBeenCalledOnce();
@@ -648,7 +648,6 @@ function chatHostFixture(): CodexChatHost {
     threadCatalog: {
       archiveThreadInCatalog: vi.fn(),
       renameThreadInCatalog: vi.fn(),
-      refreshFromOpenSurface: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
       setActiveThreads: vi.fn(),
       updateAppServerMetadata: vi.fn(() => null),

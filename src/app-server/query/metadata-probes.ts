@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../connection/client";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
-import { listSkillCatalog } from "./catalog";
+import { listSkillCatalog } from "../catalog/data";
 import { diagnosticProbeError, diagnosticProbeOk, type Diagnostics } from "../../domain/server/diagnostics";
 import type { SkillMetadata } from "../../domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../domain/runtime/config";

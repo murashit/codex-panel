@@ -348,7 +348,7 @@ describe("settings tab", () => {
 
   it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
-    const refreshFromOpenSurface = vi.fn();
+    const invalidateThreadsFromOpenSurface = vi.fn();
     const initialClient = settingsClient({
       threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
     });
@@ -368,7 +368,7 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(newerClient),
       );
-    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshFromOpenSurface }), {
+    const controller = new SettingsDynamicDataController(settingsTabHost({ invalidateThreadsFromOpenSurface }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
@@ -383,7 +383,7 @@ describe("settings tab", () => {
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
 
-    expect(refreshFromOpenSurface).not.toHaveBeenCalled();
+    expect(invalidateThreadsFromOpenSurface).not.toHaveBeenCalled();
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
   });
 
@@ -611,7 +611,7 @@ function newSettingsTab(
     observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModelsResult"];
     notifyAppServerQueryContextChanged?: () => void;
     refreshOpenViews?: () => void;
-    refreshFromOpenSurface?: () => void;
+    invalidateThreadsFromOpenSurface?: () => void;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -633,7 +633,7 @@ function settingsTabHost(
     observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModelsResult"];
     notifyAppServerQueryContextChanged?: () => void;
     refreshOpenViews?: () => void;
-    refreshFromOpenSurface?: () => void;
+    invalidateThreadsFromOpenSurface?: () => void;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -661,7 +661,7 @@ function settingsTabHost(
     saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
     refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
     threadCatalog: {
-      refreshFromOpenSurface: options.refreshFromOpenSurface ?? vi.fn(),
+      invalidateThreadsFromOpenSurface: options.invalidateThreadsFromOpenSurface ?? vi.fn(),
       modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
       fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
       refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
