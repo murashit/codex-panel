@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 
-import { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import type { Thread } from "../../../domain/threads/model";
 import type { ThreadSurfaceBroadcaster } from "../application/ports/chat-host";
 import type { ChatConnectionWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
 import { ChatConnectionController, handleChatConnectionExit } from "../application/connection/connection-controller";
@@ -12,7 +13,7 @@ import { rejectServerRequest, respondToServerRequest } from "../app-server/reque
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
-import type { GoalActions } from "../application/threads/goal-actions";
+import type { ThreadGoalSyncActions } from "../application/threads/goal-actions";
 import type { AutoTitleController } from "../application/threads/auto-title-controller";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 
@@ -29,11 +30,6 @@ export interface ChatConnectionBundle {
   };
 }
 
-interface ChatConnectionRefreshPorts {
-  refreshThreads: () => Promise<void>;
-  refreshSkills: (forceReload?: boolean) => Promise<void>;
-}
-
 interface ChatConnectionBundleStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
   addSystemMessage: (text: string) => void;
@@ -41,19 +37,19 @@ interface ChatConnectionBundleStatus {
 }
 
 export interface ChatConnectionBundleContext {
+  connection: ConnectionManager;
   stateStore: ChatStateStore;
   vaultPath: string;
-  codexPath: () => string;
   connectionWork: ChatConnectionWorkTracker;
   deferredTasks: ChatViewDeferredTasks;
   threadSurfaces: ThreadSurfaceBroadcaster;
-  refresh: ChatConnectionRefreshPorts;
-  goals: GoalActions;
+  sharedCache: {
+    refreshThreadList: (fetchThreads: () => Promise<readonly Thread[]>) => Promise<readonly Thread[]>;
+  };
+  goalSync: ThreadGoalSyncActions;
   autoTitle: AutoTitleController;
   status: ChatConnectionBundleStatus;
   invalidateResumeWork: () => void;
-  loadSharedThreadList: () => Promise<void>;
-  refreshDeferredDiagnostics: () => Promise<void>;
   refreshTabHeader: () => void;
   refreshLiveState: () => void;
   deferLiveStateRefresh: () => void;
@@ -61,8 +57,8 @@ export interface ChatConnectionBundleContext {
 }
 
 export function createChatConnectionBundle(context: ChatConnectionBundleContext): ChatConnectionBundle {
-  const { stateStore, vaultPath, connectionWork, deferredTasks, threadSurfaces, refresh, goals, autoTitle, status } = context;
-  const connection = new ConnectionManager(context.codexPath, vaultPath);
+  const { connection, stateStore, vaultPath, connectionWork, deferredTasks, threadSurfaces, sharedCache, goalSync, autoTitle, status } =
+    context;
   const currentClient = () => connection.currentClient();
   const serverMetadata = createChatServerMetadataActions({
     stateStore,
@@ -90,20 +86,24 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
       threadSurfaces.applyThreadListSnapshot(threads);
     },
     syncThreadGoal: (threadId) => {
-      void goals.syncThreadGoal(threadId);
+      void goalSync.syncThreadGoal(threadId);
     },
   });
+  const loadSharedThreadList = async (): Promise<void> => {
+    const threads = await sharedCache.refreshThreadList(() => serverThreads.loadThreadList());
+    serverThreads.applyThreadList(threads);
+  };
   const serverRequestHost = {
     currentClient,
   };
   const inboundController = new ChatInboundController(stateStore, {
     refreshThreads: () => {
-      void refresh.refreshThreads();
+      void loadSharedThreadList();
     },
     refreshRateLimits: () => {
       void serverMetadata.refreshPublishedRateLimits();
     },
-    refreshSkills: (forceReload) => void refresh.refreshSkills(forceReload),
+    refreshSkills: (forceReload) => void serverMetadata.refreshPublishedSkills(forceReload),
     publishAppServerMetadata: () => {
       serverMetadata.publishAppServerMetadataSnapshot();
     },
@@ -162,10 +162,12 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     diagnostics: {
       refreshPublishedDiagnosticProbes: () => serverDiagnostics.refreshPublishedDiagnosticProbes(),
     },
-    loadSharedThreadList: context.loadSharedThreadList,
+    loadSharedThreadList,
     scheduleDeferredDiagnostics: () => {
       deferredTasks.scheduleDiagnostics(() => {
-        void context.refreshDeferredDiagnostics();
+        if (connection.isConnected()) {
+          void serverDiagnostics.refreshPublishedDiagnosticProbes({ cachedAppServerMetadata: true });
+        }
       });
     },
     clearDeferredDiagnostics: () => {

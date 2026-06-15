@@ -1,13 +1,13 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ArchiveExportAdapter } from "../../../../domain/threads/archive-markdown";
-import { createGoalActions } from "./goal-actions";
+import type { GoalActions } from "./goal-actions";
 import { createSelectionActions } from "./selection-actions";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
 import type { PluginSettingsRef, ThreadSurfaceBroadcaster, WorkspacePanels } from "../ports/chat-host";
-import { AutoTitleController } from "./auto-title-controller";
+import type { AutoTitleController } from "./auto-title-controller";
 import { ThreadRenameEditorController } from "./rename-editor-controller";
-import { createThreadManagementActions, type ThreadManagementActionsHost } from "./thread-management-actions";
+import { createThreadManagementActions, type ThreadManagementActions, type ThreadManagementActionsHost } from "./thread-management-actions";
 import { createThreadLifecycleParts } from "./lifecycle-parts";
 
 interface ThreadPartsContext {
@@ -49,9 +49,8 @@ interface ThreadPartsContext {
     preservePosition: () => void;
     forceBottom: () => void;
   };
-  composer: {
-    setText: (text: string) => void;
-  };
+  goals: GoalActions;
+  autoTitle: AutoTitleController;
 }
 
 export function createThreadParts(context: ThreadPartsContext) {
@@ -67,8 +66,9 @@ export function createThreadParts(context: ThreadPartsContext) {
     liveState,
     scroll,
     client,
-    composer,
     lifecycle,
+    goals,
+    autoTitle,
   } = context;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
@@ -83,26 +83,6 @@ export function createThreadParts(context: ThreadPartsContext) {
     notifyThreadRenamed: (threadId, name) => {
       threadSurfaces.notifyThreadRenamed(threadId, name);
     },
-  });
-  const autoTitle = new AutoTitleController({
-    stateStore,
-    vaultPath: settingsRef.vaultPath,
-    settings: () => settingsRef.settings,
-    currentClient,
-    notifyThreadRenamed: (threadId, name) => {
-      threadSurfaces.notifyThreadRenamed(threadId, name);
-    },
-  });
-
-  const goals = createGoalActions({
-    stateStore,
-    currentClient,
-    ensureConnected: client.ensureConnected,
-    addSystemMessage: status.addSystemMessage,
-    addGoalEvent: (item) => {
-      stateStore.dispatch({ type: "message-stream/item-upserted", item });
-    },
-    refreshLiveState: liveState.refresh,
   });
   const threadLifecycle = createThreadLifecycleParts({
     settingsRef,
@@ -125,38 +105,40 @@ export function createThreadParts(context: ThreadPartsContext) {
     },
   });
   const { history, restoration, resume, identity } = threadLifecycle;
-  const threadManagementHost: ThreadManagementActionsHost = {
-    stateStore,
-    vaultPath: settingsRef.vaultPath,
-    settings: () => settingsRef.settings,
-    archiveAdapter: obsidian.archiveAdapter,
-    ensureConnected: client.ensureConnected,
-    currentClient,
-    addSystemMessage: status.addSystemMessage,
-    showNotice: notify.showNotice,
-    setStatus: status.set,
-    setComposerText: composer.setText,
-    openThreadInNewView: (threadId) => workspace.openThreadInNewView(threadId),
-    openThreadInCurrentPanel: (threadId) => resume.resumeThread(threadId),
-    notifyThreadArchived: (threadId) => {
-      threadSurfaces.notifyThreadArchived(threadId);
-    },
-    notifyThreadRenamed: (threadId, name) => {
-      threadSurfaces.notifyThreadRenamed(threadId, name);
-    },
-    notifyActiveThreadIdentityChanged: () => {
-      thread.notifyIdentityChanged();
-    },
-    refreshThreads: () => thread.refreshThreads(),
-    refreshSharedThreadListFromOpenSurface: () => {
-      threadSurfaces.refreshSharedThreadListFromOpenSurface();
-    },
+  const createManagementActions = (composer: { setText: (text: string) => void }): ThreadManagementActions => {
+    const threadManagementHost: ThreadManagementActionsHost = {
+      stateStore,
+      vaultPath: settingsRef.vaultPath,
+      settings: () => settingsRef.settings,
+      archiveAdapter: obsidian.archiveAdapter,
+      ensureConnected: client.ensureConnected,
+      currentClient,
+      addSystemMessage: status.addSystemMessage,
+      showNotice: notify.showNotice,
+      setStatus: status.set,
+      setComposerText: composer.setText,
+      openThreadInNewView: (threadId) => workspace.openThreadInNewView(threadId),
+      openThreadInCurrentPanel: (threadId) => resume.resumeThread(threadId),
+      notifyThreadArchived: (threadId) => {
+        threadSurfaces.notifyThreadArchived(threadId);
+      },
+      notifyThreadRenamed: (threadId, name) => {
+        threadSurfaces.notifyThreadRenamed(threadId, name);
+      },
+      notifyActiveThreadIdentityChanged: () => {
+        thread.notifyIdentityChanged();
+      },
+      refreshThreads: () => thread.refreshThreads(),
+      refreshSharedThreadListFromOpenSurface: () => {
+        threadSurfaces.refreshSharedThreadListFromOpenSurface();
+      },
+    };
+    return createThreadManagementActions(threadManagementHost);
   };
-  const managementActions = createThreadManagementActions(threadManagementHost);
 
   return {
     history,
-    managementActions,
+    createManagementActions,
     goals,
     restoration,
     resume,

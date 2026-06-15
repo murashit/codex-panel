@@ -63,17 +63,15 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     resumeWork.invalidate();
     history.invalidate();
   };
-  let resume: ResumeController;
   const restoration = new RestorationController({
     deferredTasks,
     opened: lifecycle.getOpened,
-    resumeThread: (threadId) => resume.resumeThread(threadId),
     invalidateResumeWork,
     stateStore,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
   });
-  resume = new ResumeController({
+  const resume = new ResumeController({
     stateStore,
     vaultPath: settingsRef.vaultPath,
     resumeWork,

@@ -1,6 +1,6 @@
 import { Notice, type App, type Component, type EventRef } from "obsidian";
 
-import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import { getThreadTitle } from "../../../domain/threads/model";
@@ -13,6 +13,7 @@ import type { ChatConnectionController } from "../application/connection/connect
 import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
 import type { ChatComposerController } from "../panel/composer-controller";
 import { createConversationParts } from "./conversation";
+import { createConversationComposer } from "./composer";
 import type { ComposerSubmitActions } from "../application/conversation/composer-submit-actions";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
@@ -47,6 +48,8 @@ import { pendingRequestsSignature } from "../domain/pending-requests/signatures"
 import { createChatPanelGoalSurface } from "../panel/surface/goal-surface";
 import type { ChatPanelComposerSurface, ChatPanelGoalSurface, ChatPanelToolbarSurface } from "../panel/surface/model";
 import type { ToolbarActions } from "../ui/toolbar";
+import { AutoTitleController } from "../application/threads/auto-title-controller";
+import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
 
 export interface ChatPanelEnvironment {
   obsidian: {
@@ -107,9 +110,6 @@ interface ChatSessionSideEffects {
     set: (statusText: string, phase?: ChatConnectionPhase) => void;
     addSystemMessage: (text: string) => void;
     addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
-  };
-  composer: {
-    setText: (text: string) => void;
   };
 }
 
@@ -185,6 +185,7 @@ export class ChatPanelSession {
     const restoredThread = parseRestoredThreadState(state);
     if (restoredThread) {
       this.parts.thread.restoration.restore(restoredThread);
+      this.scheduleRestoredThreadHydration();
       return;
     }
 
@@ -235,7 +236,7 @@ export class ChatPanelSession {
 
   async focusThread(threadId: string | null = null): Promise<void> {
     if (threadId && this.parts.thread.restoration.isPending(threadId)) {
-      await this.parts.thread.restoration.ensureLoaded();
+      await this.ensureRestoredThreadLoaded();
     }
     this.focusComposer();
   }
@@ -264,7 +265,7 @@ export class ChatPanelSession {
     this.applyCachedAppServerState();
     this.mountOrRepairShell();
     this.scheduleWarmup();
-    this.parts.thread.restoration.scheduleHydration();
+    this.scheduleRestoredThreadHydration();
   }
 
   close(): void {
@@ -301,16 +302,82 @@ export class ChatPanelSession {
 
   private createSessionParts(): ChatPanelSessionParts {
     const sideEffects = this.createSideEffects();
-    const ensureConnected = () => this.parts.connection.controller.ensureConnected();
-    const refreshThreads = () => this.parts.connection.controller.refreshThreads();
-    const refreshSkills = (forceReload?: boolean) => this.parts.connection.controller.refreshSkills(forceReload);
+    const connection = new ConnectionManager(
+      () => this.environment.plugin.settingsRef.settings.codexPath,
+      this.environment.plugin.settingsRef.vaultPath,
+    );
+    const currentClient = () => connection.currentClient();
+    const autoTitle = new AutoTitleController({
+      stateStore: this.stateStore,
+      vaultPath: this.environment.plugin.settingsRef.vaultPath,
+      settings: () => this.environment.plugin.settingsRef.settings,
+      currentClient,
+      notifyThreadRenamed: (threadId, name) => {
+        this.environment.plugin.threadSurfaces.notifyThreadRenamed(threadId, name);
+      },
+    });
+    const goalSync = createThreadGoalSyncActions({
+      stateStore: this.stateStore,
+      currentClient,
+      addSystemMessage: sideEffects.status.addSystemMessage,
+      addGoalEvent: (item) => {
+        this.dispatch({ type: "message-stream/item-upserted", item });
+      },
+      refreshLiveState: () => {
+        this.refreshLiveState();
+      },
+    });
+    const serverParts = createChatConnectionBundle({
+      connection,
+      stateStore: this.stateStore,
+      vaultPath: this.environment.plugin.settingsRef.vaultPath,
+      connectionWork: this.connectionWork,
+      deferredTasks: this.deferredTasks,
+      threadSurfaces: this.environment.plugin.threadSurfaces,
+      sharedCache: this.environment.plugin.sharedCache,
+      goalSync,
+      autoTitle,
+      status: sideEffects.status,
+      invalidateResumeWork: () => {
+        this.invalidateResumeWork();
+      },
+      refreshTabHeader: () => {
+        this.refreshTabHeader();
+      },
+      refreshLiveState: () => {
+        this.refreshLiveState();
+      },
+      deferLiveStateRefresh: () => {
+        this.deferLiveStateRefresh();
+      },
+      configuredCommand: () => this.environment.plugin.settingsRef.settings.codexPath,
+    });
+    const {
+      connection: { controller: connectionController },
+      inboundController,
+    } = serverParts;
+    const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
+    const ensureConnected = () => connectionController.ensureConnected();
+    const refreshThreads = () => connectionController.refreshThreads();
 
     const runtimeSettings = createChatRuntimeSettingsActions({
       stateStore: this.stateStore,
-      currentClient: () => this.parts.connection.manager.currentClient(),
+      currentClient,
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       collaborationModeLabel: () => this.collaborationModeLabel(),
       addSystemMessage: sideEffects.status.addSystemMessage,
+    });
+    const goals = createGoalActions({
+      stateStore: this.stateStore,
+      currentClient,
+      ensureConnected,
+      addSystemMessage: sideEffects.status.addSystemMessage,
+      addGoalEvent: (item) => {
+        this.dispatch({ type: "message-stream/item-upserted", item });
+      },
+      refreshLiveState: () => {
+        this.refreshLiveState();
+      },
     });
     const threadParts = createThreadParts({
       obsidian: {
@@ -329,7 +396,7 @@ export class ChatPanelSession {
         getClosing: () => this.closing,
       },
       client: {
-        getClient: () => this.parts.connection.manager.currentClient(),
+        getClient: currentClient,
         ensureConnected,
       },
       status: sideEffects.status,
@@ -360,9 +427,43 @@ export class ChatPanelSession {
           this.messageScrollIntent.forceBottom();
         },
       },
-      composer: sideEffects.composer,
+      goals,
+      autoTitle,
     });
-    const { history, managementActions: threadActions, goals, identity, restoration, resume, rename, autoTitle } = threadParts;
+    const { history, identity, restoration, resume, rename } = threadParts;
+    const composerSurface: ChatPanelComposerSurface = {
+      thread: {
+        restoredPlaceholder: () => restoration.placeholder(),
+      },
+      runtime: {
+        requestModel: (model) => runtimeSettings.requestModelFromUi(model),
+        requestReasoningEffort: (effort) => runtimeSettings.requestReasoningEffortFromUi(effort),
+      },
+    };
+    const composer = createConversationComposer(
+      {
+        app: this.environment.obsidian.app,
+        settingsRef: this.environment.plugin.settingsRef,
+        stateStore: this.stateStore,
+        viewId: this.environment.obsidian.viewId,
+        surface: {
+          composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
+        },
+        liveState: {
+          refresh: () => {
+            this.refreshLiveState();
+          },
+        },
+      },
+      {
+        runtimeSettings,
+      },
+    );
+    const threadActions = threadParts.createManagementActions({
+      setText: (text) => {
+        composer.controller.setDraft(text, { focus: true });
+      },
+    });
     const toolbarPanels = createToolbarPanelActions({
       stateStore: this.stateStore,
       threadActions,
@@ -405,41 +506,6 @@ export class ChatPanelSession {
       addSystemMessage: sideEffects.status.addSystemMessage,
     };
     const reconnect = () => reconnectPanel(reconnectHost);
-    const serverParts = createChatConnectionBundle({
-      stateStore: this.stateStore,
-      vaultPath: this.environment.plugin.settingsRef.vaultPath,
-      codexPath: () => this.environment.plugin.settingsRef.settings.codexPath,
-      connectionWork: this.connectionWork,
-      deferredTasks: this.deferredTasks,
-      threadSurfaces: this.environment.plugin.threadSurfaces,
-      refresh: {
-        refreshThreads,
-        refreshSkills,
-      },
-      goals,
-      autoTitle,
-      status: sideEffects.status,
-      invalidateResumeWork: () => {
-        this.invalidateResumeWork();
-      },
-      loadSharedThreadList: () => this.loadSharedThreadList(),
-      refreshDeferredDiagnostics: () => this.refreshDeferredDiagnostics(),
-      refreshTabHeader: () => {
-        this.refreshTabHeader();
-      },
-      refreshLiveState: () => {
-        this.refreshLiveState();
-      },
-      deferLiveStateRefresh: () => {
-        this.deferLiveStateRefresh();
-      },
-      configuredCommand: () => this.environment.plugin.settingsRef.settings.codexPath,
-    });
-    const {
-      connection: { controller: connectionController, manager: connection },
-      inboundController,
-    } = serverParts;
-    const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
 
     const toolbarActions = createChatPanelToolbarActions(
       {
@@ -479,15 +545,6 @@ export class ChatPanelSession {
         goals,
       },
     );
-    const composerSurface: ChatPanelComposerSurface = {
-      thread: {
-        restoredPlaceholder: () => restoration.placeholder(),
-      },
-      runtime: {
-        requestModel: (model) => runtimeSettings.requestModelFromUi(model),
-        requestReasoningEffort: (effort) => runtimeSettings.requestReasoningEffortFromUi(effort),
-      },
-    };
     const conversationParts = createConversationParts(
       {
         obsidian: {
@@ -500,6 +557,7 @@ export class ChatPanelSession {
         state: {
           stateStore: this.stateStore,
         },
+        composer,
         lifecycle: {
           messageScrollIntent: this.messageScrollIntent,
         },
@@ -510,7 +568,6 @@ export class ChatPanelSession {
               this.state.requests.pendingUserInputs,
               this.state.requests.userInputDrafts,
             ),
-          composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
         },
         runtime: {
           connectionDiagnosticDetails: () => this.connectionDiagnosticDetails(),
@@ -525,12 +582,12 @@ export class ChatPanelSession {
           },
         },
         client: {
-          getClient: () => this.parts.connection.manager.currentClient(),
+          getClient: currentClient,
           ensureConnected,
         },
         status: sideEffects.status,
         thread: {
-          ensureRestoredThreadLoaded: () => restoration.ensureLoaded(),
+          ensureRestoredThreadLoaded: () => restoration.ensureLoaded((threadId) => resume.resumeThread(threadId)),
           startNewThread: () => this.startNewThread(),
           selectThread: (threadId) => selection.selectThread(threadId),
           notifyIdentityChanged: () => {
@@ -560,7 +617,7 @@ export class ChatPanelSession {
       },
     );
     const { composerSubmit, messageStreamPresenter } = conversationParts;
-    const composerController = conversationParts.composerController;
+    const composerController = composer.controller;
 
     return {
       connection: {
@@ -605,11 +662,6 @@ export class ChatPanelSession {
         },
         addStructuredSystemMessage: (text, details) => {
           this.dispatch({ type: "message-stream/system-item-added", item: this.structuredSystemItem(text, details) });
-        },
-      },
-      composer: {
-        setText: (text) => {
-          this.parts.composer.controller.setDraft(text, { focus: true });
         },
       },
     };
@@ -697,11 +749,6 @@ export class ChatPanelSession {
     });
   }
 
-  private async refreshDeferredDiagnostics(): Promise<void> {
-    if (!this.parts.connection.manager.isConnected()) return;
-    await this.parts.serverActions.diagnostics.refreshPublishedDiagnosticProbes({ cachedAppServerMetadata: true });
-  }
-
   private activeThreadTitle(): string | null {
     const threadId = this.state.activeThread.id;
     if (!threadId) return null;
@@ -711,6 +758,14 @@ export class ChatPanelSession {
 
   private restoredThreadTitle(): string | null {
     return this.parts.thread.restoration.title();
+  }
+
+  private ensureRestoredThreadLoaded(): Promise<boolean> {
+    return this.parts.thread.restoration.ensureLoaded((threadId) => this.parts.thread.resume.resumeThread(threadId));
+  }
+
+  private scheduleRestoredThreadHydration(): void {
+    this.parts.thread.restoration.scheduleHydration((threadId) => this.parts.thread.resume.resumeThread(threadId));
   }
 
   private statusSummaryLines(): string[] {

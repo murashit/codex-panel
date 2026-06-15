@@ -8,12 +8,10 @@ import type { GoalActions } from "../application/threads/goal-actions";
 import type { HistoryController } from "../application/threads/history-controller";
 import type { ChatInboundController } from "../app-server/inbound/controller";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
-import type { ChatPanelComposerShellState } from "../panel/shell-state";
 import type { PluginSettingsRef, WorkspacePanels } from "../application/ports/chat-host";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
-import type { ChatPanelComposerProjection } from "../panel/surface/model";
-import { createConversationComposer } from "./composer";
+import type { ConversationComposerParts } from "./composer";
 import { createConversationTurnActions, type ConversationThreadStarter } from "../application/conversation/composition";
 
 interface ConversationPartsContext {
@@ -27,12 +25,12 @@ interface ConversationPartsContext {
   state: {
     stateStore: ChatStateStore;
   };
+  composer: ConversationComposerParts;
   lifecycle: {
     messageScrollIntent: ChatMessageScrollIntentState;
   };
   surface: {
     pendingRequestsSignature: () => string;
-    composerProjection: (state: ChatPanelComposerShellState) => ChatPanelComposerProjection;
   };
   runtime: {
     connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
@@ -78,28 +76,10 @@ export function createConversationParts(
     history: HistoryController;
   },
 ) {
-  const { settingsRef, workspace, state, surface, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
-  const { app, owner, viewId } = context.obsidian;
+  const { settingsRef, workspace, state, composer, surface, runtime, thread, liveState, status, lifecycle, client, scroll } = context;
+  const { app, owner } = context.obsidian;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
-
-  const composer = createConversationComposer(
-    {
-      app,
-      settingsRef,
-      stateStore,
-      viewId,
-      surface: {
-        composerProjection: surface.composerProjection,
-      },
-      liveState: {
-        refresh: liveState.refresh,
-      },
-    },
-    {
-      runtimeSettings: refs.runtimeSettings,
-    },
-  );
   const composerController = composer.controller;
   const messageStreamScrollBridge = composer.scrollBridge;
 

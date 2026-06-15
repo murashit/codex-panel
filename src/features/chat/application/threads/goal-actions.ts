@@ -7,21 +7,34 @@ import { goalChangeItem } from "../../domain/message-stream/factories/goal-items
 import { createLocalChatItemIdFactory } from "../../domain/local-id";
 import { emptyGoalObjectiveMessage } from "./messages";
 
-export interface GoalActionsHost {
+export interface ThreadGoalSyncHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
-  ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
   addGoalEvent: (item: GoalMessageStreamItem) => void;
   refreshLiveState: () => void;
 }
 
-export interface GoalActions {
-  activeGoal: () => ThreadGoal | null;
+export interface GoalActionsHost extends ThreadGoalSyncHost {
+  ensureConnected: () => Promise<void>;
+}
+
+export interface ThreadGoalSyncActions {
   syncThreadGoal: (threadId: string) => Promise<void>;
+}
+
+export interface GoalActions extends ThreadGoalSyncActions {
+  activeGoal: () => ThreadGoal | null;
   setObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<boolean>;
   setStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
   clear: (threadId: string) => Promise<boolean>;
+}
+
+export function createThreadGoalSyncActions(host: ThreadGoalSyncHost): ThreadGoalSyncActions {
+  const localItemIds = createLocalChatItemIdFactory();
+  return {
+    syncThreadGoal: (threadId) => syncThreadGoal(host, localItemIds, threadId),
+  };
 }
 
 export function createGoalActions(host: GoalActionsHost): GoalActions {
@@ -36,7 +49,7 @@ export function createGoalActions(host: GoalActionsHost): GoalActions {
 }
 
 async function syncThreadGoal(
-  host: GoalActionsHost,
+  host: ThreadGoalSyncHost,
   localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
   threadId: string,
 ): Promise<void> {
@@ -119,7 +132,7 @@ async function setGoal(
 }
 
 function applyGoalIfActive(
-  host: GoalActionsHost,
+  host: ThreadGoalSyncHost,
   localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
   threadId: string,
   goal: ThreadGoal | null,
@@ -144,7 +157,7 @@ async function recordGoalUserMessage(host: GoalActionsHost, threadId: string, ob
   }
 }
 
-function addThreadScopedSystemMessage(host: GoalActionsHost, threadId: string, text: string): void {
+function addThreadScopedSystemMessage(host: ThreadGoalSyncHost, threadId: string, text: string): void {
   if (host.stateStore.getState().activeThread.id !== threadId) return;
   host.addSystemMessage(text);
 }

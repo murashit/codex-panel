@@ -16,7 +16,6 @@ describe("RestorationController", () => {
     const controller = new RestorationController({
       deferredTasks: createChatViewDeferredTasks(() => window),
       opened: () => true,
-      resumeThread,
       invalidateResumeWork: vi.fn(),
       stateStore,
       setStatus: vi.fn(),
@@ -24,6 +23,7 @@ describe("RestorationController", () => {
     });
 
     controller.restore({ threadId: "thread", title: "Title", explicitName: null });
+    controller.scheduleHydration(resumeThread);
 
     expect(controller.placeholder()).toMatchObject({ threadId: "thread", title: "Title" });
     expect(stateStore.getState().activeThread.id).toBe("thread");
@@ -34,11 +34,12 @@ describe("RestorationController", () => {
 
   it("shares an in-flight restore load", async () => {
     const resume = deferred<undefined>();
-    const controller = restoredThreadControllerFixture({ resumeThread: vi.fn(() => resume.promise) });
+    const loadThread = vi.fn(() => resume.promise);
+    const controller = restoredThreadControllerFixture();
     controller.restore({ threadId: "thread", title: null, explicitName: null });
 
-    const first = controller.ensureLoaded();
-    const second = controller.ensureLoaded();
+    const first = controller.ensureLoaded(loadThread);
+    const second = controller.ensureLoaded(loadThread);
     await Promise.resolve();
     expect(controller.placeholder()?.loading).toBe(resume.promise);
 
@@ -62,7 +63,6 @@ function restoredThreadControllerFixture(overrides: Partial<ConstructorParameter
   return new RestorationController({
     deferredTasks: createChatViewDeferredTasks(() => window),
     opened: () => false,
-    resumeThread: vi.fn().mockResolvedValue(undefined),
     invalidateResumeWork: vi.fn(),
     stateStore: createChatStateStore(createChatState()),
     setStatus: vi.fn(),
