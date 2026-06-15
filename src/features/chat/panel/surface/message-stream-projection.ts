@@ -106,7 +106,7 @@ export function messageStreamSurfaceProjectionFromState(
   state: ChatPanelMessageStreamShellState,
   context: ChatMessageStreamSurfaceContext,
 ): MessageStreamSurfaceProjection {
-  const projection = messageStreamStateProjection(state, context.vaultPath);
+  const projection = messageStreamStateProjection(state, context);
   return {
     blocks: projection.viewBlocks,
     context: messageStreamContextFromProjection(projection, context),
@@ -154,12 +154,15 @@ function messageStreamContextFromProjection(
   };
 }
 
-function messageStreamStateProjection(state: ChatPanelMessageStreamShellState, vaultPath: string): MessageStreamStateProjection {
+function messageStreamStateProjection(
+  state: ChatPanelMessageStreamShellState,
+  context: ChatMessageStreamSurfaceContext,
+): MessageStreamStateProjection {
   const busy = chatTurnBusy(state);
   const items = messageStreamItems(state.messageStream);
   const stableItems = messageStreamStableItems(state.messageStream);
   const activeItems = messageStreamActiveItems(state.messageStream);
-  const workspaceRoot = state.activeThread.cwd ?? vaultPath;
+  const workspaceRoot = state.activeThread.cwd ?? context.vaultPath;
   const rollbackCandidate = busy ? null : messageStreamRollbackCandidate(state.messageStream);
   const forkCandidates = busy ? [] : forkCandidatesFromItems(items);
   const implementPlanCandidate = implementPlanCandidateFromState(state);
@@ -190,6 +193,22 @@ function messageStreamStateProjection(state: ChatPanelMessageStreamShellState, v
       activeItems,
       workspaceRoot,
       turnDiffs: state.messageStream.turnDiffs,
+      pendingRequests: messageStreamBlockItemsEmpty(stableItems, activeItems) ? null : pendingRequestBlockFromContext(context),
     }),
   };
+}
+
+function pendingRequestBlockFromContext(
+  context: ChatMessageStreamSurfaceContext,
+): { signature: string; snapshot: ReturnType<typeof pendingRequestBlockSnapshotFromState> } | null {
+  const signature = context.requests.pendingSignature();
+  if (!signature) return null;
+  return {
+    signature,
+    snapshot: pendingRequestBlockSnapshotFromState(context.requests.pendingSnapshot()),
+  };
+}
+
+function messageStreamBlockItemsEmpty(stableItems: readonly MessageStreamItem[], activeItems: readonly MessageStreamItem[]): boolean {
+  return stableItems.length === 0 && activeItems.length === 0;
 }

@@ -1,7 +1,6 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 
 import {
-  messageStreamViewHasEmptyBlock,
   type MessageStreamActivityItemView,
   type MessageStreamRenderedItemView,
   type MessageStreamViewBlock,
@@ -9,7 +8,7 @@ import {
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { toolResultNode } from "./tool-result";
 import { agentRunSummaryNode, workItemNode } from "./work-items";
-import type { MessageStreamBlock, MessageStreamContext } from "./context";
+import type { MessageStreamBlock, MessageStreamContext, PendingRequestBlockContext } from "./context";
 import { textItemNode } from "./text-item";
 
 function streamItemNode(item: MessageStreamRenderedItemView, context: MessageStreamContext): UiNode {
@@ -19,26 +18,7 @@ function streamItemNode(item: MessageStreamRenderedItemView, context: MessageStr
 }
 
 export function messageStreamBlocks(viewBlocks: readonly MessageStreamViewBlock[], context: MessageStreamContext): MessageStreamBlock[] {
-  const blocks = viewBlocks.map((block) => presentationBlockNode(block, context));
-
-  if (!messageStreamViewHasEmptyBlock(viewBlocks) && context.pendingRequests?.signature) {
-    const snapshot = context.pendingRequests.snapshot();
-    blocks.push({
-      key: "pending-requests",
-      node: pendingRequestBlockNode(
-        snapshot.approvals,
-        snapshot.pendingUserInputs,
-        snapshot.userInputDrafts,
-        snapshot.approvalDetails,
-        context.pendingRequests.actions(),
-        false,
-        context.pendingRequests.consumeAutoFocus,
-        context.pendingRequests.signature,
-      ),
-    });
-  }
-
-  return blocks;
+  return viewBlocks.map((block) => presentationBlockNode(block, context));
 }
 
 function presentationBlockNode(block: MessageStreamViewBlock, context: MessageStreamContext): MessageStreamBlock {
@@ -63,7 +43,28 @@ function presentationBlockNode(block: MessageStreamViewBlock, context: MessageSt
   if (block.kind === "liveAgentSummary") {
     return { key: block.key, node: agentRunSummaryNode(block.view) };
   }
+  if (block.kind === "pendingRequests") {
+    const pendingRequests = pendingRequestContext(context);
+    return {
+      key: block.key,
+      node: pendingRequestBlockNode(
+        block.snapshot.approvals,
+        block.snapshot.pendingUserInputs,
+        block.snapshot.userInputDrafts,
+        block.snapshot.approvalDetails,
+        pendingRequests.actions(),
+        false,
+        pendingRequests.consumeAutoFocus,
+        block.signature,
+      ),
+    };
+  }
   return { key: block.key, node: streamItemNode(block, context) };
+}
+
+function pendingRequestContext(context: MessageStreamContext): PendingRequestBlockContext {
+  if (!context.pendingRequests) throw new Error("Expected pending request context for pending request block.");
+  return context.pendingRequests;
 }
 
 function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolean; loadOlderTurns: () => void }): UiNode {

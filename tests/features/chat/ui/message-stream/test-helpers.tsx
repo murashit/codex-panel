@@ -12,6 +12,7 @@ import type {
   MessageStreamDisclosureState,
   MessageStreamTurnLifecycleState,
   PendingRequestBlockActions,
+  PendingRequestBlockContext,
 } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
@@ -32,10 +33,29 @@ export function messageStreamBlocks(
     activeItems: context.activeItems,
     workspaceRoot: normalized.workspaceRoot,
     turnDiffs: context.turnDiffs,
+    pendingRequests: pendingRequestBlockInput(context),
   });
   const blocks = rawMessageStreamBlocks(viewBlocks, normalized);
   if (blocks.length === 0) throw new Error("Expected at least one message stream block.");
   return blocks as [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>];
+}
+
+function pendingRequestBlockInput(
+  context: TestMessageStreamContext,
+): { signature: string; snapshot: ReturnType<PendingRequestBlockContext["snapshot"]> } | null {
+  if (messageStreamBlockItemsEmpty(context)) return null;
+  const pendingRequests = context.pendingRequests;
+  const signature = pendingRequests?.signature;
+  if (!signature) return null;
+  return {
+    signature,
+    snapshot: pendingRequests.snapshot(),
+  };
+}
+
+function messageStreamBlockItemsEmpty(context: TestMessageStreamContext): boolean {
+  if (!context.stableItems && !context.activeItems) return context.items.length === 0;
+  return (context.stableItems?.length ?? 0) === 0 && (context.activeItems?.length ?? 0) === 0;
 }
 
 type TestMessageStreamContext = Omit<MessageStreamContext, "disclosures" | "forkActionsItemId"> &

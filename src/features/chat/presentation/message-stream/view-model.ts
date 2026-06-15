@@ -17,6 +17,12 @@ import {
   type MessageStreamWorkView,
   type WorkMessageStreamItem,
 } from "./work-view";
+import type { PendingRequestBlockSnapshot } from "../pending-requests/snapshot";
+
+interface PendingRequestMessageStreamBlockInput {
+  signature: string;
+  snapshot: PendingRequestBlockSnapshot;
+}
 
 export interface MessageStreamPresentationBlockInput {
   activeThreadId: string | null;
@@ -28,6 +34,7 @@ export interface MessageStreamPresentationBlockInput {
   activeItems?: readonly MessageStreamItem[] | undefined;
   workspaceRoot?: string | null | undefined;
   turnDiffs?: ReadonlyMap<string, string> | undefined;
+  pendingRequests?: PendingRequestMessageStreamBlockInput | null | undefined;
 }
 
 type MessageStreamPresentationBlock =
@@ -59,6 +66,12 @@ type MessageStreamPresentationBlock =
       kind: "liveAgentSummary";
       key: string;
       summary: AgentRunSummary;
+    }
+  | {
+      kind: "pendingRequests";
+      key: "pending-requests";
+      signature: string;
+      snapshot: PendingRequestBlockSnapshot;
     };
 
 export type MessageStreamRenderedItemView =
@@ -113,14 +126,16 @@ export type MessageStreamViewBlock =
       kind: "liveAgentSummary";
       key: string;
       view: AgentRunSummaryView;
+    }
+  | {
+      kind: "pendingRequests";
+      key: "pending-requests";
+      signature: string;
+      snapshot: PendingRequestBlockSnapshot;
     };
 
 export function messageStreamViewBlocks(input: MessageStreamPresentationBlockInput): MessageStreamViewBlock[] {
   return messageStreamPresentationBlocks(input).map((block) => messageStreamViewBlockFromPresentationBlock(block, input));
-}
-
-export function messageStreamViewHasEmptyBlock(blocks: readonly MessageStreamViewBlock[]): boolean {
-  return blocks.some((block) => block.kind === "empty");
 }
 
 function messageStreamPresentationBlocks(input: MessageStreamPresentationBlockInput): MessageStreamPresentationBlock[] {
@@ -144,6 +159,14 @@ function messageStreamPresentationBlocks(input: MessageStreamPresentationBlockIn
   }
 
   if (input.activeTurnId) blocks.push(...activeTurnLiveBlocks(input, input.activeTurnId));
+  if (input.pendingRequests?.signature) {
+    blocks.push({
+      kind: "pendingRequests",
+      key: "pending-requests",
+      signature: input.pendingRequests.signature,
+      snapshot: input.pendingRequests.snapshot,
+    });
+  }
 
   return blocks;
 }
@@ -217,6 +240,7 @@ function messageStreamViewBlockFromPresentationBlock(
   input: MessageStreamPresentationBlockInput,
 ): MessageStreamViewBlock {
   if (block.kind === "historyBar" || block.kind === "empty") return block;
+  if (block.kind === "pendingRequests") return block;
   if (block.kind === "liveAgentSummary") return { kind: "liveAgentSummary", key: block.key, view: agentRunSummaryView(block.summary) };
   if (block.kind === "liveTask") {
     return { kind: "work", key: block.key, view: messageStreamWorkView(block.item, workViewContext(input)) };
