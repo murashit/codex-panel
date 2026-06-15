@@ -16,7 +16,7 @@ import { mcpStatusLines as buildMcpStatusLines } from "../../application/connect
 import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";
 
 interface RefreshDiagnosticProbesOptions {
-  cachedAppServerMetadata?: boolean;
+  appServerMetadataSnapshot?: boolean;
 }
 
 interface DiagnosticProbeSnapshot {
@@ -26,7 +26,7 @@ interface DiagnosticProbeSnapshot {
 }
 
 export interface ChatServerDiagnosticsActionsHost extends ChatServerActionHost {
-  publishAppServerMetadata: (metadata: SharedServerMetadata) => void;
+  setAppServerMetadata: (metadata: SharedServerMetadata) => void;
   serverMetadataSnapshot: () => SharedServerMetadata;
 }
 
@@ -58,7 +58,7 @@ async function refreshDiagnosticProbes(
   if (!client) return false;
 
   const probes: Promise<DiagnosticProbeSnapshot>[] = [];
-  if (!options.cachedAppServerMetadata) {
+  if (!options.appServerMetadataSnapshot) {
     probes.push(
       probeDiagnostic(
         "model/list",
@@ -139,7 +139,7 @@ async function refreshPublishedDiagnosticProbes(
   options: RefreshDiagnosticProbesOptions = {},
 ): Promise<void> {
   if (!(await refreshDiagnosticProbes(host, options))) return;
-  host.publishAppServerMetadata(host.serverMetadataSnapshot());
+  host.setAppServerMetadata(host.serverMetadataSnapshot());
 }
 
 async function mcpStatusLines(host: ChatServerDiagnosticsActionsHost): Promise<string[]> {

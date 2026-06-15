@@ -89,7 +89,7 @@ export class ChatConnectionController {
     handleChatConnectionExit(this.host);
   }
 
-  async refreshThreads(): Promise<void> {
+  async fetchActiveThreads(): Promise<void> {
     if (!this.host.connection.currentClient()) return;
     try {
       await this.host.loadSharedThreadList();
@@ -114,7 +114,7 @@ export class ChatConnectionController {
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
-    await this.refreshThreads();
+    await this.fetchActiveThreads();
   }
 
   async refreshSkills(forceReload = false): Promise<void> {

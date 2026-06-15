@@ -419,8 +419,8 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     );
     const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
 
-    const first = threadCatalog(plugin).refreshThreads(fetchThreads);
-    const second = threadCatalog(plugin).refreshThreads(secondFetch);
+    const first = threadCatalog(plugin).fetchActiveThreads(fetchThreads);
+    const second = threadCatalog(plugin).fetchActiveThreads(secondFetch);
 
     expect(fetchThreads).toHaveBeenCalledOnce();
     expect(secondFetch).not.toHaveBeenCalled();
@@ -428,7 +428,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     await expect(first).resolves.toEqual([thread("first")]);
     await expect(second).resolves.toEqual([thread("first")]);
-    expect(threadCatalog(plugin).cachedThreads()).toEqual([thread("first")]);
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("first")]);
   });
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
@@ -443,29 +443,29 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     );
     const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
 
-    const first = threadCatalog(plugin).refreshThreads(firstFetch);
+    const first = threadCatalog(plugin).fetchActiveThreads(firstFetch);
     plugin.settings.codexPath = "codex-b";
-    const second = threadCatalog(plugin).refreshThreads(secondFetch);
+    const second = threadCatalog(plugin).fetchActiveThreads(secondFetch);
 
     expect(firstFetch).toHaveBeenCalledOnce();
     expect(secondFetch).toHaveBeenCalledOnce();
     await expect(second).resolves.toEqual([thread("second")]);
-    expect(threadCatalog(plugin).cachedThreads()).toEqual([thread("second")]);
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
 
     resolveFirst([thread("first")]);
     await expect(first).resolves.toEqual([thread("first")]);
-    expect(threadCatalog(plugin).cachedThreads()).toEqual([thread("second")]);
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
     plugin.settings.codexPath = "codex-a";
-    expect(threadCatalog(plugin).cachedThreads()).toBeNull();
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("first")]);
   });
 
   it("keeps the previous shared thread list when refresh fails", async () => {
     const plugin = await pluginWithLeaves([]);
-    await threadCatalog(plugin).refreshThreads(() => Promise.resolve([thread("cached")]));
+    await threadCatalog(plugin).fetchActiveThreads(() => Promise.resolve([thread("cached")]));
 
-    await expect(threadCatalog(plugin).refreshThreads(() => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
+    await expect(threadCatalog(plugin).fetchActiveThreads(() => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
 
-    expect(threadCatalog(plugin).cachedThreads()).toEqual([thread("cached")]);
+    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("cached")]);
   });
 
   it("refreshes shared thread lists from a connected chat panel", async () => {
@@ -606,11 +606,15 @@ function chatHostFixture(): CodexChatHost {
       renameThreadInCatalog: vi.fn(),
       refreshFromOpenSurface: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
-      applyThreads: vi.fn(),
-      publishAppServerMetadata: vi.fn(),
-      refreshThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
-      cachedThreads: vi.fn(() => null),
-      cachedAppServerMetadata: vi.fn(() => null),
+      setActiveThreads: vi.fn(),
+      setAppServerMetadata: vi.fn(),
+      fetchActiveThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
+      activeThreadsSnapshot: vi.fn(() => null),
+      appServerMetadataSnapshot: vi.fn(() => null),
+      modelsSnapshot: vi.fn(() => null),
+      observeActiveThreads: vi.fn(() => () => undefined),
+      observeAppServerMetadata: vi.fn(() => () => undefined),
+      observeModels: vi.fn(() => () => undefined),
     },
   };
 }

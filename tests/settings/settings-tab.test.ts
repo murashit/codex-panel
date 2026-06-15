@@ -195,6 +195,8 @@ describe("settings tab", () => {
 
   it("clears dynamic settings data when the Codex executable changes", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const notifyAppServerQueryContextChanged = vi.fn();
+    const refreshOpenViews = vi.fn();
     const oldClient = settingsClient({
       models: [model("gpt-old")],
       hooks: [hook({ key: "hook-old", command: "old hook", currentHash: "oldhash" })],
@@ -208,7 +210,7 @@ describe("settings tab", () => {
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(oldClient))
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(newClient));
-    const tab = newSettingsTab({ saveSettings });
+    const tab = newSettingsTab({ saveSettings, notifyAppServerQueryContextChanged, refreshOpenViews });
 
     tab.display();
     await flushPromises();
@@ -223,6 +225,8 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
+    expect(notifyAppServerQueryContextChanged).toHaveBeenCalledOnce();
+    expect(refreshOpenViews).toHaveBeenCalledOnce();
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
     expect(tab.containerEl.textContent).not.toContain("Old archived");
@@ -234,6 +238,21 @@ describe("settings tab", () => {
     expect(withShortLivedAppServerClientMock.mock.calls[1]?.[0]).toBe("/opt/codex");
     expect(tab.containerEl.textContent).toContain("gpt-new");
     expect(tab.containerEl.textContent).toContain("New archived");
+  });
+
+  it("unsubscribes model updates when the settings tab is hidden", () => {
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(settingsClient()),
+    );
+    const unsubscribe = vi.fn();
+    const observeModels = vi.fn(() => unsubscribe);
+    const tab = newSettingsTab({ observeModels });
+
+    tab.hide();
+    tab.display();
+
+    expect(observeModels).toHaveBeenCalledTimes(2);
+    expect(unsubscribe).toHaveBeenCalledOnce();
   });
 
   it("ignores stale settings data refresh results after a newer refresh completes", async () => {
@@ -358,12 +377,12 @@ describe("settings tab", () => {
   });
 
   it("uses cached models initially and publishes refreshed models", async () => {
-    const publishModels = vi.fn();
+    const setModels = vi.fn();
     const client = settingsClient({ models: [model("gpt-5.5")] });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab({ cachedModels: modelMetadataFromCatalogModels([model("gpt-cached")]), publishModels });
+    const tab = newSettingsTab({ modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]), setModels });
 
     tab.display();
 
@@ -371,13 +390,40 @@ describe("settings tab", () => {
 
     await flushPromises();
 
-    expect(publishModels).toHaveBeenCalledWith(modelMetadataFromCatalogModels([model("gpt-5.5")]));
+    expect(setModels).toHaveBeenCalledWith(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
+  });
+
+  it("replaces stale cached model options with an empty successful refresh while preserving saved values", async () => {
+    const setModels = vi.fn();
+    const client = settingsClient({ models: [] });
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
+    );
+    const tab = newSettingsTab({
+      modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]),
+      setModels,
+      settings: {
+        threadNamingModel: "gpt-saved",
+        rewriteSelectionModel: "gpt-cached",
+      },
+    });
+
+    tab.display();
+
+    expect(selectOptions(tab, "Automatic thread naming")).toEqual(["Codex default", "gpt-saved (saved)", "gpt-cached"]);
+    expect(selectOptions(tab, "Selection rewrite")).toEqual(["Codex default", "gpt-cached"]);
+
+    await flushPromises();
+
+    expect(setModels).toHaveBeenCalledWith([]);
+    expect(selectOptions(tab, "Automatic thread naming")).toEqual(["Codex default", "gpt-saved (saved)"]);
+    expect(selectOptions(tab, "Selection rewrite")).toEqual(["Codex default", "gpt-cached (saved)"]);
   });
 
   it("uses model-provided reasoning efforts in helper settings while preserving saved unknown values", async () => {
     const tab = newSettingsTab({
-      cachedModels: modelMetadataFromCatalogModels([model("gpt-5.5", false, false, ["extreme"])]),
+      modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-5.5", false, false, ["extreme"])]),
       settings: {
         threadNamingModel: "gpt-5.5",
         threadNamingEffort: "saved-custom-effort",
@@ -548,8 +594,10 @@ function newSettingsTab(
   options: {
     saveSettings?: () => Promise<void>;
     sendShortcut?: "enter" | "mod-enter";
-    cachedModels?: ModelMetadata[];
-    publishModels?: (models: ModelMetadata[]) => void;
+    modelsSnapshot?: ModelMetadata[];
+    setModels?: (models: ModelMetadata[]) => void;
+    observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModels"];
+    notifyAppServerQueryContextChanged?: () => void;
     refreshOpenViews?: () => void;
     refreshFromOpenSurface?: () => void;
     settings?: Partial<{
@@ -567,8 +615,10 @@ function settingsTabHost(
   options: {
     saveSettings?: () => Promise<void>;
     sendShortcut?: "enter" | "mod-enter";
-    cachedModels?: ModelMetadata[];
-    publishModels?: (models: ModelMetadata[]) => void;
+    modelsSnapshot?: ModelMetadata[];
+    setModels?: (models: ModelMetadata[]) => void;
+    observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModels"];
+    notifyAppServerQueryContextChanged?: () => void;
     refreshOpenViews?: () => void;
     refreshFromOpenSurface?: () => void;
     settings?: Partial<{
@@ -599,8 +649,10 @@ function settingsTabHost(
     refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
     threadCatalog: {
       refreshFromOpenSurface: options.refreshFromOpenSurface ?? vi.fn(),
-      cachedModels: vi.fn(() => options.cachedModels ?? []),
-      publishModels: options.publishModels ?? vi.fn(),
+      modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
+      setModels: options.setModels ?? vi.fn(),
+      observeModels: options.observeModels ?? vi.fn(() => () => undefined),
+      notifyAppServerQueryContextChanged: options.notifyAppServerQueryContextChanged ?? vi.fn(),
     },
   };
 }

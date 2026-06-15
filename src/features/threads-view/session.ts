@@ -41,7 +41,12 @@ export interface CodexThreadsHost {
 
 type ThreadsThreadCatalog = Pick<
   SharedThreadCatalog,
-  "archiveThreadInCatalog" | "renameThreadInCatalog" | "refreshFromOpenSurface" | "refreshThreads" | "cachedThreads"
+  | "archiveThreadInCatalog"
+  | "renameThreadInCatalog"
+  | "refreshFromOpenSurface"
+  | "fetchActiveThreads"
+  | "activeThreadsSnapshot"
+  | "observeActiveThreads"
 >;
 
 export interface CodexThreadsSessionEnvironment {
@@ -70,6 +75,7 @@ export class CodexThreadsSession {
   private status: ThreadsViewStatus = { kind: "idle" };
   private threads: readonly Thread[] = [];
   private readonly renameStates = new Map<string, ThreadsRenameState>();
+  private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
 
   constructor(private readonly environment: CodexThreadsSessionEnvironment) {
@@ -125,10 +131,13 @@ export class CodexThreadsSession {
     this.environment.registerPointerDown((event) => {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
-    const cachedThreads = this.host.threadCatalog.cachedThreads();
-    if (cachedThreads) {
-      this.threads = cachedThreads;
+    const activeThreadsSnapshot = this.host.threadCatalog.activeThreadsSnapshot();
+    if (activeThreadsSnapshot) {
+      this.threads = activeThreadsSnapshot;
     }
+    this.unsubscribeThreads = this.host.threadCatalog.observeActiveThreads((threads) => {
+      this.receiveObservedThreads(threads);
+    });
     this.render();
     void this.refresh();
   }
@@ -137,6 +146,8 @@ export class CodexThreadsSession {
     this.connectionWork.invalidate();
     this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
     this.deferredTasks.clearAll();
+    this.unsubscribeThreads?.();
+    this.unsubscribeThreads = null;
     this.connection.disconnect();
     this.client = null;
     unmountThreadsView(this.environment.root);
@@ -149,7 +160,7 @@ export class CodexThreadsSession {
     try {
       await this.ensureConnected();
       if (this.isStaleRefresh(refresh) || !this.client) return;
-      const threads = await this.host.threadCatalog.refreshThreads(async () => {
+      const threads = await this.host.threadCatalog.fetchActiveThreads(async () => {
         if (!this.client) return [];
         return listThreads(this.client, this.host.vaultPath);
       });
@@ -168,7 +179,7 @@ export class CodexThreadsSession {
     this.scheduleRender();
   }
 
-  applyThreadListSnapshot(threads: readonly Thread[]): void {
+  private receiveObservedThreads(threads: readonly Thread[]): void {
     this.threads = threads;
     this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     this.render();

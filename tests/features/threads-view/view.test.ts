@@ -237,20 +237,20 @@ describe("CodexThreadsView", () => {
 
   it("refreshes thread lists through the plugin coordinator", async () => {
     const threads = [threadFixture({ id: "thread", preview: "Thread preview" })];
-    const refreshThreads = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
+    const fetchActiveThreads = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
     connectionMock.state.client = clientFixture({
       listThreads: vi.fn().mockResolvedValue({ data: threads }),
     });
     const host = threadsHost({
       threadCatalog: {
-        refreshThreads,
+        fetchActiveThreads,
       },
     });
     const view = await threadsView(host);
 
     await view.refresh();
 
-    expect(refreshThreads).toHaveBeenCalledOnce();
+    expect(fetchActiveThreads).toHaveBeenCalledOnce();
     expect(view.containerEl.textContent).toContain("Thread preview");
   });
 
@@ -266,7 +266,7 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          cachedThreads: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
+          activeThreadsSnapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
         },
       }),
     );
@@ -427,8 +427,9 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       archiveThreadInCatalog: vi.fn(),
       renameThreadInCatalog: vi.fn(),
       refreshFromOpenSurface: vi.fn(),
-      refreshThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
-      cachedThreads: vi.fn(() => null),
+      fetchActiveThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
+      activeThreadsSnapshot: vi.fn(() => null),
+      observeActiveThreads: vi.fn(() => () => undefined),
       ...threadCatalogOverrides,
     },
     ...hostOverrides,

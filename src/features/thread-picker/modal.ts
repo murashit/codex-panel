@@ -17,7 +17,7 @@ export interface ThreadPickerHost {
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
 
-type ThreadPickerCatalog = Pick<SharedThreadCatalog, "cachedThreads" | "refreshThreads">;
+type ThreadPickerCatalog = Pick<SharedThreadCatalog, "activeThreadsSnapshot" | "fetchActiveThreads">;
 
 interface ThreadSuggestion {
   thread: Thread;
@@ -78,14 +78,14 @@ function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMod
 }
 
 async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly Thread[]> {
-  const cached = host.threadCatalog.cachedThreads();
+  const cached = host.threadCatalog.activeThreadsSnapshot();
   if (cached) return cached;
 
   return withShortLivedAppServerClient(
     host.settings.codexPath,
     host.vaultPath,
     async (client) =>
-      host.threadCatalog.refreshThreads(async () => {
+      host.threadCatalog.fetchActiveThreads(async () => {
         return listThreads(client, host.vaultPath);
       }),
     {

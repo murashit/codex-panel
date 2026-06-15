@@ -24,7 +24,10 @@ export interface SettingsDynamicDataHost {
   threadCatalog: SettingsThreadCatalog;
 }
 
-type SettingsThreadCatalog = Pick<SharedThreadCatalog, "refreshFromOpenSurface" | "cachedModels" | "publishModels">;
+type SettingsThreadCatalog = Pick<
+  SharedThreadCatalog,
+  "refreshFromOpenSurface" | "modelsSnapshot" | "setModels" | "observeModels" | "notifyAppServerQueryContextChanged"
+>;
 
 interface SettingsDynamicDataControllerCallbacks {
   display(): void;
@@ -55,12 +58,25 @@ export class SettingsDynamicDataController {
   private hooksLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
   private models: ModelMetadata[] = [];
   private modelsLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
+  private unsubscribeModels: (() => void) | null = null;
 
   constructor(
     private readonly host: SettingsDynamicDataHost,
     private readonly callbacks: SettingsDynamicDataControllerCallbacks,
   ) {
-    this.models = [...(host.threadCatalog.cachedModels() ?? [])];
+    this.activate();
+  }
+
+  activate(): void {
+    if (this.unsubscribeModels) return;
+    this.models = [...(this.host.threadCatalog.modelsSnapshot() ?? [])];
+    this.unsubscribeModels = this.host.threadCatalog.observeModels(
+      (models) => {
+        this.models = [...models];
+        this.callbacks.display();
+      },
+      { emitCurrent: false },
+    );
   }
 
   maybeAutoLoadSettingsData(): void {
@@ -73,7 +89,7 @@ export class SettingsDynamicDataController {
     this.settingsDataAutoLoadStarted = false;
     this.settingsDynamicOperationId += 1;
     this.settingsDataRefreshLifecycle = { kind: "idle" };
-    this.models = [...(this.host.threadCatalog.cachedModels() ?? [])];
+    this.models = [...(this.host.threadCatalog.modelsSnapshot() ?? [])];
     this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
     this.hooks = [];
     this.hookWarnings = [];
@@ -81,6 +97,11 @@ export class SettingsDynamicDataController {
     this.hooksLifecycle = createSettingsDynamicSectionLifecycle();
     this.archivedThreads = [];
     this.archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
+  }
+
+  dispose(): void {
+    this.unsubscribeModels?.();
+    this.unsubscribeModels = null;
   }
 
   async refreshSettingsData(): Promise<void> {
@@ -114,7 +135,7 @@ export class SettingsDynamicDataController {
 
       if (result.models.ok) {
         this.models = result.models.data;
-        this.host.threadCatalog.publishModels(result.models.data);
+        this.host.threadCatalog.setModels(result.models.data);
         this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
           type: "loaded",
           status: result.models.status,

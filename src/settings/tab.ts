@@ -36,7 +36,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   display(): void {
+    this.dynamicData.activate();
     this.renderSettingsTab({ autoLoadCodexData: true });
+  }
+
+  override hide(): void {
+    this.dynamicData.dispose();
+    super.hide();
   }
 
   private renderSettingsTab(options: { autoLoadCodexData: boolean }): void {
@@ -68,6 +74,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             if (codexPathChanged) {
               this.dynamicData.resetSettingsDataContext();
+              this.plugin.threadCatalog.notifyAppServerQueryContextChanged();
+              this.plugin.refreshOpenViews();
               this.renderSettingsTab({ autoLoadCodexData: false });
             }
           });

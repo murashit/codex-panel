@@ -63,6 +63,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly messageScrollIntent: ChatMessageScrollIntentState = createChatMessageScrollIntentState();
   private readonly localItemIds: LocalChatItemIdFactory = createLocalChatItemIdFactory();
+  private readonly appServerStateUnsubscribers: (() => void)[] = [];
   private opened = false;
   private closing = false;
 
@@ -153,16 +154,16 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     return this.loadSharedThreadList();
   }
 
-  applyThreadListSnapshot(threads: readonly Thread[]): void {
+  private receiveObservedThreads(threads: readonly Thread[]): void {
     this.parts.serverActions.threads.applyThreadList(threads);
     this.refreshTabHeader();
   }
 
-  applyAppServerMetadataSnapshot(metadata: SharedServerMetadata): void {
+  private receiveObservedAppServerMetadata(metadata: SharedServerMetadata): void {
     this.parts.serverActions.metadata.applyAppServerMetadata(metadata);
   }
 
-  applyAvailableModelsSnapshot(models: readonly ModelMetadata[]): void {
+  private receiveObservedModels(models: readonly ModelMetadata[]): void {
     this.dispatch({ type: "connection/metadata-applied", availableModels: models });
   }
 
@@ -212,7 +213,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.environment.obsidian.registerPointerDown((event) => {
       this.closeToolbarPanelOnOutsidePointer(event);
     });
-    this.applyCachedAppServerState();
+    this.subscribeAppServerState();
     this.mountOrRepairShell();
     this.scheduleWarmup();
     this.scheduleRestoredThreadHydration();
@@ -224,6 +225,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.connectionWork.invalidate();
     this.invalidateResumeWork();
     this.deferredTasks.clearAll();
+    this.unsubscribeAppServerState();
     const panelRoot = this.environment.view.panelRoot();
     this.parts.render.messageStreamPresenter.dispose();
     this.parts.composer.controller.dispose();
@@ -251,10 +253,43 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private applyCachedAppServerState(): void {
-    const threads = this.environment.plugin.threadCatalog.cachedThreads();
+    const threads = this.environment.plugin.threadCatalog.activeThreadsSnapshot();
     if (threads) this.parts.serverActions.threads.applyThreadList(threads);
-    const metadata = this.environment.plugin.threadCatalog.cachedAppServerMetadata();
+    const metadata = this.environment.plugin.threadCatalog.appServerMetadataSnapshot();
     if (metadata) this.parts.serverActions.metadata.applyAppServerMetadata(metadata);
+    const models = this.environment.plugin.threadCatalog.modelsSnapshot();
+    if (models) this.receiveObservedModels(models);
+  }
+
+  private subscribeAppServerState(): void {
+    this.unsubscribeAppServerState();
+    this.applyCachedAppServerState();
+    this.appServerStateUnsubscribers.push(
+      this.environment.plugin.threadCatalog.observeActiveThreads(
+        (threads) => {
+          this.receiveObservedThreads(threads);
+        },
+        { emitCurrent: false },
+      ),
+      this.environment.plugin.threadCatalog.observeAppServerMetadata(
+        (metadata) => {
+          this.receiveObservedAppServerMetadata(metadata);
+        },
+        { emitCurrent: false },
+      ),
+      this.environment.plugin.threadCatalog.observeModels(
+        (models) => {
+          this.receiveObservedModels(models);
+        },
+        { emitCurrent: false },
+      ),
+    );
+  }
+
+  private unsubscribeAppServerState(): void {
+    while (this.appServerStateUnsubscribers.length > 0) {
+      this.appServerStateUnsubscribers.pop()?.();
+    }
   }
 
   private mountOrRepairShell(): void {
@@ -296,7 +331,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private async loadSharedThreadList(): Promise<void> {
-    const threads = await this.environment.plugin.threadCatalog.refreshThreads(() => this.parts.serverActions.threads.loadThreadList());
+    const threads = await this.environment.plugin.threadCatalog.fetchActiveThreads(() => this.parts.serverActions.threads.loadThreadList());
     this.parts.serverActions.threads.applyThreadList(threads);
   }
 

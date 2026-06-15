@@ -1,8 +1,8 @@
 import type { App } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
-import { SharedAppServerCache } from "./app-server/services/shared-cache";
-import type { SharedAppServerCacheContext } from "./app-server/services/shared-cache-state";
+import { AppServerQueryCache } from "./app-server/query/cache";
+import type { AppServerQueryContext } from "./app-server/query/keys";
 import type { CodexChatHost, PluginSettingsRef } from "./features/chat/application/ports/chat-host";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
@@ -21,7 +21,7 @@ export interface CodexPanelRuntimeOptions {
 }
 
 export class CodexPanelRuntime {
-  private readonly sharedAppServerCache = new SharedAppServerCache();
+  private readonly appServerQueries = new AppServerQueryCache();
   readonly panels: WorkspacePanelCoordinator;
   private readonly threadSurfaces: ThreadSurfaceActions;
   readonly threadCatalog: SharedThreadCatalog;
@@ -38,14 +38,15 @@ export class CodexPanelRuntime {
       panels: this.panels,
     });
     this.threadCatalog = new SharedThreadCatalog({
-      cache: this.sharedAppServerCache,
+      cache: this.appServerQueries,
       surfaces: this.threadSurfaces,
-      context: () => this.sharedAppServerCacheContext(),
+      context: () => this.appServerQueryContext(),
     });
   }
 
   reset(): void {
     this.panels.reset();
+    this.appServerQueries.clear();
   }
 
   recordLastFocusedPanel(leaf: Parameters<WorkspacePanelCoordinator["recordLastFocusedPanel"]>[0]): void {
@@ -144,7 +145,7 @@ export class CodexPanelRuntime {
     await this.options.app.workspace.revealLeaf(leaf);
   }
 
-  private sharedAppServerCacheContext(): SharedAppServerCacheContext {
+  private appServerQueryContext(): AppServerQueryContext {
     return {
       codexPath: this.options.settingsRef.settings.codexPath,
       vaultPath: this.options.settingsRef.vaultPath,

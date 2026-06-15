@@ -1,7 +1,6 @@
 import { ItemView, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
-import type { Thread } from "../../domain/threads/model";
 import { CodexThreadsSession, type CodexThreadsHost } from "./session";
 
 export type { CodexThreadsHost } from "./session";
@@ -48,9 +47,5 @@ export class CodexThreadsView extends ItemView {
 
   refreshLiveState(): void {
     this.session.refreshLiveState();
-  }
-
-  applyThreadListSnapshot(threads: readonly Thread[]): void {
-    this.session.applyThreadListSnapshot(threads);
   }
 }

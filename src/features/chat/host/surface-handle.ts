@@ -1,6 +1,3 @@
-import type { ModelMetadata } from "../../../domain/catalog/metadata";
-import type { SharedServerMetadata } from "../../../domain/server/metadata";
-import type { Thread } from "../../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 
 export interface ChatSurfaceHandle {
@@ -11,9 +8,6 @@ export interface ChatSurfaceHandle {
   close(): void;
   refreshSettings(): void;
   refreshSharedThreadList(): Promise<void>;
-  applyThreadListSnapshot(threads: readonly Thread[]): void;
-  applyAppServerMetadataSnapshot(metadata: SharedServerMetadata): void;
-  applyAvailableModelsSnapshot(models: readonly ModelMetadata[]): void;
   openPanelSnapshot(): OpenCodexPanelSnapshot;
   openThread(threadId: string): Promise<void>;
   focusThread(threadId?: string | null): Promise<void>;

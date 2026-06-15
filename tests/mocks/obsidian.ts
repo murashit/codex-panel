@@ -253,6 +253,10 @@ export class PluginSettingTab {
   display(): void {
     // Test mock placeholder.
   }
+
+  hide(): void {
+    this.containerEl.empty();
+  }
 }
 
 export class Setting {

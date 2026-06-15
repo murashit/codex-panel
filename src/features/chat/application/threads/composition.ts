@@ -29,7 +29,7 @@ interface ThreadPartsContext {
     getClosing: () => boolean;
   };
   thread: {
-    refreshThreads: () => Promise<void>;
+    fetchActiveThreads: () => Promise<void>;
     notifyIdentityChanged: () => void;
     refreshTabHeader: () => void;
   };
@@ -114,7 +114,7 @@ export function createThreadParts(context: ThreadPartsContext) {
         thread.notifyIdentityChanged();
       },
       refreshAfterThreadMutation: async () => {
-        await thread.refreshThreads();
+        await thread.fetchActiveThreads();
         threadCatalog.refreshFromOpenSurface();
       },
     };

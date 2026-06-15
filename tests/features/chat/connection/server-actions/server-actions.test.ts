@@ -258,13 +258,13 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      publishAppServerMetadata: () => undefined,
+      setAppServerMetadata: () => undefined,
     });
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      publishAppServerMetadata: () => undefined,
+      setAppServerMetadata: () => undefined,
       serverMetadataSnapshot: () => metadata.serverMetadataSnapshot(),
     });
 
@@ -273,7 +273,7 @@ describe("chat server actions", () => {
     listSkills.mockClear();
     readAccountRateLimits.mockClear();
 
-    await diagnostics.refreshDiagnosticProbes({ cachedAppServerMetadata: true });
+    await diagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
 
     expect(listModels).not.toHaveBeenCalled();
     expect(listSkills).not.toHaveBeenCalled();
@@ -305,22 +305,22 @@ describe("chat server actions", () => {
     } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const publishAppServerMetadata = vi.fn();
+    const setAppServerMetadata = vi.fn();
     const metadata = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      publishAppServerMetadata: () => undefined,
+      setAppServerMetadata: () => undefined,
     });
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      publishAppServerMetadata,
+      setAppServerMetadata,
       serverMetadataSnapshot: () => metadata.serverMetadataSnapshot(),
     });
 
-    const refreshing = diagnostics.refreshPublishedDiagnosticProbes({ cachedAppServerMetadata: true });
+    const refreshing = diagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
     currentClient = secondClient;
     hooksRefresh.resolve({ data: [{ cwd: "/vault", hooks: [{}] }] });
 
@@ -329,7 +329,7 @@ describe("chat server actions", () => {
     expect(stateStore.getState().connection.serverDiagnostics.probes["hooks/list"].status).toBe("unknown");
     expect(stateStore.getState().connection.serverDiagnostics.probes["mcpServerStatus/list"].status).toBe("unknown");
     expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([]);
-    expect(publishAppServerMetadata).not.toHaveBeenCalled();
+    expect(setAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("loads one app-server metadata snapshot from the initially captured client", async () => {
@@ -357,7 +357,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      publishAppServerMetadata: () => undefined,
+      setAppServerMetadata: () => undefined,
     });
 
     const loading = controller.loadAppServerMetadata();
@@ -387,12 +387,12 @@ describe("chat server actions", () => {
     } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const publishAppServerMetadata = vi.fn();
+    const setAppServerMetadata = vi.fn();
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      publishAppServerMetadata,
+      setAppServerMetadata,
     });
 
     const refreshing = controller.refreshPublishedAppServerMetadata();
@@ -402,7 +402,7 @@ describe("chat server actions", () => {
     await expect(refreshing).resolves.toBeNull();
     expect(stateStore.getState().connection.availableModels).toEqual([]);
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
-    expect(publishAppServerMetadata).not.toHaveBeenCalled();
+    expect(setAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("does not apply refreshed models after the client changes", async () => {
@@ -416,7 +416,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      publishAppServerMetadata: () => undefined,
+      setAppServerMetadata: () => undefined,
     });
 
     const refreshing = controller.refreshModels();
@@ -436,12 +436,12 @@ describe("chat server actions", () => {
     const firstClient = { listSkills } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const publishAppServerMetadata = vi.fn();
+    const setAppServerMetadata = vi.fn();
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      publishAppServerMetadata,
+      setAppServerMetadata,
     });
 
     const refreshing = controller.refreshPublishedSkills(true);
@@ -452,14 +452,14 @@ describe("chat server actions", () => {
     expect(listSkills).toHaveBeenCalledWith("/vault", true);
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
     expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"].status).toBe("unknown");
-    expect(publishAppServerMetadata).not.toHaveBeenCalled();
+    expect(setAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("publishes refreshed rate limits from sparse update notifications", async () => {
     const state = createChatState();
     const stateStore = createChatStateStore(state);
     const rateLimit = rateLimitFixture({ primary: { usedPercent: 64, windowDurationMins: 300, resetsAt: null } });
-    const publishAppServerMetadata = vi.fn();
+    const setAppServerMetadata = vi.fn();
     const client = {
       readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
     } as unknown as AppServerClient;
@@ -467,13 +467,13 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      publishAppServerMetadata,
+      setAppServerMetadata,
     });
 
     await controller.refreshPublishedRateLimits();
 
     expect(stateStore.getState().connection.rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
-    expect(publishAppServerMetadata).toHaveBeenCalledWith(expect.objectContaining({ rateLimit }));
+    expect(setAppServerMetadata).toHaveBeenCalledWith(expect.objectContaining({ rateLimit }));
   });
 
   it("keeps the previous rate limit snapshot when sparse update refresh fails", async () => {
@@ -484,7 +484,7 @@ describe("chat server actions", () => {
     });
     state.connection.rateLimit = previousRateLimit;
     const stateStore = createChatStateStore(state);
-    const publishAppServerMetadata = vi.fn();
+    const setAppServerMetadata = vi.fn();
     const client = {
       readAccountRateLimits: vi.fn().mockRejectedValue(new Error("offline")),
     } as unknown as AppServerClient;
@@ -492,14 +492,14 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      publishAppServerMetadata,
+      setAppServerMetadata,
     });
 
     await controller.refreshPublishedRateLimits();
 
     expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
     expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
-    expect(publishAppServerMetadata).not.toHaveBeenCalled();
+    expect(setAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("does not apply or publish sparse rate limit refreshes after the client changes", async () => {
@@ -510,12 +510,12 @@ describe("chat server actions", () => {
     } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const publishAppServerMetadata = vi.fn();
+    const setAppServerMetadata = vi.fn();
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      publishAppServerMetadata,
+      setAppServerMetadata,
     });
 
     const refreshing = controller.refreshPublishedRateLimits();
@@ -528,7 +528,7 @@ describe("chat server actions", () => {
     await refreshing;
     expect(stateStore.getState().connection.rateLimit).toBeNull();
     expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("unknown");
-    expect(publishAppServerMetadata).not.toHaveBeenCalled();
+    expect(setAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("loads MCP status lines with cached startup diagnostics", async () => {
@@ -543,13 +543,13 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      publishAppServerMetadata: () => undefined,
+      setAppServerMetadata: () => undefined,
     });
     const controller = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      publishAppServerMetadata: () => undefined,
+      setAppServerMetadata: () => undefined,
       serverMetadataSnapshot: () => metadata.serverMetadataSnapshot(),
     });
 

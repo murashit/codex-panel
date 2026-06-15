@@ -44,7 +44,7 @@ export interface ChatConnectionBundleContext {
   deferredTasks: ChatViewDeferredTasks;
   threadCatalog: Pick<
     ThreadCatalogFacade,
-    "applyThreads" | "publishAppServerMetadata" | "refreshThreads" | "archiveThreadInCatalog" | "renameThreadInCatalog"
+    "setActiveThreads" | "setAppServerMetadata" | "fetchActiveThreads" | "archiveThreadInCatalog" | "renameThreadInCatalog"
   >;
   goalSync: ThreadGoalSyncActions;
   autoTitle: AutoTitleController;
@@ -63,16 +63,16 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     stateStore,
     vaultPath,
     currentClient,
-    publishAppServerMetadata: (metadata) => {
-      threadCatalog.publishAppServerMetadata(metadata);
+    setAppServerMetadata: (metadata) => {
+      threadCatalog.setAppServerMetadata(metadata);
     },
   });
   const serverDiagnostics = createChatServerDiagnosticsActions({
     stateStore,
     vaultPath,
     currentClient,
-    publishAppServerMetadata: (metadata) => {
-      threadCatalog.publishAppServerMetadata(metadata);
+    setAppServerMetadata: (metadata) => {
+      threadCatalog.setAppServerMetadata(metadata);
     },
     serverMetadataSnapshot: () => serverMetadata.serverMetadataSnapshot(),
   });
@@ -82,29 +82,29 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     currentClient,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     publishThreadList: (threads) => {
-      threadCatalog.applyThreads(threads);
+      threadCatalog.setActiveThreads(threads);
     },
     syncThreadGoal: (threadId) => {
       void goalSync.syncThreadGoal(threadId);
     },
   });
   const loadSharedThreadList = async (): Promise<void> => {
-    const threads = await threadCatalog.refreshThreads(() => serverThreads.loadThreadList());
+    const threads = await threadCatalog.fetchActiveThreads(() => serverThreads.loadThreadList());
     serverThreads.applyThreadList(threads);
   };
   const serverRequestHost = {
     currentClient,
   };
   const inboundController = new ChatInboundController(stateStore, {
-    refreshThreads: () => {
+    fetchActiveThreads: () => {
       void loadSharedThreadList();
     },
     refreshRateLimits: () => {
       void serverMetadata.refreshPublishedRateLimits();
     },
     refreshSkills: (forceReload) => void serverMetadata.refreshPublishedSkills(forceReload),
-    publishAppServerMetadata: () => {
-      serverMetadata.publishAppServerMetadataSnapshot();
+    setAppServerMetadata: () => {
+      serverMetadata.setAppServerMetadataSnapshot();
     },
     maybeNameThread: (threadId, turnId, completedSummary) => {
       autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
@@ -165,7 +165,7 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     scheduleDeferredDiagnostics: () => {
       deferredTasks.scheduleDiagnostics(() => {
         if (connection.isConnected()) {
-          void serverDiagnostics.refreshPublishedDiagnosticProbes({ cachedAppServerMetadata: true });
+          void serverDiagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
         }
       });
     },

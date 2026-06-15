@@ -207,7 +207,7 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
   connectionController = controller;
   const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
   const ensureConnected = () => connectionController.ensureConnected();
-  const refreshThreads = () => connectionController.refreshThreads();
+  const fetchActiveThreads = () => connectionController.fetchActiveThreads();
 
   const runtimeSettings = createChatRuntimeSettingsActions({
     stateStore,
@@ -251,7 +251,7 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
     },
     status,
     thread: {
-      refreshThreads,
+      fetchActiveThreads,
       notifyIdentityChanged: () => {
         context.notifyActiveThreadIdentityChanged();
       },

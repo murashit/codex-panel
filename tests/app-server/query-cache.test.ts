@@ -1,25 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../src/domain/server/diagnostics";
-import { SharedAppServerCache } from "../../src/app-server/services/shared-cache";
+import { AppServerQueryCache } from "../../src/app-server/query/cache";
+import type { AppServerQueryContext } from "../../src/app-server/query/keys";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
 import type { RateLimitSnapshot } from "../../src/app-server/protocol/runtime-metrics";
-import type { SharedAppServerCacheContext, SharedServerMetadata } from "../../src/app-server/services/shared-cache-state";
+import type { SharedServerMetadata } from "../../src/app-server/query/snapshots";
 import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
 
-describe("SharedAppServerCache", () => {
+describe("AppServerQueryCache", () => {
   it("updates successful metadata resources while preserving failed resource cache values", () => {
-    const cache = new SharedAppServerCache();
+    const cache = new AppServerQueryCache();
     const context = cacheContext();
     const goodMetadata = metadata({
       availableSkills: [skillMetadata("writer")],
       rateLimit: rateLimit(42),
     });
 
-    cache.applyAppServerMetadataSnapshot(context, goodMetadata);
-    expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
+    cache.setAppServerMetadata(context, goodMetadata);
+    expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
 
-    cache.applyAppServerMetadataSnapshot(
+    cache.setAppServerMetadata(
       context,
       metadata({
         availableModels: [modelMetadata("gpt-5.6")],
@@ -30,22 +31,22 @@ describe("SharedAppServerCache", () => {
       }),
     );
 
-    expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
-    expect(cache.cachedAppServerMetadata(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
-    expect(cache.cachedAppServerMetadata(context)?.rateLimit?.primary?.usedPercent).toBe(42);
-    expect(cache.cachedAppServerMetadata(context)?.serverDiagnostics.probes["skills/list"].status).toBe("failed");
-    expect(cache.cachedAppServerMetadata(context)?.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("failed");
+    expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
+    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(42);
+    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["skills/list"].status).toBe("failed");
+    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("failed");
 
-    cache.applyAppServerMetadataSnapshot(context, metadata({ availableModels: [], modelProbeStatus: "failed" }));
-    expect(cache.cachedAppServerMetadata(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
-    expect(cache.cachedAppServerMetadata(context)?.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    cache.setAppServerMetadata(context, metadata({ availableModels: [], modelProbeStatus: "failed" }));
+    expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
+    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["model/list"].status).toBe("failed");
   });
 
   it("loads initial metadata snapshots without caching failed resource values", () => {
-    const cache = new SharedAppServerCache();
+    const cache = new AppServerQueryCache();
     const context = cacheContext();
 
-    cache.applyAppServerMetadataSnapshot(
+    cache.setAppServerMetadata(
       context,
       metadata({
         availableModels: [modelMetadata("failed-model")],
@@ -56,121 +57,117 @@ describe("SharedAppServerCache", () => {
       }),
     );
 
-    const cached = cache.cachedAppServerMetadata(context);
+    const cached = cache.appServerMetadataSnapshot(context);
     expect(cached?.runtimeConfig).not.toBeNull();
     expect(cached?.serverDiagnostics.probes["model/list"].status).toBe("failed");
     expect(cached?.availableModels).toEqual([]);
     expect(cached?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(cached?.rateLimit).toBeNull();
-    expect(cache.cachedModels(context)).toBeNull();
+    expect(cache.modelsSnapshot(context)).toBeNull();
   });
 
   it("does not share or store snapshots before the cache context is complete", async () => {
-    const cache = new SharedAppServerCache();
+    const cache = new AppServerQueryCache();
     const context = cacheContext({ codexPath: "" });
     const firstRefresh = deferred<readonly ReturnType<typeof thread>[]>();
     const firstFetch = vi.fn(() => firstRefresh.promise);
     const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
-    const onSnapshot = vi.fn();
 
-    const firstPromise = cache.refreshThreadList(context, firstFetch, onSnapshot);
-    await expect(cache.refreshThreadList(context, secondFetch, onSnapshot)).resolves.toEqual([thread("second")]);
+    const firstPromise = cache.fetchActiveThreads(context, firstFetch);
+    await expect(cache.fetchActiveThreads(context, secondFetch)).resolves.toEqual([thread("second")]);
     firstRefresh.resolve([thread("first")]);
     await expect(firstPromise).resolves.toEqual([thread("first")]);
-    cache.applyThreadListSnapshot(context, [thread("applied")]);
-    cache.applyAppServerMetadataSnapshot(context, metadata());
-    cache.applyModelsSnapshot(context, [modelMetadata("gpt-5.6")]);
+    cache.setActiveThreads(context, [thread("applied")]);
+    cache.setAppServerMetadata(context, metadata());
+    cache.setModels(context, [modelMetadata("gpt-5.6")]);
 
     expect(firstFetch).toHaveBeenCalledOnce();
     expect(secondFetch).toHaveBeenCalledOnce();
-    expect(onSnapshot).not.toHaveBeenCalled();
-    expect(cache.cachedThreadList(context)).toBeNull();
-    expect(cache.cachedAppServerMetadata(context)).toBeNull();
-    expect(cache.cachedModels(context)).toBeNull();
+    expect(cache.activeThreadsSnapshot(context)).toBeNull();
+    expect(cache.appServerMetadataSnapshot(context)).toBeNull();
+    expect(cache.modelsSnapshot(context)).toBeNull();
   });
 
-  it("does not replace shared models with an empty model snapshot", () => {
-    const cache = new SharedAppServerCache();
+  it("stores successful empty model snapshots as shared cache truth", () => {
+    const cache = new AppServerQueryCache();
     const context = cacheContext();
 
-    cache.applyModelsSnapshot(context, [modelMetadata("gpt-5.5")]);
-    cache.applyModelsSnapshot(context, []);
+    cache.setModels(context, [modelMetadata("gpt-5.5")]);
+    cache.setModels(context, []);
 
-    expect(cache.cachedModels(context)?.map((model) => model.model)).toEqual(["gpt-5.5"]);
+    expect(cache.modelsSnapshot(context)).toEqual([]);
+
+    cache.setAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-5.6")] }));
+    cache.setAppServerMetadata(context, metadata({ availableModels: [] }));
+
+    expect(cache.appServerMetadataSnapshot(context)?.availableModels).toEqual([]);
+    expect(cache.modelsSnapshot(context)).toEqual([]);
   });
 
   it("does not reuse metadata or model snapshots across app-server cache contexts", () => {
-    const cache = new SharedAppServerCache();
+    const cache = new AppServerQueryCache();
     const context = cacheContext();
 
-    cache.applyAppServerMetadataSnapshot(context, metadata());
-    cache.applyModelsSnapshot(context, [modelMetadata("gpt-5.6")]);
+    cache.setAppServerMetadata(context, metadata());
+    cache.setModels(context, [modelMetadata("gpt-5.6")]);
 
-    expect(cache.cachedAppServerMetadata(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
-    expect(cache.cachedAppServerMetadata(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
-    expect(cache.cachedModels(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
-    expect(cache.cachedModels(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
+    expect(cache.appServerMetadataSnapshot(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
+    expect(cache.appServerMetadataSnapshot(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
+    expect(cache.modelsSnapshot(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
+    expect(cache.modelsSnapshot(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
   });
 
   it("stores successful empty thread list snapshots as shared cache truth", async () => {
-    const cache = new SharedAppServerCache();
+    const cache = new AppServerQueryCache();
     const context = cacheContext();
-    const onSnapshot = vi.fn();
 
-    cache.applyThreadListSnapshot(context, [thread("cached")]);
-    cache.applyThreadListSnapshot(context, []);
+    cache.setActiveThreads(context, [thread("cached")]);
+    cache.setActiveThreads(context, []);
 
-    expect(cache.cachedThreadList(context)).toEqual([]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([]);
 
-    await expect(cache.refreshThreadList(context, () => Promise.resolve([]), onSnapshot)).resolves.toEqual([]);
-    expect(onSnapshot).toHaveBeenCalledWith([]);
-    expect(cache.cachedThreadList(context)).toEqual([]);
+    await expect(cache.fetchActiveThreads(context, () => Promise.resolve([]))).resolves.toEqual([]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([]);
   });
 
-  it("ignores stale thread list refresh snapshots after the app-server cache context changes", async () => {
-    const cache = new SharedAppServerCache();
+  it("keys thread list refresh snapshots by app-server query context", async () => {
+    const cache = new AppServerQueryCache();
     const oldContext = cacheContext({ codexPath: "codex-old" });
     const newContext = cacheContext({ codexPath: "codex-new" });
     const oldRefresh = deferred<readonly ReturnType<typeof thread>[]>();
     const newRefresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const oldSnapshot = vi.fn();
-    const newSnapshot = vi.fn();
 
-    const oldPromise = cache.refreshThreadList(oldContext, () => oldRefresh.promise, oldSnapshot);
-    const newPromise = cache.refreshThreadList(newContext, () => newRefresh.promise, newSnapshot);
+    const oldPromise = cache.fetchActiveThreads(oldContext, () => oldRefresh.promise);
+    const newPromise = cache.fetchActiveThreads(newContext, () => newRefresh.promise);
 
     oldRefresh.resolve([thread("old-thread")]);
     await expect(oldPromise).resolves.toEqual([thread("old-thread")]);
-    expect(oldSnapshot).not.toHaveBeenCalled();
-    expect(cache.cachedThreadList(oldContext)).toBeNull();
+    expect(cache.activeThreadsSnapshot(oldContext)?.map((item) => item.id)).toEqual(["old-thread"]);
 
     newRefresh.resolve([thread("new-thread")]);
     await expect(newPromise).resolves.toEqual([thread("new-thread")]);
-    expect(newSnapshot).toHaveBeenCalledWith([thread("new-thread")]);
-    expect(cache.cachedThreadList(newContext)?.map((item) => item.id)).toEqual(["new-thread"]);
-    expect(cache.cachedThreadList(oldContext)).toBeNull();
+    expect(cache.activeThreadsSnapshot(newContext)?.map((item) => item.id)).toEqual(["new-thread"]);
+    expect(cache.activeThreadsSnapshot(oldContext)?.map((item) => item.id)).toEqual(["old-thread"]);
   });
 
-  it("keys in-flight thread list refreshes by the captured app-server cache context", async () => {
-    const cache = new SharedAppServerCache();
+  it("stores in-flight thread list refreshes under the captured app-server cache context", async () => {
+    const cache = new AppServerQueryCache();
     const context = cacheContext({ codexPath: "codex-captured" });
     const capturedContext = { ...context };
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const onSnapshot = vi.fn();
 
-    const promise = cache.refreshThreadList(context, () => refresh.promise, onSnapshot);
+    const promise = cache.fetchActiveThreads(context, () => refresh.promise);
     context.codexPath = "codex-mutated";
 
     refresh.resolve([thread("captured")]);
     await expect(promise).resolves.toEqual([thread("captured")]);
 
-    expect(onSnapshot).toHaveBeenCalledWith([thread("captured")]);
-    expect(cache.cachedThreadList(capturedContext)?.map((item) => item.id)).toEqual(["captured"]);
-    expect(cache.cachedThreadList(context)).toBeNull();
+    expect(cache.activeThreadsSnapshot(capturedContext)?.map((item) => item.id)).toEqual(["captured"]);
+    expect(cache.activeThreadsSnapshot(context)).toBeNull();
   });
 });
 
-function cacheContext(overrides: Partial<SharedAppServerCacheContext> = {}): SharedAppServerCacheContext {
+function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServerQueryContext {
   return {
     codexPath: "codex",
     vaultPath: "/vault",

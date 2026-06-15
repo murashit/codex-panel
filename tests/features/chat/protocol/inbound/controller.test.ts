@@ -22,10 +22,10 @@ function controllerForState(
   actions: Partial<ConstructorParameters<typeof ChatInboundController>[1]> = {},
 ): ChatInboundController {
   return new ChatInboundController(testStoreForState(state), {
-    refreshThreads: vi.fn(),
+    fetchActiveThreads: vi.fn(),
     refreshRateLimits: vi.fn(),
     refreshSkills: vi.fn(),
-    publishAppServerMetadata: vi.fn(),
+    setAppServerMetadata: vi.fn(),
     maybeNameThread: vi.fn(),
     applyThreadArchived: vi.fn(),
     applyThreadRenamed: vi.fn(),
@@ -608,8 +608,8 @@ describe("ChatInboundController", () => {
         },
       ]);
       const maybeNameThread = vi.fn();
-      const refreshThreads = vi.fn();
-      const controller = controllerForState(state, { maybeNameThread, refreshThreads });
+      const fetchActiveThreads = vi.fn();
+      const controller = controllerForState(state, { maybeNameThread, fetchActiveThreads });
 
       controller.handleNotification({
         method: "turn/completed",
@@ -631,7 +631,7 @@ describe("ChatInboundController", () => {
       expect(pendingTurnStart(state)).toEqual({ anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] });
       expect(chatStateMessageStreamItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
-      expect(refreshThreads).not.toHaveBeenCalled();
+      expect(fetchActiveThreads).not.toHaveBeenCalled();
     });
 
     it("refreshes account rate limits after sparse update notifications", () => {
@@ -662,8 +662,8 @@ describe("ChatInboundController", () => {
     it("records MCP startup status for diagnostics without a chat system message", () => {
       const state = createChatState();
       const recordMcpStartupStatus = vi.fn();
-      const publishAppServerMetadata = vi.fn();
-      const controller = controllerForState(state, { recordMcpStartupStatus, publishAppServerMetadata });
+      const setAppServerMetadata = vi.fn();
+      const controller = controllerForState(state, { recordMcpStartupStatus, setAppServerMetadata });
 
       controller.handleNotification({
         method: "mcpServer/startupStatus/updated",
@@ -676,7 +676,7 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
 
       expect(recordMcpStartupStatus).toHaveBeenCalledWith("github", "failed", "missing token");
-      expect(publishAppServerMetadata).toHaveBeenCalledOnce();
+      expect(setAppServerMetadata).toHaveBeenCalledOnce();
       expect(chatStateMessageStreamItems(state)).toEqual([]);
     });
   });

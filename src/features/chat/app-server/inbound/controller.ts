@@ -35,10 +35,10 @@ function cannotRejectServerRequestMessage(): string {
 }
 
 export interface ChatInboundControllerActions {
-  refreshThreads: () => void;
+  fetchActiveThreads: () => void;
   refreshRateLimits: () => void;
   refreshSkills: (forceReload?: boolean) => void;
-  publishAppServerMetadata: () => void;
+  setAppServerMetadata: () => void;
   maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
   applyThreadArchived: (threadId: string) => void;
   applyThreadRenamed: (threadId: string, name: string | null) => void;
@@ -185,7 +185,7 @@ export class ChatInboundController {
   private runNotificationEffect(effect: ChatNotificationEffect): void {
     switch (effect.type) {
       case "refresh-threads":
-        this.actions.refreshThreads();
+        this.actions.fetchActiveThreads();
         return;
       case "refresh-rate-limits":
         this.actions.refreshRateLimits();
@@ -194,7 +194,7 @@ export class ChatInboundController {
         this.actions.refreshSkills(effect.forceReload);
         return;
       case "publish-app-server-metadata":
-        this.actions.publishAppServerMetadata();
+        this.actions.setAppServerMetadata();
         return;
       case "maybe-name-thread":
         this.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);

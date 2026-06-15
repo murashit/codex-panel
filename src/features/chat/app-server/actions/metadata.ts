@@ -11,7 +11,7 @@ import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";
 
 export interface ChatServerMetadataActionsHost extends ChatServerActionHost {
-  publishAppServerMetadata: (metadata: SharedServerMetadata) => void;
+  setAppServerMetadata: (metadata: SharedServerMetadata) => void;
 }
 
 export interface ChatServerMetadataActions {
@@ -20,7 +20,7 @@ export interface ChatServerMetadataActions {
   loadAppServerMetadata: () => Promise<SharedServerMetadata | null>;
   refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
   refreshPublishedAppServerMetadata: () => Promise<SharedServerMetadata | null>;
-  publishAppServerMetadataSnapshot: () => void;
+  setAppServerMetadataSnapshot: () => void;
   refreshModels: () => Promise<void>;
   loadModels: () => Promise<ModelMetadataProbeResult>;
   refreshSkills: (forceReload?: boolean) => Promise<void>;
@@ -40,8 +40,8 @@ export function createChatServerMetadataActions(host: ChatServerMetadataActionsH
     loadAppServerMetadata: () => loadAppServerMetadata(host),
     refreshAppServerMetadata: () => refreshAppServerMetadata(host),
     refreshPublishedAppServerMetadata: () => refreshPublishedAppServerMetadata(host),
-    publishAppServerMetadataSnapshot: () => {
-      publishAppServerMetadataSnapshot(host);
+    setAppServerMetadataSnapshot: () => {
+      setAppServerMetadataSnapshot(host);
     },
     refreshModels: async () => {
       await refreshModels(host);
@@ -104,12 +104,12 @@ async function refreshAppServerMetadata(host: ChatServerMetadataActionsHost): Pr
 
 async function refreshPublishedAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
   const metadata = await refreshAppServerMetadata(host);
-  if (metadata) host.publishAppServerMetadata(metadata);
+  if (metadata) host.setAppServerMetadata(metadata);
   return metadata;
 }
 
-function publishAppServerMetadataSnapshot(host: ChatServerMetadataActionsHost): void {
-  host.publishAppServerMetadata(serverMetadataSnapshot(host));
+function setAppServerMetadataSnapshot(host: ChatServerMetadataActionsHost): void {
+  host.setAppServerMetadata(serverMetadataSnapshot(host));
 }
 
 async function refreshModels(host: ChatServerMetadataActionsHost): Promise<boolean> {
@@ -146,7 +146,7 @@ async function refreshSkills(host: ChatServerMetadataActionsHost, forceReload = 
 
 async function refreshPublishedSkills(host: ChatServerMetadataActionsHost, forceReload = false): Promise<void> {
   if (!(await refreshSkills(host, forceReload))) return;
-  publishAppServerMetadataSnapshot(host);
+  setAppServerMetadataSnapshot(host);
 }
 
 async function loadSkills(host: ChatServerMetadataActionsHost, forceReload = false): Promise<SkillMetadataProbeResult> {
@@ -178,7 +178,7 @@ async function refreshPublishedRateLimits(host: ChatServerMetadataActionsHost): 
       rateLimit: rateLimit.data,
       serverDiagnostics: diagnostics,
     });
-    publishAppServerMetadataSnapshot(host);
+    setAppServerMetadataSnapshot(host);
     return;
   }
   host.stateStore.dispatch({ type: "connection/metadata-applied", serverDiagnostics: diagnostics });
