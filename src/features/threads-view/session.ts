@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/connection/client";
+import type { AppServerObservedQueryResult } from "../../app-server/query/cache";
 import { ConnectionManager, type ConnectionManagerHandlers, StaleConnectionError } from "../../app-server/connection/connection-manager";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
@@ -45,7 +46,7 @@ type ThreadsThreadCatalog = Pick<
   | "refreshFromOpenSurface"
   | "refreshActiveThreads"
   | "activeThreadsSnapshot"
-  | "observeActiveThreads"
+  | "observeActiveThreadsResult"
 >;
 
 export interface CodexThreadsSessionEnvironment {
@@ -134,8 +135,8 @@ export class CodexThreadsSession {
     if (activeThreadsSnapshot) {
       this.threads = activeThreadsSnapshot;
     }
-    this.unsubscribeThreads = this.host.threadCatalog.observeActiveThreads((threads) => {
-      this.receiveObservedThreads(threads);
+    this.unsubscribeThreads = this.host.threadCatalog.observeActiveThreadsResult((result) => {
+      this.receiveObservedThreadsResult(result);
     });
     this.render();
     void this.refresh();
@@ -179,6 +180,22 @@ export class CodexThreadsSession {
     this.threads = threads;
     this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     this.render();
+  }
+
+  private receiveObservedThreadsResult(result: AppServerObservedQueryResult<readonly Thread[]>): void {
+    if (result.data) {
+      this.receiveObservedThreads(result.data);
+      return;
+    }
+    if (result.isFetching && this.threads.length === 0) {
+      this.status = { kind: "loading", message: "Loading threads..." };
+      this.render();
+      return;
+    }
+    if (result.error && this.threads.length === 0) {
+      this.status = { kind: "error", message: result.error.message };
+      this.render();
+    }
   }
 
   private get host(): CodexThreadsHost {

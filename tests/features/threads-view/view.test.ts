@@ -441,7 +441,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         return response.data.map(threadFromRecord);
       }),
       activeThreadsSnapshot: vi.fn(() => null),
-      observeActiveThreads: vi.fn(() => () => undefined),
+      observeActiveThreadsResult: vi.fn(() => () => undefined),
       ...threadCatalogOverrides,
     },
     ...hostOverrides,

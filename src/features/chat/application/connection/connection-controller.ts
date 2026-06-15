@@ -24,7 +24,7 @@ export interface ChatConnectionMetadataActions {
 }
 
 export interface ChatConnectionDiagnosticsActions {
-  refreshPublishedDiagnosticProbes: () => Promise<void>;
+  refreshPublishedDiagnosticProbes: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
 }
 
 export interface ChatConnectionControllerHost {
@@ -93,7 +93,6 @@ export class ChatConnectionController {
     if (!this.host.connection.currentClient()) return;
     try {
       await this.host.loadSharedThreadList();
-      await this.host.metadata.refreshPublishedAppServerMetadata();
       this.host.refreshTabHeader();
     } catch (error) {
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -105,7 +104,8 @@ export class ChatConnectionController {
     await this.ensureConnected();
     if (!this.host.connection.currentClient()) return;
     this.host.clearDeferredDiagnostics();
-    await this.host.diagnostics.refreshPublishedDiagnosticProbes();
+    await this.host.metadata.refreshPublishedAppServerMetadata();
+    await this.host.diagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
   }
 
   async refreshStatusPanel(): Promise<void> {

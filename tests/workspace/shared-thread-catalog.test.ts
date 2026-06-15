@@ -20,19 +20,19 @@ describe("SharedThreadCatalog", () => {
     const { catalog } = catalogFixture();
     const threads = [thread("thread")];
     const listener = vi.fn();
-    catalog.observeActiveThreads(listener);
+    catalog.observeActiveThreadsResult(listener);
 
     catalog.setActiveThreads(threads);
 
     expect(catalog.activeThreadsSnapshot()).toEqual(threads);
-    expect(listener).toHaveBeenCalledWith(threads);
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ data: threads }));
   });
 
   it("refreshes thread snapshots through the cache single-flight and notifies observers once", async () => {
     const fetchThreads = vi.fn().mockResolvedValue([thread("thread")]);
     const { catalog } = catalogFixture({ fetchThreads });
     const listener = vi.fn();
-    catalog.observeActiveThreads(listener);
+    catalog.observeActiveThreadsResult(listener);
 
     const first = catalog.refreshActiveThreads();
     const second = catalog.refreshActiveThreads();
@@ -41,7 +41,8 @@ describe("SharedThreadCatalog", () => {
     await expect(second).resolves.toEqual([thread("thread")]);
     expect(fetchThreads).toHaveBeenCalledOnce();
     expect(catalog.activeThreadsSnapshot()).toEqual([thread("thread")]);
-    expect(listener).toHaveBeenCalledOnce();
+    expect(listener.mock.calls.filter(([result]) => result.data !== null)).toHaveLength(1);
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("thread")] }));
   });
 
   it("does not notify stale thread observers after the app-server query context changes", async () => {
@@ -59,11 +60,12 @@ describe("SharedThreadCatalog", () => {
     });
     let resolveThreads!: (threads: Thread[]) => void;
     const listener = vi.fn();
-    catalog.observeActiveThreads(listener);
+    catalog.observeActiveThreadsResult(listener);
 
     const fetch = catalog.refreshActiveThreads();
     await flushMicrotasks();
     context.codexPath = "codex-b";
+    listener.mockClear();
     resolveThreads([thread("stale")]);
 
     await expect(fetch).resolves.toEqual([thread("stale")]);
@@ -80,17 +82,17 @@ describe("SharedThreadCatalog", () => {
       context: () => context,
     });
     const listener = vi.fn();
-    catalog.observeActiveThreads(listener);
+    catalog.observeActiveThreadsResult(listener);
 
     catalog.setActiveThreads([thread("a")]);
     context.codexPath = "codex-b";
     catalog.notifyAppServerQueryContextChanged();
     catalog.setActiveThreads([thread("b")]);
 
-    expect(listener).toHaveBeenLastCalledWith([thread("b")]);
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("b")] }));
     context.codexPath = "codex-a";
     catalog.notifyAppServerQueryContextChanged();
-    expect(listener).toHaveBeenLastCalledWith([thread("a")]);
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("a")] }));
   });
 
   it("publishes metadata and model snapshots to cache and observers", () => {
@@ -98,40 +100,42 @@ describe("SharedThreadCatalog", () => {
     const metadata = serverMetadata({ availableModels: [model("gpt-test")] });
     const metadataListener = vi.fn();
     const modelListener = vi.fn();
-    catalog.observeAppServerMetadata(metadataListener);
-    catalog.observeModels(modelListener);
+    catalog.observeAppServerMetadataResult(metadataListener);
+    catalog.observeModelsResult(modelListener);
 
-    catalog.setAppServerMetadata(metadata);
+    catalog.updateAppServerMetadata(() => metadata);
 
     expect(catalog.appServerMetadataSnapshot()).toEqual(metadata);
     expect(catalog.modelsSnapshot()).toEqual(metadata.availableModels);
-    expect(metadataListener).toHaveBeenLastCalledWith(metadata);
-    expect(modelListener).toHaveBeenCalledWith(metadata.availableModels);
+    expect(metadataListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: metadata }));
+    expect(modelListener).toHaveBeenCalledWith(expect.objectContaining({ data: metadata.availableModels }));
   });
 
   it("applies known rename mutations to cache and surfaces", () => {
     const { catalog, surfaces } = catalogFixture();
     const listener = vi.fn();
-    catalog.observeActiveThreads(listener);
+    catalog.observeActiveThreadsResult(listener);
     catalog.setActiveThreads([thread("thread"), thread("other")]);
 
     catalog.renameThreadInCatalog("thread", "Renamed");
 
     expect(catalog.activeThreadsSnapshot()).toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
-    expect(listener).toHaveBeenLastCalledWith([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: [{ ...thread("thread"), name: "Renamed" }, thread("other")] }),
+    );
     expect(surfaces.applyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed");
   });
 
   it("applies known archive mutations to cache and surfaces", () => {
     const { catalog, surfaces } = catalogFixture();
     const listener = vi.fn();
-    catalog.observeActiveThreads(listener);
+    catalog.observeActiveThreadsResult(listener);
     catalog.setActiveThreads([thread("thread"), thread("other")]);
 
     catalog.archiveThreadInCatalog("thread", { closeOpenPanels: true });
 
     expect(catalog.activeThreadsSnapshot()).toEqual([thread("other")]);
-    expect(listener).toHaveBeenLastCalledWith([thread("other")]);
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("other")] }));
     expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
   });
 });

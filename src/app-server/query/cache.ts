@@ -1,9 +1,11 @@
-import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
+import { MutationObserver, QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
 
 import type { AppServerClient } from "../connection/client";
 import { listModelMetadata } from "../services/catalog";
+import { readRateLimitMetadataProbe, readRuntimeConfigSnapshot, readSkillMetadataProbe } from "../services/metadata";
 import { listThreads } from "../services/threads";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
+import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
 import type { Thread } from "../../domain/threads/model";
 import {
   activeThreadsQueryKey,
@@ -11,12 +13,14 @@ import {
   appServerModelsQueryKey,
   appServerQueriesFilter,
   appServerQueryContextIsComplete,
+  appServerQueryScope,
   cloneAppServerQueryContext,
   type AppServerQueryContext,
 } from "./keys";
 import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads, type SharedServerMetadata } from "./snapshots";
 
 const ACTIVE_THREADS_STALE_TIME_MS = 10_000;
+const APP_SERVER_METADATA_STALE_TIME_MS = 10_000;
 const MODELS_STALE_TIME_MS = 60_000;
 
 export interface AppServerQueryClientRunner {
@@ -25,6 +29,17 @@ export interface AppServerQueryClientRunner {
     operation: (client: AppServerClient) => Promise<T>,
     options?: { unhandledServerRequestMessage?: string },
   ): Promise<T>;
+}
+
+export type AppServerObservedQueryResult<T> = Omit<QueryObserverResult<T>, "data" | "error"> & {
+  readonly data: T | null;
+  readonly error: Error | null;
+};
+
+interface AppServerQueryOptions<T> {
+  readonly queryKey: readonly unknown[];
+  readonly queryFn: () => Promise<T>;
+  readonly staleTime: number;
 }
 
 export class AppServerQueryCache {
@@ -42,7 +57,10 @@ export class AppServerQueryCache {
 
   clearContext(context: AppServerQueryContext): void {
     if (!appServerQueryContextIsComplete(context)) return;
-    this.client.removeQueries(appServerQueriesFilter(context));
+    const filter = appServerQueriesFilter(context);
+    void this.client.cancelQueries(filter);
+    this.client.removeQueries(filter);
+    this.removeContextMutations(context);
   }
 
   activeThreadsSnapshot(context: AppServerQueryContext): readonly Thread[] | null {
@@ -51,12 +69,12 @@ export class AppServerQueryCache {
     return threads ? cloneThreads(threads) : null;
   }
 
-  observeActiveThreads(
+  observeActiveThreadsResult(
     context: AppServerQueryContext,
-    listener: (threads: readonly Thread[]) => void,
+    listener: (result: AppServerObservedQueryResult<readonly Thread[]>) => void,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
-    return this.observeQuery(activeThreadsQueryKey(context), cloneThreads, listener, options);
+    return this.observeQueryResult(this.activeThreadsQueryOptions(context), cloneThreads, listener, options);
   }
 
   async fetchActiveThreads(context: AppServerQueryContext, options: { force?: boolean } = {}): Promise<readonly Thread[]> {
@@ -66,16 +84,7 @@ export class AppServerQueryCache {
     }
     const key = activeThreadsQueryKey(refreshContext);
     if (options.force) await this.client.invalidateQueries({ queryKey: key });
-    const threads = await this.client.fetchQuery({
-      queryKey: key,
-      queryFn: async () => {
-        const nextThreads = cloneThreads(
-          await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath)),
-        );
-        return nextThreads;
-      },
-      staleTime: ACTIVE_THREADS_STALE_TIME_MS,
-    });
+    const threads = await this.client.fetchQuery(this.activeThreadsQueryOptions(refreshContext));
     return cloneThreads(threads);
   }
 
@@ -95,7 +104,7 @@ export class AppServerQueryCache {
     const current = this.activeThreadsSnapshot(context);
     const next = updater(current);
     if (!next) return null;
-    this.setActiveThreads(context, next);
+    this.applyActiveThreadsMutation(context, current, next);
     return cloneThreads(next);
   }
 
@@ -105,15 +114,41 @@ export class AppServerQueryCache {
     return metadata ? cloneSharedServerMetadata(metadata) : null;
   }
 
-  observeAppServerMetadata(
+  observeAppServerMetadataResult(
     context: AppServerQueryContext,
-    listener: (metadata: SharedServerMetadata) => void,
+    listener: (result: AppServerObservedQueryResult<SharedServerMetadata>) => void,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
-    return this.observeQuery(appServerMetadataQueryKey(context), cloneSharedServerMetadata, listener, options);
+    return this.observeQueryResult(this.appServerMetadataQueryOptions(context), cloneSharedServerMetadata, listener, options);
   }
 
-  setAppServerMetadata(context: AppServerQueryContext, metadata: SharedServerMetadata): SharedServerMetadata | null {
+  async fetchAppServerMetadata(
+    context: AppServerQueryContext,
+    options: { force?: boolean; forceSkills?: boolean } = {},
+  ): Promise<SharedServerMetadata | null> {
+    const refreshContext = cloneAppServerQueryContext(context);
+    if (!appServerQueryContextIsComplete(refreshContext)) {
+      return null;
+    }
+    const key = appServerMetadataQueryKey(refreshContext);
+    if (options.force) {
+      await Promise.all([
+        this.client.invalidateQueries({ queryKey: key }),
+        this.client.invalidateQueries({ queryKey: appServerModelsQueryKey(refreshContext) }),
+      ]);
+    }
+    const metadata = await this.client.fetchQuery(this.appServerMetadataQueryOptions(refreshContext, options));
+    return this.writeAppServerMetadata(refreshContext, metadata);
+  }
+
+  async refreshAppServerMetadata(
+    context: AppServerQueryContext,
+    options: { forceSkills?: boolean } = {},
+  ): Promise<SharedServerMetadata | null> {
+    return this.fetchAppServerMetadata(context, { ...options, force: true });
+  }
+
+  writeAppServerMetadata(context: AppServerQueryContext, metadata: SharedServerMetadata): SharedServerMetadata | null {
     if (!appServerQueryContextIsComplete(context)) return null;
     const next = cloneSharedServerMetadata({
       ...metadata,
@@ -127,18 +162,27 @@ export class AppServerQueryCache {
     return cloneSharedServerMetadata(next);
   }
 
+  updateAppServerMetadata(
+    context: AppServerQueryContext,
+    updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
+  ): SharedServerMetadata | null {
+    if (!appServerQueryContextIsComplete(context)) return null;
+    const next = updater(this.appServerMetadataSnapshot(context));
+    return next ? this.writeAppServerMetadata(context, next) : null;
+  }
+
   modelsSnapshot(context: AppServerQueryContext): readonly ModelMetadata[] | null {
     if (!appServerQueryContextIsComplete(context)) return null;
     const models = this.client.getQueryData<readonly ModelMetadata[]>(appServerModelsQueryKey(context));
     return models ? cloneModelMetadata(models) : null;
   }
 
-  observeModels(
+  observeModelsResult(
     context: AppServerQueryContext,
-    listener: (models: readonly ModelMetadata[]) => void,
+    listener: (result: AppServerObservedQueryResult<readonly ModelMetadata[]>) => void,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
-    return this.observeQuery(appServerModelsQueryKey(context), cloneModelMetadata, listener, options);
+    return this.observeQueryResult(this.modelsQueryOptions(context), cloneModelMetadata, listener, options);
   }
 
   async fetchModels(context: AppServerQueryContext, options: { force?: boolean } = {}): Promise<readonly ModelMetadata[]> {
@@ -148,17 +192,7 @@ export class AppServerQueryCache {
     }
     const key = appServerModelsQueryKey(refreshContext);
     if (options.force) await this.client.invalidateQueries({ queryKey: key });
-    const models = await this.client.fetchQuery({
-      queryKey: key,
-      queryFn: async () => {
-        return cloneModelMetadata(
-          await this.runWithClient(refreshContext, (client) => listModelMetadata(client), {
-            unhandledServerRequestMessage: "Codex model list refresh does not handle server requests.",
-          }),
-        );
-      },
-      staleTime: MODELS_STALE_TIME_MS,
-    });
+    const models = await this.client.fetchQuery(this.modelsQueryOptions(refreshContext));
     return cloneModelMetadata(models);
   }
 
@@ -166,22 +200,155 @@ export class AppServerQueryCache {
     return this.fetchModels(context, { force: true });
   }
 
-  private observeQuery<T>(
-    queryKey: readonly unknown[],
+  private activeThreadsQueryOptions(context: AppServerQueryContext): AppServerQueryOptions<readonly Thread[]> {
+    const refreshContext = cloneAppServerQueryContext(context);
+    return {
+      queryKey: activeThreadsQueryKey(refreshContext),
+      queryFn: async (): Promise<readonly Thread[]> => {
+        return cloneThreads(await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath)));
+      },
+      staleTime: ACTIVE_THREADS_STALE_TIME_MS,
+    };
+  }
+
+  private appServerMetadataQueryOptions(
+    context: AppServerQueryContext,
+    options: { forceSkills?: boolean } = {},
+  ): AppServerQueryOptions<SharedServerMetadata> {
+    const refreshContext = cloneAppServerQueryContext(context);
+    return {
+      queryKey: appServerMetadataQueryKey(refreshContext),
+      queryFn: async (): Promise<SharedServerMetadata> => {
+        return this.runWithClient(refreshContext, async (client) => {
+          const runtimeConfig = await readRuntimeConfigSnapshot(client, refreshContext.vaultPath);
+          const [models, skills, rateLimit] = await Promise.all([
+            this.readModelMetadataProbe(refreshContext, client),
+            readSkillMetadataProbe(client, refreshContext.vaultPath, options.forceSkills ?? false),
+            readRateLimitMetadataProbe(client),
+          ]);
+          const diagnostics = [models.probe, skills.probe, rateLimit.probe].reduce(
+            (current, probe) => diagnosticsWithProbe(current, probe),
+            this.appServerMetadataSnapshot(refreshContext)?.serverDiagnostics ?? createServerDiagnostics(),
+          );
+          return {
+            runtimeConfig,
+            availableModels: models.data,
+            availableSkills: skills.data,
+            rateLimit: rateLimit.data,
+            serverDiagnostics: diagnostics,
+          };
+        });
+      },
+      staleTime: APP_SERVER_METADATA_STALE_TIME_MS,
+    };
+  }
+
+  private modelsQueryOptions(context: AppServerQueryContext): AppServerQueryOptions<readonly ModelMetadata[]> {
+    const refreshContext = cloneAppServerQueryContext(context);
+    return {
+      queryKey: appServerModelsQueryKey(refreshContext),
+      queryFn: async (): Promise<readonly ModelMetadata[]> => {
+        return cloneModelMetadata(
+          await this.runWithClient(refreshContext, (client) => listModelMetadata(client), {
+            unhandledServerRequestMessage: "Codex model list refresh does not handle server requests.",
+          }),
+        );
+      },
+      staleTime: MODELS_STALE_TIME_MS,
+    };
+  }
+
+  private async readModelMetadataProbe(
+    context: AppServerQueryContext,
+    client: AppServerClient,
+  ): Promise<{
+    data: readonly ModelMetadata[];
+    probe: SharedServerMetadata["serverDiagnostics"]["probes"]["model/list"];
+  }> {
+    try {
+      const data = cloneModelMetadata(await this.client.fetchQuery(this.modelsQueryOptionsWithClient(context, client)));
+      return { data, probe: diagnosticProbeOk("model/list", `${String(data.length)} models`) };
+    } catch (error) {
+      return {
+        data: this.modelsSnapshot(context) ?? [],
+        probe: diagnosticProbeError("model/list", error),
+      };
+    }
+  }
+
+  private modelsQueryOptionsWithClient(
+    context: AppServerQueryContext,
+    client: AppServerClient,
+  ): AppServerQueryOptions<readonly ModelMetadata[]> {
+    const refreshContext = cloneAppServerQueryContext(context);
+    return {
+      ...this.modelsQueryOptions(refreshContext),
+      queryFn: async (): Promise<readonly ModelMetadata[]> => cloneModelMetadata(await listModelMetadata(client)),
+    };
+  }
+
+  private observeQueryResult<T>(
+    queryOptions: AppServerQueryOptions<T>,
     clone: (value: T) => T,
-    listener: (value: T) => void,
+    listener: (result: AppServerObservedQueryResult<T>) => void,
     options: { emitCurrent?: boolean },
   ): () => void {
     const observer = new QueryObserver<T>(this.client, {
-      queryKey,
+      ...queryOptions,
       enabled: false,
     });
     const emit = (result: QueryObserverResult<T>): void => {
-      if (result.data !== undefined) listener(clone(result.data));
+      listener(this.cloneObservedResult(result, clone));
     };
     const unsubscribe = observer.subscribe(emit);
     if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
     return unsubscribe;
+  }
+
+  private cloneObservedResult<T>(result: QueryObserverResult<T>, clone: (value: T) => T): AppServerObservedQueryResult<T> {
+    return {
+      ...result,
+      data: result.data === undefined ? null : clone(result.data),
+      error: result.error instanceof Error ? result.error : null,
+    };
+  }
+
+  private applyActiveThreadsMutation(context: AppServerQueryContext, previous: readonly Thread[] | null, next: readonly Thread[]): void {
+    if (!appServerQueryContextIsComplete(context)) return;
+    const mutationKey = [...activeThreadsQueryKey(context), "optimistic-update"] as const;
+    const observer = new MutationObserver<
+      readonly Thread[],
+      Error,
+      { readonly previous: readonly Thread[] | null; readonly next: readonly Thread[] },
+      { readonly previous: readonly Thread[] | null }
+    >(this.client, {
+      mutationKey,
+      mutationFn: async (variables) => cloneThreads(variables.next),
+      onMutate: (variables) => {
+        void this.client.cancelQueries({ queryKey: activeThreadsQueryKey(context) });
+        this.client.setQueryData(activeThreadsQueryKey(context), cloneThreads(variables.next));
+        return { previous: variables.previous ? cloneThreads(variables.previous) : null };
+      },
+      onError: (_error, _variables, mutationContext) => {
+        if (mutationContext?.previous) {
+          this.client.setQueryData(activeThreadsQueryKey(context), cloneThreads(mutationContext.previous));
+        }
+      },
+    });
+    void observer.mutate({ previous, next }).finally(() => {
+      observer.reset();
+    });
+  }
+
+  private removeContextMutations(context: AppServerQueryContext): void {
+    const scope = appServerQueryScope(context);
+    for (const mutation of this.client.getMutationCache().getAll()) {
+      const mutationKey = mutation.options.mutationKey;
+      if (!Array.isArray(mutationKey)) continue;
+      if (scope.every((part, index) => mutationKey[index] === part)) {
+        this.client.getMutationCache().remove(mutation);
+      }
+    }
   }
 
   private runWithClient<T>(

@@ -1,4 +1,5 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
+import type { AppServerObservedQueryResult } from "../../../app-server/query/cache";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 
 import type { Thread } from "../../../domain/threads/model";
@@ -170,12 +171,24 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.refreshTabHeader();
   }
 
+  private receiveObservedThreadResult(result: AppServerObservedQueryResult<readonly Thread[]>): void {
+    if (result.data) this.receiveObservedThreads(result.data);
+  }
+
   private receiveObservedAppServerMetadata(metadata: SharedServerMetadata): void {
     this.parts.serverActions.metadata.applyAppServerMetadata(metadata);
   }
 
+  private receiveObservedAppServerMetadataResult(result: AppServerObservedQueryResult<SharedServerMetadata>): void {
+    if (result.data) this.receiveObservedAppServerMetadata(result.data);
+  }
+
   private receiveObservedModels(models: readonly ModelMetadata[]): void {
     this.dispatch({ type: "connection/metadata-applied", availableModels: models });
+  }
+
+  private receiveObservedModelsResult(result: AppServerObservedQueryResult<readonly ModelMetadata[]>): void {
+    if (result.data) this.receiveObservedModels(result.data);
   }
 
   openPanelSnapshot(): OpenCodexPanelSnapshot {
@@ -276,21 +289,21 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.unsubscribeAppServerState();
     this.applyCachedAppServerState();
     this.appServerStateUnsubscribers.push(
-      this.environment.plugin.threadCatalog.observeActiveThreads(
-        (threads) => {
-          this.receiveObservedThreads(threads);
+      this.environment.plugin.threadCatalog.observeActiveThreadsResult(
+        (result) => {
+          this.receiveObservedThreadResult(result);
         },
         { emitCurrent: false },
       ),
-      this.environment.plugin.threadCatalog.observeAppServerMetadata(
-        (metadata) => {
-          this.receiveObservedAppServerMetadata(metadata);
+      this.environment.plugin.threadCatalog.observeAppServerMetadataResult(
+        (result) => {
+          this.receiveObservedAppServerMetadataResult(result);
         },
         { emitCurrent: false },
       ),
-      this.environment.plugin.threadCatalog.observeModels(
-        (models) => {
-          this.receiveObservedModels(models);
+      this.environment.plugin.threadCatalog.observeModelsResult(
+        (result) => {
+          this.receiveObservedModelsResult(result);
         },
         { emitCurrent: false },
       ),

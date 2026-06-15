@@ -38,7 +38,7 @@ export interface ChatInboundControllerActions {
   fetchActiveThreads: () => void;
   refreshRateLimits: () => void;
   refreshSkills: (forceReload?: boolean) => void;
-  setAppServerMetadata: () => void;
+  applyAppServerMetadataSnapshot: () => void;
   maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
   applyThreadArchived: (threadId: string) => void;
   applyThreadRenamed: (threadId: string, name: string | null) => void;
@@ -193,8 +193,8 @@ export class ChatInboundController {
       case "refresh-skills":
         this.actions.refreshSkills(effect.forceReload);
         return;
-      case "publish-app-server-metadata":
-        this.actions.setAppServerMetadata();
+      case "apply-app-server-metadata-snapshot":
+        this.actions.applyAppServerMetadataSnapshot();
         return;
       case "maybe-name-thread":
         this.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);

@@ -12,6 +12,7 @@ import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../sr
 import type { RateLimitSnapshot } from "../../src/app-server/protocol/runtime-metrics";
 import type { SharedServerMetadata } from "../../src/app-server/query/snapshots";
 import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
+import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
 
 describe("AppServerQueryCache", () => {
   it("stores metadata snapshots without replacing failed resource values with stale data", () => {
@@ -22,10 +23,10 @@ describe("AppServerQueryCache", () => {
       rateLimit: rateLimit(42),
     });
 
-    cache.setAppServerMetadata(context, goodMetadata);
+    cache.writeAppServerMetadata(context, goodMetadata);
     expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
 
-    cache.setAppServerMetadata(
+    cache.writeAppServerMetadata(
       context,
       metadata({
         availableModels: [modelMetadata("gpt-5.6")],
@@ -42,7 +43,7 @@ describe("AppServerQueryCache", () => {
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["skills/list"].status).toBe("failed");
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("failed");
 
-    cache.setAppServerMetadata(context, metadata({ availableModels: [], modelProbeStatus: "failed" }));
+    cache.writeAppServerMetadata(context, metadata({ availableModels: [], modelProbeStatus: "failed" }));
     expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["model/list"].status).toBe("failed");
   });
@@ -51,7 +52,7 @@ describe("AppServerQueryCache", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
 
-    cache.setAppServerMetadata(
+    cache.writeAppServerMetadata(
       context,
       metadata({
         availableModels: [modelMetadata("failed-model")],
@@ -77,7 +78,7 @@ describe("AppServerQueryCache", () => {
 
     await expect(cache.fetchActiveThreads(context)).resolves.toEqual([]);
     cache.setActiveThreads(context, [thread("applied")]);
-    cache.setAppServerMetadata(context, metadata());
+    cache.writeAppServerMetadata(context, metadata());
 
     expect(cache.activeThreadsSnapshot(context)).toBeNull();
     expect(cache.appServerMetadataSnapshot(context)).toBeNull();
@@ -88,8 +89,8 @@ describe("AppServerQueryCache", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
 
-    cache.setAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-5.6")] }));
-    cache.setAppServerMetadata(context, metadata({ availableModels: [] }));
+    cache.writeAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-5.6")] }));
+    cache.writeAppServerMetadata(context, metadata({ availableModels: [] }));
 
     expect(cache.appServerMetadataSnapshot(context)?.availableModels).toEqual([]);
     expect(cache.modelsSnapshot(context)).toEqual([]);
@@ -99,7 +100,7 @@ describe("AppServerQueryCache", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
 
-    cache.setAppServerMetadata(context, metadata());
+    cache.writeAppServerMetadata(context, metadata());
 
     expect(cache.appServerMetadataSnapshot(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
     expect(cache.appServerMetadataSnapshot(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
@@ -160,6 +161,85 @@ describe("AppServerQueryCache", () => {
     expect(cache.activeThreadsSnapshot(capturedContext)?.map((item) => item.id)).toEqual(["captured"]);
     expect(cache.activeThreadsSnapshot(context)).toBeNull();
   });
+
+  it("fetches app-server metadata through the query cache and syncs model snapshots", async () => {
+    const context = cacheContext();
+    const cache = cacheWithClient({
+      readEffectiveConfig: vi.fn().mockResolvedValue({}),
+      listModels: vi.fn().mockResolvedValue({ data: [catalogModel("gpt-meta")] }),
+      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [catalogSkill("writer")] }] }),
+      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(64), rateLimitsByLimitId: null }),
+    });
+
+    const metadata = await cache.refreshAppServerMetadata(context);
+
+    expect(metadata?.availableModels.map((model) => model.model)).toEqual(["gpt-meta"]);
+    expect(metadata?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(metadata?.rateLimit?.primary?.usedPercent).toBe(64);
+    expect(metadata?.serverDiagnostics.probes["model/list"].status).toBe("ok");
+    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-meta"]);
+  });
+
+  it("shares in-flight model fetches between metadata and models queries", async () => {
+    const context = cacheContext();
+    const modelRefresh = deferred<{ data: CatalogModel[] }>();
+    const listModels = vi.fn(() => modelRefresh.promise);
+    const cache = cacheWithClient({
+      readEffectiveConfig: vi.fn().mockResolvedValue({}),
+      listModels,
+      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+
+    const metadataPromise = cache.refreshAppServerMetadata(context);
+    await flushMicrotasks();
+    const modelsPromise = cache.fetchModels(context);
+    await flushMicrotasks();
+
+    expect(listModels).toHaveBeenCalledOnce();
+
+    modelRefresh.resolve({ data: [catalogModel("gpt-shared")] });
+
+    await expect(modelsPromise).resolves.toMatchObject([{ model: "gpt-shared" }]);
+    await expect(metadataPromise).resolves.toMatchObject({
+      availableModels: [{ model: "gpt-shared" }],
+    });
+    expect(listModels).toHaveBeenCalledOnce();
+    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-shared"]);
+  });
+
+  it("keeps query-cached models when app-server metadata model refresh fails", async () => {
+    const context = cacheContext();
+    const cache = cacheWithClient({
+      readEffectiveConfig: vi.fn().mockResolvedValue({}),
+      listModels: vi.fn().mockRejectedValue(new Error("offline")),
+      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+    cache.writeAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-cached")] }));
+
+    const metadataSnapshot = await cache.refreshAppServerMetadata(context);
+
+    expect(metadataSnapshot?.availableModels.map((model) => model.model)).toEqual(["gpt-cached"]);
+    expect(metadataSnapshot?.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-cached"]);
+  });
+
+  it("tracks optimistic active thread updates in the mutation cache and clears them by context", () => {
+    const cache = new AppServerQueryCache();
+    const context = cacheContext();
+
+    cache.setActiveThreads(context, [thread("thread")]);
+    cache.updateActiveThreads(context, (threads) => threads?.map((item) => ({ ...item, name: "Renamed" })) ?? null);
+
+    expect(cache.activeThreadsSnapshot(context)).toEqual([{ ...thread("thread"), name: "Renamed" }]);
+    expect(cache.client.getMutationCache().getAll()).toHaveLength(1);
+
+    cache.clearContext(context);
+
+    expect(cache.client.getMutationCache().getAll()).toHaveLength(0);
+    expect(cache.activeThreadsSnapshot(context)).toBeNull();
+  });
 });
 
 function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServerQueryContext {
@@ -183,6 +263,14 @@ function cacheWithThreads(
           }),
         } as never);
       },
+    },
+  });
+}
+
+function cacheWithClient(client: Record<string, unknown>): AppServerQueryCache {
+  return new AppServerQueryCache({
+    clientRunner: {
+      runWithClient: async (_context, operation) => operation(client as never),
     },
   });
 }
@@ -258,6 +346,43 @@ function modelMetadata(model: string): ModelMetadata {
   };
 }
 
+function catalogModel(model: string): CatalogModel {
+  return {
+    id: model,
+    model,
+    displayName: model,
+    description: "",
+    hidden: false,
+    supportedReasoningEfforts: [],
+    defaultReasoningEffort: "medium",
+    inputModalities: ["text"],
+    additionalSpeedTiers: [],
+    serviceTiers: [],
+    defaultServiceTier: null,
+    isDefault: false,
+  };
+}
+
+function catalogSkill(name: string): CatalogSkillMetadata {
+  return {
+    name,
+    description: "",
+    path: `/tmp/${name}`,
+    enabled: true,
+  };
+}
+
+function appServerRateLimit(usedPercent: number): RateLimitSnapshot {
+  return {
+    limitId: "codex",
+    limitName: "Codex",
+    primary: { usedPercent, windowDurationMins: 300, resetsAt: null },
+    secondary: null,
+    individualLimit: null,
+    rateLimitReachedType: null,
+  };
+}
+
 function thread(id: string) {
   return {
     id,
@@ -280,4 +405,10 @@ function deferred<T>(): Deferred<T> {
     resolve = settle;
   });
   return { promise, resolve };
+}
+
+async function flushMicrotasks(): Promise<void> {
+  for (let index = 0; index < 10; index += 1) {
+    await Promise.resolve();
+  }
 }

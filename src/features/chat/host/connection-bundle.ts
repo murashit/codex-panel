@@ -46,7 +46,10 @@ export interface ChatConnectionBundleContext {
   deferredTasks: ChatViewDeferredTasks;
   threadCatalog: {
     setActiveThreads(threads: readonly Thread[]): void;
-    setAppServerMetadata(metadata: SharedServerMetadata): void;
+    updateAppServerMetadata(updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null): SharedServerMetadata | null;
+    appServerMetadataSnapshot(): SharedServerMetadata | null;
+    fetchAppServerMetadata(): Promise<SharedServerMetadata | null>;
+    refreshAppServerMetadata(options?: { forceSkills?: boolean }): Promise<SharedServerMetadata | null>;
     refreshActiveThreads(): Promise<readonly Thread[]>;
     modelsSnapshot(): readonly ModelMetadata[] | null;
     fetchModels(): Promise<readonly ModelMetadata[]>;
@@ -71,21 +74,17 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     stateStore,
     vaultPath,
     currentClient,
-    setAppServerMetadata: (metadata) => {
-      threadCatalog.setAppServerMetadata(metadata);
-    },
-    modelsSnapshot: () => threadCatalog.modelsSnapshot(),
-    fetchModels: () => threadCatalog.fetchModels(),
-    refreshModels: () => threadCatalog.refreshModels(),
+    updateAppServerMetadata: (updater) => threadCatalog.updateAppServerMetadata(updater),
+    appServerMetadataSnapshot: () => threadCatalog.appServerMetadataSnapshot(),
+    fetchAppServerMetadata: () => threadCatalog.fetchAppServerMetadata(),
+    refreshAppServerMetadata: (options) => threadCatalog.refreshAppServerMetadata(options),
   });
   const serverDiagnostics = createChatServerDiagnosticsActions({
     stateStore,
     vaultPath,
     currentClient,
-    setAppServerMetadata: (metadata) => {
-      threadCatalog.setAppServerMetadata(metadata);
-    },
-    serverMetadataSnapshot: () => serverMetadata.serverMetadataSnapshot(),
+    updateAppServerMetadata: (updater) => threadCatalog.updateAppServerMetadata(updater),
+    appServerMetadataSnapshot: () => threadCatalog.appServerMetadataSnapshot(),
   });
   const serverThreads = createChatServerThreadActions({
     stateStore,
@@ -114,8 +113,8 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
       void serverMetadata.refreshPublishedRateLimits();
     },
     refreshSkills: (forceReload) => void serverMetadata.refreshPublishedSkills(forceReload),
-    setAppServerMetadata: () => {
-      serverMetadata.setAppServerMetadataSnapshot();
+    applyAppServerMetadataSnapshot: () => {
+      serverMetadata.applyAppServerMetadataSnapshot();
     },
     maybeNameThread: (threadId, turnId, completedSummary) => {
       autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
@@ -170,7 +169,7 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
       refreshPublishedSkills: (forceReload) => serverMetadata.refreshPublishedSkills(forceReload),
     },
     diagnostics: {
-      refreshPublishedDiagnosticProbes: () => serverDiagnostics.refreshPublishedDiagnosticProbes(),
+      refreshPublishedDiagnosticProbes: (options) => serverDiagnostics.refreshPublishedDiagnosticProbes(options),
     },
     loadSharedThreadList,
     scheduleDeferredDiagnostics: () => {

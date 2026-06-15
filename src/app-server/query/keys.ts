@@ -27,7 +27,7 @@ export function appServerQueryContextMatches(left: AppServerQueryContext, right:
   );
 }
 
-function appServerQueryScope(context: AppServerQueryContext): AppServerQueryScope {
+export function appServerQueryScope(context: AppServerQueryContext): AppServerQueryScope {
   return ["app-server", context.codexPath, context.vaultPath];
 }
 

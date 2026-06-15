@@ -52,7 +52,7 @@ export type ChatNotificationEffect =
   | { type: "refresh-threads" }
   | { type: "refresh-rate-limits" }
   | { type: "refresh-skills"; forceReload: boolean }
-  | { type: "publish-app-server-metadata" }
+  | { type: "apply-app-server-metadata-snapshot" }
   | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ThreadConversationSummary | null }
   | { type: "apply-thread-archived"; threadId: string }
   | { type: "apply-thread-renamed"; threadId: string; name: string | null }
@@ -105,7 +105,7 @@ const DIAGNOSTIC_STATUS_PLANNERS = {
     actions: [],
     effects:
       notification.params.name.length === 0
-        ? [{ type: "publish-app-server-metadata" }]
+        ? [{ type: "apply-app-server-metadata-snapshot" }]
         : [
             {
               type: "record-mcp-startup-status",
@@ -113,7 +113,7 @@ const DIAGNOSTIC_STATUS_PLANNERS = {
               status: notification.params.status,
               message: notification.params.error,
             },
-            { type: "publish-app-server-metadata" },
+            { type: "apply-app-server-metadata-snapshot" },
           ],
   }),
 } satisfies ServerNotificationPlannerMap<DiagnosticStatusNotificationMethod>;

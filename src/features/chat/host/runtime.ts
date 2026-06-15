@@ -73,16 +73,18 @@ type ChatThreadCatalog = Pick<
   | "refreshThreadsViewLiveState"
   | "refreshFromOpenSurface"
   | "setActiveThreads"
-  | "setAppServerMetadata"
+  | "updateAppServerMetadata"
   | "refreshActiveThreads"
   | "activeThreadsSnapshot"
   | "appServerMetadataSnapshot"
+  | "fetchAppServerMetadata"
+  | "refreshAppServerMetadata"
   | "modelsSnapshot"
   | "fetchModels"
   | "refreshModels"
-  | "observeActiveThreads"
-  | "observeAppServerMetadata"
-  | "observeModels"
+  | "observeActiveThreadsResult"
+  | "observeAppServerMetadataResult"
+  | "observeModelsResult"
 >;
 
 export interface ChatPanelEnvironment {

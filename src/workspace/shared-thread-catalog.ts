@@ -1,7 +1,7 @@
 import type { ModelMetadata } from "../domain/catalog/metadata";
 import type { SharedServerMetadata } from "../domain/server/metadata";
 import type { Thread } from "../domain/threads/model";
-import type { AppServerQueryCache } from "../app-server/query/cache";
+import type { AppServerObservedQueryResult, AppServerQueryCache } from "../app-server/query/cache";
 import { appServerQueryContextMatches, cloneAppServerQueryContext, type AppServerQueryContext } from "../app-server/query/keys";
 
 interface ThreadSurfaceActions {
@@ -38,9 +38,12 @@ export class SharedThreadCatalog {
     this.options.cache.setActiveThreads(this.context(), threads);
   }
 
-  observeActiveThreads(listener: (threads: readonly Thread[]) => void, options?: { emitCurrent?: boolean }): () => void {
+  observeActiveThreadsResult(
+    listener: (result: AppServerObservedQueryResult<readonly Thread[]>) => void,
+    options?: { emitCurrent?: boolean },
+  ): () => void {
     return this.observeCurrentContext(
-      (context, contextListener, observeOptions) => this.options.cache.observeActiveThreads(context, contextListener, observeOptions),
+      (context, contextListener, observeOptions) => this.options.cache.observeActiveThreadsResult(context, contextListener, observeOptions),
       listener,
       options,
     );
@@ -50,13 +53,25 @@ export class SharedThreadCatalog {
     return this.options.cache.appServerMetadataSnapshot(this.context());
   }
 
-  setAppServerMetadata(metadata: SharedServerMetadata): void {
-    this.options.cache.setAppServerMetadata(this.context(), metadata);
+  updateAppServerMetadata(updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null): SharedServerMetadata | null {
+    return this.options.cache.updateAppServerMetadata(this.context(), updater);
   }
 
-  observeAppServerMetadata(listener: (metadata: SharedServerMetadata) => void, options?: { emitCurrent?: boolean }): () => void {
+  async fetchAppServerMetadata(): Promise<SharedServerMetadata | null> {
+    return this.options.cache.fetchAppServerMetadata(this.context());
+  }
+
+  async refreshAppServerMetadata(options: { forceSkills?: boolean } = {}): Promise<SharedServerMetadata | null> {
+    return this.options.cache.refreshAppServerMetadata(this.context(), options);
+  }
+
+  observeAppServerMetadataResult(
+    listener: (result: AppServerObservedQueryResult<SharedServerMetadata>) => void,
+    options?: { emitCurrent?: boolean },
+  ): () => void {
     return this.observeCurrentContext(
-      (context, contextListener, observeOptions) => this.options.cache.observeAppServerMetadata(context, contextListener, observeOptions),
+      (context, contextListener, observeOptions) =>
+        this.options.cache.observeAppServerMetadataResult(context, contextListener, observeOptions),
       listener,
       options,
     );
@@ -74,9 +89,12 @@ export class SharedThreadCatalog {
     return this.options.cache.refreshModels(this.context());
   }
 
-  observeModels(listener: (models: readonly ModelMetadata[]) => void, options?: { emitCurrent?: boolean }): () => void {
+  observeModelsResult(
+    listener: (result: AppServerObservedQueryResult<readonly ModelMetadata[]>) => void,
+    options?: { emitCurrent?: boolean },
+  ): () => void {
     return this.observeCurrentContext(
-      (context, contextListener, observeOptions) => this.options.cache.observeModels(context, contextListener, observeOptions),
+      (context, contextListener, observeOptions) => this.options.cache.observeModelsResult(context, contextListener, observeOptions),
       listener,
       options,
     );

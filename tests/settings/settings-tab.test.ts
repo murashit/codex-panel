@@ -608,7 +608,7 @@ function newSettingsTab(
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModels"];
+    observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModelsResult"];
     notifyAppServerQueryContextChanged?: () => void;
     refreshOpenViews?: () => void;
     refreshFromOpenSurface?: () => void;
@@ -630,7 +630,7 @@ function settingsTabHost(
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModels"];
+    observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModelsResult"];
     notifyAppServerQueryContextChanged?: () => void;
     refreshOpenViews?: () => void;
     refreshFromOpenSurface?: () => void;
@@ -665,7 +665,7 @@ function settingsTabHost(
       modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
       fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
       refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
-      observeModels: options.observeModels ?? vi.fn(() => () => undefined),
+      observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),
       notifyAppServerQueryContextChanged: options.notifyAppServerQueryContextChanged ?? vi.fn(),
     },
   };

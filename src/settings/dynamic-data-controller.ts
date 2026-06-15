@@ -1,4 +1,5 @@
 import type { AppServerClient } from "../app-server/connection/client";
+import type { AppServerObservedQueryResult } from "../app-server/query/cache";
 import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
 import { setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
@@ -26,7 +27,12 @@ export interface SettingsDynamicDataHost {
 
 type SettingsThreadCatalog = Pick<
   SharedThreadCatalog,
-  "refreshFromOpenSurface" | "modelsSnapshot" | "observeModels" | "fetchModels" | "refreshModels" | "notifyAppServerQueryContextChanged"
+  | "refreshFromOpenSurface"
+  | "modelsSnapshot"
+  | "observeModelsResult"
+  | "fetchModels"
+  | "refreshModels"
+  | "notifyAppServerQueryContextChanged"
 >;
 
 interface SettingsDynamicDataControllerCallbacks {
@@ -70,10 +76,9 @@ export class SettingsDynamicDataController {
   activate(): void {
     if (this.unsubscribeModels) return;
     this.models = [...(this.host.threadCatalog.modelsSnapshot() ?? [])];
-    this.unsubscribeModels = this.host.threadCatalog.observeModels(
-      (models) => {
-        this.models = [...models];
-        this.callbacks.display();
+    this.unsubscribeModels = this.host.threadCatalog.observeModelsResult(
+      (result) => {
+        this.receiveObservedModelsResult(result);
       },
       { emitCurrent: false },
     );
@@ -102,6 +107,12 @@ export class SettingsDynamicDataController {
   dispose(): void {
     this.unsubscribeModels?.();
     this.unsubscribeModels = null;
+  }
+
+  private receiveObservedModelsResult(result: AppServerObservedQueryResult<readonly ModelMetadata[]>): void {
+    if (!result.data) return;
+    this.models = [...result.data];
+    this.callbacks.display();
   }
 
   async refreshSettingsData(options: { forceModels?: boolean } = {}): Promise<void> {

@@ -81,13 +81,23 @@ describe("ChatConnectionController", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
-  it("refreshes diagnostics after clearing deferred diagnostics", async () => {
-    const { controller, host, refreshPublishedDiagnosticProbes } = createController({ connected: true });
+  it("refreshes metadata before metadata-backed diagnostics", async () => {
+    const { controller, host, refreshPublishedAppServerMetadata, refreshPublishedDiagnosticProbes } = createController({ connected: true });
 
     await controller.refreshDiagnostics();
 
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
-    expect(refreshPublishedDiagnosticProbes).toHaveBeenCalledOnce();
+    expect(refreshPublishedAppServerMetadata).toHaveBeenCalledOnce();
+    expect(refreshPublishedDiagnosticProbes).toHaveBeenCalledWith({ appServerMetadataSnapshot: true });
+  });
+
+  it("refreshes active threads without refreshing metadata", async () => {
+    const { controller, host, refreshPublishedAppServerMetadata } = createController({ connected: true });
+
+    await controller.fetchActiveThreads();
+
+    expect(host.loadSharedThreadList).toHaveBeenCalledOnce();
+    expect(refreshPublishedAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {

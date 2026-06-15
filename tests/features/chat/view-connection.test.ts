@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/host/runtime";
+import type { AppServerObservedQueryResult } from "../../../src/app-server/query/cache";
+import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
 import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import type { Thread } from "../../../src/domain/threads/model";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
@@ -187,22 +189,14 @@ describe("CodexChatView connection lifecycle", () => {
     });
   });
 
-  it("publishes app-server metadata after connecting", async () => {
-    const setAppServerMetadata = vi.fn();
+  it("loads app-server metadata after connecting", async () => {
     connectionMock.state.client = connectedClient();
-    const view = await chatView({
-      host: chatHost({ setAppServerMetadata }),
-    });
+    const view = await chatView();
 
     await view.surface.connect();
 
-    expect(setAppServerMetadata).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtimeConfig: expect.any(Object),
-        availableModels: [],
-        availableSkills: [],
-      }),
-    );
+    expect(connectionMock.state.client["readEffectiveConfig"]).toHaveBeenCalledOnce();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
   });
 
   it("renders the chat shell on the view content root", async () => {
@@ -1312,32 +1306,71 @@ interface ChatHostFixtureOverrides {
   refreshFromOpenSurface?: CodexChatHost["threadCatalog"]["refreshFromOpenSurface"];
   refreshThreadsViewLiveState?: CodexChatHost["threadCatalog"]["refreshThreadsViewLiveState"];
   setActiveThreads?: CodexChatHost["threadCatalog"]["setActiveThreads"];
-  setAppServerMetadata?: CodexChatHost["threadCatalog"]["setAppServerMetadata"];
+  updateAppServerMetadata?: CodexChatHost["threadCatalog"]["updateAppServerMetadata"];
   refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
   activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
   appServerMetadataSnapshot?: CodexChatHost["threadCatalog"]["appServerMetadataSnapshot"];
   modelsSnapshot?: CodexChatHost["threadCatalog"]["modelsSnapshot"];
   fetchModels?: CodexChatHost["threadCatalog"]["fetchModels"];
   refreshModels?: CodexChatHost["threadCatalog"]["refreshModels"];
+  fetchAppServerMetadata?: CodexChatHost["threadCatalog"]["fetchAppServerMetadata"];
+  refreshAppServerMetadata?: CodexChatHost["threadCatalog"]["refreshAppServerMetadata"];
 }
 
 function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
   let activeThreads = overrides.activeThreadsSnapshot?.() ?? null;
   let metadata = overrides.appServerMetadataSnapshot?.() ?? null;
   const models = overrides.modelsSnapshot?.() ?? null;
-  const activeThreadListeners = new Set<(threads: readonly Thread[]) => void>();
-  const metadataListeners = new Set<(metadata: SharedServerMetadata) => void>();
-  const modelListeners = new Set<(models: readonly ModelMetadata[]) => void>();
+  const activeThreadResultListeners = new Set<(result: AppServerObservedQueryResult<readonly Thread[]>) => void>();
+  const metadataResultListeners = new Set<(result: AppServerObservedQueryResult<SharedServerMetadata>) => void>();
+  const modelResultListeners = new Set<(result: AppServerObservedQueryResult<readonly ModelMetadata[]>) => void>();
   const settings = {
     ...DEFAULT_SETTINGS,
     codexPath: "codex",
     sendShortcut: "enter" as const,
     ...overrides.settings,
   };
+  const vaultPath = overrides.vaultPath ?? "/vault";
+  const applyMetadataToCache = (nextMetadata: SharedServerMetadata): SharedServerMetadata => {
+    metadata = nextMetadata;
+    for (const listener of metadataResultListeners) listener(queryResult(nextMetadata));
+    for (const listener of modelResultListeners) listener(queryResult(nextMetadata.availableModels));
+    return nextMetadata;
+  };
+  const loadAppServerMetadata = async (): Promise<SharedServerMetadata | null> => {
+    const client = connectionMock.state.client as ReturnType<typeof baseClient> | null;
+    if (!client || !connectionMock.state.connected) return null;
+    const connectionStillCurrent = () => connectionMock.state.client === client && connectionMock.state.connected;
+    await client.readEffectiveConfig(vaultPath);
+    if (!connectionStillCurrent()) return null;
+    const availableModels = overrides.fetchModels
+      ? await overrides.fetchModels()
+      : modelMetadataFromCatalogModels((await client.listModels(false)).data as Parameters<typeof modelMetadataFromCatalogModels>[0]);
+    if (!connectionStillCurrent()) return null;
+    const skillsResponse = await client.listSkills(vaultPath);
+    if (!connectionStillCurrent()) return null;
+    await client.readAccountRateLimits();
+    if (!connectionStillCurrent()) return null;
+    return {
+      runtimeConfig: emptyRuntimeConfigSnapshot(),
+      availableModels,
+      availableSkills: skillsResponse.data.flatMap(
+        (entry: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }) =>
+          entry.skills.map((skill) => ({
+            name: skill.name,
+            description: skill.description ?? "",
+            path: skill.path ?? "",
+            enabled: skill.enabled ?? true,
+          })),
+      ),
+      rateLimit: null,
+      serverDiagnostics: createServerDiagnostics(),
+    };
+  };
   return {
     settingsRef: {
       settings,
-      vaultPath: overrides.vaultPath ?? "/vault",
+      vaultPath,
     },
     workspace: {
       openThreadInNewView: overrides.openThreadInNewView ?? vi.fn(),
@@ -1353,13 +1386,14 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
         overrides.setActiveThreads ??
         ((threads) => {
           activeThreads = threads;
-          for (const listener of activeThreadListeners) listener(threads);
+          for (const listener of activeThreadResultListeners) listener(queryResult(threads));
         }),
-      setAppServerMetadata:
-        overrides.setAppServerMetadata ??
-        ((nextMetadata) => {
-          metadata = nextMetadata;
-          for (const listener of metadataListeners) listener(nextMetadata);
+      updateAppServerMetadata:
+        overrides.updateAppServerMetadata ??
+        ((updater) => {
+          const nextMetadata = updater(metadata);
+          if (!nextMetadata) return null;
+          return applyMetadataToCache(nextMetadata);
         }),
       refreshActiveThreads:
         overrides.refreshActiveThreads ??
@@ -1369,37 +1403,64 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
           const listThreads = client["listThreads"] as (cwd: string, options: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
           const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
           activeThreads = response.data.map(threadFromRecord);
-          for (const listener of activeThreadListeners) listener(activeThreads);
+          for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
           return activeThreads;
         }) as CodexChatHost["threadCatalog"]["refreshActiveThreads"]),
       activeThreadsSnapshot: overrides.activeThreadsSnapshot ?? vi.fn(() => activeThreads),
       appServerMetadataSnapshot: overrides.appServerMetadataSnapshot ?? vi.fn(() => metadata),
+      fetchAppServerMetadata:
+        overrides.fetchAppServerMetadata ??
+        vi.fn(async () => {
+          const nextMetadata = await loadAppServerMetadata();
+          return nextMetadata ? applyMetadataToCache(nextMetadata) : null;
+        }),
+      refreshAppServerMetadata:
+        overrides.refreshAppServerMetadata ??
+        vi.fn(async () => {
+          const nextMetadata = await loadAppServerMetadata();
+          return nextMetadata ? applyMetadataToCache(nextMetadata) : null;
+        }),
       modelsSnapshot: overrides.modelsSnapshot ?? vi.fn(() => models),
       fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
       refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
-      observeActiveThreads: (listener, options = {}) => {
-        activeThreadListeners.add(listener);
-        if ((options.emitCurrent ?? true) && activeThreads) listener(activeThreads);
+      observeActiveThreadsResult: (listener, options = {}) => {
+        activeThreadResultListeners.add(listener);
+        if ((options.emitCurrent ?? true) && activeThreads) listener(queryResult(activeThreads));
         return () => {
-          activeThreadListeners.delete(listener);
+          activeThreadResultListeners.delete(listener);
         };
       },
-      observeAppServerMetadata: (listener, options = {}) => {
-        metadataListeners.add(listener);
-        if ((options.emitCurrent ?? true) && metadata) listener(metadata);
+      observeAppServerMetadataResult: (listener, options = {}) => {
+        metadataResultListeners.add(listener);
+        if ((options.emitCurrent ?? true) && metadata) listener(queryResult(metadata));
         return () => {
-          metadataListeners.delete(listener);
+          metadataResultListeners.delete(listener);
         };
       },
-      observeModels: (listener, options = {}) => {
-        modelListeners.add(listener);
-        if ((options.emitCurrent ?? true) && models) listener(models);
+      observeModelsResult: (listener, options = {}) => {
+        modelResultListeners.add(listener);
+        if ((options.emitCurrent ?? true) && models) listener(queryResult(models));
         return () => {
-          modelListeners.delete(listener);
+          modelResultListeners.delete(listener);
         };
       },
     },
   };
+}
+
+function queryResult<T>(data: T | null): AppServerObservedQueryResult<T> {
+  return {
+    data,
+    error: null,
+    isFetching: false,
+    isLoading: false,
+    isPending: data === null,
+    isSuccess: data !== null,
+    isError: false,
+    isStale: false,
+    status: data === null ? "pending" : "success",
+    fetchStatus: "idle",
+  } as AppServerObservedQueryResult<T>;
 }
 
 async function chatView(

@@ -27,7 +27,7 @@ function controllerForState(
       fetchActiveThreads: vi.fn(),
       refreshRateLimits: vi.fn(),
       refreshSkills: vi.fn(),
-      setAppServerMetadata: vi.fn(),
+      applyAppServerMetadataSnapshot: vi.fn(),
       maybeNameThread: vi.fn(),
       applyThreadArchived: vi.fn(),
       applyThreadRenamed: vi.fn(),
@@ -694,8 +694,8 @@ describe("ChatInboundController", () => {
     it("records MCP startup status for diagnostics without a chat system message", () => {
       const state = chatStateFixture();
       const recordMcpStartupStatus = vi.fn();
-      const setAppServerMetadata = vi.fn();
-      const controller = controllerForState(state, { recordMcpStartupStatus, setAppServerMetadata });
+      const applyAppServerMetadataSnapshot = vi.fn();
+      const controller = controllerForState(state, { recordMcpStartupStatus, applyAppServerMetadataSnapshot });
 
       controller.handleNotification({
         method: "mcpServer/startupStatus/updated",
@@ -708,7 +708,7 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
 
       expect(recordMcpStartupStatus).toHaveBeenCalledWith("github", "failed", "missing token");
-      expect(setAppServerMetadata).toHaveBeenCalledOnce();
+      expect(applyAppServerMetadataSnapshot).toHaveBeenCalledOnce();
       expect(chatStateMessageStreamItems(controller.currentState())).toEqual([]);
     });
   });

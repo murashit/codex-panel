@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import type { McpServerStatus } from "../../../../../src/domain/server/diagnostics";
+import {
+  createServerDiagnostics,
+  diagnosticProbeError,
+  diagnosticProbeOk,
+  diagnosticsWithProbe,
+  type McpServerStatus,
+} from "../../../../../src/domain/server/diagnostics";
+import type { SharedServerMetadata } from "../../../../../src/domain/server/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/app-server/protocol/runtime-config";
 import type { RateLimitSnapshot } from "../../../../../src/app-server/protocol/runtime-metrics";
 import { threadFromThreadRecord } from "../../../../../src/app-server/protocol/thread";
@@ -243,47 +250,52 @@ describe("chat server actions", () => {
     const state = chatStateFixture();
     const stateStore = createChatStateStore(state);
 
-    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([modelFixture("gpt-5.1")]));
-    const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("writer")] }] });
-    const readAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: {} as RateLimitSnapshot });
     const listHooks = vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", hooks: [] }] });
+    const refreshedMetadata = serverMetadataFixture({
+      availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-5.1")]),
+      availableSkills: [{ name: "writer", description: "", path: "/tmp/writer", enabled: true }],
+      rateLimit: rateLimitFixture(),
+      serverDiagnostics: diagnosticsWithProbe(
+        diagnosticsWithProbe(
+          diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "1 models")),
+          diagnosticProbeOk("skills/list", "1 skills"),
+        ),
+        diagnosticProbeOk("account/rateLimits/read", "available"),
+      ),
+    });
+    const refreshAppServerMetadata = vi.fn<() => Promise<SharedServerMetadata | null>>().mockResolvedValue(refreshedMetadata);
     const client = {
-      readEffectiveConfig: vi.fn().mockResolvedValue({}),
-      listSkills,
-      readAccountRateLimits,
       listHooks,
       listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
       listCollaborationModes: vi.fn().mockResolvedValue({ data: [] }),
       readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
     } as unknown as AppServerClient;
+    const metadataCache = metadataCacheHost({ current: null });
 
     const metadata = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      setAppServerMetadata: () => undefined,
-      modelsSnapshot: () => null,
-      fetchModels,
-      refreshModels: async () => [],
+      ...metadataCache,
+      fetchAppServerMetadata: async () => refreshedMetadata,
+      refreshAppServerMetadata: async () => {
+        const next = await refreshAppServerMetadata();
+        metadataCache.updateAppServerMetadata(() => next);
+        return next;
+      },
     });
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      setAppServerMetadata: () => undefined,
-      serverMetadataSnapshot: () => metadata.serverMetadataSnapshot(),
+      ...metadataCache,
     });
 
     await metadata.refreshAppServerMetadata();
-    fetchModels.mockClear();
-    listSkills.mockClear();
-    readAccountRateLimits.mockClear();
 
     await diagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
 
-    expect(fetchModels).not.toHaveBeenCalled();
-    expect(listSkills).not.toHaveBeenCalled();
-    expect(readAccountRateLimits).not.toHaveBeenCalled();
+    expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
     expect(listHooks).toHaveBeenCalledWith("/vault");
     expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
       status: "ok",
@@ -299,6 +311,77 @@ describe("chat server actions", () => {
     });
   });
 
+  it("uses metadata diagnostics as the default resource probe source", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const metadataCache = metadataCacheHost({
+      current: serverMetadataFixture({
+        serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "cached models")),
+      }),
+    });
+    const listModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-direct")] });
+    const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("direct-skill")] }] });
+    const readAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture(), rateLimitsByLimitId: null });
+    const listHooks = vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", hooks: [] }] });
+    const client = {
+      listModels,
+      listSkills,
+      readAccountRateLimits,
+      listHooks,
+      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
+      listCollaborationModes: vi.fn().mockResolvedValue({ data: [] }),
+      readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
+    } as unknown as AppServerClient;
+    const diagnostics = createChatServerDiagnosticsActions({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      ...metadataCache,
+    });
+
+    await diagnostics.refreshDiagnosticProbes();
+
+    expect(listModels).not.toHaveBeenCalled();
+    expect(listSkills).not.toHaveBeenCalled();
+    expect(readAccountRateLimits).not.toHaveBeenCalled();
+    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
+      status: "ok",
+      summary: "cached models",
+    });
+    expect(listHooks).toHaveBeenCalledWith("/vault");
+  });
+
+  it("can force resource probes for explicit health checks", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const listModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-direct")] });
+    const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("direct-skill")] }] });
+    const readAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture(), rateLimitsByLimitId: null });
+    const client = {
+      listModels,
+      listSkills,
+      readAccountRateLimits,
+      listHooks: vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", hooks: [] }] }),
+      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
+      listCollaborationModes: vi.fn().mockResolvedValue({ data: [] }),
+      readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
+    } as unknown as AppServerClient;
+    const diagnostics = createChatServerDiagnosticsActions({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      ...metadataCacheHost(),
+    });
+
+    await diagnostics.refreshDiagnosticProbes({ forceResourceProbes: true });
+
+    expect(listModels).toHaveBeenCalledWith(false);
+    expect(listSkills).toHaveBeenCalledWith("/vault");
+    expect(readAccountRateLimits).toHaveBeenCalledOnce();
+    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
+      status: "ok",
+      summary: "1 models",
+    });
+  });
+
   it("does not apply or publish diagnostic probes after the client changes", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const hooksRefresh = deferred<{ data: { cwd: string; hooks: unknown[] }[] }>();
@@ -311,22 +394,13 @@ describe("chat server actions", () => {
     } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const setAppServerMetadata = vi.fn();
-    const metadata = createChatServerMetadataActions({
-      stateStore,
-      vaultPath: "/vault",
-      currentClient: () => currentClient,
-      setAppServerMetadata: () => undefined,
-      modelsSnapshot: () => null,
-      fetchModels: async () => [],
-      refreshModels: async () => [],
-    });
+    const updateAppServerMetadata = vi.fn(() => null);
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      setAppServerMetadata,
-      serverMetadataSnapshot: () => metadata.serverMetadataSnapshot(),
+      appServerMetadataSnapshot: () => null,
+      updateAppServerMetadata,
     });
 
     const refreshing = diagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
@@ -338,100 +412,68 @@ describe("chat server actions", () => {
     expect(stateStore.getState().connection.serverDiagnostics.probes["hooks/list"].status).toBe("unknown");
     expect(stateStore.getState().connection.serverDiagnostics.probes["mcpServerStatus/list"].status).toBe("unknown");
     expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([]);
-    expect(setAppServerMetadata).not.toHaveBeenCalled();
+    expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("loads one app-server metadata snapshot from the initially captured client", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const readEffectiveConfig = deferred<Record<string, never>>();
-    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([modelFixture("gpt-first")]));
-    const firstListSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("first-skill")] }] });
-    const firstReadAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture() });
-    const secondListSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("second-skill")] }] });
-    const secondReadAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture({ limitName: "Second" }) });
-    const firstClient = {
-      readEffectiveConfig: vi.fn().mockReturnValue(readEffectiveConfig.promise),
-      listSkills: firstListSkills,
-      readAccountRateLimits: firstReadAccountRateLimits,
-    } as unknown as AppServerClient;
-    const secondClient = {
-      listSkills: secondListSkills,
-      readAccountRateLimits: secondReadAccountRateLimits,
-    } as unknown as AppServerClient;
-    let currentClient = firstClient;
+    const fetchAppServerMetadata = vi.fn().mockResolvedValue(
+      serverMetadataFixture({
+        availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-first")]),
+        availableSkills: [{ name: "first-skill", description: "", path: "/tmp/first-skill", enabled: true }],
+      }),
+    );
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
-      currentClient: () => currentClient,
-      setAppServerMetadata: () => undefined,
-      modelsSnapshot: () => null,
-      fetchModels,
-      refreshModels: async () => [],
+      currentClient: () => ({}) as AppServerClient,
+      ...metadataCacheHost(),
+      fetchAppServerMetadata,
+      refreshAppServerMetadata: async () => null,
     });
 
     const loading = controller.loadAppServerMetadata();
-    currentClient = secondClient;
-    readEffectiveConfig.resolve({});
 
     await expect(loading).resolves.toMatchObject({
       availableModels: [{ model: "gpt-first" }],
       availableSkills: [{ name: "first-skill" }],
     });
-    expect(fetchModels).toHaveBeenCalledOnce();
-    expect(firstListSkills).toHaveBeenCalledOnce();
-    expect(firstReadAccountRateLimits).toHaveBeenCalledOnce();
-    expect(secondListSkills).not.toHaveBeenCalled();
-    expect(secondReadAccountRateLimits).not.toHaveBeenCalled();
+    expect(fetchAppServerMetadata).toHaveBeenCalledOnce();
   });
 
   it("does not apply or publish app-server metadata when the client changes before refresh completes", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const readEffectiveConfig = deferred<Record<string, never>>();
-    const firstClient = {
-      readEffectiveConfig: vi.fn().mockReturnValue(readEffectiveConfig.promise),
-      listModels: vi.fn().mockResolvedValue({ data: [modelFixture("gpt-stale")] }),
-      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("stale-skill")] }] }),
-      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture() }),
-    } as unknown as AppServerClient;
-    const secondClient = {} as unknown as AppServerClient;
-    let currentClient = firstClient;
-    const setAppServerMetadata = vi.fn();
+    const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
-      currentClient: () => currentClient,
-      setAppServerMetadata,
-      modelsSnapshot: () => null,
-      fetchModels: async () => modelMetadataFromCatalogModels([modelFixture("gpt-stale")]),
-      refreshModels: async () => modelMetadataFromCatalogModels([modelFixture("gpt-stale")]),
+      currentClient: () => ({}) as AppServerClient,
+      ...metadataCacheHost(),
+      fetchAppServerMetadata: async () => null,
+      refreshAppServerMetadata,
     });
 
     const refreshing = controller.refreshPublishedAppServerMetadata();
-    currentClient = secondClient;
-    readEffectiveConfig.resolve({});
 
     await expect(refreshing).resolves.toBeNull();
     expect(stateStore.getState().connection.availableModels).toEqual([]);
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
-    expect(setAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("keeps query-cached models visible when metadata model refresh fails", async () => {
     const state = chatStateFixture();
     const stateStore = createChatStateStore(state);
-    const client = {
-      readEffectiveConfig: vi.fn().mockResolvedValue({}),
-      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
-      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture() }),
-    } as unknown as AppServerClient;
+    const metadata = serverMetadataFixture({
+      availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-cached")]),
+      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("model/list", new Error("offline"))),
+    });
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
-      currentClient: () => client,
-      setAppServerMetadata: () => undefined,
-      modelsSnapshot: () => modelMetadataFromCatalogModels([modelFixture("gpt-cached")]),
-      fetchModels: () => Promise.reject(new Error("offline")),
-      refreshModels: () => Promise.reject(new Error("offline")),
+      currentClient: () => ({}) as AppServerClient,
+      ...metadataCacheHost({ current: metadata }),
+      fetchAppServerMetadata: async () => metadata,
+      refreshAppServerMetadata: async () => metadata,
     });
 
     await controller.refreshAppServerMetadata();
@@ -444,19 +486,17 @@ describe("chat server actions", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { connection: { availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-state-only")]) } });
     const stateStore = createChatStateStore(state);
-    const client = {
-      readEffectiveConfig: vi.fn().mockResolvedValue({}),
-      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
-      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture() }),
-    } as unknown as AppServerClient;
+    const metadata = serverMetadataFixture({
+      availableModels: [],
+      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("model/list", new Error("offline"))),
+    });
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
-      currentClient: () => client,
-      setAppServerMetadata: () => undefined,
-      modelsSnapshot: () => null,
-      fetchModels: () => Promise.reject(new Error("offline")),
-      refreshModels: () => Promise.reject(new Error("offline")),
+      currentClient: () => ({}) as AppServerClient,
+      ...metadataCacheHost({ current: metadata }),
+      fetchAppServerMetadata: async () => metadata,
+      refreshAppServerMetadata: async () => metadata,
     });
 
     await controller.refreshAppServerMetadata();
@@ -472,15 +512,15 @@ describe("chat server actions", () => {
     const firstClient = { listSkills } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const setAppServerMetadata = vi.fn();
+    const updateAppServerMetadata = vi.fn(() => null);
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      setAppServerMetadata,
-      modelsSnapshot: () => null,
-      fetchModels: async () => [],
-      refreshModels: async () => [],
+      appServerMetadataSnapshot: () => null,
+      updateAppServerMetadata,
+      fetchAppServerMetadata: async () => null,
+      refreshAppServerMetadata: async () => null,
     });
 
     const refreshing = controller.refreshPublishedSkills(true);
@@ -491,14 +531,14 @@ describe("chat server actions", () => {
     expect(listSkills).toHaveBeenCalledWith("/vault", true);
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
     expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"].status).toBe("unknown");
-    expect(setAppServerMetadata).not.toHaveBeenCalled();
+    expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("publishes refreshed rate limits from sparse update notifications", async () => {
     const state = chatStateFixture();
     const stateStore = createChatStateStore(state);
     const rateLimit = rateLimitFixture({ primary: { usedPercent: 64, windowDurationMins: 300, resetsAt: null } });
-    const setAppServerMetadata = vi.fn();
+    const cachedMetadata = { current: serverMetadataFixture() as SharedServerMetadata | null };
     const client = {
       readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
     } as unknown as AppServerClient;
@@ -506,16 +546,15 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      setAppServerMetadata,
-      modelsSnapshot: () => null,
-      fetchModels: async () => [],
-      refreshModels: async () => [],
+      ...metadataCacheHost(cachedMetadata),
+      fetchAppServerMetadata: async () => null,
+      refreshAppServerMetadata: async () => null,
     });
 
     await controller.refreshPublishedRateLimits();
 
     expect(stateStore.getState().connection.rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
-    expect(setAppServerMetadata).toHaveBeenCalledWith(expect.objectContaining({ rateLimit }));
+    expect(cachedMetadata.current?.rateLimit).toStrictEqual(rateLimit);
   });
 
   it("keeps the previous rate limit snapshot when sparse update refresh fails", async () => {
@@ -526,7 +565,6 @@ describe("chat server actions", () => {
     });
     state = chatStateWith(state, { connection: { rateLimit: previousRateLimit } });
     const stateStore = createChatStateStore(state);
-    const setAppServerMetadata = vi.fn();
     const client = {
       readAccountRateLimits: vi.fn().mockRejectedValue(new Error("offline")),
     } as unknown as AppServerClient;
@@ -534,17 +572,15 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      setAppServerMetadata,
-      modelsSnapshot: () => null,
-      fetchModels: async () => [],
-      refreshModels: async () => [],
+      ...metadataCacheHost(),
+      fetchAppServerMetadata: async () => null,
+      refreshAppServerMetadata: async () => null,
     });
 
     await controller.refreshPublishedRateLimits();
 
     expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
     expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
-    expect(setAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("does not apply or publish sparse rate limit refreshes after the client changes", async () => {
@@ -555,15 +591,15 @@ describe("chat server actions", () => {
     } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const setAppServerMetadata = vi.fn();
+    const updateAppServerMetadata = vi.fn(() => null);
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      setAppServerMetadata,
-      modelsSnapshot: () => null,
-      fetchModels: async () => [],
-      refreshModels: async () => [],
+      appServerMetadataSnapshot: () => null,
+      updateAppServerMetadata,
+      fetchAppServerMetadata: async () => null,
+      refreshAppServerMetadata: async () => null,
     });
 
     const refreshing = controller.refreshPublishedRateLimits();
@@ -576,7 +612,7 @@ describe("chat server actions", () => {
     await refreshing;
     expect(stateStore.getState().connection.rateLimit).toBeNull();
     expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("unknown");
-    expect(setAppServerMetadata).not.toHaveBeenCalled();
+    expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("loads MCP status lines with cached startup diagnostics", async () => {
@@ -587,21 +623,12 @@ describe("chat server actions", () => {
     const client = {
       listMcpServerStatus,
     } as unknown as AppServerClient;
-    const metadata = createChatServerMetadataActions({
-      stateStore,
-      vaultPath: "/vault",
-      currentClient: () => client,
-      setAppServerMetadata: () => undefined,
-      modelsSnapshot: () => null,
-      fetchModels: async () => [],
-      refreshModels: async () => [],
-    });
+    const metadataCache = metadataCacheHost({ current: serverMetadataFixture() });
     const controller = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      setAppServerMetadata: () => undefined,
-      serverMetadataSnapshot: () => metadata.serverMetadataSnapshot(),
+      ...metadataCache,
     });
 
     controller.recordMcpStartupStatus("github", "ready", null);
@@ -681,6 +708,31 @@ function rateLimitFixture(overrides: Partial<RateLimitSnapshot> = {}): RateLimit
     individualLimit: null,
     rateLimitReachedType: null,
     ...overrides,
+  };
+}
+
+function serverMetadataFixture(overrides: Partial<SharedServerMetadata> = {}): SharedServerMetadata {
+  return {
+    runtimeConfig: emptyRuntimeConfigSnapshot(),
+    availableModels: [],
+    availableSkills: [],
+    rateLimit: null,
+    serverDiagnostics: createServerDiagnostics(),
+    ...overrides,
+  };
+}
+
+function metadataCacheHost(cache: { current: SharedServerMetadata | null } = { current: null }): {
+  appServerMetadataSnapshot: () => SharedServerMetadata | null;
+  updateAppServerMetadata: (updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null) => SharedServerMetadata | null;
+} {
+  return {
+    appServerMetadataSnapshot: () => cache.current,
+    updateAppServerMetadata: (updater) => {
+      const next = updater(cache.current);
+      cache.current = next;
+      return next;
+    },
   };
 }
 
