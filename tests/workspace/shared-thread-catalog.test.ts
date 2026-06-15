@@ -2,7 +2,7 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
-import { createServerDiagnostics } from "../../src/domain/server/diagnostics";
+import { createServerDiagnostics, diagnosticProbeOk } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import { SharedThreadCatalog } from "../../src/workspace/shared-thread-catalog";
@@ -29,13 +29,13 @@ describe("SharedThreadCatalog", () => {
   });
 
   it("refreshes thread snapshots through the cache single-flight and notifies observers once", async () => {
-    const { catalog } = catalogFixture();
     const fetchThreads = vi.fn().mockResolvedValue([thread("thread")]);
+    const { catalog } = catalogFixture({ fetchThreads });
     const listener = vi.fn();
     catalog.observeActiveThreads(listener);
 
-    const first = catalog.fetchActiveThreads(fetchThreads);
-    const second = catalog.fetchActiveThreads(fetchThreads);
+    const first = catalog.refreshActiveThreads();
+    const second = catalog.refreshActiveThreads();
 
     await expect(first).resolves.toEqual([thread("thread")]);
     await expect(second).resolves.toEqual([thread("thread")]);
@@ -48,7 +48,12 @@ describe("SharedThreadCatalog", () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
     const surfaces = surfaceActions();
     const catalog = new SharedThreadCatalog({
-      cache: new AppServerQueryCache(),
+      cache: cacheWithThreads((queryContext) => {
+        expect(queryContext.codexPath).toBe("codex-a");
+        return new Promise<Thread[]>((resolve) => {
+          resolveThreads = resolve;
+        });
+      }),
       surfaces,
       context: () => context,
     });
@@ -56,12 +61,8 @@ describe("SharedThreadCatalog", () => {
     const listener = vi.fn();
     catalog.observeActiveThreads(listener);
 
-    const fetch = catalog.fetchActiveThreads(
-      () =>
-        new Promise<Thread[]>((resolve) => {
-          resolveThreads = resolve;
-        }),
-    );
+    const fetch = catalog.refreshActiveThreads();
+    await flushMicrotasks();
     context.codexPath = "codex-b";
     resolveThreads([thread("stale")]);
 
@@ -95,19 +96,17 @@ describe("SharedThreadCatalog", () => {
   it("publishes metadata and model snapshots to cache and observers", () => {
     const { catalog } = catalogFixture();
     const metadata = serverMetadata({ availableModels: [model("gpt-test")] });
-    const models = [model("gpt-other")];
     const metadataListener = vi.fn();
     const modelListener = vi.fn();
     catalog.observeAppServerMetadata(metadataListener);
     catalog.observeModels(modelListener);
 
     catalog.setAppServerMetadata(metadata);
-    catalog.setModels(models);
 
-    expect(catalog.appServerMetadataSnapshot()).toEqual({ ...metadata, availableModels: models });
-    expect(catalog.modelsSnapshot()).toEqual(models);
-    expect(metadataListener).toHaveBeenLastCalledWith({ ...metadata, availableModels: models });
-    expect(modelListener).toHaveBeenCalledWith(models);
+    expect(catalog.appServerMetadataSnapshot()).toEqual(metadata);
+    expect(catalog.modelsSnapshot()).toEqual(metadata.availableModels);
+    expect(metadataListener).toHaveBeenLastCalledWith(metadata);
+    expect(modelListener).toHaveBeenCalledWith(metadata.availableModels);
   });
 
   it("applies known rename mutations to cache and surfaces", () => {
@@ -137,14 +136,37 @@ describe("SharedThreadCatalog", () => {
   });
 });
 
-function catalogFixture() {
+function catalogFixture(
+  options: { fetchThreads?: (context: { codexPath: string; vaultPath: string }) => Promise<readonly Thread[]> } = {},
+) {
   const surfaces = surfaceActions();
   const catalog = new SharedThreadCatalog({
-    cache: new AppServerQueryCache(),
+    cache: cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([]))),
     surfaces,
     context: () => ({ codexPath: "codex", vaultPath: "/vault" }),
   });
   return { catalog, surfaces };
+}
+
+function cacheWithThreads(
+  fetchThreads: (context: { codexPath: string; vaultPath: string }) => Promise<readonly Thread[]>,
+): AppServerQueryCache {
+  return new AppServerQueryCache({
+    clientRunner: {
+      runWithClient: async (context, operation) => {
+        return operation({
+          listThreads: async () => ({
+            data: await fetchThreads(context),
+            nextCursor: null,
+          }),
+        } as never);
+      },
+    },
+  });
+}
+
+async function flushMicrotasks(): Promise<void> {
+  await new Promise((resolve) => setImmediate(resolve));
 }
 
 function surfaceActions(): MockSurfaceActions {
@@ -186,12 +208,14 @@ function model(modelId: string): ModelMetadata {
 }
 
 function serverMetadata(overrides: Partial<SharedServerMetadata> = {}): SharedServerMetadata {
+  const diagnostics = createServerDiagnostics();
+  diagnostics.probes["model/list"] = diagnosticProbeOk("model/list", "0 models");
   return {
     runtimeConfig: null,
     availableModels: [],
     availableSkills: [],
     rateLimit: null,
-    serverDiagnostics: createServerDiagnostics(),
+    serverDiagnostics: diagnostics,
     ...overrides,
   };
 }

@@ -9,7 +9,7 @@ import type { SharedServerMetadata } from "../../src/app-server/query/snapshots"
 import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
 
 describe("AppServerQueryCache", () => {
-  it("updates successful metadata resources while preserving failed resource cache values", () => {
+  it("stores metadata snapshots without replacing failed resource values with stale data", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
     const goodMetadata = metadata({
@@ -32,8 +32,8 @@ describe("AppServerQueryCache", () => {
     );
 
     expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
-    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
-    expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(42);
+    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["stale-skill"]);
+    expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(90);
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["skills/list"].status).toBe("failed");
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("failed");
 
@@ -42,7 +42,7 @@ describe("AppServerQueryCache", () => {
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["model/list"].status).toBe("failed");
   });
 
-  it("loads initial metadata snapshots without caching failed resource values", () => {
+  it("does not accept failed metadata model payloads as model cache truth", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
 
@@ -62,27 +62,18 @@ describe("AppServerQueryCache", () => {
     expect(cached?.serverDiagnostics.probes["model/list"].status).toBe("failed");
     expect(cached?.availableModels).toEqual([]);
     expect(cached?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
-    expect(cached?.rateLimit).toBeNull();
+    expect(cached?.rateLimit?.primary?.usedPercent).toBe(90);
     expect(cache.modelsSnapshot(context)).toBeNull();
   });
 
   it("does not share or store snapshots before the cache context is complete", async () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext({ codexPath: "" });
-    const firstRefresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const firstFetch = vi.fn(() => firstRefresh.promise);
-    const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
 
-    const firstPromise = cache.fetchActiveThreads(context, firstFetch);
-    await expect(cache.fetchActiveThreads(context, secondFetch)).resolves.toEqual([thread("second")]);
-    firstRefresh.resolve([thread("first")]);
-    await expect(firstPromise).resolves.toEqual([thread("first")]);
+    await expect(cache.fetchActiveThreads(context)).resolves.toEqual([]);
     cache.setActiveThreads(context, [thread("applied")]);
     cache.setAppServerMetadata(context, metadata());
-    cache.setModels(context, [modelMetadata("gpt-5.6")]);
 
-    expect(firstFetch).toHaveBeenCalledOnce();
-    expect(secondFetch).toHaveBeenCalledOnce();
     expect(cache.activeThreadsSnapshot(context)).toBeNull();
     expect(cache.appServerMetadataSnapshot(context)).toBeNull();
     expect(cache.modelsSnapshot(context)).toBeNull();
@@ -91,11 +82,6 @@ describe("AppServerQueryCache", () => {
   it("stores successful empty model snapshots as shared cache truth", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
-
-    cache.setModels(context, [modelMetadata("gpt-5.5")]);
-    cache.setModels(context, []);
-
-    expect(cache.modelsSnapshot(context)).toEqual([]);
 
     cache.setAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-5.6")] }));
     cache.setAppServerMetadata(context, metadata({ availableModels: [] }));
@@ -109,7 +95,6 @@ describe("AppServerQueryCache", () => {
     const context = cacheContext();
 
     cache.setAppServerMetadata(context, metadata());
-    cache.setModels(context, [modelMetadata("gpt-5.6")]);
 
     expect(cache.appServerMetadataSnapshot(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
     expect(cache.appServerMetadataSnapshot(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
@@ -118,7 +103,8 @@ describe("AppServerQueryCache", () => {
   });
 
   it("stores successful empty thread list snapshots as shared cache truth", async () => {
-    const cache = new AppServerQueryCache();
+    const fetchThreads = vi.fn().mockResolvedValue([]);
+    const cache = cacheWithThreads(fetchThreads);
     const context = cacheContext();
 
     cache.setActiveThreads(context, [thread("cached")]);
@@ -126,19 +112,23 @@ describe("AppServerQueryCache", () => {
 
     expect(cache.activeThreadsSnapshot(context)).toEqual([]);
 
-    await expect(cache.fetchActiveThreads(context, () => Promise.resolve([]))).resolves.toEqual([]);
+    await expect(cache.refreshActiveThreads(context)).resolves.toEqual([]);
     expect(cache.activeThreadsSnapshot(context)).toEqual([]);
+    expect(fetchThreads).toHaveBeenCalledOnce();
   });
 
   it("keys thread list refresh snapshots by app-server query context", async () => {
-    const cache = new AppServerQueryCache();
     const oldContext = cacheContext({ codexPath: "codex-old" });
     const newContext = cacheContext({ codexPath: "codex-new" });
     const oldRefresh = deferred<readonly ReturnType<typeof thread>[]>();
     const newRefresh = deferred<readonly ReturnType<typeof thread>[]>();
+    const fetchThreads = vi.fn((context: AppServerQueryContext) =>
+      context.codexPath === "codex-old" ? oldRefresh.promise : newRefresh.promise,
+    );
+    const cache = cacheWithThreads(fetchThreads);
 
-    const oldPromise = cache.fetchActiveThreads(oldContext, () => oldRefresh.promise);
-    const newPromise = cache.fetchActiveThreads(newContext, () => newRefresh.promise);
+    const oldPromise = cache.refreshActiveThreads(oldContext);
+    const newPromise = cache.refreshActiveThreads(newContext);
 
     oldRefresh.resolve([thread("old-thread")]);
     await expect(oldPromise).resolves.toEqual([thread("old-thread")]);
@@ -151,12 +141,12 @@ describe("AppServerQueryCache", () => {
   });
 
   it("stores in-flight thread list refreshes under the captured app-server cache context", async () => {
-    const cache = new AppServerQueryCache();
     const context = cacheContext({ codexPath: "codex-captured" });
     const capturedContext = { ...context };
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
+    const cache = cacheWithThreads(() => refresh.promise);
 
-    const promise = cache.fetchActiveThreads(context, () => refresh.promise);
+    const promise = cache.refreshActiveThreads(context);
     context.codexPath = "codex-mutated";
 
     refresh.resolve([thread("captured")]);
@@ -173,6 +163,23 @@ function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServer
     vaultPath: "/vault",
     ...overrides,
   };
+}
+
+function cacheWithThreads(
+  fetchThreads: (context: AppServerQueryContext) => Promise<readonly ReturnType<typeof thread>[]>,
+): AppServerQueryCache {
+  return new AppServerQueryCache({
+    clientRunner: {
+      runWithClient: async (context, operation) => {
+        return operation({
+          listThreads: async () => ({
+            data: await fetchThreads(context),
+            nextCursor: null,
+          }),
+        } as never);
+      },
+    },
+  });
 }
 
 function metadata(

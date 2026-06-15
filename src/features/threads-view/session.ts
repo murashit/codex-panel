@@ -2,7 +2,6 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/connection/client";
 import { ConnectionManager, type ConnectionManagerHandlers, StaleConnectionError } from "../../app-server/connection/connection-manager";
-import { listThreads } from "../../app-server/services/threads";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
@@ -44,7 +43,7 @@ type ThreadsThreadCatalog = Pick<
   | "archiveThreadInCatalog"
   | "renameThreadInCatalog"
   | "refreshFromOpenSurface"
-  | "fetchActiveThreads"
+  | "refreshActiveThreads"
   | "activeThreadsSnapshot"
   | "observeActiveThreads"
 >;
@@ -160,10 +159,7 @@ export class CodexThreadsSession {
     try {
       await this.ensureConnected();
       if (this.isStaleRefresh(refresh) || !this.client) return;
-      const threads = await this.host.threadCatalog.fetchActiveThreads(async () => {
-        if (!this.client) return [];
-        return listThreads(this.client, this.host.vaultPath);
-      });
+      const threads = await this.host.threadCatalog.refreshActiveThreads();
       if (this.isStaleRefresh(refresh)) return;
       this.threads = threads;
       this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };

@@ -89,6 +89,37 @@ describe("ConnectionManager", () => {
     expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
   });
 
+  it("does not reuse a connected client after the command context changes", async () => {
+    let codexPath = "/bin/codex-a";
+    const transports: SilentTransport[] = [];
+    const manager = new ConnectionManager(
+      () => codexPath,
+      "/vault",
+      (clientCodexPath, cwd, handlers) =>
+        new AppServerClient(clientCodexPath, cwd, handlers, 500, (transportHandlers) => {
+          const transport = new SilentTransport(transportHandlers);
+          transports.push(transport);
+          return transport;
+        }),
+    );
+
+    const first = manager.connect(silentConnectionHandlers());
+    transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex-a" } });
+    await expect(first).resolves.toMatchObject({ codexHome: "/tmp/codex-a" });
+    expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
+
+    codexPath = "/bin/codex-b";
+
+    expect(manager.currentClient()).toBeNull();
+    const second = manager.connect(silentConnectionHandlers());
+    transports[1]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex-b" } });
+
+    await expect(second).resolves.toMatchObject({ codexHome: "/tmp/codex-b" });
+    expect(transports).toHaveLength(2);
+    expect(transports[0]?.running).toBe(false);
+    expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
+  });
+
   it("reports app-server exit during initialization", async () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();

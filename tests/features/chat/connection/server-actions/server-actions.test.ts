@@ -11,7 +11,11 @@ import { createChatServerThreadActions } from "../../../../../src/features/chat/
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import type { CatalogModel, CatalogSkillMetadata } from "../../../../../src/app-server/protocol/catalog";
+import {
+  modelMetadataFromCatalogModels,
+  type CatalogModel,
+  type CatalogSkillMetadata,
+} from "../../../../../src/app-server/protocol/catalog";
 
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startThread"]>>;
 
@@ -239,13 +243,12 @@ describe("chat server actions", () => {
     const state = createChatState();
     const stateStore = createChatStateStore(state);
 
-    const listModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-5.1")] });
+    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([modelFixture("gpt-5.1")]));
     const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("writer")] }] });
     const readAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: {} as RateLimitSnapshot });
     const listHooks = vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", hooks: [] }] });
     const client = {
       readEffectiveConfig: vi.fn().mockResolvedValue({}),
-      listModels,
       listSkills,
       readAccountRateLimits,
       listHooks,
@@ -259,6 +262,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       setAppServerMetadata: () => undefined,
+      modelsSnapshot: () => null,
+      fetchModels,
+      refreshModels: async () => [],
     });
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
@@ -269,13 +275,13 @@ describe("chat server actions", () => {
     });
 
     await metadata.refreshAppServerMetadata();
-    listModels.mockClear();
+    fetchModels.mockClear();
     listSkills.mockClear();
     readAccountRateLimits.mockClear();
 
     await diagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
 
-    expect(listModels).not.toHaveBeenCalled();
+    expect(fetchModels).not.toHaveBeenCalled();
     expect(listSkills).not.toHaveBeenCalled();
     expect(readAccountRateLimits).not.toHaveBeenCalled();
     expect(listHooks).toHaveBeenCalledWith("/vault");
@@ -311,6 +317,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => currentClient,
       setAppServerMetadata: () => undefined,
+      modelsSnapshot: () => null,
+      fetchModels: async () => [],
+      refreshModels: async () => [],
     });
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
@@ -335,20 +344,17 @@ describe("chat server actions", () => {
   it("loads one app-server metadata snapshot from the initially captured client", async () => {
     const stateStore = createChatStateStore(createChatState());
     const readEffectiveConfig = deferred<Record<string, never>>();
-    const firstListModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-first")] });
+    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([modelFixture("gpt-first")]));
     const firstListSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("first-skill")] }] });
     const firstReadAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture() });
-    const secondListModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-second")] });
     const secondListSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("second-skill")] }] });
     const secondReadAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture({ limitName: "Second" }) });
     const firstClient = {
       readEffectiveConfig: vi.fn().mockReturnValue(readEffectiveConfig.promise),
-      listModels: firstListModels,
       listSkills: firstListSkills,
       readAccountRateLimits: firstReadAccountRateLimits,
     } as unknown as AppServerClient;
     const secondClient = {
-      listModels: secondListModels,
       listSkills: secondListSkills,
       readAccountRateLimits: secondReadAccountRateLimits,
     } as unknown as AppServerClient;
@@ -358,6 +364,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => currentClient,
       setAppServerMetadata: () => undefined,
+      modelsSnapshot: () => null,
+      fetchModels,
+      refreshModels: async () => [],
     });
 
     const loading = controller.loadAppServerMetadata();
@@ -368,10 +377,9 @@ describe("chat server actions", () => {
       availableModels: [{ model: "gpt-first" }],
       availableSkills: [{ name: "first-skill" }],
     });
-    expect(firstListModels).toHaveBeenCalledOnce();
+    expect(fetchModels).toHaveBeenCalledOnce();
     expect(firstListSkills).toHaveBeenCalledOnce();
     expect(firstReadAccountRateLimits).toHaveBeenCalledOnce();
-    expect(secondListModels).not.toHaveBeenCalled();
     expect(secondListSkills).not.toHaveBeenCalled();
     expect(secondReadAccountRateLimits).not.toHaveBeenCalled();
   });
@@ -393,6 +401,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => currentClient,
       setAppServerMetadata,
+      modelsSnapshot: () => null,
+      fetchModels: async () => modelMetadataFromCatalogModels([modelFixture("gpt-stale")]),
+      refreshModels: async () => modelMetadataFromCatalogModels([modelFixture("gpt-stale")]),
     });
 
     const refreshing = controller.refreshPublishedAppServerMetadata();
@@ -405,28 +416,53 @@ describe("chat server actions", () => {
     expect(setAppServerMetadata).not.toHaveBeenCalled();
   });
 
-  it("does not apply refreshed models after the client changes", async () => {
-    const stateStore = createChatStateStore(createChatState());
-    const modelRefresh = deferred<{ data: CatalogModel[] }>();
-    const listModels = vi.fn().mockReturnValue(modelRefresh.promise);
-    const firstClient = { listModels } as unknown as AppServerClient;
-    const secondClient = {} as unknown as AppServerClient;
-    let currentClient = firstClient;
+  it("keeps query-cached models visible when metadata model refresh fails", async () => {
+    const state = createChatState();
+    const stateStore = createChatStateStore(state);
+    const client = {
+      readEffectiveConfig: vi.fn().mockResolvedValue({}),
+      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture() }),
+    } as unknown as AppServerClient;
     const controller = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
-      currentClient: () => currentClient,
+      currentClient: () => client,
       setAppServerMetadata: () => undefined,
+      modelsSnapshot: () => modelMetadataFromCatalogModels([modelFixture("gpt-cached")]),
+      fetchModels: () => Promise.reject(new Error("offline")),
+      refreshModels: () => Promise.reject(new Error("offline")),
     });
 
-    const refreshing = controller.refreshModels();
-    currentClient = secondClient;
-    modelRefresh.resolve({ data: [modelFixture("gpt-stale")] });
+    await controller.refreshAppServerMetadata();
 
-    await refreshing;
-    expect(listModels).toHaveBeenCalledOnce();
+    expect(stateStore.getState().connection.availableModels.map((model) => model.model)).toEqual(["gpt-cached"]);
+    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"].status).toBe("failed");
+  });
+
+  it("does not use chat state as a second model source when metadata model refresh fails", async () => {
+    const state = createChatState();
+    state.connection.availableModels = modelMetadataFromCatalogModels([modelFixture("gpt-state-only")]);
+    const stateStore = createChatStateStore(state);
+    const client = {
+      readEffectiveConfig: vi.fn().mockResolvedValue({}),
+      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture() }),
+    } as unknown as AppServerClient;
+    const controller = createChatServerMetadataActions({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      setAppServerMetadata: () => undefined,
+      modelsSnapshot: () => null,
+      fetchModels: () => Promise.reject(new Error("offline")),
+      refreshModels: () => Promise.reject(new Error("offline")),
+    });
+
+    await controller.refreshAppServerMetadata();
+
     expect(stateStore.getState().connection.availableModels).toEqual([]);
-    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"].status).toBe("failed");
   });
 
   it("does not apply or publish refreshed skills after the client changes", async () => {
@@ -442,6 +478,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => currentClient,
       setAppServerMetadata,
+      modelsSnapshot: () => null,
+      fetchModels: async () => [],
+      refreshModels: async () => [],
     });
 
     const refreshing = controller.refreshPublishedSkills(true);
@@ -468,6 +507,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       setAppServerMetadata,
+      modelsSnapshot: () => null,
+      fetchModels: async () => [],
+      refreshModels: async () => [],
     });
 
     await controller.refreshPublishedRateLimits();
@@ -493,6 +535,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       setAppServerMetadata,
+      modelsSnapshot: () => null,
+      fetchModels: async () => [],
+      refreshModels: async () => [],
     });
 
     await controller.refreshPublishedRateLimits();
@@ -516,6 +561,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => currentClient,
       setAppServerMetadata,
+      modelsSnapshot: () => null,
+      fetchModels: async () => [],
+      refreshModels: async () => [],
     });
 
     const refreshing = controller.refreshPublishedRateLimits();
@@ -544,6 +592,9 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       setAppServerMetadata: () => undefined,
+      modelsSnapshot: () => null,
+      fetchModels: async () => [],
+      refreshModels: async () => [],
     });
     const controller = createChatServerDiagnosticsActions({
       stateStore,

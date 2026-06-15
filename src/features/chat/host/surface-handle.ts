@@ -1,4 +1,5 @@
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
+import type { AppServerClient } from "../../../app-server/connection/client";
 
 export interface ChatSurfaceHandle {
   displayTitle(): string;
@@ -8,6 +9,7 @@ export interface ChatSurfaceHandle {
   close(): void;
   refreshSettings(): void;
   refreshSharedThreadList(): Promise<void>;
+  runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T>;
   openPanelSnapshot(): OpenCodexPanelSnapshot;
   openThread(threadId: string): Promise<void>;
   focusThread(threadId?: string | null): Promise<void>;

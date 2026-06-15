@@ -26,8 +26,12 @@ export class SharedThreadCatalog {
     return this.options.cache.activeThreadsSnapshot(this.context());
   }
 
-  async fetchActiveThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]> {
-    return this.options.cache.fetchActiveThreads(this.context(), fetchThreads);
+  async fetchActiveThreads(): Promise<readonly Thread[]> {
+    return this.options.cache.fetchActiveThreads(this.context());
+  }
+
+  async refreshActiveThreads(): Promise<readonly Thread[]> {
+    return this.options.cache.refreshActiveThreads(this.context());
   }
 
   setActiveThreads(threads: readonly Thread[]): void {
@@ -62,8 +66,12 @@ export class SharedThreadCatalog {
     return this.options.cache.modelsSnapshot(this.context());
   }
 
-  setModels(models: readonly ModelMetadata[]): void {
-    this.options.cache.setModels(this.context(), models);
+  async fetchModels(): Promise<readonly ModelMetadata[]> {
+    return this.options.cache.fetchModels(this.context());
+  }
+
+  async refreshModels(): Promise<readonly ModelMetadata[]> {
+    return this.options.cache.refreshModels(this.context());
   }
 
   observeModels(listener: (models: readonly ModelMetadata[]) => void, options?: { emitCurrent?: boolean }): () => void {

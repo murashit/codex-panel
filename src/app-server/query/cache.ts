@@ -1,5 +1,8 @@
 import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
 
+import type { AppServerClient } from "../connection/client";
+import { listModelMetadata } from "../services/catalog";
+import { listThreads } from "../services/threads";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
 import {
@@ -11,19 +14,26 @@ import {
   cloneAppServerQueryContext,
   type AppServerQueryContext,
 } from "./keys";
-import {
-  cloneModelMetadata,
-  cloneSharedServerMetadata,
-  cloneThreads,
-  mergeSharedServerMetadata,
-  type SharedServerMetadata,
-} from "./snapshots";
+import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads, type SharedServerMetadata } from "./snapshots";
+
+const ACTIVE_THREADS_STALE_TIME_MS = 10_000;
+const MODELS_STALE_TIME_MS = 60_000;
+
+export interface AppServerQueryClientRunner {
+  runWithClient<T>(
+    context: AppServerQueryContext,
+    operation: (client: AppServerClient) => Promise<T>,
+    options?: { unhandledServerRequestMessage?: string },
+  ): Promise<T>;
+}
 
 export class AppServerQueryCache {
   readonly client: QueryClient;
+  private readonly clientRunner: AppServerQueryClientRunner | null;
 
-  constructor(client: QueryClient = createAppServerQueryClient()) {
-    this.client = client;
+  constructor(options: { client?: QueryClient; clientRunner?: AppServerQueryClientRunner } = {}) {
+    this.client = options.client ?? createAppServerQueryClient();
+    this.clientRunner = options.clientRunner ?? null;
   }
 
   clear(): void {
@@ -49,21 +59,28 @@ export class AppServerQueryCache {
     return this.observeQuery(activeThreadsQueryKey(context), cloneThreads, listener, options);
   }
 
-  async fetchActiveThreads(context: AppServerQueryContext, fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]> {
+  async fetchActiveThreads(context: AppServerQueryContext, options: { force?: boolean } = {}): Promise<readonly Thread[]> {
     const refreshContext = cloneAppServerQueryContext(context);
     if (!appServerQueryContextIsComplete(refreshContext)) {
-      return fetchThreads();
+      return [];
     }
     const key = activeThreadsQueryKey(refreshContext);
+    if (options.force) await this.client.invalidateQueries({ queryKey: key });
     const threads = await this.client.fetchQuery({
       queryKey: key,
       queryFn: async () => {
-        const nextThreads = cloneThreads(await fetchThreads());
+        const nextThreads = cloneThreads(
+          await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath)),
+        );
         return nextThreads;
       },
-      staleTime: 0,
+      staleTime: ACTIVE_THREADS_STALE_TIME_MS,
     });
     return cloneThreads(threads);
+  }
+
+  async refreshActiveThreads(context: AppServerQueryContext): Promise<readonly Thread[]> {
+    return this.fetchActiveThreads(context, { force: true });
   }
 
   setActiveThreads(context: AppServerQueryContext, threads: readonly Thread[]): void {
@@ -98,8 +115,11 @@ export class AppServerQueryCache {
 
   setAppServerMetadata(context: AppServerQueryContext, metadata: SharedServerMetadata): SharedServerMetadata | null {
     if (!appServerQueryContextIsComplete(context)) return null;
-    const previous = this.appServerMetadataSnapshot(context);
-    const next = mergeSharedServerMetadata(previous, metadata);
+    const next = cloneSharedServerMetadata({
+      ...metadata,
+      availableModels:
+        metadata.serverDiagnostics.probes["model/list"].status === "ok" ? metadata.availableModels : (this.modelsSnapshot(context) ?? []),
+    });
     this.client.setQueryData(appServerMetadataQueryKey(context), cloneSharedServerMetadata(next));
     if (metadata.serverDiagnostics.probes["model/list"].status === "ok") {
       this.client.setQueryData(appServerModelsQueryKey(context), cloneModelMetadata(next.availableModels));
@@ -121,18 +141,29 @@ export class AppServerQueryCache {
     return this.observeQuery(appServerModelsQueryKey(context), cloneModelMetadata, listener, options);
   }
 
-  setModels(context: AppServerQueryContext, models: readonly ModelMetadata[]): readonly ModelMetadata[] | null {
-    if (!appServerQueryContextIsComplete(context)) return null;
-    const clonedModels = cloneModelMetadata(models);
-    this.client.setQueryData(appServerModelsQueryKey(context), clonedModels);
-    const metadata = this.appServerMetadataSnapshot(context);
-    if (metadata) {
-      this.client.setQueryData(appServerMetadataQueryKey(context), {
-        ...metadata,
-        availableModels: cloneModelMetadata(clonedModels),
-      });
+  async fetchModels(context: AppServerQueryContext, options: { force?: boolean } = {}): Promise<readonly ModelMetadata[]> {
+    const refreshContext = cloneAppServerQueryContext(context);
+    if (!appServerQueryContextIsComplete(refreshContext)) {
+      return [];
     }
-    return cloneModelMetadata(clonedModels);
+    const key = appServerModelsQueryKey(refreshContext);
+    if (options.force) await this.client.invalidateQueries({ queryKey: key });
+    const models = await this.client.fetchQuery({
+      queryKey: key,
+      queryFn: async () => {
+        return cloneModelMetadata(
+          await this.runWithClient(refreshContext, (client) => listModelMetadata(client), {
+            unhandledServerRequestMessage: "Codex model list refresh does not handle server requests.",
+          }),
+        );
+      },
+      staleTime: MODELS_STALE_TIME_MS,
+    });
+    return cloneModelMetadata(models);
+  }
+
+  async refreshModels(context: AppServerQueryContext): Promise<readonly ModelMetadata[]> {
+    return this.fetchModels(context, { force: true });
   }
 
   private observeQuery<T>(
@@ -151,6 +182,17 @@ export class AppServerQueryCache {
     const unsubscribe = observer.subscribe(emit);
     if (options.emitCurrent ?? true) emit(observer.getCurrentResult());
     return unsubscribe;
+  }
+
+  private runWithClient<T>(
+    context: AppServerQueryContext,
+    operation: (client: AppServerClient) => Promise<T>,
+    options: { unhandledServerRequestMessage?: string } = {},
+  ): Promise<T> {
+    if (!this.clientRunner) {
+      throw new Error("Codex app-server query client runner is not configured.");
+    }
+    return this.clientRunner.runWithClient(context, operation, options);
   }
 }
 

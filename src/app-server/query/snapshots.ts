@@ -34,48 +34,6 @@ export function cloneSharedServerMetadata(metadata: SharedServerMetadata): Share
   };
 }
 
-export function mergeSharedServerMetadata(previous: SharedServerMetadata | null, next: SharedServerMetadata): SharedServerMetadata {
-  const clonedNext = cloneSharedServerMetadata(next);
-  const clonedPrevious = previous ? cloneSharedServerMetadata(previous) : emptySharedServerMetadataResourceCache(clonedNext);
-  return {
-    ...clonedNext,
-    availableModels: metadataResourceSucceeded(clonedNext, "model/list") ? clonedNext.availableModels : clonedPrevious.availableModels,
-    availableSkills: metadataResourceSucceeded(clonedNext, "skills/list") ? clonedNext.availableSkills : clonedPrevious.availableSkills,
-    rateLimit: metadataResourceSucceeded(clonedNext, "account/rateLimits/read") ? clonedNext.rateLimit : clonedPrevious.rateLimit,
-    serverDiagnostics: mergeServerDiagnostics(clonedPrevious, clonedNext),
-  };
-}
-
-function emptySharedServerMetadataResourceCache(metadata: SharedServerMetadata): SharedServerMetadata {
-  return {
-    ...metadata,
-    availableModels: [],
-    availableSkills: [],
-    rateLimit: null,
-    serverDiagnostics: {
-      probes: { ...metadata.serverDiagnostics.probes },
-      mcpServers: [],
-    },
-  };
-}
-
-function metadataResourceSucceeded(
-  metadata: SharedServerMetadata,
-  method: keyof SharedServerMetadata["serverDiagnostics"]["probes"],
-): boolean {
-  return metadata.serverDiagnostics.probes[method].status === "ok";
-}
-
-function mergeServerDiagnostics(previous: SharedServerMetadata, next: SharedServerMetadata): SharedServerMetadata["serverDiagnostics"] {
-  return {
-    probes: { ...next.serverDiagnostics.probes },
-    mcpServers:
-      next.serverDiagnostics.probes["mcpServerStatus/list"].status === "failed"
-        ? previous.serverDiagnostics.mcpServers.map((server) => ({ ...server }))
-        : next.serverDiagnostics.mcpServers.map((server) => ({ ...server })),
-  };
-}
-
 function cloneRateLimitSnapshot(snapshot: RateLimitSnapshot): RateLimitSnapshot {
   return {
     ...snapshot,

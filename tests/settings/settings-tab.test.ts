@@ -46,16 +46,18 @@ describe("settings tab", () => {
 
   it("auto-loads settings data once and keeps one global refresh button", async () => {
     const client = settingsClient();
+    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab();
+    const tab = newSettingsTab({ fetchModels });
 
     tab.display();
     await flushPromises();
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
-    expect(client.listModels).toHaveBeenCalledTimes(1);
+    expect(fetchModels).toHaveBeenCalledTimes(1);
+    expect(client.listModels).not.toHaveBeenCalled();
     expect(client.listHooks).toHaveBeenCalledTimes(1);
     expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: true, cursor: null, limit: 100 });
 
@@ -180,7 +182,9 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(secondClient),
       );
-    const tab = newSettingsTab();
+    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.4")]));
+    const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
+    const tab = newSettingsTab({ fetchModels, refreshModels });
 
     tab.display();
     await flushPromises();
@@ -188,6 +192,8 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+    expect(fetchModels).toHaveBeenCalledOnce();
+    expect(refreshModels).toHaveBeenCalledOnce();
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
     expect(tab.containerEl.textContent).toContain("New");
     expect(tab.containerEl.textContent).not.toContain("Old");
@@ -210,7 +216,9 @@ describe("settings tab", () => {
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(oldClient))
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(newClient));
-    const tab = newSettingsTab({ saveSettings, notifyAppServerQueryContextChanged, refreshOpenViews });
+    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-old")]));
+    const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-new")]));
+    const tab = newSettingsTab({ saveSettings, notifyAppServerQueryContextChanged, refreshOpenViews, fetchModels, refreshModels });
 
     tab.display();
     await flushPromises();
@@ -256,11 +264,10 @@ describe("settings tab", () => {
   });
 
   it("ignores stale settings data refresh results after a newer refresh completes", async () => {
-    const firstModels = deferred<{ data: CatalogModel[] }>();
+    const firstModels = deferred<ModelMetadata[]>();
     const firstClient = settingsClient({
       threads: [appServerThread({ id: "thread-old", preview: "Old" })],
     });
-    firstClient.listModels.mockReturnValue(firstModels.promise);
     const secondClient = settingsClient({
       models: [model("gpt-new")],
       threads: [appServerThread({ id: "thread-new", preview: "New" })],
@@ -272,7 +279,11 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(secondClient),
       );
-    const controller = new SettingsDynamicDataController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
+    const refreshModels = vi
+      .fn()
+      .mockReturnValueOnce(firstModels.promise)
+      .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-new")]));
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshModels }), { display: vi.fn(), notify: vi.fn() });
 
     const firstRefresh = controller.refreshSettingsData();
     await flushPromises();
@@ -281,7 +292,7 @@ describe("settings tab", () => {
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
 
-    firstModels.resolve({ data: [model("gpt-old")] });
+    firstModels.resolve(modelMetadataFromCatalogModels([model("gpt-old")]));
     await firstRefresh;
 
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
@@ -377,12 +388,12 @@ describe("settings tab", () => {
   });
 
   it("uses cached models initially and publishes refreshed models", async () => {
-    const setModels = vi.fn();
+    const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     const client = settingsClient({ models: [model("gpt-5.5")] });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab({ modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]), setModels });
+    const tab = newSettingsTab({ modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]), fetchModels });
 
     tab.display();
 
@@ -390,19 +401,19 @@ describe("settings tab", () => {
 
     await flushPromises();
 
-    expect(setModels).toHaveBeenCalledWith(modelMetadataFromCatalogModels([model("gpt-5.5")]));
+    expect(fetchModels).toHaveBeenCalledOnce();
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
   });
 
   it("replaces stale cached model options with an empty successful refresh while preserving saved values", async () => {
-    const setModels = vi.fn();
+    const fetchModels = vi.fn().mockResolvedValue([]);
     const client = settingsClient({ models: [] });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
     const tab = newSettingsTab({
       modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]),
-      setModels,
+      fetchModels,
       settings: {
         threadNamingModel: "gpt-saved",
         rewriteSelectionModel: "gpt-cached",
@@ -416,7 +427,7 @@ describe("settings tab", () => {
 
     await flushPromises();
 
-    expect(setModels).toHaveBeenCalledWith([]);
+    expect(fetchModels).toHaveBeenCalledOnce();
     expect(selectOptions(tab, "Automatic thread naming")).toEqual(["Codex default", "gpt-saved (saved)"]);
     expect(selectOptions(tab, "Selection rewrite")).toEqual(["Codex default", "gpt-cached (saved)"]);
   });
@@ -595,7 +606,8 @@ function newSettingsTab(
     saveSettings?: () => Promise<void>;
     sendShortcut?: "enter" | "mod-enter";
     modelsSnapshot?: ModelMetadata[];
-    setModels?: (models: ModelMetadata[]) => void;
+    fetchModels?: () => Promise<readonly ModelMetadata[]>;
+    refreshModels?: () => Promise<readonly ModelMetadata[]>;
     observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModels"];
     notifyAppServerQueryContextChanged?: () => void;
     refreshOpenViews?: () => void;
@@ -616,7 +628,8 @@ function settingsTabHost(
     saveSettings?: () => Promise<void>;
     sendShortcut?: "enter" | "mod-enter";
     modelsSnapshot?: ModelMetadata[];
-    setModels?: (models: ModelMetadata[]) => void;
+    fetchModels?: () => Promise<readonly ModelMetadata[]>;
+    refreshModels?: () => Promise<readonly ModelMetadata[]>;
     observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModels"];
     notifyAppServerQueryContextChanged?: () => void;
     refreshOpenViews?: () => void;
@@ -650,7 +663,8 @@ function settingsTabHost(
     threadCatalog: {
       refreshFromOpenSurface: options.refreshFromOpenSurface ?? vi.fn(),
       modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
-      setModels: options.setModels ?? vi.fn(),
+      fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
+      refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
       observeModels: options.observeModels ?? vi.fn(() => () => undefined),
       notifyAppServerQueryContextChanged: options.notifyAppServerQueryContextChanged ?? vi.fn(),
     },

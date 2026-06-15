@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
-import { loadHookData, loadSettingsData } from "../../src/settings/app-server-data";
+import { loadHookData, loadSettingsCompanionData } from "../../src/settings/app-server-data";
 import {
   createSettingsDynamicSectionLifecycle,
   transitionSettingsDynamicSectionLifecycle,
@@ -70,14 +70,13 @@ describe("settings lifecycle", () => {
 
   it("does not fall back to unrelated hook rows", async () => {
     const client = {
-      listModels: vi.fn().mockResolvedValue({ data: [] }),
       listHooks: vi.fn().mockResolvedValue({
         data: [{ cwd: "/other", hooks: [{ key: "other" }], warnings: ["skip"], errors: [{ message: "skip" }] }],
       }),
       listThreads: vi.fn().mockResolvedValue({ data: [] }),
     } as unknown as AppServerClient;
 
-    const result = await loadSettingsData(client, "/vault");
+    const result = await loadSettingsCompanionData(client, "/vault");
 
     expect(result.hooks).toMatchObject({
       ok: true,

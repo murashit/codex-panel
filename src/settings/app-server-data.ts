@@ -1,7 +1,6 @@
 import type { AppServerClient } from "../app-server/connection/client";
-import { listHookData, listModelMetadata, type HookData } from "../app-server/services/catalog";
+import { listHookData, type HookData } from "../app-server/services/catalog";
 import { listThreads } from "../app-server/services/threads";
-import type { ModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 
@@ -9,8 +8,7 @@ export interface LoadedHooks extends HookData {
   status: string;
 }
 
-export interface SettingsDataLoad {
-  models: SettledSettingsData<ModelMetadata[]>;
+export interface SettingsCompanionDataLoad {
   hooks: SettledSettingsData<LoadedHooks>;
   archivedThreads: SettledSettingsData<Thread[]>;
 }
@@ -26,22 +24,13 @@ type SettledSettingsData<T> =
       status: string;
     };
 
-export async function loadSettingsData(client: AppServerClient, cwd: string): Promise<SettingsDataLoad> {
-  const [modelsResult, hooksResult, archivedThreadsResult] = await Promise.allSettled([
-    listModelMetadata(client),
+export async function loadSettingsCompanionData(client: AppServerClient, cwd: string): Promise<SettingsCompanionDataLoad> {
+  const [hooksResult, archivedThreadsResult] = await Promise.allSettled([
     listHookData(client, cwd),
     listThreads(client, cwd, { archived: true }),
   ] as const);
 
   return {
-    models:
-      modelsResult.status === "fulfilled"
-        ? {
-            ok: true,
-            data: modelsResult.value,
-            status: `Loaded ${String(modelsResult.value.length)} model${modelsResult.value.length === 1 ? "" : "s"}.`,
-          }
-        : { ok: false, status: `Could not load models: ${errorMessage(modelsResult.reason)}` },
     hooks:
       hooksResult.status === "fulfilled"
         ? settledHooks(hooksResult.value)

@@ -1,3 +1,4 @@
+import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 
 import type { Thread } from "../../../domain/threads/model";
@@ -152,6 +153,16 @@ export class ChatPanelSession implements ChatSurfaceHandle {
 
   refreshSharedThreadList(): Promise<void> {
     return this.loadSharedThreadList();
+  }
+
+  async runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
+    const client = this.parts.connection.manager.currentClient();
+    if (!client) throw new Error("Codex app-server is not connected.");
+    const result = await operation(client);
+    if (this.parts.connection.manager.currentClient() !== client) {
+      throw new Error("Codex app-server connection changed while loading shared data.");
+    }
+    return result;
   }
 
   private receiveObservedThreads(threads: readonly Thread[]): void {
@@ -331,7 +342,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private async loadSharedThreadList(): Promise<void> {
-    const threads = await this.environment.plugin.threadCatalog.fetchActiveThreads(() => this.parts.serverActions.threads.loadThreadList());
+    const threads = await this.environment.plugin.threadCatalog.refreshActiveThreads();
     this.parts.serverActions.threads.applyThreadList(threads);
   }
 

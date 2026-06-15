@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { Thread } from "../../../domain/threads/model";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
@@ -46,7 +47,10 @@ export interface ChatConnectionBundleContext {
   threadCatalog: {
     setActiveThreads(threads: readonly Thread[]): void;
     setAppServerMetadata(metadata: SharedServerMetadata): void;
-    fetchActiveThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+    refreshActiveThreads(): Promise<readonly Thread[]>;
+    modelsSnapshot(): readonly ModelMetadata[] | null;
+    fetchModels(): Promise<readonly ModelMetadata[]>;
+    refreshModels(): Promise<readonly ModelMetadata[]>;
     archiveThreadInCatalog(threadId: string): void;
     renameThreadInCatalog(threadId: string, name: string | null): void;
   };
@@ -70,6 +74,9 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     setAppServerMetadata: (metadata) => {
       threadCatalog.setAppServerMetadata(metadata);
     },
+    modelsSnapshot: () => threadCatalog.modelsSnapshot(),
+    fetchModels: () => threadCatalog.fetchModels(),
+    refreshModels: () => threadCatalog.refreshModels(),
   });
   const serverDiagnostics = createChatServerDiagnosticsActions({
     stateStore,
@@ -93,7 +100,7 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     },
   });
   const loadSharedThreadList = async (): Promise<void> => {
-    const threads = await threadCatalog.fetchActiveThreads(() => serverThreads.loadThreadList());
+    const threads = await threadCatalog.refreshActiveThreads();
     serverThreads.applyThreadList(threads);
   };
   const serverRequestHost = {

@@ -409,21 +409,30 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
   });
 
   it("single-flights shared thread list refreshes and caches successful results", async () => {
-    const plugin = await pluginWithLeaves([]);
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const connectedLeaf = leaf();
+    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
+    const connectedView = connectedLeaf.view as CodexChatView;
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
     let resolveThreads!: (threads: Thread[]) => void;
-    const fetchThreads = vi.fn(
-      () =>
-        new Promise<Thread[]>((resolve) => {
-          resolveThreads = resolve;
-        }),
+    const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient").mockImplementation((operation) =>
+      operation(
+        threadListClient(
+          () =>
+            new Promise<Thread[]>((resolve) => {
+              resolveThreads = resolve;
+            }),
+        ),
+      ),
     );
-    const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
+    const plugin = await pluginWithLeaves([connectedLeaf]);
+    plugin.settings.codexPath = "codex";
 
-    const first = threadCatalog(plugin).fetchActiveThreads(fetchThreads);
-    const second = threadCatalog(plugin).fetchActiveThreads(secondFetch);
+    const first = threadCatalog(plugin).refreshActiveThreads();
+    const second = threadCatalog(plugin).refreshActiveThreads();
+    await flushMicrotasks();
 
-    expect(fetchThreads).toHaveBeenCalledOnce();
-    expect(secondFetch).not.toHaveBeenCalled();
+    expect(runWithAppServerClient).toHaveBeenCalledOnce();
     resolveThreads([thread("first")]);
 
     await expect(first).resolves.toEqual([thread("first")]);
@@ -432,23 +441,34 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
   });
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
-    const plugin = await pluginWithLeaves([]);
-    plugin.settings.codexPath = "codex-a";
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const connectedLeaf = leaf();
+    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
+    const connectedView = connectedLeaf.view as CodexChatView;
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
     let resolveFirst!: (threads: Thread[]) => void;
-    const firstFetch = vi.fn(
-      () =>
-        new Promise<Thread[]>((resolve) => {
-          resolveFirst = resolve;
-        }),
+    const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient");
+    const plugin = await pluginWithLeaves([connectedLeaf]);
+    plugin.settings.codexPath = "codex-a";
+    runWithAppServerClient.mockImplementation((operation) =>
+      operation(
+        threadListClient(() =>
+          plugin.settings.codexPath === "codex-a"
+            ? new Promise<Thread[]>((resolve) => {
+                resolveFirst = resolve;
+              })
+            : Promise.resolve([thread("second")]),
+        ),
+      ),
     );
-    const secondFetch = vi.fn().mockResolvedValue([thread("second")]);
 
-    const first = threadCatalog(plugin).fetchActiveThreads(firstFetch);
+    const first = threadCatalog(plugin).refreshActiveThreads();
+    await flushMicrotasks();
     plugin.settings.codexPath = "codex-b";
-    const second = threadCatalog(plugin).fetchActiveThreads(secondFetch);
+    const second = threadCatalog(plugin).refreshActiveThreads();
+    await flushMicrotasks();
 
-    expect(firstFetch).toHaveBeenCalledOnce();
-    expect(secondFetch).toHaveBeenCalledOnce();
+    expect(runWithAppServerClient).toHaveBeenCalledTimes(2);
     await expect(second).resolves.toEqual([thread("second")]);
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
 
@@ -460,11 +480,21 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
   });
 
   it("keeps the previous shared thread list when refresh fails", async () => {
-    const plugin = await pluginWithLeaves([]);
-    await threadCatalog(plugin).fetchActiveThreads(() => Promise.resolve([thread("cached")]));
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const connectedLeaf = leaf();
+    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
+    const connectedView = connectedLeaf.view as CodexChatView;
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    const runWithAppServerClient = vi
+      .spyOn(connectedView.surface, "runWithAppServerClient")
+      .mockImplementationOnce((operation) => operation(threadListClient(() => Promise.resolve([thread("cached")]))))
+      .mockImplementationOnce(() => Promise.reject(new Error("boom")));
+    const plugin = await pluginWithLeaves([connectedLeaf]);
+    await threadCatalog(plugin).refreshActiveThreads();
 
-    await expect(threadCatalog(plugin).fetchActiveThreads(() => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
+    await expect(threadCatalog(plugin).refreshActiveThreads()).rejects.toThrow("boom");
 
+    expect(runWithAppServerClient).toHaveBeenCalledTimes(2);
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("cached")]);
   });
 
@@ -608,15 +638,30 @@ function chatHostFixture(): CodexChatHost {
       refreshThreadsViewLiveState: vi.fn(),
       setActiveThreads: vi.fn(),
       setAppServerMetadata: vi.fn(),
-      fetchActiveThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
+      refreshActiveThreads: vi.fn(() => Promise.resolve([])),
       activeThreadsSnapshot: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),
       modelsSnapshot: vi.fn(() => null),
+      fetchModels: vi.fn(() => Promise.resolve([])),
+      refreshModels: vi.fn(() => Promise.resolve([])),
       observeActiveThreads: vi.fn(() => () => undefined),
       observeAppServerMetadata: vi.fn(() => () => undefined),
       observeModels: vi.fn(() => () => undefined),
     },
   };
+}
+
+function threadListClient(fetchThreads: () => Promise<readonly Thread[]>): never {
+  return {
+    listThreads: async () => ({
+      data: await fetchThreads(),
+      nextCursor: null,
+    }),
+  } as never;
+}
+
+async function flushMicrotasks(): Promise<void> {
+  await new Promise((resolve) => setImmediate(resolve));
 }
 
 function thread(id: string): Thread {

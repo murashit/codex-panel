@@ -2,7 +2,9 @@ import type { App } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { AppServerQueryCache } from "./app-server/query/cache";
-import type { AppServerQueryContext } from "./app-server/query/keys";
+import type { AppServerClient } from "./app-server/connection/client";
+import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
+import { appServerQueryContextIsComplete, type AppServerQueryContext } from "./app-server/query/keys";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import type { CodexChatHost, PluginSettingsRef } from "./features/chat/host/runtime";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
@@ -20,7 +22,11 @@ export interface CodexPanelRuntimeOptions {
 }
 
 export class CodexPanelRuntime {
-  private readonly appServerQueries = new AppServerQueryCache();
+  private readonly appServerQueries = new AppServerQueryCache({
+    clientRunner: {
+      runWithClient: (context, operation, options) => this.runWithAppServerClient(context, operation, options),
+    },
+  });
   readonly panels: WorkspacePanelCoordinator;
   readonly threadCatalog: SharedThreadCatalog;
 
@@ -195,6 +201,19 @@ export class CodexPanelRuntime {
     return this.options.app.workspace
       .getLeavesOfType(VIEW_TYPE_CODEX_THREADS)
       .flatMap((leaf) => (leaf.view instanceof CodexThreadsView ? [leaf.view] : []));
+  }
+
+  private async runWithAppServerClient<T>(
+    context: AppServerQueryContext,
+    operation: (client: AppServerClient) => Promise<T>,
+    options: { unhandledServerRequestMessage?: string } = {},
+  ): Promise<T> {
+    if (!appServerQueryContextIsComplete(context)) {
+      throw new Error("Codex app-server query context is incomplete.");
+    }
+    const chatView = this.panels.panelViews().find((view) => view.surface.openPanelSnapshot().connected);
+    if (chatView) return chatView.surface.runWithAppServerClient(operation);
+    return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
   }
 
   private appServerQueryContext(): AppServerQueryContext {

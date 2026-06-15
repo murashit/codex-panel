@@ -1,4 +1,3 @@
-import { listThreads } from "../../../../app-server/services/threads";
 import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
@@ -19,7 +18,6 @@ export interface ChatServerThreadActionsHost extends ChatServerActionHost {
 
 export interface ChatServerThreadActions {
   applyThreadList: (threads: readonly Thread[]) => void;
-  loadThreadList: () => Promise<readonly Thread[]>;
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<StartedThreadSummary | null>;
 }
 
@@ -28,19 +26,12 @@ export function createChatServerThreadActions(host: ChatServerThreadActionsHost)
     applyThreadList: (threads) => {
       applyThreadList(host, threads);
     },
-    loadThreadList: () => loadThreadList(host),
     startThread: (preview, options) => startThread(host, preview, options),
   };
 }
 
 function applyThreadList(host: ChatServerThreadActionsHost, threads: readonly Thread[]): void {
   host.stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
-}
-
-async function loadThreadList(host: ChatServerThreadActionsHost): Promise<readonly Thread[]> {
-  const client = host.currentClient();
-  if (!client) throw new Error("Codex app-server is not connected.");
-  return listThreads(client, host.vaultPath);
 }
 
 async function startThread(

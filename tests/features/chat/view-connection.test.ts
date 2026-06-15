@@ -121,14 +121,15 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("shares post-initialize metadata loading across concurrent connect calls", async () => {
     const client = connectedClient();
+    const fetchModels = vi.fn().mockResolvedValue([]);
     connectionMock.state.client = client;
-    const view = await chatView();
+    const view = await chatView({ host: chatHost({ fetchModels }) });
 
     await Promise.all([view.surface.connect(), view.surface.connect()]);
 
     expect(connectionMock.state.connectCalls).toBe(1);
     expect(client.readEffectiveConfig).toHaveBeenCalledTimes(1);
-    expect(client.listModels).toHaveBeenCalledTimes(1);
+    expect(fetchModels).toHaveBeenCalledTimes(1);
     expect(client.listSkills).toHaveBeenCalledTimes(1);
     expect(client.readAccountRateLimits).toHaveBeenCalledTimes(1);
     expect(client.listThreads).toHaveBeenCalledTimes(1);
@@ -164,21 +165,22 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("refreshes shared thread lists after connecting", async () => {
-    const fetchActiveThreads = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
-    const threads = [threadFixture("thread-1")];
+    const refreshActiveThreads = vi
+      .fn()
+      .mockResolvedValue([{ id: "thread-1", preview: "Restored thread", name: null, archived: false, createdAt: 1, updatedAt: 1 }]);
     const client = connectedClient({
-      listThreads: vi.fn().mockResolvedValue({ data: threads }),
+      listThreads: vi.fn(),
     });
     connectionMock.state.client = client;
     const view = await chatView({
-      host: chatHost({ fetchActiveThreads }),
+      host: chatHost({ refreshActiveThreads }),
     });
 
     await view.onOpen();
     await view.surface.connect();
 
-    expect(fetchActiveThreads).toHaveBeenCalledOnce();
-    expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: false, cursor: null, limit: 100 });
+    expect(refreshActiveThreads).toHaveBeenCalledOnce();
+    expect(client.listThreads).not.toHaveBeenCalled();
     requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("Restored thread");
@@ -395,8 +397,9 @@ describe("CodexChatView connection lifecycle", () => {
     const client = connectedClient({
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")], nextCursor: null }),
     });
+    const fetchModels = vi.fn().mockResolvedValue([]);
     connectionMock.state.client = client;
-    const view = await chatView();
+    const view = await chatView({ host: chatHost({ fetchModels }) });
 
     await view.onOpen();
 
@@ -405,7 +408,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(connectionMock.state.connectCalls).toBe(1);
     expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
-    expect(client.listModels).toHaveBeenCalledOnce();
+    expect(fetchModels).toHaveBeenCalledOnce();
     expect(client.listSkills).toHaveBeenCalledOnce();
     expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: false, cursor: null, limit: 100 });
@@ -1083,6 +1086,17 @@ function resumedThread(threadId: string) {
   };
 }
 
+function threadFromRecord(record: ThreadRecord): Thread {
+  return {
+    id: record.id,
+    preview: record.preview,
+    name: record.name,
+    archived: false,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+}
+
 function threadFixture(threadId: string): ThreadRecord {
   return {
     id: threadId,
@@ -1299,10 +1313,12 @@ interface ChatHostFixtureOverrides {
   refreshThreadsViewLiveState?: CodexChatHost["threadCatalog"]["refreshThreadsViewLiveState"];
   setActiveThreads?: CodexChatHost["threadCatalog"]["setActiveThreads"];
   setAppServerMetadata?: CodexChatHost["threadCatalog"]["setAppServerMetadata"];
-  fetchActiveThreads?: CodexChatHost["threadCatalog"]["fetchActiveThreads"];
+  refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
   activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
   appServerMetadataSnapshot?: CodexChatHost["threadCatalog"]["appServerMetadataSnapshot"];
   modelsSnapshot?: CodexChatHost["threadCatalog"]["modelsSnapshot"];
+  fetchModels?: CodexChatHost["threadCatalog"]["fetchModels"];
+  refreshModels?: CodexChatHost["threadCatalog"]["refreshModels"];
 }
 
 function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
@@ -1345,14 +1361,22 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
           metadata = nextMetadata;
           for (const listener of metadataListeners) listener(nextMetadata);
         }),
-      fetchActiveThreads:
-        overrides.fetchActiveThreads ??
-        (vi.fn(
-          (fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>,
-        ) as CodexChatHost["threadCatalog"]["fetchActiveThreads"]),
+      refreshActiveThreads:
+        overrides.refreshActiveThreads ??
+        (vi.fn(async () => {
+          const client = connectionMock.state.client;
+          if (!client) return activeThreads ?? [];
+          const listThreads = client["listThreads"] as (cwd: string, options: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
+          const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
+          activeThreads = response.data.map(threadFromRecord);
+          for (const listener of activeThreadListeners) listener(activeThreads);
+          return activeThreads;
+        }) as CodexChatHost["threadCatalog"]["refreshActiveThreads"]),
       activeThreadsSnapshot: overrides.activeThreadsSnapshot ?? vi.fn(() => activeThreads),
       appServerMetadataSnapshot: overrides.appServerMetadataSnapshot ?? vi.fn(() => metadata),
       modelsSnapshot: overrides.modelsSnapshot ?? vi.fn(() => models),
+      fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
+      refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
       observeActiveThreads: (listener, options = {}) => {
         activeThreadListeners.add(listener);
         if ((options.emitCurrent ?? true) && activeThreads) listener(activeThreads);

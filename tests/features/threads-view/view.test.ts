@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
+import type { Thread } from "../../../src/domain/threads/model";
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -236,21 +237,21 @@ describe("CodexThreadsView", () => {
   });
 
   it("refreshes thread lists through the plugin coordinator", async () => {
-    const threads = [threadFixture({ id: "thread", preview: "Thread preview" })];
-    const fetchActiveThreads = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
+    const threads = [{ id: "thread", preview: "Thread preview", name: null, archived: false, createdAt: 1, updatedAt: 1 }];
+    const refreshActiveThreads = vi.fn().mockResolvedValue(threads);
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: threads }),
+      listThreads: vi.fn(),
     });
     const host = threadsHost({
       threadCatalog: {
-        fetchActiveThreads,
+        refreshActiveThreads,
       },
     });
     const view = await threadsView(host);
 
     await view.refresh();
 
-    expect(fetchActiveThreads).toHaveBeenCalledOnce();
+    expect(refreshActiveThreads).toHaveBeenCalledOnce();
     expect(view.containerEl.textContent).toContain("Thread preview");
   });
 
@@ -427,7 +428,18 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       archiveThreadInCatalog: vi.fn(),
       renameThreadInCatalog: vi.fn(),
       refreshFromOpenSurface: vi.fn(),
-      fetchActiveThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
+      refreshActiveThreads: vi.fn(async () => {
+        const client = connectionMock.state.client;
+        if (!client) return [];
+        const listThreads = client["listThreads"] as (
+          cwd: string,
+          options: Record<string, unknown>,
+        ) => Promise<{
+          data: Record<string, unknown>[];
+        }>;
+        const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
+        return response.data.map(threadFromRecord);
+      }),
       activeThreadsSnapshot: vi.fn(() => null),
       observeActiveThreads: vi.fn(() => () => undefined),
       ...threadCatalogOverrides,
@@ -450,6 +462,17 @@ async function threadsView(host = threadsHost()) {
     } as never,
     host,
   );
+}
+
+function threadFromRecord(record: Record<string, unknown>): Thread {
+  return {
+    id: String(record["id"]),
+    preview: typeof record["preview"] === "string" ? record["preview"] : "",
+    name: typeof record["name"] === "string" ? record["name"] : null,
+    archived: false,
+    createdAt: Number(record["createdAt"] ?? 0),
+    updatedAt: Number(record["updatedAt"] ?? 0),
+  };
 }
 
 function threadFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {

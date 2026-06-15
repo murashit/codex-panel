@@ -1,7 +1,5 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
-import { listThreads } from "../../app-server/services/threads";
-import { withShortLivedAppServerClient } from "../../app-server/connection/short-lived-client";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
@@ -81,17 +79,7 @@ async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly
   const cached = host.threadCatalog.activeThreadsSnapshot();
   if (cached) return cached;
 
-  return withShortLivedAppServerClient(
-    host.settings.codexPath,
-    host.vaultPath,
-    async (client) =>
-      host.threadCatalog.fetchActiveThreads(async () => {
-        return listThreads(client, host.vaultPath);
-      }),
-    {
-      unhandledServerRequestMessage: "Codex thread picker does not handle server requests.",
-    },
-  );
+  return host.threadCatalog.fetchActiveThreads();
 }
 
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
