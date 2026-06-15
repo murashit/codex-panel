@@ -75,11 +75,16 @@ function importEdges(sourceFile) {
   const edges = [];
 
   for (const statement of sourceFile.statements) {
-    if (ts.isImportDeclaration(statement) && stringLiteralText(statement.moduleSpecifier)) {
+    if (ts.isImportDeclaration(statement) && hasRuntimeImportEdge(statement) && stringLiteralText(statement.moduleSpecifier)) {
       edges.push({
         specifier: stringLiteralText(statement.moduleSpecifier),
       });
-    } else if (ts.isExportDeclaration(statement) && statement.moduleSpecifier && stringLiteralText(statement.moduleSpecifier)) {
+    } else if (
+      ts.isExportDeclaration(statement) &&
+      hasRuntimeExportEdge(statement) &&
+      statement.moduleSpecifier &&
+      stringLiteralText(statement.moduleSpecifier)
+    ) {
       edges.push({
         specifier: stringLiteralText(statement.moduleSpecifier),
       });
@@ -87,6 +92,27 @@ function importEdges(sourceFile) {
   }
 
   return edges;
+}
+
+function hasRuntimeImportEdge(statement) {
+  const importClause = statement.importClause;
+  if (!importClause) return true;
+  if (importClause.isTypeOnly) return false;
+  if (importClause.name) return true;
+
+  const namedBindings = importClause.namedBindings;
+  if (!namedBindings) return false;
+  if (ts.isNamespaceImport(namedBindings)) return true;
+  return namedBindings.elements.some((element) => !element.isTypeOnly);
+}
+
+function hasRuntimeExportEdge(statement) {
+  if (statement.isTypeOnly) return false;
+
+  const exportClause = statement.exportClause;
+  if (!exportClause) return true;
+  if (ts.isNamespaceExport(exportClause)) return true;
+  return exportClause.elements.some((element) => !element.isTypeOnly);
 }
 
 function stringLiteralText(node) {

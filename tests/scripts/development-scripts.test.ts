@@ -171,11 +171,24 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("src/a.ts -> src/b.ts -> src/a.ts");
   });
 
-  it("detects type-only import cycles", async () => {
+  it("ignores type-only import cycles", async () => {
     const cwd = await tempWorkspace();
     await writeImportCycleFixture(cwd, {
       "src/a.ts": 'import type { B } from "./b";\nexport interface A { b?: B }\n',
       "src/b.ts": 'import type { A } from "./a";\nexport interface B { a?: A }\n',
+    });
+
+    const result = runNodeScript("scripts/check-import-cycles.mjs", [], cwd);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("No import cycles found.");
+  });
+
+  it("detects import cycles when mixed imports include runtime values", async () => {
+    const cwd = await tempWorkspace();
+    await writeImportCycleFixture(cwd, {
+      "src/a.ts": 'import { type B, b } from "./b";\nexport interface A { b?: B }\nexport const a = b;\n',
+      "src/b.ts": 'import { a, type A } from "./a";\nexport interface B { a?: A }\nexport const b = a;\n',
     });
 
     const result = runNodeScript("scripts/check-import-cycles.mjs", [], cwd);
