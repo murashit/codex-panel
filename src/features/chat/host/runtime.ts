@@ -18,11 +18,16 @@ import { AutoTitleController } from "../application/threads/auto-title-controlle
 import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
 import type { HistoryController } from "../application/threads/history-controller";
 import type { IdentitySync } from "../application/threads/identity-sync";
-import { activeThreadRenameTitleContext, type ThreadRenameEditorController } from "../application/threads/rename-editor-controller";
+import {
+  activeThreadRenameTitleContext,
+  ThreadRenameEditorController,
+  type ThreadRenameEditorController as ThreadRenameEditorControllerInstance,
+} from "../application/threads/rename-editor-controller";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeController } from "../application/threads/resume-controller";
-import { createThreadParts } from "../application/threads/composition";
 import { createSelectionActions } from "../application/threads/selection-actions";
+import { createThreadLifecycleParts } from "../application/threads/lifecycle-parts";
+import { createThreadManagementActions, type ThreadManagementActionsHost } from "../application/threads/thread-management-actions";
 import type { ComposerSubmitActions } from "../application/conversation/composer-submit-actions";
 import { createConversationTurnActions } from "../application/conversation/composition";
 import { createChatConnectionBundle, type ChatConnectionBundle } from "./connection-bundle";
@@ -114,7 +119,7 @@ export interface ChatPanelRuntimeParts {
     resume: ResumeController;
     restoration: RestorationController;
     identity: IdentitySync;
-    rename: ThreadRenameEditorController;
+    rename: ThreadRenameEditorControllerInstance;
   };
   toolbar: {
     panels: ToolbarPanelActions;
@@ -285,12 +290,19 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
       context.refreshLiveState();
     },
   });
-  const threadParts = createThreadParts({
+  const rename = new ThreadRenameEditorController({
+    stateStore,
+    ensureConnected,
+    addSystemMessage: status.addSystemMessage,
+    operations: threadOperations,
+    titleService,
+  });
+  const threadLifecycle = createThreadLifecycleParts({
     settingsRef: environment.plugin.settingsRef,
-    workspace: environment.plugin.workspace,
-    threadCatalog: environment.plugin.threadCatalog,
-    state: {
-      stateStore,
+    stateStore,
+    client: {
+      currentClient,
+      ensureConnected,
     },
     lifecycle: {
       deferredTasks: context.deferredTasks,
@@ -298,13 +310,7 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
       getOpened: () => context.opened(),
       getClosing: () => context.closing(),
     },
-    client: {
-      getClient: currentClient,
-      ensureConnected,
-    },
-    status,
     thread: {
-      fetchActiveThreads,
       notifyIdentityChanged: () => {
         context.notifyActiveThreadIdentityChanged();
       },
@@ -312,6 +318,7 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
         context.refreshTabHeader();
       },
     },
+    status,
     liveState: {
       refresh: () => {
         context.refreshLiveState();
@@ -326,11 +333,11 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
       },
     },
     goals,
-    autoTitle,
-    operations: threadOperations,
-    titleService,
+    resetThreadTurnPresence: (hadTurns) => {
+      autoTitle.resetThreadTurnPresence(hadTurns);
+    },
   });
-  const { history, identity, restoration, resume, rename } = threadParts;
+  const { history, identity, restoration, resume } = threadLifecycle;
   const composerSurface: ChatPanelComposerSurface = {
     thread: {
       restoredPlaceholder: () => restoration.placeholder(),
@@ -368,11 +375,27 @@ export function createChatPanelRuntime(context: ChatPanelRuntimeContext): ChatPa
       messageStreamScrollBridge.repinMessageStreamToBottomIfPinned();
     },
   });
-  const threadActions = threadParts.createManagementActions({
-    setText: (text) => {
+  const threadManagementHost: ThreadManagementActionsHost = {
+    stateStore,
+    vaultPath: environment.plugin.settingsRef.vaultPath,
+    operations: threadOperations,
+    ensureConnected,
+    currentClient,
+    addSystemMessage: status.addSystemMessage,
+    setStatus: status.set,
+    setComposerText: (text) => {
       composerController.setDraft(text, { focus: true });
     },
-  });
+    openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
+    openThreadInCurrentPanel: (threadId) => resume.resumeThread(threadId),
+    notifyActiveThreadIdentityChanged: () => {
+      context.notifyActiveThreadIdentityChanged();
+    },
+    refreshAfterThreadMutation: async () => {
+      await fetchActiveThreads();
+    },
+  };
+  const threadActions = createThreadManagementActions(threadManagementHost);
   const toolbarPanels = createToolbarPanelActions({
     stateStore,
     threadActions,
