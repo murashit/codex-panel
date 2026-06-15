@@ -8,7 +8,7 @@ import type { GoalActions } from "../application/threads/goal-actions";
 import type { HistoryController } from "../application/threads/history-controller";
 import type { ChatInboundController } from "../app-server/inbound/controller";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
-import type { PluginSettingsRef, WorkspacePanels } from "../application/ports/chat-host";
+import type { ChatTurnDiffViewState } from "../domain/turn-diff";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
 import type { ConversationComposerParts } from "./composer";
@@ -20,8 +20,10 @@ interface ConversationPartsContext {
     owner: Component;
     viewId: string;
   };
-  settingsRef: PluginSettingsRef;
-  workspace: WorkspacePanels;
+  settingsRef: { readonly vaultPath: string };
+  workspace: {
+    openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
+  };
   state: {
     stateStore: ChatStateStore;
   };

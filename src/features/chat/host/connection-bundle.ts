@@ -1,8 +1,9 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import type { SharedServerMetadata } from "../../../domain/server/metadata";
+import type { Thread } from "../../../domain/threads/model";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
-import type { ThreadCatalogFacade } from "../application/ports/chat-host";
 import type { ChatViewDeferredTasks } from "../application/lifecycle";
 import { ChatConnectionController, handleChatConnectionExit } from "../application/connection/connection-controller";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
@@ -42,10 +43,13 @@ export interface ChatConnectionBundleContext {
   vaultPath: string;
   connectionWork: ConnectionWorkTracker;
   deferredTasks: ChatViewDeferredTasks;
-  threadCatalog: Pick<
-    ThreadCatalogFacade,
-    "setActiveThreads" | "setAppServerMetadata" | "fetchActiveThreads" | "archiveThreadInCatalog" | "renameThreadInCatalog"
-  >;
+  threadCatalog: {
+    setActiveThreads(threads: readonly Thread[]): void;
+    setAppServerMetadata(metadata: SharedServerMetadata): void;
+    fetchActiveThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+    archiveThreadInCatalog(threadId: string): void;
+    renameThreadInCatalog(threadId: string, name: string | null): void;
+  };
   goalSync: ThreadGoalSyncActions;
   autoTitle: AutoTitleController;
   status: ChatConnectionBundleStatus;

@@ -7,7 +7,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "../src/constants";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import type CodexPanelPlugin from "../src/main";
 import type { CodexChatView } from "../src/features/chat/host/view";
-import type { CodexChatHost } from "../src/features/chat/application/ports/chat-host";
+import type { CodexChatHost } from "../src/features/chat/host/runtime";
 import type { Thread } from "../src/domain/threads/model";
 import type { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
 import type { SharedThreadCatalog } from "../src/workspace/shared-thread-catalog";

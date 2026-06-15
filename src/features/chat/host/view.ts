@@ -1,7 +1,7 @@
 import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../../../constants";
-import type { CodexChatHost } from "../application/ports/chat-host";
+import type { CodexChatHost } from "./runtime";
 import { ChatPanelSession } from "./session";
 import type { ChatSurfaceHandle } from "./surface-handle";
 

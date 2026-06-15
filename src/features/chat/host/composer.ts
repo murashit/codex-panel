@@ -6,14 +6,14 @@ import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { activeTurnId } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatPanelComposerShellState } from "../panel/shell-state";
-import type { PluginSettingsRef } from "../application/ports/chat-host";
+import type { CodexPanelSettings } from "../../../settings/model";
 import type { ChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import { ChatComposerController } from "../panel/composer-controller";
 import type { ChatPanelComposerProjection } from "../panel/surface/model";
 
 export interface ConversationComposerContext {
   app: App;
-  settingsRef: PluginSettingsRef;
+  settingsRef: { readonly settings: CodexPanelSettings };
   stateStore: ChatStateStore;
   viewId: string;
   surface: {

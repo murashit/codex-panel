@@ -2,7 +2,9 @@ import { Notice, type App, type Component, type EventRef } from "obsidian";
 
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { ArchiveExportAdapter } from "../../../app-server/services/thread-archive-markdown";
+import type { CodexPanelSettings } from "../../../settings/model";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
+import type { SharedThreadCatalog } from "../../../workspace/shared-thread-catalog";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import type { ChatConnectionPhase, ChatAction, ChatState } from "../application/state/root-reducer";
@@ -34,9 +36,43 @@ import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/me
 import { pendingRequestsSignature } from "../domain/pending-requests/signatures";
 import { ThreadOperations } from "../../threads/thread-operations";
 import { ThreadTitleService } from "../../threads/thread-title-service";
-import type { CodexChatHost } from "../application/ports/chat-host";
 import { messageStreamItems } from "../application/state/message-stream";
 import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
+import type { ChatTurnDiffViewState } from "../domain/turn-diff";
+
+export interface CodexChatHost {
+  readonly settingsRef: PluginSettingsRef;
+  readonly workspace: WorkspacePanels;
+  readonly threadCatalog: ChatThreadCatalog;
+}
+
+export interface PluginSettingsRef {
+  readonly settings: CodexPanelSettings;
+  readonly vaultPath: string;
+}
+
+interface WorkspacePanels {
+  openThreadInNewView(threadId: string): Promise<unknown>;
+  focusThreadInOpenView(threadId: string): Promise<boolean>;
+  openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
+}
+
+type ChatThreadCatalog = Pick<
+  SharedThreadCatalog,
+  | "archiveThreadInCatalog"
+  | "renameThreadInCatalog"
+  | "refreshThreadsViewLiveState"
+  | "refreshFromOpenSurface"
+  | "setActiveThreads"
+  | "setAppServerMetadata"
+  | "fetchActiveThreads"
+  | "activeThreadsSnapshot"
+  | "appServerMetadataSnapshot"
+  | "modelsSnapshot"
+  | "observeActiveThreads"
+  | "observeAppServerMetadata"
+  | "observeModels"
+>;
 
 export interface ChatPanelEnvironment {
   obsidian: {

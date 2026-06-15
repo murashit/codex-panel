@@ -5,16 +5,20 @@ import type { GoalActions } from "./goal-actions";
 import { createSelectionActions } from "./selection-actions";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
-import type { PluginSettingsRef, ThreadCatalogFacade, WorkspacePanels } from "../ports/chat-host";
 import type { AutoTitleController } from "./auto-title-controller";
 import { ThreadRenameEditorController } from "./rename-editor-controller";
 import { createThreadManagementActions, type ThreadManagementActions, type ThreadManagementActionsHost } from "./thread-management-actions";
 import { createThreadLifecycleParts } from "./lifecycle-parts";
 
 interface ThreadPartsContext {
-  settingsRef: PluginSettingsRef;
-  workspace: Pick<WorkspacePanels, "focusThreadInOpenView" | "openThreadInNewView">;
-  threadCatalog: Pick<ThreadCatalogFacade, "refreshFromOpenSurface">;
+  settingsRef: { readonly vaultPath: string };
+  workspace: {
+    focusThreadInOpenView: (threadId: string) => Promise<boolean>;
+    openThreadInNewView: (threadId: string) => Promise<unknown>;
+  };
+  threadCatalog: {
+    refreshFromOpenSurface(): void;
+  };
   state: {
     stateStore: ChatStateStore;
   };
@@ -134,7 +138,9 @@ export function createThreadParts(context: ThreadPartsContext) {
 }
 
 interface ThreadSelectionActionsContext {
-  workspace: Pick<WorkspacePanels, "focusThreadInOpenView">;
+  workspace: {
+    focusThreadInOpenView: (threadId: string) => Promise<boolean>;
+  };
   state: {
     stateStore: ChatStateStore;
   };

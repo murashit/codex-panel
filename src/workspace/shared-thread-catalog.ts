@@ -3,7 +3,13 @@ import type { SharedServerMetadata } from "../domain/server/metadata";
 import type { Thread } from "../domain/threads/model";
 import type { AppServerQueryCache } from "../app-server/query/cache";
 import { appServerQueryContextMatches, cloneAppServerQueryContext, type AppServerQueryContext } from "../app-server/query/keys";
-import type { ThreadSurfaceActions } from "./thread-surface-actions";
+
+interface ThreadSurfaceActions {
+  invalidateThreadsFromOpenSurface(): void;
+  applyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
+  applyThreadRenamed(threadId: string, name: string | null): void;
+  refreshThreadsViewLiveState(): void;
+}
 
 export interface SharedThreadCatalogOptions {
   cache: AppServerQueryCache;

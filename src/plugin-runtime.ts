@@ -3,15 +3,14 @@ import type { App } from "obsidian";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { AppServerQueryCache } from "./app-server/query/cache";
 import type { AppServerQueryContext } from "./app-server/query/keys";
-import type { CodexChatHost, PluginSettingsRef } from "./features/chat/application/ports/chat-host";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
+import type { CodexChatHost, PluginSettingsRef } from "./features/chat/host/runtime";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
-import type { CodexThreadsHost, CodexThreadsView } from "./features/threads-view/view";
+import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";
 import type { CodexPanelSettingTabHost } from "./settings/tab";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
-import { createThreadSurfaceActions, type ThreadSurfaceActions } from "./workspace/thread-surface-actions";
 import { SharedThreadCatalog } from "./workspace/shared-thread-catalog";
 
 export interface CodexPanelRuntimeOptions {
@@ -23,7 +22,6 @@ export interface CodexPanelRuntimeOptions {
 export class CodexPanelRuntime {
   private readonly appServerQueries = new AppServerQueryCache();
   readonly panels: WorkspacePanelCoordinator;
-  private readonly threadSurfaces: ThreadSurfaceActions;
   readonly threadCatalog: SharedThreadCatalog;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
@@ -33,13 +31,22 @@ export class CodexPanelRuntime {
         this.threadCatalog.refreshThreadsViewLiveState();
       },
     });
-    this.threadSurfaces = createThreadSurfaceActions({
-      app: options.app,
-      panels: this.panels,
-    });
     this.threadCatalog = new SharedThreadCatalog({
       cache: this.appServerQueries,
-      surfaces: this.threadSurfaces,
+      surfaces: {
+        invalidateThreadsFromOpenSurface: () => {
+          this.invalidateThreadsFromOpenSurface();
+        },
+        applyThreadArchived: (threadId, archiveOptions) => {
+          this.applyThreadArchived(threadId, archiveOptions);
+        },
+        applyThreadRenamed: (threadId, name) => {
+          this.applyThreadRenamed(threadId, name);
+        },
+        refreshThreadsViewLiveState: () => {
+          this.refreshThreadsViewLiveState();
+        },
+      },
       context: () => this.appServerQueryContext(),
     });
   }
@@ -117,7 +124,7 @@ export class CodexPanelRuntime {
       vaultPath: this.options.settingsRef.vaultPath,
       saveSettings: () => this.options.saveSettings(),
       refreshOpenViews: () => {
-        this.threadSurfaces.refreshOpenViews();
+        this.refreshOpenViews();
       },
       threadCatalog: this.threadCatalog,
     };
@@ -143,6 +150,51 @@ export class CodexPanelRuntime {
       leaf.view.setDiffPayload(state);
     }
     await this.options.app.workspace.revealLeaf(leaf);
+  }
+
+  private refreshOpenViews(): void {
+    for (const view of this.panels.panelViews()) {
+      view.surface.refreshSettings();
+    }
+  }
+
+  private invalidateThreadsFromOpenSurface(): void {
+    const chatView = this.panels.panelViews().find((view) => view.surface.openPanelSnapshot().connected);
+    if (chatView) {
+      void chatView.surface.refreshSharedThreadList();
+      return;
+    }
+
+    const threadsView = this.threadsViews().at(0);
+    if (threadsView) void threadsView.refresh();
+  }
+
+  private applyThreadArchived(threadId: string, archiveOptions: { closeOpenPanels?: boolean } = {}): void {
+    const leavesToClose = archiveOptions.closeOpenPanels ? this.panels.panelLeavesForThread(threadId) : [];
+    for (const view of this.panels.panelViews()) {
+      view.surface.applyThreadArchived(threadId);
+    }
+    for (const leaf of leavesToClose) {
+      leaf.detach();
+    }
+  }
+
+  private applyThreadRenamed(threadId: string, name: string | null): void {
+    for (const view of this.panels.panelViews()) {
+      view.surface.applyThreadRenamed(threadId, name);
+    }
+  }
+
+  private refreshThreadsViewLiveState(): void {
+    for (const view of this.threadsViews()) {
+      view.refreshLiveState();
+    }
+  }
+
+  private threadsViews(): CodexThreadsView[] {
+    return this.options.app.workspace
+      .getLeavesOfType(VIEW_TYPE_CODEX_THREADS)
+      .flatMap((leaf) => (leaf.view instanceof CodexThreadsView ? [leaf.view] : []));
   }
 
   private appServerQueryContext(): AppServerQueryContext {

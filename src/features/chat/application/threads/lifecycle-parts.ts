@@ -2,7 +2,6 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
-import type { PluginSettingsRef } from "../ports/chat-host";
 import type { GoalActions } from "./goal-actions";
 import { HistoryController } from "./history-controller";
 import { createIdentitySync } from "./identity-sync";
@@ -10,7 +9,7 @@ import { ResumeController } from "./resume-controller";
 import { RestorationController } from "./restoration-controller";
 
 export interface ThreadLifecyclePartsContext {
-  settingsRef: PluginSettingsRef;
+  settingsRef: { readonly vaultPath: string };
   stateStore: ChatStateStore;
   client: {
     currentClient: () => AppServerClient | null;

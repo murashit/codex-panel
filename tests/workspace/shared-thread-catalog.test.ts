@@ -6,12 +6,14 @@ import { createServerDiagnostics } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import { SharedThreadCatalog } from "../../src/workspace/shared-thread-catalog";
-import type { ThreadSurfaceActions } from "../../src/workspace/thread-surface-actions";
 
-type MockSurfaceActions = ThreadSurfaceActions & {
+interface MockSurfaceActions {
+  refreshOpenViews: Mock<() => void>;
+  invalidateThreadsFromOpenSurface: Mock<() => void>;
   applyThreadArchived: Mock<(threadId: string, options?: { closeOpenPanels?: boolean }) => void>;
   applyThreadRenamed: Mock<(threadId: string, name: string | null) => void>;
-};
+  refreshThreadsViewLiveState: Mock<() => void>;
+}
 
 describe("SharedThreadCatalog", () => {
   it("applies thread snapshots to the shared cache and active observers", () => {
