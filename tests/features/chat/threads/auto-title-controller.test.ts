@@ -2,8 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { AutoTitleController } from "../../../../src/features/chat/application/threads/auto-title-controller";
+import { threadTitleContextFromMessageStreamItems } from "../../../../src/features/chat/application/threads/title-context";
+import { ThreadTitleService } from "../../../../src/features/threads/thread-title-service";
 import type { Thread } from "../../../../src/domain/threads/model";
+import type { ThreadTitleContext } from "../../../../src/domain/threads/title-generation-model";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
@@ -118,19 +122,40 @@ describe("AutoTitleController", () => {
 });
 
 function controllerFixture(
-  overrides: Partial<ConstructorParameters<typeof AutoTitleController>[0]> = {},
-): ConstructorParameters<typeof AutoTitleController>[0] & { controller: AutoTitleController } {
+  overrides: {
+    currentClient?: () => AppServerClient;
+    generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null>;
+  } = {},
+): ConstructorParameters<typeof AutoTitleController>[0] & {
+  controller: AutoTitleController;
+  notifyThreadRenamed: ReturnType<typeof vi.fn>;
+} {
   const stateStore = createChatStateStore();
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
+  const currentClient = overrides.currentClient ?? (() => fakeClient());
+  const notifyThreadRenamed = vi.fn();
+  const titleService = new ThreadTitleService({
+    settings: {
+      current: () => ({ ...DEFAULT_SETTINGS, codexPath: "codex" }),
+      vaultPath: "/vault",
+    },
+    currentClient,
+    visibleCompletedTurnContext: (turnId) =>
+      threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(stateStore.getState().messageStream)),
+    generateThreadTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
+  });
   const host = {
     stateStore,
-    vaultPath: "/vault",
-    settings: () => DEFAULT_SETTINGS,
-    currentClient: () => fakeClient(),
-    notifyThreadRenamed: vi.fn(),
-    ...overrides,
+    operations: {
+      renameThread: async (threadId: string, value: string, options?: { shouldPublish?: () => boolean }) => {
+        await currentClient().setThreadName(threadId, value);
+        if (options?.shouldPublish?.() ?? true) notifyThreadRenamed(threadId, value);
+        return { name: value };
+      },
+    },
+    titleService,
   } satisfies ConstructorParameters<typeof AutoTitleController>[0];
-  return { ...host, controller: new AutoTitleController(host) };
+  return { ...host, notifyThreadRenamed, controller: new AutoTitleController(host) };
 }
 
 function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
@@ -151,6 +176,8 @@ function threadFixture(id: string): Thread {
 }
 
 async function flushPromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
 }

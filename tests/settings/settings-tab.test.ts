@@ -318,7 +318,7 @@ describe("settings tab", () => {
 
   it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
-    const refreshSharedThreadListFromOpenSurface = vi.fn();
+    const refreshFromOpenSurface = vi.fn();
     const initialClient = settingsClient({
       threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
     });
@@ -338,7 +338,7 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(newerClient),
       );
-    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshSharedThreadListFromOpenSurface }), {
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshFromOpenSurface }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
@@ -353,7 +353,7 @@ describe("settings tab", () => {
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
 
-    expect(refreshSharedThreadListFromOpenSurface).not.toHaveBeenCalled();
+    expect(refreshFromOpenSurface).not.toHaveBeenCalled();
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
   });
 
@@ -551,7 +551,7 @@ function newSettingsTab(
     cachedModels?: ModelMetadata[];
     publishModels?: (models: ModelMetadata[]) => void;
     refreshOpenViews?: () => void;
-    refreshSharedThreadListFromOpenSurface?: () => void;
+    refreshFromOpenSurface?: () => void;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -570,7 +570,7 @@ function settingsTabHost(
     cachedModels?: ModelMetadata[];
     publishModels?: (models: ModelMetadata[]) => void;
     refreshOpenViews?: () => void;
-    refreshSharedThreadListFromOpenSurface?: () => void;
+    refreshFromOpenSurface?: () => void;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -597,9 +597,11 @@ function settingsTabHost(
     vaultPath: "/vault",
     saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
     refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
-    refreshSharedThreadListFromOpenSurface: options.refreshSharedThreadListFromOpenSurface ?? vi.fn(),
-    cachedModels: vi.fn(() => options.cachedModels ?? []),
-    publishModels: options.publishModels ?? vi.fn(),
+    threadCatalog: {
+      refreshFromOpenSurface: options.refreshFromOpenSurface ?? vi.fn(),
+      cachedModels: vi.fn(() => options.cachedModels ?? []),
+      publishModels: options.publishModels ?? vi.fn(),
+    },
   };
 }
 

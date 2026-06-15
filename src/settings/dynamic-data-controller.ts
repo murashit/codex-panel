@@ -20,9 +20,11 @@ import type { CodexPanelSettings } from "./model";
 export interface SettingsDynamicDataHost {
   settings: CodexPanelSettings;
   vaultPath: string;
-  refreshSharedThreadListFromOpenSurface(): void;
-  cachedModels(): ModelMetadata[] | null;
-  publishModels(models: ModelMetadata[]): void;
+  threadCatalog: {
+    refreshFromOpenSurface(): void;
+    cachedModels(): ModelMetadata[] | null;
+    publishModels(models: ModelMetadata[]): void;
+  };
 }
 
 interface SettingsDynamicDataControllerCallbacks {
@@ -59,7 +61,7 @@ export class SettingsDynamicDataController {
     private readonly host: SettingsDynamicDataHost,
     private readonly callbacks: SettingsDynamicDataControllerCallbacks,
   ) {
-    this.models = host.cachedModels() ?? [];
+    this.models = host.threadCatalog.cachedModels() ?? [];
   }
 
   maybeAutoLoadSettingsData(): void {
@@ -72,7 +74,7 @@ export class SettingsDynamicDataController {
     this.settingsDataAutoLoadStarted = false;
     this.settingsDynamicOperationId += 1;
     this.settingsDataRefreshLifecycle = { kind: "idle" };
-    this.models = this.host.cachedModels() ?? [];
+    this.models = this.host.threadCatalog.cachedModels() ?? [];
     this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
     this.hooks = [];
     this.hookWarnings = [];
@@ -113,7 +115,7 @@ export class SettingsDynamicDataController {
 
       if (result.models.ok) {
         this.models = result.models.data;
-        this.host.publishModels(result.models.data);
+        this.host.threadCatalog.publishModels(result.models.data);
         this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
           type: "loaded",
           status: result.models.status,
@@ -288,7 +290,7 @@ export class SettingsDynamicDataController {
         status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
         operationId,
       });
-      this.host.refreshSharedThreadListFromOpenSurface();
+      this.host.threadCatalog.refreshFromOpenSurface();
     } catch (error) {
       if (this.isStaleSettingsDynamicOperation(operationId)) return;
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {

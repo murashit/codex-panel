@@ -5,7 +5,6 @@ import { ThreadRenameEditorController } from "../../../../src/features/chat/appl
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
-import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
 describe("ThreadRenameEditorController", () => {
@@ -100,7 +99,7 @@ describe("ThreadRenameEditorController", () => {
   });
 
   it("keeps an edited draft when auto-name generation finishes later", async () => {
-    const generatedTitle = deferred<string | null>();
+    const generatedTitle = deferred<string>();
     const { controller } = controllerFixture({
       generateThreadTitle: vi.fn(() => generatedTitle.promise),
     });
@@ -119,8 +118,8 @@ describe("ThreadRenameEditorController", () => {
   });
 
   it("does not let an older auto-name request finish a newer generation", async () => {
-    const firstGeneratedTitle = deferred<string | null>();
-    const secondGeneratedTitle = deferred<string | null>();
+    const firstGeneratedTitle = deferred<string>();
+    const secondGeneratedTitle = deferred<string>();
     const generateThreadTitle = vi.fn().mockReturnValueOnce(firstGeneratedTitle.promise).mockReturnValueOnce(secondGeneratedTitle.promise);
     const { controller } = controllerFixture({ generateThreadTitle });
 
@@ -145,21 +144,40 @@ describe("ThreadRenameEditorController", () => {
 });
 
 function controllerFixture(
-  overrides: Partial<ConstructorParameters<typeof ThreadRenameEditorController>[0]> = {},
-): ConstructorParameters<typeof ThreadRenameEditorController>[0] & { controller: ThreadRenameEditorController } {
+  overrides: Partial<Pick<ConstructorParameters<typeof ThreadRenameEditorController>[0], "ensureConnected" | "addSystemMessage">> & {
+    currentClient?: () => AppServerClient;
+    generateThreadTitle?: () => Promise<string>;
+  } = {},
+): ConstructorParameters<typeof ThreadRenameEditorController>[0] & {
+  controller: ThreadRenameEditorController;
+  notifyThreadRenamed: ReturnType<typeof vi.fn>;
+} {
   const stateStore = createChatStateStore();
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
+  const currentClient = overrides.currentClient ?? (() => fakeClient());
+  const notifyThreadRenamed = vi.fn();
   const host = {
     stateStore,
-    vaultPath: "/vault",
-    settings: () => DEFAULT_SETTINGS,
-    ensureConnected: vi.fn().mockResolvedValue(undefined),
-    currentClient: () => fakeClient(),
-    addSystemMessage: vi.fn(),
-    notifyThreadRenamed: vi.fn(),
-    ...overrides,
+    ensureConnected: overrides.ensureConnected ?? vi.fn().mockResolvedValue(undefined),
+    addSystemMessage: overrides.addSystemMessage ?? vi.fn(),
+    operations: {
+      renameThread: async (threadId: string, value: string) => {
+        await currentClient().setThreadName(threadId, value);
+        stateStore.dispatch({
+          type: "thread-list/applied",
+          threads: stateStore
+            .getState()
+            .threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: value } : thread)),
+        });
+        notifyThreadRenamed(threadId, value);
+        return { name: value };
+      },
+    },
+    titleService: {
+      generateTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
+    },
   } satisfies ConstructorParameters<typeof ThreadRenameEditorController>[0];
-  return { ...host, controller: new ThreadRenameEditorController(host) };
+  return { ...host, notifyThreadRenamed, controller: new ThreadRenameEditorController(host) };
 }
 
 function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {

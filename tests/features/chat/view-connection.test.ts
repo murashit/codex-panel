@@ -122,7 +122,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
-    await Promise.all([view.connect(), view.connect()]);
+    await Promise.all([view.surface.connect(), view.surface.connect()]);
 
     expect(connectionMock.state.connectCalls).toBe(1);
     expect(client.readEffectiveConfig).toHaveBeenCalledTimes(1);
@@ -140,13 +140,13 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
-    const firstConnect = view.connect();
+    const firstConnect = view.surface.connect();
     await waitForAsyncWork(() => {
       expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
     });
 
     let secondResolved = false;
-    const secondConnect = view.connect().then(() => {
+    const secondConnect = view.surface.connect().then(() => {
       secondResolved = true;
     });
     await Promise.resolve();
@@ -162,20 +162,20 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("refreshes shared thread lists after connecting", async () => {
-    const refreshThreadList = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
+    const refreshThreads = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
     const threads = [threadFixture("thread-1")];
     const client = connectedClient({
       listThreads: vi.fn().mockResolvedValue({ data: threads }),
     });
     connectionMock.state.client = client;
     const view = await chatView({
-      host: chatHost({ refreshThreadList }),
+      host: chatHost({ refreshThreads }),
     });
 
     await view.onOpen();
-    await view.connect();
+    await view.surface.connect();
 
-    expect(refreshThreadList).toHaveBeenCalledOnce();
+    expect(refreshThreads).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: false, cursor: null, limit: 100 });
     requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
     await waitForAsyncWork(() => {
@@ -190,7 +190,7 @@ describe("CodexChatView connection lifecycle", () => {
       host: chatHost({ publishAppServerMetadata }),
     });
 
-    await view.connect();
+    await view.surface.connect();
 
     expect(publishAppServerMetadata).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -272,7 +272,7 @@ describe("CodexChatView connection lifecycle", () => {
         },
       ]);
     });
-    expect(view.openPanelSnapshot()).toMatchObject({ threadId: "thread-new" });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-new" });
     expect(view.containerEl.textContent).toContain("Ship the feature");
   });
 
@@ -289,7 +289,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
-    const connecting = view.connect();
+    const connecting = view.surface.connect();
     await Promise.resolve();
     await view.onClose();
     resolveConfig({});
@@ -307,7 +307,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
-    const connecting = view.connect();
+    const connecting = view.surface.connect();
     await waitForAsyncWork(() => {
       expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
     });
@@ -318,7 +318,7 @@ describe("CodexChatView connection lifecycle", () => {
     await connecting;
 
     expect(client.listThreads).not.toHaveBeenCalled();
-    expect(view.openPanelSnapshot()).toMatchObject({ connected: false });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
   });
 
   it("restores the active thread from workspace state and hydrates it after a delay", async () => {
@@ -355,14 +355,14 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.setState({ threadId: "thread-named" }, {} as never);
-    view.applyThreadListSnapshot([panelThread({ id: "thread-named", name: "作業メモ" })]);
+    view.surface.applyThreadListSnapshot([panelThread({ id: "thread-named", name: "作業メモ" })]);
     expect(view.getDisplayText()).toBe("Codex: 作業メモ");
 
-    view.applyThreadListSnapshot([panelThread({ id: "thread-named", name: null, preview: "初回依頼" })]);
+    view.surface.applyThreadListSnapshot([panelThread({ id: "thread-named", name: null, preview: "初回依頼" })]);
     expect(view.getDisplayText()).toBe("Codex: 初回依頼");
 
     await view.setState({ threadId: "019e061e-0000-7000-8000-000000000001" }, {} as never);
-    view.applyThreadListSnapshot([]);
+    view.surface.applyThreadListSnapshot([]);
     expect(view.getDisplayText()).toBe("Codex: 019e061e");
   });
 
@@ -415,7 +415,7 @@ describe("CodexChatView connection lifecycle", () => {
     const cachedThread = threadFixture("thread-cached");
     const view = await chatView({
       host: chatHost({
-        cachedThreadList: vi.fn(() => [cachedThread] as never[]),
+        cachedThreads: vi.fn(() => [cachedThread] as never[]),
         cachedAppServerMetadata: vi.fn(
           () =>
             ({
@@ -451,7 +451,7 @@ describe("CodexChatView connection lifecycle", () => {
     await view.onOpen();
 
     expect(client.resumeThread).not.toHaveBeenCalled();
-    await view.focusThread("thread-1");
+    await view.surface.focusThread("thread-1");
 
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
@@ -464,7 +464,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await view.onOpen();
-    view.setComposerText("hello");
+    view.surface.setComposerText("hello");
     await submitComposerByEnter(view);
 
     await waitForAsyncWork(() => {
@@ -488,8 +488,8 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.openThread("thread-1");
-    view.setComposerText("hello");
+    await view.surface.openThread("thread-1");
+    view.surface.setComposerText("hello");
     await submitComposerByEnter(view);
     await waitForAsyncWork(() => {
       expect(client.startTurn).toHaveBeenCalled();
@@ -497,12 +497,12 @@ describe("CodexChatView connection lifecycle", () => {
 
     connectionMock.state.onNotification?.(turnStartedNotification("thread-1", "turn-1"));
     connectionMock.state.onNotification?.(turnCompletedNotification("thread-1", "turn-1"));
-    expect(view.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
 
     startTurn.resolve({ turn: { id: "turn-1" } });
     await flushAsyncTicks();
 
-    expect(view.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
   });
 
   it("requests a workspace layout save after resuming a thread", async () => {
@@ -511,7 +511,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView({ requestSaveLayout });
 
-    await view.openThread("thread-1");
+    await view.surface.openThread("thread-1");
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
     expect(requestSaveLayout).toHaveBeenCalledTimes(1);
@@ -523,12 +523,12 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView({ requestSaveLayout });
 
-    await view.openThread("thread-1");
-    await view.startNewThread();
+    await view.surface.openThread("thread-1");
+    await view.surface.startNewThread();
 
     expect(client.startThread).not.toHaveBeenCalled();
     expect(view.getState()).toEqual({ version: 1 });
-    expect(view.openPanelSnapshot()).toMatchObject({ threadId: null, turnLifecycle: { kind: "idle" }, hasComposerDraft: false });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnLifecycle: { kind: "idle" }, hasComposerDraft: false });
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
   });
 
@@ -540,9 +540,9 @@ describe("CodexChatView connection lifecycle", () => {
     await view.onOpen();
     const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus").mockImplementation(() => undefined);
 
-    await view.openThread("thread-1");
-    await view.focusThread("thread-1");
-    await view.startNewThread();
+    await view.surface.openThread("thread-1");
+    await view.surface.focusThread("thread-1");
+    await view.surface.startNewThread();
 
     expect(focus).toHaveBeenCalledTimes(3);
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
@@ -557,8 +557,8 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.onOpen();
     await view.onOpen();
-    await view.connect();
-    view.setComposerText("/clear hello");
+    await view.surface.connect();
+    view.surface.setComposerText("/clear hello");
     await submitComposerByEnter(view);
 
     expect(client.startThread).not.toHaveBeenCalled();
@@ -576,8 +576,8 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView({ host });
 
     await view.onOpen();
-    await view.connect();
-    view.setComposerText("/resume thread-1");
+    await view.surface.connect();
+    view.surface.setComposerText("/resume thread-1");
     await submitComposerByEnter(view);
 
     expect(focusThreadInOpenView).toHaveBeenCalledWith("thread-1");
@@ -598,8 +598,8 @@ describe("CodexChatView connection lifecycle", () => {
     });
 
     await view.onOpen();
-    await view.connect();
-    view.setComposerText("/resume thread-1");
+    await view.surface.connect();
+    view.surface.setComposerText("/resume thread-1");
     await submitComposerByEnter(view);
 
     expect(focusThreadInOpenView).toHaveBeenCalledWith("thread-1");
@@ -615,14 +615,14 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.connect();
+    await view.surface.connect();
     const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(messages).not.toBeNull();
     if (!messages) return;
     const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: ESTIMATED_MESSAGE_BLOCK_HEIGHT, clientHeight: 100 });
     messages.scrollTop = 0;
 
-    view.setComposerText("/resume thread-1");
+    view.surface.setComposerText("/resume thread-1");
     await submitComposerByEnter(view);
     await waitForMessagesFrame(messages);
     await waitForMessagesFrame(messages);
@@ -644,8 +644,8 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView({ host });
 
     await view.onOpen();
-    await view.connect();
-    view.setComposerText("/archive thread-1");
+    await view.surface.connect();
+    view.surface.setComposerText("/archive thread-1");
     await submitComposerByEnter(view);
 
     expect(client.archiveThread).toHaveBeenCalledWith("thread-1");
@@ -665,8 +665,8 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView({ host });
 
     await view.onOpen();
-    await view.connect();
-    await view.openThread("source");
+    await view.surface.connect();
+    await view.surface.openThread("source");
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("done");
     });
@@ -681,7 +681,7 @@ describe("CodexChatView connection lifecycle", () => {
       expect(client.archiveThread).toHaveBeenCalledWith("source");
       expect(client.resumeThread).toHaveBeenLastCalledWith("forked", "/vault");
       expect(view.getState()).toEqual({ version: 1, threadId: "forked", threadTitle: "Restored thread" });
-      expect(view.openPanelSnapshot()).toMatchObject({ threadId: "forked" });
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "forked" });
       expect(notifyThreadArchived).toHaveBeenCalledWith("source");
     });
   });
@@ -692,8 +692,8 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView({ requestSaveLayout });
 
-    await view.openThread("thread-1");
-    view.notifyThreadArchived("thread-1");
+    await view.surface.openThread("thread-1");
+    view.surface.notifyThreadArchived("thread-1");
 
     expect(view.getState()).toEqual({ version: 1 });
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
@@ -703,7 +703,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.setState({ threadId: "thread-1", threadTitle: "Before rename" }, {} as never);
-    view.notifyThreadRenamed("thread-1", "After rename");
+    view.surface.notifyThreadRenamed("thread-1", "After rename");
 
     expect(view.getDisplayText()).toBe("Codex: After rename");
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "After rename" });
@@ -717,7 +717,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
 
-    view.notifyThreadRenamed("thread-1", "Explicit name");
+    view.surface.notifyThreadRenamed("thread-1", "Explicit name");
 
     await waitForAsyncWork(() => {
       expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Explicit name”...");
@@ -730,7 +730,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.openThread("thread-1");
+    await view.surface.openThread("thread-1");
 
     expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Restored thread”...");
   });
@@ -746,7 +746,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.openThread("thread-1");
+    await view.surface.openThread("thread-1");
 
     expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
   });
@@ -757,14 +757,14 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.openThread("thread-1");
-    view.notifyThreadRenamed("thread-1", "Renamed thread");
+    await view.surface.openThread("thread-1");
+    view.surface.notifyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
       expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Renamed thread”...");
     });
 
-    view.notifyThreadRenamed("thread-1", null);
+    view.surface.notifyThreadRenamed("thread-1", null);
 
     await waitForAsyncWork(() => {
       expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
@@ -777,15 +777,15 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.openThread("thread-1");
-    view.setComposerText("keep this draft");
+    await view.surface.openThread("thread-1");
+    view.surface.setComposerText("keep this draft");
     const composer = composerElement(view);
     await waitForAsyncWork(() => {
       expect(composer.value).toBe("keep this draft");
     });
     composer.setSelectionRange(5, 9);
 
-    view.notifyThreadRenamed("thread-1", "Renamed thread");
+    view.surface.notifyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
       expect(composerElement(view)).toBe(composer);
@@ -810,7 +810,7 @@ describe("CodexChatView connection lifecycle", () => {
     const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: ESTIMATED_MESSAGE_BLOCK_HEIGHT, clientHeight: 100 });
     messages.scrollTop = 0;
 
-    await view.openThread("thread-1");
+    await view.surface.openThread("thread-1");
     await waitForMessagesFrame(messages);
     await waitForMessagesFrame(messages);
 
@@ -828,13 +828,13 @@ describe("CodexChatView connection lifecycle", () => {
     const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1_000, clientHeight: 100 });
 
     await view.onOpen();
-    await view.openThread("thread-1");
+    await view.surface.openThread("thread-1");
     const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(messages).not.toBeNull();
     if (!messages) return;
     messages.scrollTop = 0;
 
-    await view.focusThread("thread-1");
+    await view.surface.focusThread("thread-1");
 
     expect(messages.scrollTop).toBe(0);
     restoreMessagesLayout();
@@ -850,7 +850,7 @@ describe("CodexChatView connection lifecycle", () => {
     const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1_000, clientHeight: 100 });
 
     await view.onOpen();
-    await view.openThread("thread-1");
+    await view.surface.openThread("thread-1");
     const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
     expect(messages).not.toBeNull();
     if (!messages) return;
@@ -872,7 +872,7 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
-    const opening = view.openThread("thread-1");
+    const opening = view.surface.openThread("thread-1");
     await waitForAsyncWork(() => {
       expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
     });
@@ -900,7 +900,7 @@ describe("CodexChatView connection lifecycle", () => {
     const view = await chatView();
 
     await view.onOpen();
-    await view.openThread("thread-1");
+    await view.surface.openThread("thread-1");
 
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     expect(client.threadTurnsList).not.toHaveBeenCalled();
@@ -919,11 +919,11 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
-    const firstOpen = view.openThread("thread-1");
+    const firstOpen = view.surface.openThread("thread-1");
     await waitForAsyncWork(() => {
       expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     });
-    const secondOpen = view.openThread("thread-2");
+    const secondOpen = view.surface.openThread("thread-2");
     await waitForAsyncWork(() => {
       expect(client.resumeThread).toHaveBeenCalledWith("thread-2", "/vault");
     });
@@ -949,11 +949,11 @@ describe("CodexChatView connection lifecycle", () => {
     connectionMock.state.client = client;
     const view = await chatView();
 
-    const firstOpen = view.openThread("thread-1");
+    const firstOpen = view.surface.openThread("thread-1");
     await waitForAsyncWork(() => {
       expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
     });
-    const secondOpen = view.openThread("thread-2");
+    const secondOpen = view.surface.openThread("thread-2");
     await waitForAsyncWork(() => {
       expect(client.threadTurnsList).toHaveBeenCalledWith("thread-2", null, 20);
     });
@@ -1282,15 +1282,15 @@ interface ChatHostFixtureOverrides {
   openThreadInNewView?: CodexChatHost["workspace"]["openThreadInNewView"];
   focusThreadInOpenView?: CodexChatHost["workspace"]["focusThreadInOpenView"];
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
-  notifyThreadArchived?: CodexChatHost["threadSurfaces"]["notifyThreadArchived"];
-  notifyThreadRenamed?: CodexChatHost["threadSurfaces"]["notifyThreadRenamed"];
-  refreshSharedThreadListFromOpenSurface?: CodexChatHost["threadSurfaces"]["refreshSharedThreadListFromOpenSurface"];
-  refreshThreadsViewLiveState?: CodexChatHost["threadSurfaces"]["refreshThreadsViewLiveState"];
-  applyThreadListSnapshot?: CodexChatHost["threadSurfaces"]["applyThreadListSnapshot"];
-  publishAppServerMetadata?: CodexChatHost["threadSurfaces"]["publishAppServerMetadata"];
-  refreshThreadList?: CodexChatHost["sharedCache"]["refreshThreadList"];
-  cachedThreadList?: CodexChatHost["sharedCache"]["cachedThreadList"];
-  cachedAppServerMetadata?: CodexChatHost["sharedCache"]["cachedAppServerMetadata"];
+  notifyThreadArchived?: CodexChatHost["threadCatalog"]["notifyThreadArchived"];
+  notifyThreadRenamed?: CodexChatHost["threadCatalog"]["notifyThreadRenamed"];
+  refreshFromOpenSurface?: CodexChatHost["threadCatalog"]["refreshFromOpenSurface"];
+  refreshThreadsViewLiveState?: CodexChatHost["threadCatalog"]["refreshThreadsViewLiveState"];
+  applyThreads?: CodexChatHost["threadCatalog"]["applyThreads"];
+  publishAppServerMetadata?: CodexChatHost["threadCatalog"]["publishAppServerMetadata"];
+  refreshThreads?: CodexChatHost["threadCatalog"]["refreshThreads"];
+  cachedThreads?: CodexChatHost["threadCatalog"]["cachedThreads"];
+  cachedAppServerMetadata?: CodexChatHost["threadCatalog"]["cachedAppServerMetadata"];
 }
 
 function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
@@ -1310,21 +1310,19 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
       focusThreadInOpenView: overrides.focusThreadInOpenView ?? vi.fn().mockResolvedValue(false),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
     },
-    threadSurfaces: {
+    threadCatalog: {
       notifyThreadArchived: overrides.notifyThreadArchived ?? vi.fn(),
       notifyThreadRenamed: overrides.notifyThreadRenamed ?? vi.fn(),
-      refreshSharedThreadListFromOpenSurface: overrides.refreshSharedThreadListFromOpenSurface ?? vi.fn(),
+      refreshFromOpenSurface: overrides.refreshFromOpenSurface ?? vi.fn(),
       refreshThreadsViewLiveState: overrides.refreshThreadsViewLiveState ?? vi.fn(),
-      applyThreadListSnapshot: overrides.applyThreadListSnapshot ?? vi.fn(),
+      applyThreads: overrides.applyThreads ?? vi.fn(),
       publishAppServerMetadata: overrides.publishAppServerMetadata ?? vi.fn(),
-    },
-    sharedCache: {
-      refreshThreadList:
-        overrides.refreshThreadList ??
+      refreshThreads:
+        overrides.refreshThreads ??
         (vi.fn(
           (fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>,
-        ) as CodexChatHost["sharedCache"]["refreshThreadList"]),
-      cachedThreadList: overrides.cachedThreadList ?? vi.fn(() => null),
+        ) as CodexChatHost["threadCatalog"]["refreshThreads"]),
+      cachedThreads: overrides.cachedThreads ?? vi.fn(() => null),
       cachedAppServerMetadata: overrides.cachedAppServerMetadata ?? vi.fn(() => null),
     },
   };

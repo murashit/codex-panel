@@ -2,15 +2,14 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/connection/client";
 import { ConnectionManager, type ConnectionManagerHandlers, StaleConnectionError } from "../../app-server/connection/connection-manager";
-import { listThreads, readCompletedConversationSummariesPage } from "../../app-server/services/threads";
+import { listThreads } from "../../app-server/services/threads";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import { archiveThreadOnAppServer } from "../../app-server/services/thread-archive";
 import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
-import { renameThreadOnAppServer, threadRenameFromValue } from "../../app-server/services/thread-rename";
-import { generateThreadTitleWithCodex } from "../../app-server/services/thread-title-generation";
-import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/title-generation-model";
+import { threadRenameFromValue } from "../../app-server/services/thread-rename";
+import { ThreadOperations } from "../threads/thread-operations";
+import { ThreadTitleService } from "../threads/thread-title-service";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
   completedThreadAutoNameState,
@@ -36,13 +35,16 @@ import {
 export interface CodexThreadsHost {
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
+  readonly threadCatalog: {
+    notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
+    notifyThreadRenamed(threadId: string, name: string | null): void;
+    refreshFromOpenSurface(): void;
+    refreshThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+    cachedThreads(): readonly Thread[] | null;
+  };
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
-  notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-  notifyThreadRenamed(threadId: string, name: string | null): void;
-  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-  cachedThreadList(): readonly Thread[] | null;
 }
 
 export interface CodexThreadsSessionEnvironment {
@@ -62,6 +64,8 @@ type ThreadsViewStatus =
 
 export class CodexThreadsSession {
   private readonly connection: ConnectionManager;
+  private readonly operations: ThreadOperations;
+  private readonly titleService: ThreadTitleService;
   private readonly deferredTasks: ThreadsViewDeferredTasks;
   private client: AppServerClient | null = null;
   private connectionLifecycle: ThreadsViewConnectionLifecycleState = { kind: "idle" };
@@ -74,6 +78,38 @@ export class CodexThreadsSession {
   constructor(private readonly environment: CodexThreadsSessionEnvironment) {
     this.deferredTasks = createThreadsViewDeferredTasks(() => this.viewWindow());
     this.connection = new ConnectionManager(() => this.host.settings.codexPath, this.host.vaultPath);
+    this.operations = new ThreadOperations({
+      connection: {
+        ensureConnected: () => this.ensureConnected(),
+        currentClient: () => this.client,
+      },
+      settings: {
+        current: () => this.host.settings,
+        vaultPath: this.host.vaultPath,
+      },
+      archiveAdapter: () => this.environment.archiveAdapter(),
+      catalog: {
+        notifyThreadArchived: (threadId, options) => {
+          this.host.threadCatalog.notifyThreadArchived(threadId, options);
+        },
+        notifyThreadRenamed: (threadId, name) => {
+          this.host.threadCatalog.notifyThreadRenamed(threadId, name);
+        },
+        refreshFromOpenSurface: () => {
+          this.host.threadCatalog.refreshFromOpenSurface();
+        },
+      },
+      notice: (message) => {
+        new Notice(message);
+      },
+    });
+    this.titleService = new ThreadTitleService({
+      settings: {
+        current: () => this.host.settings,
+        vaultPath: this.host.vaultPath,
+      },
+      currentClient: () => this.client,
+    });
   }
 
   private connectionHandlers(): ConnectionManagerHandlers {
@@ -102,7 +138,7 @@ export class CodexThreadsSession {
     this.environment.registerPointerDown((event) => {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
-    const cachedThreads = this.host.cachedThreadList();
+    const cachedThreads = this.host.threadCatalog.cachedThreads();
     if (cachedThreads) {
       this.threads = cachedThreads;
     }
@@ -126,7 +162,7 @@ export class CodexThreadsSession {
     try {
       await this.ensureConnected();
       if (this.isStaleRefresh(refresh) || !this.client) return;
-      const threads = await this.host.refreshThreadList(async () => {
+      const threads = await this.host.threadCatalog.refreshThreads(async () => {
         if (!this.client) return [];
         return listThreads(this.client, this.host.vaultPath);
       });
@@ -301,10 +337,9 @@ export class CodexThreadsSession {
     try {
       await this.ensureConnected();
       if (this.renameStates.get(threadId) !== editingState) return;
-      if (!this.client) return;
-      const result = await renameThreadOnAppServer(this.client, threadId, rename);
+      const result = await this.operations.renameThread(threadId, rename.name);
+      if (!result) return;
       this.renameStates.delete(threadId);
-      this.host.notifyThreadRenamed(threadId, result.name);
     } catch (error) {
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();
@@ -320,18 +355,7 @@ export class CodexThreadsSession {
     try {
       await this.ensureConnected();
       if (this.renameStates.get(threadId) !== generatingState) return;
-      if (!this.client) return;
-      const client = this.client;
-      const context = await findThreadTitleContext({
-        threadId,
-        readTurns: (id, cursor, limit, sortDirection) => readCompletedConversationSummariesPage(client, id, cursor, limit, sortDirection),
-      });
-      if (!context) throw new Error(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
-      const title = await generateThreadTitleWithCodex(this.host.settings.codexPath, this.host.vaultPath, context, {
-        threadNamingModel: this.host.settings.threadNamingModel,
-        threadNamingEffort: this.host.settings.threadNamingEffort,
-      });
-      if (!title) throw new Error("Codex did not return a usable thread title.");
+      const title = await this.titleService.generateTitle(threadId);
       const renamedState = generatedThreadAutoNameState(this.renameStates.get(threadId), generatingState, title);
       if (renamedState) this.renameStates.set(threadId, renamedState);
     } catch (error) {
@@ -363,19 +387,13 @@ export class CodexThreadsSession {
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
     try {
       await this.ensureConnected();
-      if (!this.client) return;
-      const result = await archiveThreadOnAppServer(this.client, threadId, {
-        settings: this.host.settings,
-        vaultPath: this.host.vaultPath,
-        archiveAdapter: () => this.environment.archiveAdapter(),
+      const result = await this.operations.archiveThread(threadId, {
         saveMarkdown,
+        closeOpenPanels: true,
       });
-      if (result.exportedPath) {
-        new Notice(`Saved archived thread to ${result.exportedPath}.`);
-      }
+      if (!result) return;
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
-      this.host.notifyThreadArchived(threadId, { closeOpenPanels: true });
     } catch (error) {
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();

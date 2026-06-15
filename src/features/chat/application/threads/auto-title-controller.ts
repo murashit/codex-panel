@@ -1,22 +1,15 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
-import type { CodexPanelSettings } from "../../../../settings/model";
-import { renameThreadOnAppServer, threadRenameFromValue } from "../../../../app-server/services/thread-rename";
-import { generateThreadTitleWithCodex } from "../../../../app-server/services/thread-title-generation";
-import { threadTitleContextFromConversationSummary, type ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
+import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
+import type { ThreadOperations } from "../../../threads/thread-operations";
+import type { ThreadTitleService } from "../../../threads/thread-title-service";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { messageStreamItems } from "../state/message-stream";
-import { threadTitleContextFromMessageStreamItems } from "./title-context";
 
 export interface AutoTitleControllerHost {
   stateStore: ChatStateStore;
-  vaultPath: string;
-  settings: () => CodexPanelSettings;
-  currentClient: () => AppServerClient | null;
-  notifyThreadRenamed: (threadId: string, name: string) => void;
-  generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null>;
+  operations: Pick<ThreadOperations, "renameThread">;
+  titleService: Pick<ThreadTitleService, "completedTurnContext" | "generate">;
 }
 
 export class AutoTitleController {
@@ -45,7 +38,7 @@ export class AutoTitleController {
     if (hadTurnsBeforeThisCompletion) return;
     if (this.threadHasTitle(threadId)) return;
     if (this.attemptedThreadIds.has(threadId) || this.inFlightThreadIds.has(threadId)) return;
-    const context = this.titleContextForCompletedTurn(turnId, completedSummary);
+    const context = this.host.titleService.completedTurnContext(turnId, completedSummary);
     if (!context) return;
 
     this.attemptedThreadIds.add(threadId);
@@ -53,28 +46,20 @@ export class AutoTitleController {
     void this.generateAndSetTitle(threadId, context);
   }
 
-  private titleContextForCompletedTurn(turnId: string, completedSummary: ThreadConversationSummary | null): ThreadTitleContext | null {
-    const visibleContext = threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(this.state.messageStream));
-    if (visibleContext) return visibleContext;
-    return completedSummary ? threadTitleContextFromConversationSummary(completedSummary) : null;
-  }
-
   private async generateAndSetTitle(threadId: string, context: ThreadTitleContext): Promise<void> {
     try {
       const title = await this.generateTitle(context);
       if (!title || !this.threadCanReceiveGeneratedTitle(threadId)) return;
-      const rename = threadRenameFromValue(title);
-      if (!rename) return;
 
-      const client = this.host.currentClient();
-      if (!client) return;
-      const result = await renameThreadOnAppServer(client, threadId, rename);
+      const result = await this.host.operations.renameThread(threadId, title, {
+        shouldPublish: () => this.threadCanReceiveGeneratedTitle(threadId),
+      });
+      if (!result) return;
       if (!this.threadCanReceiveGeneratedTitle(threadId)) return;
       this.dispatch({
         type: "thread-list/applied",
         threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: result.name } : thread)),
       });
-      this.host.notifyThreadRenamed(threadId, result.name);
     } catch {
       // Auto-title is best-effort metadata. Leave the thread preview untouched on failure.
     } finally {
@@ -83,12 +68,7 @@ export class AutoTitleController {
   }
 
   private async generateTitle(context: ThreadTitleContext): Promise<string | null> {
-    if (this.host.generateThreadTitle) return this.host.generateThreadTitle(context);
-    const settings = this.host.settings();
-    return generateThreadTitleWithCodex(settings.codexPath, this.host.vaultPath, context, {
-      threadNamingModel: settings.threadNamingModel,
-      threadNamingEffort: settings.threadNamingEffort,
-    });
+    return this.host.titleService.generate(context);
   }
 
   private threadHasTitle(threadId: string): boolean {

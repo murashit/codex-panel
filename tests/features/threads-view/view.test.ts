@@ -237,18 +237,20 @@ describe("CodexThreadsView", () => {
 
   it("refreshes thread lists through the plugin coordinator", async () => {
     const threads = [threadFixture({ id: "thread", preview: "Thread preview" })];
-    const refreshThreadList = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
+    const refreshThreads = vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>);
     connectionMock.state.client = clientFixture({
       listThreads: vi.fn().mockResolvedValue({ data: threads }),
     });
     const host = threadsHost({
-      refreshThreadList,
+      threadCatalog: {
+        refreshThreads,
+      },
     });
     const view = await threadsView(host);
 
     await view.refresh();
 
-    expect(refreshThreadList).toHaveBeenCalledOnce();
+    expect(refreshThreads).toHaveBeenCalledOnce();
     expect(view.containerEl.textContent).toContain("Thread preview");
   });
 
@@ -263,7 +265,9 @@ describe("CodexThreadsView", () => {
     });
     const view = await threadsView(
       threadsHost({
-        cachedThreadList: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
+        threadCatalog: {
+          cachedThreads: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
+        },
       }),
     );
 
@@ -278,8 +282,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       archiveThread,
     });
+    const notifyThreadArchived = vi.fn();
     const host = threadsHost({
-      notifyThreadArchived: vi.fn(),
+      threadCatalog: { notifyThreadArchived },
     });
     const view = await threadsView(host);
 
@@ -289,7 +294,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(archiveThread).toHaveBeenCalledWith("thread");
-      expect(host.notifyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
+      expect(notifyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
     });
   });
 
@@ -299,8 +304,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       setThreadName,
     });
+    const notifyThreadRenamed = vi.fn();
     const host = threadsHost({
-      notifyThreadRenamed: vi.fn(),
+      threadCatalog: { notifyThreadRenamed },
     });
     const view = await threadsView(host);
 
@@ -314,7 +320,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
-      expect(host.notifyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed thread");
+      expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed thread");
     });
   });
 
@@ -405,6 +411,9 @@ function clientFixture(overrides: Record<string, unknown> = {}): Record<string, 
 }
 
 function threadsHost(overrides: Record<string, unknown> = {}) {
+  const threadCatalogOverrides =
+    "threadCatalog" in overrides && typeof overrides["threadCatalog"] === "object" ? overrides["threadCatalog"] : {};
+  const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog"));
   return {
     settings: {
       ...DEFAULT_SETTINGS,
@@ -414,11 +423,15 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     getOpenPanelSnapshots: vi.fn(() => []),
-    notifyThreadArchived: vi.fn(),
-    notifyThreadRenamed: vi.fn(),
-    refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
-    cachedThreadList: vi.fn(() => null),
-    ...overrides,
+    threadCatalog: {
+      notifyThreadArchived: vi.fn(),
+      notifyThreadRenamed: vi.fn(),
+      refreshFromOpenSurface: vi.fn(),
+      refreshThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
+      cachedThreads: vi.fn(() => null),
+      ...threadCatalogOverrides,
+    },
+    ...hostOverrides,
   };
 }
 

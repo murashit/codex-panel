@@ -1,10 +1,8 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/services/threads";
 import { inheritedForkThreadName } from "../../../../domain/threads/model";
-import type { CodexPanelSettings } from "../../../../settings/model";
-import type { ArchiveExportAdapter } from "../../../../app-server/services/thread-archive-markdown";
-import { archiveThreadOnAppServer } from "../../../../app-server/services/thread-archive";
-import { renameThreadOnAppServer, threadRenameFromValue, type ThreadRename } from "../../../../app-server/services/thread-rename";
+import { threadRenameFromValue } from "../../../../app-server/services/thread-rename";
+import type { ThreadOperations } from "../../../threads/thread-operations";
 import {
   archivedSourceOpenForkFailedMessage,
   finishBeforeArchivingThreadsMessage,
@@ -29,21 +27,16 @@ import { resumedThreadActionFromActiveRuntime } from "./resume";
 export interface ThreadManagementActionsHost {
   stateStore: ChatStateStore;
   vaultPath: string;
-  settings: () => CodexPanelSettings;
-  archiveAdapter: () => ArchiveExportAdapter;
+  operations: Pick<ThreadOperations, "archiveThread" | "renameThread">;
   ensureConnected: () => Promise<void>;
   currentClient: () => AppServerClient | null;
   addSystemMessage: (text: string) => void;
-  showNotice: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
   openThreadInNewView: (threadId: string) => Promise<unknown>;
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
-  notifyThreadArchived: (threadId: string) => void;
-  notifyThreadRenamed: (threadId: string, name: string) => void;
   notifyActiveThreadIdentityChanged: () => void;
-  refreshThreads: () => Promise<void>;
-  refreshSharedThreadListFromOpenSurface: () => void;
+  refreshAfterThreadMutation: () => Promise<void>;
 }
 
 export interface ThreadManagementActions {
@@ -54,16 +47,6 @@ export interface ThreadManagementActions {
   renameThread: (threadId: string, name: string) => Promise<boolean>;
   rollbackThread: (threadId: string) => Promise<void>;
 }
-
-type RenameThreadHost = Pick<
-  ThreadManagementActionsHost,
-  "ensureConnected" | "currentClient" | "stateStore" | "addSystemMessage" | "notifyThreadRenamed"
->;
-
-type ConnectedRenameThreadHost = Pick<
-  ThreadManagementActionsHost,
-  "currentClient" | "stateStore" | "addSystemMessage" | "notifyThreadRenamed"
->;
 
 export function createThreadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
   return {
@@ -91,39 +74,18 @@ async function compactThread(host: ThreadManagementActionsHost, threadId: string
   }
 }
 
-async function archiveThread(
-  host: ThreadManagementActionsHost,
-  threadId: string,
-  saveMarkdown = host.settings().archiveExportEnabled,
-): Promise<void> {
-  if (await archiveThreadFromPanel(host, threadId, saveMarkdown)) {
-    host.notifyThreadArchived(threadId);
-  }
+async function archiveThread(host: ThreadManagementActionsHost, threadId: string, saveMarkdown?: boolean): Promise<void> {
+  await archiveThreadFromPanel(host, threadId, saveMarkdown);
 }
 
-async function archiveThreadFromPanel(
-  host: ThreadManagementActionsHost,
-  threadId: string,
-  saveMarkdown = host.settings().archiveExportEnabled,
-): Promise<boolean> {
+async function archiveThreadFromPanel(host: ThreadManagementActionsHost, threadId: string, saveMarkdown?: boolean): Promise<boolean> {
   if (chatTurnBusy(threadManagementState(host))) {
     host.addSystemMessage(finishBeforeArchivingThreadsMessage());
     return false;
   }
-  await host.ensureConnected();
-  const client = host.currentClient();
-  if (!client) return false;
   try {
-    const result = await archiveThreadOnAppServer(client, threadId, {
-      settings: host.settings(),
-      vaultPath: host.vaultPath,
-      archiveAdapter: host.archiveAdapter,
-      saveMarkdown,
-    });
-    if (result.exportedPath) {
-      host.showNotice(`Saved archived thread to ${result.exportedPath}.`);
-    }
-    return true;
+    const options = saveMarkdown === undefined ? {} : { saveMarkdown };
+    return Boolean(await host.operations.archiveThread(threadId, options));
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return false;
@@ -167,8 +129,7 @@ async function forkThreadFromTurn(
       try {
         const rename = threadRenameFromValue(sourceName);
         if (!rename) return;
-        await renameThreadOnAppServer(client, forkedThreadId, rename);
-        host.notifyThreadRenamed(forkedThreadId, sourceName);
+        await host.operations.renameThread(forkedThreadId, rename.name);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         host.addSystemMessage(forkNameCopyFailedMessage(forkedThreadId, message));
@@ -182,7 +143,6 @@ async function forkThreadFromTurn(
         const message = error instanceof Error ? error.message : String(error);
         host.addSystemMessage(archivedSourceOpenForkFailedMessage(threadId, forkedThreadId, message));
       }
-      host.notifyThreadArchived(threadId);
       return;
     }
     try {
@@ -196,26 +156,18 @@ async function forkThreadFromTurn(
   }
 }
 
-async function renameThread(host: RenameThreadHost, threadId: string, value: string): Promise<boolean> {
+async function renameThread(host: ThreadManagementActionsHost, threadId: string, value: string): Promise<boolean> {
   const rename = threadRenameFromValue(value);
   if (!rename) return false;
 
-  await host.ensureConnected();
-  return renameConnectedThread(host, threadId, rename);
-}
-
-export async function renameConnectedThread(host: ConnectedRenameThreadHost, threadId: string, rename: ThreadRename): Promise<boolean> {
-  const client = host.currentClient();
-  if (!client) return false;
-
   try {
-    const result = await renameThreadOnAppServer(client, threadId, rename);
+    const result = await host.operations.renameThread(threadId, rename.name);
+    if (!result) return false;
     const { name } = result;
     host.stateStore.dispatch({
       type: "thread-list/applied",
       threads: host.stateStore.getState().threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)),
     });
-    host.notifyThreadRenamed(threadId, name);
     return true;
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -261,8 +213,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     host.addSystemMessage(rollbackCompletedMessage());
     host.setStatus(STATUS_ROLLBACK_COMPLETE);
     host.notifyActiveThreadIdentityChanged();
-    await host.refreshThreads();
-    host.refreshSharedThreadListFromOpenSurface();
+    await host.refreshAfterThreadMutation();
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     host.setStatus(STATUS_ROLLBACK_FAILED);

@@ -6,8 +6,7 @@ import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 export interface CodexChatHost {
   readonly settingsRef: PluginSettingsRef;
   readonly workspace: WorkspacePanels;
-  readonly sharedCache: SharedAppServerCacheFacade;
-  readonly threadSurfaces: ThreadSurfaceBroadcaster;
+  readonly threadCatalog: ThreadCatalogFacade;
 }
 
 export interface PluginSettingsRef {
@@ -21,17 +20,14 @@ export interface WorkspacePanels {
   openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
 }
 
-export interface ThreadSurfaceBroadcaster {
+export interface ThreadCatalogFacade {
   notifyThreadArchived(threadId: string): void;
   notifyThreadRenamed(threadId: string, name: string | null): void;
   refreshThreadsViewLiveState(): void;
-  refreshSharedThreadListFromOpenSurface(): void;
-  applyThreadListSnapshot(threads: readonly Thread[]): void;
+  refreshFromOpenSurface(): void;
+  applyThreads(threads: readonly Thread[]): void;
   publishAppServerMetadata(metadata: SharedServerMetadata): void;
-}
-
-interface SharedAppServerCacheFacade {
-  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
-  cachedThreadList(): readonly Thread[] | null;
+  refreshThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+  cachedThreads(): readonly Thread[] | null;
   cachedAppServerMetadata(): SharedServerMetadata | null;
 }

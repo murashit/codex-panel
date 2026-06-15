@@ -1,22 +1,20 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import type { ArchiveExportAdapter } from "../../../../app-server/services/thread-archive-markdown";
+import type { ThreadOperations } from "../../../threads/thread-operations";
+import type { ThreadTitleService } from "../../../threads/thread-title-service";
 import type { GoalActions } from "./goal-actions";
 import { createSelectionActions } from "./selection-actions";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
-import type { PluginSettingsRef, ThreadSurfaceBroadcaster, WorkspacePanels } from "../ports/chat-host";
+import type { PluginSettingsRef, ThreadCatalogFacade, WorkspacePanels } from "../ports/chat-host";
 import type { AutoTitleController } from "./auto-title-controller";
 import { ThreadRenameEditorController } from "./rename-editor-controller";
 import { createThreadManagementActions, type ThreadManagementActions, type ThreadManagementActionsHost } from "./thread-management-actions";
 import { createThreadLifecycleParts } from "./lifecycle-parts";
 
 interface ThreadPartsContext {
-  obsidian: {
-    archiveAdapter: () => ArchiveExportAdapter;
-  };
   settingsRef: PluginSettingsRef;
   workspace: Pick<WorkspacePanels, "focusThreadInOpenView" | "openThreadInNewView">;
-  threadSurfaces: ThreadSurfaceBroadcaster;
+  threadCatalog: Pick<ThreadCatalogFacade, "refreshFromOpenSurface">;
   state: {
     stateStore: ChatStateStore;
   };
@@ -39,9 +37,6 @@ interface ThreadPartsContext {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
   };
-  notify: {
-    showNotice: (text: string) => void;
-  };
   liveState: {
     refresh: () => void;
   };
@@ -51,38 +46,36 @@ interface ThreadPartsContext {
   };
   goals: GoalActions;
   autoTitle: AutoTitleController;
+  operations: ThreadOperations;
+  titleService: ThreadTitleService;
 }
 
 export function createThreadParts(context: ThreadPartsContext) {
   const {
-    obsidian,
     settingsRef,
     workspace,
-    threadSurfaces,
+    threadCatalog,
     state,
     thread,
     status,
-    notify,
     liveState,
     scroll,
     client,
     lifecycle,
     goals,
     autoTitle,
+    operations,
+    titleService,
   } = context;
   const stateStore = state.stateStore;
   const currentClient = client.getClient;
 
   const rename = new ThreadRenameEditorController({
     stateStore,
-    vaultPath: settingsRef.vaultPath,
-    settings: () => settingsRef.settings,
     ensureConnected: client.ensureConnected,
-    currentClient,
     addSystemMessage: status.addSystemMessage,
-    notifyThreadRenamed: (threadId, name) => {
-      threadSurfaces.notifyThreadRenamed(threadId, name);
-    },
+    operations,
+    titleService,
   });
   const threadLifecycle = createThreadLifecycleParts({
     settingsRef,
@@ -109,28 +102,20 @@ export function createThreadParts(context: ThreadPartsContext) {
     const threadManagementHost: ThreadManagementActionsHost = {
       stateStore,
       vaultPath: settingsRef.vaultPath,
-      settings: () => settingsRef.settings,
-      archiveAdapter: obsidian.archiveAdapter,
+      operations,
       ensureConnected: client.ensureConnected,
       currentClient,
       addSystemMessage: status.addSystemMessage,
-      showNotice: notify.showNotice,
       setStatus: status.set,
       setComposerText: composer.setText,
       openThreadInNewView: (threadId) => workspace.openThreadInNewView(threadId),
       openThreadInCurrentPanel: (threadId) => resume.resumeThread(threadId),
-      notifyThreadArchived: (threadId) => {
-        threadSurfaces.notifyThreadArchived(threadId);
-      },
-      notifyThreadRenamed: (threadId, name) => {
-        threadSurfaces.notifyThreadRenamed(threadId, name);
-      },
       notifyActiveThreadIdentityChanged: () => {
         thread.notifyIdentityChanged();
       },
-      refreshThreads: () => thread.refreshThreads(),
-      refreshSharedThreadListFromOpenSurface: () => {
-        threadSurfaces.refreshSharedThreadListFromOpenSurface();
+      refreshAfterThreadMutation: async () => {
+        await thread.refreshThreads();
+        threadCatalog.refreshFromOpenSurface();
       },
     };
     return createThreadManagementActions(threadManagementHost);

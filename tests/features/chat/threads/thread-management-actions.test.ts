@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import { archiveThreadOnAppServer } from "../../../../src/app-server/services/thread-archive";
 import type { ArchiveExportAdapter } from "../../../../src/app-server/services/thread-archive-markdown";
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
@@ -170,8 +171,8 @@ describe("thread management actions", () => {
     expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
     expect(callOrder(adapter.write)).toBeLessThan(callOrder(client.archiveThread));
-    expect(callOrder(client.archiveThread)).toBeLessThan(callOrder(host.openThreadInCurrentPanel));
-    expect(callOrder(host.openThreadInCurrentPanel)).toBeLessThan(callOrder(host.notifyThreadArchived));
+    expect(callOrder(client.archiveThread)).toBeLessThan(callOrder(host.notifyThreadArchived));
+    expect(callOrder(host.notifyThreadArchived)).toBeLessThan(callOrder(host.openThreadInCurrentPanel));
   });
 
   it("keeps the source panel when fork and archive fails to archive", async () => {
@@ -306,8 +307,7 @@ describe("thread management actions", () => {
       { kind: "message", role: "assistant", text: "kept answer", turnId: "kept-turn" },
     ]);
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
-    expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(vi.mocked(host.refreshThreads)));
-    expect(callOrder(vi.mocked(host.refreshThreads))).toBeLessThan(callOrder(host.refreshSharedThreadListFromOpenSurface));
+    expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.refreshAfterThreadMutation));
   });
 
   it("ignores stale rollback responses after the panel switches threads", async () => {
@@ -355,7 +355,7 @@ describe("thread management actions", () => {
     expect(host.stateStore.getState().activeThread.id).toBe("other");
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
-    expect(host.refreshSharedThreadListFromOpenSurface).not.toHaveBeenCalled();
+    expect(host.refreshAfterThreadMutation).not.toHaveBeenCalled();
   });
 });
 
@@ -423,25 +423,46 @@ function hostMock({
   const state = createChatState();
   setChatStateMessageStreamItems(state, items);
   const stateStore = createChatStateStore(state);
+  const notifyThreadArchived = vi.fn();
+  const notifyThreadRenamed = vi.fn();
+  const showNotice = vi.fn();
+  const ensureConnected = vi.fn().mockResolvedValue(undefined);
   return {
     stateStore,
     vaultPath: "/vault",
-    settings: () => ({ ...DEFAULT_SETTINGS, ...settings }),
-    archiveAdapter: () => archiveAdapter,
-    ensureConnected: vi.fn().mockResolvedValue(undefined),
+    ensureConnected,
     currentClient: () => client as unknown as AppServerClient,
     addSystemMessage: vi.fn(),
-    showNotice: vi.fn(),
     setStatus: vi.fn(),
     setComposerText: vi.fn(),
     openThreadInNewView: vi.fn().mockResolvedValue(undefined),
     openThreadInCurrentPanel: vi.fn().mockResolvedValue(undefined),
-    notifyThreadArchived: vi.fn(),
-    notifyThreadRenamed: vi.fn(),
+    operations: {
+      archiveThread: vi.fn(async (threadId: string, options: { saveMarkdown?: boolean } = {}) => {
+        await ensureConnected();
+        const result = await archiveThreadOnAppServer(client as unknown as AppServerClient, threadId, {
+          settings: { ...DEFAULT_SETTINGS, ...settings },
+          vaultPath: "/vault",
+          archiveAdapter: () => archiveAdapter,
+          saveMarkdown: options.saveMarkdown ?? settings.archiveExportEnabled ?? DEFAULT_SETTINGS.archiveExportEnabled,
+        });
+        if (result.exportedPath) showNotice(`Saved archived thread to ${result.exportedPath}.`);
+        notifyThreadArchived(threadId);
+        return result;
+      }),
+      renameThread: vi.fn(async (threadId: string, value: string) => {
+        await ensureConnected();
+        await client.setThreadName(threadId, value);
+        notifyThreadRenamed(threadId, value);
+        return { name: value };
+      }),
+    },
+    showNotice,
+    notifyThreadArchived,
+    notifyThreadRenamed,
     notifyActiveThreadIdentityChanged: vi.fn(),
-    refreshThreads: vi.fn().mockResolvedValue(undefined),
-    refreshSharedThreadListFromOpenSurface: vi.fn(),
-  } satisfies ThreadManagementActionsHost;
+    refreshAfterThreadMutation: vi.fn().mockResolvedValue(undefined),
+  };
 }
 
 function archiveAdapterMock(overrides: Partial<MockArchiveExportAdapter> = {}): MockArchiveExportAdapter {

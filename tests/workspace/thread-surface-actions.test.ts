@@ -20,8 +20,10 @@ describe("createThreadSurfaceActions", () => {
       panels: {
         panelViews: () => [
           {
-            openPanelSnapshot: () => panelSnapshot({ connected: false }),
-            refreshSharedThreadList: disconnectedPanelRefresh,
+            surface: {
+              openPanelSnapshot: () => panelSnapshot({ connected: false }),
+              refreshSharedThreadList: disconnectedPanelRefresh,
+            },
           },
         ],
       } as never,
@@ -48,12 +50,16 @@ describe("createThreadSurfaceActions", () => {
       panels: {
         panelViews: () => [
           {
-            openPanelSnapshot: () => panelSnapshot({ viewId: "disconnected", connected: false }),
-            refreshSharedThreadList: disconnectedPanelRefresh,
+            surface: {
+              openPanelSnapshot: () => panelSnapshot({ viewId: "disconnected", connected: false }),
+              refreshSharedThreadList: disconnectedPanelRefresh,
+            },
           },
           {
-            openPanelSnapshot: () => panelSnapshot({ viewId: "connected", connected: true }),
-            refreshSharedThreadList: connectedPanelRefresh,
+            surface: {
+              openPanelSnapshot: () => panelSnapshot({ viewId: "connected", connected: true }),
+              refreshSharedThreadList: connectedPanelRefresh,
+            },
           },
         ],
       } as never,

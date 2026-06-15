@@ -11,8 +11,10 @@ export interface ThreadPickerHost {
   readonly app: App;
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
-  cachedThreadList(): readonly Thread[] | null;
-  refreshThreadList(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+  readonly threadCatalog: {
+    cachedThreads(): readonly Thread[] | null;
+    refreshThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
+  };
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
@@ -76,14 +78,14 @@ function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMod
 }
 
 async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly Thread[]> {
-  const cached = host.cachedThreadList();
+  const cached = host.threadCatalog.cachedThreads();
   if (cached) return cached;
 
   return withShortLivedAppServerClient(
     host.settings.codexPath,
     host.vaultPath,
     async (client) =>
-      host.refreshThreadList(async () => {
+      host.threadCatalog.refreshThreads(async () => {
         return listThreads(client, host.vaultPath);
       }),
     {

@@ -1,8 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import type { Thread } from "../../../domain/threads/model";
-import type { ThreadSurfaceBroadcaster } from "../application/ports/chat-host";
+import type { ThreadCatalogFacade } from "../application/ports/chat-host";
 import type { ChatConnectionWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
 import { ChatConnectionController, handleChatConnectionExit } from "../application/connection/connection-controller";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
@@ -42,10 +41,10 @@ export interface ChatConnectionBundleContext {
   vaultPath: string;
   connectionWork: ChatConnectionWorkTracker;
   deferredTasks: ChatViewDeferredTasks;
-  threadSurfaces: ThreadSurfaceBroadcaster;
-  sharedCache: {
-    refreshThreadList: (fetchThreads: () => Promise<readonly Thread[]>) => Promise<readonly Thread[]>;
-  };
+  threadCatalog: Pick<
+    ThreadCatalogFacade,
+    "applyThreads" | "publishAppServerMetadata" | "refreshThreads" | "notifyThreadArchived" | "notifyThreadRenamed"
+  >;
   goalSync: ThreadGoalSyncActions;
   autoTitle: AutoTitleController;
   status: ChatConnectionBundleStatus;
@@ -57,15 +56,14 @@ export interface ChatConnectionBundleContext {
 }
 
 export function createChatConnectionBundle(context: ChatConnectionBundleContext): ChatConnectionBundle {
-  const { connection, stateStore, vaultPath, connectionWork, deferredTasks, threadSurfaces, sharedCache, goalSync, autoTitle, status } =
-    context;
+  const { connection, stateStore, vaultPath, connectionWork, deferredTasks, threadCatalog, goalSync, autoTitle, status } = context;
   const currentClient = () => connection.currentClient();
   const serverMetadata = createChatServerMetadataActions({
     stateStore,
     vaultPath,
     currentClient,
     publishAppServerMetadata: (metadata) => {
-      threadSurfaces.publishAppServerMetadata(metadata);
+      threadCatalog.publishAppServerMetadata(metadata);
     },
   });
   const serverDiagnostics = createChatServerDiagnosticsActions({
@@ -73,7 +71,7 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     vaultPath,
     currentClient,
     publishAppServerMetadata: (metadata) => {
-      threadSurfaces.publishAppServerMetadata(metadata);
+      threadCatalog.publishAppServerMetadata(metadata);
     },
     serverMetadataSnapshot: () => serverMetadata.serverMetadataSnapshot(),
   });
@@ -83,14 +81,14 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     currentClient,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     publishThreadList: (threads) => {
-      threadSurfaces.applyThreadListSnapshot(threads);
+      threadCatalog.applyThreads(threads);
     },
     syncThreadGoal: (threadId) => {
       void goalSync.syncThreadGoal(threadId);
     },
   });
   const loadSharedThreadList = async (): Promise<void> => {
-    const threads = await sharedCache.refreshThreadList(() => serverThreads.loadThreadList());
+    const threads = await threadCatalog.refreshThreads(() => serverThreads.loadThreadList());
     serverThreads.applyThreadList(threads);
   };
   const serverRequestHost = {
@@ -111,10 +109,10 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
       autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
     },
     notifyThreadArchived: (threadId) => {
-      threadSurfaces.notifyThreadArchived(threadId);
+      threadCatalog.notifyThreadArchived(threadId);
     },
     notifyThreadRenamed: (threadId, name) => {
-      threadSurfaces.notifyThreadRenamed(threadId, name);
+      threadCatalog.notifyThreadRenamed(threadId, name);
     },
     recordMcpStartupStatus: (name, mcpStatus, message) => {
       serverDiagnostics.recordMcpStartupStatus(name, mcpStatus, message);

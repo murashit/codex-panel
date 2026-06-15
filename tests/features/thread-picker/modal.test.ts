@@ -92,7 +92,7 @@ function firstSuggestion(modal: CapturedThreadPickerModal): ThreadSuggestion {
 }
 
 function isThreadPickerHost(input: readonly Thread[] | TestThreadPickerHost): input is TestThreadPickerHost {
-  return "cachedThreadList" in input;
+  return "threadCatalog" in input;
 }
 
 interface TestThreadPickerHost extends ThreadPickerHost {
@@ -109,8 +109,10 @@ function threadPickerHost(threads: readonly Thread[]): TestThreadPickerHost {
     vaultPath: "/vault",
     openedCurrent,
     openedAvailable,
-    cachedThreadList: () => threads,
-    refreshThreadList: async () => threads,
+    threadCatalog: {
+      cachedThreads: () => threads,
+      refreshThreads: async () => threads,
+    },
     openThreadInCurrentView: async (threadId) => {
       openedCurrent.push(threadId);
     },

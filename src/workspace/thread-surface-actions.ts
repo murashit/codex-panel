@@ -30,9 +30,9 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
       .flatMap((leaf) => (leaf.view instanceof CodexThreadsView ? [leaf.view] : []));
 
   const refreshSharedThreadListFromOpenSurface = (): void => {
-    const chatView = options.panels.panelViews().find((view) => view.openPanelSnapshot().connected);
+    const chatView = options.panels.panelViews().find((view) => view.surface.openPanelSnapshot().connected);
     if (chatView) {
-      void chatView.refreshSharedThreadList();
+      void chatView.surface.refreshSharedThreadList();
       return;
     }
 
@@ -43,7 +43,7 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
   return {
     refreshOpenViews(): void {
       for (const view of options.panels.panelViews()) {
-        view.refreshSettings();
+        view.surface.refreshSettings();
       }
     },
 
@@ -51,7 +51,7 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
 
     applyThreadListSnapshot(threads: readonly Thread[]): void {
       for (const view of options.panels.panelViews()) {
-        view.applyThreadListSnapshot(threads);
+        view.surface.applyThreadListSnapshot(threads);
       }
       for (const view of threadsViews()) {
         view.applyThreadListSnapshot(threads);
@@ -60,13 +60,13 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
 
     publishAppServerMetadata(metadata: SharedServerMetadata): void {
       for (const view of options.panels.panelViews()) {
-        view.applyAppServerMetadataSnapshot(metadata);
+        view.surface.applyAppServerMetadataSnapshot(metadata);
       }
     },
 
     publishModels(models: readonly ModelMetadata[]): void {
       for (const view of options.panels.panelViews()) {
-        view.applyAvailableModelsSnapshot(models);
+        view.surface.applyAvailableModelsSnapshot(models);
       }
     },
 
@@ -79,7 +79,7 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
     notifyThreadArchived(threadId: string, archiveOptions: { closeOpenPanels?: boolean } = {}): void {
       const leavesToClose = archiveOptions.closeOpenPanels ? options.panels.panelLeavesForThread(threadId) : [];
       for (const view of options.panels.panelViews()) {
-        view.notifyThreadArchived(threadId);
+        view.surface.notifyThreadArchived(threadId);
       }
       for (const leaf of leavesToClose) {
         leaf.detach();
@@ -89,7 +89,7 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
 
     notifyThreadRenamed(threadId: string, name: string | null): void {
       for (const view of options.panels.panelViews()) {
-        view.notifyThreadRenamed(threadId, name);
+        view.surface.notifyThreadRenamed(threadId, name);
       }
       refreshSharedThreadListFromOpenSurface();
     },

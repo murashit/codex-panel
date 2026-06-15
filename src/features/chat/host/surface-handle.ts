@@ -1,0 +1,26 @@
+import type { ModelMetadata } from "../../../domain/catalog/metadata";
+import type { SharedServerMetadata } from "../../../domain/server/metadata";
+import type { Thread } from "../../../domain/threads/model";
+import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
+
+export interface ChatSurfaceHandle {
+  displayTitle(): string;
+  persistedState(): Record<string, unknown>;
+  applyViewState(state: unknown): void;
+  open(): void;
+  close(): void;
+  refreshSettings(): void;
+  refreshSharedThreadList(): Promise<void>;
+  applyThreadListSnapshot(threads: readonly Thread[]): void;
+  applyAppServerMetadataSnapshot(metadata: SharedServerMetadata): void;
+  applyAvailableModelsSnapshot(models: readonly ModelMetadata[]): void;
+  openPanelSnapshot(): OpenCodexPanelSnapshot;
+  openThread(threadId: string): Promise<void>;
+  focusThread(threadId?: string | null): Promise<void>;
+  focusComposer(): void;
+  notifyThreadArchived(threadId: string): void;
+  notifyThreadRenamed(threadId: string, name: string | null): void;
+  setComposerText(text: string): void;
+  connect(): Promise<void>;
+  startNewThread(): Promise<void>;
+}

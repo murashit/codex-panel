@@ -18,15 +18,15 @@ import { installObsidianDomShims } from "./support/dom";
 installObsidianDomShims();
 
 function panels(plugin: CodexPanelPlugin): WorkspacePanelCoordinator {
-  return (plugin as unknown as { panels: WorkspacePanelCoordinator }).panels;
+  return plugin.runtime.panels;
 }
 
 function threadSurfaces(plugin: CodexPanelPlugin): ThreadSurfaceActions {
-  return (plugin as unknown as { threadSurfaces: ThreadSurfaceActions }).threadSurfaces;
+  return plugin.runtime.threadSurfaces;
 }
 
 function sharedAppServerCache(plugin: CodexPanelPlugin): SharedAppServerCache {
-  return (plugin as unknown as { sharedAppServerCache: SharedAppServerCache }).sharedAppServerCache;
+  return plugin.runtime.sharedAppServerCache;
 }
 
 function sharedAppServerCacheContext(
@@ -96,7 +96,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const openLeaf = leaf();
     openLeaf.view = chatView(CodexChatView, openLeaf);
     const openView = openLeaf.view as CodexChatView;
-    vi.spyOn(openView, "openPanelSnapshot").mockReturnValue({
+    vi.spyOn(openView.surface, "openPanelSnapshot").mockReturnValue({
       viewId: "open-view",
       threadId: "thread-1",
       lastFocused: false,
@@ -106,11 +106,11 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       hasComposerDraft: false,
       connected: true,
     });
-    vi.spyOn(openView, "focusThread").mockResolvedValue(undefined);
+    vi.spyOn(openView.surface, "focusThread").mockResolvedValue(undefined);
     const emptyLeaf = leaf();
     emptyLeaf.view = chatView(CodexChatView, emptyLeaf);
     const emptyView = emptyLeaf.view as CodexChatView;
-    const openEmptyThread = vi.spyOn(emptyView, "openThread").mockResolvedValue(undefined);
+    const openEmptyThread = vi.spyOn(emptyView.surface, "openThread").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([openLeaf, emptyLeaf]);
 
     await panels(plugin).openThreadInAvailableView("thread-1");
@@ -124,7 +124,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const busyLeaf = leaf();
     busyLeaf.view = chatView(CodexChatView, busyLeaf);
     const busyView = busyLeaf.view as CodexChatView;
-    vi.spyOn(busyView, "openPanelSnapshot").mockReturnValue({
+    vi.spyOn(busyView.surface, "openPanelSnapshot").mockReturnValue({
       viewId: "busy-view",
       threadId: "other-thread",
       lastFocused: false,
@@ -137,7 +137,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const emptyLeaf = leaf();
     emptyLeaf.view = chatView(CodexChatView, emptyLeaf);
     const emptyView = emptyLeaf.view as CodexChatView;
-    vi.spyOn(emptyView, "openPanelSnapshot").mockReturnValue({
+    vi.spyOn(emptyView.surface, "openPanelSnapshot").mockReturnValue({
       viewId: "empty-view",
       threadId: null,
       lastFocused: false,
@@ -147,7 +147,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       hasComposerDraft: false,
       connected: true,
     });
-    const openEmptyThread = vi.spyOn(emptyView, "openThread").mockResolvedValue(undefined);
+    const openEmptyThread = vi.spyOn(emptyView.surface, "openThread").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([busyLeaf, emptyLeaf]);
 
     await panels(plugin).openThreadInAvailableView("thread-1");
@@ -160,11 +160,11 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const olderLeaf = leaf();
     olderLeaf.view = chatView(CodexChatView, olderLeaf);
     const olderView = olderLeaf.view as CodexChatView;
-    const openOlderThread = vi.spyOn(olderView, "openThread").mockResolvedValue(undefined);
+    const openOlderThread = vi.spyOn(olderView.surface, "openThread").mockResolvedValue(undefined);
     const currentLeaf = leaf();
     currentLeaf.view = chatView(CodexChatView, currentLeaf);
     const currentView = currentLeaf.view as CodexChatView;
-    const openCurrentThread = vi.spyOn(currentView, "openThread").mockResolvedValue(undefined);
+    const openCurrentThread = vi.spyOn(currentView.surface, "openThread").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([olderLeaf, currentLeaf]);
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(currentLeaf);
 
@@ -179,11 +179,11 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const fallbackLeaf = leaf();
     fallbackLeaf.view = chatView(CodexChatView, fallbackLeaf);
     const fallbackView = fallbackLeaf.view as CodexChatView;
-    const openFallbackThread = vi.spyOn(fallbackView, "openThread").mockResolvedValue(undefined);
+    const openFallbackThread = vi.spyOn(fallbackView.surface, "openThread").mockResolvedValue(undefined);
     const activeLeaf = leaf();
     activeLeaf.view = chatView(CodexChatView, activeLeaf);
     const activeView = activeLeaf.view as CodexChatView;
-    const openActiveThread = vi.spyOn(activeView, "openThread").mockResolvedValue(undefined);
+    const openActiveThread = vi.spyOn(activeView.surface, "openThread").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([fallbackLeaf, activeLeaf]);
     (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(activeView);
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(fallbackLeaf);
@@ -199,12 +199,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const openLeaf = leaf();
     openLeaf.view = chatView(CodexChatView, openLeaf);
     const openView = openLeaf.view as CodexChatView;
-    vi.spyOn(openView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "open-view", threadId: "thread-1" }));
-    const focusOpenThread = vi.spyOn(openView, "focusThread").mockResolvedValue(undefined);
+    vi.spyOn(openView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "open-view", threadId: "thread-1" }));
+    const focusOpenThread = vi.spyOn(openView.surface, "focusThread").mockResolvedValue(undefined);
     const currentLeaf = leaf();
     currentLeaf.view = chatView(CodexChatView, currentLeaf);
     const currentView = currentLeaf.view as CodexChatView;
-    const openCurrentThread = vi.spyOn(currentView, "openThread").mockResolvedValue(undefined);
+    const openCurrentThread = vi.spyOn(currentView.surface, "openThread").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([openLeaf, currentLeaf]);
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(currentLeaf);
 
@@ -220,8 +220,8 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(restoredLeaf);
     const { CodexChatView } = await import("../src/features/chat/host/view");
     const view = chatView(CodexChatView, restoredLeaf);
-    const openThread = vi.spyOn(view, "openThread").mockResolvedValue(undefined);
-    const focusThread = vi.spyOn(view, "focusThread").mockResolvedValue(undefined);
+    const openThread = vi.spyOn(view.surface, "openThread").mockResolvedValue(undefined);
+    const focusThread = vi.spyOn(view.surface, "focusThread").mockResolvedValue(undefined);
     restoredLeaf.loadIfDeferred.mockImplementation(async () => {
       restoredLeaf.view = view;
     });
@@ -242,9 +242,9 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     newLeaf.setViewState.mockImplementation(async () => {
       newLeaf.view = view;
     });
-    const connect = vi.spyOn(view, "connect").mockResolvedValue(undefined);
-    const focusComposer = vi.spyOn(view, "focusComposer").mockImplementation(() => undefined);
-    const openThread = vi.spyOn(view, "openThread").mockResolvedValue(undefined);
+    const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
+    const focusComposer = vi.spyOn(view.surface, "focusComposer").mockImplementation(() => undefined);
+    const openThread = vi.spyOn(view.surface, "openThread").mockResolvedValue(undefined);
 
     await panels(plugin).openThreadInNewView("thread-1");
 
@@ -258,13 +258,13 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
     const firstView = firstLeaf.view as CodexChatView;
-    const connectFirst = vi.spyOn(firstView, "connect").mockResolvedValue(undefined);
-    const focusFirst = vi.spyOn(firstView, "focusThread").mockResolvedValue(undefined);
+    const connectFirst = vi.spyOn(firstView.surface, "connect").mockResolvedValue(undefined);
+    const focusFirst = vi.spyOn(firstView.surface, "focusThread").mockResolvedValue(undefined);
     const activeLeaf = leaf();
     activeLeaf.view = chatView(CodexChatView, activeLeaf);
     const activeView = activeLeaf.view as CodexChatView;
-    const connectActive = vi.spyOn(activeView, "connect").mockResolvedValue(undefined);
-    const focusActive = vi.spyOn(activeView, "focusThread").mockResolvedValue(undefined);
+    const connectActive = vi.spyOn(activeView.surface, "connect").mockResolvedValue(undefined);
+    const focusActive = vi.spyOn(activeView.surface, "focusThread").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([firstLeaf, activeLeaf]);
     (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(activeView);
 
@@ -282,12 +282,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const { CodexChatView } = await import("../src/features/chat/host/view");
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
-    vi.spyOn(firstLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+    vi.spyOn((firstLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "first", threadId: "thread-1" }),
     );
     const secondLeaf = leaf();
     secondLeaf.view = chatView(CodexChatView, secondLeaf);
-    vi.spyOn(secondLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+    vi.spyOn((secondLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "second", threadId: "thread-2" }),
     );
     const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
@@ -314,13 +314,13 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const { CodexChatView } = await import("../src/features/chat/host/view");
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
-    vi.spyOn(firstLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+    vi.spyOn((firstLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "first", threadId: "thread-1" }),
     );
     const activeLeaf = leaf();
     activeLeaf.view = chatView(CodexChatView, activeLeaf);
     const activeView = activeLeaf.view as CodexChatView;
-    vi.spyOn(activeView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "active", threadId: "thread-2" }));
+    vi.spyOn(activeView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "active", threadId: "thread-2" }));
     const plugin = await pluginWithLeaves([firstLeaf, activeLeaf]);
     (plugin.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(activeView);
 
@@ -334,12 +334,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const { CodexChatView } = await import("../src/features/chat/host/view");
     const recentLeaf = leaf();
     recentLeaf.view = chatView(CodexChatView, recentLeaf);
-    vi.spyOn(recentLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+    vi.spyOn((recentLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "recent", threadId: "thread-1" }),
     );
     const otherLeaf = leaf();
     otherLeaf.view = chatView(CodexChatView, otherLeaf);
-    vi.spyOn(otherLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(
+    vi.spyOn((otherLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "other", threadId: "thread-2" }),
     );
     const plugin = await pluginWithLeaves([recentLeaf, otherLeaf]);
@@ -360,9 +360,9 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     newLeaf.setViewState.mockImplementation(async () => {
       newLeaf.view = view;
     });
-    const connect = vi.spyOn(view, "connect").mockResolvedValue(undefined);
-    const focusComposer = vi.spyOn(view, "focusComposer").mockImplementation(() => undefined);
-    const openThread = vi.spyOn(view, "openThread").mockResolvedValue(undefined);
+    const connect = vi.spyOn(view.surface, "connect").mockResolvedValue(undefined);
+    const focusComposer = vi.spyOn(view.surface, "focusComposer").mockImplementation(() => undefined);
+    const openThread = vi.spyOn(view.surface, "openThread").mockResolvedValue(undefined);
 
     await panels(plugin).openNewPanel();
 
@@ -376,8 +376,8 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
-    vi.spyOn(connectedView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    const refreshSharedThreadList = vi.spyOn(connectedView, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
     threadSurfaces(plugin).notifyThreadArchived("thread-1");
@@ -390,12 +390,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
     const matchingLeaf = leaf();
     matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
-    vi.spyOn(matchingLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
-    vi.spyOn(matchingLeaf.view as CodexChatView, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn((matchingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
+    vi.spyOn((matchingLeaf.view as CodexChatView).surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const otherLeaf = leaf();
     otherLeaf.view = chatView(CodexChatView, otherLeaf);
-    vi.spyOn(otherLeaf.view as CodexChatView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-2" }));
-    vi.spyOn(otherLeaf.view as CodexChatView, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn((otherLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-2" }));
+    vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
     threadSurfaces(plugin).notifyThreadArchived("thread-1");
@@ -416,8 +416,8 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
-    vi.spyOn(connectedView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    const refreshSharedThreadList = vi.spyOn(connectedView, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
     threadSurfaces(plugin).notifyThreadRenamed("thread-1", "Renamed thread");
@@ -491,14 +491,14 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const disconnectedLeaf = leaf();
     disconnectedLeaf.view = chatView(CodexChatView, disconnectedLeaf);
     const disconnectedView = disconnectedLeaf.view as CodexChatView;
-    vi.spyOn(disconnectedView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "disconnected", connected: false }));
-    const disconnectedRefresh = vi.spyOn(disconnectedView, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn(disconnectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "disconnected", connected: false }));
+    const disconnectedRefresh = vi.spyOn(disconnectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
 
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
-    vi.spyOn(connectedView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    const connectedRefresh = vi.spyOn(connectedView, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    const connectedRefresh = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
 
     const plugin = await pluginWithLeaves([disconnectedLeaf, connectedLeaf]);
 
@@ -513,16 +513,18 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const sourceLeaf = leaf();
     sourceLeaf.view = chatView(CodexChatView, sourceLeaf);
     const sourceView = sourceLeaf.view as CodexChatView;
-    vi.spyOn(sourceView, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "source", threadId: "thread-1", connected: true }));
-    const sourceRefresh = vi.spyOn(sourceView, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn(sourceView.surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "source", threadId: "thread-1", connected: true }),
+    );
+    const sourceRefresh = vi.spyOn(sourceView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
 
     const remainingLeaf = leaf();
     remainingLeaf.view = chatView(CodexChatView, remainingLeaf);
     const remainingView = remainingLeaf.view as CodexChatView;
-    vi.spyOn(remainingView, "openPanelSnapshot").mockReturnValue(
+    vi.spyOn(remainingView.surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "remaining", threadId: "forked-thread", connected: true }),
     );
-    const remainingRefresh = vi.spyOn(remainingView, "refreshSharedThreadList").mockResolvedValue(undefined);
+    const remainingRefresh = vi.spyOn(remainingView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
 
     const leaves = [sourceLeaf, remainingLeaf];
     sourceLeaf.detach.mockImplementation(() => {
@@ -617,17 +619,15 @@ function chatHostFixture(): CodexChatHost {
       focusThreadInOpenView: vi.fn(),
       openTurnDiff: vi.fn(),
     },
-    threadSurfaces: {
+    threadCatalog: {
       notifyThreadArchived: vi.fn(),
       notifyThreadRenamed: vi.fn(),
-      refreshSharedThreadListFromOpenSurface: vi.fn(),
+      refreshFromOpenSurface: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
-      applyThreadListSnapshot: vi.fn(),
+      applyThreads: vi.fn(),
       publishAppServerMetadata: vi.fn(),
-    },
-    sharedCache: {
-      refreshThreadList: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
-      cachedThreadList: vi.fn(() => null),
+      refreshThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
+      cachedThreads: vi.fn(() => null),
       cachedAppServerMetadata: vi.fn(() => null),
     },
   };
@@ -645,8 +645,8 @@ function thread(id: string): Thread {
 }
 
 function panelSnapshot(
-  overrides: Partial<ReturnType<CodexChatView["openPanelSnapshot"]>> = {},
-): ReturnType<CodexChatView["openPanelSnapshot"]> {
+  overrides: Partial<ReturnType<CodexChatView["surface"]["openPanelSnapshot"]>> = {},
+): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
   return {
     viewId: "view",
     threadId: "thread",
