@@ -1,5 +1,5 @@
 import type { RestorationController } from "./restoration-controller";
-import { activeThreadId, listedThreads } from "../state/selectors";
+import { activeThreadId } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 
 export interface IdentitySyncHost {
@@ -15,8 +15,8 @@ export interface IdentitySyncHost {
 
 export interface IdentitySync {
   clearActiveThreadContext: () => void;
-  notifyThreadArchived: (threadId: string) => void;
-  notifyThreadRenamed: (threadId: string, name: string | null) => void;
+  applyThreadArchived: (threadId: string) => void;
+  applyThreadRenamed: (threadId: string, name: string | null) => void;
 }
 
 export function createIdentitySync(host: IdentitySyncHost): IdentitySync {
@@ -24,11 +24,11 @@ export function createIdentitySync(host: IdentitySyncHost): IdentitySync {
     clearActiveThreadContext: () => {
       clearActiveThreadContext(host);
     },
-    notifyThreadArchived: (threadId) => {
-      notifyThreadArchived(host, threadId);
+    applyThreadArchived: (threadId) => {
+      applyThreadArchived(host, threadId);
     },
-    notifyThreadRenamed: (threadId, name) => {
-      notifyThreadRenamed(host, threadId, name);
+    applyThreadRenamed: (threadId, name) => {
+      applyThreadRenamed(host, threadId, name);
     },
   };
 }
@@ -43,19 +43,13 @@ function clearActiveThreadContext(host: IdentitySyncHost): void {
   host.refreshLiveState();
 }
 
-function notifyThreadArchived(host: IdentitySyncHost, threadId: string): void {
+function applyThreadArchived(host: IdentitySyncHost, threadId: string): void {
   if (activeThreadId(host.stateStore.getState()) !== threadId) return;
   clearActiveThreadContext(host);
 }
 
-function notifyThreadRenamed(host: IdentitySyncHost, threadId: string, name: string | null): void {
+function applyThreadRenamed(host: IdentitySyncHost, threadId: string, name: string | null): void {
   let changed = false;
-  const renamedThreads = listedThreads(host.stateStore.getState()).map((thread) => {
-    if (thread.id !== threadId) return thread;
-    changed = true;
-    return { ...thread, name };
-  });
-  host.stateStore.dispatch({ type: "thread-list/applied", threads: renamedThreads });
   const restoredThread = host.restoration.placeholder();
   if (restoredThread?.threadId === threadId && (restoredThread.title !== name || restoredThread.explicitName !== name)) {
     host.restoration.rename(threadId, name);

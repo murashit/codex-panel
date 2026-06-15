@@ -43,7 +43,7 @@ export interface ChatConnectionBundleContext {
   deferredTasks: ChatViewDeferredTasks;
   threadCatalog: Pick<
     ThreadCatalogFacade,
-    "applyThreads" | "publishAppServerMetadata" | "refreshThreads" | "notifyThreadArchived" | "notifyThreadRenamed"
+    "applyThreads" | "publishAppServerMetadata" | "refreshThreads" | "archiveThreadInCatalog" | "renameThreadInCatalog"
   >;
   goalSync: ThreadGoalSyncActions;
   autoTitle: AutoTitleController;
@@ -108,11 +108,11 @@ export function createChatConnectionBundle(context: ChatConnectionBundleContext)
     maybeNameThread: (threadId, turnId, completedSummary) => {
       autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
     },
-    notifyThreadArchived: (threadId) => {
-      threadCatalog.notifyThreadArchived(threadId);
+    applyThreadArchived: (threadId) => {
+      threadCatalog.archiveThreadInCatalog(threadId);
     },
-    notifyThreadRenamed: (threadId, name) => {
-      threadCatalog.notifyThreadRenamed(threadId, name);
+    applyThreadRenamed: (threadId, name) => {
+      threadCatalog.renameThreadInCatalog(threadId, name);
     },
     recordMcpStartupStatus: (name, mcpStatus, message) => {
       serverDiagnostics.recordMcpStartupStatus(name, mcpStatus, message);

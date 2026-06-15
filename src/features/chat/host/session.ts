@@ -194,12 +194,12 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.parts.composer.controller.focus();
   }
 
-  notifyThreadArchived(threadId: string): void {
-    this.parts.thread.identity.notifyThreadArchived(threadId);
+  applyThreadArchived(threadId: string): void {
+    this.parts.thread.identity.applyThreadArchived(threadId);
   }
 
-  notifyThreadRenamed(threadId: string, name: string | null): void {
-    this.parts.thread.identity.notifyThreadRenamed(threadId, name);
+  applyThreadRenamed(threadId: string, name: string | null): void {
+    this.parts.thread.identity.applyThreadRenamed(threadId, name);
   }
 
   open(): void {

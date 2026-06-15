@@ -29,7 +29,7 @@ describe("createThreadSurfaceActions", () => {
       } as never,
     });
 
-    threadSurfaces.refreshSharedThreadListFromOpenSurface();
+    threadSurfaces.invalidateThreadsFromOpenSurface();
 
     expect(disconnectedPanelRefresh).not.toHaveBeenCalled();
     expect(threadsRefresh).toHaveBeenCalledOnce();
@@ -65,11 +65,40 @@ describe("createThreadSurfaceActions", () => {
       } as never,
     });
 
-    threadSurfaces.refreshSharedThreadListFromOpenSurface();
+    threadSurfaces.invalidateThreadsFromOpenSurface();
 
     expect(disconnectedPanelRefresh).not.toHaveBeenCalled();
     expect(connectedPanelRefresh).toHaveBeenCalledOnce();
     expect(threadsRefresh).not.toHaveBeenCalled();
+  });
+
+  it("applies known thread mutations without refreshing thread lists", () => {
+    const panel = {
+      surface: {
+        openPanelSnapshot: () => panelSnapshot({ connected: true }),
+        refreshSharedThreadList: vi.fn().mockResolvedValue(undefined),
+        applyThreadArchived: vi.fn(),
+        applyThreadRenamed: vi.fn(),
+      },
+    };
+    const threadSurfaces = createThreadSurfaceActions({
+      app: {
+        workspace: {
+          getLeavesOfType: vi.fn(() => []),
+        },
+      } as never,
+      panels: {
+        panelViews: () => [panel],
+        panelLeavesForThread: vi.fn(() => []),
+      } as never,
+    });
+
+    threadSurfaces.applyThreadRenamed("thread", "Renamed");
+    threadSurfaces.applyThreadArchived("thread");
+
+    expect(panel.surface.applyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed");
+    expect(panel.surface.applyThreadArchived).toHaveBeenCalledWith("thread");
+    expect(panel.surface.refreshSharedThreadList).not.toHaveBeenCalled();
   });
 });
 

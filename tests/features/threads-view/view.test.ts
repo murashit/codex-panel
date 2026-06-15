@@ -282,9 +282,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       archiveThread,
     });
-    const notifyThreadArchived = vi.fn();
+    const archiveThreadInCatalog = vi.fn();
     const host = threadsHost({
-      threadCatalog: { notifyThreadArchived },
+      threadCatalog: { archiveThreadInCatalog },
     });
     const view = await threadsView(host);
 
@@ -294,7 +294,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(archiveThread).toHaveBeenCalledWith("thread");
-      expect(notifyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
+      expect(archiveThreadInCatalog).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
     });
   });
 
@@ -304,9 +304,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       setThreadName,
     });
-    const notifyThreadRenamed = vi.fn();
+    const renameThreadInCatalog = vi.fn();
     const host = threadsHost({
-      threadCatalog: { notifyThreadRenamed },
+      threadCatalog: { renameThreadInCatalog },
     });
     const view = await threadsView(host);
 
@@ -320,7 +320,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
-      expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed thread");
+      expect(renameThreadInCatalog).toHaveBeenCalledWith("thread", "Renamed thread");
     });
   });
 
@@ -424,8 +424,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     getOpenPanelSnapshots: vi.fn(() => []),
     threadCatalog: {
-      notifyThreadArchived: vi.fn(),
-      notifyThreadRenamed: vi.fn(),
+      archiveThreadInCatalog: vi.fn(),
+      renameThreadInCatalog: vi.fn(),
       refreshFromOpenSurface: vi.fn(),
       refreshThreads: vi.fn((fetchThreads: () => Promise<unknown>) => fetchThreads() as Promise<never[]>),
       cachedThreads: vi.fn(() => null),

@@ -18,10 +18,10 @@ describe("ThreadOperations", () => {
   it("renames a thread and notifies shared surfaces after success", async () => {
     const { operations, client, catalog } = operationsFixture();
 
-    await expect(operations.renameThread("thread", "  Saved   title  ")).resolves.toEqual({ name: "Saved title" });
+    await expect(operations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
 
     expect(client?.setThreadName).toHaveBeenCalledWith("thread", "Saved title");
-    expect(catalog.notifyThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
+    expect(catalog.renameThreadInCatalog).toHaveBeenCalledWith("thread", "Saved title");
   });
 
   it("can skip rename publication when the caller invalidates the save", async () => {
@@ -29,7 +29,7 @@ describe("ThreadOperations", () => {
 
     await operations.renameThread("thread", "Generated title", { shouldPublish: () => false });
 
-    expect(catalog.notifyThreadRenamed).not.toHaveBeenCalled();
+    expect(catalog.renameThreadInCatalog).not.toHaveBeenCalled();
   });
 
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
@@ -41,17 +41,17 @@ describe("ThreadOperations", () => {
     });
 
     expect(notice).toHaveBeenCalledWith("Saved archived thread to Archive/thread.md.");
-    expect(catalog.notifyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
+    expect(catalog.archiveThreadInCatalog).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
   });
 
   it("does not notify surfaces when an operation has no current client", async () => {
     const { operations, catalog } = operationsFixture({ client: null });
 
-    await expect(operations.renameThread("thread", "Title")).resolves.toBeNull();
+    await expect(operations.renameThread("thread", "Title")).resolves.toBe(false);
     await expect(operations.archiveThread("thread")).resolves.toBeNull();
 
-    expect(catalog.notifyThreadRenamed).not.toHaveBeenCalled();
-    expect(catalog.notifyThreadArchived).not.toHaveBeenCalled();
+    expect(catalog.renameThreadInCatalog).not.toHaveBeenCalled();
+    expect(catalog.archiveThreadInCatalog).not.toHaveBeenCalled();
   });
 });
 
@@ -60,9 +60,8 @@ function operationsFixture(options: { client?: MockClient | null } = {}) {
   archiveMock.archiveThreadOnAppServer.mockResolvedValue({ exportedPath: null } satisfies ArchiveThreadResult);
   const client = options.client === undefined ? clientMock() : options.client;
   const catalog = {
-    notifyThreadArchived: vi.fn(),
-    notifyThreadRenamed: vi.fn(),
-    refreshFromOpenSurface: vi.fn(),
+    archiveThreadInCatalog: vi.fn(),
+    renameThreadInCatalog: vi.fn(),
   };
   const notice = vi.fn();
   const host: ThreadOperationsHost = {

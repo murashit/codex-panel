@@ -21,8 +21,8 @@ export interface WorkspacePanels {
 }
 
 export interface ThreadCatalogFacade {
-  notifyThreadArchived(threadId: string): void;
-  notifyThreadRenamed(threadId: string, name: string | null): void;
+  archiveThreadInCatalog(threadId: string): void;
+  renameThreadInCatalog(threadId: string, name: string | null): void;
   refreshThreadsViewLiveState(): void;
   refreshFromOpenSurface(): void;
   applyThreads(threads: readonly Thread[]): void;

@@ -40,8 +40,8 @@ export interface ChatInboundControllerActions {
   refreshSkills: (forceReload?: boolean) => void;
   publishAppServerMetadata: () => void;
   maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
-  notifyThreadArchived: (threadId: string) => void;
-  notifyThreadRenamed: (threadId: string, name: string | null) => void;
+  applyThreadArchived: (threadId: string) => void;
+  applyThreadRenamed: (threadId: string, name: string | null) => void;
   recordMcpStartupStatus: (name: string, status: McpServerStartupStatus, message: string | null) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
@@ -199,11 +199,11 @@ export class ChatInboundController {
       case "maybe-name-thread":
         this.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);
         return;
-      case "notify-thread-archived":
-        this.actions.notifyThreadArchived(effect.threadId);
+      case "apply-thread-archived":
+        this.actions.applyThreadArchived(effect.threadId);
         return;
-      case "notify-thread-renamed":
-        this.actions.notifyThreadRenamed(effect.threadId, effect.name);
+      case "apply-thread-renamed":
+        this.actions.applyThreadRenamed(effect.threadId, effect.name);
         return;
       case "record-mcp-startup-status":
         this.actions.recordMcpStartupStatus(effect.name, effect.status, effect.message);

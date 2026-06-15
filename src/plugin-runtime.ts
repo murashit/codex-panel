@@ -96,11 +96,11 @@ export class CodexPanelRuntime {
         openTurnDiff: (state) => this.openTurnDiff(state),
       },
       threadCatalog: {
-        notifyThreadArchived: (threadId) => {
-          this.threadCatalog.notifyThreadArchived(threadId);
+        archiveThreadInCatalog: (threadId) => {
+          this.threadCatalog.archiveThreadInCatalog(threadId);
         },
-        notifyThreadRenamed: (threadId, name) => {
-          this.threadCatalog.notifyThreadRenamed(threadId, name);
+        renameThreadInCatalog: (threadId, name) => {
+          this.threadCatalog.renameThreadInCatalog(threadId, name);
         },
         refreshThreadsViewLiveState: () => {
           this.threadCatalog.refreshThreadsViewLiveState();
@@ -126,11 +126,11 @@ export class CodexPanelRuntime {
       settings: this.options.settingsRef.settings,
       vaultPath: this.options.settingsRef.vaultPath,
       threadCatalog: {
-        notifyThreadArchived: (threadId, options) => {
-          this.threadCatalog.notifyThreadArchived(threadId, options);
+        archiveThreadInCatalog: (threadId, options) => {
+          this.threadCatalog.archiveThreadInCatalog(threadId, options);
         },
-        notifyThreadRenamed: (threadId, name) => {
-          this.threadCatalog.notifyThreadRenamed(threadId, name);
+        renameThreadInCatalog: (threadId, name) => {
+          this.threadCatalog.renameThreadInCatalog(threadId, name);
         },
         refreshFromOpenSurface: () => {
           this.threadCatalog.refreshFromOpenSurface();

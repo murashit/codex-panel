@@ -18,8 +18,8 @@ export interface ChatSurfaceHandle {
   openThread(threadId: string): Promise<void>;
   focusThread(threadId?: string | null): Promise<void>;
   focusComposer(): void;
-  notifyThreadArchived(threadId: string): void;
-  notifyThreadRenamed(threadId: string, name: string | null): void;
+  applyThreadArchived(threadId: string): void;
+  applyThreadRenamed(threadId: string, name: string | null): void;
   setComposerText(text: string): void;
   connect(): Promise<void>;
   startNewThread(): Promise<void>;

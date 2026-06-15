@@ -15,9 +15,8 @@ export interface ThreadOperationsHost {
   };
   archiveAdapter(): ArchiveExportAdapter;
   catalog: {
-    notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-    notifyThreadRenamed(threadId: string, name: string | null): void;
-    refreshFromOpenSurface(): void;
+    archiveThreadInCatalog(threadId: string, options?: { closeOpenPanels?: boolean }): void;
+    renameThreadInCatalog(threadId: string, name: string | null): void;
   };
   notice(message: string): void;
 }
@@ -27,10 +26,6 @@ export interface ArchiveThreadOptions {
   closeOpenPanels?: boolean;
 }
 
-export interface RenameThreadResult {
-  name: string;
-}
-
 export interface RenameThreadOptions {
   shouldPublish?: () => boolean;
 }
@@ -38,27 +33,23 @@ export interface RenameThreadOptions {
 export class ThreadOperations {
   constructor(private readonly host: ThreadOperationsHost) {}
 
-  async renameThread(threadId: string, value: string, options: RenameThreadOptions = {}): Promise<RenameThreadResult | null> {
+  async renameThread(threadId: string, value: string, options: RenameThreadOptions = {}): Promise<boolean> {
     const rename = threadRenameFromValue(value);
-    if (!rename) return null;
+    if (!rename) return false;
 
     await this.host.connection.ensureConnected();
     return this.renameConnectedThread(threadId, rename, options);
   }
 
-  private async renameConnectedThread(
-    threadId: string,
-    rename: ThreadRename,
-    options: RenameThreadOptions = {},
-  ): Promise<RenameThreadResult | null> {
+  private async renameConnectedThread(threadId: string, rename: ThreadRename, options: RenameThreadOptions = {}): Promise<boolean> {
     const client = this.host.connection.currentClient();
-    if (!client) return null;
+    if (!client) return false;
 
     const result = await renameThreadOnAppServer(client, threadId, rename);
     if (options.shouldPublish?.() ?? true) {
-      this.host.catalog.notifyThreadRenamed(threadId, result.name);
+      this.host.catalog.renameThreadInCatalog(threadId, result.name);
     }
-    return { name: result.name };
+    return true;
   }
 
   async archiveThread(threadId: string, options: ArchiveThreadOptions = {}): Promise<ArchiveThreadResult | null> {
@@ -77,7 +68,7 @@ export class ThreadOperations {
       this.host.notice(`Saved archived thread to ${result.exportedPath}.`);
     }
     const notificationOptions = options.closeOpenPanels === undefined ? undefined : { closeOpenPanels: options.closeOpenPanels };
-    this.host.catalog.notifyThreadArchived(threadId, notificationOptions);
+    this.host.catalog.archiveThreadInCatalog(threadId, notificationOptions);
     return result;
   }
 }

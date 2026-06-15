@@ -1,6 +1,5 @@
 import { getThreadTitle } from "../../../../domain/threads/model";
 import type { Thread } from "../../../../domain/threads/model";
-import { threadRenameFromValue } from "../../../../app-server/services/thread-rename";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import type { ThreadTitleService } from "../../../threads/thread-title-service";
@@ -74,17 +73,17 @@ export class ThreadRenameEditorController {
   async save(threadId: string, value: string): Promise<void> {
     if (this.renameState.kind === "idle" || this.renameState.threadId !== threadId || this.renameState.kind === "generating") return;
     const editingState = this.renameState;
-    const rename = threadRenameFromValue(value);
-    if (!rename) {
-      this.cancel(threadId);
-      return;
-    }
 
     await this.host.ensureConnected();
     if (this.renameState !== editingState) return;
 
-    if (await this.host.operations.renameThread(threadId, rename.name)) {
-      if (this.renameState === editingState) this.clear();
+    const result = await this.host.operations.renameThread(threadId, value);
+    if (!result) {
+      if (this.renameState === editingState) this.cancel(threadId);
+      return;
+    }
+    if (this.renameState === editingState) {
+      this.clear();
     }
   }
 

@@ -10,10 +10,10 @@ import type { ThreadSurfaceActions } from "../../src/workspace/thread-surface-ac
 
 type MockSurfaceActions = ThreadSurfaceActions & {
   applyThreadListSnapshot: Mock<(threads: readonly Thread[]) => void>;
+  applyThreadArchived: Mock<(threadId: string, options?: { closeOpenPanels?: boolean }) => void>;
+  applyThreadRenamed: Mock<(threadId: string, name: string | null) => void>;
   publishAppServerMetadata: Mock<(metadata: SharedServerMetadata) => void>;
   publishModels: Mock<(models: readonly ModelMetadata[]) => void>;
-  notifyThreadArchived: Mock<(threadId: string, options?: { closeOpenPanels?: boolean }) => void>;
-  notifyThreadRenamed: Mock<(threadId: string, name: string | null) => void>;
 };
 
 describe("SharedThreadCatalog", () => {
@@ -55,14 +55,26 @@ describe("SharedThreadCatalog", () => {
     expect(surfaces.publishModels).toHaveBeenCalledWith(models);
   });
 
-  it("forwards archive and rename notifications through the surface owner", () => {
+  it("applies known rename mutations to cache and surfaces", () => {
     const { catalog, surfaces } = catalogFixture();
+    catalog.applyThreads([thread("thread"), thread("other")]);
 
-    catalog.notifyThreadArchived("thread", { closeOpenPanels: true });
-    catalog.notifyThreadRenamed("thread", "Renamed");
+    catalog.renameThreadInCatalog("thread", "Renamed");
 
-    expect(surfaces.notifyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
-    expect(surfaces.notifyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed");
+    expect(catalog.cachedThreads()).toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+    expect(surfaces.applyThreadListSnapshot).toHaveBeenLastCalledWith([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+    expect(surfaces.applyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed");
+  });
+
+  it("applies known archive mutations to cache and surfaces", () => {
+    const { catalog, surfaces } = catalogFixture();
+    catalog.applyThreads([thread("thread"), thread("other")]);
+
+    catalog.archiveThreadInCatalog("thread", { closeOpenPanels: true });
+
+    expect(catalog.cachedThreads()).toEqual([thread("other")]);
+    expect(surfaces.applyThreadListSnapshot).toHaveBeenLastCalledWith([thread("other")]);
+    expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
   });
 });
 
@@ -79,13 +91,13 @@ function catalogFixture() {
 function surfaceActions(): MockSurfaceActions {
   return {
     refreshOpenViews: vi.fn(),
-    refreshSharedThreadListFromOpenSurface: vi.fn(),
+    invalidateThreadsFromOpenSurface: vi.fn(),
     applyThreadListSnapshot: vi.fn(),
+    applyThreadArchived: vi.fn(),
+    applyThreadRenamed: vi.fn(),
     publishAppServerMetadata: vi.fn(),
     publishModels: vi.fn(),
     refreshThreadsViewLiveState: vi.fn(),
-    notifyThreadArchived: vi.fn(),
-    notifyThreadRenamed: vi.fn(),
   };
 }
 

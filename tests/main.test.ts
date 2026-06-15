@@ -371,7 +371,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(openThread).not.toHaveBeenCalled();
   });
 
-  it("refreshes shared thread lists after archive lifecycle notifications", async () => {
+  it("does not refresh shared thread lists after known archive mutations", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
@@ -380,9 +380,9 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
-    threadSurfaces(plugin).notifyThreadArchived("thread-1");
+    threadSurfaces(plugin).applyThreadArchived("thread-1");
 
-    expect(refreshSharedThreadList).toHaveBeenCalledOnce();
+    expect(refreshSharedThreadList).not.toHaveBeenCalled();
   });
 
   it("closes matching chat panels only when archive notification requests it", async () => {
@@ -398,20 +398,20 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
-    threadSurfaces(plugin).notifyThreadArchived("thread-1");
+    threadSurfaces(plugin).applyThreadArchived("thread-1");
 
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
 
-    threadSurfaces(plugin).notifyThreadArchived("thread-1", { closeOpenPanels: true });
+    threadSurfaces(plugin).applyThreadArchived("thread-1", { closeOpenPanels: true });
 
     expect(restoredMatchingLeaf.detach).toHaveBeenCalledOnce();
     expect(matchingLeaf.detach).toHaveBeenCalledOnce();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
   });
 
-  it("refreshes shared thread lists after rename lifecycle notifications", async () => {
+  it("does not refresh shared thread lists after known rename mutations", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
@@ -420,9 +420,9 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
-    threadSurfaces(plugin).notifyThreadRenamed("thread-1", "Renamed thread");
+    threadSurfaces(plugin).applyThreadRenamed("thread-1", "Renamed thread");
 
-    expect(refreshSharedThreadList).toHaveBeenCalledOnce();
+    expect(refreshSharedThreadList).not.toHaveBeenCalled();
   });
 
   it("single-flights shared thread list refreshes and caches successful results", async () => {
@@ -502,7 +502,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     const plugin = await pluginWithLeaves([disconnectedLeaf, connectedLeaf]);
 
-    threadSurfaces(plugin).refreshSharedThreadListFromOpenSurface();
+    threadSurfaces(plugin).invalidateThreadsFromOpenSurface();
 
     expect(disconnectedRefresh).not.toHaveBeenCalled();
     expect(connectedRefresh).toHaveBeenCalledOnce();
@@ -533,10 +533,10 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const plugin = await pluginWithLeaves(leaves);
 
     sourceLeaf.detach();
-    threadSurfaces(plugin).notifyThreadArchived("thread-1");
+    threadSurfaces(plugin).applyThreadArchived("thread-1");
 
     expect(sourceRefresh).not.toHaveBeenCalled();
-    expect(remainingRefresh).toHaveBeenCalledOnce();
+    expect(remainingRefresh).not.toHaveBeenCalled();
   });
 });
 
@@ -620,8 +620,8 @@ function chatHostFixture(): CodexChatHost {
       openTurnDiff: vi.fn(),
     },
     threadCatalog: {
-      notifyThreadArchived: vi.fn(),
-      notifyThreadRenamed: vi.fn(),
+      archiveThreadInCatalog: vi.fn(),
+      renameThreadInCatalog: vi.fn(),
       refreshFromOpenSurface: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
       applyThreads: vi.fn(),

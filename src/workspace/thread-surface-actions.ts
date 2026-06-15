@@ -14,13 +14,13 @@ export interface ThreadSurfaceActionsOptions {
 
 export interface ThreadSurfaceActions {
   refreshOpenViews(): void;
-  refreshSharedThreadListFromOpenSurface(): void;
+  invalidateThreadsFromOpenSurface(): void;
   applyThreadListSnapshot(threads: readonly Thread[]): void;
+  applyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
+  applyThreadRenamed(threadId: string, name: string | null): void;
   publishAppServerMetadata(metadata: SharedServerMetadata): void;
   publishModels(models: readonly ModelMetadata[]): void;
   refreshThreadsViewLiveState(): void;
-  notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-  notifyThreadRenamed(threadId: string, name: string | null): void;
 }
 
 export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions): ThreadSurfaceActions {
@@ -29,7 +29,7 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
       .getLeavesOfType(VIEW_TYPE_CODEX_THREADS)
       .flatMap((leaf) => (leaf.view instanceof CodexThreadsView ? [leaf.view] : []));
 
-  const refreshSharedThreadListFromOpenSurface = (): void => {
+  const invalidateThreadsFromOpenSurface = (): void => {
     const chatView = options.panels.panelViews().find((view) => view.surface.openPanelSnapshot().connected);
     if (chatView) {
       void chatView.surface.refreshSharedThreadList();
@@ -47,7 +47,7 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
       }
     },
 
-    refreshSharedThreadListFromOpenSurface,
+    invalidateThreadsFromOpenSurface,
 
     applyThreadListSnapshot(threads: readonly Thread[]): void {
       for (const view of options.panels.panelViews()) {
@@ -55,6 +55,22 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
       }
       for (const view of threadsViews()) {
         view.applyThreadListSnapshot(threads);
+      }
+    },
+
+    applyThreadArchived(threadId: string, archiveOptions: { closeOpenPanels?: boolean } = {}): void {
+      const leavesToClose = archiveOptions.closeOpenPanels ? options.panels.panelLeavesForThread(threadId) : [];
+      for (const view of options.panels.panelViews()) {
+        view.surface.applyThreadArchived(threadId);
+      }
+      for (const leaf of leavesToClose) {
+        leaf.detach();
+      }
+    },
+
+    applyThreadRenamed(threadId: string, name: string | null): void {
+      for (const view of options.panels.panelViews()) {
+        view.surface.applyThreadRenamed(threadId, name);
       }
     },
 
@@ -74,24 +90,6 @@ export function createThreadSurfaceActions(options: ThreadSurfaceActionsOptions)
       for (const view of threadsViews()) {
         view.refreshLiveState();
       }
-    },
-
-    notifyThreadArchived(threadId: string, archiveOptions: { closeOpenPanels?: boolean } = {}): void {
-      const leavesToClose = archiveOptions.closeOpenPanels ? options.panels.panelLeavesForThread(threadId) : [];
-      for (const view of options.panels.panelViews()) {
-        view.surface.notifyThreadArchived(threadId);
-      }
-      for (const leaf of leavesToClose) {
-        leaf.detach();
-      }
-      refreshSharedThreadListFromOpenSurface();
-    },
-
-    notifyThreadRenamed(threadId: string, name: string | null): void {
-      for (const view of options.panels.panelViews()) {
-        view.surface.notifyThreadRenamed(threadId, name);
-      }
-      refreshSharedThreadListFromOpenSurface();
     },
   };
 }

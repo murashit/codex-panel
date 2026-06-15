@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ChatInboundController } from "../../../../../src/features/chat/app-server/inbound/controller";
 import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
 import {
-  activeTurnId,
   chatReducer,
-  chatTurnBusy,
   createChatState,
   pendingTurnStart,
   type ChatAction,
@@ -29,8 +27,8 @@ function controllerForState(
     refreshSkills: vi.fn(),
     publishAppServerMetadata: vi.fn(),
     maybeNameThread: vi.fn(),
-    notifyThreadArchived: vi.fn(),
-    notifyThreadRenamed: vi.fn(),
+    applyThreadArchived: vi.fn(),
+    applyThreadRenamed: vi.fn(),
     recordMcpStartupStatus: vi.fn(),
     respondToServerRequest: vi.fn(() => true),
     rejectServerRequest: vi.fn(() => true),
@@ -1038,29 +1036,16 @@ describe("ChatInboundController", () => {
         },
       ];
       state.requests.userInputDrafts = new Map([["20:note", "draft"]]);
-      const notifyThreadArchived = vi.fn();
-      const controller = controllerForState(state, { notifyThreadArchived });
+      const applyThreadArchived = vi.fn();
+      const controller = controllerForState(state, { applyThreadArchived });
 
       controller.handleNotification({
         method: "thread/archived",
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
-      expect(state.activeThread.id).toBeNull();
-      expect(activeTurnId(state)).toBeNull();
-      expect(state.runtime.activeModel).toBeNull();
-      expect(state.runtime.activeServiceTier).toBeNull();
-      expect(state.activeThread.tokenUsage).toBeNull();
-      expect(state.messageStream.historyCursor).toBeNull();
-      expect(state.messageStream.loadingHistory).toBe(false);
-      expect(chatStateMessageStreamItems(state)).toEqual([]);
-      expect(state.messageStream.turnDiffs.size).toBe(0);
-      expect(state.composer.draft).toBe("");
-      expect(chatTurnBusy(state)).toBe(false);
-      expect(state.requests.approvals).toEqual([]);
-      expect(state.requests.pendingUserInputs).toEqual([]);
-      expect(state.requests.userInputDrafts.size).toBe(0);
-      expect(notifyThreadArchived).toHaveBeenCalledWith("thread-active");
+      expect(state.activeThread.id).toBe("thread-active");
+      expect(applyThreadArchived).toHaveBeenCalledWith("thread-active");
     });
 
     it("does not replace the active cwd from unrelated thread-started notifications", () => {
@@ -1323,20 +1308,20 @@ describe("ChatInboundController", () => {
       });
     });
 
-    it("updates listed thread names from thread name notifications", () => {
+    it("routes thread name notifications through catalog mutation effects", () => {
       const state = createChatState();
       state.activeThread.id = "thread-active";
       state.threadList.listedThreads = [panelThread("thread-active")];
-      const notifyThreadRenamed = vi.fn();
-      const controller = controllerForState(state, { notifyThreadRenamed });
+      const applyThreadRenamed = vi.fn();
+      const controller = controllerForState(state, { applyThreadRenamed });
 
       controller.handleNotification({
         method: "thread/name/updated",
         params: { threadId: "thread-active", threadName: "  Codex   Panel自動命名  " },
       } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>);
 
-      expect(state.threadList.listedThreads[0]?.name).toBe("Codex Panel自動命名");
-      expect(notifyThreadRenamed).toHaveBeenCalledWith("thread-active", "Codex Panel自動命名");
+      expect(state.threadList.listedThreads[0]?.name).toBeNull();
+      expect(applyThreadRenamed).toHaveBeenCalledWith("thread-active", "Codex Panel自動命名");
     });
 
     it("syncs active runtime state from thread settings notifications", () => {

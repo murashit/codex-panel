@@ -5,6 +5,7 @@ import { ThreadRenameEditorController } from "../../../../src/features/chat/appl
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import { threadRenameFromValue } from "../../../../src/app-server/services/thread-rename";
 import { deferred } from "../../../support/async";
 
 describe("ThreadRenameEditorController", () => {
@@ -162,15 +163,17 @@ function controllerFixture(
     addSystemMessage: overrides.addSystemMessage ?? vi.fn(),
     operations: {
       renameThread: async (threadId: string, value: string) => {
-        await currentClient().setThreadName(threadId, value);
+        const rename = threadRenameFromValue(value);
+        if (!rename) return false;
+        await currentClient().setThreadName(threadId, rename.name);
         stateStore.dispatch({
           type: "thread-list/applied",
           threads: stateStore
             .getState()
-            .threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: value } : thread)),
+            .threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: rename.name } : thread)),
         });
-        notifyThreadRenamed(threadId, value);
-        return { name: value };
+        notifyThreadRenamed(threadId, rename.name);
+        return true;
       },
     },
     titleService: {

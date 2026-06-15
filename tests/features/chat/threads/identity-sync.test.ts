@@ -56,7 +56,7 @@ describe("createIdentitySync", () => {
       activePermissionProfile: null,
     });
 
-    controller.notifyThreadArchived("thread");
+    controller.applyThreadArchived("thread");
 
     expect(stateStore.getState().activeThread.id).toBeNull();
     expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
@@ -64,7 +64,7 @@ describe("createIdentitySync", () => {
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
   });
 
-  it("updates listed and restored thread titles on rename notifications", () => {
+  it("updates restored thread titles on rename notifications", () => {
     const { controller, restoredPlaceholder, restoredRename, stateStore } = createController();
     stateStore.dispatch({ type: "thread-list/applied", threads: [thread("thread", "Old")] });
     restoredPlaceholder.mockReturnValue({
@@ -75,9 +75,9 @@ describe("createIdentitySync", () => {
       loading: null,
     });
 
-    controller.notifyThreadRenamed("thread", "New");
+    controller.applyThreadRenamed("thread", "New");
 
-    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("New");
+    expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Old");
     expect(restoredRename).toHaveBeenCalledWith("thread", "New");
   });
 });

@@ -1,7 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/services/threads";
 import { inheritedForkThreadName } from "../../../../domain/threads/model";
-import { threadRenameFromValue } from "../../../../app-server/services/thread-rename";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import {
   archivedSourceOpenForkFailedMessage,
@@ -127,9 +126,7 @@ async function forkThreadFromTurn(
     if (!threadManagementStillTargetsOriginalPanel(threadManagementState(host), initialActiveThreadId, threadId)) return;
     if (sourceName) {
       try {
-        const rename = threadRenameFromValue(sourceName);
-        if (!rename) return;
-        await host.operations.renameThread(forkedThreadId, rename.name);
+        if (!(await host.operations.renameThread(forkedThreadId, sourceName))) return;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         host.addSystemMessage(forkNameCopyFailedMessage(forkedThreadId, message));
@@ -157,17 +154,9 @@ async function forkThreadFromTurn(
 }
 
 async function renameThread(host: ThreadManagementActionsHost, threadId: string, value: string): Promise<boolean> {
-  const rename = threadRenameFromValue(value);
-  if (!rename) return false;
-
   try {
-    const result = await host.operations.renameThread(threadId, rename.name);
+    const result = await host.operations.renameThread(threadId, value);
     if (!result) return false;
-    const { name } = result;
-    host.stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: host.stateStore.getState().threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)),
-    });
     return true;
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));

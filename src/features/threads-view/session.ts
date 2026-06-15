@@ -7,7 +7,6 @@ import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
-import { threadRenameFromValue } from "../../app-server/services/thread-rename";
 import { ThreadOperations } from "../threads/thread-operations";
 import { ThreadTitleService } from "../threads/thread-title-service";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
@@ -36,8 +35,8 @@ export interface CodexThreadsHost {
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
   readonly threadCatalog: {
-    notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-    notifyThreadRenamed(threadId: string, name: string | null): void;
+    archiveThreadInCatalog(threadId: string, options?: { closeOpenPanels?: boolean }): void;
+    renameThreadInCatalog(threadId: string, name: string | null): void;
     refreshFromOpenSurface(): void;
     refreshThreads(fetchThreads: () => Promise<readonly Thread[]>): Promise<readonly Thread[]>;
     cachedThreads(): readonly Thread[] | null;
@@ -89,14 +88,11 @@ export class CodexThreadsSession {
       },
       archiveAdapter: () => this.environment.archiveAdapter(),
       catalog: {
-        notifyThreadArchived: (threadId, options) => {
-          this.host.threadCatalog.notifyThreadArchived(threadId, options);
+        archiveThreadInCatalog: (threadId, options) => {
+          this.host.threadCatalog.archiveThreadInCatalog(threadId, options);
         },
-        notifyThreadRenamed: (threadId, name) => {
-          this.host.threadCatalog.notifyThreadRenamed(threadId, name);
-        },
-        refreshFromOpenSurface: () => {
-          this.host.threadCatalog.refreshFromOpenSurface();
+        renameThreadInCatalog: (threadId, name) => {
+          this.host.threadCatalog.renameThreadInCatalog(threadId, name);
         },
       },
       notice: (message) => {
@@ -329,16 +325,14 @@ export class CodexThreadsSession {
   private async saveRename(threadId: string, value: string): Promise<void> {
     const editingState = this.renameStates.get(threadId);
     if (!editingState || editingState.kind === "generating") return;
-    const rename = threadRenameFromValue(value);
-    if (!rename) {
-      this.cancelRename(threadId);
-      return;
-    }
     try {
       await this.ensureConnected();
       if (this.renameStates.get(threadId) !== editingState) return;
-      const result = await this.operations.renameThread(threadId, rename.name);
-      if (!result) return;
+      const result = await this.operations.renameThread(threadId, value);
+      if (!result) {
+        this.cancelRename(threadId);
+        return;
+      }
       this.renameStates.delete(threadId);
     } catch (error) {
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };

@@ -48,19 +48,31 @@ export class SharedThreadCatalog {
   }
 
   refreshFromOpenSurface(): void {
-    this.options.surfaces.refreshSharedThreadListFromOpenSurface();
+    this.invalidateThreadsFromOpenSurface();
+  }
+
+  invalidateThreadsFromOpenSurface(): void {
+    this.options.surfaces.invalidateThreadsFromOpenSurface();
+  }
+
+  renameThreadInCatalog(threadId: string, name: string | null): void {
+    const threads = this.cachedThreads();
+    if (threads) {
+      this.applyThreads(threads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)));
+    }
+    this.options.surfaces.applyThreadRenamed(threadId, name);
+  }
+
+  archiveThreadInCatalog(threadId: string, options?: { closeOpenPanels?: boolean }): void {
+    const threads = this.cachedThreads();
+    if (threads) {
+      this.applyThreads(threads.filter((thread) => thread.id !== threadId));
+    }
+    this.options.surfaces.applyThreadArchived(threadId, options);
   }
 
   refreshThreadsViewLiveState(): void {
     this.options.surfaces.refreshThreadsViewLiveState();
-  }
-
-  notifyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void {
-    this.options.surfaces.notifyThreadArchived(threadId, options);
-  }
-
-  notifyThreadRenamed(threadId: string, name: string | null): void {
-    this.options.surfaces.notifyThreadRenamed(threadId, name);
   }
 
   private context(): SharedAppServerCacheContext {

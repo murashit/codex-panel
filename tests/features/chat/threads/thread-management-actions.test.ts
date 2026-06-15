@@ -4,6 +4,7 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import { archiveThreadOnAppServer } from "../../../../src/app-server/services/thread-archive";
 import type { ArchiveExportAdapter } from "../../../../src/app-server/services/thread-archive-markdown";
+import { threadRenameFromValue } from "../../../../src/app-server/services/thread-rename";
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import {
@@ -261,7 +262,7 @@ describe("thread management actions", () => {
 
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(client.setThreadName).toHaveBeenCalledWith("thread", "Slash command title");
-    expect(host.stateStore.getState().threadList.listedThreads[0]?.name).toBe("Slash command title");
+    expect(host.stateStore.getState().threadList.listedThreads[0]?.name).toBe("Old");
     expect(host.notifyThreadRenamed).toHaveBeenCalledWith("thread", "Slash command title");
   });
 
@@ -451,10 +452,12 @@ function hostMock({
         return result;
       }),
       renameThread: vi.fn(async (threadId: string, value: string) => {
+        const rename = threadRenameFromValue(value);
+        if (!rename) return false;
         await ensureConnected();
-        await client.setThreadName(threadId, value);
-        notifyThreadRenamed(threadId, value);
-        return { name: value };
+        await client.setThreadName(threadId, rename.name);
+        notifyThreadRenamed(threadId, rename.name);
+        return true;
       }),
     },
     showNotice,

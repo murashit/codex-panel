@@ -3,7 +3,7 @@ import type { ThreadConversationSummary } from "../../../../domain/threads/trans
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import type { ThreadTitleService } from "../../../threads/thread-title-service";
-import type { ChatAction, ChatState } from "../state/root-reducer";
+import type { ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 export interface AutoTitleControllerHost {
@@ -21,10 +21,6 @@ export class AutoTitleController {
 
   private get state(): ChatState {
     return this.host.stateStore.getState();
-  }
-
-  private dispatch(action: ChatAction): void {
-    this.host.stateStore.dispatch(action);
   }
 
   resetThreadTurnPresence(hadTurns: boolean): void {
@@ -51,15 +47,10 @@ export class AutoTitleController {
       const title = await this.generateTitle(context);
       if (!title || !this.threadCanReceiveGeneratedTitle(threadId)) return;
 
-      const result = await this.host.operations.renameThread(threadId, title, {
+      const renamed = await this.host.operations.renameThread(threadId, title, {
         shouldPublish: () => this.threadCanReceiveGeneratedTitle(threadId),
       });
-      if (!result) return;
-      if (!this.threadCanReceiveGeneratedTitle(threadId)) return;
-      this.dispatch({
-        type: "thread-list/applied",
-        threads: this.state.threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: result.name } : thread)),
-      });
+      if (!renamed) return;
     } catch {
       // Auto-title is best-effort metadata. Leave the thread preview untouched on failure.
     } finally {

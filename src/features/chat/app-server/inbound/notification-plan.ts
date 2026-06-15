@@ -49,8 +49,8 @@ export type ChatNotificationEffect =
   | { type: "refresh-skills"; forceReload: boolean }
   | { type: "publish-app-server-metadata" }
   | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ThreadConversationSummary | null }
-  | { type: "notify-thread-archived"; threadId: string }
-  | { type: "notify-thread-renamed"; threadId: string; name: string | null }
+  | { type: "apply-thread-archived"; threadId: string }
+  | { type: "apply-thread-renamed"; threadId: string; name: string | null }
   | {
       type: "record-mcp-startup-status";
       name: string;
@@ -248,29 +248,16 @@ const THREAD_LIFECYCLE_PLANNERS = {
     }
     return EMPTY_PLAN;
   },
-  "thread/archived": (state, notification) => ({
-    actions: [
-      {
-        type: "thread-list/applied",
-        threads: state.threadList.listedThreads.filter((thread) => thread.id !== notification.params.threadId),
-      },
-      ...(state.activeThread.id === notification.params.threadId ? ([{ type: "active-thread/cleared" }] satisfies ChatAction[]) : []),
-    ],
-    effects: [{ type: "notify-thread-archived", threadId: notification.params.threadId }],
+  "thread/archived": (_state, notification) => ({
+    actions: [],
+    effects: [{ type: "apply-thread-archived", threadId: notification.params.threadId }],
   }),
   "thread/unarchived": () => ({ actions: [], effects: [{ type: "refresh-threads" }] }),
-  "thread/name/updated": (state, notification) => {
+  "thread/name/updated": (_state, notification) => {
     const name = normalizeExplicitThreadName(notification.params.threadName);
     return {
-      actions: [
-        {
-          type: "thread-list/applied",
-          threads: state.threadList.listedThreads.map((thread) =>
-            thread.id === notification.params.threadId ? { ...thread, name } : thread,
-          ),
-        },
-      ],
-      effects: [{ type: "notify-thread-renamed", threadId: notification.params.threadId, name }],
+      actions: [],
+      effects: [{ type: "apply-thread-renamed", threadId: notification.params.threadId, name }],
     };
   },
   "thread/settings/updated": (state, notification) => {

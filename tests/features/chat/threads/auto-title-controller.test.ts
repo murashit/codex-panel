@@ -150,7 +150,7 @@ function controllerFixture(
       renameThread: async (threadId: string, value: string, options?: { shouldPublish?: () => boolean }) => {
         await currentClient().setThreadName(threadId, value);
         if (options?.shouldPublish?.() ?? true) notifyThreadRenamed(threadId, value);
-        return { name: value };
+        return true;
       },
     },
     titleService,
