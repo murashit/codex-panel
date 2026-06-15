@@ -16,40 +16,40 @@ type McpAuthStatus = "unsupported" | "notLoggedIn" | "bearerToken" | "oAuth";
 export type McpServerStartupStatus = "starting" | "ready" | "failed" | "cancelled";
 
 export interface McpServerStatus {
-  name: string;
-  tools: Record<string, unknown>;
-  resources: readonly unknown[];
-  resourceTemplates: readonly unknown[];
-  authStatus: McpAuthStatus;
+  readonly name: string;
+  readonly tools: Readonly<Record<string, unknown>>;
+  readonly resources: readonly unknown[];
+  readonly resourceTemplates: readonly unknown[];
+  readonly authStatus: McpAuthStatus;
 }
 
 export interface DiagnosticProbeResult {
-  method: DiagnosticProbeMethod;
-  status: DiagnosticProbeStatus;
-  message: string | null;
-  summary: string | null;
-  checkedAt: number | null;
+  readonly method: DiagnosticProbeMethod;
+  readonly status: DiagnosticProbeStatus;
+  readonly message: string | null;
+  readonly summary: string | null;
+  readonly checkedAt: number | null;
 }
 
 export interface McpServerDiagnostic {
-  name: string;
-  startupStatus: McpServerStartupStatus | "unknown";
-  authStatus: McpAuthStatus | null;
-  toolCount: number | null;
-  message: string | null;
+  readonly name: string;
+  readonly startupStatus: McpServerStartupStatus | "unknown";
+  readonly authStatus: McpAuthStatus | null;
+  readonly toolCount: number | null;
+  readonly message: string | null;
 }
 
 export interface McpServerStatusSummary {
-  name: string;
-  authStatus: McpAuthStatus;
-  toolCount: number;
-  resourceCount: number;
-  resourceTemplateCount: number;
+  readonly name: string;
+  readonly authStatus: McpAuthStatus;
+  readonly toolCount: number;
+  readonly resourceCount: number;
+  readonly resourceTemplateCount: number;
 }
 
 export interface Diagnostics {
-  probes: Record<DiagnosticProbeMethod, DiagnosticProbeResult>;
-  mcpServers: McpServerDiagnostic[];
+  readonly probes: Readonly<Record<DiagnosticProbeMethod, DiagnosticProbeResult>>;
+  readonly mcpServers: readonly McpServerDiagnostic[];
 }
 
 export type InitializeDiagnostics = ServerInitialization;
@@ -68,6 +68,16 @@ export function cloneServerDiagnostics(diagnostics: Diagnostics): Diagnostics {
   return {
     probes: { ...diagnostics.probes },
     mcpServers: diagnostics.mcpServers.map((server) => ({ ...server })),
+  };
+}
+
+export function diagnosticsWithProbe(diagnostics: Diagnostics, probe: DiagnosticProbeResult): Diagnostics {
+  return {
+    ...diagnostics,
+    probes: {
+      ...diagnostics.probes,
+      [probe.method]: probe,
+    },
   };
 }
 

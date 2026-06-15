@@ -3,14 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadGoal } from "../../../../src/domain/threads/goal";
 import { createGoalActions } from "../../../../src/features/chat/application/threads/goal-actions";
-import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { deferred } from "../../../support/async";
+import { chatStateFixture, chatStateWith } from "../support/state";
 
 describe("createGoalActions", () => {
   it("syncs the active thread goal into chat state", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
     const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
@@ -31,8 +31,8 @@ describe("createGoalActions", () => {
   });
 
   it("reports goal sync failures without clearing the active thread", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const addSystemMessage = vi.fn();
     const client = { getThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) } as unknown as AppServerClient;
@@ -53,9 +53,9 @@ describe("createGoalActions", () => {
   });
 
   it("sets objective, status, and clears goals through app-server", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.activeThread.goal = goal({ tokenBudget: 500 });
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { activeThread: { goal: goal({ tokenBudget: 500 }) } });
     const stateStore = createChatStateStore(state);
     const updated = goal({ objective: "Updated", tokenBudget: 250 });
     const paused = goal({ objective: "Updated", status: "paused", tokenBudget: 250 });
@@ -91,9 +91,9 @@ describe("createGoalActions", () => {
   });
 
   it("does not report stale goal action failures after the active thread changes", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.activeThread.goal = goal();
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const update = deferred<never>();
     const client = { setThreadGoal: vi.fn().mockReturnValue(update.promise) } as unknown as AppServerClient;
@@ -117,9 +117,9 @@ describe("createGoalActions", () => {
   });
 
   it("does not report stale goal clear failures after the active thread changes", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.activeThread.goal = goal();
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const clear = deferred<never>();
     const client = { clearThreadGoal: vi.fn().mockReturnValue(clear.promise) } as unknown as AppServerClient;
@@ -143,8 +143,8 @@ describe("createGoalActions", () => {
   });
 
   it("reports goal creation as a structured goal event", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
     const injectThreadItems = vi.fn().mockResolvedValue({});
@@ -182,8 +182,8 @@ describe("createGoalActions", () => {
   });
 
   it("reports goal user history injection failures while the thread remains active", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
     const injectThreadItems = vi.fn().mockRejectedValue(new Error("offline"));
@@ -204,8 +204,8 @@ describe("createGoalActions", () => {
   });
 
   it("does not report stale goal user history injection failures after the active thread changes", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
     const injectThreadItems = vi.fn().mockImplementation(async () => {
@@ -229,9 +229,9 @@ describe("createGoalActions", () => {
   });
 
   it("does not inject a goal user history message when editing an existing goal", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.activeThread.goal = goal();
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal({ objective: "Updated" }) });
     const injectThreadItems = vi.fn().mockResolvedValue({});
@@ -253,9 +253,9 @@ describe("createGoalActions", () => {
   });
 
   it("reports goal resume as a user-visible state change", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.activeThread.goal = goal({ status: "paused" });
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { activeThread: { goal: goal({ status: "paused" }) } });
     const stateStore = createChatStateStore(state);
     const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
     const client = { setThreadGoal } as unknown as AppServerClient;
@@ -277,8 +277,8 @@ describe("createGoalActions", () => {
   });
 
   it("does not report initial goal sync as a user-visible state change", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
     const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;

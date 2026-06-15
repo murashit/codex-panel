@@ -4,7 +4,6 @@ import { ChatInboundController } from "../../../../../src/features/chat/app-serv
 import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
 import {
   chatReducer,
-  createChatState,
   pendingTurnStart,
   type ChatAction,
   type ChatState,
@@ -13,27 +12,34 @@ import type { ChatStateStore } from "../../../../../src/features/chat/applicatio
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
-import { chatStateMessageStreamItems, setChatStateMessageStreamItems } from "../../support/message-stream";
+import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
+import { chatStateFixture, chatStateWith } from "../../support/state";
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
 
 function controllerForState(
-  state = createChatState(),
+  state = chatStateFixture(),
   actions: Partial<ConstructorParameters<typeof ChatInboundController>[1]> = {},
-): ChatInboundController {
-  return new ChatInboundController(testStoreForState(state), {
-    fetchActiveThreads: vi.fn(),
-    refreshRateLimits: vi.fn(),
-    refreshSkills: vi.fn(),
-    setAppServerMetadata: vi.fn(),
-    maybeNameThread: vi.fn(),
-    applyThreadArchived: vi.fn(),
-    applyThreadRenamed: vi.fn(),
-    recordMcpStartupStatus: vi.fn(),
-    respondToServerRequest: vi.fn(() => true),
-    rejectServerRequest: vi.fn(() => true),
-    ...actions,
-  });
+): ChatInboundController & { currentState(): ChatState } {
+  const store = testStoreForState(state);
+  return Object.assign(
+    new ChatInboundController(store, {
+      fetchActiveThreads: vi.fn(),
+      refreshRateLimits: vi.fn(),
+      refreshSkills: vi.fn(),
+      setAppServerMetadata: vi.fn(),
+      maybeNameThread: vi.fn(),
+      applyThreadArchived: vi.fn(),
+      applyThreadRenamed: vi.fn(),
+      recordMcpStartupStatus: vi.fn(),
+      respondToServerRequest: vi.fn(() => true),
+      rejectServerRequest: vi.fn(() => true),
+      ...actions,
+    }),
+    {
+      currentState: () => store.getState(),
+    },
+  );
 }
 
 function testStoreForState(state: ChatState): ChatStateStore {
@@ -42,7 +48,6 @@ function testStoreForState(state: ChatState): ChatStateStore {
     getState: () => current,
     dispatch(action: ChatAction) {
       current = chatReducer(current, action);
-      Object.assign(state, current);
       return current;
     },
     subscribe: () => () => undefined,
@@ -57,9 +62,9 @@ function expectPresent<T>(value: T | null | undefined): T {
 describe("ChatInboundController", () => {
   describe("active turn routing", () => {
     it("applies matching streaming deltas as assistant markdown", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -67,14 +72,16 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
       } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
 
-      expect(chatStateMessageStreamItems(state)).toMatchObject([{ id: "a1", text: "hello" }]);
+      expect(chatStateMessageStreamItems(controller.currentState())).toMatchObject([{ id: "a1", text: "hello" }]);
     });
 
     it("marks active reasoning completed when assistant text starts", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      setChatStateMessageStreamItems(state, [{ id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" }]);
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      state = withChatStateMessageStreamItems(state, [
+        { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" },
+      ]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -82,7 +89,7 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "answer" },
       } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
 
-      expect(chatStateMessageStreamItems(state)).toEqual(
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "r1", kind: "reasoning", status: "completed", executionState: "completed" }),
           expect.objectContaining({ id: "a1", kind: "message", text: "answer" }),
@@ -91,9 +98,9 @@ describe("ChatInboundController", () => {
     });
 
     it("streams plan deltas as plain assistant text until completion", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -101,15 +108,15 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta: "<proposed_plan>\n# Plan" },
       } satisfies Extract<ServerNotification, { method: "item/plan/delta" }>);
 
-      expect(chatStateMessageStreamItems(state)).toMatchObject([
+      expect(chatStateMessageStreamItems(controller.currentState())).toMatchObject([
         { id: "p1", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "# Plan", messageState: "streaming" },
       ]);
     });
 
     it("marks streamed plan deltas completed when the completed turn reconciles", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -134,7 +141,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(state)).toEqual([
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual([
         expect.objectContaining({
           id: "p1",
           kind: "message",
@@ -147,9 +154,9 @@ describe("ChatInboundController", () => {
     });
 
     it("updates structured turn plan progress", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -162,7 +169,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/plan/updated" }>);
 
-      expect(chatStateMessageStreamItems(state)).toMatchObject([
+      expect(chatStateMessageStreamItems(controller.currentState())).toMatchObject([
         {
           id: "plan-progress-turn-active",
           kind: "taskProgress",
@@ -177,7 +184,7 @@ describe("ChatInboundController", () => {
   describe("app-server source of truth updates", () => {
     it("refreshes skills from disk when app-server reports skill changes", () => {
       const refreshSkills = vi.fn();
-      const controller = controllerForState(createChatState(), { refreshSkills });
+      const controller = controllerForState(chatStateFixture(), { refreshSkills });
 
       controller.handleNotification({
         method: "skills/changed",
@@ -188,9 +195,9 @@ describe("ChatInboundController", () => {
     });
 
     it("stores the latest aggregated turn diff for the active turn", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -202,13 +209,13 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", diff: "@@\n-old\n+second" },
       } satisfies Extract<ServerNotification, { method: "turn/diff/updated" }>);
 
-      expect(state.messageStream.turnDiffs.get("turn-active")).toBe("@@\n-old\n+second");
+      expect(controller.currentState().messageStream.turnDiffs.get("turn-active")).toBe("@@\n-old\n+second");
     });
 
     it("ignores aggregated turn diffs outside the active scope", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -220,13 +227,13 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-other", diff: "@@\n-wrong\n+wrong" },
       } satisfies Extract<ServerNotification, { method: "turn/diff/updated" }>);
 
-      expect(state.messageStream.turnDiffs.size).toBe(0);
+      expect(controller.currentState().messageStream.turnDiffs.size).toBe(0);
     });
 
     it("formats hook runs as compact summaries with details", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -253,7 +260,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(state)).toMatchObject([
+      expect(chatStateMessageStreamItems(controller.currentState())).toMatchObject([
         {
           id: "hook-hook-1-1",
           kind: "hook",
@@ -273,9 +280,9 @@ describe("ChatInboundController", () => {
     });
 
     it("omits hook duration details while duration is unavailable", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -302,7 +309,7 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(state)[0]).toMatchObject({
+      expect(chatStateMessageStreamItems(controller.currentState())[0]).toMatchObject({
         kind: "hook",
         hookRun: {
           eventName: "postToolUse",
@@ -312,9 +319,9 @@ describe("ChatInboundController", () => {
     });
 
     it("attaches unscoped hook runs to the active turn while streaming", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -341,13 +348,17 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(state)[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook", turnId: "turn-active" });
+      expect(chatStateMessageStreamItems(controller.currentState())[0]).toMatchObject({
+        id: "hook-hook-1-1",
+        kind: "hook",
+        turnId: "turn-active",
+      });
     });
 
     it("leaves non-prompt unscoped hook runs outside the active turn", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -374,14 +385,14 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(state)[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(chatStateMessageStreamItems(state)[0]?.turnId).toBeUndefined();
+      expect(chatStateMessageStreamItems(controller.currentState())[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(chatStateMessageStreamItems(controller.currentState())[0]?.turnId).toBeUndefined();
     });
 
     it("keeps repeated hook runs with the same run id as separate message stream items", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
       const baseRun: Extract<ServerNotification, { method: "hook/completed" }>["params"]["run"] = {
         id: "hook-1",
@@ -409,17 +420,21 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-active", run: { ...baseRun, startedAt: 3n } },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(state).map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
+      expect(chatStateMessageStreamItems(controller.currentState()).map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
     });
 
     it("attaches pre-turn prompt submit hook runs when the turn starts", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = {
-        kind: "starting",
-        pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
-      };
-      setChatStateMessageStreamItems(state, [
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, {
+        turn: {
+          lifecycle: {
+            kind: "starting",
+            pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
+          },
+        },
+      });
+      state = withChatStateMessageStreamItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
@@ -449,9 +464,9 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
-      expect(chatStateMessageStreamItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(chatStateMessageStreamItems(state)[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
-      expect(pendingTurnStart(state)).toBeNull();
+      expect(chatStateMessageStreamItems(controller.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(chatStateMessageStreamItems(controller.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
+      expect(pendingTurnStart(controller.currentState())).toBeNull();
     });
 
     it("moves pre-turn hook runs after the optimistic user message when a turn id is assigned", () => {
@@ -486,9 +501,11 @@ describe("ChatInboundController", () => {
     });
 
     it("captures only prompt-submit hooks observed during the pending turn start", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, {
+        turn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
+      });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -515,16 +532,20 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(expectPresent(chatStateMessageStreamItems(state)[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(expectPresent(chatStateMessageStreamItems(state)[0]).turnId).toBeUndefined();
-      expect(expectPresent(pendingTurnStart(state)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+      expect(expectPresent(chatStateMessageStreamItems(controller.currentState())[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(expectPresent(chatStateMessageStreamItems(controller.currentState())[0]).turnId).toBeUndefined();
+      expect(expectPresent(pendingTurnStart(controller.currentState())).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
     it("keeps pre-turn prompt submit hooks through turn start and completed-turn reconciliation", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } };
-      setChatStateMessageStreamItems(state, [{ id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" }]);
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, {
+        turn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
+      });
+      state = withChatStateMessageStreamItems(state, [
+        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
+      ]);
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -532,9 +553,9 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: null, run: promptSubmitHookRun("hook-1", 1n) },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(expectPresent(chatStateMessageStreamItems(state)[1]).turnId).toBeUndefined();
-      expect(expectPresent(pendingTurnStart(state)).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
+      expect(chatStateMessageStreamItems(controller.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(expectPresent(chatStateMessageStreamItems(controller.currentState())[1]).turnId).toBeUndefined();
+      expect(expectPresent(pendingTurnStart(controller.currentState())).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
 
       controller.handleNotification({
         method: "turn/started",
@@ -553,10 +574,14 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
-      expect(chatStateMessageStreamItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(chatStateMessageStreamItems(state).find((item) => item.id === "local-user-1")).not.toHaveProperty("turnId");
-      expect(chatStateMessageStreamItems(state).find((item) => item.id === "hook-hook-1-1")).toMatchObject({ turnId: "turn-active" });
-      expect(pendingTurnStart(state)).toBeNull();
+      expect(chatStateMessageStreamItems(controller.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(chatStateMessageStreamItems(controller.currentState()).find((item) => item.id === "local-user-1")).not.toHaveProperty(
+        "turnId",
+      );
+      expect(chatStateMessageStreamItems(controller.currentState()).find((item) => item.id === "hook-hook-1-1")).toMatchObject({
+        turnId: "turn-active",
+      });
+      expect(pendingTurnStart(controller.currentState())).toBeNull();
 
       controller.handleNotification({
         method: "turn/completed",
@@ -578,25 +603,29 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(state).map((item) => item.id)).toEqual(["u1", "hook-hook-1-1", "a1"]);
-      expect(chatStateMessageStreamItems(state)).toEqual(
+      expect(chatStateMessageStreamItems(controller.currentState()).map((item) => item.id)).toEqual(["u1", "hook-hook-1-1", "a1"]);
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", text: "hello", turnId: "turn-active" }),
           expect.objectContaining({ id: "hook-hook-1-1", kind: "hook", turnId: "turn-active" }),
           expect.objectContaining({ id: "a1", text: "done", turnId: "turn-active" }),
         ]),
       );
-      expect(chatStateMessageStreamItems(state).some((item) => item.id === "local-user-1")).toBe(false);
+      expect(chatStateMessageStreamItems(controller.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
     });
 
     it("ignores completed turn notifications while a new turn is still starting", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = {
-        kind: "starting",
-        pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
-      };
-      setChatStateMessageStreamItems(state, [
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, {
+        turn: {
+          lifecycle: {
+            kind: "starting",
+            pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] },
+          },
+        },
+      });
+      state = withChatStateMessageStreamItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
@@ -628,14 +657,17 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(pendingTurnStart(state)).toEqual({ anchorItemId: "local-user-1", promptSubmitHookItemIds: ["hook-hook-1-1"] });
-      expect(chatStateMessageStreamItems(state).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(pendingTurnStart(controller.currentState())).toEqual({
+        anchorItemId: "local-user-1",
+        promptSubmitHookItemIds: ["hook-hook-1-1"],
+      });
+      expect(chatStateMessageStreamItems(controller.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
       expect(fetchActiveThreads).not.toHaveBeenCalled();
     });
 
     it("refreshes account rate limits after sparse update notifications", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const refreshRateLimits = vi.fn();
       const controller = controllerForState(state, { refreshRateLimits });
 
@@ -660,7 +692,7 @@ describe("ChatInboundController", () => {
     });
 
     it("records MCP startup status for diagnostics without a chat system message", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const recordMcpStartupStatus = vi.fn();
       const setAppServerMetadata = vi.fn();
       const controller = controllerForState(state, { recordMcpStartupStatus, setAppServerMetadata });
@@ -677,13 +709,13 @@ describe("ChatInboundController", () => {
 
       expect(recordMcpStartupStatus).toHaveBeenCalledWith("github", "failed", "missing token");
       expect(setAppServerMetadata).toHaveBeenCalledOnce();
-      expect(chatStateMessageStreamItems(state)).toEqual([]);
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual([]);
     });
   });
 
   describe("interactive server requests", () => {
     it("queues and resolves requestUserInput server requests", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { respondToServerRequest });
 
@@ -707,11 +739,11 @@ describe("ChatInboundController", () => {
         },
       });
 
-      expect(state.requests.pendingUserInputs).toHaveLength(1);
-      controller.resolveUserInput(expectPresent(state.requests.pendingUserInputs[0]), { scope: "Narrow" });
+      expect(controller.currentState().requests.pendingUserInputs).toHaveLength(1);
+      controller.resolveUserInput(expectPresent(controller.currentState().requests.pendingUserInputs[0]), { scope: "Narrow" });
       expect(respondToServerRequest).toHaveBeenCalledWith(42, { answers: { scope: { answers: ["Narrow"] } } });
-      expect(state.requests.pendingUserInputs).toEqual([]);
-      expect(chatStateMessageStreamItems(state).at(-1)).toMatchObject({
+      expect(controller.currentState().requests.pendingUserInputs).toEqual([]);
+      expect(chatStateMessageStreamItems(controller.currentState()).at(-1)).toMatchObject({
         kind: "userInputResult",
         role: "tool",
         text: "Input submitted for 1 question.",
@@ -721,7 +753,7 @@ describe("ChatInboundController", () => {
     });
 
     it("rejects cancelled requestUserInput server requests", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const rejectServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { rejectServerRequest });
 
@@ -736,10 +768,10 @@ describe("ChatInboundController", () => {
         },
       });
 
-      controller.cancelUserInput(expectPresent(state.requests.pendingUserInputs[0]));
+      controller.cancelUserInput(expectPresent(controller.currentState().requests.pendingUserInputs[0]));
       expect(rejectServerRequest).toHaveBeenCalledWith(43, -32000, "User cancelled input request.");
-      expect(state.requests.pendingUserInputs).toEqual([]);
-      expect(chatStateMessageStreamItems(state).at(-1)).toMatchObject({
+      expect(controller.currentState().requests.pendingUserInputs).toEqual([]);
+      expect(chatStateMessageStreamItems(controller.currentState()).at(-1)).toMatchObject({
         kind: "userInputResult",
         role: "tool",
         text: "Input request cancelled for 1 question.",
@@ -748,13 +780,13 @@ describe("ChatInboundController", () => {
     });
 
     it("ignores stale requestUserInput objects with a reused request id", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
       const rejectServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { respondToServerRequest, rejectServerRequest });
 
       controller.handleServerRequest(userInputRequest(44));
-      const current = expectPresent(state.requests.pendingUserInputs[0]);
+      const current = expectPresent(controller.currentState().requests.pendingUserInputs[0]);
       const stale = { ...current };
 
       controller.resolveUserInput(stale, { note: "stale" });
@@ -762,24 +794,24 @@ describe("ChatInboundController", () => {
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(rejectServerRequest).not.toHaveBeenCalled();
-      expect(state.requests.pendingUserInputs).toEqual([current]);
-      expect(chatStateMessageStreamItems(state)).toEqual([]);
+      expect(controller.currentState().requests.pendingUserInputs).toEqual([current]);
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual([]);
     });
 
     it("records manual permission approvals as colored result items", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { respondToServerRequest });
 
       controller.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
-      controller.resolveApproval(expectPresent(state.requests.approvals[0]), "accept-session");
+      controller.resolveApproval(expectPresent(controller.currentState().requests.approvals[0]), "accept-session");
 
       expect(respondToServerRequest).toHaveBeenCalledWith(12, {
         scope: "session",
         permissions: {},
       });
-      expect(state.requests.approvals).toEqual([]);
-      expect(chatStateMessageStreamItems(state).at(-1)).toMatchObject({
+      expect(controller.currentState().requests.approvals).toEqual([]);
+      expect(chatStateMessageStreamItems(controller.currentState()).at(-1)).toMatchObject({
         id: "approval-12",
         kind: "approvalResult",
         role: "tool",
@@ -796,23 +828,23 @@ describe("ChatInboundController", () => {
     });
 
     it("ignores stale approval objects with a reused request id", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { respondToServerRequest });
 
       controller.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
-      const current = expectPresent(state.requests.approvals[0]);
+      const current = expectPresent(controller.currentState().requests.approvals[0]);
       const stale = { ...current };
 
       controller.resolveApproval(stale, "accept-session");
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
-      expect(state.requests.approvals).toEqual([current]);
-      expect(chatStateMessageStreamItems(state)).toEqual([]);
+      expect(controller.currentState().requests.approvals).toEqual([current]);
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual([]);
     });
 
     it("handles known server request families and rejects unsupported requests by default", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const rejectServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { rejectServerRequest });
 
@@ -826,8 +858,8 @@ describe("ChatInboundController", () => {
       }
       controller.handleServerRequest(unknownRequest());
 
-      expect(state.requests.approvals.map((approval) => approval.requestId)).toEqual([10, 11, 12]);
-      expect(state.requests.pendingUserInputs.map((input) => input.requestId)).toEqual([20]);
+      expect(controller.currentState().requests.approvals.map((approval) => approval.requestId)).toEqual([10, 11, 12]);
+      expect(controller.currentState().requests.pendingUserInputs.map((input) => input.requestId)).toEqual([20]);
       const unsupportedMessages = unsupported.map((request) => `Rejected unsupported app-server request: ${request.method}`);
       expect(rejectServerRequest).toHaveBeenCalledTimes(unsupportedMessages.length + 1);
       for (const [index, request] of unsupported.entries()) {
@@ -839,29 +871,31 @@ describe("ChatInboundController", () => {
         -32601,
         "Rejected unknown app-server request: appServer/newFutureRequest",
       );
-      expect(chatStateMessageStreamItems(state).map((item) => ("text" in item ? item.text : ""))).toEqual(unsupportedMessages);
+      expect(chatStateMessageStreamItems(controller.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual(
+        unsupportedMessages,
+      );
       expect(
-        chatStateMessageStreamItems(state)
+        chatStateMessageStreamItems(controller.currentState())
           .map((item) => ("text" in item ? item.text : ""))
           .join("\n"),
       ).not.toContain("do-not-render");
     });
 
     it("keeps unknown server request fallback out of the normal message stream", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const rejectServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { rejectServerRequest });
 
       controller.handleServerRequest(unknownRequest());
 
       expect(rejectServerRequest).toHaveBeenCalledWith(27, -32601, "Rejected unknown app-server request: appServer/newFutureRequest");
-      expect(chatStateMessageStreamItems(state)).toEqual([]);
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual([]);
     });
 
     it("rejects server requests scoped to a different active thread or turn", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const rejectServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { rejectServerRequest });
 
@@ -886,7 +920,7 @@ describe("ChatInboundController", () => {
         },
       });
 
-      expect(state.requests.pendingUserInputs).toEqual([]);
+      expect(controller.currentState().requests.pendingUserInputs).toEqual([]);
       expect(rejectServerRequest).toHaveBeenCalledTimes(2);
       expect(rejectServerRequest).toHaveBeenNthCalledWith(
         1,
@@ -903,9 +937,9 @@ describe("ChatInboundController", () => {
     });
 
     it("rejects delayed turn-scoped server requests after the active thread returns to idle", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "idle" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "idle" } } });
       const rejectServerRequest = vi.fn(() => true);
       const controller = controllerForState(state, { rejectServerRequest });
 
@@ -920,50 +954,58 @@ describe("ChatInboundController", () => {
         },
       });
 
-      expect(state.requests.pendingUserInputs).toEqual([]);
+      expect(controller.currentState().requests.pendingUserInputs).toEqual([]);
       expect(rejectServerRequest).toHaveBeenCalledWith(53, -32601, "Rejected inactive app-server request: item/tool/requestUserInput");
     });
 
     it("keeps pending requests when response delivery fails", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => false);
       const controller = controllerForState(state, { respondToServerRequest });
 
       controller.handleServerRequest(userInputRequest(55));
-      controller.resolveUserInput(expectPresent(state.requests.pendingUserInputs[0]), { note: "Later" });
+      controller.resolveUserInput(expectPresent(controller.currentState().requests.pendingUserInputs[0]), { note: "Later" });
 
-      expect(state.requests.pendingUserInputs).toHaveLength(1);
-      expect(chatStateMessageStreamItems(state)).toEqual([
+      expect(controller.currentState().requests.pendingUserInputs).toHaveLength(1);
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual([
         expect.objectContaining({ kind: "system", text: "Could not send user input because Codex app-server is not connected." }),
       ]);
     });
 
     it("clears pending request state when app-server resolves a request", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.requests.approvals = [
-        {
-          requestId: 50,
-          method: "item/commandExecution/requestApproval",
-          params: {
-            ...expectPresent(supportedApprovalRequests()[0]).params,
-            threadId: "thread-active",
-          } as Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }>["params"],
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, {
+        requests: {
+          approvals: [
+            {
+              requestId: 50,
+              method: "item/commandExecution/requestApproval",
+              params: {
+                ...expectPresent(supportedApprovalRequests()[0]).params,
+                threadId: "thread-active",
+              } as Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }>["params"],
+            },
+          ],
         },
-      ];
-      state.requests.pendingUserInputs = [
-        {
-          requestId: 50,
-          method: "item/tool/requestUserInput",
-          params: {
-            threadId: "thread-active",
-            turnId: "turn-active",
-            itemId: "input",
-            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
-          },
+      });
+      state = chatStateWith(state, {
+        requests: {
+          pendingUserInputs: [
+            {
+              requestId: 50,
+              method: "item/tool/requestUserInput",
+              params: {
+                threadId: "thread-active",
+                turnId: "turn-active",
+                itemId: "input",
+                questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+              },
+            },
+          ],
         },
-      ];
-      state.requests.userInputDrafts = new Map([["50:note", "draft"]]);
+      });
+      state = chatStateWith(state, { requests: { userInputDrafts: new Map([["50:note", "draft"]]) } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -971,15 +1013,15 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", requestId: 50 },
       } satisfies Extract<ServerNotification, { method: "serverRequest/resolved" }>);
 
-      expect(state.requests.approvals).toEqual([]);
-      expect(state.requests.pendingUserInputs).toEqual([]);
-      expect(state.requests.userInputDrafts.size).toBe(0);
+      expect(controller.currentState().requests.approvals).toEqual([]);
+      expect(controller.currentState().requests.pendingUserInputs).toEqual([]);
+      expect(controller.currentState().requests.userInputDrafts.size).toBe(0);
     });
   });
 
   describe("thread lifecycle and reconciliation", () => {
     it("keeps user-visible app-server notices in the message stream", () => {
-      const state = createChatState();
+      const state = chatStateFixture();
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -987,7 +1029,7 @@ describe("ChatInboundController", () => {
         params: { threadId: null, message: "careful" },
       } satisfies Extract<ServerNotification, { method: "warning" }>);
 
-      expect(chatStateMessageStreamItems(state)).toEqual([
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual([
         expect.objectContaining({
           kind: "system",
           text: 'warning: {\n  "threadId": null,\n  "message": "careful"\n}',
@@ -996,46 +1038,58 @@ describe("ChatInboundController", () => {
     });
 
     it("clears all active-thread scoped state when the active thread is archived", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      state.runtime.activeModel = "gpt-5.5";
-      state.runtime.activeServiceTier = "fast";
-      state.activeThread.tokenUsage = {
-        last: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
-        total: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
-        modelContextWindow: 100,
-      };
-      state.messageStream.historyCursor = "cursor";
-      state.messageStream.loadingHistory = true;
-      setChatStateMessageStreamItems(state, [
-        { id: "message", kind: "message", role: "assistant", text: "stale", messageKind: "assistantResponse", messageState: "completed" },
-      ]);
-      state.messageStream.turnDiffs = new Map([["turn-active", "@@\n-stale\n+stale"]]);
-      state.composer.draft = "thread draft";
-      state.requests.approvals = [
-        {
-          requestId: 10,
-          method: "item/commandExecution/requestApproval",
-          params: expectPresent(supportedApprovalRequests()[0]).params as Extract<
-            ServerRequest,
-            { method: "item/commandExecution/requestApproval" }
-          >["params"],
-        },
-      ];
-      state.requests.pendingUserInputs = [
-        {
-          requestId: 20,
-          method: "item/tool/requestUserInput",
-          params: {
-            threadId: "thread-active",
-            turnId: "turn-active",
-            itemId: "input",
-            questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      state = chatStateWith(state, { runtime: { activeModel: "gpt-5.5" } });
+      state = chatStateWith(state, { runtime: { activeServiceTier: "fast" } });
+      state = chatStateWith(state, {
+        activeThread: {
+          tokenUsage: {
+            last: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
+            total: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
+            modelContextWindow: 100,
           },
         },
-      ];
-      state.requests.userInputDrafts = new Map([["20:note", "draft"]]);
+      });
+      state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
+      state = chatStateWith(state, { messageStream: { loadingHistory: true } });
+      state = withChatStateMessageStreamItems(state, [
+        { id: "message", kind: "message", role: "assistant", text: "stale", messageKind: "assistantResponse", messageState: "completed" },
+      ]);
+      state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["turn-active", "@@\n-stale\n+stale"]]) } });
+      state = chatStateWith(state, { composer: { draft: "thread draft" } });
+      state = chatStateWith(state, {
+        requests: {
+          approvals: [
+            {
+              requestId: 10,
+              method: "item/commandExecution/requestApproval",
+              params: expectPresent(supportedApprovalRequests()[0]).params as Extract<
+                ServerRequest,
+                { method: "item/commandExecution/requestApproval" }
+              >["params"],
+            },
+          ],
+        },
+      });
+      state = chatStateWith(state, {
+        requests: {
+          pendingUserInputs: [
+            {
+              requestId: 20,
+              method: "item/tool/requestUserInput",
+              params: {
+                threadId: "thread-active",
+                turnId: "turn-active",
+                itemId: "input",
+                questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+              },
+            },
+          ],
+        },
+      });
+      state = chatStateWith(state, { requests: { userInputDrafts: new Map([["20:note", "draft"]]) } });
       const applyThreadArchived = vi.fn();
       const controller = controllerForState(state, { applyThreadArchived });
 
@@ -1044,14 +1098,14 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
-      expect(state.activeThread.id).toBe("thread-active");
+      expect(controller.currentState().activeThread.id).toBe("thread-active");
       expect(applyThreadArchived).toHaveBeenCalledWith("thread-active");
     });
 
     it("does not replace the active cwd from unrelated thread-started notifications", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.activeThread.cwd = "/workspace/active";
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1059,12 +1113,12 @@ describe("ChatInboundController", () => {
         params: { thread: appServerThread("thread-other", "/workspace/other") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(state.activeThread.cwd).toBe("/workspace/active");
+      expect(controller.currentState().activeThread.cwd).toBe("/workspace/active");
     });
 
     it("records cwd from active thread-started notifications", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1072,14 +1126,14 @@ describe("ChatInboundController", () => {
         params: { thread: appServerThread("thread-active", "/workspace/active") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(state.activeThread.cwd).toBe("/workspace/active");
+      expect(controller.currentState().activeThread.cwd).toBe("/workspace/active");
     });
 
     it("replaces optimistic user echoes when completed turns are reconciled", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      setChatStateMessageStreamItems(state, [
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      state = withChatStateMessageStreamItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello", turnId: "turn-active" },
         {
           id: "a1",
@@ -1114,18 +1168,20 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(state).filter((item) => item.kind === "message" && item.role === "user")).toEqual([
-        expect.objectContaining({ id: "u1", text: "hello" }),
-      ]);
-      expect(chatStateMessageStreamItems(state)).toEqual(expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done" })]));
-      expect(chatStateMessageStreamItems(state).some((item) => item.id === "local-user-1")).toBe(false);
+      expect(
+        chatStateMessageStreamItems(controller.currentState()).filter((item) => item.kind === "message" && item.role === "user"),
+      ).toEqual([expect.objectContaining({ id: "u1", text: "hello" })]);
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done" })]),
+      );
+      expect(chatStateMessageStreamItems(controller.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
     });
 
     it("reconciles optimistic user echoes by client id before falling back to same-turn text only when client ids are absent", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      setChatStateMessageStreamItems(state, [
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      state = withChatStateMessageStreamItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
         { id: "local-steer-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
         { id: "local-user-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-other" },
@@ -1157,19 +1213,21 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(state)).toEqual(
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "same text" }),
           expect.objectContaining({ id: "local-steer-2", text: "same text" }),
           expect.objectContaining({ id: "local-user-2", text: "same text" }),
         ]),
       );
-      expect(chatStateMessageStreamItems(state).some((item) => item.id === "local-user-1")).toBe(false);
+      expect(chatStateMessageStreamItems(controller.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
 
-      const fallbackStateWithoutClientId = createChatState();
-      fallbackStateWithoutClientId.activeThread.id = "thread-active";
-      fallbackStateWithoutClientId.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      setChatStateMessageStreamItems(fallbackStateWithoutClientId, [
+      let fallbackStateWithoutClientId = chatStateFixture();
+      fallbackStateWithoutClientId = chatStateWith(fallbackStateWithoutClientId, { activeThread: { id: "thread-active" } });
+      fallbackStateWithoutClientId = chatStateWith(fallbackStateWithoutClientId, {
+        turn: { lifecycle: { kind: "running", turnId: "turn-active" } },
+      });
+      fallbackStateWithoutClientId = withChatStateMessageStreamItems(fallbackStateWithoutClientId, [
         {
           id: "local-user-without-client-id",
           kind: "message",
@@ -1213,22 +1271,24 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(fallbackStateWithoutClientId)).toEqual(
+      expect(chatStateMessageStreamItems(fallbackControllerWithoutClientId.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "server-u1", text: "fallback text" }),
           expect.objectContaining({ id: "local-user-other-turn", text: "fallback text" }),
         ]),
       );
-      expect(chatStateMessageStreamItems(fallbackStateWithoutClientId).some((item) => item.id === "local-user-without-client-id")).toBe(
-        false,
-      );
+      expect(
+        chatStateMessageStreamItems(fallbackControllerWithoutClientId.currentState()).some(
+          (item) => item.id === "local-user-without-client-id",
+        ),
+      ).toBe(false);
     });
 
     it("keeps the observed steer message order when completed turns reconcile by client id", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
-      setChatStateMessageStreamItems(state, [
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      state = withChatStateMessageStreamItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "start", turnId: "turn-active" },
         {
           id: "a1",
@@ -1266,8 +1326,8 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(state).map((item) => item.id)).toEqual(["u1", "a1", "u2", "a2"]);
-      expect(chatStateMessageStreamItems(state)).toEqual(
+      expect(chatStateMessageStreamItems(controller.currentState()).map((item) => item.id)).toEqual(["u1", "a1", "u2", "a2"]);
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "start" }),
           expect.objectContaining({ id: "a1", text: "first done" }),
@@ -1278,9 +1338,9 @@ describe("ChatInboundController", () => {
     });
 
     it("asks the view to auto-name completed turns", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const maybeNameThread = vi.fn();
       const controller = controllerForState(state, { maybeNameThread });
       const turn = {
@@ -1309,9 +1369,9 @@ describe("ChatInboundController", () => {
     });
 
     it("routes thread name notifications through catalog mutation effects", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.threadList.listedThreads = [panelThread("thread-active")];
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { threadList: { listedThreads: [panelThread("thread-active")] } });
       const applyThreadRenamed = vi.fn();
       const controller = controllerForState(state, { applyThreadRenamed });
 
@@ -1325,8 +1385,8 @@ describe("ChatInboundController", () => {
     });
 
     it("syncs active runtime state from thread settings notifications", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1353,24 +1413,24 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(state.activeThread.cwd).toBe("/workspace/active");
-      expect(state.runtime.activeModel).toBe("gpt-5.5");
-      expect(state.runtime.activeServiceTier).toBe("fast");
-      expect(state.runtime.activeApprovalPolicy).toBe("on-request");
-      expect(state.runtime.activeApprovalsReviewer).toBe("auto_review");
-      expect(state.runtime.activePermissionProfile).toBeNull();
-      expect(chatStateMessageStreamItems(state)).toEqual([]);
+      expect(controller.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(controller.currentState().runtime.activeModel).toBe("gpt-5.5");
+      expect(controller.currentState().runtime.activeServiceTier).toBe("fast");
+      expect(controller.currentState().runtime.activeApprovalPolicy).toBe("on-request");
+      expect(controller.currentState().runtime.activeApprovalsReviewer).toBe("auto_review");
+      expect(controller.currentState().runtime.activePermissionProfile).toBeNull();
+      expect(chatStateMessageStreamItems(controller.currentState())).toEqual([]);
     });
 
     it("ignores settings notifications for inactive threads", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.activeThread.cwd = "/workspace/active";
-      state.runtime.activeModel = "gpt-active";
-      state.runtime.activeServiceTier = "flex";
-      state.runtime.activeApprovalPolicy = "on-request";
-      state.runtime.activeApprovalsReviewer = "user";
-      state.runtime.activePermissionProfile = { id: ":workspace", extends: null };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
+      state = chatStateWith(state, { runtime: { activeModel: "gpt-active" } });
+      state = chatStateWith(state, { runtime: { activeServiceTier: "flex" } });
+      state = chatStateWith(state, { runtime: { activeApprovalPolicy: "on-request" } });
+      state = chatStateWith(state, { runtime: { activeApprovalsReviewer: "user" } });
+      state = chatStateWith(state, { runtime: { activePermissionProfile: { id: ":workspace", extends: null } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1397,18 +1457,18 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(state.activeThread.cwd).toBe("/workspace/active");
-      expect(state.runtime.activeModel).toBe("gpt-active");
-      expect(state.runtime.activeServiceTier).toBe("flex");
-      expect(state.runtime.activeApprovalPolicy).toBe("on-request");
-      expect(state.runtime.activeApprovalsReviewer).toBe("user");
-      expect(state.runtime.activePermissionProfile).toEqual({ id: ":workspace", extends: null });
+      expect(controller.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(controller.currentState().runtime.activeModel).toBe("gpt-active");
+      expect(controller.currentState().runtime.activeServiceTier).toBe("flex");
+      expect(controller.currentState().runtime.activeApprovalPolicy).toBe("on-request");
+      expect(controller.currentState().runtime.activeApprovalsReviewer).toBe("user");
+      expect(controller.currentState().runtime.activePermissionProfile).toEqual({ id: ":workspace", extends: null });
     });
 
     it("syncs null service tier from settings notifications", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.runtime.activeServiceTier = "flex";
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { runtime: { activeServiceTier: "flex" } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1435,12 +1495,12 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(state.runtime.activeServiceTier).toBeNull();
+      expect(controller.currentState().runtime.activeServiceTier).toBeNull();
     });
 
     it("adds goal events for goal state changes from notifications", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       const controller = controllerForState(state);
       const goal = {
         threadId: "thread-active",
@@ -1458,22 +1518,26 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: null, goal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
-      expect(state.activeThread.goal).toEqual(goal);
-      expect(chatStateMessageStreamItems(state).at(-1)).toMatchObject({ kind: "goal", text: "set: Finish", objective: "Finish" });
+      expect(controller.currentState().activeThread.goal).toEqual(goal);
+      expect(chatStateMessageStreamItems(controller.currentState()).at(-1)).toMatchObject({
+        kind: "goal",
+        text: "set: Finish",
+        objective: "Finish",
+      });
 
-      const afterSetMessageCount = chatStateMessageStreamItems(state).length;
+      const afterSetMessageCount = chatStateMessageStreamItems(controller.currentState()).length;
       controller.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(state)).toHaveLength(afterSetMessageCount);
+      expect(chatStateMessageStreamItems(controller.currentState())).toHaveLength(afterSetMessageCount);
 
       const updatedGoal = { ...goal, objective: "Finish well", updatedAt: 2 };
       controller.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: updatedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(state).at(-1)).toMatchObject({
+      expect(chatStateMessageStreamItems(controller.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "updated: Finish well",
         objective: "Finish well",
@@ -1487,7 +1551,7 @@ describe("ChatInboundController", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: pausedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(state).at(-1)).toMatchObject({
+      expect(chatStateMessageStreamItems(controller.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "paused: Finish well",
         objective: "Finish well",
@@ -1501,26 +1565,26 @@ describe("ChatInboundController", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: resumedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(state).at(-1)).toMatchObject({
+      expect(chatStateMessageStreamItems(controller.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "resumed: Finish well",
         objective: "Finish well",
       });
 
-      const messageCount = chatStateMessageStreamItems(state).length;
+      const messageCount = chatStateMessageStreamItems(controller.currentState()).length;
       controller.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: { ...resumedGoal, tokensUsed: 10, timeUsedSeconds: 20 } },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(state)).toHaveLength(messageCount);
+      expect(chatStateMessageStreamItems(controller.currentState())).toHaveLength(messageCount);
 
       controller.handleNotification({
         method: "thread/goal/cleared",
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
 
-      expect(state.activeThread.goal).toBeNull();
-      expect(chatStateMessageStreamItems(state).at(-1)).toMatchObject({
+      expect(controller.currentState().activeThread.goal).toBeNull();
+      expect(chatStateMessageStreamItems(controller.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "cleared: Finish well",
         objective: "Finish well",
@@ -1528,9 +1592,7 @@ describe("ChatInboundController", () => {
     });
 
     it("adds a goal event when a goal completes", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.activeThread.goal = {
+      const activeGoal = {
         threadId: "thread-active",
         objective: "Finish",
         status: "active",
@@ -1539,10 +1601,16 @@ describe("ChatInboundController", () => {
         timeUsedSeconds: 60,
         createdAt: 1,
         updatedAt: 1,
-      };
+      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
+      const state = chatStateFixture({
+        activeThread: {
+          id: "thread-active",
+          goal: activeGoal,
+        },
+      });
       const controller = controllerForState(state);
       const completedGoal = {
-        ...state.activeThread.goal,
+        ...activeGoal,
         status: "complete",
         tokensUsed: 42,
         timeUsedSeconds: 120,
@@ -1554,16 +1622,20 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", turnId: "turn-1", goal: completedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
-      expect(state.activeThread.goal).toEqual(completedGoal);
-      expect(chatStateMessageStreamItems(state)).toHaveLength(1);
-      expect(chatStateMessageStreamItems(state)[0]).toMatchObject({ kind: "goal", text: "completed: Finish", objective: "Finish" });
+      expect(controller.currentState().activeThread.goal).toEqual(completedGoal);
+      expect(chatStateMessageStreamItems(controller.currentState())).toHaveLength(1);
+      expect(chatStateMessageStreamItems(controller.currentState())[0]).toMatchObject({
+        kind: "goal",
+        text: "completed: Finish",
+        objective: "Finish",
+      });
 
       controller.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: "turn-1", goal: { ...completedGoal, tokensUsed: 43 } },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
-      expect(chatStateMessageStreamItems(state)).toHaveLength(1);
+      expect(chatStateMessageStreamItems(controller.currentState())).toHaveLength(1);
     });
 
     it("ignores goal notifications that do not match the active thread", () => {
@@ -1578,7 +1650,7 @@ describe("ChatInboundController", () => {
         updatedAt: 1,
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
 
-      const noActiveState = createChatState();
+      const noActiveState = chatStateFixture();
       const noActiveController = controllerForState(noActiveState);
       noActiveController.handleNotification({
         method: "thread/goal/updated",
@@ -1586,22 +1658,24 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
       expect(noActiveState.activeThread.goal).toBeNull();
 
-      const otherThreadState = createChatState();
-      otherThreadState.activeThread.id = "thread-active";
-      otherThreadState.activeThread.goal = { ...goal, threadId: "thread-active", objective: "Current" };
+      let otherThreadState = chatStateFixture();
+      otherThreadState = chatStateWith(otherThreadState, { activeThread: { id: "thread-active" } });
+      otherThreadState = chatStateWith(otherThreadState, {
+        activeThread: { goal: { ...goal, threadId: "thread-active", objective: "Current" } },
+      });
       const otherThreadController = controllerForState(otherThreadState);
       otherThreadController.handleNotification({
         method: "thread/goal/cleared",
         params: { threadId: "previous-thread" },
       } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
-      expect(otherThreadState.activeThread.goal.objective).toBe("Current");
+      expect(expectPresent(otherThreadState.activeThread.goal).objective).toBe("Current");
     });
   });
 
   describe("auto-review display", () => {
     it("renders guardian warnings as review results instead of system messages", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1609,7 +1683,7 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", message: "Auto-review denied this command." },
       } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
 
-      expect(chatStateMessageStreamItems(state)).toMatchObject([
+      expect(chatStateMessageStreamItems(controller.currentState())).toMatchObject([
         {
           kind: "reviewResult",
           role: "tool",
@@ -1619,9 +1693,9 @@ describe("ChatInboundController", () => {
     });
 
     it("renders auto approval review notifications as upserted review results", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1651,21 +1725,21 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
 
-      expect(chatStateMessageStreamItems(state)).toHaveLength(1);
-      expect(chatStateMessageStreamItems(state)[0]).toMatchObject({
+      expect(chatStateMessageStreamItems(controller.currentState())).toHaveLength(1);
+      expect(chatStateMessageStreamItems(controller.currentState())[0]).toMatchObject({
         id: "review-review-1",
         kind: "reviewResult",
         text: "Auto-review approved: npm test",
         executionState: "completed",
       });
-      const reviewItem = expectPresent(chatStateMessageStreamItems(state)[0]);
+      const reviewItem = expectPresent(chatStateMessageStreamItems(controller.currentState())[0]);
       expect(reviewItem).toMatchObject({ review: { auditFacts: expect.arrayContaining([{ key: "status", value: "approved" }]) } });
     });
 
     it("replaces guardian auto-review warnings when structured auto-review notifications arrive", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1687,8 +1761,8 @@ describe("ChatInboundController", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
 
-      expect(chatStateMessageStreamItems(state)).toHaveLength(1);
-      expect(chatStateMessageStreamItems(state)[0]).toMatchObject({
+      expect(chatStateMessageStreamItems(controller.currentState())).toHaveLength(1);
+      expect(chatStateMessageStreamItems(controller.currentState())[0]).toMatchObject({
         id: "review-review-1",
         kind: "reviewResult",
         text: "Auto-review approved: npm test",
@@ -1697,9 +1771,9 @@ describe("ChatInboundController", () => {
     });
 
     it("ignores guardian auto-review warnings after structured auto-review notifications", () => {
-      const state = createChatState();
-      state.activeThread.id = "thread-active";
-      state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+      let state = chatStateFixture();
+      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
       const controller = controllerForState(state);
 
       controller.handleNotification({
@@ -1721,8 +1795,8 @@ describe("ChatInboundController", () => {
         params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
       } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
 
-      expect(chatStateMessageStreamItems(state)).toHaveLength(1);
-      expect(chatStateMessageStreamItems(state)[0]).toMatchObject({ id: "review-review-1" });
+      expect(chatStateMessageStreamItems(controller.currentState())).toHaveLength(1);
+      expect(chatStateMessageStreamItems(controller.currentState())[0]).toMatchObject({ id: "review-review-1" });
     });
   });
 });

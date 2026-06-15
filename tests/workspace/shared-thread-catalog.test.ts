@@ -2,7 +2,7 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
-import { createServerDiagnostics, diagnosticProbeOk } from "../../src/domain/server/diagnostics";
+import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import { SharedThreadCatalog } from "../../src/workspace/shared-thread-catalog";
@@ -208,8 +208,7 @@ function model(modelId: string): ModelMetadata {
 }
 
 function serverMetadata(overrides: Partial<SharedServerMetadata> = {}): SharedServerMetadata {
-  const diagnostics = createServerDiagnostics();
-  diagnostics.probes["model/list"] = diagnosticProbeOk("model/list", "0 models");
+  const diagnostics = diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "0 models"));
   return {
     runtimeConfig: null,
     availableModels: [],

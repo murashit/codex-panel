@@ -18,18 +18,18 @@ import {
 } from "./pending-settings";
 
 export interface ChatRuntimeState {
-  activeModel: string | null;
-  activeReasoningEffort: ReasoningEffort | null;
-  activeCollaborationMode: ActiveCollaborationMode;
-  activeServiceTier: ServiceTier | null;
-  activeApprovalPolicy: ApprovalPolicy | null;
-  activeApprovalsReviewer: ApprovalsReviewer | null;
-  activePermissionProfile: ActivePermissionProfile | null;
-  requestedModel: PendingRuntimeSetting<string>;
-  requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
-  requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
-  selectedCollaborationMode: CollaborationMode;
-  requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
+  readonly activeModel: string | null;
+  readonly activeReasoningEffort: ReasoningEffort | null;
+  readonly activeCollaborationMode: ActiveCollaborationMode;
+  readonly activeServiceTier: ServiceTier | null;
+  readonly activeApprovalPolicy: ApprovalPolicy | null;
+  readonly activeApprovalsReviewer: ApprovalsReviewer | null;
+  readonly activePermissionProfile: ActivePermissionProfile | null;
+  readonly requestedModel: PendingRuntimeSetting<string>;
+  readonly requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
+  readonly requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
+  readonly selectedCollaborationMode: CollaborationMode;
+  readonly requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
 }
 
 export function initialActiveChatRuntimeState(): Pick<

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../src/domain/server/diagnostics";
+import {
+  createServerDiagnostics,
+  diagnosticProbeError,
+  diagnosticProbeOk,
+  diagnosticsWithProbe,
+} from "../../src/domain/server/diagnostics";
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { AppServerQueryContext } from "../../src/app-server/query/keys";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/app-server/protocol/runtime-config";
@@ -193,19 +198,25 @@ function metadata(
     rateLimitProbeStatus?: "ok" | "failed";
   } = {},
 ): SharedServerMetadata {
-  const diagnostics = createServerDiagnostics();
-  diagnostics.probes["model/list"] =
+  let diagnostics = createServerDiagnostics();
+  diagnostics = diagnosticsWithProbe(
+    diagnostics,
     overrides.modelProbeStatus === "failed"
       ? diagnosticProbeError("model/list", new Error("offline"))
-      : diagnosticProbeOk("model/list", "1 models");
-  diagnostics.probes["skills/list"] =
+      : diagnosticProbeOk("model/list", "1 models"),
+  );
+  diagnostics = diagnosticsWithProbe(
+    diagnostics,
     overrides.skillsProbeStatus === "failed"
       ? diagnosticProbeError("skills/list", new Error("offline"))
-      : diagnosticProbeOk("skills/list", "0 skills");
-  diagnostics.probes["account/rateLimits/read"] =
+      : diagnosticProbeOk("skills/list", "0 skills"),
+  );
+  diagnostics = diagnosticsWithProbe(
+    diagnostics,
     overrides.rateLimitProbeStatus === "failed"
       ? diagnosticProbeError("account/rateLimits/read", new Error("offline"))
-      : diagnosticProbeOk("account/rateLimits/read", "available");
+      : diagnosticProbeOk("account/rateLimits/read", "available"),
+  );
   return {
     runtimeConfig: overrides.runtimeConfig ?? emptyRuntimeConfigSnapshot(),
     availableModels: overrides.availableModels ?? [modelMetadata("gpt-5.5")],

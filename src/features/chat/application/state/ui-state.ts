@@ -3,18 +3,29 @@ import type { PendingRequestId } from "../../domain/pending-requests/model";
 import type { DisclosureSetAction } from "./actions";
 
 export type ChatRenameUiState =
-  | { kind: "idle" }
-  | { kind: "editing"; threadId: string; draft: string }
-  | { kind: "generating"; threadId: string; draft: string; originalDraft: string; generationId: number };
+  | { readonly kind: "idle" }
+  | { readonly kind: "editing"; readonly threadId: string; readonly draft: string }
+  | {
+      readonly kind: "generating";
+      readonly threadId: string;
+      readonly draft: string;
+      readonly originalDraft: string;
+      readonly generationId: number;
+    };
 
 export type ChatRenameGeneratingUiState = Extract<ChatRenameUiState, { kind: "generating" }>;
 
 type ChatGoalEditorUiState =
-  | { kind: "closed" }
-  | { kind: "editing"; threadId: string | null; objectiveDraft: string; tokenBudgetDraft: number | null };
+  | { readonly kind: "closed" }
+  | {
+      readonly kind: "editing";
+      readonly threadId: string | null;
+      readonly objectiveDraft: string;
+      readonly tokenBudgetDraft: number | null;
+    };
 
 interface ChatMessageActionsUiState {
-  forkActionsItemId: string | null;
+  readonly forkActionsItemId: string | null;
 }
 
 export type ChatDisclosureBucket =
@@ -27,22 +38,22 @@ export type ChatDisclosureBucket =
   | "approvalDetails";
 
 export interface ChatDisclosureUiState {
-  toolResults: ReadonlySet<string>;
-  activityGroups: ReadonlySet<string>;
-  agentDetails: ReadonlySet<string>;
-  textDetails: ReadonlySet<string>;
-  userMessageExpanded: ReadonlySet<string>;
-  goalObjectiveExpanded: ReadonlySet<string>;
-  approvalDetails: ReadonlySet<string>;
+  readonly toolResults: ReadonlySet<string>;
+  readonly activityGroups: ReadonlySet<string>;
+  readonly agentDetails: ReadonlySet<string>;
+  readonly textDetails: ReadonlySet<string>;
+  readonly userMessageExpanded: ReadonlySet<string>;
+  readonly goalObjectiveExpanded: ReadonlySet<string>;
+  readonly approvalDetails: ReadonlySet<string>;
 }
 
 export interface ChatUiState {
-  toolbarPanel: "history" | "chat-actions" | "status-panel" | null;
-  archiveConfirmThreadId: string | null;
-  rename: ChatRenameUiState;
-  goalEditor: ChatGoalEditorUiState;
-  messageActions: ChatMessageActionsUiState;
-  disclosures: ChatDisclosureUiState;
+  readonly toolbarPanel: "history" | "chat-actions" | "status-panel" | null;
+  readonly archiveConfirmThreadId: string | null;
+  readonly rename: ChatRenameUiState;
+  readonly goalEditor: ChatGoalEditorUiState;
+  readonly messageActions: ChatMessageActionsUiState;
+  readonly disclosures: ChatDisclosureUiState;
 }
 
 export type UiAction =

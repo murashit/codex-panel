@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   diagnosticProbeError,
   diagnosticProbeOk,
+  diagnosticsWithProbe,
   createServerDiagnostics,
   upsertMcpServerDiagnostic,
   upsertMcpServerStatusDiagnostics,
@@ -12,8 +13,8 @@ import { connectionDiagnosticSections } from "../../../src/features/chat/applica
 describe("connection diagnostics", () => {
   it("formats base rows, capability probes, and MCP issues for /doctor", () => {
     let diagnostics = createServerDiagnostics();
-    diagnostics.probes["model/list"] = diagnosticProbeOk("model/list", "12 models", 1);
-    diagnostics.probes["skills/list"] = diagnosticProbeError("skills/list", new Error("unknown method skills/list"), 2);
+    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeOk("model/list", "12 models", 1));
+    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeError("skills/list", new Error("unknown method skills/list"), 2));
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "github",
       startupStatus: "failed",

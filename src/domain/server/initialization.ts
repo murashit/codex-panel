@@ -1,6 +1,6 @@
 export interface ServerInitialization {
-  userAgent: string;
-  codexHome: string;
-  platformFamily: string;
-  platformOs: string;
+  readonly userAgent: string;
+  readonly codexHome: string;
+  readonly platformFamily: string;
+  readonly platformOs: string;
 }

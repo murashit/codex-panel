@@ -5,7 +5,6 @@ import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import { archiveThreadOnAppServer } from "../../../../src/app-server/services/thread-archive";
 import type { ArchiveExportAdapter } from "../../../../src/app-server/services/thread-archive-markdown";
 import { threadRenameFromValue } from "../../../../src/app-server/services/thread-rename";
-import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import {
   createThreadManagementActions,
@@ -15,7 +14,8 @@ import {
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred, waitForAsyncWork } from "../../../support/async";
-import { chatStateMessageStreamItems, setChatStateMessageStreamItems } from "../support/message-stream";
+import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../support/message-stream";
+import { chatStateFixture } from "../support/state";
 
 type MockArchiveExportAdapter = ArchiveExportAdapter & {
   exists: ReturnType<typeof vi.fn<ArchiveExportAdapter["exists"]>>;
@@ -421,8 +421,7 @@ function hostMock({
   archiveAdapter?: ArchiveExportAdapter;
   settings?: Partial<typeof DEFAULT_SETTINGS>;
 }) {
-  const state = createChatState();
-  setChatStateMessageStreamItems(state, items);
+  const state = withChatStateMessageStreamItems(chatStateFixture(), items);
   const stateStore = createChatStateStore(state);
   const notifyThreadArchived = vi.fn();
   const notifyThreadRenamed = vi.fn();

@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import { deferred } from "../../../support/async";
 import { chatStateMessageStreamItems } from "../support/message-stream";
+import { chatStateFixture, chatStateWith } from "../support/state";
 
 describe("HistoryController", () => {
   it("keeps the latest history load when an older request resolves later", async () => {
@@ -91,8 +91,8 @@ describe("HistoryController", () => {
 type ThreadTurnsListResponse = Awaited<ReturnType<AppServerClient["threadTurnsList"]>>;
 
 function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) {
-  const state = createChatState();
-  state.activeThread.id = "thread";
+  let state = chatStateFixture();
+  state = chatStateWith(state, { activeThread: { id: "thread" } });
   const stateStore = createChatStateStore(state);
   const dispatch = vi.spyOn(stateStore, "dispatch");
   const addSystemMessage = vi.fn();

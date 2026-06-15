@@ -4,20 +4,20 @@ export type ApprovalPolicy =
   | "on-failure"
   | "on-request"
   | {
-      granular: {
-        sandbox_approval: boolean;
-        rules: boolean;
-        skill_approval: boolean;
-        request_permissions: boolean;
-        mcp_elicitations: boolean;
+      readonly granular: {
+        readonly sandbox_approval: boolean;
+        readonly rules: boolean;
+        readonly skill_approval: boolean;
+        readonly request_permissions: boolean;
+        readonly mcp_elicitations: boolean;
       };
     }
   | "never";
 export type ServiceTier = string;
 
 export interface ActivePermissionProfile {
-  id: string;
-  extends: string | null;
+  readonly id: string;
+  readonly extends: string | null;
 }
 
 export function approvalsReviewerOrNull(value: unknown): ApprovalsReviewer | null {

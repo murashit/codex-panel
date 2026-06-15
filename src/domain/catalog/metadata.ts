@@ -1,45 +1,45 @@
 interface ModelServiceTier {
-  id: string;
-  name: string;
+  readonly id: string;
+  readonly name: string;
 }
 
 export interface ModelMetadata {
-  id: string;
-  model: string;
-  displayName: string;
-  description: string;
-  hidden: boolean;
-  supportedReasoningEfforts: readonly string[];
-  defaultReasoningEffort: string | null;
-  inputModalities: readonly string[];
-  additionalSpeedTiers: readonly string[];
-  serviceTiers: readonly ModelServiceTier[];
-  defaultServiceTier: string | null;
-  isDefault: boolean;
+  readonly id: string;
+  readonly model: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly hidden: boolean;
+  readonly supportedReasoningEfforts: readonly string[];
+  readonly defaultReasoningEffort: string | null;
+  readonly inputModalities: readonly string[];
+  readonly additionalSpeedTiers: readonly string[];
+  readonly serviceTiers: readonly ModelServiceTier[];
+  readonly defaultServiceTier: string | null;
+  readonly isDefault: boolean;
 }
 
 export interface SkillMetadata {
-  name: string;
-  description: string;
-  shortDescription?: string;
-  interfaceShortDescription?: string;
-  path: string;
-  enabled: boolean;
+  readonly name: string;
+  readonly description: string;
+  readonly shortDescription?: string;
+  readonly interfaceShortDescription?: string;
+  readonly path: string;
+  readonly enabled: boolean;
 }
 
 type HookTrustStatus = "managed" | "untrusted" | "trusted" | "modified";
 
 export interface HookItem {
-  key: string;
-  eventName: string;
-  matcher: string | null;
-  command: string | null;
-  statusMessage: string | null;
-  sourcePath: string;
-  enabled: boolean;
-  isManaged: boolean;
-  currentHash: string;
-  trustStatus: HookTrustStatus;
+  readonly key: string;
+  readonly eventName: string;
+  readonly matcher: string | null;
+  readonly command: string | null;
+  readonly statusMessage: string | null;
+  readonly sourcePath: string;
+  readonly enabled: boolean;
+  readonly isManaged: boolean;
+  readonly currentHash: string;
+  readonly trustStatus: HookTrustStatus;
 }
 
 export type ReasoningEffort = string;

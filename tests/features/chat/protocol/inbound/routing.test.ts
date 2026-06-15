@@ -9,8 +9,8 @@ import {
   PLANNED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND,
   planChatNotification,
 } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };
 
@@ -220,9 +220,9 @@ describe("chat inbound routing", () => {
   });
 
   it("safely ignores unknown runtime notifications in the planner", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-active";
-    state.turn.lifecycle = { kind: "running", turnId: "turn-active" };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
     const notification = {
       method: "future/notification",
       params: { threadId: "thread-active", turnId: "turn-active" },

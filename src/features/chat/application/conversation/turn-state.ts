@@ -1,12 +1,12 @@
 export interface PendingTurnStart {
-  anchorItemId: string;
-  promptSubmitHookItemIds: string[];
+  readonly anchorItemId: string;
+  readonly promptSubmitHookItemIds: readonly string[];
 }
 
 export type ChatTurnLifecycleState =
-  | { kind: "idle" }
-  | { kind: "starting"; pendingTurnStart: PendingTurnStart }
-  | { kind: "running"; turnId: string };
+  | { readonly kind: "idle" }
+  | { readonly kind: "starting"; readonly pendingTurnStart: PendingTurnStart }
+  | { readonly kind: "running"; readonly turnId: string };
 
 export type ChatTurnLifecycleEvent =
   | { type: "started"; turnId: string }
@@ -18,7 +18,7 @@ export type ChatTurnLifecycleEvent =
   | { type: "pending-start-hook-upserted"; pendingTurnStart: PendingTurnStart | null };
 
 export interface ChatTurnState {
-  lifecycle: ChatTurnLifecycleState;
+  readonly lifecycle: ChatTurnLifecycleState;
 }
 
 export function initialChatTurnState(): ChatTurnState {

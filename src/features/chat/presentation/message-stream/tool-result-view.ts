@@ -25,7 +25,7 @@ export type ToolResultMessageStreamItem =
   | ReviewResultMessageStreamItem;
 
 export type ToolResultDetailSection =
-  | { kind: "meta"; title?: string; rows: { key: string; value: string }[] }
+  | { kind: "meta"; title?: string; rows: readonly { readonly key: string; readonly value: string }[] }
   | { kind: "output"; title: string; body: string }
   | { kind: "diff"; title: string; diff: string };
 

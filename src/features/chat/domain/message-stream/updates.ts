@@ -22,7 +22,7 @@ function mergeOutput(previous: MessageStreamItem, next: MessageStreamItem): stri
   return nextOutput && nextOutput.length > 0 ? nextOutput : previousOutput;
 }
 
-function mergeChanges(previous: MessageStreamItem, next: MessageStreamItem): MessageStreamFileChange[] | undefined {
+function mergeChanges(previous: MessageStreamItem, next: MessageStreamItem): readonly MessageStreamFileChange[] | undefined {
   const previousChanges = previous.kind === "fileChange" ? previous.changes : undefined;
   const nextChanges = next.kind === "fileChange" ? next.changes : undefined;
   return nextChanges && nextChanges.length > 0 ? nextChanges : previousChanges;

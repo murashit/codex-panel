@@ -9,19 +9,19 @@ import {
 } from "../../domain/message-stream/factories/streaming-items";
 
 export interface ChatMessageStreamActiveSegment {
-  turnId: string | null;
-  items: readonly MessageStreamItem[];
-  indexById: ReadonlyMap<string, number>;
-  indexBySourceItemId: ReadonlyMap<string, number>;
+  readonly turnId: string | null;
+  readonly items: readonly MessageStreamItem[];
+  readonly indexById: ReadonlyMap<string, number>;
+  readonly indexBySourceItemId: ReadonlyMap<string, number>;
 }
 
 export interface ChatMessageStreamState {
-  stableItems: readonly MessageStreamItem[];
-  activeSegment: ChatMessageStreamActiveSegment | null;
-  turnDiffs: ReadonlyMap<string, string>;
-  historyCursor: string | null;
-  loadingHistory: boolean;
-  reportedLogs: ReadonlySet<string>;
+  readonly stableItems: readonly MessageStreamItem[];
+  readonly activeSegment: ChatMessageStreamActiveSegment | null;
+  readonly turnDiffs: ReadonlyMap<string, string>;
+  readonly historyCursor: string | null;
+  readonly loadingHistory: boolean;
+  readonly reportedLogs: ReadonlySet<string>;
 }
 
 export interface MessageStreamRollbackCandidate {

@@ -6,7 +6,7 @@ import {
   type SkillMetadataProbeResult,
 } from "../../../../app-server/services/metadata";
 import type { ModelMetadata } from "../../../../domain/catalog/metadata";
-import { diagnosticProbeError, diagnosticProbeOk } from "../../../../domain/server/diagnostics";
+import { diagnosticsWithProbe, diagnosticProbeError, diagnosticProbeOk } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";
 
@@ -93,10 +93,10 @@ async function loadAppServerMetadataFromClient(
     readSkillMetadataProbe(client, host.vaultPath),
     readRateLimitMetadataProbe(client),
   ]);
-  const diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
-  diagnostics.probes["model/list"] = models.probe;
-  diagnostics.probes["skills/list"] = skills.probe;
-  diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
+  const diagnostics = [models.probe, skills.probe, rateLimit.probe].reduce(
+    (current, probe) => diagnosticsWithProbe(current, probe),
+    cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics),
+  );
   return {
     runtimeConfig,
     availableModels: models.data,
@@ -144,8 +144,7 @@ async function refreshSkills(host: ChatServerMetadataActionsHost, forceReload = 
   const client = host.currentClient();
   const skills = await readSkillMetadataProbe(client, host.vaultPath, forceReload);
   if (client && host.currentClient() !== client) return false;
-  const diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
-  diagnostics.probes["skills/list"] = skills.probe;
+  const diagnostics = diagnosticsWithProbe(cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics), skills.probe);
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     availableSkills: skills.data,
@@ -167,8 +166,10 @@ async function refreshRateLimits(host: ChatServerMetadataActionsHost): Promise<v
   const client = host.currentClient();
   const rateLimit = await readRateLimitMetadataProbe(client);
   if (client && host.currentClient() !== client) return;
-  const diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
-  diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
+  const diagnostics = diagnosticsWithProbe(
+    cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics),
+    rateLimit.probe,
+  );
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     rateLimit: rateLimit.data,
@@ -180,8 +181,10 @@ async function refreshPublishedRateLimits(host: ChatServerMetadataActionsHost): 
   const client = host.currentClient();
   const rateLimit = await readRateLimitMetadataProbe(client);
   if (client && host.currentClient() !== client) return;
-  const diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
-  diagnostics.probes["account/rateLimits/read"] = rateLimit.probe;
+  const diagnostics = diagnosticsWithProbe(
+    cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics),
+    rateLimit.probe,
+  );
   if (rateLimit.probe.status === "ok") {
     host.stateStore.dispatch({
       type: "connection/metadata-applied",

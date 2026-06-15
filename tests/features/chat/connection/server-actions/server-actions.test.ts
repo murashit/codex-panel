@@ -9,21 +9,21 @@ import { createChatServerDiagnosticsActions } from "../../../../../src/features/
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/app-server/actions/metadata";
 import { createChatServerThreadActions } from "../../../../../src/features/chat/app-server/actions/threads";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   modelMetadataFromCatalogModels,
   type CatalogModel,
   type CatalogSkillMetadata,
 } from "../../../../../src/app-server/protocol/catalog";
+import { chatStateFixture, chatStateWith } from "../../support/state";
 
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startThread"]>>;
 
 describe("chat server actions", () => {
   it("publishes newly started threads before the first turn completes", async () => {
-    const state = createChatState();
+    let state = chatStateFixture();
     const existing = threadFixture("existing");
-    state.threadList.listedThreads = [threadFromThreadRecord(existing)];
+    state = chatStateWith(state, { threadList: { listedThreads: [threadFromThreadRecord(existing)] } });
     const stateStore = createChatStateStore(state);
     const started = threadFixture("started");
     const optimistic = threadFromThreadRecord({ ...started, preview: "first prompt" });
@@ -60,7 +60,7 @@ describe("chat server actions", () => {
   });
 
   it("keeps empty-panel runtime reservations when starting the first thread", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     stateStore.dispatch({ type: "runtime/model-requested", model: "gpt-5.5" });
     stateStore.dispatch({ type: "runtime/reasoning-effort-requested", effort: "high" });
     stateStore.dispatch({ type: "runtime/service-tier-requested", serviceTier: "fast" });
@@ -102,7 +102,7 @@ describe("chat server actions", () => {
   });
 
   it("can skip newly started thread goal sync when the caller sets the first goal", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     const started = threadFixture("started");
     const syncThreadGoal = vi.fn();
     const client = {
@@ -133,8 +133,8 @@ describe("chat server actions", () => {
   });
 
   it("starts threads with service tier from explicit effective config", async () => {
-    const state = createChatState();
-    state.connection.runtimeConfig = { ...emptyRuntimeConfigSnapshot(), serviceTier: "flex" };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { connection: { runtimeConfig: { ...emptyRuntimeConfigSnapshot(), serviceTier: "flex" } } });
     const stateStore = createChatStateStore(state);
     const started = threadFixture("started");
     const startThread = vi.fn().mockResolvedValue({
@@ -166,7 +166,7 @@ describe("chat server actions", () => {
   });
 
   it("keeps app-server preview when newly started threads already have one", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     const started = threadFixture("started", { preview: "server preview" });
     const publishThreadList = vi.fn();
     const client = {
@@ -197,7 +197,7 @@ describe("chat server actions", () => {
   });
 
   it("does not apply newly started threads after the client changes", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     const start = deferred<Awaited<ReturnType<AppServerClient["startThread"]>>>();
     const firstClient = {
       startThread: vi.fn().mockReturnValue(start.promise),
@@ -240,7 +240,7 @@ describe("chat server actions", () => {
   });
 
   it("reuses cached app-server metadata for deferred diagnostics", async () => {
-    const state = createChatState();
+    const state = chatStateFixture();
     const stateStore = createChatStateStore(state);
 
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([modelFixture("gpt-5.1")]));
@@ -300,7 +300,7 @@ describe("chat server actions", () => {
   });
 
   it("does not apply or publish diagnostic probes after the client changes", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     const hooksRefresh = deferred<{ data: { cwd: string; hooks: unknown[] }[] }>();
     const listHooks = vi.fn().mockReturnValue(hooksRefresh.promise);
     const firstClient = {
@@ -342,7 +342,7 @@ describe("chat server actions", () => {
   });
 
   it("loads one app-server metadata snapshot from the initially captured client", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     const readEffectiveConfig = deferred<Record<string, never>>();
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([modelFixture("gpt-first")]));
     const firstListSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("first-skill")] }] });
@@ -385,7 +385,7 @@ describe("chat server actions", () => {
   });
 
   it("does not apply or publish app-server metadata when the client changes before refresh completes", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     const readEffectiveConfig = deferred<Record<string, never>>();
     const firstClient = {
       readEffectiveConfig: vi.fn().mockReturnValue(readEffectiveConfig.promise),
@@ -417,7 +417,7 @@ describe("chat server actions", () => {
   });
 
   it("keeps query-cached models visible when metadata model refresh fails", async () => {
-    const state = createChatState();
+    const state = chatStateFixture();
     const stateStore = createChatStateStore(state);
     const client = {
       readEffectiveConfig: vi.fn().mockResolvedValue({}),
@@ -441,8 +441,8 @@ describe("chat server actions", () => {
   });
 
   it("does not use chat state as a second model source when metadata model refresh fails", async () => {
-    const state = createChatState();
-    state.connection.availableModels = modelMetadataFromCatalogModels([modelFixture("gpt-state-only")]);
+    let state = chatStateFixture();
+    state = chatStateWith(state, { connection: { availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-state-only")]) } });
     const stateStore = createChatStateStore(state);
     const client = {
       readEffectiveConfig: vi.fn().mockResolvedValue({}),
@@ -466,7 +466,7 @@ describe("chat server actions", () => {
   });
 
   it("does not apply or publish refreshed skills after the client changes", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     const skillRefresh = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const listSkills = vi.fn().mockReturnValue(skillRefresh.promise);
     const firstClient = { listSkills } as unknown as AppServerClient;
@@ -495,7 +495,7 @@ describe("chat server actions", () => {
   });
 
   it("publishes refreshed rate limits from sparse update notifications", async () => {
-    const state = createChatState();
+    const state = chatStateFixture();
     const stateStore = createChatStateStore(state);
     const rateLimit = rateLimitFixture({ primary: { usedPercent: 64, windowDurationMins: 300, resetsAt: null } });
     const setAppServerMetadata = vi.fn();
@@ -519,12 +519,12 @@ describe("chat server actions", () => {
   });
 
   it("keeps the previous rate limit snapshot when sparse update refresh fails", async () => {
-    const state = createChatState();
+    let state = chatStateFixture();
     const previousRateLimit = rateLimitFixture({
       limitName: "Codex",
       primary: { usedPercent: 42, windowDurationMins: 300, resetsAt: null },
     });
-    state.connection.rateLimit = previousRateLimit;
+    state = chatStateWith(state, { connection: { rateLimit: previousRateLimit } });
     const stateStore = createChatStateStore(state);
     const setAppServerMetadata = vi.fn();
     const client = {
@@ -548,7 +548,7 @@ describe("chat server actions", () => {
   });
 
   it("does not apply or publish sparse rate limit refreshes after the client changes", async () => {
-    const stateStore = createChatStateStore(createChatState());
+    const stateStore = createChatStateStore(chatStateFixture());
     const rateLimitRefresh = deferred<{ rateLimits: RateLimitSnapshot; rateLimitsByLimitId: null }>();
     const firstClient = {
       readAccountRateLimits: vi.fn().mockReturnValue(rateLimitRefresh.promise),
@@ -580,8 +580,8 @@ describe("chat server actions", () => {
   });
 
   it("loads MCP status lines with cached startup diagnostics", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-1";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     const stateStore = createChatStateStore(state);
     const listMcpServerStatus = vi.fn().mockResolvedValue({ data: [mcpServerStatus()] });
     const client = {

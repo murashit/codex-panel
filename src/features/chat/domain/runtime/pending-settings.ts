@@ -1,6 +1,9 @@
 export type CollaborationMode = "default" | "plan";
 export type ActiveCollaborationMode = CollaborationMode | null;
-export type PendingRuntimeSetting<T> = { kind: "unchanged" } | { kind: "set"; value: T } | { kind: "resetToConfig" };
+export type PendingRuntimeSetting<T> =
+  | { readonly kind: "unchanged" }
+  | { readonly kind: "set"; readonly value: T }
+  | { readonly kind: "resetToConfig" };
 export type RequestedServiceTier = "fast" | "off";
 
 export function unchangedRuntimeSetting<T>(): PendingRuntimeSetting<T> {

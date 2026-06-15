@@ -9,7 +9,6 @@ import {
   type ConfigReadResult,
   type RuntimeConfigSnapshot,
 } from "../../../../../src/app-server/protocol/runtime-config";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../../../src/features/chat/presentation/runtime/status";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
@@ -20,7 +19,8 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { ChatPanelGoal } from "../../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelComposerSurface, ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/model";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { setChatStateMessageStreamItems } from "../../support/message-stream";
+import { withChatStateMessageStreamItems } from "../../support/message-stream";
+import { chatStateFixture, chatStateWith } from "../../support/state";
 import { ChatPanelShellStateContext, createChatPanelShellState } from "../../../../../src/features/chat/panel/shell-state";
 import type { ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
@@ -30,15 +30,19 @@ installObsidianDomShims();
 
 describe("chat panel surface projections", () => {
   it("builds toolbar rows from immutable chat state snapshots", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-1";
-    state.threadList.listedThreads = [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")];
-    state.turn.lifecycle = { kind: "running", turnId: "turn" };
-    state.ui.toolbarPanel = "history";
-    state.ui.archiveConfirmThreadId = "thread-2";
-    state.ui.rename = { kind: "editing", threadId: "thread-1", draft: "Active" };
-    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
-    state.connection.serverDiagnostics = createServerDiagnostics();
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
+    state = chatStateWith(state, {
+      threadList: { listedThreads: [threadFixture("thread-1", "Active"), threadFixture("thread-2", "Other")] },
+    });
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
+    state = chatStateWith(state, { ui: { toolbarPanel: "history" } });
+    state = chatStateWith(state, { ui: { archiveConfirmThreadId: "thread-2" } });
+    state = chatStateWith(state, { ui: { rename: { kind: "editing", threadId: "thread-1", draft: "Active" } } });
+    state = chatStateWith(state, {
+      connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" }) },
+    });
+    state = chatStateWith(state, { connection: { serverDiagnostics: createServerDiagnostics() } });
 
     const parent = renderWithShellState(
       state,
@@ -58,11 +62,13 @@ describe("chat panel surface projections", () => {
   });
 
   it("renders raw runtime debug details from toolbar state sources", () => {
-    const state = createChatState();
-    state.ui.toolbarPanel = "status-panel";
-    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-debug", approval_policy: "on-request" });
-    state.connection.availableModels = [modelFixture("gpt-debug")];
-    state.runtime.requestedModel = { kind: "set", value: "gpt-debug" };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { ui: { toolbarPanel: "status-panel" } });
+    state = chatStateWith(state, {
+      connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-debug", approval_policy: "on-request" }) },
+    });
+    state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-debug")] } });
+    state = chatStateWith(state, { runtime: { requestedModel: { kind: "set", value: "gpt-debug" } } });
 
     const parent = renderWithShellState(state, h(ChatPanelToolbar, { surface: toolbarSurfaceFixture(), actions: toolbarActionsFixture() }));
 
@@ -79,20 +85,28 @@ describe("chat panel surface projections", () => {
   });
 
   it("builds composer meta from context and runtime state", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-1";
-    state.runtime.selectedCollaborationMode = "plan";
-    state.connection.runtimeConfig = runtimeConfigFixture({
-      model: "gpt-5.5",
-      model_reasoning_effort: "high",
-      approvals_reviewer: "auto_review",
-      service_tier: "fast",
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
+    state = chatStateWith(state, { runtime: { selectedCollaborationMode: "plan" } });
+    state = chatStateWith(state, {
+      connection: {
+        runtimeConfig: runtimeConfigFixture({
+          model: "gpt-5.5",
+          model_reasoning_effort: "high",
+          approvals_reviewer: "auto_review",
+          service_tier: "fast",
+        }),
+      },
     });
-    state.activeThread.tokenUsage = {
-      last: { inputTokens: 42, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 44 },
-      total: { inputTokens: 40, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 42 },
-      modelContextWindow: 100,
-    };
+    state = chatStateWith(state, {
+      activeThread: {
+        tokenUsage: {
+          last: { inputTokens: 42, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 44 },
+          total: { inputTokens: 40, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 42 },
+          modelContextWindow: 100,
+        },
+      },
+    });
 
     expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: null,
@@ -114,9 +128,9 @@ describe("chat panel surface projections", () => {
   });
 
   it("uses a neutral composer context indicator when usage is unavailable", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-1";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "item",
         turnId: "turn-1",
@@ -127,7 +141,7 @@ describe("chat panel surface projections", () => {
         role: "assistant",
       },
     ]);
-    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5" });
+    state = chatStateWith(state, { connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }) } });
 
     expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: null,
@@ -147,13 +161,17 @@ describe("chat panel surface projections", () => {
   });
 
   it("keeps zero percent composer context fixed-width and visible", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-1";
-    state.activeThread.tokenUsage = {
-      last: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
-      total: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
-      modelContextWindow: 100,
-    };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
+    state = chatStateWith(state, {
+      activeThread: {
+        tokenUsage: {
+          last: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
+          total: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
+          modelContextWindow: 100,
+        },
+      },
+    });
 
     expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
       context: {
@@ -170,8 +188,8 @@ describe("chat panel surface projections", () => {
   });
 
   it("replaces composer meta with fatal connection state", () => {
-    const state = createChatState();
-    state.connection.phase = { kind: "failed", message: "Connection failed." };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { connection: { phase: { kind: "failed", message: "Connection failed." } } });
 
     expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: "Codex app-server disconnected",
@@ -193,15 +211,19 @@ describe("chat panel surface projections", () => {
   });
 
   it("builds slash-command status lines from chat state", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-1";
-    state.connection.runtimeConfig = runtimeConfigFixture({
-      model: "gpt-5.5",
-      model_provider: "openai",
-      model_reasoning_effort: "high",
-      service_tier: "fast",
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
+    state = chatStateWith(state, {
+      connection: {
+        runtimeConfig: runtimeConfigFixture({
+          model: "gpt-5.5",
+          model_provider: "openai",
+          model_reasoning_effort: "high",
+          service_tier: "fast",
+        }),
+      },
     });
-    state.connection.availableModels = [modelFixture("gpt-5.5")];
+    state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5")] } });
     const snapshot = runtimeSnapshotFixture(state);
 
     expect(statusSummaryLines({ activeThreadId: state.activeThread.id, snapshot, nowMs: 0 })[1]).toBe("Thread: thread-1");
@@ -231,9 +253,11 @@ describe("chat panel surface projections", () => {
   });
 
   it("builds runtime composer choices from immutable chat state snapshots", () => {
-    const state = createChatState();
-    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
-    state.connection.availableModels = [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")];
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" }) },
+    });
+    state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5"), modelFixture("gpt-5-mini")] } });
     const selectedModels: string[] = [];
     const selectedEfforts: string[] = [];
 
@@ -267,9 +291,9 @@ describe("chat panel surface projections", () => {
   });
 
   it("routes goal status actions to the rendered goal thread", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-rendered";
-    state.activeThread.goal = goalFixture("thread-rendered");
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-rendered" } });
+    state = chatStateWith(state, { activeThread: { goal: goalFixture("thread-rendered") } });
     const statuses: [string, string][] = [];
     const clears: string[] = [];
     const surface = {
@@ -294,13 +318,12 @@ describe("chat panel surface projections", () => {
     } satisfies ChatPanelGoalSurface;
 
     const parent = renderWithShellState(state, h(ChatPanelGoal, { surface }));
-    state.activeThread.id = "thread-current";
+    state = chatStateWith(state, { activeThread: { id: "thread-current" } });
     clickLabeledButton(parent, "Pause goal");
     clickLabeledButton(parent, "Clear goal");
 
-    state.activeThread.goal = { ...goalFixture("thread-rendered"), status: "paused" };
+    state = chatStateWith(state, { activeThread: { goal: { ...goalFixture("thread-rendered"), status: "paused" } } });
     const resumeParent = renderWithShellState(state, h(ChatPanelGoal, { surface }));
-    state.activeThread.id = "thread-current";
     clickLabeledButton(resumeParent, "Resume goal");
 
     expect(statuses).toEqual([
@@ -313,9 +336,11 @@ describe("chat panel surface projections", () => {
   });
 
   it("builds composer meta from one captured chat state", () => {
-    const state = createChatState();
-    state.connection.runtimeConfig = runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" });
-    state.connection.availableModels = [modelFixture("gpt-5.5")];
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5", model_reasoning_effort: "high" }) },
+    });
+    state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5")] } });
 
     const projection = chatPanelComposerProjection(composerSurfaceFixture(), state);
 
@@ -331,18 +356,18 @@ describe("chat panel surface projections", () => {
   });
 
   it("derives composer placeholders", () => {
-    const activeState = createChatState();
-    activeState.activeThread.id = "thread-1";
-    activeState.threadList.listedThreads = [threadFixture("thread-1", "Active")];
+    let activeState = chatStateFixture();
+    activeState = chatStateWith(activeState, { activeThread: { id: "thread-1" } });
+    activeState = chatStateWith(activeState, { threadList: { listedThreads: [threadFixture("thread-1", "Active")] } });
 
     expect(chatPanelComposerProjection(composerSurfaceFixture(), activeState).placeholder).toBe("Ask Codex to work on “Active”...");
-    expect(chatPanelComposerProjection(composerSurfaceFixture(), createChatState()).placeholder).toBe("Ask Codex to work on this task...");
+    expect(chatPanelComposerProjection(composerSurfaceFixture(), chatStateFixture()).placeholder).toBe("Ask Codex to work on this task...");
   });
 
   it("uses restored thread names in the composer projection", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread-1";
-    state.threadList.listedThreads = [threadFixture("thread-1", null)];
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
+    state = chatStateWith(state, { threadList: { listedThreads: [threadFixture("thread-1", null)] } });
 
     expect(
       chatPanelComposerProjection(
@@ -357,10 +382,12 @@ describe("chat panel surface projections", () => {
   });
 
   it("projects goal editor and disclosure state before action wiring", () => {
-    const state = createChatState();
-    state.activeThread.goal = goalFixture("thread-1");
-    state.ui.goalEditor = { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 };
-    state.ui.disclosures.goalObjectiveExpanded = new Set(["thread-1"]);
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { goal: goalFixture("thread-1") } });
+    state = chatStateWith(state, {
+      ui: { goalEditor: { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 } },
+    });
+    state = chatStateWith(state, { ui: { disclosures: { goalObjectiveExpanded: new Set(["thread-1"]) } } });
 
     const parent = renderWithShellState(state, h(ChatPanelGoal, { surface: goalSurfaceFixture() }));
 

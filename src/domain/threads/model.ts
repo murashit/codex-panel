@@ -1,10 +1,10 @@
 export interface Thread {
-  id: string;
-  preview: string;
-  name: string | null;
-  archived: boolean;
-  createdAt: number;
-  updatedAt: number;
+  readonly id: string;
+  readonly preview: string;
+  readonly name: string | null;
+  readonly archived: boolean;
+  readonly createdAt: number;
+  readonly updatedAt: number;
 }
 
 export function getThreadTitle(thread: Thread): string {

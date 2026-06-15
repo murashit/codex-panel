@@ -7,24 +7,24 @@ export type WebSearchMode = "disabled" | "cached" | "live";
 export type SandboxMode = "read-only" | "workspace-write" | "danger-full-access";
 
 export interface RuntimeConfigSnapshot {
-  profile: string | null;
-  model: string | null;
-  modelProvider: string | null;
-  reasoningEffort: ReasoningEffort | null;
-  rawReasoningEffort: string | null;
-  reasoningSummary: ReasoningSummary | null;
-  verbosity: Verbosity | null;
-  serviceTier: ServiceTier | null;
-  approvalsReviewer: ApprovalsReviewer | null;
-  approvalPolicy: ApprovalPolicy | null;
-  webSearch: WebSearchMode | null;
-  modelContextWindow: number | null;
-  autoCompactTokenLimit: number | null;
-  sandboxMode: SandboxMode | null;
-  workspaceNetworkAccess: boolean | null;
-  writableRoots: readonly string[] | null;
-  rawToolWebSearch: unknown;
-  rawApps: unknown;
+  readonly profile: string | null;
+  readonly model: string | null;
+  readonly modelProvider: string | null;
+  readonly reasoningEffort: ReasoningEffort | null;
+  readonly rawReasoningEffort: string | null;
+  readonly reasoningSummary: ReasoningSummary | null;
+  readonly verbosity: Verbosity | null;
+  readonly serviceTier: ServiceTier | null;
+  readonly approvalsReviewer: ApprovalsReviewer | null;
+  readonly approvalPolicy: ApprovalPolicy | null;
+  readonly webSearch: WebSearchMode | null;
+  readonly modelContextWindow: number | null;
+  readonly autoCompactTokenLimit: number | null;
+  readonly sandboxMode: SandboxMode | null;
+  readonly workspaceNetworkAccess: boolean | null;
+  readonly writableRoots: readonly string[] | null;
+  readonly rawToolWebSearch: unknown;
+  readonly rawApps: unknown;
 }
 
 export function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {

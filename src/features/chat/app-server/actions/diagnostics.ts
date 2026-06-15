@@ -1,5 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import {
+  diagnosticsWithProbe,
   diagnosticProbeError,
   diagnosticProbeOk,
   mcpServerStatusSummariesFromStatuses,
@@ -122,7 +123,7 @@ async function refreshDiagnosticProbes(
 
   let diagnostics = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
   for (const result of results) {
-    diagnostics.probes[result.method] = result.probe;
+    diagnostics = diagnosticsWithProbe(diagnostics, result.probe);
     if (result.mcpServerStatuses) diagnostics = upsertMcpServerStatusDiagnostics(diagnostics, result.mcpServerStatuses);
   }
   host.stateStore.dispatch({ type: "connection/metadata-applied", serverDiagnostics: diagnostics });

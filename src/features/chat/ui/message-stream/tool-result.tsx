@@ -85,7 +85,13 @@ function ToolResultDetailSection({ section }: { section: ToolResultDetailSection
   return <OutputBlock title={section.title} body={section.body} />;
 }
 
-function MetaBlock({ title, rows }: { title: string | undefined; rows: { key: string; value: string }[] }): UiNode {
+function MetaBlock({
+  title,
+  rows,
+}: {
+  title: string | undefined;
+  rows: readonly { readonly key: string; readonly value: string }[];
+}): UiNode {
   const body = (
     <dl className="codex-panel__meta-grid">
       {rows.map((row) => (

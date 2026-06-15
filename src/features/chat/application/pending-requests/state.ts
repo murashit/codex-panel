@@ -7,9 +7,9 @@ import {
 } from "../../domain/pending-requests/model";
 
 export interface ChatRequestState {
-  approvals: readonly PendingApproval[];
-  pendingUserInputs: readonly PendingUserInput[];
-  userInputDrafts: ReadonlyMap<string, string>;
+  readonly approvals: readonly PendingApproval[];
+  readonly pendingUserInputs: readonly PendingUserInput[];
+  readonly userInputDrafts: ReadonlyMap<string, string>;
 }
 
 export type RequestAction =

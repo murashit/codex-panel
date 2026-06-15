@@ -559,7 +559,12 @@ function webSearchQueryList(
 }
 
 function webSearchDetails(item: WebSearchItem): Extract<MessageStreamItem, { kind: "tool" }>["webSearch"] {
-  const details: NonNullable<Extract<MessageStreamItem, { kind: "tool" }>["webSearch"]> = {};
+  const details: {
+    action?: string;
+    query?: string;
+    url?: string;
+    pattern?: string;
+  } = {};
   if (item.action) details.action = webSearchActionLabel(item.action.type);
   if (item.action?.type === "search") {
     const queries = webSearchQueryList(item.action.query, item.action.queries, item.query);

@@ -281,9 +281,11 @@ describe("runtime settings", () => {
   });
 
   it("treats the catalog Fast service tier id as fast mode while preserving the id", () => {
-    const model = modelFixture("gpt-5.5");
+    const model = {
+      ...modelFixture("gpt-5.5"),
+      serviceTiers: [{ id: "priority", name: "Fast" }],
+    };
     // This mirrors Codex app-server 0.134.0 model/list: Fast is named "Fast" but its id is "priority".
-    model.serviceTiers = [{ id: "priority", name: "Fast" }];
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5.5",
       activeServiceTier: "priority",
@@ -297,8 +299,10 @@ describe("runtime settings", () => {
   });
 
   it("treats the Codex 0.134.0 reported default tier after clearing Fast as fast mode off", () => {
-    const model = modelFixture("gpt-5.5");
-    model.serviceTiers = [{ id: "priority", name: "Fast" }];
+    const model = {
+      ...modelFixture("gpt-5.5"),
+      serviceTiers: [{ id: "priority", name: "Fast" }],
+    };
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5.5",
       activeServiceTier: "default",
@@ -419,8 +423,10 @@ describe("runtime settings", () => {
   });
 
   it("serializes requested fast mode using the catalog Fast service tier id", () => {
-    const model = modelFixture("gpt-5.5");
-    model.serviceTiers = [{ id: "priority", name: "Fast" }];
+    const model = {
+      ...modelFixture("gpt-5.5"),
+      serviceTiers: [{ id: "priority", name: "Fast" }],
+    };
     const snapshot = runtimeSnapshot({
       requestedServiceTier: setPendingRuntimeSetting("fast"),
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),

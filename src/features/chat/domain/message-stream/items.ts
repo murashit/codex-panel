@@ -21,277 +21,277 @@ export type ExecutionState = "running" | "completed" | "failed" | null;
 type MessageState = "streaming" | "completed";
 
 interface MessageStreamBase {
-  id: string;
-  kind: MessageStreamItemKind;
-  role: MessageStreamRole;
-  turnId?: string;
-  sourceItemId?: string;
-  provenance?: MessageStreamItemProvenance;
-  executionState?: ExecutionState;
+  readonly id: string;
+  readonly kind: MessageStreamItemKind;
+  readonly role: MessageStreamRole;
+  readonly turnId?: string;
+  readonly sourceItemId?: string;
+  readonly provenance?: MessageStreamItemProvenance;
+  readonly executionState?: ExecutionState;
 }
 
 export type MessageStreamPrimaryTarget =
   | {
-      kind: "path";
-      path: string;
+      readonly kind: "path";
+      readonly path: string;
     }
   | {
-      kind: "value";
-      value: string;
+      readonly kind: "value";
+      readonly value: string;
     };
 
 interface MessageStreamToolCallDetails {
-  arguments?: unknown;
-  result?: unknown;
-  error?: unknown;
+  readonly arguments?: unknown;
+  readonly result?: unknown;
+  readonly error?: unknown;
 }
 
 interface MessageStreamWebSearchDetails {
-  action?: string;
-  query?: string;
-  url?: string;
-  pattern?: string;
+  readonly action?: string;
+  readonly query?: string;
+  readonly url?: string;
+  readonly pattern?: string;
 }
 
 interface MessageStreamImageGenerationDetails {
-  savedPath?: string;
-  revisedPrompt?: string | null;
-  result?: string;
+  readonly savedPath?: string;
+  readonly revisedPrompt?: string | null;
+  readonly result?: string;
 }
 
 interface MessageStreamHookRunDetails {
-  eventName: string;
-  statusMessage?: string;
-  durationMs?: string;
-  entries: readonly { kind: string; text: string }[];
+  readonly eventName: string;
+  readonly statusMessage?: string;
+  readonly durationMs?: string;
+  readonly entries: readonly { readonly kind: string; readonly text: string }[];
 }
 
 export interface MessageStreamAuditFact {
-  key: string;
-  value: string;
+  readonly key: string;
+  readonly value: string;
 }
 
 export interface MessageStreamNoticeSection {
-  title?: string;
-  auditFacts?: MessageStreamAuditFact[];
-  body?: string;
+  readonly title?: string;
+  readonly auditFacts?: readonly MessageStreamAuditFact[];
+  readonly body?: string;
 }
 
 interface MessageStreamApprovalResultDetails {
-  status: string;
-  scope: "session" | "turn";
-  request: string;
-  auditFacts: MessageStreamAuditFact[];
+  readonly status: string;
+  readonly scope: "session" | "turn";
+  readonly request: string;
+  readonly auditFacts: readonly MessageStreamAuditFact[];
 }
 
 export interface MessageStreamUserInputQuestionResult {
-  id: string;
-  header: string;
-  question: string;
-  answer?: string;
+  readonly id: string;
+  readonly header: string;
+  readonly question: string;
+  readonly answer?: string;
 }
 
 interface MessageStreamReviewResultDetails {
-  auditFacts: MessageStreamAuditFact[];
+  readonly auditFacts: readonly MessageStreamAuditFact[];
 }
 
 export type CommandMessageStreamTarget =
   | {
-      kind: "read";
-      path?: string;
-      name: string;
+      readonly kind: "read";
+      readonly path?: string;
+      readonly name: string;
     }
   | {
-      kind: "search";
-      query?: string;
-      path?: string;
+      readonly kind: "search";
+      readonly query?: string;
+      readonly path?: string;
     }
   | {
-      kind: "listFiles";
-      path?: string;
+      readonly kind: "listFiles";
+      readonly path?: string;
     }
   | {
-      kind: "command";
-      commandLine: string;
+      readonly kind: "command";
+      readonly commandLine: string;
     };
 
 interface MessageStreamMessageBase extends MessageStreamBase {
-  kind: "message";
-  role: "user" | "assistant";
-  text: string;
-  clientId?: string;
-  copyText?: string;
-  referencedThread?: ReferencedThreadMetadata;
-  mentionedFiles?: MessageStreamFileMention[];
+  readonly kind: "message";
+  readonly role: "user" | "assistant";
+  readonly text: string;
+  readonly clientId?: string;
+  readonly copyText?: string;
+  readonly referencedThread?: ReferencedThreadMetadata;
+  readonly mentionedFiles?: readonly MessageStreamFileMention[];
 }
 
 interface UserMessageStreamItem extends MessageStreamMessageBase {
-  messageKind: "user";
-  role: "user";
-  messageState?: never;
+  readonly messageKind: "user";
+  readonly role: "user";
+  readonly messageState?: never;
 }
 
 interface AssistantResponseMessageStreamItem extends MessageStreamMessageBase {
-  messageKind: "assistantResponse";
-  role: "assistant";
-  messageState: MessageState;
+  readonly messageKind: "assistantResponse";
+  readonly role: "assistant";
+  readonly messageState: MessageState;
 }
 
 interface ProposedPlanMessageStreamItem extends MessageStreamMessageBase {
-  messageKind: "proposedPlan";
-  role: "assistant";
-  messageState: MessageState;
+  readonly messageKind: "proposedPlan";
+  readonly role: "assistant";
+  readonly messageState: MessageState;
 }
 
 export type MessageStreamMessageItem = UserMessageStreamItem | AssistantResponseMessageStreamItem | ProposedPlanMessageStreamItem;
 
 export interface MessageStreamFileMention {
-  name: string;
-  path: string;
+  readonly name: string;
+  readonly path: string;
 }
 
 interface SystemMessageStreamItem extends MessageStreamBase {
-  kind: "system";
-  role: "system";
-  text: string;
-  noticeSections?: MessageStreamNoticeSection[];
+  readonly kind: "system";
+  readonly role: "system";
+  readonly text: string;
+  readonly noticeSections?: readonly MessageStreamNoticeSection[];
 }
 
 export interface GoalMessageStreamItem extends MessageStreamBase {
-  kind: "goal";
-  role: "tool";
-  text: string;
-  action: string;
-  objective?: string;
+  readonly kind: "goal";
+  readonly role: "tool";
+  readonly text: string;
+  readonly action: string;
+  readonly objective?: string;
 }
 
 interface UserInputResultMessageStreamItem extends MessageStreamBase {
-  kind: "userInputResult";
-  role: "tool";
-  text: string;
-  questions: MessageStreamUserInputQuestionResult[];
+  readonly kind: "userInputResult";
+  readonly role: "tool";
+  readonly text: string;
+  readonly questions: readonly MessageStreamUserInputQuestionResult[];
 }
 
 export interface ApprovalResultMessageStreamItem extends MessageStreamBase {
-  kind: "approvalResult";
-  role: "tool";
-  text: string;
-  approval: MessageStreamApprovalResultDetails;
+  readonly kind: "approvalResult";
+  readonly role: "tool";
+  readonly text: string;
+  readonly approval: MessageStreamApprovalResultDetails;
 }
 
 export interface ReviewResultMessageStreamItem extends MessageStreamBase {
-  kind: "reviewResult";
-  role: "tool";
-  text: string;
-  review?: MessageStreamReviewResultDetails;
+  readonly kind: "reviewResult";
+  readonly role: "tool";
+  readonly text: string;
+  readonly review?: MessageStreamReviewResultDetails;
 }
 
 export interface CommandMessageStreamItem extends MessageStreamBase {
-  kind: "command";
-  role: "tool";
-  commandAction: "read" | "search" | "listFiles" | "command";
-  commandTarget: CommandMessageStreamTarget;
-  command: string;
-  cwd: string;
-  status: string;
-  exitCode?: number;
-  durationMs?: number;
-  output?: string;
+  readonly kind: "command";
+  readonly role: "tool";
+  readonly commandAction: "read" | "search" | "listFiles" | "command";
+  readonly commandTarget: CommandMessageStreamTarget;
+  readonly command: string;
+  readonly cwd: string;
+  readonly status: string;
+  readonly exitCode?: number;
+  readonly durationMs?: number;
+  readonly output?: string;
 }
 
 export interface MessageStreamFileChange {
-  kind: string;
-  path: string;
-  diff: string;
+  readonly kind: string;
+  readonly path: string;
+  readonly diff: string;
 }
 
 export interface FileChangeMessageStreamItem extends MessageStreamBase {
-  kind: "fileChange";
-  role: "tool";
-  status: string;
-  changes: MessageStreamFileChange[];
-  output?: string;
+  readonly kind: "fileChange";
+  readonly role: "tool";
+  readonly status: string;
+  readonly changes: readonly MessageStreamFileChange[];
+  readonly output?: string;
 }
 
 interface ToolMessageStreamBase extends MessageStreamBase {
-  role: "tool";
-  text?: string;
-  toolName?: string;
-  primaryTarget?: MessageStreamPrimaryTarget;
-  operation?: string;
-  failureReason?: string;
-  status?: string;
-  output?: string;
+  readonly role: "tool";
+  readonly text?: string;
+  readonly toolName?: string;
+  readonly primaryTarget?: MessageStreamPrimaryTarget;
+  readonly operation?: string;
+  readonly failureReason?: string;
+  readonly status?: string;
+  readonly output?: string;
 }
 
 export interface ToolCallMessageStreamItem extends ToolMessageStreamBase {
-  kind: "tool";
-  toolCall?: MessageStreamToolCallDetails;
-  webSearch?: MessageStreamWebSearchDetails;
-  imageGeneration?: MessageStreamImageGenerationDetails;
+  readonly kind: "tool";
+  readonly toolCall?: MessageStreamToolCallDetails;
+  readonly webSearch?: MessageStreamWebSearchDetails;
+  readonly imageGeneration?: MessageStreamImageGenerationDetails;
 }
 
 export interface HookMessageStreamItem extends ToolMessageStreamBase {
-  kind: "hook";
-  hookRun?: MessageStreamHookRunDetails;
+  readonly kind: "hook";
+  readonly hookRun?: MessageStreamHookRunDetails;
 }
 
 export interface ReasoningMessageStreamItem extends ToolMessageStreamBase {
-  kind: "reasoning";
-  text: string;
+  readonly kind: "reasoning";
+  readonly text: string;
 }
 
 export interface ContextCompactionMessageStreamItem extends MessageStreamBase {
-  kind: "contextCompaction";
-  role: "tool";
+  readonly kind: "contextCompaction";
+  readonly role: "tool";
 }
 
 interface TaskProgressStep {
-  step: string;
-  status: "pending" | "inProgress" | "completed";
+  readonly step: string;
+  readonly status: "pending" | "inProgress" | "completed";
 }
 
 export interface TaskProgressMessageStreamItem extends MessageStreamBase {
-  kind: "taskProgress";
-  role: "tool";
-  text?: string;
-  explanation: string | null;
-  steps: TaskProgressStep[];
-  status: string;
+  readonly kind: "taskProgress";
+  readonly role: "tool";
+  readonly text?: string;
+  readonly explanation: string | null;
+  readonly steps: readonly TaskProgressStep[];
+  readonly status: string;
 }
 
 export interface AgentStateSummary {
-  threadId: string;
-  status: string;
-  message: string | null;
+  readonly threadId: string;
+  readonly status: string;
+  readonly message: string | null;
 }
 
 export interface AgentRunSummaryAgent {
-  threadId: string;
-  status: string;
-  messagePreview: string | null;
+  readonly threadId: string;
+  readonly status: string;
+  readonly messagePreview: string | null;
 }
 
 export interface AgentMessageStreamItem extends MessageStreamBase {
-  kind: "agent";
-  role: "tool";
-  text?: string;
-  tool: string;
-  status: string;
-  senderThreadId: string;
-  receiverThreadIds: string[];
-  prompt: string | null;
-  model: string | null;
-  reasoningEffort: string | null;
-  agents: AgentStateSummary[];
+  readonly kind: "agent";
+  readonly role: "tool";
+  readonly text?: string;
+  readonly tool: string;
+  readonly status: string;
+  readonly senderThreadId: string;
+  readonly receiverThreadIds: readonly string[];
+  readonly prompt: string | null;
+  readonly model: string | null;
+  readonly reasoningEffort: string | null;
+  readonly agents: readonly AgentStateSummary[];
 }
 
 export interface AgentRunSummary {
-  running: number;
-  completed: number;
-  failed: number;
-  agents: AgentRunSummaryAgent[];
-  additionalAgents: number;
+  readonly running: number;
+  readonly completed: number;
+  readonly failed: number;
+  readonly agents: readonly AgentRunSummaryAgent[];
+  readonly additionalAgents: number;
 }
 
 export type MessageStreamItem =

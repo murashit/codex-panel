@@ -101,47 +101,47 @@ export type ChatConnectionPhase =
   | { kind: "disconnected"; message: string };
 
 interface ChatConnectionState {
-  phase: ChatConnectionPhase;
-  statusText: string;
-  runtimeConfig: RuntimeConfigSnapshot | null;
-  initializeResponse: ServerInitialization | null;
-  rateLimit: RateLimitSnapshot | null;
-  serverDiagnostics: Diagnostics;
-  availableModels: readonly ModelMetadata[];
-  availableSkills: readonly SkillMetadata[];
+  readonly phase: ChatConnectionPhase;
+  readonly statusText: string;
+  readonly runtimeConfig: RuntimeConfigSnapshot | null;
+  readonly initializeResponse: ServerInitialization | null;
+  readonly rateLimit: RateLimitSnapshot | null;
+  readonly serverDiagnostics: Diagnostics;
+  readonly availableModels: readonly ModelMetadata[];
+  readonly availableSkills: readonly SkillMetadata[];
 }
 
 interface ChatThreadListState {
-  listedThreads: readonly Thread[];
-  threadsLoaded: boolean;
+  readonly listedThreads: readonly Thread[];
+  readonly threadsLoaded: boolean;
 }
 
 export interface ChatActiveThreadState {
-  id: string | null;
-  cwd: string | null;
-  goal: ThreadGoal | null;
-  tokenUsage: ThreadTokenUsage | null;
+  readonly id: string | null;
+  readonly cwd: string | null;
+  readonly goal: ThreadGoal | null;
+  readonly tokenUsage: ThreadTokenUsage | null;
 }
 
 export type { ChatRuntimeState } from "../../domain/runtime/state";
 
 interface ChatComposerState {
-  draft: string;
-  suggestSelected: number;
-  suggestions: readonly ComposerSuggestion[];
-  suggestionsDismissedSignature: string | null;
+  readonly draft: string;
+  readonly suggestSelected: number;
+  readonly suggestions: readonly ComposerSuggestion[];
+  readonly suggestionsDismissedSignature: string | null;
 }
 
 export interface ChatState {
-  connection: ChatConnectionState;
-  threadList: ChatThreadListState;
-  activeThread: ChatActiveThreadState;
-  runtime: ChatRuntimeState;
-  turn: ChatTurnState;
-  messageStream: ChatMessageStreamState;
-  requests: ChatRequestState;
-  composer: ChatComposerState;
-  ui: ChatUiState;
+  readonly connection: ChatConnectionState;
+  readonly threadList: ChatThreadListState;
+  readonly activeThread: ChatActiveThreadState;
+  readonly runtime: ChatRuntimeState;
+  readonly turn: ChatTurnState;
+  readonly messageStream: ChatMessageStreamState;
+  readonly requests: ChatRequestState;
+  readonly composer: ChatComposerState;
+  readonly ui: ChatUiState;
 }
 
 type ConnectionAction =
@@ -731,13 +731,14 @@ export function cloneChatState(state: ChatState): ChatState {
 }
 
 function cloneMessageStreamState(state: ChatMessageStreamState): ChatMessageStreamState {
-  const next = initialChatMessageStreamState([...state.stableItems]);
-  next.activeSegment = cloneActiveSegment(state.activeSegment);
-  next.turnDiffs = new Map(state.turnDiffs);
-  next.historyCursor = state.historyCursor;
-  next.loadingHistory = state.loadingHistory;
-  next.reportedLogs = new Set(state.reportedLogs);
-  return next;
+  return {
+    stableItems: [...state.stableItems],
+    activeSegment: cloneActiveSegment(state.activeSegment),
+    turnDiffs: new Map(state.turnDiffs),
+    historyCursor: state.historyCursor,
+    loadingHistory: state.loadingHistory,
+    reportedLogs: new Set(state.reportedLogs),
+  };
 }
 
 function cloneActiveSegment(segment: ChatMessageStreamActiveSegment | null): ChatMessageStreamActiveSegment | null {

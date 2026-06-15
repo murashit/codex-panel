@@ -4,7 +4,6 @@ import {
   activeTurnId,
   chatReducer,
   chatTurnBusy,
-  createChatState,
   pendingTurnStart,
   transitionChatTurnLifecycleState,
   type ChatState,
@@ -14,36 +13,39 @@ import { messageStreamItems } from "../../../src/features/chat/application/state
 import type { ThreadGoal } from "../../../src/domain/threads/goal";
 import type { MessageStreamItem } from "../../../src/features/chat/domain/message-stream/items";
 import type { Thread } from "../../../src/domain/threads/model";
-import { chatStateMessageStreamItems, setChatStateMessageStreamItems } from "./support/message-stream";
+import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "./support/message-stream";
+import { chatStateFixture, chatStateWith } from "./support/state";
 
 describe("chatReducer", () => {
   it("clears active turn and thread-scoped state", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.turn.lifecycle = { kind: "running", turnId: "turn" };
-    state.runtime.activeModel = "gpt-5.1";
-    state.runtime.activeReasoningEffort = "high";
-    state.runtime.activeServiceTier = "fast";
-    state.runtime.activeApprovalPolicy = "on-request";
-    state.runtime.activeApprovalsReviewer = "auto_review";
-    state.runtime.activeCollaborationMode = "plan";
-    state.runtime.selectedCollaborationMode = "plan";
-    state.activeThread.goal = goal("thread");
-    state.messageStream.historyCursor = "cursor";
-    state.messageStream.loadingHistory = true;
-    state.composer.draft = "keep me";
-    setChatStateMessageStreamItems(state, [message("m1")]);
-    state.messageStream.turnDiffs = new Map([["turn", "@@"]]);
-    state.requests.approvals = [approval(1)];
-    state.requests.pendingUserInputs = [userInput(2)];
-    state.requests.userInputDrafts = new Map([["2:note", "draft"]]);
-    state.composer.suggestSelected = 1;
-    state.composer.suggestions = [suggestion("/plan")];
-    state.composer.suggestionsDismissedSignature = "dismissed";
-    state.ui.disclosures.approvalDetails = new Set(["1:details"]);
-    state.ui.disclosures.textDetails = new Set(["previous:details"]);
-    state.ui.messageActions = { forkActionsItemId: "previous" };
-    state.ui.goalEditor = { kind: "editing", threadId: "thread", objectiveDraft: "draft", tokenBudgetDraft: null };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
+    state = chatStateWith(state, { runtime: { activeModel: "gpt-5.1" } });
+    state = chatStateWith(state, { runtime: { activeReasoningEffort: "high" } });
+    state = chatStateWith(state, { runtime: { activeServiceTier: "fast" } });
+    state = chatStateWith(state, { runtime: { activeApprovalPolicy: "on-request" } });
+    state = chatStateWith(state, { runtime: { activeApprovalsReviewer: "auto_review" } });
+    state = chatStateWith(state, { runtime: { activeCollaborationMode: "plan" } });
+    state = chatStateWith(state, { runtime: { selectedCollaborationMode: "plan" } });
+    state = chatStateWith(state, { activeThread: { goal: goal("thread") } });
+    state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
+    state = chatStateWith(state, { messageStream: { loadingHistory: true } });
+    state = chatStateWith(state, { composer: { draft: "keep me" } });
+    state = withChatStateMessageStreamItems(state, [message("m1")]);
+    state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["turn", "@@"]]) } });
+    state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
+    state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
+    state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "draft"]]) } });
+    state = chatStateWith(state, { composer: { suggestSelected: 1 } });
+    state = chatStateWith(state, { composer: { suggestions: [suggestion("/plan")] } });
+    state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
+    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
+    state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["previous:details"]) } } });
+    state = chatStateWith(state, { ui: { messageActions: { forkActionsItemId: "previous" } } });
+    state = chatStateWith(state, {
+      ui: { goalEditor: { kind: "editing", threadId: "thread", objectiveDraft: "draft", tokenBudgetDraft: null } },
+    });
     let pendingState = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.2" });
     pendingState = chatReducer(pendingState, { type: "runtime/reasoning-effort-requested", effort: "medium" });
     pendingState = chatReducer(pendingState, { type: "runtime/service-tier-requested", serviceTier: "off" });
@@ -83,27 +85,29 @@ describe("chatReducer", () => {
   });
 
   it("resets thread-scoped state when resuming a thread", () => {
-    const state = createChatState();
-    state.activeThread.id = "previous-thread";
-    state.turn.lifecycle = { kind: "running", turnId: "previous-turn" };
-    state.messageStream.historyCursor = "cursor";
-    state.activeThread.goal = goal("previous-thread");
-    state.messageStream.loadingHistory = true;
-    state.composer.draft = "previous draft";
-    setChatStateMessageStreamItems(state, [message("previous-message")]);
-    state.messageStream.turnDiffs = new Map([["previous-turn", "@@"]]);
-    state.requests.approvals = [approval(1)];
-    state.requests.pendingUserInputs = [userInput(2)];
-    state.requests.userInputDrafts = new Map([["2:note", "draft"]]);
-    state.composer.suggestSelected = 1;
-    state.composer.suggestions = [suggestion("/plan")];
-    state.composer.suggestionsDismissedSignature = "dismissed";
-    state.runtime.activeCollaborationMode = "plan";
-    state.runtime.selectedCollaborationMode = "plan";
-    state.ui.disclosures.approvalDetails = new Set(["1:details"]);
-    state.ui.disclosures.textDetails = new Set(["previous:details"]);
-    state.ui.messageActions = { forkActionsItemId: "previous" };
-    state.ui.goalEditor = { kind: "editing", threadId: "previous-thread", objectiveDraft: "draft", tokenBudgetDraft: null };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "previous-thread" } });
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "previous-turn" } } });
+    state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
+    state = chatStateWith(state, { activeThread: { goal: goal("previous-thread") } });
+    state = chatStateWith(state, { messageStream: { loadingHistory: true } });
+    state = chatStateWith(state, { composer: { draft: "previous draft" } });
+    state = withChatStateMessageStreamItems(state, [message("previous-message")]);
+    state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["previous-turn", "@@"]]) } });
+    state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
+    state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
+    state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "draft"]]) } });
+    state = chatStateWith(state, { composer: { suggestSelected: 1 } });
+    state = chatStateWith(state, { composer: { suggestions: [suggestion("/plan")] } });
+    state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
+    state = chatStateWith(state, { runtime: { activeCollaborationMode: "plan" } });
+    state = chatStateWith(state, { runtime: { selectedCollaborationMode: "plan" } });
+    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
+    state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["previous:details"]) } } });
+    state = chatStateWith(state, { ui: { messageActions: { forkActionsItemId: "previous" } } });
+    state = chatStateWith(state, {
+      ui: { goalEditor: { kind: "editing", threadId: "previous-thread", objectiveDraft: "draft", tokenBudgetDraft: null } },
+    });
     const resumedItems = [message("resumed-message")];
 
     const next = chatReducer(state, {
@@ -141,7 +145,7 @@ describe("chatReducer", () => {
   });
 
   it("preserves empty-panel runtime reservations when thread activation explicitly requests it", () => {
-    let state = createChatState();
+    let state = chatStateFixture();
     state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.5" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
     state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
@@ -175,8 +179,8 @@ describe("chatReducer", () => {
   });
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {
-    const state = createChatState();
-    setChatStateMessageStreamItems(state, [message("previous-message")]);
+    let state = chatStateFixture();
+    state = withChatStateMessageStreamItems(state, [message("previous-message")]);
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
@@ -194,22 +198,22 @@ describe("chatReducer", () => {
   });
 
   it("keeps composer state when restoring a thread placeholder", () => {
-    const state = createChatState();
-    state.activeThread.id = "previous-thread";
-    state.turn.lifecycle = { kind: "running", turnId: "previous-turn" };
-    state.runtime.activeModel = "gpt-5.1";
-    state.activeThread.goal = goal("previous-thread");
-    state.messageStream.historyCursor = "cursor";
-    state.messageStream.loadingHistory = true;
-    state.composer.draft = "draft in this panel";
-    state.composer.suggestSelected = 1;
-    state.composer.suggestions = [suggestion("/resume")];
-    state.composer.suggestionsDismissedSignature = "dismissed";
-    setChatStateMessageStreamItems(state, [message("previous-message")]);
-    state.messageStream.turnDiffs = new Map([["previous-turn", "@@"]]);
-    state.requests.approvals = [approval(1)];
-    state.requests.pendingUserInputs = [userInput(2)];
-    state.requests.userInputDrafts = new Map([["2:note", "answer"]]);
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "previous-thread" } });
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "previous-turn" } } });
+    state = chatStateWith(state, { runtime: { activeModel: "gpt-5.1" } });
+    state = chatStateWith(state, { activeThread: { goal: goal("previous-thread") } });
+    state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
+    state = chatStateWith(state, { messageStream: { loadingHistory: true } });
+    state = chatStateWith(state, { composer: { draft: "draft in this panel" } });
+    state = chatStateWith(state, { composer: { suggestSelected: 1 } });
+    state = chatStateWith(state, { composer: { suggestions: [suggestion("/resume")] } });
+    state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
+    state = withChatStateMessageStreamItems(state, [message("previous-message")]);
+    state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["previous-turn", "@@"]]) } });
+    state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
+    state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
+    state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "answer"]]) } });
 
     const next = chatReducer(state, {
       type: "active-thread/restored-placeholder",
@@ -234,9 +238,9 @@ describe("chatReducer", () => {
   });
 
   it("clones map backed state when updating turn diffs and open panels", () => {
-    const state = createChatState();
-    state.messageStream.turnDiffs = new Map([["turn", "old"]]);
-    state.ui.toolbarPanel = "status-panel";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["turn", "old"]]) } });
+    state = chatStateWith(state, { ui: { toolbarPanel: "status-panel" } });
 
     const withDiff = chatReducer(state, { type: "message-stream/turn-diff-updated", turnId: "turn", diff: "new" });
     const withHistoryPanel = chatReducer(withDiff, { type: "ui/panel-set", panel: "history" });
@@ -249,7 +253,7 @@ describe("chatReducer", () => {
   });
 
   it("deduplicates reported logs while keeping reported log state immutable", () => {
-    const state = createChatState();
+    const state = chatStateFixture();
     const item = { id: "log", kind: "system", role: "system", text: "once" } satisfies MessageStreamItem;
 
     const first = chatReducer(state, { type: "message-stream/deduped-log-added", text: "once", item });
@@ -271,7 +275,7 @@ describe("chatReducer", () => {
     } satisfies MessageStreamItem;
     const acknowledgedItem = { ...optimisticItem, turnId: "turn" } satisfies MessageStreamItem;
 
-    const optimistic = chatReducer(createChatState(), {
+    const optimistic = chatReducer(chatStateFixture(), {
       type: "turn/optimistic-started",
       item: optimisticItem,
       pendingTurnStart: pending,
@@ -315,8 +319,8 @@ describe("chatReducer", () => {
   });
 
   it("appends streaming assistant deltas into the active segment without replacing stable history", () => {
-    const state = createChatState();
-    setChatStateMessageStreamItems(state, [message("history")]);
+    let state = chatStateFixture();
+    state = withChatStateMessageStreamItems(state, [message("history")]);
     const running = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn" });
 
     const next = chatReducer(running, {
@@ -335,7 +339,7 @@ describe("chatReducer", () => {
   });
 
   it("updates repeated streaming output through the active source-item index", () => {
-    let state = createChatState();
+    let state = chatStateFixture();
     state = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn" });
     state = chatReducer(state, {
       type: "message-stream/item-output-appended",
@@ -363,8 +367,10 @@ describe("chatReducer", () => {
   });
 
   it("clears running state when a turn start fails", () => {
-    const state = createChatState();
-    state.turn.lifecycle = { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] } };
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      turn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] } } },
+    });
 
     const next = chatReducer(state, { type: "turn/start-failed", items: [] });
 
@@ -374,9 +380,9 @@ describe("chatReducer", () => {
   });
 
   it("ignores stale turn start failures after the turn is already running", () => {
-    const state = createChatState();
-    state.turn.lifecycle = { kind: "running", turnId: "turn" };
-    setChatStateMessageStreamItems(state, [message("existing")]);
+    let state = chatStateFixture();
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
+    state = withChatStateMessageStreamItems(state, [message("existing")]);
 
     const next = chatReducer(state, { type: "turn/start-failed", items: [] });
 
@@ -387,14 +393,14 @@ describe("chatReducer", () => {
   });
 
   it("clears turn-scoped requests when clearing the local turn scope", () => {
-    const state = createChatState();
-    state.turn.lifecycle = { kind: "running", turnId: "turn" };
-    state.requests.approvals = [approval(1)];
-    state.requests.pendingUserInputs = [userInput(2)];
-    state.requests.userInputDrafts = new Map([["2:note", "draft"]]);
-    setChatStateMessageStreamItems(state, [message("kept")]);
-    state.ui.disclosures.approvalDetails = new Set(["1:details"]);
-    state.ui.disclosures.textDetails = new Set(["kept:details"]);
+    let state = chatStateFixture();
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
+    state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
+    state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
+    state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "draft"]]) } });
+    state = withChatStateMessageStreamItems(state, [message("kept")]);
+    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
+    state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["kept:details"]) } } });
 
     const next = chatReducer(state, { type: "turn/scoped-cleared" });
 
@@ -409,16 +415,20 @@ describe("chatReducer", () => {
   });
 
   it("resolves requests while optionally appending a result item", () => {
-    const state = createChatState();
-    state.requests.approvals = [approval(1)];
-    state.requests.pendingUserInputs = [userInput(2)];
-    state.requests.userInputDrafts = new Map([
-      ["2:note", "draft"],
-      ["2:note:other", "other draft"],
-    ]);
-    setChatStateMessageStreamItems(state, [message("existing")]);
-    state.ui.disclosures.approvalDetails = new Set(["1:details"]);
-    state.ui.disclosures.textDetails = new Set(["existing:details"]);
+    let state = chatStateFixture();
+    state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
+    state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
+    state = chatStateWith(state, {
+      requests: {
+        userInputDrafts: new Map([
+          ["2:note", "draft"],
+          ["2:note:other", "other draft"],
+        ]),
+      },
+    });
+    state = withChatStateMessageStreamItems(state, [message("existing")]);
+    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
+    state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["existing:details"]) } } });
 
     const withoutResult = chatReducer(state, { type: "request/resolved", requestId: 1 });
     expect(withoutResult.requests.approvals).toEqual([]);
@@ -436,9 +446,9 @@ describe("chatReducer", () => {
   });
 
   it("ignores stale request resolutions without appending result items", () => {
-    const state = createChatState();
-    setChatStateMessageStreamItems(state, [message("existing")]);
-    state.ui.disclosures.textDetails = new Set(["existing:details"]);
+    let state = chatStateFixture();
+    state = withChatStateMessageStreamItems(state, [message("existing")]);
+    state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["existing:details"]) } } });
 
     const next = chatReducer(state, { type: "request/resolved", requestId: 99, resultItem: message("stale result") });
 
@@ -448,8 +458,8 @@ describe("chatReducer", () => {
   });
 
   it("ignores turn start acknowledgements after the turn has already gone idle", () => {
-    const state = createChatState();
-    state.turn.lifecycle = { kind: "idle" };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "idle" } } });
 
     const next = chatReducer(state, {
       type: "turn/start-acknowledged",
@@ -464,9 +474,11 @@ describe("chatReducer", () => {
 
   it("ignores completed turns while a new turn is still starting", () => {
     const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] };
-    const state = createChatState();
-    state.turn.lifecycle = { kind: "starting", pendingTurnStart: pending };
-    setChatStateMessageStreamItems(state, [{ id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello" }]);
+    let state = chatStateFixture();
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "starting", pendingTurnStart: pending } } });
+    state = withChatStateMessageStreamItems(state, [
+      { id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello" },
+    ]);
 
     const next = chatReducer(state, {
       type: "turn/completed",
@@ -482,7 +494,7 @@ describe("chatReducer", () => {
   });
 
   it("keeps toolbar panels mutually exclusive", () => {
-    let state = createChatState();
+    let state = chatStateFixture();
 
     state = chatReducer(state, { type: "ui/panel-set", panel: "history" });
     expect(state.ui.toolbarPanel).toBe("history");
@@ -495,7 +507,7 @@ describe("chatReducer", () => {
   });
 
   it("updates typed disclosures, message actions, goal editor, and user input drafts through typed UI actions", () => {
-    let state = createChatState();
+    let state = chatStateFixture();
 
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: true });
     expect(state.ui.disclosures.approvalDetails.has("1:details")).toBe(true);
@@ -521,7 +533,7 @@ describe("chatReducer", () => {
   });
 
   it("clears expanded goal objective state when the displayed goal identity changes", () => {
-    let state = createChatState();
+    let state = chatStateFixture();
     state = chatReducer(state, { type: "active-thread/goal-set", goal: goal("thread") });
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
 
@@ -539,7 +551,7 @@ describe("chatReducer", () => {
   });
 
   it("commits pending runtime settings and resets applied overrides", () => {
-    let state = createChatState();
+    let state = chatStateFixture();
     state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.1" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
     state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
@@ -568,9 +580,9 @@ describe("chatReducer", () => {
   });
 
   it("keeps requested policy toggles pending until app-server settings commit", () => {
-    let state = createChatState();
-    state.runtime.activeServiceTier = "flex";
-    state.runtime.activeApprovalsReviewer = "user";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { runtime: { activeServiceTier: "flex" } });
+    state = chatStateWith(state, { runtime: { activeApprovalsReviewer: "user" } });
 
     state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
     state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
@@ -582,7 +594,7 @@ describe("chatReducer", () => {
   });
 
   it("keeps reset and unset runtime request semantics explicit", () => {
-    let state = createChatState();
+    let state = chatStateFixture();
     state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.1" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
     state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
@@ -600,8 +612,8 @@ describe("chatReducer", () => {
   });
 
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {
-    const initial = createChatState();
-    setChatStateMessageStreamItems(initial, [message("initial")]);
+    let initial = chatStateFixture();
+    initial = withChatStateMessageStreamItems(initial, [message("initial")]);
     const store = createChatStateStore(initial);
 
     store.dispatch({ type: "message-stream/item-upserted", item: message("next") });

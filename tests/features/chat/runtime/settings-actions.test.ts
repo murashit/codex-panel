@@ -4,18 +4,19 @@ import {
   createChatRuntimeSettingsActions,
   type ChatRuntimeSettingsActions,
 } from "../../../../src/features/chat/application/runtime/settings-actions";
-import { createChatState, type ChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import type { ChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { runtimeSnapshotForChatState } from "../../../../src/features/chat/application/runtime/snapshot";
 import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/application/state/actions";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
+import { chatStateFixture, chatStateWith } from "../support/state";
 
 describe("createChatRuntimeSettingsActions", () => {
   it("applies pending runtime overrides through thread settings and commits them", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -36,7 +37,7 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("reserves thread runtime settings when no thread is active", async () => {
-    const store = createChatStateStore(createChatState());
+    const store = createChatStateStore(chatStateFixture());
     const client = clientFixture();
     const messages: string[] = [];
     const controller = runtimeControllerFixture(store, client, messages);
@@ -62,9 +63,9 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("toggles fast mode and reports the user-visible result", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.ui.toolbarPanel = "status-panel";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { ui: { toolbarPanel: "status-panel" } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -80,8 +81,8 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("enables and disables fast mode through explicit commands", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -97,11 +98,11 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("requests the catalog Fast tier id and toggles it off from the reported effective id", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.runtime.activeModel = "gpt-5.5";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { activeModel: "gpt-5.5" } });
     // Codex app-server 0.134.0 advertises Fast as id "priority" and reports that id as the effective service tier.
-    state.connection.availableModels = [modelFixture("gpt-5.5", "priority")];
+    state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5", "priority")] } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -121,8 +122,8 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("warns without reporting collaboration mode as applied when no effective model is available", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -137,10 +138,10 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("requests default collaboration mode for the next turn without applying thread settings", () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.runtime.activeCollaborationMode = "plan";
-    state.runtime.selectedCollaborationMode = "plan";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { activeCollaborationMode: "plan" } });
+    state = chatStateWith(state, { runtime: { selectedCollaborationMode: "plan" } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -155,13 +156,17 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("builds pending thread settings from explicit effective config", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.connection.runtimeConfig = {
-      ...emptyRuntimeConfigSnapshot(),
-      model: "gpt-config",
-      reasoningEffort: "medium",
-    };
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, {
+      connection: {
+        runtimeConfig: {
+          ...emptyRuntimeConfigSnapshot(),
+          model: "gpt-config",
+          reasoningEffort: "medium",
+        },
+      },
+    });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -189,8 +194,8 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("leaves pending override in place when the app-server update fails", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const client = clientFixture({ updateThreadSettings: vi.fn().mockRejectedValue(new Error("nope")) });
     const messages: string[] = [];
@@ -204,9 +209,9 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("keeps the runtime panel open when a toolbar runtime update fails", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.ui.toolbarPanel = "status-panel";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { ui: { toolbarPanel: "status-panel" } });
     const store = createChatStateStore(state);
     const client = clientFixture({ updateThreadSettings: vi.fn().mockRejectedValue(new Error("nope")) });
     const messages: string[] = [];
@@ -220,8 +225,8 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("does not commit stale runtime updates after the active thread changes", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const client = clientFixture({
       updateThreadSettings: vi.fn().mockImplementation(async () => {
@@ -242,8 +247,8 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("does not report stale runtime update failures after the active thread changes", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const client = clientFixture({
       updateThreadSettings: vi.fn().mockImplementation(async () => {
@@ -263,8 +268,8 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("does not commit stale runtime updates after a newer pending override replaces them", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const firstUpdate = deferred({});
     const secondUpdate = deferred({});
@@ -296,9 +301,9 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("resets requested model to config through an explicit command", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    state.runtime.activeModel = "gpt-5.5";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { runtime: { activeModel: "gpt-5.5" } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -312,8 +317,8 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 
   it("enables and disables auto-review through explicit commands", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];

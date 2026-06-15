@@ -149,7 +149,7 @@ export function TextItemDetails({
   );
 }
 
-export function SystemDetails({ details }: { details: MessageStreamNoticeSection[] }): UiNode {
+export function SystemDetails({ details }: { details: readonly MessageStreamNoticeSection[] }): UiNode {
   return (
     <>
       {details.map((section, index) => (
@@ -174,7 +174,7 @@ export function userInputQuestionDetails(questions: readonly MessageStreamUserIn
 
 interface TextItemDetailSection {
   title?: string;
-  facts?: { key: string; value: string }[];
+  facts?: readonly { readonly key: string; readonly value: string }[];
   body?: string;
 }
 

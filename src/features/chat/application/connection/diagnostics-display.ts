@@ -60,7 +60,7 @@ function diagnosticProbeRow(probe: DiagnosticProbeResult): DiagnosticRow {
   };
 }
 
-function mcpServerDiagnosticRows(servers: McpServerDiagnostic[]): DiagnosticRow[] {
+function mcpServerDiagnosticRows(servers: readonly McpServerDiagnostic[]): DiagnosticRow[] {
   return servers.filter(isMcpServerIssue).map((server) => ({
     label: `mcp ${server.name}`,
     value: mcpServerDiagnosticValue(server),
@@ -85,7 +85,7 @@ function mcpServerDiagnosticValue(server: McpServerDiagnostic): string {
   return parts.join(" - ");
 }
 
-export function mcpStatusLines(servers: McpServerStatusSummary[], diagnostics: McpServerDiagnostic[] = []): string[] {
+export function mcpStatusLines(servers: readonly McpServerStatusSummary[], diagnostics: readonly McpServerDiagnostic[] = []): string[] {
   if (servers.length === 0 && diagnostics.length === 0) {
     return ["MCP servers", "Codex App Server reports no MCP servers."];
   }

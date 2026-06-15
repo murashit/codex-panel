@@ -4,12 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MarkdownRenderer, TFile } from "obsidian";
 import { h } from "preact";
 
-import {
-  chatReducer,
-  createChatState,
-  type ChatAction,
-  type ChatState,
-} from "../../../../../src/features/chat/application/state/root-reducer";
+import { chatReducer, type ChatAction, type ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
@@ -25,7 +20,8 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-roo
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { installMessageViewportMetrics } from "../../ui/message-stream/test-helpers";
-import { chatStateMessageStreamItems, setChatStateMessageStreamItems } from "../../support/message-stream";
+import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
+import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 
@@ -41,7 +37,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("projects reducer state into message stream view state", () => {
-    const store = createChatStateStore(createChatState());
+    const store = createChatStateStore(chatStateFixture());
     store.dispatch({
       type: "active-thread/resumed",
       thread: { id: "thread-1", preview: "", archived: false, createdAt: 1, updatedAt: 1, name: "Thread" },
@@ -72,7 +68,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("wires message stream disclosure actions through the surface context", () => {
-    const store = createChatStateStore(createChatState());
+    const store = createChatStateStore(chatStateFixture());
     const surfaceContext = messageStreamSurfaceContext({
       vaultPath: "/vault",
       dispatch: (action) => {
@@ -180,9 +176,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("pins to the scroll container bottom without aligning the last message element", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -212,9 +208,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("can repin the current scroll container after composer growth shrinks the viewport", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -244,9 +240,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("repins after composer growth has changed the scroll viewport height", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -311,9 +307,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("detaches the active virtualizer when the message stream unmounts", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -340,9 +336,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("binds scroll commands to the currently mounted message viewport", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -374,9 +370,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("completes bottom pinning after the message viewport commits", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -400,9 +396,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("keeps bottom pinning after markdown content changes message height", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -439,9 +435,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("does not force the bottom into view when the user is reading older messages", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -467,7 +463,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
-    setChatStateMessageStreamItems(state, [
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -485,9 +481,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("does not run a pending bottom pin after the user scrolls away", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -517,9 +513,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("leaves the mounted message stream content in place on dispose", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(state, [
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(state, [
       {
         id: "message",
         kind: "message",
@@ -547,9 +543,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("does not mount every block before the virtualizer attaches", async () => {
-    const state = createChatState();
-    state.activeThread.id = "thread";
-    setChatStateMessageStreamItems(
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = withChatStateMessageStreamItems(
       state,
       Array.from({ length: 200 }, (_value, index) => ({
         id: `message-${String(index)}`,
@@ -662,7 +658,7 @@ interface TestMessageStreamPresenter {
 }
 
 function messageStreamPresenter(
-  state = createChatState(),
+  state = chatStateFixture(),
   openLinkText = vi.fn(),
   vaultPath = "/vault",
   vaultFiles: string[] = [],
@@ -722,12 +718,12 @@ function messageStreamPresenter(
 }
 
 function testStoreForState(state: ChatState): ChatStateStore {
+  let current = state;
   return {
-    getState: () => state,
+    getState: () => current,
     dispatch(action: ChatAction) {
-      const next = chatReducer(state, action);
-      Object.assign(state, next);
-      return state;
+      current = chatReducer(current, action);
+      return current;
     },
     subscribe: () => () => undefined,
   };
