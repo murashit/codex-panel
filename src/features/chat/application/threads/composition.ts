@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import type { ArchiveExportAdapter } from "../../../../domain/threads/archive-markdown";
+import type { ArchiveExportAdapter } from "../../../../app-server/services/thread-archive-markdown";
 import type { GoalActions } from "./goal-actions";
 import { createSelectionActions } from "./selection-actions";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";

@@ -1,17 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  exportArchivedThreadMarkdown,
-  type ArchiveExportAdapter,
-  type ArchiveExportSettings,
-} from "../../../src/domain/threads/archive-markdown";
+import { archivedThreadMarkdown, type ArchiveExportSettings } from "../../../src/domain/threads/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
 import { referencedThreadPromptBundle } from "../../../src/domain/threads/reference";
 import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";
 
 describe("thread archive export", () => {
-  it("writes frontmatter and readable user/codex turns with turn timestamps", async () => {
-    const output = await exportedMarkdown(
+  it("writes frontmatter and readable user/codex turns with turn timestamps", () => {
+    const output = exportedMarkdown(
       thread({
         id: "thread-12345678",
         name: "Exported thread",
@@ -54,8 +50,8 @@ describe("thread archive export", () => {
     expect(output).not.toContain("npm test");
   });
 
-  it("falls back when turn timestamps are missing and uses start time for incomplete agent output", async () => {
-    const output = await exportedMarkdown(
+  it("falls back when turn timestamps are missing and uses start time for incomplete agent output", () => {
+    const output = exportedMarkdown(
       thread({
         transcriptEntries: [
           transcriptEntry("user", "古い依頼", null),
@@ -73,7 +69,7 @@ describe("thread archive export", () => {
     expect(output).toContain("## Codex - 2026-05-18 10:01\n\n途中の回答");
   });
 
-  it("exports only the thread history remaining after rollback", async () => {
+  it("exports only the thread history remaining after rollback", () => {
     const rolledBackUserText = "rollbackされた依頼";
     const rolledBackAssistantText = "rollbackされた回答";
     const remainingEntries = [
@@ -84,7 +80,7 @@ describe("thread archive export", () => {
       transcriptEntry("user", rolledBackUserText, timestamp(2026, 5, 18, 10, 0)),
       transcriptEntry("assistant", rolledBackAssistantText, timestamp(2026, 5, 18, 10, 3)),
     ];
-    const output = await exportedMarkdown(
+    const output = exportedMarkdown(
       thread({
         transcriptEntries: remainingEntries,
       }),
@@ -98,14 +94,14 @@ describe("thread archive export", () => {
     expect(output).not.toContain(rolledBackAssistantText);
   });
 
-  it("hides embedded /refer context and keeps a compact reference line", async () => {
+  it("hides embedded /refer context and keeps a compact reference line", () => {
     const { prompt } = referencedThreadPromptBundle(
       thread({ id: "thread-ref", name: "参照元" }),
       [{ userText: "元の依頼", assistantText: "回答" }],
       "続きです",
     );
 
-    const output = await exportedMarkdown(thread({ transcriptEntries: [transcriptEntry("user", prompt, 1)] }), new Date(2026, 4, 18));
+    const output = exportedMarkdown(thread({ transcriptEntries: [transcriptEntry("user", prompt, 1)] }), new Date(2026, 4, 18));
 
     expect(output).toContain("続きです");
     expect(output).toContain("> Referenced: 参照元 (1/20 turns, thread-ref)");
@@ -113,30 +109,30 @@ describe("thread archive export", () => {
     expect(output).not.toContain("元の依頼");
   });
 
-  it("writes optional frontmatter tags from fixed comma-separated settings", async () => {
-    const output = await exportedMarkdown(thread({ name: "Tagged thread" }), new Date(2026, 4, 18), {
+  it("writes optional frontmatter tags from fixed comma-separated settings", () => {
+    const output = exportedMarkdown(thread({ name: "Tagged thread" }), new Date(2026, 4, 18), {
       archiveExportTags: '#codex, "archive", codex, {{title}}',
     });
 
     expect(output).toContain('tags: ["codex", "archive", "{{title}}"]');
   });
 
-  it("omits frontmatter tags when archive tags are empty", async () => {
-    const output = await exportedMarkdown(thread(), new Date(2026, 4, 18), { archiveExportTags: " , # , " });
+  it("omits frontmatter tags when archive tags are empty", () => {
+    const output = exportedMarkdown(thread(), new Date(2026, 4, 18), { archiveExportTags: " , # , " });
 
     expect(output).not.toContain("tags:");
   });
 
-  it("normalizes archive tags without sorting or changing unmatched quotes", async () => {
-    const output = await exportedMarkdown(thread(), new Date(2026, 4, 18), {
+  it("normalizes archive tags without sorting or changing unmatched quotes", () => {
+    const output = exportedMarkdown(thread(), new Date(2026, 4, 18), {
       archiveExportTags: ` "codex" , 'archive', #note/tag, codex, "unfinished `,
     });
 
     expect(output).toContain('tags: ["codex", "archive", "note/tag", "\\"unfinished"]');
   });
 
-  it("normalizes exported markdown links for vault and external absolute paths", async () => {
-    const output = await exportedMarkdown(
+  it("normalizes exported markdown links for vault and external absolute paths", () => {
+    const output = exportedMarkdown(
       thread({
         transcriptEntries: [
           transcriptEntry(
@@ -177,8 +173,8 @@ describe("thread archive export", () => {
     );
   });
 
-  it("normalizes exported thread markdown links when vault path is provided", async () => {
-    const output = await exportedMarkdown(
+  it("normalizes exported thread markdown links when vault path is provided", () => {
+    const output = exportedMarkdown(
       thread({
         transcriptEntries: [
           transcriptEntry(
@@ -195,89 +191,18 @@ describe("thread archive export", () => {
     expect(output).toContain("[Vault](topics/Alpha.md)");
     expect(output).toContain("External (`/Users/showhey/Repos/project/README.md`)");
   });
-
-  it("expands templates, sanitizes paths, creates folders, and preserves existing files", async () => {
-    const adapter = new MemoryAdapter(["Codex Archives/2026-05-18/My-Thread- abcdef12.md"]);
-
-    const result = await exportArchivedThreadMarkdown(
-      thread({ id: "abcdef12-9999", name: "My/Thread?" }),
-      {
-        archiveExportFolderTemplate: "Codex Archives/{{date}}",
-        archiveExportFilenameTemplate: "{{title}} {{shortId}}",
-        archiveExportTags: "codex, archive",
-      },
-      adapter,
-      new Date(2026, 4, 18, 9, 8, 7),
-    );
-
-    expect(result.path).toBe("Codex Archives/2026-05-18/My-Thread- abcdef12 2.md");
-    expect(adapter.folders).toContain("Codex Archives");
-    expect(adapter.folders).toContain("Codex Archives/2026-05-18");
-    expect(adapter.files.get(result.path)).toContain('thread_id: "abcdef12-9999"');
-    expect(adapter.files.get(result.path)).toContain('tags: ["codex", "archive"]');
-  });
-
-  it("rejects vault-external or empty export paths", async () => {
-    const adapter = new MemoryAdapter();
-    await expect(
-      exportArchivedThreadMarkdown(
-        thread(),
-        { archiveExportFolderTemplate: "../outside", archiveExportFilenameTemplate: "{{title}}.md" },
-        adapter,
-      ),
-    ).rejects.toThrow("relative path segments");
-    await expect(
-      exportArchivedThreadMarkdown(thread(), { archiveExportFolderTemplate: "Exports", archiveExportFilenameTemplate: "   " }, adapter),
-    ).rejects.toThrow("empty filename");
-  });
 });
 
-async function exportedMarkdown(
+function exportedMarkdown(
   source: Thread & { transcriptEntries: ThreadTranscriptEntry[] },
   now: Date,
   settings: Partial<ArchiveExportSettings> = {},
-): Promise<string> {
-  const adapter = new MemoryAdapter();
-  const result = await exportArchivedThreadMarkdown(
-    source,
-    {
-      archiveExportFolderTemplate: "Exports",
-      archiveExportFilenameTemplate: "{{title}}",
-      ...settings,
-    },
-    adapter,
-    now,
-  );
-  const markdown = adapter.files.get(result.path);
-  if (markdown === undefined) throw new Error(`Expected exported markdown at ${result.path}`);
-  return markdown;
-}
-
-class MemoryAdapter implements ArchiveExportAdapter {
-  readonly files = new Map<string, string>();
-  readonly folders = new Set<string>();
-
-  constructor(existingFiles: string[] = []) {
-    for (const file of existingFiles) {
-      this.files.set(file, "");
-      const parts = file.split("/");
-      for (let index = 1; index < parts.length; index += 1) {
-        this.folders.add(parts.slice(0, index).join("/"));
-      }
-    }
-  }
-
-  async exists(path: string): Promise<boolean> {
-    return this.files.has(path) || this.folders.has(path);
-  }
-
-  async mkdir(path: string): Promise<void> {
-    this.folders.add(path);
-  }
-
-  async write(path: string, data: string): Promise<void> {
-    this.files.set(path, data);
-  }
+): string {
+  return archivedThreadMarkdown(source, now, {
+    archiveExportFolderTemplate: "Exports",
+    archiveExportFilenameTemplate: "{{title}}",
+    ...settings,
+  });
 }
 
 function thread(

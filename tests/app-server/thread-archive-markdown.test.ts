@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+
+import { exportArchivedThreadMarkdown, type ArchiveExportAdapter } from "../../src/app-server/services/thread-archive-markdown";
+import type { ArchiveThreadInput } from "../../src/domain/threads/archive-markdown";
+import type { ThreadTranscriptEntry } from "../../src/domain/threads/transcript";
+
+describe("thread archive markdown export service", () => {
+  it("expands templates, sanitizes paths, creates folders, and preserves existing files", async () => {
+    const adapter = new MemoryAdapter(["Codex Archives/2026-05-18/My-Thread- abcdef12.md"]);
+
+    const result = await exportArchivedThreadMarkdown(
+      thread({ id: "abcdef12-9999", name: "My/Thread?" }),
+      {
+        archiveExportFolderTemplate: "Codex Archives/{{date}}",
+        archiveExportFilenameTemplate: "{{title}} {{shortId}}",
+        archiveExportTags: "codex, archive",
+      },
+      adapter,
+      new Date(2026, 4, 18, 9, 8, 7),
+    );
+
+    expect(result.path).toBe("Codex Archives/2026-05-18/My-Thread- abcdef12 2.md");
+    expect(adapter.folders).toContain("Codex Archives");
+    expect(adapter.folders).toContain("Codex Archives/2026-05-18");
+    expect(adapter.files.get(result.path)).toContain('thread_id: "abcdef12-9999"');
+    expect(adapter.files.get(result.path)).toContain('tags: ["codex", "archive"]');
+  });
+
+  it("rejects vault-external or empty export paths", async () => {
+    const adapter = new MemoryAdapter();
+    await expect(
+      exportArchivedThreadMarkdown(
+        thread(),
+        { archiveExportFolderTemplate: "../outside", archiveExportFilenameTemplate: "{{title}}.md" },
+        adapter,
+      ),
+    ).rejects.toThrow("relative path segments");
+    await expect(
+      exportArchivedThreadMarkdown(thread(), { archiveExportFolderTemplate: "Exports", archiveExportFilenameTemplate: "   " }, adapter),
+    ).rejects.toThrow("empty filename");
+  });
+});
+
+function thread(overrides: Partial<ArchiveThreadInput> = {}): ArchiveThreadInput {
+  return {
+    id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
+    preview: "Preview",
+    createdAt: 1,
+    updatedAt: 1,
+    name: "Thread",
+    archived: false,
+    transcriptEntries: [transcriptEntry("user", "Hello", 1)],
+    ...overrides,
+  };
+}
+
+function transcriptEntry(kind: ThreadTranscriptEntry["kind"], text: string, timestamp: number | null): ThreadTranscriptEntry {
+  return { kind, text, timestamp };
+}
+
+class MemoryAdapter implements ArchiveExportAdapter {
+  readonly files = new Map<string, string>();
+  readonly folders = new Set<string>();
+
+  constructor(existingFiles: string[] = []) {
+    for (const file of existingFiles) {
+      this.files.set(file, "");
+      const parts = file.split("/");
+      for (let index = 1; index < parts.length; index += 1) {
+        this.folders.add(parts.slice(0, index).join("/"));
+      }
+    }
+  }
+
+  async exists(path: string): Promise<boolean> {
+    return this.files.has(path) || this.folders.has(path);
+  }
+
+  async mkdir(path: string): Promise<void> {
+    this.folders.add(path);
+  }
+
+  async write(path: string, data: string): Promise<void> {
+    this.files.set(path, data);
+  }
+}

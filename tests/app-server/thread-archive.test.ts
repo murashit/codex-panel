@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
-import type { ArchiveExportAdapter } from "../../src/domain/threads/archive-markdown";
+import type { ArchiveExportAdapter } from "../../src/app-server/services/thread-archive-markdown";
 import { archiveThreadOnAppServer } from "../../src/app-server/services/thread-archive";
 import { DEFAULT_SETTINGS } from "../../src/settings/model";
 

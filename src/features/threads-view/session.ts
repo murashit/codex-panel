@@ -7,7 +7,7 @@ import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import { archiveThreadOnAppServer } from "../../app-server/services/thread-archive";
-import type { ArchiveExportAdapter } from "../../domain/threads/archive-markdown";
+import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
 import { renameThreadOnAppServer, threadRenameFromValue } from "../../app-server/services/thread-rename";
 import { generateThreadTitleWithCodex } from "../../app-server/services/thread-title-generation";
 import { findThreadTitleContext, THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE } from "../../domain/threads/title-generation-model";

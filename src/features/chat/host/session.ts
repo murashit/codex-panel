@@ -7,7 +7,7 @@ import { getThreadTitle } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import { shortThreadId } from "../../../utils";
 import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
-import type { ArchiveExportAdapter } from "../../../domain/threads/archive-markdown";
+import type { ArchiveExportAdapter } from "../../../app-server/services/thread-archive-markdown";
 import type { CodexChatHost } from "../application/ports/chat-host";
 import type { ChatConnectionController } from "../application/connection/connection-controller";
 import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
