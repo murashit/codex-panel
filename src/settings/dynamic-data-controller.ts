@@ -3,7 +3,10 @@ import type { AppServerObservedQueryResult } from "../app-server/query/cache";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
 import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
 import { setHookItemEnabled, trustHookItem } from "../app-server/catalog/data";
-import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads/data";
+import {
+  deleteArchivedThread as deleteArchivedThreadOnAppServer,
+  restoreArchivedThread as restoreArchivedThreadOnAppServer,
+} from "../app-server/threads/data";
 import type { AppServerSharedQueries } from "../app-server/query/shared-queries";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
@@ -34,6 +37,10 @@ type SettingsAppServerData = Pick<
 >;
 
 type SettingsThreadCatalog = Pick<SharedThreadCatalog, "invalidateThreadsFromOpenSurface">;
+
+function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: string): string {
+  return thread ? archivedThreadDisplayTitle(thread) : threadId;
+}
 
 interface SettingsDynamicDataControllerCallbacks {
   display(): void;
@@ -342,6 +349,41 @@ export class SettingsDynamicDataController {
         operationId,
       });
       this.callbacks.notify("Could not restore archived Codex thread.");
+    } finally {
+      if (!this.isStaleSettingsDynamicOperation(operationId)) this.callbacks.display();
+    }
+  }
+
+  async deleteArchivedThread(threadId: string): Promise<void> {
+    const operationId = this.nextSettingsDynamicOperationId();
+    const title = archivedThreadTitleForStatus(
+      this.archivedThreads.find((thread) => thread.id === threadId),
+      threadId,
+    );
+    this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+      type: "started",
+      status: "Loading archived threads...",
+      operationId,
+    });
+    this.callbacks.display();
+    try {
+      await this.withSettingsConnection((client) => deleteArchivedThreadOnAppServer(client, threadId));
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
+      this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
+      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+        type: "loaded",
+        status: `Deleted "${title}".`,
+        operationId,
+      });
+      this.host.threadCatalog.invalidateThreadsFromOpenSurface();
+    } catch (error) {
+      if (this.isStaleSettingsDynamicOperation(operationId)) return;
+      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+        type: "failed",
+        status: `Could not delete archived thread: ${errorMessage(error)}`,
+        operationId,
+      });
+      this.callbacks.notify("Could not delete archived Codex thread.");
     } finally {
       if (!this.isStaleSettingsDynamicOperation(operationId)) this.callbacks.display();
     }

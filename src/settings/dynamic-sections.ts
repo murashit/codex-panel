@@ -14,11 +14,14 @@ export interface ArchivedThreadSectionState {
   loaded: boolean;
   loading: boolean;
   status: string;
+  deleteConfirmThreadId: string | null;
   onExportEnabledChange(enabled: boolean): void;
   onExportFolderTemplateChange(value: string): void;
   onExportFilenameTemplateChange(value: string): void;
   onExportTagsChange(value: string): void;
   onRestore(threadId: string): void;
+  onStartDelete(threadId: string): void;
+  onDelete(threadId: string): void;
 }
 
 export interface HookSectionState {
@@ -128,23 +131,44 @@ function renderArchiveExportSettings(containerEl: HTMLElement, state: ArchivedTh
 function renderArchivedThreadList(containerEl: HTMLElement, state: ArchivedThreadSectionState): void {
   containerEl.createEl("p", {
     cls: "setting-item-description codex-panel-settings__dynamic-list-summary",
-    text: "Restore archived threads to the active thread list.",
+    text: "Restore archived threads, or permanently delete archived threads you no longer need.",
   });
   const list = containerEl.createDiv({ cls: "setting-items codex-panel-settings__dynamic-list codex-panel-settings__archived-list" });
   for (const thread of state.threads) {
     const title = archivedThreadDisplayTitle(thread);
+    const deleteConfirming = state.deleteConfirmThreadId === thread.id;
     const setting = new Setting(list)
       .setClass("codex-panel-settings__dynamic-row")
       .setName(title)
-      .setDesc(`Updated ${formatThreadDate(thread.updatedAt)} · ${shortThreadId(thread.id)}`)
-      .addExtraButton((button) => {
+      .setDesc(
+        deleteConfirming
+          ? "Permanently delete this archived thread? This cannot be undone."
+          : `Updated ${formatThreadDate(thread.updatedAt)} · ${shortThreadId(thread.id)}`,
+      );
+    if (!deleteConfirming) {
+      setting.addExtraButton((button) => {
         button.setIcon("rotate-ccw").onClick(() => {
           state.onRestore(thread.id);
         });
         button.extraSettingsEl.addClass("codex-panel-settings__archived-restore");
         button.extraSettingsEl.setAttr("aria-label", `Restore ${title}`);
       });
+    }
+    setting.addExtraButton((button) => {
+      button.setIcon(deleteConfirming ? "check" : "shredder").onClick(() => {
+        if (deleteConfirming) {
+          state.onDelete(thread.id);
+        } else {
+          state.onStartDelete(thread.id);
+        }
+      });
+      button.extraSettingsEl.addClass(
+        deleteConfirming ? "codex-panel-settings__archived-delete-confirm" : "codex-panel-settings__archived-delete",
+      );
+      button.extraSettingsEl.setAttr("aria-label", deleteConfirming ? `Confirm permanent delete ${title}` : `Delete ${title}`);
+    });
     setting.settingEl.addClass("codex-panel-settings__archived-row");
+    if (deleteConfirming) setting.settingEl.addClass("codex-panel-settings__archived-row--delete-confirming");
   }
 }
 

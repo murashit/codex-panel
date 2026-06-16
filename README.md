@@ -91,7 +91,7 @@ By default, `Enter` sends and `Shift+Enter` inserts a newline. You can switch se
 - Send resolved wikilinks as Codex file mentions when the target exists.
 - Open rendered Markdown links to vault files in Obsidian.
 - Review Codex file changes in an Obsidian diff view with changed files and a copy-diff action.
-- Archive threads as Markdown notes with configurable folder, filename template, and tags, or archive without saving.
+- Archive threads as Markdown notes with configurable folder, filename template, and tags, archive without saving, then restore or permanently delete archived threads from settings.
 - Rewrite selected note text using the current editor buffer as context, then review the replacement diff before applying it.
 
 Rollback restores the latest prompt in the Codex thread. It does not undo file edits in your vault.

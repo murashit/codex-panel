@@ -16,6 +16,7 @@ import type { ModelListResponse } from "../../generated/app-server/v2/ModelListR
 import type { ModelProviderCapabilitiesReadResponse } from "../../generated/app-server/v2/ModelProviderCapabilitiesReadResponse";
 import type { SkillsListResponse } from "../../generated/app-server/v2/SkillsListResponse";
 import type { ThreadArchiveResponse } from "../../generated/app-server/v2/ThreadArchiveResponse";
+import type { ThreadDeleteResponse } from "../../generated/app-server/v2/ThreadDeleteResponse";
 import type { ThreadForkResponse } from "../../generated/app-server/v2/ThreadForkResponse";
 import type { ThreadGoalClearResponse } from "../../generated/app-server/v2/ThreadGoalClearResponse";
 import type { ThreadGoalGetResponse } from "../../generated/app-server/v2/ThreadGoalGetResponse";
@@ -127,6 +128,7 @@ interface ClientResponseByMethod {
   "thread/list": ThreadListResponse;
   "thread/read": ThreadReadResponse;
   "thread/archive": ThreadArchiveResponse;
+  "thread/delete": ThreadDeleteResponse;
   "thread/unarchive": ThreadUnarchiveResponse;
   "thread/rollback": ThreadRollbackResponse;
   "thread/name/set": ThreadSetNameResponse;
@@ -322,6 +324,10 @@ export class AppServerClient {
 
   archiveThread(threadId: string): Promise<ThreadArchiveResponse> {
     return this.request("thread/archive", { threadId });
+  }
+
+  deleteThread(threadId: string): Promise<ThreadDeleteResponse> {
+    return this.request("thread/delete", { threadId });
   }
 
   readThread(threadId: string, includeTurns = true): Promise<ThreadReadResponse> {

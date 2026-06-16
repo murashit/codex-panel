@@ -94,3 +94,7 @@ export async function restoreArchivedThread(client: AppServerClient, threadId: s
   const response = await client.unarchiveThread(threadId);
   return threadFromThreadRecord(response.thread);
 }
+
+export async function deleteArchivedThread(client: AppServerClient, threadId: string): Promise<void> {
+  await client.deleteThread(threadId);
+}

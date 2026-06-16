@@ -18,6 +18,18 @@ function renderSettingsHeading(containerEl: HTMLElement, name: string): void {
 
 export class CodexPanelSettingTab extends PluginSettingTab {
   private readonly dynamicData: SettingsDynamicDataController;
+  private archivedDeleteConfirmThreadId: string | null = null;
+  private readonly cancelArchivedDeleteConfirmOnOutsidePointer = (event: PointerEvent): void => {
+    if (!this.archivedDeleteConfirmThreadId) return;
+    const target = event.target;
+    const viewWindow = this.containerEl.ownerDocument.defaultView;
+    if (viewWindow && target instanceof viewWindow.Element) {
+      const deleteConfirm = target.closest(".codex-panel-settings__archived-row--delete-confirming");
+      if (deleteConfirm && this.containerEl.contains(deleteConfirm)) return;
+    }
+    this.archivedDeleteConfirmThreadId = null;
+    this.renderSettingsTab({ autoLoadCodexData: false });
+  };
 
   constructor(
     app: App,
@@ -41,6 +53,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   override hide(): void {
+    this.containerEl.removeEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
+    this.archivedDeleteConfirmThreadId = null;
     this.dynamicData.dispose();
     super.hide();
   }
@@ -49,6 +63,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("codex-panel-settings");
+    containerEl.removeEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
+    containerEl.addEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
 
     this.renderHeaderActions(containerEl, SETTINGS_INTRO_TEXT);
     this.renderPanelPreferenceSections(containerEl);
@@ -214,11 +230,23 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       loaded: dynamicData.archivedThreadsLifecycle.kind === "loaded",
       loading: dynamicData.archivedThreadsLifecycle.kind === "loading",
       status: dynamicData.archivedThreadsLifecycle.status,
+      deleteConfirmThreadId: this.archivedDeleteConfirmThreadId,
       onExportEnabledChange: (enabled) => void this.setArchiveExportEnabled(enabled),
       onExportFolderTemplateChange: (value) => void this.setArchiveExportFolderTemplate(value),
       onExportFilenameTemplateChange: (value) => void this.setArchiveExportFilenameTemplate(value),
       onExportTagsChange: (value) => void this.setArchiveExportTags(value),
-      onRestore: (threadId) => void this.dynamicData.restoreArchivedThread(threadId),
+      onRestore: (threadId) => {
+        this.archivedDeleteConfirmThreadId = null;
+        void this.dynamicData.restoreArchivedThread(threadId);
+      },
+      onStartDelete: (threadId) => {
+        this.archivedDeleteConfirmThreadId = threadId;
+        this.renderSettingsTab({ autoLoadCodexData: false });
+      },
+      onDelete: (threadId) => {
+        this.archivedDeleteConfirmThreadId = null;
+        void this.dynamicData.deleteArchivedThread(threadId);
+      },
     });
 
     renderHookSection(containerEl, {

@@ -483,7 +483,7 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.textContent).toContain("Restore archived threads to the active thread list.");
+    expect(tab.containerEl.textContent).toContain("Restore archived threads, or permanently delete archived threads you no longer need.");
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 hook from Codex app server.");
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 archived thread from Codex app server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
@@ -496,6 +496,56 @@ describe("settings tab", () => {
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(1);
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).toContain("abc123");
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")?.textContent).toContain("Archived thread");
+  });
+
+  it("confirms archived thread deletion inline and cancels from outside clicks", async () => {
+    const client = settingsClient({
+      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
+    });
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
+    );
+    const tab = newSettingsTab();
+
+    tab.display();
+    await flushPromises();
+
+    clickButtonByLabel(tab, "Delete Archived thread");
+
+    expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).not.toBeNull();
+    expect(tab.containerEl.textContent).toContain("Permanently delete this archived thread? This cannot be undone.");
+    expect(tab.containerEl.querySelector("[aria-label='Confirm permanent delete Archived thread']")?.getAttribute("data-icon")).toBe(
+      "check",
+    );
+
+    tab.containerEl.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+
+    expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).toBeNull();
+    expect(tab.containerEl.textContent).not.toContain("Permanently delete this archived thread?");
+    expect(client.deleteThread).not.toHaveBeenCalled();
+  });
+
+  it("permanently deletes an archived thread from the confirmed settings row", async () => {
+    const invalidateThreadsFromOpenSurface = vi.fn();
+    const client = settingsClient({
+      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
+    });
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
+    );
+    const tab = newSettingsTab({ invalidateThreadsFromOpenSurface });
+
+    tab.display();
+    await flushPromises();
+
+    clickButtonByLabel(tab, "Delete Archived thread");
+    clickButtonByLabel(tab, "Confirm permanent delete Archived thread");
+    await flushPromises();
+
+    expect(client.deleteThread).toHaveBeenCalledWith("thread-archived");
+    expect(invalidateThreadsFromOpenSurface).toHaveBeenCalledOnce();
+    expect(tab.containerEl.textContent).toContain("No archived threads.");
+    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(0);
   });
 });
 
@@ -598,6 +648,7 @@ function settingsClient(
       });
     }),
     listThreads: vi.fn().mockResolvedValue({ data: options.threads ?? [appServerThread({ preview: "Archived" })] }),
+    deleteThread: vi.fn().mockResolvedValue({}),
   };
 }
 

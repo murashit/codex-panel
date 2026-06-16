@@ -79,6 +79,10 @@
   border-top: 0;
 }
 
+.codex-panel-settings__archived-row--delete-confirming {
+  background: color-mix(in srgb, var(--codex-panel-color-danger) 8%, transparent);
+}
+
 .codex-panel-settings__dynamic-row .setting-item-info {
   min-width: 0;
 }
@@ -105,5 +109,10 @@
 }
 
 .codex-panel-settings__hook-error {
+  color: var(--codex-panel-color-danger);
+}
+
+.codex-panel-settings__archived-row--delete-confirming .setting-item-description,
+.codex-panel-settings__archived-delete-confirm {
   color: var(--codex-panel-color-danger);
 }
