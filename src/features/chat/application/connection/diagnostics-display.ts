@@ -1,9 +1,9 @@
 import { DIAGNOSTIC_PROBE_METHODS, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
 import { CLIENT_VERSION } from "../../../../constants";
 import type { ChatState } from "../state/root-reducer";
+import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type {
   Diagnostics,
-  InitializeDiagnostics,
   DiagnosticProbeResult,
   McpServerDiagnostic,
   McpServerStatusSummary,
@@ -23,7 +23,7 @@ export interface DiagnosticSection {
 export interface ConnectionDiagnosticsInput {
   connected: boolean;
   configuredCommand: string;
-  initializeResponse: InitializeDiagnostics | null;
+  initializeResponse: ServerInitialization | null;
   diagnostics: Diagnostics;
 }
 

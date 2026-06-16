@@ -69,10 +69,6 @@ export class AppServerSharedQueries {
     return this.options.cache.updateAppServerMetadata(this.context(), updater);
   }
 
-  fetchAppServerMetadata(): Promise<SharedServerMetadata | null> {
-    return this.runForCurrentContext((context) => this.options.cache.fetchAppServerMetadata(context));
-  }
-
   refreshAppServerMetadata(options: { forceSkills?: boolean } = {}): Promise<SharedServerMetadata | null> {
     return this.runForCurrentContext((context) => this.options.cache.refreshAppServerMetadata(context, options));
   }

@@ -623,7 +623,6 @@ function chatHostFixture(): CodexChatHost {
     appServerData: {
       updateAppServerMetadata: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),
-      fetchAppServerMetadata: vi.fn(() => Promise.resolve(null)),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
       modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn(() => Promise.resolve([])),

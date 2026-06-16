@@ -1,10 +1,8 @@
 import type { AppServerClient } from "../connection/client";
-import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
 import { listSkillCatalog } from "../catalog/data";
 import { diagnosticProbeError, diagnosticProbeOk, type Diagnostics } from "../../domain/server/diagnostics";
 import type { SkillMetadata } from "../../domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 
 interface MetadataProbeResult<T, K extends keyof Diagnostics["probes"]> {
@@ -14,11 +12,6 @@ interface MetadataProbeResult<T, K extends keyof Diagnostics["probes"]> {
 
 export type SkillMetadataProbeResult = MetadataProbeResult<SkillMetadata[], "skills/list">;
 export type RateLimitMetadataProbeResult = MetadataProbeResult<RateLimitSnapshot | null, "account/rateLimits/read">;
-
-export async function readRuntimeConfigSnapshot(client: AppServerClient | null, vaultPath: string): Promise<RuntimeConfigSnapshot | null> {
-  if (!client) return null;
-  return runtimeConfigSnapshotFromAppServerConfig(await client.readEffectiveConfig(vaultPath));
-}
 
 export async function readSkillMetadataProbe(
   client: AppServerClient | null,

@@ -24,7 +24,7 @@ function controllerForState(
   const store = testStoreForState(state);
   return Object.assign(
     new ChatInboundController(store, {
-      fetchActiveThreads: vi.fn(),
+      refreshActiveThreads: vi.fn(),
       refreshRateLimits: vi.fn(),
       refreshSkills: vi.fn(),
       applyAppServerMetadataSnapshot: vi.fn(),
@@ -638,8 +638,8 @@ describe("ChatInboundController", () => {
         },
       ]);
       const maybeNameThread = vi.fn();
-      const fetchActiveThreads = vi.fn();
-      const controller = controllerForState(state, { maybeNameThread, fetchActiveThreads });
+      const refreshActiveThreads = vi.fn();
+      const controller = controllerForState(state, { maybeNameThread, refreshActiveThreads });
 
       controller.handleNotification({
         method: "turn/completed",
@@ -664,7 +664,7 @@ describe("ChatInboundController", () => {
       });
       expect(chatStateMessageStreamItems(controller.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
-      expect(fetchActiveThreads).not.toHaveBeenCalled();
+      expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
 
     it("refreshes account rate limits after sparse update notifications", () => {

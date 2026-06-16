@@ -3,10 +3,7 @@ import type { AppServerObservedQueryResult } from "../app-server/query/cache";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
 import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
 import { setHookItemEnabled, trustHookItem } from "../app-server/catalog/data";
-import {
-  deleteArchivedThread as deleteArchivedThreadOnAppServer,
-  restoreArchivedThread as restoreArchivedThreadOnAppServer,
-} from "../app-server/threads/data";
+import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads/data";
 import type { AppServerSharedQueries } from "../app-server/query/shared-queries";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
@@ -395,7 +392,7 @@ export class SettingsDynamicDataController {
     });
     this.callbacks.display();
     try {
-      await this.withSettingsConnection((client) => deleteArchivedThreadOnAppServer(client, threadId));
+      await this.withSettingsConnection((client) => client.deleteThread(threadId));
       if (this.isStaleArchivedThreadsOperation(operationId)) return;
       this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {

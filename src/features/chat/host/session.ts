@@ -528,7 +528,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     const connectionController = controller;
     const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
     const ensureConnected = () => connectionController.ensureConnected();
-    const fetchActiveThreads = () => connectionController.fetchActiveThreads();
+    const refreshActiveThreads = () => connectionController.refreshActiveThreads();
     const threadOperations = this.createThreadOperations(currentClient, ensureConnected);
     const runtimeSettings = this.createRuntimeSettingsActions(currentClient, status);
     const goals = this.createGoalActions(currentClient, ensureConnected, status);
@@ -546,7 +546,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       status,
       composerController,
       resume,
-      fetchActiveThreads,
+      refreshActiveThreads,
     });
     const composerAndTurn = this.createComposerAndTurnActions({
       connection,
@@ -847,9 +847,9 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     status: ChatPanelSessionStatus;
     composerController: ChatComposerController;
     resume: ResumeController;
-    fetchActiveThreads: () => Promise<void>;
+    refreshActiveThreads: () => Promise<void>;
   }): ChatPanelThreadActionParts {
-    const { operations, ensureConnected, currentClient, status, composerController, resume, fetchActiveThreads } = input;
+    const { operations, ensureConnected, currentClient, status, composerController, resume, refreshActiveThreads } = input;
     const environment = this.environment;
     const threadManagementHost: ThreadManagementActionsHost = {
       stateStore: this.stateStore,
@@ -868,7 +868,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         this.notifyActiveThreadIdentityChanged();
       },
       refreshAfterThreadMutation: async () => {
-        await fetchActiveThreads();
+        await refreshActiveThreads();
       },
     };
     const actions = createThreadManagementActions(threadManagementHost);
@@ -1138,7 +1138,6 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       currentClient,
       updateAppServerMetadata: (updater) => environment.plugin.appServerData.updateAppServerMetadata(updater),
       appServerMetadataSnapshot: () => environment.plugin.appServerData.appServerMetadataSnapshot(),
-      fetchAppServerMetadata: () => environment.plugin.appServerData.fetchAppServerMetadata(),
       refreshAppServerMetadata: (options) => environment.plugin.appServerData.refreshAppServerMetadata(options),
     });
     const serverDiagnostics = createChatServerDiagnosticsActions({
@@ -1163,7 +1162,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     const loadSharedThreadList = () => this.loadSharedThreadList();
     const serverRequestHost = { currentClient };
     const inboundController = new ChatInboundController(stateStore, {
-      fetchActiveThreads: () => {
+      refreshActiveThreads: () => {
         void loadSharedThreadList();
       },
       refreshRateLimits: () => {

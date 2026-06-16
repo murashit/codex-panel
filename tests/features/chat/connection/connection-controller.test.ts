@@ -95,7 +95,7 @@ describe("ChatConnectionController", () => {
   it("refreshes active threads without refreshing metadata", async () => {
     const { controller, host, refreshAppServerMetadata } = createController({ connected: true });
 
-    await controller.fetchActiveThreads();
+    await controller.refreshActiveThreads();
 
     expect(host.loadSharedThreadList).toHaveBeenCalledOnce();
     expect(refreshAppServerMetadata).not.toHaveBeenCalled();

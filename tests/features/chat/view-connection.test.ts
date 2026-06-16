@@ -1335,7 +1335,6 @@ interface ChatHostFixtureOverrides {
   modelsSnapshot?: CodexChatHost["appServerData"]["modelsSnapshot"];
   fetchModels?: CodexChatHost["appServerData"]["fetchModels"];
   refreshModels?: CodexChatHost["appServerData"]["refreshModels"];
-  fetchAppServerMetadata?: CodexChatHost["appServerData"]["fetchAppServerMetadata"];
   refreshAppServerMetadata?: CodexChatHost["appServerData"]["refreshAppServerMetadata"];
 }
 
@@ -1408,12 +1407,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
           return applyMetadataToCache(nextMetadata);
         }),
       appServerMetadataSnapshot: overrides.appServerMetadataSnapshot ?? vi.fn(() => metadata),
-      fetchAppServerMetadata:
-        overrides.fetchAppServerMetadata ??
-        vi.fn(async () => {
-          const nextMetadata = await loadAppServerMetadata();
-          return nextMetadata ? applyMetadataToCache(nextMetadata) : null;
-        }),
       refreshAppServerMetadata:
         overrides.refreshAppServerMetadata ??
         vi.fn(async () => {

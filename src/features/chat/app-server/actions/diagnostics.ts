@@ -1,5 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import {
+  cloneServerDiagnostics,
   diagnosticsWithProbe,
   diagnosticProbeError,
   diagnosticProbeOk,
@@ -14,7 +15,7 @@ import {
 import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { mcpStatusLines as buildMcpStatusLines } from "../../application/connection/diagnostics-display";
-import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";
+import type { ChatServerActionHost } from "./host";
 
 interface RefreshDiagnosticProbesOptions {
   appServerMetadataSnapshot?: boolean;

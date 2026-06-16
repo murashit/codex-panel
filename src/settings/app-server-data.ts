@@ -9,7 +9,7 @@ export interface LoadedHooks extends HookData {
 }
 
 export interface SettingsCompanionDataLoad {
-  hooks: SettledSettingsData<LoadedHooks>;
+  hooks: SettledSettingsData<HookData>;
   archivedThreads: SettledSettingsData<Thread[]>;
 }
 
@@ -58,13 +58,10 @@ function hooksStatus(count: number): string {
   return `Loaded ${String(count)} hook${count === 1 ? "" : "s"}.`;
 }
 
-function settledHooks(hooks: Omit<LoadedHooks, "status">): SettledSettingsData<LoadedHooks> {
+function settledHooks(hooks: HookData): SettledSettingsData<HookData> {
   return {
     ok: true,
-    data: {
-      ...hooks,
-      status: hooksStatus(hooks.hooks.length),
-    },
+    data: hooks,
     status: hooksStatus(hooks.hooks.length),
   };
 }

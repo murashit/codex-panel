@@ -2,9 +2,9 @@ import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } fro
 
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
+import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root";
 import { SettingsDynamicDataController, type SettingsDynamicDataHost } from "./dynamic-data-controller";
-import type { SettingsDynamicSectionsState } from "./dynamic-sections";
-import { renderSettingsDynamicSections, unmountSettingsDynamicSections } from "./render";
+import { SettingsDynamicSections, type SettingsDynamicSectionsState } from "./dynamic-sections";
 
 const SETTINGS_INTRO_TEXT =
   "Codex Panel stores only panel preferences. Models, sandboxing, approvals, MCP servers, hooks, and network access still come from Codex config.";
@@ -58,14 +58,14 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.containerEl.removeEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
     this.archivedDeleteConfirmThreadId = null;
     this.dynamicData.dispose();
-    unmountSettingsDynamicSections(this.dynamicSectionsRoot);
+    unmountUiRoot(this.dynamicSectionsRoot);
     this.dynamicSectionsRoot = null;
     super.hide();
   }
 
   private renderSettingsTab(options: { autoLoadCodexData: boolean }): void {
     const { containerEl } = this;
-    unmountSettingsDynamicSections(this.dynamicSectionsRoot);
+    unmountUiRoot(this.dynamicSectionsRoot);
     this.dynamicSectionsRoot = null;
     containerEl.empty();
     containerEl.addClass("codex-panel-settings");
@@ -139,7 +139,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private renderDynamicSections(): void {
     if (!this.dynamicSectionsRoot) return;
-    renderSettingsDynamicSections(this.dynamicSectionsRoot, this.dynamicSectionsState());
+    renderUiRoot(this.dynamicSectionsRoot, <SettingsDynamicSections state={this.dynamicSectionsState()} />);
   }
 
   private dynamicSectionsState(): SettingsDynamicSectionsState {

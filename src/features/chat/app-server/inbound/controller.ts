@@ -35,7 +35,7 @@ function cannotRejectServerRequestMessage(): string {
 }
 
 export interface ChatInboundControllerActions {
-  fetchActiveThreads: () => void;
+  refreshActiveThreads: () => void;
   refreshRateLimits: () => void;
   refreshSkills: (forceReload?: boolean) => void;
   applyAppServerMetadataSnapshot: () => void;
@@ -185,7 +185,7 @@ export class ChatInboundController {
   private runNotificationEffect(effect: ChatNotificationEffect): void {
     switch (effect.type) {
       case "refresh-threads":
-        this.actions.fetchActiveThreads();
+        this.actions.refreshActiveThreads();
         return;
       case "refresh-rate-limits":
         this.actions.refreshRateLimits();

@@ -278,7 +278,6 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       ...metadataCache,
-      fetchAppServerMetadata: async () => refreshedMetadata,
       refreshAppServerMetadata: async () => {
         const next = await refreshAppServerMetadata();
         metadataCache.updateAppServerMetadata(() => next);
@@ -319,7 +318,6 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => null,
       ...metadataCacheHost({ current: null }),
-      fetchAppServerMetadata: async () => null,
       refreshAppServerMetadata: async () => {
         throw new StaleAppServerSharedQueryContextError();
       },
@@ -435,32 +433,6 @@ describe("chat server actions", () => {
     expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
-  it("loads one app-server metadata snapshot from the initially captured client", async () => {
-    const stateStore = createChatStateStore(chatStateFixture());
-    const fetchAppServerMetadata = vi.fn().mockResolvedValue(
-      serverMetadataFixture({
-        availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-first")]),
-        availableSkills: [{ name: "first-skill", description: "", path: "/tmp/first-skill", enabled: true }],
-      }),
-    );
-    const controller = createChatServerMetadataActions({
-      stateStore,
-      vaultPath: "/vault",
-      currentClient: () => ({}) as AppServerClient,
-      ...metadataCacheHost(),
-      fetchAppServerMetadata,
-      refreshAppServerMetadata: async () => null,
-    });
-
-    const loading = controller.loadAppServerMetadata();
-
-    await expect(loading).resolves.toMatchObject({
-      availableModels: [{ model: "gpt-first" }],
-      availableSkills: [{ name: "first-skill" }],
-    });
-    expect(fetchAppServerMetadata).toHaveBeenCalledOnce();
-  });
-
   it("does not apply or publish app-server metadata when the client changes before refresh completes", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
@@ -469,7 +441,6 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => ({}) as AppServerClient,
       ...metadataCacheHost(),
-      fetchAppServerMetadata: async () => null,
       refreshAppServerMetadata,
     });
 
@@ -492,7 +463,6 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => ({}) as AppServerClient,
       ...metadataCacheHost({ current: metadata }),
-      fetchAppServerMetadata: async () => metadata,
       refreshAppServerMetadata: async () => metadata,
     });
 
@@ -515,7 +485,6 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => ({}) as AppServerClient,
       ...metadataCacheHost({ current: metadata }),
-      fetchAppServerMetadata: async () => metadata,
       refreshAppServerMetadata: async () => metadata,
     });
 
@@ -539,7 +508,6 @@ describe("chat server actions", () => {
       currentClient: () => currentClient,
       appServerMetadataSnapshot: () => null,
       updateAppServerMetadata,
-      fetchAppServerMetadata: async () => null,
       refreshAppServerMetadata: async () => null,
     });
 
@@ -567,7 +535,6 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       ...metadataCacheHost(cachedMetadata),
-      fetchAppServerMetadata: async () => null,
       refreshAppServerMetadata: async () => null,
     });
 
@@ -593,7 +560,6 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       ...metadataCacheHost(),
-      fetchAppServerMetadata: async () => null,
       refreshAppServerMetadata: async () => null,
     });
 
@@ -618,7 +584,6 @@ describe("chat server actions", () => {
       currentClient: () => currentClient,
       appServerMetadataSnapshot: () => null,
       updateAppServerMetadata,
-      fetchAppServerMetadata: async () => null,
       refreshAppServerMetadata: async () => null,
     });
 

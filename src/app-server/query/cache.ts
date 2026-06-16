@@ -2,7 +2,8 @@ import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/
 
 import type { AppServerClient } from "../connection/client";
 import { listModelMetadata } from "../catalog/data";
-import { readRateLimitMetadataProbe, readRuntimeConfigSnapshot, readSkillMetadataProbe } from "./metadata-probes";
+import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
+import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listThreads } from "../threads/data";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
@@ -125,30 +126,21 @@ export class AppServerQueryCache {
     return this.observeQueryResult(this.appServerMetadataQueryOptions(context), cloneSharedServerMetadata, listener, options);
   }
 
-  async fetchAppServerMetadata(
+  async refreshAppServerMetadata(
     context: AppServerQueryContext,
-    options: { force?: boolean; forceSkills?: boolean } = {},
+    options: { forceSkills?: boolean } = {},
   ): Promise<SharedServerMetadata | null> {
     const refreshContext = cloneAppServerQueryContext(context);
     if (!appServerQueryContextIsComplete(refreshContext)) {
       return null;
     }
     const key = appServerMetadataQueryKey(refreshContext);
-    if (options.force) {
-      await Promise.all([
-        this.client.invalidateQueries({ queryKey: key }),
-        this.client.invalidateQueries({ queryKey: appServerModelsQueryKey(refreshContext) }),
-      ]);
-    }
+    await Promise.all([
+      this.client.invalidateQueries({ queryKey: key }),
+      this.client.invalidateQueries({ queryKey: appServerModelsQueryKey(refreshContext) }),
+    ]);
     const metadata = await this.client.fetchQuery(this.appServerMetadataQueryOptions(refreshContext, options));
     return this.writeAppServerMetadata(refreshContext, metadata);
-  }
-
-  async refreshAppServerMetadata(
-    context: AppServerQueryContext,
-    options: { forceSkills?: boolean } = {},
-  ): Promise<SharedServerMetadata | null> {
-    return this.fetchAppServerMetadata(context, { ...options, force: true });
   }
 
   writeAppServerMetadata(context: AppServerQueryContext, metadata: SharedServerMetadata): SharedServerMetadata | null {
@@ -242,7 +234,7 @@ export class AppServerQueryCache {
       queryKey: appServerMetadataQueryKey(refreshContext),
       queryFn: async (): Promise<SharedServerMetadata> => {
         return this.runWithClient(refreshContext, async (client) => {
-          const runtimeConfig = await readRuntimeConfigSnapshot(client, refreshContext.vaultPath);
+          const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await client.readEffectiveConfig(refreshContext.vaultPath));
           const [models, skills, rateLimit] = await Promise.all([
             this.readModelMetadataProbe(refreshContext, client),
             readSkillMetadataProbe(client, refreshContext.vaultPath, options.forceSkills ?? false),

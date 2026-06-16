@@ -9,7 +9,7 @@ import {
   createServerDiagnostics,
   upsertMcpServerDiagnostic,
 } from "../../src/domain/server/diagnostics";
-import type { InitializeDiagnostics } from "../../src/domain/server/diagnostics";
+import type { ServerInitialization } from "../../src/domain/server/initialization";
 
 describe("app-server diagnostics", () => {
   it("formats initialize metadata", () => {
@@ -18,7 +18,7 @@ describe("app-server diagnostics", () => {
       codexHome: "/tmp/codex",
       platformFamily: "unix",
       platformOs: "macos",
-    } satisfies InitializeDiagnostics;
+    } satisfies ServerInitialization;
 
     expect(serverIdentity(response)).toBe("codex-cli/0.128.0");
     expect(serverPlatform(response)).toBe("macos/unix");

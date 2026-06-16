@@ -27,8 +27,6 @@ export interface LocalUserMessageFromInputParams extends Omit<LocalUserMessagePa
   codexInput: CodexInput;
 }
 
-export type OptimisticTurnStartParams = LocalUserMessageFromInputParams;
-
 export interface OptimisticTurnStart {
   item: MessageStreamMessageItem;
   pendingTurnStart: PendingTurnStart;
@@ -85,7 +83,7 @@ export function localUserMessageItemFromInput(params: LocalUserMessageFromInputP
   });
 }
 
-export function optimisticTurnStart(params: OptimisticTurnStartParams): OptimisticTurnStart {
+export function optimisticTurnStart(params: LocalUserMessageFromInputParams): OptimisticTurnStart {
   return {
     item: localUserMessageItemFromInput(params),
     pendingTurnStart: { anchorItemId: params.id, promptSubmitHookItemIds: [] },

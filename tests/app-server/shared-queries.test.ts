@@ -150,7 +150,6 @@ function cacheWith(overrides: Partial<AppServerQueryCache>): AppServerQueryCache
     observeActiveThreadsResult: vi.fn(() => () => undefined),
     appServerMetadataSnapshot: vi.fn(() => null),
     updateAppServerMetadata: vi.fn(() => null),
-    fetchAppServerMetadata: vi.fn(() => Promise.resolve(null)),
     refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
     observeAppServerMetadataResult: vi.fn(() => () => undefined),
     modelsSnapshot: vi.fn(() => null),

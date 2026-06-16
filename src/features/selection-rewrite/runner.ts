@@ -6,7 +6,6 @@ import {
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
 import { resolvedRuntimeOverrideForClient } from "../../app-server/services/runtime-overrides";
-import type { RuntimeOverride } from "../../domain/runtime/overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText, type SelectionRewriteOutput } from "./output";
@@ -73,11 +72,9 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
   return output;
 }
 
-type SelectionRewriteRuntimeOverride = RuntimeOverride;
-
 async function selectionRewriteRuntimeOverrideForClient(
   client: EphemeralStructuredTurnRuntimeClient,
   settings: SelectionRewriteRuntimeSettings,
-): Promise<SelectionRewriteRuntimeOverride> {
+) {
   return resolvedRuntimeOverrideForClient(client, { model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
 }

@@ -52,8 +52,6 @@ export interface Diagnostics {
   readonly mcpServers: readonly McpServerDiagnostic[];
 }
 
-export type InitializeDiagnostics = ServerInitialization;
-
 export function createServerDiagnostics(): Diagnostics {
   return {
     probes: Object.fromEntries(DIAGNOSTIC_PROBE_METHODS.map((method) => [method, createDiagnosticProbeResult(method)])) as Record<
@@ -115,11 +113,11 @@ export function diagnosticProbeError(method: DiagnosticProbeMethod, error: unkno
   };
 }
 
-export function serverIdentity(initializeResponse: InitializeDiagnostics | null): string {
+export function serverIdentity(initializeResponse: ServerInitialization | null): string {
   return initializeResponse?.userAgent ?? "(not connected)";
 }
 
-export function serverPlatform(initializeResponse: InitializeDiagnostics | null): string {
+export function serverPlatform(initializeResponse: ServerInitialization | null): string {
   if (!initializeResponse) return "(not connected)";
   const family = initializeResponse.platformFamily;
   const os = initializeResponse.platformOs;

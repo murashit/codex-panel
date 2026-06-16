@@ -8,7 +8,6 @@ import {
 import { resolvedRuntimeOverrideForClient } from "./runtime-overrides";
 import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../protocol/turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import type { RuntimeOverride } from "../../domain/runtime/overrides";
 import { threadTitleFromGeneratedText, threadTitlePrompt, type ThreadTitleContext } from "../../domain/threads/title-generation-model";
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
@@ -67,16 +66,11 @@ export async function generateThreadTitleWithCodex(
   return threadTitleFromGenerationTurn(turn);
 }
 
-type ThreadTitleRuntimeOverride = RuntimeOverride;
-
 function threadTitleFromGenerationTurn(turn: TurnRecord): string | null {
   const response = conversationAssistantTextFromTurnRecord(turn);
   return response ? threadTitleFromGeneratedText(response) : null;
 }
 
-async function threadTitleRuntimeOverrideForClient(
-  client: EphemeralStructuredTurnRuntimeClient,
-  settings: ThreadTitleRuntimeSettings,
-): Promise<ThreadTitleRuntimeOverride> {
+async function threadTitleRuntimeOverrideForClient(client: EphemeralStructuredTurnRuntimeClient, settings: ThreadTitleRuntimeSettings) {
   return resolvedRuntimeOverrideForClient(client, { model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }

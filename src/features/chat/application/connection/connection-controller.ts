@@ -65,7 +65,7 @@ export interface ChatConnectionController {
   ensureConnected(): Promise<void>;
   invalidate(): void;
   handleExit(): void;
-  fetchActiveThreads(): Promise<void>;
+  refreshActiveThreads(): Promise<void>;
   refreshDiagnostics(): Promise<void>;
   refreshStatusPanel(): Promise<void>;
   refreshSkills(forceReload?: boolean): Promise<void>;
@@ -80,7 +80,7 @@ export function createChatConnectionController(host: ChatConnectionControllerHos
     handleExit: () => {
       handleChatConnectionExit(host);
     },
-    fetchActiveThreads: () => fetchActiveThreads(host),
+    refreshActiveThreads: () => refreshActiveThreads(host),
     refreshDiagnostics: () => refreshDiagnostics(host, controller),
     refreshStatusPanel: () => refreshStatusPanel(host, controller),
     refreshSkills: (forceReload = false) => refreshSkills(host, forceReload),
@@ -106,7 +106,7 @@ async function ensureConnected(host: ChatConnectionControllerHost): Promise<void
   }
 }
 
-async function fetchActiveThreads(host: ChatConnectionControllerHost): Promise<void> {
+async function refreshActiveThreads(host: ChatConnectionControllerHost): Promise<void> {
   if (!host.connection.currentClient()) return;
   try {
     await host.loadSharedThreadList();
@@ -131,14 +131,14 @@ async function refreshDiagnostics(
 
 async function refreshStatusPanel(
   host: ChatConnectionControllerHost,
-  controller: Pick<ChatConnectionController, "fetchActiveThreads" | "refreshDiagnostics">,
+  controller: Pick<ChatConnectionController, "refreshActiveThreads" | "refreshDiagnostics">,
 ): Promise<void> {
   try {
     await controller.refreshDiagnostics();
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
-  await controller.fetchActiveThreads();
+  await controller.refreshActiveThreads();
 }
 
 async function refreshSkills(host: ChatConnectionControllerHost, forceReload = false): Promise<void> {

@@ -39,7 +39,6 @@ type ChatAppServerData = Pick<
   AppServerSharedQueries,
   | "updateAppServerMetadata"
   | "appServerMetadataSnapshot"
-  | "fetchAppServerMetadata"
   | "refreshAppServerMetadata"
   | "modelsSnapshot"
   | "fetchModels"

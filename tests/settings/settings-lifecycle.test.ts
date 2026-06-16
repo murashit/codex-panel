@@ -80,7 +80,7 @@ describe("settings lifecycle", () => {
 
     expect(result.hooks).toMatchObject({
       ok: true,
-      data: { hooks: [], warnings: [], errors: [], status: "Loaded 0 hooks." },
+      data: { hooks: [], warnings: [], errors: [] },
       status: "Loaded 0 hooks.",
     });
   });
