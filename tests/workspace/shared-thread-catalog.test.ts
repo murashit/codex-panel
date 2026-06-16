@@ -7,7 +7,6 @@ import { createSharedThreadCatalog } from "../../src/workspace/shared-thread-cat
 
 interface MockSurfaceActions {
   refreshOpenViews: Mock<() => void>;
-  invalidateThreadsFromOpenSurface: Mock<() => void>;
   applyThreadArchived: Mock<(threadId: string, options?: { closeOpenPanels?: boolean }) => void>;
   applyThreadRenamed: Mock<(threadId: string, name: string | null) => void>;
   refreshThreadsViewLiveState: Mock<() => void>;
@@ -107,7 +106,6 @@ function cacheWithThreads(
 function surfaceActions(): MockSurfaceActions {
   return {
     refreshOpenViews: vi.fn(),
-    invalidateThreadsFromOpenSurface: vi.fn(),
     applyThreadArchived: vi.fn(),
     applyThreadRenamed: vi.fn(),
     refreshThreadsViewLiveState: vi.fn(),

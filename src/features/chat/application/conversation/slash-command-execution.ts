@@ -1,10 +1,13 @@
 import type { CodexInput } from "../../../../domain/chat/input";
-import type { ThreadGoal, ThreadGoalStatus } from "../../../../domain/threads/goal";
+import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { normalizeReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
+import type { GoalActions } from "../threads/goal-actions";
+import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import {
   slashCommandDefinition,
   slashCommandHelpSections,
@@ -34,26 +37,22 @@ export interface SlashCommandExecutionContext {
   startThreadForGoal: (objective: string) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
   referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
-  forkThread: (threadId: string) => Promise<void>;
-  rollbackThread: (threadId: string) => Promise<void>;
-  compactThread: (threadId: string) => Promise<void>;
-  archiveThread: (threadId: string, saveMarkdown?: boolean) => Promise<void>;
-  renameThread: (threadId: string, name: string) => Promise<void>;
+  threadActions: Pick<ThreadManagementActions, "forkThread" | "rollbackThread" | "compactThread" | "archiveThread" | "renameThread">;
   reconnect: () => Promise<void>;
-  toggleFastMode: () => void | Promise<void>;
-  toggleCollaborationMode: () => void | Promise<void>;
-  toggleAutoReview: () => void | Promise<void>;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
-  requestModel: (model: string) => boolean | undefined | Promise<boolean | undefined>;
-  resetModelToConfig: () => boolean | undefined | Promise<boolean | undefined>;
-  requestReasoningEffort: (effort: ReasoningEffort) => boolean | undefined | Promise<boolean | undefined>;
-  resetReasoningEffortToConfig: () => boolean | undefined | Promise<boolean | undefined>;
+  runtimeSettings: Pick<
+    ChatRuntimeSettingsActions,
+    | "toggleFastMode"
+    | "toggleCollaborationMode"
+    | "toggleAutoReview"
+    | "requestModel"
+    | "resetModelToConfig"
+    | "requestReasoningEffort"
+    | "resetReasoningEffortToConfig"
+  >;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
-  activeGoal: () => ThreadGoal | null;
-  setGoalObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<boolean>;
-  setGoalStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
-  clearGoal: (threadId: string) => Promise<boolean>;
+  goals: Pick<GoalActions, "activeGoal" | "setObjective" | "setStatus" | "clear">;
   statusSummaryLines: () => string[];
   connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
   mcpStatusLines: () => Promise<string[]>;
@@ -84,189 +83,167 @@ export async function executeSlashCommand(
     return;
   }
 
-  if (command === "clear") {
-    await context.startNewThread();
-    return;
-  }
-
-  if (command === "resume") {
-    const thread = resolveThreadArgument(args, context.listedThreads);
-    if (!thread.ok) {
-      context.addSystemMessage(thread.message);
+  switch (command) {
+    case "clear":
+      await context.startNewThread();
+      return;
+    case "resume": {
+      const thread = resolveThreadArgument(args, context.listedThreads);
+      if (!thread.ok) {
+        context.addSystemMessage(thread.message);
+        return;
+      }
+      await context.resumeThread(thread.thread.id);
       return;
     }
-    await context.resumeThread(thread.thread.id);
-    return;
-  }
+    case "reconnect":
+      await context.reconnect();
+      return;
+    case "refer": {
+      const parsed = parseReferArgs(args);
+      if (!parsed) {
+        context.addSystemMessage(usageError(command, "requires a thread and a message"));
+        return;
+      }
+      const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
+      if (!thread.ok) {
+        context.addSystemMessage(thread.message);
+        return;
+      }
+      if (thread.thread.id === context.activeThreadId) {
+        context.addSystemMessage(currentThreadReferenceMessage());
+        return;
+      }
+      const reference = await context.referThread(thread.thread, parsed.message);
+      if (!reference) return;
+      return { sendText: parsed.message, sendInput: reference.input, referencedThread: reference.referencedThread };
+    }
+    case "fork":
+      if (!context.activeThreadId) {
+        context.addSystemMessage(noActiveThreadToForkMessage());
+        return;
+      }
+      await context.threadActions.forkThread(context.activeThreadId);
+      return;
+    case "rollback":
+      if (!context.activeThreadId) {
+        context.addSystemMessage(noActiveThreadToRollbackMessage());
+        return;
+      }
+      if (context.busy) {
+        context.addSystemMessage(interruptBeforeRollbackMessage());
+        return;
+      }
+      await context.threadActions.rollbackThread(context.activeThreadId);
+      return;
+    case "compact":
+      if (!context.activeThreadId) {
+        context.addSystemMessage(noActiveThreadToCompactMessage());
+        return;
+      }
+      await context.threadActions.compactThread(context.activeThreadId);
+      return;
+    case "archive": {
+      if (context.busy) {
+        context.addSystemMessage(finishBeforeArchivingThreadsMessage());
+        return;
+      }
 
-  if (command === "reconnect") {
-    await context.reconnect();
-    return;
-  }
-
-  if (command === "refer") {
-    const parsed = parseReferArgs(args);
-    if (!parsed) {
-      context.addSystemMessage(usageError(command, "requires a thread and a message"));
+      const thread = resolveThreadArgument(args, context.listedThreads);
+      if (!thread.ok) {
+        context.addSystemMessage(thread.message);
+        return;
+      }
+      await context.threadActions.archiveThread(thread.thread.id);
       return;
     }
-    const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
-    if (!thread.ok) {
-      context.addSystemMessage(thread.message);
+    case "rename": {
+      const parsed = parseThreadAndNameArgs(args);
+      if (!parsed) {
+        context.addSystemMessage(usageError(command, "requires a thread and a name"));
+        return;
+      }
+      const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
+      if (!thread.ok) {
+        context.addSystemMessage(thread.message);
+        return;
+      }
+      await context.threadActions.renameThread(thread.thread.id, parsed.text);
       return;
     }
-    if (thread.thread.id === context.activeThreadId) {
-      context.addSystemMessage(currentThreadReferenceMessage());
+    case "fast":
+      await context.runtimeSettings.toggleFastMode();
+      return;
+    case "auto-review":
+      await context.runtimeSettings.toggleAutoReview();
+      return;
+    case "plan":
+      await context.runtimeSettings.toggleCollaborationMode();
+      if (args) return { sendText: args };
+      return;
+    case "goal":
+      return await executeGoalCommand(args, context);
+    case "status":
+      context.addStructuredSystemMessage("Thread status", detailsFromLines(context.statusSummaryLines()));
+      return;
+    case "doctor":
+      context.addStructuredSystemMessage("Connection diagnostics", context.connectionDiagnosticDetails());
+      return;
+    case "mcp":
+      context.addStructuredSystemMessage("MCP servers", detailsFromLines(await context.mcpStatusLines()));
+      return;
+    case "model": {
+      const requested = parseModelOverride(args);
+      if (requested !== undefined) {
+        const applied = await applyModelOverride(context, requested);
+        if (applied === false) return;
+        context.addSystemMessage(modelOverrideMessage(requested));
+        return;
+      }
+      context.addStructuredSystemMessage("Model settings", detailsFromLines(context.modelStatusLines()));
       return;
     }
-    const reference = await context.referThread(thread.thread, parsed.message);
-    if (!reference) return;
-    return { sendText: parsed.message, sendInput: reference.input, referencedThread: reference.referencedThread };
-  }
-
-  if (command === "fork") {
-    if (!context.activeThreadId) {
-      context.addSystemMessage(noActiveThreadToForkMessage());
-      return;
-    }
-    await context.forkThread(context.activeThreadId);
-    return;
-  }
-
-  if (command === "rollback") {
-    if (!context.activeThreadId) {
-      context.addSystemMessage(noActiveThreadToRollbackMessage());
-      return;
-    }
-    if (context.busy) {
-      context.addSystemMessage(interruptBeforeRollbackMessage());
-      return;
-    }
-    await context.rollbackThread(context.activeThreadId);
-    return;
-  }
-
-  if (command === "compact") {
-    if (!context.activeThreadId) {
-      context.addSystemMessage(noActiveThreadToCompactMessage());
-      return;
-    }
-    await context.compactThread(context.activeThreadId);
-    return;
-  }
-
-  if (command === "archive") {
-    if (context.busy) {
-      context.addSystemMessage(finishBeforeArchivingThreadsMessage());
-      return;
-    }
-
-    const thread = resolveThreadArgument(args, context.listedThreads);
-    if (!thread.ok) {
-      context.addSystemMessage(thread.message);
-      return;
-    }
-    await context.archiveThread(thread.thread.id);
-    return;
-  }
-
-  if (command === "rename") {
-    const parsed = parseThreadAndNameArgs(args);
-    if (!parsed) {
-      context.addSystemMessage(usageError(command, "requires a thread and a name"));
-      return;
-    }
-    const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
-    if (!thread.ok) {
-      context.addSystemMessage(thread.message);
-      return;
-    }
-    await context.renameThread(thread.thread.id, parsed.text);
-    return;
-  }
-
-  if (command === "fast") {
-    await context.toggleFastMode();
-    return;
-  }
-
-  if (command === "auto-review") {
-    await context.toggleAutoReview();
-    return;
-  }
-
-  if (command === "plan") {
-    await context.toggleCollaborationMode();
-    if (args) return { sendText: args };
-    return;
-  }
-
-  if (command === "goal") {
-    return await executeGoalCommand(args, context);
-  }
-
-  if (command === "status") {
-    context.addStructuredSystemMessage("Thread status", detailsFromLines(context.statusSummaryLines()));
-    return;
-  }
-
-  if (command === "doctor") {
-    context.addStructuredSystemMessage("Connection diagnostics", context.connectionDiagnosticDetails());
-    return;
-  }
-
-  if (command === "mcp") {
-    context.addStructuredSystemMessage("MCP servers", detailsFromLines(await context.mcpStatusLines()));
-    return;
-  }
-
-  if (command === "model") {
-    const requested = parseModelOverride(args);
-    if (requested !== undefined) {
-      const applied = await applyModelOverride(context, requested);
-      if (applied === false) return;
-      context.addSystemMessage(modelOverrideMessage(requested));
-      return;
-    }
-    context.addStructuredSystemMessage("Model settings", detailsFromLines(context.modelStatusLines()));
-    return;
-  }
-
-  if (command === "reasoning") {
-    const requested = parseReasoningEffortOverride(args);
-    if (requested !== undefined) {
-      if (requested !== null && !context.supportedReasoningEfforts().includes(requested)) {
+    case "reasoning": {
+      const requested = parseReasoningEffortOverride(args);
+      if (requested !== undefined) {
+        if (requested !== null && !context.supportedReasoningEfforts().includes(requested)) {
+          context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
+          return;
+        }
+        const applied = await applyReasoningEffortOverride(context, requested);
+        if (applied === false) return;
+        context.addSystemMessage(reasoningEffortOverrideMessage(requested));
+        return;
+      }
+      if (args) {
         context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
         return;
       }
-      const applied = await applyReasoningEffortOverride(context, requested);
-      if (applied === false) return;
-      context.addSystemMessage(reasoningEffortOverrideMessage(requested));
+      context.addStructuredSystemMessage("Reasoning effort", detailsFromLines(context.effortStatusLines()));
       return;
     }
-    if (args) {
-      context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
+    case "help":
+      context.addStructuredSystemMessage("Available slash commands", slashCommandHelpSections());
       return;
-    }
-    context.addStructuredSystemMessage("Reasoning effort", detailsFromLines(context.effortStatusLines()));
-    return;
   }
-
-  context.addStructuredSystemMessage("Available slash commands", slashCommandHelpSections());
+  const _exhaustive: never = command;
+  return _exhaustive;
 }
 
 function applyModelOverride(
   context: SlashCommandExecutionContext,
   requested: string | null,
 ): boolean | undefined | Promise<boolean | undefined> {
-  return requested === null ? context.resetModelToConfig() : context.requestModel(requested);
+  return requested === null ? context.runtimeSettings.resetModelToConfig() : context.runtimeSettings.requestModel(requested);
 }
 
 function applyReasoningEffortOverride(
   context: SlashCommandExecutionContext,
   requested: ReasoningEffort | null,
 ): boolean | undefined | Promise<boolean | undefined> {
-  return requested === null ? context.resetReasoningEffortToConfig() : context.requestReasoningEffort(requested);
+  return requested === null
+    ? context.runtimeSettings.resetReasoningEffortToConfig()
+    : context.runtimeSettings.requestReasoningEffort(requested);
 }
 
 function parseModelOverride(args: string): string | null | undefined {
@@ -299,7 +276,7 @@ async function executeGoalCommand(args: string, context: SlashCommandExecutionCo
     return;
   }
   if (parsed.kind === "show") {
-    const goal = context.activeGoal();
+    const goal = context.goals.activeGoal();
     if (!goal) {
       context.addSystemMessage("No goal set.");
       return;
@@ -307,14 +284,14 @@ async function executeGoalCommand(args: string, context: SlashCommandExecutionCo
     context.addStructuredSystemMessage("Thread goal", goalDetails(goal));
     return;
   }
-  const goal = context.activeGoal();
+  const goal = context.goals.activeGoal();
   if (parsed.kind === "set") {
     const threadId = context.activeThreadId ?? (await context.startThreadForGoal(parsed.objective));
     if (!threadId) {
       context.addSystemMessage("No active thread for goal management.");
       return;
     }
-    await context.setGoalObjective(threadId, parsed.objective, goal?.tokenBudget ?? null);
+    await context.goals.setObjective(threadId, parsed.objective, goal?.tokenBudget ?? null);
     return;
   }
   const threadId = context.activeThreadId;
@@ -330,14 +307,14 @@ async function executeGoalCommand(args: string, context: SlashCommandExecutionCo
     return { composerDraft: `/goal set ${goal.objective}` };
   }
   if (parsed.kind === "pause") {
-    await context.setGoalStatus(threadId, "paused");
+    await context.goals.setStatus(threadId, "paused");
     return;
   }
   if (parsed.kind === "resume") {
-    await context.setGoalStatus(threadId, "active");
+    await context.goals.setStatus(threadId, "active");
     return;
   }
-  await context.clearGoal(threadId);
+  await context.goals.clear(threadId);
 }
 
 type GoalArgs =

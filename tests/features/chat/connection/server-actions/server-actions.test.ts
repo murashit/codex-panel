@@ -423,7 +423,7 @@ describe("chat server actions", () => {
       updateAppServerMetadata,
     });
 
-    const refreshing = diagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
+    const refreshing = diagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
     currentClient = secondClient;
     hooksRefresh.resolve({ data: [{ cwd: "/vault", hooks: [{}] }] });
 
@@ -473,7 +473,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata,
     });
 
-    const refreshing = controller.refreshPublishedAppServerMetadata();
+    const refreshing = controller.refreshAppServerMetadata();
 
     await expect(refreshing).resolves.toBeNull();
     expect(stateStore.getState().connection.availableModels).toEqual([]);
@@ -543,7 +543,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    const refreshing = controller.refreshPublishedSkills(true);
+    const refreshing = controller.refreshSkills(true);
     currentClient = secondClient;
     skillRefresh.resolve({ data: [{ skills: [skillFixture("stale-skill")] }] });
 
@@ -571,7 +571,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    await controller.refreshPublishedRateLimits();
+    await controller.refreshRateLimits({ preserveExistingOnFailure: true });
 
     expect(stateStore.getState().connection.rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
     expect(cachedMetadata.current?.rateLimit).toStrictEqual(rateLimit);
@@ -597,7 +597,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    await controller.refreshPublishedRateLimits();
+    await controller.refreshRateLimits({ preserveExistingOnFailure: true });
 
     expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
     expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
@@ -622,7 +622,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    const refreshing = controller.refreshPublishedRateLimits();
+    const refreshing = controller.refreshRateLimits({ preserveExistingOnFailure: true });
     currentClient = secondClient;
     rateLimitRefresh.resolve({
       rateLimits: rateLimitFixture({ primary: { usedPercent: 88, windowDurationMins: 300, resetsAt: null } }),

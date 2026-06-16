@@ -3,7 +3,6 @@ import type { AppServerObservedQueryResult } from "../app-server/query/cache";
 import type { AppServerSharedQueries } from "../app-server/query/shared-queries";
 
 interface ThreadSurfaceActions {
-  invalidateThreadsFromOpenSurface(): void;
   applyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
   applyThreadRenamed(threadId: string, name: string | null): void;
   refreshThreadsViewLiveState(): void;
@@ -23,7 +22,6 @@ export interface SharedThreadCatalog {
     listener: (result: AppServerObservedQueryResult<readonly Thread[]>) => void,
     options?: { emitCurrent?: boolean },
   ): () => void;
-  invalidateThreadsFromOpenSurface(): void;
   renameThreadInCatalog(threadId: string, name: string | null): void;
   archiveThreadInCatalog(threadId: string, options?: { closeOpenPanels?: boolean }): void;
   refreshThreadsViewLiveState(): void;
@@ -38,9 +36,6 @@ export function createSharedThreadCatalog(options: SharedThreadCatalogOptions): 
       options.queries.setActiveThreads(threads);
     },
     observeActiveThreadsResult: (listener, observeOptions) => options.queries.observeActiveThreadsResult(listener, observeOptions),
-    invalidateThreadsFromOpenSurface: () => {
-      options.surfaces.invalidateThreadsFromOpenSurface();
-    },
     renameThreadInCatalog: (threadId, name) => {
       options.queries.updateActiveThreads((current) => {
         return current ? current.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)) : null;

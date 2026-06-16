@@ -20,13 +20,10 @@ export interface ChatServerMetadataActions {
   applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
   loadAppServerMetadata: () => Promise<SharedServerMetadata | null>;
   refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
-  refreshPublishedAppServerMetadata: () => Promise<SharedServerMetadata | null>;
   applyAppServerMetadataSnapshot: () => void;
   refreshSkills: (forceReload?: boolean) => Promise<void>;
-  refreshPublishedSkills: (forceReload?: boolean) => Promise<void>;
   loadSkills: (forceReload?: boolean) => Promise<SkillMetadataProbeResult>;
-  refreshRateLimits: () => Promise<void>;
-  refreshPublishedRateLimits: () => Promise<void>;
+  refreshRateLimits: (options?: { preserveExistingOnFailure?: boolean }) => Promise<void>;
   loadRateLimit: () => Promise<RateLimitMetadataProbeResult>;
 }
 
@@ -37,17 +34,14 @@ export function createChatServerMetadataActions(host: ChatServerMetadataActionsH
     },
     loadAppServerMetadata: () => loadAppServerMetadata(host),
     refreshAppServerMetadata: () => refreshAppServerMetadata(host),
-    refreshPublishedAppServerMetadata: () => refreshPublishedAppServerMetadata(host),
     applyAppServerMetadataSnapshot: () => {
       applyAppServerMetadataSnapshot(host);
     },
     refreshSkills: async (forceReload) => {
       await refreshSkills(host, forceReload);
     },
-    refreshPublishedSkills: (forceReload) => refreshPublishedSkills(host, forceReload),
     loadSkills: (forceReload) => loadSkills(host, forceReload),
-    refreshRateLimits: () => refreshRateLimits(host),
-    refreshPublishedRateLimits: () => refreshPublishedRateLimits(host),
+    refreshRateLimits: (options) => refreshRateLimits(host, options),
     loadRateLimit: () => loadRateLimit(host),
   };
 }
@@ -80,10 +74,6 @@ async function refreshAppServerMetadata(host: ChatServerMetadataActionsHost): Pr
   return metadata;
 }
 
-async function refreshPublishedAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
-  return refreshAppServerMetadata(host);
-}
-
 function applyAppServerMetadataSnapshot(host: ChatServerMetadataActionsHost): void {
   const metadata = host.appServerMetadataSnapshot();
   if (metadata) applyAppServerMetadata(host, metadata);
@@ -114,50 +104,33 @@ async function refreshSkills(host: ChatServerMetadataActionsHost, forceReload = 
   return null;
 }
 
-async function refreshPublishedSkills(host: ChatServerMetadataActionsHost, forceReload = false): Promise<void> {
-  await refreshSkills(host, forceReload);
-}
-
 async function loadSkills(host: ChatServerMetadataActionsHost, forceReload = false): Promise<SkillMetadataProbeResult> {
   return readSkillMetadataProbe(host.currentClient(), host.vaultPath, forceReload);
 }
 
-async function refreshRateLimits(host: ChatServerMetadataActionsHost): Promise<void> {
+async function refreshRateLimits(
+  host: ChatServerMetadataActionsHost,
+  options: { preserveExistingOnFailure?: boolean } = {},
+): Promise<void> {
   const client = host.currentClient();
   const rateLimit = await readRateLimitMetadataProbe(client);
   if (client && host.currentClient() !== client) return;
-  const next = updateRateLimitMetadata(host, rateLimit, { preserveRateLimitOnFailure: false });
+  const preserveExistingOnFailure = options.preserveExistingOnFailure === true;
+  const next = updateRateLimitMetadata(host, rateLimit, { preserveRateLimitOnFailure: preserveExistingOnFailure });
   if (next) {
     applyAppServerMetadata(host, next);
     return;
   }
   const diagnostics = diagnosticsWithProbe(currentMetadataDiagnostics(host), rateLimit.probe);
-  host.stateStore.dispatch({
-    type: "connection/metadata-applied",
-    rateLimit: rateLimit.data,
-    serverDiagnostics: diagnostics,
-  });
-}
-
-async function refreshPublishedRateLimits(host: ChatServerMetadataActionsHost): Promise<void> {
-  const client = host.currentClient();
-  const rateLimit = await readRateLimitMetadataProbe(client);
-  if (client && host.currentClient() !== client) return;
-  const next = updateRateLimitMetadata(host, rateLimit, { preserveRateLimitOnFailure: true });
-  if (next) {
-    applyAppServerMetadata(host, next);
-    return;
-  }
-  const diagnostics = diagnosticsWithProbe(currentMetadataDiagnostics(host), rateLimit.probe);
-  if (rateLimit.probe.status === "ok") {
-    host.stateStore.dispatch({
-      type: "connection/metadata-applied",
-      rateLimit: rateLimit.data,
-      serverDiagnostics: diagnostics,
-    });
-    return;
-  }
-  host.stateStore.dispatch({ type: "connection/metadata-applied", serverDiagnostics: diagnostics });
+  host.stateStore.dispatch(
+    preserveExistingOnFailure && rateLimit.probe.status !== "ok"
+      ? { type: "connection/metadata-applied", serverDiagnostics: diagnostics }
+      : {
+          type: "connection/metadata-applied",
+          rateLimit: rateLimit.data,
+          serverDiagnostics: diagnostics,
+        },
+  );
 }
 
 async function loadRateLimit(host: ChatServerMetadataActionsHost): Promise<RateLimitMetadataProbeResult> {

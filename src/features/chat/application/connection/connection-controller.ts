@@ -20,12 +20,12 @@ export interface ChatConnectionAdapter {
 }
 
 export interface ChatConnectionMetadataActions {
-  refreshPublishedAppServerMetadata: () => Promise<unknown>;
-  refreshPublishedSkills: (forceReload?: boolean) => Promise<void>;
+  refreshAppServerMetadata: () => Promise<unknown>;
+  refreshSkills: (forceReload?: boolean) => Promise<void>;
 }
 
 export interface ChatConnectionDiagnosticsActions {
-  refreshPublishedDiagnosticProbes: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
+  refreshDiagnosticProbes: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
 }
 
 export interface ChatConnectionControllerHost {
@@ -125,8 +125,8 @@ async function refreshDiagnostics(
   await controller.ensureConnected();
   if (!host.connection.currentClient()) return;
   host.clearDeferredDiagnostics();
-  await host.metadata.refreshPublishedAppServerMetadata();
-  await host.diagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
+  await host.metadata.refreshAppServerMetadata();
+  await host.diagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
 }
 
 async function refreshStatusPanel(
@@ -143,7 +143,7 @@ async function refreshStatusPanel(
 
 async function refreshSkills(host: ChatConnectionControllerHost, forceReload = false): Promise<void> {
   if (!host.connection.currentClient()) return;
-  await host.metadata.refreshPublishedSkills(forceReload);
+  await host.metadata.refreshSkills(forceReload);
 }
 
 async function initializeConnection(host: ChatConnectionControllerHost, connection: ActiveConnectionWork): Promise<void> {
@@ -154,7 +154,7 @@ async function initializeConnection(host: ChatConnectionControllerHost, connecti
     host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
     const client = host.connection.currentClient();
     if (!client) throw new Error("Codex app-server connection did not initialize.");
-    await host.metadata.refreshPublishedAppServerMetadata();
+    await host.metadata.refreshAppServerMetadata();
     if (host.connectionWork.isStale(connection)) return;
     await host.loadSharedThreadList();
     if (host.connectionWork.isStale(connection)) return;

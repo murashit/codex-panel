@@ -3,9 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { ThreadRenameEditorController } from "../../../../src/features/chat/application/threads/rename-editor-controller";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import type { Thread } from "../../../../src/domain/threads/model";
+import { normalizeExplicitThreadName, type Thread } from "../../../../src/domain/threads/model";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
-import { threadRenameFromValue } from "../../../../src/app-server/services/thread-rename";
 import { deferred } from "../../../support/async";
 
 describe("ThreadRenameEditorController", () => {
@@ -163,16 +162,14 @@ function controllerFixture(
     addSystemMessage: overrides.addSystemMessage ?? vi.fn(),
     operations: {
       renameThread: async (threadId: string, value: string) => {
-        const rename = threadRenameFromValue(value);
-        if (!rename) return false;
-        await currentClient().setThreadName(threadId, rename.name);
+        const name = normalizeExplicitThreadName(value);
+        if (!name) return false;
+        await currentClient().setThreadName(threadId, name);
         stateStore.dispatch({
           type: "thread-list/applied",
-          threads: stateStore
-            .getState()
-            .threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name: rename.name } : thread)),
+          threads: stateStore.getState().threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)),
         });
-        notifyThreadRenamed(threadId, rename.name);
+        notifyThreadRenamed(threadId, name);
         return true;
       },
     },

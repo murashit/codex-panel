@@ -25,15 +25,15 @@ function createController({ connected = false, client = {} as AppServerClient } 
     currentClient: () => currentClient,
     isConnected: () => Boolean(currentClient),
   };
-  const refreshPublishedAppServerMetadata = vi.fn().mockResolvedValue(null);
-  const refreshPublishedDiagnosticProbes = vi.fn().mockResolvedValue(undefined);
-  const refreshPublishedSkills = vi.fn().mockResolvedValue(undefined);
+  const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
+  const refreshDiagnosticProbes = vi.fn().mockResolvedValue(undefined);
+  const refreshSkills = vi.fn().mockResolvedValue(undefined);
   const metadata = {
-    refreshPublishedAppServerMetadata,
-    refreshPublishedSkills,
+    refreshAppServerMetadata,
+    refreshSkills,
   } satisfies ChatConnectionMetadataActions;
   const diagnostics = {
-    refreshPublishedDiagnosticProbes,
+    refreshDiagnosticProbes,
   } satisfies ChatConnectionDiagnosticsActions;
   const host: ChatConnectionControllerHost = {
     stateStore,
@@ -57,15 +57,15 @@ function createController({ connected = false, client = {} as AppServerClient } 
     connect,
     controller: createChatConnectionController(host),
     host,
-    refreshPublishedAppServerMetadata,
-    refreshPublishedDiagnosticProbes,
+    refreshAppServerMetadata,
+    refreshDiagnosticProbes,
     stateStore,
   };
 }
 
 describe("ChatConnectionController", () => {
   it("connects once and publishes startup metadata", async () => {
-    const { connect, controller, host, refreshPublishedAppServerMetadata, stateStore } = createController();
+    const { connect, controller, host, refreshAppServerMetadata, stateStore } = createController();
 
     await controller.ensureConnected();
 
@@ -76,29 +76,29 @@ describe("ChatConnectionController", () => {
       platformOs: "macos",
       userAgent: "test",
     });
-    expect(refreshPublishedAppServerMetadata).toHaveBeenCalledOnce();
+    expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
     expect(host.loadSharedThreadList).toHaveBeenCalledOnce();
     expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
   it("refreshes metadata before metadata-backed diagnostics", async () => {
-    const { controller, host, refreshPublishedAppServerMetadata, refreshPublishedDiagnosticProbes } = createController({ connected: true });
+    const { controller, host, refreshAppServerMetadata, refreshDiagnosticProbes } = createController({ connected: true });
 
     await controller.refreshDiagnostics();
 
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
-    expect(refreshPublishedAppServerMetadata).toHaveBeenCalledOnce();
-    expect(refreshPublishedDiagnosticProbes).toHaveBeenCalledWith({ appServerMetadataSnapshot: true });
+    expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
+    expect(refreshDiagnosticProbes).toHaveBeenCalledWith({ appServerMetadataSnapshot: true });
   });
 
   it("refreshes active threads without refreshing metadata", async () => {
-    const { controller, host, refreshPublishedAppServerMetadata } = createController({ connected: true });
+    const { controller, host, refreshAppServerMetadata } = createController({ connected: true });
 
     await controller.fetchActiveThreads();
 
     expect(host.loadSharedThreadList).toHaveBeenCalledOnce();
-    expect(refreshPublishedAppServerMetadata).not.toHaveBeenCalled();
+    expect(refreshAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {

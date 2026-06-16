@@ -38,23 +38,29 @@ function createHost(overrides: SlashCommandHostOverrides = {}) {
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
-    forkThread: vi.fn().mockResolvedValue(undefined),
-    rollbackThread: vi.fn().mockResolvedValue(undefined),
-    compactThread,
-    archiveThread: vi.fn().mockResolvedValue(undefined),
-    renameThread: vi.fn().mockResolvedValue(undefined),
+    threadActions: {
+      forkThread: vi.fn().mockResolvedValue(undefined),
+      rollbackThread: vi.fn().mockResolvedValue(undefined),
+      compactThread,
+      archiveThread: vi.fn().mockResolvedValue(undefined),
+      renameThread: vi.fn().mockResolvedValue(true),
+    },
     reconnect: vi.fn().mockResolvedValue(undefined),
-    toggleFastMode: vi.fn(),
-    toggleCollaborationMode: vi.fn(),
-    toggleAutoReview: vi.fn(),
-    requestModel: vi.fn(),
-    resetModelToConfig: vi.fn(),
-    requestReasoningEffort: vi.fn(),
-    resetReasoningEffortToConfig: vi.fn(),
-    activeGoal: vi.fn(() => stateStore.getState().activeThread.goal),
-    setGoalObjective: vi.fn().mockResolvedValue(true),
-    setGoalStatus: vi.fn().mockResolvedValue(true),
-    clearGoal: vi.fn().mockResolvedValue(true),
+    runtimeSettings: {
+      toggleFastMode: vi.fn(),
+      toggleCollaborationMode: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      requestModel: vi.fn(),
+      resetModelToConfig: vi.fn(),
+      requestReasoningEffort: vi.fn(),
+      resetReasoningEffortToConfig: vi.fn(),
+    },
+    goals: {
+      activeGoal: vi.fn(() => stateStore.getState().activeThread.goal),
+      setObjective: vi.fn().mockResolvedValue(true),
+      setStatus: vi.fn().mockResolvedValue(true),
+      clear: vi.fn().mockResolvedValue(true),
+    },
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
     setStatus: vi.fn(),
@@ -126,7 +132,7 @@ describe("executeSlashCommandWithState", () => {
     await executeSlashCommandWithState(host, "goal", "set Ship this");
 
     expect(host.startThreadForGoal).toHaveBeenCalledWith("Ship this");
-    expect(host.setGoalObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
+    expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
   });
 
   it("runs reconnect even when there is no current app-server client", async () => {

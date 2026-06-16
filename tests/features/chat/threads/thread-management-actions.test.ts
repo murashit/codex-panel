@@ -4,7 +4,7 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import { archiveThreadOnAppServer } from "../../../../src/app-server/services/thread-archive";
 import type { ArchiveExportAdapter } from "../../../../src/app-server/services/thread-archive-markdown";
-import { threadRenameFromValue } from "../../../../src/app-server/services/thread-rename";
+import { normalizeExplicitThreadName } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import {
   createThreadManagementActions,
@@ -451,11 +451,11 @@ function hostMock({
         return result;
       }),
       renameThread: vi.fn(async (threadId: string, value: string) => {
-        const rename = threadRenameFromValue(value);
-        if (!rename) return false;
+        const name = normalizeExplicitThreadName(value);
+        if (!name) return false;
         await ensureConnected();
-        await client.setThreadName(threadId, rename.name);
-        notifyThreadRenamed(threadId, rename.name);
+        await client.setThreadName(threadId, name);
+        notifyThreadRenamed(threadId, name);
         return true;
       }),
     },

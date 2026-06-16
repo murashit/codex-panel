@@ -3,10 +3,11 @@ import { codexTextInputWithAttachments, type CodexInput } from "../../../../doma
 import { readReferencedThreadConversationSummaries } from "../../../../app-server/threads/data";
 import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
+import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import { referencedThreadStatus, referencedThreadUnreadableMessage } from "./messages";
 import {
   executeSlashCommand as runSlashCommand,
-  type SlashCommandExecutionContext,
   type SlashCommandExecutionResult,
   type ThreadReferenceInput,
 } from "./slash-command-execution";
@@ -17,14 +18,37 @@ import { submissionStateSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import { currentModel, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
+import type { GoalActions } from "../threads/goal-actions";
+import type { ThreadManagementActions } from "../threads/thread-management-actions";
 
-type DynamicSlashCommandExecutionContext = "activeThreadId" | "busy" | "listedThreads" | "referThread" | "supportedReasoningEfforts";
-
-export interface SlashCommandHandlerHost extends Omit<SlashCommandExecutionContext, DynamicSlashCommandExecutionContext> {
+export interface SlashCommandHandlerHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   codexInput: (text: string) => CodexInput;
   setStatus: (status: string) => void;
+  startNewThread: () => Promise<void>;
+  startThreadForGoal: (objective: string) => Promise<string | null>;
+  resumeThread: (threadId: string) => Promise<void>;
+  reconnect: () => Promise<void>;
+  threadActions: Pick<ThreadManagementActions, "forkThread" | "rollbackThread" | "compactThread" | "archiveThread" | "renameThread">;
+  runtimeSettings: Pick<
+    ChatRuntimeSettingsActions,
+    | "toggleFastMode"
+    | "toggleCollaborationMode"
+    | "toggleAutoReview"
+    | "requestModel"
+    | "resetModelToConfig"
+    | "requestReasoningEffort"
+    | "resetReasoningEffortToConfig"
+  >;
+  goals: Pick<GoalActions, "activeGoal" | "setObjective" | "setStatus" | "clear">;
+  addSystemMessage: (text: string) => void;
+  addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
+  statusSummaryLines: () => string[];
+  connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
+  mcpStatusLines: () => Promise<string[]>;
+  modelStatusLines: () => string[];
+  effortStatusLines: () => string[];
 }
 
 export async function executeSlashCommandWithState(

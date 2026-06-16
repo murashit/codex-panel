@@ -6,7 +6,7 @@ import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/pro
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
-import { SettingsDynamicDataController } from "../../src/settings/dynamic-data-controller";
+import { SettingsDynamicDataController, type SettingsDynamicDataSnapshot } from "../../src/settings/dynamic-data-controller";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import type { CodexPanelSettingTabHost } from "../../src/settings/tab";
 import type { Thread } from "../../src/domain/threads/model";
@@ -357,9 +357,49 @@ describe("settings tab", () => {
     expect(controller.snapshot().hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
   });
 
+  it("keeps full refresh models and archived threads current when hook operations overlap", async () => {
+    const models = deferred<readonly ModelMetadata[]>();
+    const fullRefreshClient = settingsClient({
+      hooks: [hook({ key: "hook-full", command: "full refresh hook", currentHash: "fullhash" })],
+      threads: [appServerThread({ id: "thread-full", preview: "Full archived" })],
+    });
+    const trustClient = {
+      trustHook: vi.fn().mockResolvedValue({}),
+    };
+    const hookReloadClient = settingsClient({
+      hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
+    });
+    withShortLivedAppServerClientMock
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(fullRefreshClient),
+      )
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(trustClient),
+      )
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(hookReloadClient),
+      );
+    const refreshModels = vi.fn().mockReturnValue(models.promise);
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshModels }), { display: vi.fn(), notify: vi.fn() });
+
+    const fullRefresh = controller.refreshSettingsData();
+    await flushPromises();
+    await controller.trustHook(hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" }));
+
+    models.resolve(modelMetadataFromCatalogModels([model("gpt-refreshed")]));
+    await fullRefresh;
+
+    const snapshot = controller.snapshot();
+    expect(snapshot.models.map((item) => item.model)).toEqual(["gpt-refreshed"]);
+    expect(snapshot.modelsLifecycle.kind).toBe("loaded");
+    expect(snapshot.archivedThreads.map((thread) => thread.preview)).toEqual(["Full archived"]);
+    expect(snapshot.archivedThreadsLifecycle.kind).toBe("loaded");
+    expect(snapshot.hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
+  });
+
   it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
-    const invalidateThreadsFromOpenSurface = vi.fn();
+    const refreshActiveThreads = vi.fn().mockResolvedValue([]);
     const initialClient = settingsClient({
       threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
     });
@@ -379,7 +419,7 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(newerClient),
       );
-    const controller = new SettingsDynamicDataController(settingsTabHost({ invalidateThreadsFromOpenSurface }), {
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshActiveThreads }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
@@ -394,8 +434,75 @@ describe("settings tab", () => {
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
 
-    expect(invalidateThreadsFromOpenSurface).not.toHaveBeenCalled();
+    expect(refreshActiveThreads).not.toHaveBeenCalled();
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
+  });
+
+  it("keeps restored archived threads removed when active thread refresh fails", async () => {
+    const notify = vi.fn();
+    const refreshActiveThreads = vi.fn().mockRejectedValue(new Error("offline"));
+    const initialClient = settingsClient({
+      threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
+    });
+    const restoreClient = {
+      unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
+    };
+    withShortLivedAppServerClientMock
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(initialClient),
+      )
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(restoreClient),
+      );
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshActiveThreads }), { display: vi.fn(), notify });
+
+    await controller.refreshSettingsData();
+    await controller.restoreArchivedThread("thread-old");
+
+    const snapshot = controller.snapshot();
+    expect(snapshot.archivedThreads).toEqual([]);
+    expect(snapshot.archivedThreadsLifecycle.kind).toBe("loaded");
+    expect(refreshActiveThreads).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledWith("Could not refresh active Codex threads.");
+    expect(notify).not.toHaveBeenCalledWith("Could not restore archived Codex thread.");
+  });
+
+  it("displays restored archived thread state before active thread refresh completes", async () => {
+    const activeRefresh = deferred<readonly Thread[]>();
+    const snapshots: SettingsDynamicDataSnapshot[] = [];
+    const initialClient = settingsClient({
+      threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
+    });
+    const restoreClient = {
+      unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
+    };
+    withShortLivedAppServerClientMock
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(initialClient),
+      )
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(restoreClient),
+      );
+    const controllerRef: { current: SettingsDynamicDataController | null } = { current: null };
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshActiveThreads: () => activeRefresh.promise }), {
+      display: () => {
+        const snapshot = controllerRef.current?.snapshot();
+        if (snapshot) snapshots.push(snapshot);
+      },
+      notify: vi.fn(),
+    });
+    controllerRef.current = controller;
+
+    await controller.refreshSettingsData();
+    snapshots.length = 0;
+    const restore = controller.restoreArchivedThread("thread-old");
+    await flushPromises();
+
+    expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
+    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("loaded");
+
+    activeRefresh.resolve([]);
+    await restore;
   });
 
   it("uses cached models initially and publishes refreshed models", async () => {
@@ -572,14 +679,13 @@ describe("settings tab", () => {
   });
 
   it("permanently deletes an archived thread from the confirmed settings row", async () => {
-    const invalidateThreadsFromOpenSurface = vi.fn();
     const client = settingsClient({
       threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
     });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab({ invalidateThreadsFromOpenSurface });
+    const tab = newSettingsTab();
 
     tab.display();
     await flushPromises();
@@ -590,7 +696,6 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(client.deleteThread).toHaveBeenCalledWith("thread-archived");
-    expect(invalidateThreadsFromOpenSurface).toHaveBeenCalledOnce();
     expect(tab.containerEl.textContent).toContain("No archived threads.");
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(0);
   });
@@ -709,7 +814,7 @@ function newSettingsTab(
     observeModels?: CodexPanelSettingTabHost["appServerData"]["observeModelsResult"];
     notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
-    invalidateThreadsFromOpenSurface?: () => void;
+    refreshActiveThreads?: () => Promise<readonly Thread[]>;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -731,7 +836,7 @@ function settingsTabHost(
     observeModels?: CodexPanelSettingTabHost["appServerData"]["observeModelsResult"];
     notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
-    invalidateThreadsFromOpenSurface?: () => void;
+    refreshActiveThreads?: () => Promise<readonly Thread[]>;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -766,7 +871,7 @@ function settingsTabHost(
       notifyContextChanged: options.notifyContextChanged ?? vi.fn(),
     },
     threadCatalog: {
-      invalidateThreadsFromOpenSurface: options.invalidateThreadsFromOpenSurface ?? vi.fn(),
+      refreshActiveThreads: options.refreshActiveThreads ?? vi.fn().mockResolvedValue([]),
     },
   };
 }

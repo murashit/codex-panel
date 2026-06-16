@@ -20,26 +20,32 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
       input: [{ type: "text", text: "referenced" }],
       referencedThread: { threadId: "thread-2", title: "Referenced", includedTurns: 1, turnLimit: 20 },
     }),
-    forkThread: vi.fn().mockResolvedValue(undefined),
-    rollbackThread: vi.fn().mockResolvedValue(undefined),
-    compactThread: vi.fn().mockResolvedValue(undefined),
-    archiveThread: vi.fn().mockResolvedValue(undefined),
-    renameThread: vi.fn().mockResolvedValue(undefined),
+    threadActions: {
+      forkThread: vi.fn().mockResolvedValue(undefined),
+      rollbackThread: vi.fn().mockResolvedValue(undefined),
+      compactThread: vi.fn().mockResolvedValue(undefined),
+      archiveThread: vi.fn().mockResolvedValue(undefined),
+      renameThread: vi.fn().mockResolvedValue(true),
+    },
     reconnect: vi.fn().mockResolvedValue(undefined),
-    toggleFastMode: vi.fn(),
-    toggleCollaborationMode: vi.fn(),
-    toggleAutoReview: vi.fn(),
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
-    requestModel: vi.fn(),
-    resetModelToConfig: vi.fn(),
-    requestReasoningEffort: vi.fn(),
-    resetReasoningEffortToConfig: vi.fn(),
+    runtimeSettings: {
+      toggleFastMode: vi.fn(),
+      toggleCollaborationMode: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      requestModel: vi.fn(),
+      resetModelToConfig: vi.fn(),
+      requestReasoningEffort: vi.fn(),
+      resetReasoningEffortToConfig: vi.fn(),
+    },
     supportedReasoningEfforts: () => ["low", "medium", "high"],
-    activeGoal: vi.fn(() => null),
-    setGoalObjective: vi.fn().mockResolvedValue(true),
-    setGoalStatus: vi.fn().mockResolvedValue(true),
-    clearGoal: vi.fn().mockResolvedValue(true),
+    goals: {
+      activeGoal: vi.fn(() => null),
+      setObjective: vi.fn().mockResolvedValue(true),
+      setStatus: vi.fn().mockResolvedValue(true),
+      clear: vi.fn().mockResolvedValue(true),
+    },
     statusSummaryLines: () => ["status"],
     connectionDiagnosticDetails: () => [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }],
     mcpStatusLines: vi.fn().mockResolvedValue(["mcp"]),
@@ -173,7 +179,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("fork", "", ctx);
 
-    expect(ctx.forkThread).toHaveBeenCalledWith("active-thread");
+    expect(ctx.threadActions.forkThread).toHaveBeenCalledWith("active-thread");
   });
 
   it("rejects /fork arguments", async () => {
@@ -181,7 +187,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("fork", "anything", ctx);
 
-    expect(ctx.forkThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.forkThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fork does not take arguments. Usage: /fork");
   });
 
@@ -190,7 +196,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rollback", "", ctx);
 
-    expect(ctx.rollbackThread).toHaveBeenCalledWith("active-thread");
+    expect(ctx.threadActions.rollbackThread).toHaveBeenCalledWith("active-thread");
   });
 
   it("rejects /rollback without an active thread", async () => {
@@ -198,7 +204,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rollback", "", ctx);
 
-    expect(ctx.rollbackThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread to roll back.");
   });
 
@@ -207,7 +213,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rollback", "", ctx);
 
-    expect(ctx.rollbackThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Interrupt the current turn before rolling back.");
   });
 
@@ -216,7 +222,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rollback", "2", ctx);
 
-    expect(ctx.rollbackThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rollback does not take arguments. Usage: /rollback");
   });
 
@@ -225,13 +231,14 @@ describe("slash commands", () => {
 
     const result = await executeSlashCommand("plan", "", ctx);
 
-    expect(ctx.toggleCollaborationMode).toHaveBeenCalledOnce();
+    expect(ctx.runtimeSettings.toggleCollaborationMode).toHaveBeenCalledOnce();
     expect(result).toBeUndefined();
   });
 
   it("shows the current goal for /goal", async () => {
     const currentGoal = goal();
-    const ctx = context({ activeGoal: vi.fn(() => currentGoal) });
+    const ctx = context();
+    ctx.goals.activeGoal = vi.fn(() => currentGoal);
 
     await executeSlashCommand("goal", "", ctx);
 
@@ -253,21 +260,23 @@ describe("slash commands", () => {
 
   it("sets, pauses, resumes, and clears goals", async () => {
     const currentGoal = goal();
-    const ctx = context({ activeGoal: vi.fn(() => currentGoal) });
+    const ctx = context();
+    ctx.goals.activeGoal = vi.fn(() => currentGoal);
 
     await executeSlashCommand("goal", "set Ship this", ctx);
     await executeSlashCommand("goal", "pause", ctx);
     await executeSlashCommand("goal", "resume", ctx);
     await executeSlashCommand("goal", "clear", ctx);
 
-    expect(ctx.setGoalObjective).toHaveBeenCalledWith("thread-1", "Ship this", null);
-    expect(ctx.setGoalStatus).toHaveBeenCalledWith("thread-1", "paused");
-    expect(ctx.setGoalStatus).toHaveBeenCalledWith("thread-1", "active");
-    expect(ctx.clearGoal).toHaveBeenCalledWith("thread-1");
+    expect(ctx.goals.setObjective).toHaveBeenCalledWith("thread-1", "Ship this", null);
+    expect(ctx.goals.setStatus).toHaveBeenCalledWith("thread-1", "paused");
+    expect(ctx.goals.setStatus).toHaveBeenCalledWith("thread-1", "active");
+    expect(ctx.goals.clear).toHaveBeenCalledWith("thread-1");
   });
 
   it("loads the current goal into the composer for /goal edit", async () => {
-    const ctx = context({ activeGoal: vi.fn(() => goal({ objective: "Ship goal support" })) });
+    const ctx = context();
+    ctx.goals.activeGoal = vi.fn(() => goal({ objective: "Ship goal support" }));
 
     const result = await executeSlashCommand("goal", "edit", ctx);
 
@@ -287,21 +296,22 @@ describe("slash commands", () => {
 
     await executeSlashCommand("goal", "set", ctx);
 
-    expect(ctx.setGoalObjective).not.toHaveBeenCalled();
+    expect(ctx.goals.setObjective).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal set <objective> requires an objective. Usage: /goal set <objective>");
   });
 
   it("rejects extra arguments for goal subcommands without free text", async () => {
     const currentGoal = goal();
-    const ctx = context({ activeGoal: vi.fn(() => currentGoal) });
+    const ctx = context();
+    ctx.goals.activeGoal = vi.fn(() => currentGoal);
 
     await executeSlashCommand("goal", "edit later", ctx);
     await executeSlashCommand("goal", "pause later", ctx);
     await executeSlashCommand("goal", "resume now", ctx);
     await executeSlashCommand("goal", "clear please", ctx);
 
-    expect(ctx.setGoalStatus).not.toHaveBeenCalled();
-    expect(ctx.clearGoal).not.toHaveBeenCalled();
+    expect(ctx.goals.setStatus).not.toHaveBeenCalled();
+    expect(ctx.goals.clear).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal edit does not take arguments. Usage: /goal edit");
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal pause does not take arguments. Usage: /goal pause");
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/goal resume does not take arguments. Usage: /goal resume");
@@ -324,7 +334,7 @@ describe("slash commands", () => {
     await executeSlashCommand("goal", "set Ship this", ctx);
 
     expect(ctx.startThreadForGoal).toHaveBeenCalledWith("Ship this");
-    expect(ctx.setGoalObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
+    expect(ctx.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
     expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("No active thread for goal management.");
   });
 
@@ -334,7 +344,7 @@ describe("slash commands", () => {
     await executeSlashCommand("goal", "pause", ctx);
 
     expect(ctx.startThreadForGoal).not.toHaveBeenCalled();
-    expect(ctx.setGoalStatus).not.toHaveBeenCalled();
+    expect(ctx.goals.setStatus).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread for goal management.");
   });
 
@@ -343,7 +353,7 @@ describe("slash commands", () => {
 
     const result = await executeSlashCommand("plan", "OK、実装してください", ctx);
 
-    expect(ctx.toggleCollaborationMode).toHaveBeenCalledOnce();
+    expect(ctx.runtimeSettings.toggleCollaborationMode).toHaveBeenCalledOnce();
     expect(result).toEqual({ sendText: "OK、実装してください" });
   });
 
@@ -352,7 +362,7 @@ describe("slash commands", () => {
 
     const result = await executeSlashCommand("auto-review", "", ctx);
 
-    expect(ctx.toggleAutoReview).toHaveBeenCalledOnce();
+    expect(ctx.runtimeSettings.toggleAutoReview).toHaveBeenCalledOnce();
     expect(result).toBeUndefined();
   });
 
@@ -361,7 +371,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("auto-review", "この依頼からお願いします", ctx);
 
-    expect(ctx.toggleAutoReview).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.toggleAutoReview).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/auto-review does not take arguments. Usage: /auto-review");
   });
 
@@ -370,7 +380,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("compact", "ignored for now", ctx);
 
-    expect(ctx.compactThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.compactThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/compact does not take arguments. Usage: /compact");
   });
 
@@ -379,7 +389,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("archive", "", ctx);
 
-    expect(ctx.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/archive requires a thread. Usage: /archive <thread>");
   });
 
@@ -390,7 +400,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("archive", "thread-beta", ctx);
 
-    expect(ctx.archiveThread).toHaveBeenCalledWith("thread-beta");
+    expect(ctx.threadActions.archiveThread).toHaveBeenCalledWith("thread-beta");
   });
 
   it("rejects /archive without a thread before active-thread checks", async () => {
@@ -398,7 +408,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("archive", "", ctx);
 
-    expect(ctx.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/archive requires a thread. Usage: /archive <thread>");
   });
 
@@ -407,7 +417,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("archive", "thread-1", ctx);
 
-    expect(ctx.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the current turn before archiving threads.");
   });
 
@@ -418,7 +428,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("archive", "Draft", ctx);
 
-    expect(ctx.archiveThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
   });
 
@@ -429,7 +439,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rename", "thread-beta New Beta Name", ctx);
 
-    expect(ctx.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
+    expect(ctx.threadActions.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
   });
 
   it("trims /rename names before saving", async () => {
@@ -439,7 +449,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rename", "thread-beta   New Beta Name   ", ctx);
 
-    expect(ctx.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
+    expect(ctx.threadActions.renameThread).toHaveBeenCalledWith("thread-beta", "New Beta Name");
   });
 
   it("rejects /rename without a thread and name", async () => {
@@ -447,7 +457,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rename", "thread-1", ctx);
 
-    expect(ctx.renameThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.renameThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rename requires a thread and a name. Usage: /rename <thread> <name>");
   });
 
@@ -456,7 +466,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rename", "thread-1     ", ctx);
 
-    expect(ctx.renameThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.renameThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rename requires a thread and a name. Usage: /rename <thread> <name>");
   });
 
@@ -467,7 +477,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("rename", "Draft New name", ctx);
 
-    expect(ctx.renameThread).not.toHaveBeenCalled();
+    expect(ctx.threadActions.renameThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
   });
 
@@ -601,22 +611,21 @@ describe("slash commands", () => {
 
     await executeSlashCommand("reasoning", "extreme", ctx);
 
-    expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
-    expect(ctx.resetReasoningEffortToConfig).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.resetReasoningEffortToConfig).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Unsupported reasoning level: extreme. Usage: /reasoning [level|default]");
   });
 
   it("does not announce model or effort changes when applying them fails", async () => {
-    const ctx = context({
-      requestModel: vi.fn().mockResolvedValue(false),
-      requestReasoningEffort: vi.fn().mockResolvedValue(false),
-    });
+    const ctx = context();
+    ctx.runtimeSettings.requestModel = vi.fn().mockResolvedValue(false);
+    ctx.runtimeSettings.requestReasoningEffort = vi.fn().mockResolvedValue(false);
 
     await executeSlashCommand("model", "gpt-5.5", ctx);
     await executeSlashCommand("reasoning", "high", ctx);
 
-    expect(ctx.requestModel).toHaveBeenCalledWith("gpt-5.5");
-    expect(ctx.requestReasoningEffort).toHaveBeenCalledWith("high");
+    expect(ctx.runtimeSettings.requestModel).toHaveBeenCalledWith("gpt-5.5");
+    expect(ctx.runtimeSettings.requestReasoningEffort).toHaveBeenCalledWith("high");
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -626,10 +635,10 @@ describe("slash commands", () => {
     await executeSlashCommand("model", "default", ctx);
     await executeSlashCommand("reasoning", "default", ctx);
 
-    expect(ctx.resetModelToConfig).toHaveBeenCalledOnce();
-    expect(ctx.resetReasoningEffortToConfig).toHaveBeenCalledOnce();
-    expect(ctx.requestModel).not.toHaveBeenCalled();
-    expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.resetModelToConfig).toHaveBeenCalledOnce();
+    expect(ctx.runtimeSettings.resetReasoningEffortToConfig).toHaveBeenCalledOnce();
+    expect(ctx.runtimeSettings.requestModel).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Model reset to default for subsequent turns.");
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort reset to default for subsequent turns.");
   });
@@ -642,10 +651,10 @@ describe("slash commands", () => {
       await executeSlashCommand("reasoning", alias, ctx);
     }
 
-    expect(ctx.resetModelToConfig).toHaveBeenCalledTimes(3);
-    expect(ctx.resetReasoningEffortToConfig).toHaveBeenCalledTimes(3);
-    expect(ctx.requestModel).not.toHaveBeenCalled();
-    expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.resetModelToConfig).toHaveBeenCalledTimes(3);
+    expect(ctx.runtimeSettings.resetReasoningEffortToConfig).toHaveBeenCalledTimes(3);
+    expect(ctx.runtimeSettings.requestModel).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
   });
 
   it("shows model and reasoning status for empty runtime commands", async () => {
@@ -659,8 +668,8 @@ describe("slash commands", () => {
 
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Model settings", [{ auditFacts: [{ key: "model", value: "gpt-5.5" }] }]);
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Reasoning effort", [{ auditFacts: [{ key: "effort", value: "high" }] }]);
-    expect(ctx.requestModel).not.toHaveBeenCalled();
-    expect(ctx.requestReasoningEffort).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.requestModel).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
   });
 
   it("preserves supported reasoning effort casing", async () => {
@@ -670,7 +679,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("reasoning", "CaseSensitive", ctx);
 
-    expect(ctx.requestReasoningEffort).toHaveBeenCalledWith("CaseSensitive");
+    expect(ctx.runtimeSettings.requestReasoningEffort).toHaveBeenCalledWith("CaseSensitive");
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort set to CaseSensitive for subsequent turns.");
   });
 
@@ -697,7 +706,7 @@ describe("slash commands", () => {
 
     await executeSlashCommand("fast", "now", ctx);
 
-    expect(ctx.toggleFastMode).not.toHaveBeenCalled();
+    expect(ctx.runtimeSettings.toggleFastMode).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fast does not take arguments. Usage: /fast");
   });
 

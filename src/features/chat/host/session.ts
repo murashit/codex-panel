@@ -5,11 +5,10 @@ import { ConnectionManager } from "../../../app-server/connection/connection-man
 import type { AppServerObservedQueryResult } from "../../../app-server/query/cache";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import { appServerQueryContextRawEquals, type AppServerQueryContext } from "../../../app-server/query/keys";
-import { renameThreadOnAppServer, threadRenameFromValue } from "../../../app-server/services/thread-rename";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 
 import type { Thread } from "../../../domain/threads/model";
-import { getThreadTitle } from "../../../domain/threads/model";
+import { getThreadTitle, normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { shortThreadId } from "../../../utils";
@@ -640,15 +639,15 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       stateStore: this.stateStore,
       titleService,
       renameGeneratedTitle: async (threadId, title, options) => {
-        const rename = threadRenameFromValue(title);
-        if (!rename) return false;
+        const name = normalizeExplicitThreadName(title);
+        if (!name) return false;
         const client = currentClient();
         if (!client) return false;
 
-        const result = await renameThreadOnAppServer(client, threadId, rename);
+        await client.setThreadName(threadId, name);
         if (currentClient() !== client) return false;
         if (options.shouldPublish()) {
-          this.environment.plugin.threadCatalog.renameThreadInCatalog(threadId, result.name);
+          this.environment.plugin.threadCatalog.renameThreadInCatalog(threadId, name);
         }
         return true;
       },
@@ -1168,9 +1167,9 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         void loadSharedThreadList();
       },
       refreshRateLimits: () => {
-        void serverMetadata.refreshPublishedRateLimits();
+        void serverMetadata.refreshRateLimits({ preserveExistingOnFailure: true });
       },
-      refreshSkills: (forceReload) => void serverMetadata.refreshPublishedSkills(forceReload),
+      refreshSkills: (forceReload) => void serverMetadata.refreshSkills(forceReload),
       applyAppServerMetadataSnapshot: () => {
         serverMetadata.applyAppServerMetadataSnapshot();
       },
@@ -1227,17 +1226,17 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         isConnected: () => connection.isConnected(),
       },
       metadata: {
-        refreshPublishedAppServerMetadata: () => serverMetadata.refreshPublishedAppServerMetadata(),
-        refreshPublishedSkills: (forceReload) => serverMetadata.refreshPublishedSkills(forceReload),
+        refreshAppServerMetadata: () => serverMetadata.refreshAppServerMetadata(),
+        refreshSkills: (forceReload) => serverMetadata.refreshSkills(forceReload),
       },
       diagnostics: {
-        refreshPublishedDiagnosticProbes: (options) => serverDiagnostics.refreshPublishedDiagnosticProbes(options),
+        refreshDiagnosticProbes: (options) => serverDiagnostics.refreshDiagnosticProbes(options),
       },
       loadSharedThreadList,
       scheduleDeferredDiagnostics: () => {
         this.deferredTasks.scheduleDiagnostics(() => {
           if (connection.isConnected()) {
-            void serverDiagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
+            void serverDiagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
           }
         });
       },

@@ -34,7 +34,6 @@ export interface ChatServerDiagnosticsActionsHost extends ChatServerActionHost {
 
 export interface ChatServerDiagnosticsActions {
   refreshDiagnosticProbes: (options?: RefreshDiagnosticProbesOptions) => Promise<void>;
-  refreshPublishedDiagnosticProbes: (options?: RefreshDiagnosticProbesOptions) => Promise<void>;
   mcpStatusLines: () => Promise<string[]>;
   recordMcpStartupStatus: (name: string, startupStatus: McpServerStartupStatus, message: string | null) => void;
 }
@@ -44,7 +43,6 @@ export function createChatServerDiagnosticsActions(host: ChatServerDiagnosticsAc
     refreshDiagnosticProbes: async (options) => {
       await refreshDiagnosticProbes(host, options);
     },
-    refreshPublishedDiagnosticProbes: (options) => refreshPublishedDiagnosticProbes(host, options),
     mcpStatusLines: () => mcpStatusLines(host),
     recordMcpStartupStatus: (name, startupStatus, message) => {
       recordMcpStartupStatus(host, name, startupStatus, message);
@@ -135,13 +133,6 @@ async function refreshDiagnosticProbes(
 async function readRateLimitDiagnosticProbe(client: AppServerClient): Promise<DiagnosticProbeSnapshot> {
   const result = await readRateLimitMetadataProbe(client);
   return { method: "account/rateLimits/read", probe: result.probe };
-}
-
-async function refreshPublishedDiagnosticProbes(
-  host: ChatServerDiagnosticsActionsHost,
-  options: RefreshDiagnosticProbesOptions = {},
-): Promise<void> {
-  await refreshDiagnosticProbes(host, options);
 }
 
 async function mcpStatusLines(host: ChatServerDiagnosticsActionsHost): Promise<string[]> {

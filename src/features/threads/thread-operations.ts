@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../app-server/connection/client";
 import { archiveThreadOnAppServer, type ArchiveThreadResult } from "../../app-server/services/thread-archive";
 import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
-import { renameThreadOnAppServer, threadRenameFromValue, type ThreadRename } from "../../app-server/services/thread-rename";
+import { normalizeExplicitThreadName } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 
 export interface ThreadOperationsHost {
@@ -48,25 +48,16 @@ async function renameThread(
   value: string,
   options: RenameThreadOptions = {},
 ): Promise<boolean> {
-  const rename = threadRenameFromValue(value);
-  if (!rename) return false;
+  const name = normalizeExplicitThreadName(value);
+  if (!name) return false;
 
   await host.connection.ensureConnected();
-  return renameConnectedThread(host, threadId, rename, options);
-}
-
-async function renameConnectedThread(
-  host: ThreadOperationsHost,
-  threadId: string,
-  rename: ThreadRename,
-  options: RenameThreadOptions = {},
-): Promise<boolean> {
   const client = host.connection.currentClient();
   if (!client) return false;
 
-  const result = await renameThreadOnAppServer(client, threadId, rename);
+  await client.setThreadName(threadId, name);
   if (options.shouldPublish?.() ?? true) {
-    host.catalog.renameThreadInCatalog(threadId, result.name);
+    host.catalog.renameThreadInCatalog(threadId, name);
   }
   return true;
 }

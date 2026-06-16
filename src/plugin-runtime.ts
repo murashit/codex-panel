@@ -51,9 +51,6 @@ export class CodexPanelRuntime {
     this.threadCatalog = createSharedThreadCatalog({
       queries: this.appServerSharedQueries,
       surfaces: {
-        invalidateThreadsFromOpenSurface: () => {
-          this.invalidateThreadsFromOpenSurface();
-        },
         applyThreadArchived: (threadId, archiveOptions) => {
           this.applyThreadArchived(threadId, archiveOptions);
         },
@@ -178,17 +175,6 @@ export class CodexPanelRuntime {
     }
   }
 
-  private invalidateThreadsFromOpenSurface(): void {
-    const chatSurface = this.connectedPanelSurface();
-    if (chatSurface) {
-      void chatSurface.refreshSharedThreadList();
-      return;
-    }
-
-    const threadsView = this.threadsViews().at(0);
-    if (threadsView) void threadsView.refresh();
-  }
-
   private applyThreadArchived(threadId: string, archiveOptions: { closeOpenPanels?: boolean } = {}): void {
     const leavesToClose = archiveOptions.closeOpenPanels ? this.panels.panelLeavesForThread(threadId) : [];
     for (const view of this.panels.panelViews()) {
@@ -205,14 +191,6 @@ export class CodexPanelRuntime {
       const surface: ChatSharedThreadSurface = view.surface;
       surface.applyThreadRenamed(threadId, name);
     }
-  }
-
-  private connectedPanelSurface(): (ChatWorkspacePanelSurface & ChatSharedThreadSurface) | null {
-    for (const view of this.panels.panelViews()) {
-      const surface: ChatWorkspacePanelSurface & ChatSharedThreadSurface = view.surface;
-      if (surface.openPanelSnapshot().connected) return surface;
-    }
-    return null;
   }
 
   private refreshThreadsViewLiveState(): void {
