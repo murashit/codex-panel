@@ -16,7 +16,6 @@ import { agentMessageStreamItem } from "./agent-items";
 import { fileMentionsFromInput } from "../../../domain/message-stream/format/file-mentions";
 import { normalizeProposedPlanMarkdown } from "../../../domain/message-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/message-stream/format/user-message-text";
-import { failedStatusLabel, jsonTargetLabel } from "../../../domain/message-stream/format/item-labels";
 import { normalizeFileChanges } from "./file-changes";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
@@ -687,6 +686,56 @@ function imageGenerationExecutionState(status: string): ExecutionState {
 
 function standardToolCallExecutionState(status: string): ExecutionState {
   return executionStateFromStatus(status, STANDARD_TOOL_STATES);
+}
+
+function failedStatusLabel(status: unknown): string | null {
+  if (status === "failed") return "failed";
+  if (status === "declined") return "declined";
+  return null;
+}
+
+function jsonTargetLabel(value: unknown): string | null {
+  const direct = jsonTargetPrimitive(value);
+  if (direct) return direct;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const record = value as Record<string, unknown>;
+  const priorityKeys = [
+    "q",
+    "query",
+    "search_query",
+    "url",
+    "ref_id",
+    "path",
+    "file",
+    "filename",
+    "ticker",
+    "location",
+    "team",
+    "league",
+    "id",
+    "target",
+    "command",
+  ];
+
+  for (const key of priorityKeys) {
+    const target = jsonTargetPrimitive(record[key]);
+    if (target) return target;
+  }
+
+  const firstEntry = Object.entries(record).find(([, entryValue]) => jsonTargetPrimitive(entryValue));
+  return firstEntry ? jsonTargetPrimitive(firstEntry[1]) : null;
+}
+
+function jsonTargetPrimitive(value: unknown): string | null {
+  if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (!Array.isArray(value)) return null;
+  for (const item of value) {
+    const target = jsonTargetLabel(item);
+    if (target) return target;
+  }
+  return null;
 }
 
 function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {

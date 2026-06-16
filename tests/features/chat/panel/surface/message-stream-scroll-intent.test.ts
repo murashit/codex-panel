@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createChatMessageScrollIntentState } from "../../../../../src/features/chat/panel/surface/message-stream-scroll-intent";
+import { createChatMessageScrollIntentState } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
 
 describe("createChatMessageScrollIntentState", () => {
   it("starts with automatic scrolling", () => {

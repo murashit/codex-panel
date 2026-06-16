@@ -6,7 +6,8 @@ import { parseSlashCommand } from "../composer/suggestions";
 import type { SlashCommandExecutionResult } from "./slash-command-execution";
 import type { SlashCommandName } from "../composer/slash-commands";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
-import { STATUS_INTERRUPT_REQUESTED } from "./messages";
+
+const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
 
 export interface ComposerSubmitActionsHost {
   stateStore: ChatStateStore;

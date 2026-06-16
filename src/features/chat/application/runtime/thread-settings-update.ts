@@ -9,7 +9,7 @@ import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { effectiveCollaborationMode, type PendingRuntimeSetting } from "../../domain/runtime/pending-settings";
 
-export type TurnCollaborationModeWarning = "missing-model";
+type TurnCollaborationModeWarning = "missing-model";
 
 type TurnCollaborationModeSettings =
   | {

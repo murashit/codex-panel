@@ -5,13 +5,11 @@ import type { ServerInitialization } from "../../../../domain/server/initializat
 import type { ActiveConnectionWork, ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";
 import type { ChatConnectionPhase } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import {
-  missingCommandConnectionErrorMessage,
-  STATUS_CONNECTED,
-  STATUS_CONNECTION_FAILED,
-  STATUS_CONNECTION_STARTING,
-  STATUS_CONNECTION_STOPPED,
-} from "./messages";
+
+const STATUS_CONNECTION_STOPPED = "Codex app-server stopped.";
+const STATUS_CONNECTION_STARTING = "Starting Codex app-server...";
+const STATUS_CONNECTED = "Connected.";
+const STATUS_CONNECTION_FAILED = "Connection failed.";
 
 export interface ChatConnectionAdapter {
   connect(): Promise<ServerInitialization>;
@@ -176,6 +174,10 @@ function connectionErrorMessage(error: unknown, configuredCommand: string): stri
   const message = error instanceof Error ? error.message : String(error);
   if (!isMissingCommandError(error)) return message;
   return missingCommandConnectionErrorMessage(message, configuredCommand);
+}
+
+function missingCommandConnectionErrorMessage(errorMessage: string, configuredCommand: string): string {
+  return `Could not start Codex app-server because the configured command was not found: ${configuredCommand}. Check the Codex command path in settings. (${errorMessage})`;
 }
 
 function isMissingCommandError(error: unknown): boolean {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { ThreadActivationResponse, ThreadActivationSnapshot } from "../../../../src/app-server/services/thread-activation";
 import {
   resumedThreadActionFromActiveRuntime,
   resumedThreadActionFromAppServerResponse,
 } from "../../../../src/features/chat/application/threads/resume";
+import type { ThreadActivationSnapshot } from "../../../../src/domain/threads/activation";
 import type { Thread } from "../../../../src/domain/threads/model";
 
 describe("chat thread resume helpers", () => {
@@ -73,7 +73,7 @@ function responseFixture(thread: Thread): ThreadActivationSnapshot {
   };
 }
 
-function responseRecordFixture(thread: Thread): ThreadActivationResponse {
+function responseRecordFixture(thread: Thread): Parameters<typeof resumedThreadActionFromAppServerResponse>[0]["response"] {
   return {
     ...responseFixture(thread),
     thread: {

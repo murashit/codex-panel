@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { runtimeConfigSnapshotFromAppServerConfig, type ConfigReadResult } from "../../src/app-server/protocol/runtime-config";
 import type { RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../src/features/chat/application/runtime/messages";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../src/features/chat/application/runtime/settings-actions";
 import { compactReasoningEffortLabel } from "../../src/features/chat/presentation/runtime/messages";
 import {
   autoReviewActive,

@@ -1,15 +1,16 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
-import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import type { MessageStreamItem, MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import { canImplementPlan } from "../state/selectors";
+import { activeThreadId, canImplementPlan } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { GoalActions } from "../threads/goal-actions";
 import { submitComposer, type ComposerSubmitActions, type ComposerSubmitActionsHost } from "./composer-submit-actions";
-import { implementPlan, type PlanImplementation, type PlanImplementationHost } from "./plan-implementation";
 import { executeSlashCommandWithState, type SlashCommandHandlerHost } from "./slash-command-handler";
 import { TurnSubmissionController } from "./turn-submission-controller";
+
+const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 
 export interface ConversationTurnActionsContext {
   vaultPath: string;
@@ -57,6 +58,19 @@ export interface ConversationTurnActionsRefs {
 
 interface ConversationThreadStarter {
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
+}
+
+export interface PlanImplementationHost {
+  stateStore: ChatStateStore;
+  currentClient(): AppServerClient | null;
+  ensureConnected(): Promise<void>;
+  sendTurnText(text: string): Promise<void>;
+  requestDefaultCollaborationModeForNextTurn(): void;
+}
+
+interface PlanImplementation {
+  canImplement: (item: MessageStreamItem) => boolean;
+  implement: (item: MessageStreamItem) => Promise<void>;
 }
 
 export interface ConversationTurnActions {
@@ -149,4 +163,14 @@ export function createConversationTurnActions(
 async function startThreadForGoal(actions: ConversationThreadStarter, objective: string): Promise<string | null> {
   const response = await actions.startThread(objective, { syncGoal: false });
   return response?.threadId ?? null;
+}
+
+export async function implementPlan(host: PlanImplementationHost, item: MessageStreamItem): Promise<void> {
+  if (!canImplementPlan(host.stateStore.getState(), item)) return;
+  await host.ensureConnected();
+  if (!host.currentClient() || !activeThreadId(host.stateStore.getState())) return;
+
+  host.requestDefaultCollaborationModeForNextTurn();
+  host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
+  await host.sendTurnText(IMPLEMENT_PLAN_PROMPT);
 }

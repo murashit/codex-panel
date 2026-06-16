@@ -6,7 +6,6 @@ import type { RestorationController } from "./restoration-controller";
 import { resumedThreadActionFromAppServerResponse } from "./resume";
 import type { HistoryController } from "./history-controller";
 import type { ChatResumeWorkTracker, ActiveChatResume } from "../lifecycle";
-import { finishBeforeSwitchingThreadsMessage, resumedThreadMessage } from "./messages";
 
 export interface ResumeControllerHost {
   stateStore: ChatStateStore;
@@ -34,6 +33,14 @@ export function createResumeController(host: ResumeControllerHost): ResumeContro
   return {
     resumeThread: (threadId) => resumeThread(host, threadId),
   };
+}
+
+function finishBeforeSwitchingThreadsMessage(): string {
+  return "Finish or interrupt the current turn before switching threads.";
+}
+
+function resumedThreadMessage(threadId: string): string {
+  return `Resumed thread ${threadId}`;
 }
 
 async function resumeThread(host: ResumeControllerHost, threadId: string): Promise<void> {

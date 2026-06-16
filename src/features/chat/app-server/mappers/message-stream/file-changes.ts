@@ -1,4 +1,4 @@
-import type { MessageStreamFileChange } from "../../../domain/message-stream/items";
+import type { MessageStreamFileChange, MessageStreamItem } from "../../../domain/message-stream/items";
 
 export interface AppServerFileChange {
   readonly path: string;
@@ -14,4 +14,22 @@ export function normalizeFileChanges(changes: readonly AppServerFileChange[]): M
     path: change.path,
     diff: change.diff,
   }));
+}
+
+export function streamingFileChangeMessageStreamItem(
+  itemId: string,
+  turnId: string,
+  changes: readonly MessageStreamFileChange[],
+  status: string,
+): MessageStreamItem {
+  return {
+    id: itemId,
+    kind: "fileChange",
+    role: "tool",
+    turnId,
+    sourceItemId: itemId,
+    provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: itemId },
+    status,
+    changes,
+  };
 }

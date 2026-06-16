@@ -1,9 +1,7 @@
 import { upsertThread } from "../../../../domain/threads/model";
 import type { Thread } from "../../../../domain/threads/model";
-import {
-  threadActivationSnapshotFromAppServerResponse,
-  type ThreadActivationSnapshot,
-} from "../../../../app-server/services/thread-activation";
+import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads/data";
+import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { ActiveThreadResumedAction } from "../state/actions";
@@ -15,14 +13,14 @@ interface ResumedThreadActionParams {
   preserveRequestedRuntimeSettings?: boolean;
 }
 
-export interface ResumedThreadFromAppServerParams {
+interface ResumedThreadFromAppServerParams {
   response: Parameters<typeof threadActivationSnapshotFromAppServerResponse>[0];
   listedThreads?: readonly Thread[];
   items?: readonly MessageStreamItem[];
   preserveRequestedRuntimeSettings?: boolean;
 }
 
-export interface ResumedThreadFromActiveRuntimeParams {
+interface ResumedThreadFromActiveRuntimeParams {
   thread: Thread;
   cwd: string;
   runtime: Pick<

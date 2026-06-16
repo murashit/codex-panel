@@ -2,26 +2,16 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import { rollbackThread as rollbackThreadOnAppServer, threadFromThreadForkResponse } from "../../../../app-server/threads/data";
 import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
-import {
-  archivedSourceOpenForkFailedMessage,
-  finishBeforeArchivingThreadsMessage,
-  finishBeforeForkingThreadsMessage,
-  forkNameCopyFailedMessage,
-  interruptBeforeRollbackMessage,
-  noCompletedTurnToRollbackMessage,
-  openForkInNewPanelFailedMessage,
-  rollbackCompletedMessage,
-  selectedTurnNotFoundForForkMessage,
-  STATUS_COMPACTION_REQUESTED,
-  STATUS_ROLLBACK_COMPLETE,
-  STATUS_ROLLBACK_FAILED,
-  STATUS_ROLLBACK_STARTING,
-} from "./messages";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
 import { chatTurnBusy, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { resumedThreadActionFromActiveRuntime } from "./resume";
+
+const STATUS_COMPACTION_REQUESTED = "Compaction requested.";
+const STATUS_ROLLBACK_STARTING = "Rolling back latest turn...";
+const STATUS_ROLLBACK_COMPLETE = "Rolled back latest turn.";
+const STATUS_ROLLBACK_FAILED = "Rollback failed.";
 
 export interface ThreadManagementActionsHost {
   stateStore: ChatStateStore;
@@ -57,6 +47,42 @@ export function createThreadManagementActions(host: ThreadManagementActionsHost)
     renameThread: (threadId, name) => renameThread(host, threadId, name),
     rollbackThread: (threadId) => rollbackThread(host, threadId),
   };
+}
+
+function finishBeforeArchivingThreadsMessage(): string {
+  return "Finish or interrupt the current turn before archiving threads.";
+}
+
+function finishBeforeForkingThreadsMessage(): string {
+  return "Finish or interrupt the current turn before forking threads.";
+}
+
+function selectedTurnNotFoundForForkMessage(): string {
+  return "Could not find the selected turn to fork.";
+}
+
+function forkNameCopyFailedMessage(threadId: string, message: string): string {
+  return `Forked thread ${threadId}, but could not copy the source thread name: ${message}`;
+}
+
+function archivedSourceOpenForkFailedMessage(sourceThreadId: string, forkedThreadId: string, message: string): string {
+  return `Archived thread ${sourceThreadId}, but could not open forked thread ${forkedThreadId}: ${message}`;
+}
+
+function openForkInNewPanelFailedMessage(forkedThreadId: string, message: string): string {
+  return `Forked thread ${forkedThreadId}, but could not open it in a new panel: ${message}`;
+}
+
+function interruptBeforeRollbackMessage(): string {
+  return "Interrupt the current turn before rolling back.";
+}
+
+function noCompletedTurnToRollbackMessage(): string {
+  return "No completed turn to roll back.";
+}
+
+function rollbackCompletedMessage(): string {
+  return "Rolled back the latest turn. Local file changes were not reverted.";
 }
 
 async function compactThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {

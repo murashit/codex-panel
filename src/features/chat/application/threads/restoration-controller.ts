@@ -6,7 +6,8 @@ import {
   type RestoredThreadState,
   type ChatViewDeferredTasks,
 } from "../lifecycle";
-import { STATUS_THREAD_READY_TO_RESUME } from "./messages";
+
+const STATUS_THREAD_READY_TO_RESUME = "Thread ready to resume.";
 
 export interface RestorationControllerHost {
   deferredTasks: ChatViewDeferredTasks;

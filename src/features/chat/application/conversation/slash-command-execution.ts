@@ -17,15 +17,6 @@ import {
   type SlashCommandSubcommandDefinition,
 } from "../composer/slash-commands";
 import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../runtime/messages";
-import { currentThreadReferenceMessage } from "./messages";
-import {
-  finishBeforeArchivingThreadsMessage,
-  interruptBeforeRollbackMessage,
-  noActiveThreadToCompactMessage,
-  noActiveThreadToForkMessage,
-  noActiveThreadToRollbackMessage,
-} from "../threads/messages";
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
@@ -70,6 +61,40 @@ export interface SlashCommandExecutionResult {
 export interface ThreadReferenceInput {
   input: CodexInput;
   referencedThread: ReferencedThreadMetadata;
+}
+
+function currentThreadReferenceMessage(): string {
+  return "Use the current thread directly instead of referencing it.";
+}
+
+function noActiveThreadToForkMessage(): string {
+  return "No active thread to fork.";
+}
+
+function noActiveThreadToRollbackMessage(): string {
+  return "No active thread to roll back.";
+}
+
+function interruptBeforeRollbackMessage(): string {
+  return "Interrupt the current turn before rolling back.";
+}
+
+function noActiveThreadToCompactMessage(): string {
+  return "No active thread to compact.";
+}
+
+function finishBeforeArchivingThreadsMessage(): string {
+  return "Finish or interrupt the current turn before archiving threads.";
+}
+
+function modelOverrideMessage(model: string | null): string {
+  return model === null ? "Model reset to default for subsequent turns." : `Model set to ${model} for subsequent turns.`;
+}
+
+function reasoningEffortOverrideMessage(effort: ReasoningEffort | null): string {
+  return effort === null
+    ? "Reasoning effort reset to default for subsequent turns."
+    : `Reasoning effort set to ${effort} for subsequent turns.`;
 }
 
 export async function executeSlashCommand(

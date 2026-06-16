@@ -4,7 +4,7 @@ import type { AppServerClient } from "../../../../../src/app-server/connection/c
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { implementPlanCandidateFromState } from "../../../../../src/features/chat/application/state/selectors";
-import { implementPlan, type PlanImplementationHost } from "../../../../../src/features/chat/application/conversation/plan-implementation";
+import { implementPlan, type PlanImplementationHost } from "../../../../../src/features/chat/application/conversation/composition";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 const planItem = (id: string): MessageStreamItem => ({

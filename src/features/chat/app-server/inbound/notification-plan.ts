@@ -1,7 +1,7 @@
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
-import { threadFromThreadRecord } from "../../../../app-server/protocol/thread";
+import { threadFromAppServerRecord } from "../../../../app-server/threads/data";
 import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { normalizeExplicitThreadName, type Thread } from "../../../../domain/threads/model";
@@ -19,7 +19,11 @@ import {
   messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
 } from "../mappers/message-stream/turn-items";
-import { normalizeFileChanges, type AppServerFileChange } from "../mappers/message-stream/file-changes";
+import {
+  normalizeFileChanges,
+  streamingFileChangeMessageStreamItem,
+  type AppServerFileChange,
+} from "../mappers/message-stream/file-changes";
 import { taskProgressMessageStreamItem } from "../../domain/message-stream/factories/task-progress";
 import type { MessageStreamItem, MessageStreamItemKind } from "../../domain/message-stream/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
@@ -31,7 +35,6 @@ import {
   STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
   STREAMED_MCP_PROGRESS_LABEL,
 } from "../../domain/message-stream/factories/streaming-items";
-import { streamingFileChangeMessageStreamItem } from "../mappers/message-stream/streaming-items";
 import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
 import { messageStreamItems } from "../../application/state/message-stream";
 import { reconcileCompletedTurnItems } from "../../domain/message-stream/completed-turn-reconciliation";
@@ -254,7 +257,7 @@ const THREAD_LIFECYCLE_PLANNERS = {
     const effects: ChatNotificationEffect[] = [
       {
         type: "upsert-active-thread",
-        thread: threadFromThreadRecord(notification.params.thread),
+        thread: threadFromAppServerRecord(notification.params.thread),
       },
     ];
     if (!state.activeThread.id || state.activeThread.id === notification.params.thread.id) {

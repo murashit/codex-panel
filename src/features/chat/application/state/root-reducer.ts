@@ -68,7 +68,6 @@ import {
   type ChatTurnState,
   type PendingTurnStart,
 } from "../conversation/turn-state";
-import { STATUS_TURN_RUNNING, turnCompletedStatus } from "../conversation/messages";
 import {
   clearAllRequestDisclosures,
   clearResolvedRequestDisclosures,
@@ -92,6 +91,12 @@ export type ChatConnectionPhase =
   | { kind: "connected" }
   | { kind: "failed"; message: string }
   | { kind: "disconnected"; message: string };
+
+const STATUS_TURN_RUNNING = "Turn running...";
+
+function turnCompletedStatus(status: string): string {
+  return `Turn ${status}.`;
+}
 
 interface ChatConnectionState {
   readonly phase: ChatConnectionPhase;

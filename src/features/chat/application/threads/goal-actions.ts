@@ -1,11 +1,10 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/services/thread-goals";
+import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/threads/data";
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
 import type { ChatStateStore } from "../state/store";
 import type { GoalMessageStreamItem } from "../../domain/message-stream/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
 import { createLocalChatItemIdFactory } from "../../domain/local-id";
-import { emptyGoalObjectiveMessage } from "./messages";
 
 export interface ThreadGoalSyncHost {
   stateStore: ChatStateStore;
@@ -28,6 +27,10 @@ export interface GoalActions extends ThreadGoalSyncActions {
   setObjective: (threadId: string, objective: string, tokenBudget: number | null) => Promise<boolean>;
   setStatus: (threadId: string, status: ThreadGoalStatus) => Promise<boolean>;
   clear: (threadId: string) => Promise<boolean>;
+}
+
+function emptyGoalObjectiveMessage(): string {
+  return "Goal objective cannot be empty.";
 }
 
 export function createThreadGoalSyncActions(host: ThreadGoalSyncHost): ThreadGoalSyncActions {

@@ -4,7 +4,6 @@ import type { ReferencedThreadMetadata } from "../../../../domain/threads/refere
 import { submissionStateSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../../domain/local-id";
-import { currentTurnNotSteerableMessage, STATUS_STEERED_CURRENT_TURN, STATUS_TURN_RUNNING } from "./messages";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
@@ -12,6 +11,9 @@ import {
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
+
+const STATUS_TURN_RUNNING = "Turn running...";
+const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 
 export interface TurnSubmissionControllerHost {
   stateStore: ChatStateStore;
@@ -26,6 +28,10 @@ export interface TurnSubmissionControllerHost {
   setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
+}
+
+function currentTurnNotSteerableMessage(): string {
+  return "Current turn is not steerable yet.";
 }
 
 export class TurnSubmissionController {

@@ -10,14 +10,6 @@ import {
 } from "./thread-settings-update";
 import type { RuntimeSnapshot } from "./snapshot";
 import { nextCollaborationMode, type CollaborationMode, type RequestedServiceTier } from "../../domain/runtime/pending-settings";
-import {
-  autoReviewToggleMessage,
-  collaborationModeToggleMessage,
-  collaborationModeWarningMessage,
-  fastModeToggleMessage,
-  modelOverrideMessage,
-  reasoningEffortOverrideMessage,
-} from "./messages";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
@@ -189,6 +181,32 @@ async function setAutoReview(host: RuntimeSettingsActionsHost, mode: AutoReviewS
   if (!(await applyPendingThreadSettings(host))) return;
   dispatch(host, { type: "ui/panel-set", panel: null });
   host.addSystemMessage(autoReviewToggleMessage(mode));
+}
+
+export function modelOverrideMessage(model: string | null): string {
+  return model === null ? "Model reset to default for subsequent turns." : `Model set to ${model} for subsequent turns.`;
+}
+
+export function reasoningEffortOverrideMessage(effort: ReasoningEffort | null): string {
+  return effort === null
+    ? "Reasoning effort reset to default for subsequent turns."
+    : `Reasoning effort set to ${effort} for subsequent turns.`;
+}
+
+function fastModeToggleMessage(state: FastModeState): string {
+  return state === "enabled" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.";
+}
+
+function collaborationModeToggleMessage(mode: CollaborationMode): string {
+  return mode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.";
+}
+
+function autoReviewToggleMessage(state: AutoReviewState): string {
+  return state === "enabled" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.";
+}
+
+function collaborationModeWarningMessage(_warning: NonNullable<PendingRuntimeSettingsPatch["collaborationModeWarning"]>): string {
+  return "No effective model is available. Sending without a mode override.";
 }
 
 function nextAutoReviewState(active: boolean): AutoReviewState {

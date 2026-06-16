@@ -40,7 +40,6 @@ import { runtimeSnapshotForChatState, type RuntimeSnapshot } from "../applicatio
 import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import { activeTurnId, type ChatConnectionPhase, chatTurnBusy, type ChatAction, type ChatState } from "../application/state/root-reducer";
 import { messageStreamItems } from "../application/state/message-stream";
-import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll-intent";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell";
 import { createChatStateStore, type ChatStateStore } from "../application/state/store";
 import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
@@ -61,12 +60,15 @@ import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions }
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
 import { createChatServerThreadActions, type ChatServerThreadActions } from "../app-server/actions/threads";
 import { ChatInboundController } from "../app-server/inbound/controller";
-import { rejectServerRequest, respondToServerRequest } from "../app-server/requests/responder";
 import { ChatComposerController } from "../panel/composer-controller";
 import type { ChatPanelComposerSurface, ChatPanelGoalSurface, ChatPanelToolbarSurface } from "../panel/surface/model";
 import { chatPanelComposerProjection } from "../panel/surface/composer-projection";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
-import { MessageStreamScrollBridge } from "../panel/surface/message-stream-scroll";
+import {
+  createChatMessageScrollIntentState,
+  MessageStreamScrollBridge,
+  type ChatMessageScrollIntentState,
+} from "../panel/surface/message-stream-scroll";
 import { createChatPanelGoalSurface } from "../panel/surface/goal-surface";
 import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import type { ToolbarActions } from "../ui/toolbar";
@@ -76,12 +78,41 @@ import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effectiv
 import type { ChatSurfaceHandle } from "./surface-handle";
 import type { ChatPanelEnvironment } from "./runtime";
 
+type CurrentAppServerClient = () => AppServerClient | null;
+type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
+type RejectRequestId = Parameters<AppServerClient["rejectServerRequest"]>[0];
+
 function codexPanelDisplayTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {
   if (!activeThreadId) return "Codex";
 
   const thread = threads.find((item) => item.id === activeThreadId);
   const title = thread ? getThreadTitle(thread).replace(/\s+/g, " ").trim() : (fallbackTitle ?? shortThreadId(activeThreadId));
   return title ? `Codex: ${title}` : "Codex";
+}
+
+function respondToCurrentServerRequest(currentClient: CurrentAppServerClient, requestId: RespondRequestId, result: unknown): boolean {
+  try {
+    const client = currentClient();
+    client?.respondToServerRequest(requestId, result);
+    return Boolean(client);
+  } catch {
+    return false;
+  }
+}
+
+function rejectCurrentServerRequest(
+  currentClient: CurrentAppServerClient,
+  requestId: RejectRequestId,
+  code: number,
+  message: string,
+): boolean {
+  try {
+    const client = currentClient();
+    client?.rejectServerRequest(requestId, code, message);
+    return Boolean(client);
+  } catch {
+    return false;
+  }
 }
 
 interface ChatPanelSessionParts {
@@ -130,8 +161,6 @@ interface ChatPanelConnectionBundle {
   inboundController: ChatInboundController;
   serverActions: ChatPanelSessionParts["serverActions"];
 }
-
-type CurrentAppServerClient = () => AppServerClient | null;
 
 type ChatPanelGoalSyncActions = ReturnType<typeof createThreadGoalSyncActions>;
 type ChatPanelRuntimeSettingsActions = ReturnType<typeof createChatRuntimeSettingsActions>;
@@ -1163,7 +1192,6 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       },
     });
     const loadSharedThreadList = () => this.loadSharedThreadList();
-    const serverRequestHost = { currentClient };
     const inboundController = new ChatInboundController(stateStore, {
       refreshActiveThreads: () => {
         void loadSharedThreadList();
@@ -1193,8 +1221,8 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       recordMcpStartupStatus: (name, mcpStatus, message) => {
         serverDiagnostics.recordMcpStartupStatus(name, mcpStatus, message);
       },
-      respondToServerRequest: (requestId, result) => respondToServerRequest(serverRequestHost, requestId, result),
-      rejectServerRequest: (requestId, code, message) => rejectServerRequest(serverRequestHost, requestId, code, message),
+      respondToServerRequest: (requestId, result) => respondToCurrentServerRequest(currentClient, requestId, result),
+      rejectServerRequest: (requestId, code, message) => rejectCurrentServerRequest(currentClient, requestId, code, message),
     });
     const connectionExitHost = {
       stateStore,

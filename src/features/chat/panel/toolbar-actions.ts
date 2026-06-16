@@ -5,7 +5,6 @@ import type { ChatConnectionController } from "../application/connection/connect
 import type { ThreadRenameEditorController } from "../application/threads/rename-editor-controller";
 import type { SelectionActions } from "../application/threads/selection-actions";
 import type { ChatInboundController } from "../app-server/inbound/controller";
-import { noActiveThreadToCompactMessage } from "../application/threads/messages";
 import type { ToolbarActions } from "../ui/toolbar";
 
 export interface ToolbarPanelActionsHost {
@@ -191,7 +190,7 @@ async function compactConversation(
 ): Promise<void> {
   const threadId = state.activeThread.id;
   if (!threadId) {
-    deps.inboundController.addSystemMessage(noActiveThreadToCompactMessage());
+    deps.inboundController.addSystemMessage("No active thread to compact.");
     return;
   }
   await deps.threadActions.compactThread(threadId);

@@ -3,9 +3,9 @@ import { codexTextInputWithAttachments, type CodexInput } from "../../../../doma
 import { readReferencedThreadConversationSummaries } from "../../../../app-server/threads/data";
 import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
+import { shortThreadId } from "../../../../utils";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import { referencedThreadStatus, referencedThreadUnreadableMessage } from "./messages";
 import {
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionResult,
@@ -49,6 +49,14 @@ export interface SlashCommandHandlerHost {
   mcpStatusLines: () => Promise<string[]>;
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
+}
+
+function referencedThreadStatus(thread: Thread, includedTurns: number): string {
+  return `Referencing ${shortThreadId(thread.id)} (${String(includedTurns)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`;
+}
+
+function referencedThreadUnreadableMessage(): string {
+  return "Referenced thread has no readable conversation turns.";
 }
 
 export async function executeSlashCommandWithState(
