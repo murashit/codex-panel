@@ -12,7 +12,7 @@ interface StartedThreadSummary {
 
 export interface ChatServerThreadActionsHost extends ChatServerActionHost {
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
-  publishThreadList: (threads: readonly Thread[]) => void;
+  recordStartedThread: (thread: Thread) => void;
   syncThreadGoal: (threadId: string) => void;
 }
 
@@ -60,7 +60,7 @@ async function startThread(
     preserveRequestedRuntimeSettings: requestState.activeThread.id === null,
   });
   host.stateStore.dispatch(action);
-  if (action.listedThreads) host.publishThreadList(action.listedThreads);
+  host.recordStartedThread(action.thread);
   if (options.syncGoal ?? true) host.syncThreadGoal(response.thread.id);
   return { threadId: response.thread.id };
 }

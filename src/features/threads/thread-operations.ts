@@ -15,8 +15,8 @@ export interface ThreadOperationsHost {
   };
   archiveAdapter(): ArchiveExportAdapter;
   catalog: {
-    archiveThreadInCatalog(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-    renameThreadInCatalog(threadId: string, name: string | null): void;
+    recordThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
+    recordThreadRenamed(threadId: string, name: string | null): void;
   };
   notice(message: string): void;
 }
@@ -56,8 +56,9 @@ async function renameThread(
   if (!client) return false;
 
   await client.setThreadName(threadId, name);
+  if (host.connection.currentClient() !== client) return false;
   if (options.shouldPublish?.() ?? true) {
-    host.catalog.renameThreadInCatalog(threadId, name);
+    host.catalog.recordThreadRenamed(threadId, name);
   }
   return true;
 }
@@ -78,13 +79,14 @@ async function archiveThread(
     archiveAdapter: () => host.archiveAdapter(),
     saveMarkdown: options.saveMarkdown ?? settings.archiveExportEnabled,
   });
+  if (host.connection.currentClient() !== client) return null;
   if (result.exportedPath) {
     host.notice(`Saved archived thread to ${result.exportedPath}.`);
   }
   if (options.closeOpenPanels === undefined) {
-    host.catalog.archiveThreadInCatalog(threadId);
+    host.catalog.recordThreadArchived(threadId);
   } else {
-    host.catalog.archiveThreadInCatalog(threadId, { closeOpenPanels: options.closeOpenPanels });
+    host.catalog.recordThreadArchived(threadId, { closeOpenPanels: options.closeOpenPanels });
   }
   return result;
 }

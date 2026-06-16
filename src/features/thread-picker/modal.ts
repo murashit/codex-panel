@@ -4,18 +4,16 @@ import { getThreadTitle } from "../../domain/threads/model";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import { shortThreadId } from "../../utils";
-import type { SharedThreadCatalog } from "../../workspace/shared-thread-catalog";
+import type { ActiveThreadCatalogReader } from "../../workspace/active-thread-catalog";
 
 export interface ThreadPickerHost {
   readonly app: App;
   readonly settings: CodexPanelSettings;
   readonly vaultPath: string;
-  readonly threadCatalog: ThreadPickerCatalog;
+  readonly threadCatalog: ActiveThreadCatalogReader;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
-
-type ThreadPickerCatalog = Pick<SharedThreadCatalog, "activeThreadsSnapshot" | "fetchActiveThreads">;
 
 interface ThreadSuggestion {
   thread: Thread;
@@ -76,10 +74,7 @@ function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMod
 }
 
 async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly Thread[]> {
-  const cached = host.threadCatalog.activeThreadsSnapshot();
-  if (cached) return cached;
-
-  return host.threadCatalog.fetchActiveThreads();
+  return host.threadCatalog.load();
 }
 
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {

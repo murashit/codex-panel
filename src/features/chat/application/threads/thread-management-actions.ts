@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/threads/data";
-import { inheritedForkThreadName } from "../../../../domain/threads/model";
+import { rollbackThread as rollbackThreadOnAppServer, threadFromThreadForkResponse } from "../../../../app-server/threads/data";
+import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import {
   archivedSourceOpenForkFailedMessage,
@@ -36,6 +36,7 @@ export interface ThreadManagementActionsHost {
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
   refreshAfterThreadMutation: () => Promise<void>;
+  recordForkedThread: (thread: Thread) => void;
 }
 
 export interface ThreadManagementActions {
@@ -65,6 +66,7 @@ async function compactThread(host: ThreadManagementActionsHost, threadId: string
   const initialActiveThreadId = threadManagementState(host).activeThread.id;
   try {
     await client.compactThread(threadId);
+    if (host.currentClient() !== client) return;
     if (!threadManagementStillTargetsOriginalPanel(threadManagementState(host), initialActiveThreadId, threadId)) return;
     host.addSystemMessage(STATUS_COMPACTION_REQUESTED);
     host.setStatus(STATUS_COMPACTION_REQUESTED);
@@ -119,10 +121,13 @@ async function forkThreadFromTurn(
   try {
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
     const response = await client.forkThread(threadId, host.vaultPath);
+    if (host.currentClient() !== client) return;
     const forkedThreadId = response.thread.id;
     if (turnsToDrop > 0) {
       await client.rollbackThread(forkedThreadId, turnsToDrop);
+      if (host.currentClient() !== client) return;
     }
+    host.recordForkedThread(threadFromThreadForkResponse(response));
     if (!threadManagementStillTargetsOriginalPanel(threadManagementState(host), initialActiveThreadId, threadId)) return;
     if (sourceName) {
       try {
@@ -182,6 +187,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
   try {
     host.setStatus(STATUS_ROLLBACK_STARTING);
     const snapshot = await rollbackThreadOnAppServer(client, threadId);
+    if (host.currentClient() !== client) return;
     if (!threadManagementStillTargetsPanel(threadManagementState(host), threadId)) return;
     threadManagementDispatch(
       host,

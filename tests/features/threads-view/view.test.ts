@@ -238,20 +238,20 @@ describe("CodexThreadsView", () => {
 
   it("refreshes thread lists through the plugin coordinator", async () => {
     const threads = [{ id: "thread", preview: "Thread preview", name: null, archived: false, createdAt: 1, updatedAt: 1 }];
-    const refreshActiveThreads = vi.fn().mockResolvedValue(threads);
+    const refresh = vi.fn().mockResolvedValue(threads);
     connectionMock.state.client = clientFixture({
       listThreads: vi.fn(),
     });
     const host = threadsHost({
       threadCatalog: {
-        refreshActiveThreads,
+        refresh,
       },
     });
     const view = await threadsView(host);
 
     await view.refresh();
 
-    expect(refreshActiveThreads).toHaveBeenCalledOnce();
+    expect(refresh).toHaveBeenCalledOnce();
     expect(view.containerEl.textContent).toContain("Thread preview");
   });
 
@@ -267,7 +267,7 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          activeThreadsSnapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
+          snapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
         },
       }),
     );
@@ -283,9 +283,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       archiveThread,
     });
-    const archiveThreadInCatalog = vi.fn();
+    const recordThreadArchived = vi.fn();
     const host = threadsHost({
-      threadCatalog: { archiveThreadInCatalog },
+      threadCatalog: { recordThreadArchived },
     });
     const view = await threadsView(host);
 
@@ -295,7 +295,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(archiveThread).toHaveBeenCalledWith("thread");
-      expect(archiveThreadInCatalog).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
+      expect(recordThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
     });
   });
 
@@ -305,9 +305,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       setThreadName,
     });
-    const renameThreadInCatalog = vi.fn();
+    const recordThreadRenamed = vi.fn();
     const host = threadsHost({
-      threadCatalog: { renameThreadInCatalog },
+      threadCatalog: { recordThreadRenamed },
     });
     const view = await threadsView(host);
 
@@ -321,7 +321,7 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
-      expect(renameThreadInCatalog).toHaveBeenCalledWith("thread", "Renamed thread");
+      expect(recordThreadRenamed).toHaveBeenCalledWith("thread", "Renamed thread");
     });
   });
 
@@ -425,9 +425,13 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     getOpenPanelSnapshots: vi.fn(() => []),
     threadCatalog: {
-      archiveThreadInCatalog: vi.fn(),
-      renameThreadInCatalog: vi.fn(),
-      refreshActiveThreads: vi.fn(async () => {
+      recordThreadArchived: vi.fn(),
+      recordThreadRenamed: vi.fn(),
+      replaceFromAppServer: vi.fn(),
+      upsertFromAppServer: vi.fn(),
+      recordThreadRestored: vi.fn(),
+      load: vi.fn(async () => []),
+      refresh: vi.fn(async () => {
         const client = connectionMock.state.client;
         if (!client) return [];
         const listThreads = client["listThreads"] as (
@@ -439,8 +443,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
         return response.data.map(threadFromRecord);
       }),
-      activeThreadsSnapshot: vi.fn(() => null),
-      observeActiveThreadsResult: vi.fn(() => () => undefined),
+      snapshot: vi.fn(() => null),
+      observe: vi.fn(() => () => undefined),
       ...threadCatalogOverrides,
     },
     ...hostOverrides,

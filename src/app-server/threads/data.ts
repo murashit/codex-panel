@@ -96,6 +96,10 @@ export async function rollbackThread(client: AppServerClient, threadId: string):
   return threadRollbackSnapshotFromAppServerResponse(await client.rollbackThread(threadId));
 }
 
+export function threadFromThreadForkResponse(response: Awaited<ReturnType<AppServerClient["forkThread"]>>): Thread {
+  return threadFromThreadRecord(response.thread);
+}
+
 export async function restoreArchivedThread(client: AppServerClient, threadId: string): Promise<Thread> {
   const response = await client.unarchiveThread(threadId);
   return threadFromThreadRecord(response.thread);

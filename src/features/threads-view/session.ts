@@ -7,7 +7,7 @@ import { ConnectionManager, type ConnectionManagerHandlers, StaleConnectionError
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import type { SharedThreadCatalog } from "../../workspace/shared-thread-catalog";
+import type { ActiveThreadCatalog } from "../../workspace/active-thread-catalog";
 import { ConnectionWorkTracker } from "../../shared/lifecycle/connection-work";
 import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
@@ -40,10 +40,7 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
 }
 
-type ThreadsThreadCatalog = Pick<
-  SharedThreadCatalog,
-  "archiveThreadInCatalog" | "renameThreadInCatalog" | "refreshActiveThreads" | "activeThreadsSnapshot" | "observeActiveThreadsResult"
->;
+type ThreadsThreadCatalog = ActiveThreadCatalog;
 
 export interface CodexThreadsSessionEnvironment {
   root: HTMLElement;
@@ -127,11 +124,11 @@ export class CodexThreadsSession {
     this.environment.registerPointerDown((event) => {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
-    const activeThreadsSnapshot = this.host.threadCatalog.activeThreadsSnapshot();
+    const activeThreadsSnapshot = this.host.threadCatalog.snapshot();
     if (activeThreadsSnapshot) {
       this.threads = activeThreadsSnapshot;
     }
-    this.unsubscribeThreads = this.host.threadCatalog.observeActiveThreadsResult((result) => {
+    this.unsubscribeThreads = this.host.threadCatalog.observe((result) => {
       this.receiveObservedThreadsResult(result);
     });
     this.render();
@@ -156,7 +153,7 @@ export class CodexThreadsSession {
     try {
       await this.ensureConnected();
       if (this.isStaleRefresh(refresh) || !this.client) return;
-      const threads = await this.host.threadCatalog.refreshActiveThreads();
+      const threads = await this.host.threadCatalog.refresh();
       if (this.isStaleRefresh(refresh)) return;
       this.threads = threads;
       this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };

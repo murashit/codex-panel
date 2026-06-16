@@ -9,7 +9,7 @@ import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
-import type { SharedThreadCatalog } from "../workspace/shared-thread-catalog";
+import type { ActiveThreadCatalogMutations } from "../workspace/active-thread-catalog";
 import { archivedThreadDisplayTitle } from "./archived-thread-title";
 import { loadHookData, loadSettingsCompanionData } from "./app-server-data";
 import {
@@ -33,7 +33,7 @@ type SettingsAppServerData = Pick<
   "modelsSnapshot" | "observeModelsResult" | "fetchModels" | "refreshModels" | "notifyContextChanged"
 >;
 
-type SettingsThreadCatalog = Pick<SharedThreadCatalog, "refreshActiveThreads">;
+type SettingsThreadCatalog = ActiveThreadCatalogMutations;
 
 function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: string): string {
   return thread ? archivedThreadDisplayTitle(thread) : threadId;
@@ -358,14 +358,7 @@ export class SettingsDynamicDataController {
         status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
         operationId,
       });
-      this.callbacks.display();
-      try {
-        await this.host.threadCatalog.refreshActiveThreads();
-      } catch (error) {
-        if (!this.isStaleArchivedThreadsOperation(operationId) && !isStaleAppServerSharedQueryContextError(error)) {
-          this.callbacks.notify("Could not refresh active Codex threads.");
-        }
-      }
+      this.host.threadCatalog.recordThreadRestored(restoredThread);
     } catch (error) {
       if (this.isStaleArchivedThreadsOperation(operationId)) return;
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {

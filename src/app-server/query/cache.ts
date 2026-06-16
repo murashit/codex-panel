@@ -43,10 +43,23 @@ interface AppServerQueryOptions<T> {
   readonly staleTime: number;
 }
 
+type ActiveThreadsUpdater = (threads: readonly Thread[] | null) => readonly Thread[] | null;
+
+interface ActiveThreadsMutationOverlay {
+  readonly version: number;
+  readonly update: ActiveThreadsUpdater;
+}
+
+interface AppliedActiveThreadsMutationOverlays {
+  readonly applied: boolean;
+  readonly threads: readonly Thread[];
+}
+
 export class AppServerQueryCache {
   readonly client: QueryClient;
   private readonly clientRunner: AppServerQueryClientRunner | null;
   private readonly activeThreadsWriteVersions = new Map<string, number>();
+  private readonly activeThreadsMutationOverlays = new Map<string, ActiveThreadsMutationOverlay[]>();
 
   constructor(options: { client?: QueryClient; clientRunner?: AppServerQueryClientRunner } = {}) {
     this.client = options.client ?? createAppServerQueryClient();
@@ -56,6 +69,7 @@ export class AppServerQueryCache {
   clear(): void {
     this.client.clear();
     this.activeThreadsWriteVersions.clear();
+    this.activeThreadsMutationOverlays.clear();
   }
 
   clearContext(context: AppServerQueryContext): void {
@@ -63,7 +77,9 @@ export class AppServerQueryCache {
     const filter = appServerQueriesFilter(context);
     void this.client.cancelQueries(filter);
     this.client.removeQueries(filter);
-    this.activeThreadsWriteVersions.delete(this.activeThreadsCacheKey(context));
+    const key = this.activeThreadsCacheKey(context);
+    this.activeThreadsWriteVersions.delete(key);
+    this.activeThreadsMutationOverlays.delete(key);
   }
 
   activeThreadsSnapshot(context: AppServerQueryContext): readonly Thread[] | null {
@@ -98,17 +114,18 @@ export class AppServerQueryCache {
   setActiveThreads(context: AppServerQueryContext, threads: readonly Thread[]): void {
     if (!appServerQueryContextIsComplete(context)) return;
     this.bumpActiveThreadsWriteVersion(context);
+    this.activeThreadsMutationOverlays.delete(this.activeThreadsCacheKey(context));
     this.client.setQueryData(activeThreadsQueryKey(context), cloneThreads(threads));
   }
 
-  updateActiveThreads(
-    context: AppServerQueryContext,
-    updater: (threads: readonly Thread[] | null) => readonly Thread[] | null,
-  ): readonly Thread[] | null {
+  updateActiveThreads(context: AppServerQueryContext, updater: ActiveThreadsUpdater): readonly Thread[] | null {
+    if (!appServerQueryContextIsComplete(context)) return null;
+    const version = this.bumpActiveThreadsWriteVersion(context);
+    this.recordActiveThreadsMutationOverlay(context, { version, update: updater });
     const current = this.activeThreadsSnapshot(context);
     const next = updater(current);
     if (!next) return null;
-    this.setActiveThreads(context, next);
+    this.client.setQueryData(activeThreadsQueryKey(context), cloneThreads(next), current ? undefined : { updatedAt: 0 });
     return cloneThreads(next);
   }
 
@@ -203,9 +220,15 @@ export class AppServerQueryCache {
       queryKey: key,
       queryFn: async (): Promise<readonly Thread[]> => {
         const threads = cloneThreads(await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath)));
-        if (this.activeThreadsWriteVersion(refreshContext) !== writeVersion) {
-          return cloneThreads(this.client.getQueryData<readonly Thread[]>(key) ?? threads);
+        const currentWriteVersion = this.activeThreadsWriteVersion(refreshContext);
+        if (currentWriteVersion !== writeVersion) {
+          const overlaid = this.applyActiveThreadsMutationOverlays(refreshContext, threads, writeVersion);
+          if (overlaid.applied) return cloneThreads(overlaid.threads);
+          const cached = this.client.getQueryData<readonly Thread[]>(key);
+          if (cached) return cloneThreads(cached);
+          return threads;
         }
+        this.pruneActiveThreadsMutationOverlays(refreshContext, writeVersion);
         return threads;
       },
       staleTime: ACTIVE_THREADS_STALE_TIME_MS,
@@ -216,13 +239,45 @@ export class AppServerQueryCache {
     return this.activeThreadsWriteVersions.get(this.activeThreadsCacheKey(context)) ?? 0;
   }
 
-  private bumpActiveThreadsWriteVersion(context: AppServerQueryContext): void {
+  private bumpActiveThreadsWriteVersion(context: AppServerQueryContext): number {
     const key = this.activeThreadsCacheKey(context);
-    this.activeThreadsWriteVersions.set(key, (this.activeThreadsWriteVersions.get(key) ?? 0) + 1);
+    const version = (this.activeThreadsWriteVersions.get(key) ?? 0) + 1;
+    this.activeThreadsWriteVersions.set(key, version);
+    return version;
   }
 
   private activeThreadsCacheKey(context: AppServerQueryContext): string {
     return JSON.stringify(activeThreadsQueryKey(context));
+  }
+
+  private recordActiveThreadsMutationOverlay(context: AppServerQueryContext, overlay: ActiveThreadsMutationOverlay): void {
+    const key = this.activeThreadsCacheKey(context);
+    this.activeThreadsMutationOverlays.set(key, [...(this.activeThreadsMutationOverlays.get(key) ?? []), overlay]);
+  }
+
+  private applyActiveThreadsMutationOverlays(
+    context: AppServerQueryContext,
+    threads: readonly Thread[],
+    afterVersion: number,
+  ): AppliedActiveThreadsMutationOverlays {
+    const overlays = this.activeThreadsMutationOverlays
+      .get(this.activeThreadsCacheKey(context))
+      ?.filter((overlay) => overlay.version > afterVersion);
+    if (!overlays || overlays.length === 0) return { applied: false, threads };
+    return {
+      applied: true,
+      threads: overlays.reduce<readonly Thread[]>((current, overlay) => overlay.update(current) ?? current, threads),
+    };
+  }
+
+  private pruneActiveThreadsMutationOverlays(context: AppServerQueryContext, throughVersion: number): void {
+    const key = this.activeThreadsCacheKey(context);
+    const overlays = this.activeThreadsMutationOverlays.get(key)?.filter((overlay) => overlay.version > throughVersion);
+    if (!overlays || overlays.length === 0) {
+      this.activeThreadsMutationOverlays.delete(key);
+      return;
+    }
+    this.activeThreadsMutationOverlays.set(key, overlays);
   }
 
   private appServerMetadataQueryOptions(

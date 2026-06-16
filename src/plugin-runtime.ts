@@ -20,7 +20,7 @@ import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picke
 import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";
 import type { CodexPanelSettingTabHost } from "./settings/tab";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
-import { createSharedThreadCatalog, type SharedThreadCatalog } from "./workspace/shared-thread-catalog";
+import { createActiveThreadCatalog, type ActiveThreadCatalog } from "./workspace/active-thread-catalog";
 
 export interface CodexPanelRuntimeOptions {
   app: App;
@@ -39,7 +39,7 @@ export class CodexPanelRuntime {
     context: () => this.appServerQueryContext(),
   });
   private readonly panels: WorkspacePanelCoordinator;
-  private readonly threadCatalog: SharedThreadCatalog;
+  private readonly threadCatalog: ActiveThreadCatalog;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
     this.panels = new WorkspacePanelCoordinator({
@@ -48,7 +48,7 @@ export class CodexPanelRuntime {
         this.refreshThreadsViewLiveState();
       },
     });
-    this.threadCatalog = createSharedThreadCatalog({
+    this.threadCatalog = createActiveThreadCatalog({
       queries: this.appServerSharedQueries,
       surfaces: {
         applyThreadArchived: (threadId, archiveOptions) => {
@@ -56,9 +56,6 @@ export class CodexPanelRuntime {
         },
         applyThreadRenamed: (threadId, name) => {
           this.applyThreadRenamed(threadId, name);
-        },
-        refreshThreadsViewLiveState: () => {
-          this.refreshThreadsViewLiveState();
         },
       },
     });
@@ -116,6 +113,9 @@ export class CodexPanelRuntime {
         openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
         openTurnDiff: (state) => this.openTurnDiff(state),
+        refreshThreadsViewLiveState: () => {
+          this.refreshThreadsViewLiveState();
+        },
       },
       appServerData: this.appServerSharedQueries,
       threadCatalog: this.threadCatalog,

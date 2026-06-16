@@ -21,7 +21,7 @@ describe("ThreadOperations", () => {
     await expect(operations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
 
     expect(client?.setThreadName).toHaveBeenCalledWith("thread", "Saved title");
-    expect(catalog.renameThreadInCatalog).toHaveBeenCalledWith("thread", "Saved title");
+    expect(catalog.recordThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
   });
 
   it("can skip rename publication when the caller invalidates the save", async () => {
@@ -29,7 +29,7 @@ describe("ThreadOperations", () => {
 
     await operations.renameThread("thread", "Generated title", { shouldPublish: () => false });
 
-    expect(catalog.renameThreadInCatalog).not.toHaveBeenCalled();
+    expect(catalog.recordThreadRenamed).not.toHaveBeenCalled();
   });
 
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
@@ -41,7 +41,7 @@ describe("ThreadOperations", () => {
     });
 
     expect(notice).toHaveBeenCalledWith("Saved archived thread to Archive/thread.md.");
-    expect(catalog.archiveThreadInCatalog).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
+    expect(catalog.recordThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
   });
 
   it("does not notify surfaces when an operation has no current client", async () => {
@@ -50,24 +50,54 @@ describe("ThreadOperations", () => {
     await expect(operations.renameThread("thread", "Title")).resolves.toBe(false);
     await expect(operations.archiveThread("thread")).resolves.toBeNull();
 
-    expect(catalog.renameThreadInCatalog).not.toHaveBeenCalled();
-    expect(catalog.archiveThreadInCatalog).not.toHaveBeenCalled();
+    expect(catalog.recordThreadRenamed).not.toHaveBeenCalled();
+    expect(catalog.recordThreadArchived).not.toHaveBeenCalled();
+  });
+
+  it("does not publish stale rename results after the current client changes", async () => {
+    const firstClient = clientMock();
+    const secondClient = clientMock();
+    let currentClient: MockClient | null = firstClient;
+    const { operations, catalog } = operationsFixture({ client: () => currentClient });
+    firstClient.setThreadName.mockImplementationOnce(async () => {
+      currentClient = secondClient;
+    });
+
+    await expect(operations.renameThread("thread", "Title")).resolves.toBe(false);
+
+    expect(catalog.recordThreadRenamed).not.toHaveBeenCalled();
+  });
+
+  it("does not publish stale archive results after the current client changes", async () => {
+    const firstClient = clientMock();
+    const secondClient = clientMock();
+    let currentClient: MockClient | null = firstClient;
+    const { operations, catalog } = operationsFixture({ client: () => currentClient });
+    archiveMock.archiveThreadOnAppServer.mockImplementationOnce(async () => {
+      currentClient = secondClient;
+      return { exportedPath: null } satisfies ArchiveThreadResult;
+    });
+
+    await expect(operations.archiveThread("thread")).resolves.toBeNull();
+
+    expect(catalog.recordThreadArchived).not.toHaveBeenCalled();
   });
 });
 
-function operationsFixture(options: { client?: MockClient | null } = {}) {
+function operationsFixture(options: { client?: MockClient | null | (() => MockClient | null) } = {}) {
   archiveMock.archiveThreadOnAppServer.mockReset();
   archiveMock.archiveThreadOnAppServer.mockResolvedValue({ exportedPath: null } satisfies ArchiveThreadResult);
-  const client = options.client === undefined ? clientMock() : options.client;
+  const configuredClient = options.client === undefined ? clientMock() : options.client;
+  const currentClient = typeof configuredClient === "function" ? configuredClient : () => configuredClient;
   const catalog = {
-    archiveThreadInCatalog: vi.fn(),
-    renameThreadInCatalog: vi.fn(),
+    recordThreadArchived: vi.fn(),
+    recordThreadRenamed: vi.fn(),
   };
   const notice = vi.fn();
   const host: ThreadOperationsHost = {
     connection: {
       ensureConnected: vi.fn().mockResolvedValue(undefined),
-      currentClient: () => client as AppServerClient | null,
+      currentClient: () => currentClient() as AppServerClient | null,
     },
     settings: {
       current: () => ({ ...DEFAULT_SETTINGS, archiveExportEnabled: false }),
@@ -77,7 +107,7 @@ function operationsFixture(options: { client?: MockClient | null } = {}) {
     catalog,
     notice,
   };
-  return { operations: createThreadOperations(host), client, catalog, notice };
+  return { operations: createThreadOperations(host), client: currentClient(), catalog, notice };
 }
 
 type MockClient = ReturnType<typeof clientMock>;

@@ -273,6 +273,68 @@ describe("AppServerQueryCache", () => {
     await expect(promise).resolves.toEqual([thread("other")]);
     expect(cache.activeThreadsSnapshot(context)).toEqual([thread("other")]);
   });
+
+  it("keeps active thread archives recorded while the cache is empty when an older refresh resolves later", async () => {
+    const context = cacheContext();
+    const refresh = deferred<readonly ReturnType<typeof thread>[]>();
+    const cache = cacheWithThreads(() => refresh.promise);
+
+    const promise = cache.refreshActiveThreads(context);
+    await flushMicrotasks();
+
+    expect(cache.activeThreadsSnapshot(context)).toBeNull();
+    cache.updateActiveThreads(context, (threads) => (threads ? threads.filter((item) => item.id !== "thread") : null));
+    refresh.resolve([thread("thread"), thread("other")]);
+
+    await expect(promise).resolves.toEqual([thread("other")]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("other")]);
+  });
+
+  it("keeps active thread renames recorded while the cache is empty when an older refresh resolves later", async () => {
+    const context = cacheContext();
+    const refresh = deferred<readonly ReturnType<typeof thread>[]>();
+    const cache = cacheWithThreads(() => refresh.promise);
+
+    const promise = cache.refreshActiveThreads(context);
+    await flushMicrotasks();
+
+    expect(cache.activeThreadsSnapshot(context)).toBeNull();
+    cache.updateActiveThreads(
+      context,
+      (threads) => threads?.map((item) => (item.id === "thread" ? { ...item, name: "Renamed" } : item)) ?? null,
+    );
+    refresh.resolve([thread("thread"), thread("other")]);
+
+    await expect(promise).resolves.toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+  });
+
+  it("merges active thread upserts recorded while the cache is empty into older refresh results", async () => {
+    const context = cacheContext();
+    const refresh = deferred<readonly ReturnType<typeof thread>[]>();
+    const cache = cacheWithThreads(() => refresh.promise);
+
+    const promise = cache.refreshActiveThreads(context);
+    await flushMicrotasks();
+
+    cache.updateActiveThreads(context, (threads) => [thread("started"), ...(threads ?? [])]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("started")]);
+    refresh.resolve([thread("other")]);
+
+    await expect(promise).resolves.toEqual([thread("started"), thread("other")]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("started"), thread("other")]);
+  });
+
+  it("does not treat active thread upserts into an empty cache as fresh full-list snapshots", async () => {
+    const context = cacheContext();
+    const fetchThreads = vi.fn().mockResolvedValue([thread("started"), thread("other")]);
+    const cache = cacheWithThreads(fetchThreads);
+
+    cache.updateActiveThreads(context, (threads) => [thread("started"), ...(threads ?? [])]);
+
+    await expect(cache.fetchActiveThreads(context)).resolves.toEqual([thread("started"), thread("other")]);
+    expect(fetchThreads).toHaveBeenCalledOnce();
+  });
 });
 
 function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServerQueryContext {

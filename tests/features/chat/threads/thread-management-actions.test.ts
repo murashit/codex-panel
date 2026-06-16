@@ -77,6 +77,27 @@ describe("thread management actions", () => {
     expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
   });
 
+  it("does not report compaction completion after the current client changes", async () => {
+    const compact = deferred<undefined>();
+    const firstClient = clientMock();
+    const secondClient = clientMock();
+    let currentClient = firstClient;
+    firstClient.compactThread.mockReturnValue(compact.promise);
+    const host = hostMock({ client: firstClient, currentClient: () => currentClient as unknown as AppServerClient, items: [] });
+    const controller = threadManagementActions(host);
+
+    const pendingCompact = controller.compactThread("source");
+    await waitForAsyncWork(() => {
+      expect(firstClient.compactThread).toHaveBeenCalledWith("source");
+    });
+    currentClient = secondClient;
+    compact.resolve(undefined);
+    await pendingCompact;
+
+    expect(host.addSystemMessage).not.toHaveBeenCalledWith("Compaction requested.");
+    expect(host.setStatus).not.toHaveBeenCalledWith("Compaction requested.");
+  });
+
   it("saves archive markdown before archiving and notifying shared surfaces", async () => {
     const client = clientMock();
     const adapter = archiveAdapterMock();
@@ -142,6 +163,7 @@ describe("thread management actions", () => {
 
     expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
     expect(client.rollbackThread).toHaveBeenCalledWith("forked", 2);
+    expect(host.recordForkedThread).toHaveBeenCalledWith(expect.objectContaining({ id: "forked" }));
     expect(host.openThreadInNewView).toHaveBeenCalledWith("forked");
     expect(client.archiveThread).not.toHaveBeenCalled();
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
@@ -252,6 +274,32 @@ describe("thread management actions", () => {
     expect(host.notifyThreadArchived).not.toHaveBeenCalled();
   });
 
+  it("does not open or record fork responses after the current client changes", async () => {
+    const fork = deferred<{ thread: ThreadRecord }>();
+    const firstClient = clientMock();
+    const secondClient = clientMock();
+    let currentClient = firstClient;
+    firstClient.forkThread.mockReturnValue(fork.promise);
+    const host = hostMock({
+      client: firstClient,
+      currentClient: () => currentClient as unknown as AppServerClient,
+      items: turnItems(),
+    });
+    const controller = threadManagementActions(host);
+
+    const pendingFork = controller.forkThreadFromTurn("source", null, false);
+    await waitForAsyncWork(() => {
+      expect(firstClient.forkThread).toHaveBeenCalledWith("source", "/vault");
+    });
+    currentClient = secondClient;
+    fork.resolve({ thread: archivedThread() });
+    await pendingFork;
+
+    expect(host.recordForkedThread).not.toHaveBeenCalled();
+    expect(host.openThreadInNewView).not.toHaveBeenCalled();
+    expect(firstClient.archiveThread).not.toHaveBeenCalled();
+  });
+
   it("renames a thread and notifies shared surfaces", async () => {
     const client = clientMock();
     const host = hostMock({ client, items: [] });
@@ -358,6 +406,49 @@ describe("thread management actions", () => {
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
     expect(host.refreshAfterThreadMutation).not.toHaveBeenCalled();
   });
+
+  it("ignores rollback responses after the current client changes", async () => {
+    const rollback = deferred<{ thread: ThreadRecord }>();
+    const firstClient = clientMock();
+    const secondClient = clientMock();
+    let currentClient = firstClient;
+    firstClient.rollbackThread.mockReturnValue(rollback.promise);
+    const host = hostMock({
+      client: firstClient,
+      currentClient: () => currentClient as unknown as AppServerClient,
+      items: turnItems(),
+    });
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: panelThread("source"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    host.stateStore.dispatch({
+      type: "message-stream/items-replaced",
+      items: turnItems(),
+      historyCursor: null,
+      loadingHistory: false,
+    });
+    const controller = threadManagementActions(host);
+
+    const pendingRollback = controller.rollbackThread("source");
+    await waitForAsyncWork(() => {
+      expect(firstClient.rollbackThread).toHaveBeenCalledWith("source");
+    });
+    currentClient = secondClient;
+    rollback.resolve({ thread: rollbackThread() });
+    await pendingRollback;
+
+    expect(host.setComposerText).not.toHaveBeenCalled();
+    expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
+    expect(host.refreshAfterThreadMutation).not.toHaveBeenCalled();
+  });
 });
 
 function turnItems(): MessageStreamItem[] {
@@ -415,11 +506,13 @@ function hostMock({
   items,
   archiveAdapter = archiveAdapterMock(),
   settings = {},
+  currentClient,
 }: {
   client: ReturnType<typeof clientMock>;
   items: MessageStreamItem[];
   archiveAdapter?: ArchiveExportAdapter;
   settings?: Partial<typeof DEFAULT_SETTINGS>;
+  currentClient?: () => AppServerClient | null;
 }) {
   const state = withChatStateMessageStreamItems(chatStateFixture(), items);
   const stateStore = createChatStateStore(state);
@@ -431,7 +524,7 @@ function hostMock({
     stateStore,
     vaultPath: "/vault",
     ensureConnected,
-    currentClient: () => client as unknown as AppServerClient,
+    currentClient: currentClient ?? (() => client as unknown as AppServerClient),
     addSystemMessage: vi.fn(),
     setStatus: vi.fn(),
     setComposerText: vi.fn(),
@@ -464,6 +557,7 @@ function hostMock({
     notifyThreadRenamed,
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshAfterThreadMutation: vi.fn().mockResolvedValue(undefined),
+    recordForkedThread: vi.fn(),
   };
 }
 

@@ -370,7 +370,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
-    threadCatalog(plugin).archiveThreadInCatalog("thread-1");
+    threadCatalog(plugin).recordThreadArchived("thread-1");
 
     expect(refreshSharedThreadList).not.toHaveBeenCalled();
   });
@@ -388,13 +388,13 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
-    threadCatalog(plugin).archiveThreadInCatalog("thread-1");
+    threadCatalog(plugin).recordThreadArchived("thread-1");
 
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
 
-    threadCatalog(plugin).archiveThreadInCatalog("thread-1", { closeOpenPanels: true });
+    threadCatalog(plugin).recordThreadArchived("thread-1", { closeOpenPanels: true });
 
     expect(restoredMatchingLeaf.detach).toHaveBeenCalledOnce();
     expect(matchingLeaf.detach).toHaveBeenCalledOnce();
@@ -410,7 +410,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
-    threadCatalog(plugin).renameThreadInCatalog("thread-1", "Renamed thread");
+    threadCatalog(plugin).recordThreadRenamed("thread-1", "Renamed thread");
 
     expect(refreshSharedThreadList).not.toHaveBeenCalled();
   });
@@ -435,8 +435,8 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const plugin = await pluginWithLeaves([connectedLeaf]);
     plugin.settings.codexPath = "codex";
 
-    const first = threadCatalog(plugin).refreshActiveThreads();
-    const second = threadCatalog(plugin).refreshActiveThreads();
+    const first = threadCatalog(plugin).refresh();
+    const second = threadCatalog(plugin).refresh();
     await flushMicrotasks();
 
     expect(runWithAppServerClient).toHaveBeenCalledOnce();
@@ -444,7 +444,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     await expect(first).resolves.toEqual([thread("first")]);
     await expect(second).resolves.toEqual([thread("first")]);
-    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("first")]);
+    expect(threadCatalog(plugin).snapshot()).toEqual([thread("first")]);
   });
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
@@ -469,21 +469,21 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       ),
     );
 
-    const first = threadCatalog(plugin).refreshActiveThreads();
+    const first = threadCatalog(plugin).refresh();
     await flushMicrotasks();
     plugin.settings.codexPath = "codex-b";
-    const second = threadCatalog(plugin).refreshActiveThreads();
+    const second = threadCatalog(plugin).refresh();
     await flushMicrotasks();
 
     expect(runWithAppServerClient).toHaveBeenCalledTimes(2);
     await expect(second).resolves.toEqual([thread("second")]);
-    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
+    expect(threadCatalog(plugin).snapshot()).toEqual([thread("second")]);
 
     resolveFirst([thread("first")]);
     await expect(first).rejects.toThrow("Codex app-server query context changed while loading shared data.");
-    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
+    expect(threadCatalog(plugin).snapshot()).toEqual([thread("second")]);
     plugin.settings.codexPath = "codex-a";
-    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("first")]);
+    expect(threadCatalog(plugin).snapshot()).toEqual([thread("first")]);
   });
 
   it("keeps the previous shared thread list when refresh fails", async () => {
@@ -497,12 +497,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       .mockImplementationOnce((operation) => operation(threadListClient(() => Promise.resolve([thread("cached")]))))
       .mockImplementationOnce(() => Promise.reject(new Error("boom")));
     const plugin = await pluginWithLeaves([connectedLeaf]);
-    await threadCatalog(plugin).refreshActiveThreads();
+    await threadCatalog(plugin).refresh();
 
-    await expect(threadCatalog(plugin).refreshActiveThreads()).rejects.toThrow("boom");
+    await expect(threadCatalog(plugin).refresh()).rejects.toThrow("boom");
 
     expect(runWithAppServerClient).toHaveBeenCalledTimes(2);
-    expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("cached")]);
+    expect(threadCatalog(plugin).snapshot()).toEqual([thread("cached")]);
   });
 
   it("refreshes shared thread lists from a remaining connected panel after the archived panel is detached", async () => {
@@ -530,7 +530,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const plugin = await pluginWithLeaves(leaves);
 
     sourceLeaf.detach();
-    threadCatalog(plugin).archiveThreadInCatalog("thread-1");
+    threadCatalog(plugin).recordThreadArchived("thread-1");
 
     expect(sourceRefresh).not.toHaveBeenCalled();
     expect(remainingRefresh).not.toHaveBeenCalled();
@@ -619,6 +619,7 @@ function chatHostFixture(): CodexChatHost {
       openThreadInNewView: vi.fn(),
       focusThreadInOpenView: vi.fn(),
       openTurnDiff: vi.fn(),
+      refreshThreadsViewLiveState: vi.fn(),
     },
     appServerData: {
       updateAppServerMetadata: vi.fn(() => null),
@@ -631,13 +632,15 @@ function chatHostFixture(): CodexChatHost {
       observeModelsResult: vi.fn(() => () => undefined),
     },
     threadCatalog: {
-      archiveThreadInCatalog: vi.fn(),
-      renameThreadInCatalog: vi.fn(),
-      refreshThreadsViewLiveState: vi.fn(),
-      setActiveThreads: vi.fn(),
-      refreshActiveThreads: vi.fn(() => Promise.resolve([])),
-      activeThreadsSnapshot: vi.fn(() => null),
-      observeActiveThreadsResult: vi.fn(() => () => undefined),
+      recordThreadArchived: vi.fn(),
+      recordThreadRenamed: vi.fn(),
+      replaceFromAppServer: vi.fn(),
+      upsertFromAppServer: vi.fn(),
+      recordThreadRestored: vi.fn(),
+      load: vi.fn(() => Promise.resolve([])),
+      refresh: vi.fn(() => Promise.resolve([])),
+      snapshot: vi.fn(() => null),
+      observe: vi.fn(() => () => undefined),
     },
   };
 }

@@ -362,7 +362,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private applyCachedAppServerState(): void {
-    const threads = this.environment.plugin.threadCatalog.activeThreadsSnapshot();
+    const threads = this.environment.plugin.threadCatalog.snapshot();
     if (threads) this.parts.serverActions.threads.applyThreadList(threads);
     const metadata = this.environment.plugin.appServerData.appServerMetadataSnapshot();
     if (metadata) this.parts.serverActions.metadata.applyAppServerMetadata(metadata);
@@ -374,7 +374,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.unsubscribeAppServerState();
     this.applyCachedAppServerState();
     this.appServerStateUnsubscribers.push(
-      this.environment.plugin.threadCatalog.observeActiveThreadsResult(
+      this.environment.plugin.threadCatalog.observe(
         (result) => {
           this.receiveObservedThreadResult(result);
         },
@@ -441,7 +441,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
 
   private async loadSharedThreadList(): Promise<void> {
     try {
-      const threads = await this.environment.plugin.threadCatalog.refreshActiveThreads();
+      const threads = await this.environment.plugin.threadCatalog.refresh();
       this.parts.serverActions.threads.applyThreadList(threads);
     } catch (error) {
       if (isStaleAppServerSharedQueryContextError(error)) return;
@@ -459,7 +459,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private refreshLiveState(): void {
-    this.environment.plugin.threadCatalog.refreshThreadsViewLiveState();
+    this.environment.plugin.workspace.refreshThreadsViewLiveState();
   }
 
   private deferLiveStateRefresh(): void {
@@ -647,7 +647,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         await client.setThreadName(threadId, name);
         if (currentClient() !== client) return false;
         if (options.shouldPublish()) {
-          this.environment.plugin.threadCatalog.renameThreadInCatalog(threadId, name);
+          this.environment.plugin.threadCatalog.recordThreadRenamed(threadId, name);
         }
         return true;
       },
@@ -869,6 +869,9 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       },
       refreshAfterThreadMutation: async () => {
         await refreshActiveThreads();
+      },
+      recordForkedThread: (thread) => {
+        environment.plugin.threadCatalog.upsertFromAppServer(thread);
       },
     };
     const actions = createThreadManagementActions(threadManagementHost);
@@ -1152,8 +1155,8 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       vaultPath: environment.plugin.settingsRef.vaultPath,
       currentClient,
       runtimeSnapshotForState: runtimeSnapshotForChatState,
-      publishThreadList: (threads) => {
-        environment.plugin.threadCatalog.setActiveThreads(threads);
+      recordStartedThread: (thread) => {
+        environment.plugin.threadCatalog.upsertFromAppServer(thread);
       },
       syncThreadGoal: (threadId) => {
         void goalSync.syncThreadGoal(threadId);
@@ -1176,10 +1179,10 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
       },
       applyThreadArchived: (threadId) => {
-        environment.plugin.threadCatalog.archiveThreadInCatalog(threadId);
+        environment.plugin.threadCatalog.recordThreadArchived(threadId);
       },
       applyThreadRenamed: (threadId, name) => {
-        environment.plugin.threadCatalog.renameThreadInCatalog(threadId, name);
+        environment.plugin.threadCatalog.recordThreadRenamed(threadId, name);
       },
       recordMcpStartupStatus: (name, mcpStatus, message) => {
         serverDiagnostics.recordMcpStartupStatus(name, mcpStatus, message);

@@ -36,7 +36,7 @@ describe("chat server actions", () => {
     const started = threadFixture("started");
     const optimistic = threadFromThreadRecord({ ...started, preview: "first prompt" });
     const existingThread = threadFromThreadRecord(existing);
-    const publishThreadList = vi.fn();
+    const recordStartedThread = vi.fn();
     const syncThreadGoal = vi.fn();
     const client = {
       startThread: vi.fn().mockResolvedValue({
@@ -56,14 +56,14 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: () => ({ requestedServiceTier: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      publishThreadList,
+      recordStartedThread,
       syncThreadGoal,
     });
 
     await controller.startThread("first prompt");
 
     expect(stateStore.getState().threadList.listedThreads).toEqual([optimistic, existingThread]);
-    expect(publishThreadList).toHaveBeenCalledWith([optimistic, existingThread]);
+    expect(recordStartedThread).toHaveBeenCalledWith(optimistic);
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
 
@@ -94,7 +94,7 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: runtimeSnapshotForChatState,
-      publishThreadList: vi.fn(),
+      recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
 
@@ -131,7 +131,7 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: () => ({ requestedServiceTier: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      publishThreadList: vi.fn(),
+      recordStartedThread: vi.fn(),
       syncThreadGoal,
     });
 
@@ -164,7 +164,7 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: () => ({ requestedServiceTier: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      publishThreadList: vi.fn(),
+      recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
 
@@ -176,7 +176,7 @@ describe("chat server actions", () => {
   it("keeps app-server preview when newly started threads already have one", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const started = threadFixture("started", { preview: "server preview" });
-    const publishThreadList = vi.fn();
+    const recordStartedThread = vi.fn();
     const client = {
       startThread: vi.fn().mockResolvedValue({
         thread: started,
@@ -195,13 +195,13 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: () => ({ requestedServiceTier: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      publishThreadList,
+      recordStartedThread,
       syncThreadGoal: () => undefined,
     });
 
     await controller.startThread("local preview");
 
-    expect(publishThreadList).toHaveBeenCalledWith([threadFromThreadRecord(started)]);
+    expect(recordStartedThread).toHaveBeenCalledWith(threadFromThreadRecord(started));
   });
 
   it("does not apply newly started threads after the client changes", async () => {
@@ -212,14 +212,14 @@ describe("chat server actions", () => {
     } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const publishThreadList = vi.fn();
+    const recordStartedThread = vi.fn();
     const syncThreadGoal = vi.fn();
     const controller = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
       runtimeSnapshotForState: () => ({ requestedServiceTier: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      publishThreadList,
+      recordStartedThread,
       syncThreadGoal,
     });
 
@@ -243,7 +243,7 @@ describe("chat server actions", () => {
     await expect(starting).resolves.toBeNull();
     expect(stateStore.getState().activeThread.id).toBeNull();
     expect(stateStore.getState().threadList.listedThreads).toEqual([]);
-    expect(publishThreadList).not.toHaveBeenCalled();
+    expect(recordStartedThread).not.toHaveBeenCalled();
     expect(syncThreadGoal).not.toHaveBeenCalled();
   });
 
