@@ -1,12 +1,28 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { AppServerObservedQueryResult, AppServerQueryCache } from "./cache";
-import { appServerQueryContextMatches, cloneAppServerQueryContext, type AppServerQueryContext } from "./keys";
+import {
+  appServerQueryContextMatches,
+  appServerQueryContextRawEquals,
+  cloneAppServerQueryContext,
+  type AppServerQueryContext,
+} from "./keys";
 import type { SharedServerMetadata } from "./snapshots";
 
 export interface AppServerSharedQueriesOptions {
   cache: AppServerQueryCache;
   context: () => AppServerQueryContext;
+}
+
+export class StaleAppServerSharedQueryContextError extends Error {
+  constructor() {
+    super("Codex app-server query context changed while loading shared data.");
+    this.name = "StaleAppServerSharedQueryContextError";
+  }
+}
+
+export function isStaleAppServerSharedQueryContextError(error: unknown): error is StaleAppServerSharedQueryContextError {
+  return error instanceof StaleAppServerSharedQueryContextError;
 }
 
 export class AppServerSharedQueries {
@@ -19,11 +35,11 @@ export class AppServerSharedQueries {
   }
 
   fetchActiveThreads(): Promise<readonly Thread[]> {
-    return this.options.cache.fetchActiveThreads(this.context());
+    return this.runForCurrentContext((context) => this.options.cache.fetchActiveThreads(context));
   }
 
   refreshActiveThreads(): Promise<readonly Thread[]> {
-    return this.options.cache.refreshActiveThreads(this.context());
+    return this.runForCurrentContext((context) => this.options.cache.refreshActiveThreads(context));
   }
 
   setActiveThreads(threads: readonly Thread[]): void {
@@ -54,11 +70,11 @@ export class AppServerSharedQueries {
   }
 
   fetchAppServerMetadata(): Promise<SharedServerMetadata | null> {
-    return this.options.cache.fetchAppServerMetadata(this.context());
+    return this.runForCurrentContext((context) => this.options.cache.fetchAppServerMetadata(context));
   }
 
   refreshAppServerMetadata(options: { forceSkills?: boolean } = {}): Promise<SharedServerMetadata | null> {
-    return this.options.cache.refreshAppServerMetadata(this.context(), options);
+    return this.runForCurrentContext((context) => this.options.cache.refreshAppServerMetadata(context, options));
   }
 
   observeAppServerMetadataResult(
@@ -78,11 +94,11 @@ export class AppServerSharedQueries {
   }
 
   fetchModels(): Promise<readonly ModelMetadata[]> {
-    return this.options.cache.fetchModels(this.context());
+    return this.runForCurrentContext((context) => this.options.cache.fetchModels(context));
   }
 
   refreshModels(): Promise<readonly ModelMetadata[]> {
-    return this.options.cache.refreshModels(this.context());
+    return this.runForCurrentContext((context) => this.options.cache.refreshModels(context));
   }
 
   observeModelsResult(
@@ -104,6 +120,15 @@ export class AppServerSharedQueries {
 
   private context(): AppServerQueryContext {
     return this.options.context();
+  }
+
+  private async runForCurrentContext<T>(operation: (context: AppServerQueryContext) => Promise<T>): Promise<T> {
+    const context = cloneAppServerQueryContext(this.context());
+    const result = await operation(context);
+    if (!appServerQueryContextRawEquals(this.context(), context)) {
+      throw new StaleAppServerSharedQueryContextError();
+    }
+    return result;
   }
 
   private observeCurrentContext<T>(

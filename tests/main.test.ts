@@ -480,7 +480,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
 
     resolveFirst([thread("first")]);
-    await expect(first).resolves.toEqual([thread("first")]);
+    await expect(first).rejects.toThrow("Codex app-server query context changed while loading shared data.");
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("second")]);
     plugin.settings.codexPath = "codex-a";
     expect(threadCatalog(plugin).activeThreadsSnapshot()).toEqual([thread("first")]);

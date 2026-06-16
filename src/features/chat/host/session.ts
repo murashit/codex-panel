@@ -3,6 +3,8 @@ import { Notice } from "obsidian";
 import type { AppServerClient } from "../../../app-server/connection/client";
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { AppServerObservedQueryResult } from "../../../app-server/query/cache";
+import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
+import { appServerQueryContextRawEquals, type AppServerQueryContext } from "../../../app-server/query/keys";
 import { renameThreadOnAppServer, threadRenameFromValue } from "../../../app-server/services/thread-rename";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 
@@ -70,25 +72,6 @@ import { threadTitleContextFromMessageStreamItems } from "../application/threads
 import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effective";
 import type { ChatSurfaceHandle } from "./surface-handle";
 import type { ChatPanelEnvironment } from "./runtime";
-
-interface ChatPanelWarmupHost {
-  deferredTasks: ChatViewDeferredTasks;
-  opened: () => boolean;
-  closing: () => boolean;
-  connected: () => boolean;
-  ensureConnected: () => Promise<void>;
-}
-
-function scheduleChatPanelWarmup(host: ChatPanelWarmupHost): void {
-  const shouldWarmup = (): boolean => host.opened() && !host.connected();
-
-  if (!shouldWarmup()) return;
-
-  host.deferredTasks.scheduleAppServerWarmup(() => {
-    if (!shouldWarmup() || host.closing()) return;
-    void host.ensureConnected();
-  });
-}
 
 function codexPanelDisplayTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {
   if (!activeThreadId) return "Codex";
@@ -192,10 +175,12 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   private readonly messageScrollIntent: ChatMessageScrollIntentState = createChatMessageScrollIntentState();
   private readonly localItemIds: LocalChatItemIdFactory = createLocalChatItemIdFactory();
   private readonly appServerStateUnsubscribers: (() => void)[] = [];
+  private observedAppServerContext: AppServerQueryContext;
   private opened = false;
   private closing = false;
 
   constructor(private readonly environment: ChatPanelEnvironment) {
+    this.observedAppServerContext = this.currentAppServerContext();
     this.deferredTasks = createChatViewDeferredTasks(() => this.viewWindow());
     this.parts = this.createSessionParts();
   }
@@ -853,10 +838,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         void goalSync.syncThreadGoal(threadId);
       },
     });
-    const loadSharedThreadList = async (): Promise<void> => {
-      const threads = await environment.plugin.threadCatalog.refreshActiveThreads();
-      serverThreads.applyThreadList(threads);
-    };
+    const loadSharedThreadList = () => this.loadSharedThreadList();
     const serverRequestHost = { currentClient };
     const inboundController = new ChatInboundController(stateStore, {
       fetchActiveThreads: () => {
@@ -1020,6 +1002,14 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   refreshSettings(): void {
+    const nextContext = this.currentAppServerContext();
+    if (!appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
+      this.observedAppServerContext = nextContext;
+      this.connectionWork.invalidate();
+      this.invalidateResumeWork();
+      this.parts.connection.manager.resetConnection();
+      this.applyCachedAppServerState();
+    }
     this.mountOrRepairShell();
   }
 
@@ -1210,12 +1200,12 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private scheduleWarmup(): void {
-    scheduleChatPanelWarmup({
-      deferredTasks: this.deferredTasks,
-      opened: () => this.opened,
-      closing: () => this.closing,
-      connected: () => this.parts.connection.manager.isConnected(),
-      ensureConnected: () => this.parts.connection.controller.ensureConnected(),
+    const shouldWarmup = (): boolean => this.opened && !this.parts.connection.manager.isConnected();
+    if (!shouldWarmup()) return;
+
+    this.deferredTasks.scheduleAppServerWarmup(() => {
+      if (!shouldWarmup() || this.closing) return;
+      void this.parts.connection.controller.ensureConnected();
     });
   }
 
@@ -1225,8 +1215,13 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private async loadSharedThreadList(): Promise<void> {
-    const threads = await this.environment.plugin.threadCatalog.refreshActiveThreads();
-    this.parts.serverActions.threads.applyThreadList(threads);
+    try {
+      const threads = await this.environment.plugin.threadCatalog.refreshActiveThreads();
+      this.parts.serverActions.threads.applyThreadList(threads);
+    } catch (error) {
+      if (isStaleAppServerSharedQueryContextError(error)) return;
+      throw error;
+    }
   }
 
   private notifyActiveThreadIdentityChanged(): void {
@@ -1250,6 +1245,13 @@ export class ChatPanelSession implements ChatSurfaceHandle {
 
   private viewWindow(): Window {
     return this.environment.view.viewWindow() ?? window;
+  }
+
+  private currentAppServerContext(): AppServerQueryContext {
+    return {
+      codexPath: this.environment.plugin.settingsRef.settings.codexPath,
+      vaultPath: this.environment.plugin.settingsRef.vaultPath,
+    };
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {

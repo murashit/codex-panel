@@ -4,6 +4,7 @@ import {
   type RateLimitMetadataProbeResult,
   type SkillMetadataProbeResult,
 } from "../../../../app-server/query/metadata-probes";
+import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import { diagnosticsWithProbe } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { cloneServerDiagnostics, type ChatServerActionHost } from "./host";
@@ -67,7 +68,13 @@ async function loadAppServerMetadata(host: ChatServerMetadataActionsHost): Promi
 }
 
 async function refreshAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
-  const metadata = await host.refreshAppServerMetadata();
+  let metadata: SharedServerMetadata | null;
+  try {
+    metadata = await host.refreshAppServerMetadata();
+  } catch (error) {
+    if (isStaleAppServerSharedQueryContextError(error)) return null;
+    throw error;
+  }
   if (!metadata) return null;
   applyAppServerMetadata(host, metadata);
   return metadata;

@@ -1,5 +1,6 @@
 import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerClient } from "../../../../app-server/connection/client";
+import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ActiveConnectionWork, ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";
 import type { ChatConnectionPhase } from "../state/root-reducer";
@@ -95,6 +96,7 @@ export class ChatConnectionController {
       await this.host.loadSharedThreadList();
       this.host.refreshTabHeader();
     } catch (error) {
+      if (isStaleAppServerSharedQueryContextError(error)) return;
       this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
   }
@@ -140,6 +142,7 @@ export class ChatConnectionController {
     } catch (error) {
       if (this.host.connectionWork.isStale(connection)) return;
       if (error instanceof StaleConnectionError) return;
+      if (isStaleAppServerSharedQueryContextError(error)) return;
       const message = connectionErrorMessage(error, this.host.configuredCommand());
       this.host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
       this.host.addSystemMessage(message);

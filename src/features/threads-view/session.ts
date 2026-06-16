@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../app-server/connection/client";
 import type { AppServerObservedQueryResult } from "../../app-server/query/cache";
+import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
 import { ConnectionManager, type ConnectionManagerHandlers, StaleConnectionError } from "../../app-server/connection/connection-manager";
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
@@ -161,6 +162,7 @@ export class CodexThreadsSession {
       this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     } catch (error) {
       if (error instanceof StaleConnectionError) return;
+      if (isStaleAppServerSharedQueryContextError(error)) return;
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
     } finally {
       this.finishRefresh(refresh);

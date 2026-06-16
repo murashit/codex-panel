@@ -18,13 +18,12 @@ export function cloneAppServerQueryContext(context: AppServerQueryContext): AppS
   return { ...context };
 }
 
+export function appServerQueryContextRawEquals(left: AppServerQueryContext, right: AppServerQueryContext): boolean {
+  return left.codexPath === right.codexPath && left.vaultPath === right.vaultPath;
+}
+
 export function appServerQueryContextMatches(left: AppServerQueryContext, right: AppServerQueryContext): boolean {
-  return (
-    appServerQueryContextIsComplete(left) &&
-    appServerQueryContextIsComplete(right) &&
-    left.codexPath === right.codexPath &&
-    left.vaultPath === right.vaultPath
-  );
+  return appServerQueryContextIsComplete(left) && appServerQueryContextIsComplete(right) && appServerQueryContextRawEquals(left, right);
 }
 
 function appServerQueryScope(context: AppServerQueryContext): AppServerQueryScope {

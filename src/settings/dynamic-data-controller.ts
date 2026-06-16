@@ -1,5 +1,6 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerObservedQueryResult } from "../app-server/query/cache";
+import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
 import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
 import { setHookItemEnabled, trustHookItem } from "../app-server/catalog/data";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads/data";
@@ -153,6 +154,8 @@ export class SettingsDynamicDataController {
           status: `Loaded ${String(modelsResult.value.length)} model${modelsResult.value.length === 1 ? "" : "s"}.`,
           operationId,
         });
+      } else if (isStaleAppServerSharedQueryContextError(modelsResult.reason)) {
+        return;
       } else {
         failedCount += 1;
         this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {

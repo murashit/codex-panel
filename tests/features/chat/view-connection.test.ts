@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/host/runtime";
 import type { AppServerObservedQueryResult } from "../../../src/app-server/query/cache";
+import { StaleAppServerSharedQueryContextError } from "../../../src/app-server/query/shared-queries";
 import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
 import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import type { Thread } from "../../../src/domain/threads/model";
@@ -189,6 +190,25 @@ describe("CodexChatView connection lifecycle", () => {
     });
   });
 
+  it("ignores stale shared thread refreshes after connecting", async () => {
+    const refreshActiveThreads = vi.fn().mockRejectedValue(new StaleAppServerSharedQueryContextError());
+    connectionMock.state.client = connectedClient({
+      listThreads: vi.fn(),
+    });
+    const view = await chatView({
+      host: chatHost({ refreshActiveThreads }),
+    });
+
+    await view.onOpen();
+    await view.surface.connect();
+
+    expect(refreshActiveThreads).toHaveBeenCalledOnce();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
+    expect(notices).toEqual([]);
+    requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
+    expect(view.containerEl.textContent).not.toContain("stale");
+  });
+
   it("loads app-server metadata after connecting", async () => {
     connectionMock.state.client = connectedClient();
     const view = await chatView();
@@ -197,6 +217,24 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(connectionMock.state.client["readEffectiveConfig"]).toHaveBeenCalledOnce();
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
+  });
+
+  it("resets the app-server connection only when settings change the app-server context", async () => {
+    connectionMock.state.client = connectedClient();
+    const host = chatHost();
+    const view = await chatView({ host });
+
+    await view.onOpen();
+    await view.surface.connect();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
+
+    host.settingsRef.settings.showToolbar = false;
+    view.surface.refreshSettings();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
+
+    host.settingsRef.settings.codexPath = "codex-next";
+    view.surface.refreshSettings();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {

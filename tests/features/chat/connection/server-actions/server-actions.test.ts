@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
+import { StaleAppServerSharedQueryContextError } from "../../../../../src/app-server/query/shared-queries";
 import {
   createServerDiagnostics,
   diagnosticProbeError,
@@ -309,6 +310,25 @@ describe("chat server actions", () => {
       status: "ok",
       summary: "available",
     });
+  });
+
+  it("ignores stale shared app-server metadata refreshes without applying state", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const metadata = createChatServerMetadataActions({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => null,
+      ...metadataCacheHost({ current: null }),
+      fetchAppServerMetadata: async () => null,
+      refreshAppServerMetadata: async () => {
+        throw new StaleAppServerSharedQueryContextError();
+      },
+    });
+
+    await expect(metadata.refreshAppServerMetadata()).resolves.toBeNull();
+
+    expect(stateStore.getState().connection.availableModels).toEqual([]);
+    expect(stateStore.getState().connection.runtimeConfig).toBeNull();
   });
 
   it("uses metadata diagnostics as the default resource probe source", async () => {
