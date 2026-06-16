@@ -67,9 +67,12 @@ const uiRootImportRestrictions = [
 const generatedAppServerSourceImportPatterns = importBoundaryPatterns("generated/app-server", "src/generated/app-server", 6);
 const generatedAppServerTestImportPatterns = importBoundaryPatterns("src/generated/app-server", "src/generated/app-server", 6);
 const lowerLevelFeatureImportPatterns = importBoundaryPatterns("features", "src/features", 6);
+const appServerConnectionImportPatterns = importBoundaryPatterns("app-server/connection", "src/app-server/connection", 6);
+const appServerProtocolConnectionImportPatterns = [...appServerConnectionImportPatterns, "../connection", "../connection/**"];
 const nonAppServerBannedAppServerProtocolModules = [
   "catalog",
   "diagnostics",
+  "file-change",
   "initialization",
   "request-input",
   "runtime-config",
@@ -78,9 +81,14 @@ const nonAppServerBannedAppServerProtocolModules = [
   "thread",
   "thread-goal",
   "thread-settings",
+  "turn",
   "turn-history",
 ];
 const nonAppServerBannedAppServerProtocolImportPatterns = nonAppServerBannedAppServerProtocolModules.flatMap((moduleName) =>
+  importBoundaryPatterns(`app-server/protocol/${moduleName}`, `src/app-server/protocol/${moduleName}`, 6),
+);
+const chatAppServerProtocolBoundaryBannedModules = nonAppServerBannedAppServerProtocolModules.filter((moduleName) => moduleName !== "turn");
+const chatAppServerProtocolBoundaryBannedImportPatterns = chatAppServerProtocolBoundaryBannedModules.flatMap((moduleName) =>
   importBoundaryPatterns(`app-server/protocol/${moduleName}`, `src/app-server/protocol/${moduleName}`, 6),
 );
 const generatedAppServerThreadImportRestrictions = [
@@ -89,6 +97,17 @@ const generatedAppServerThreadImportRestrictions = [
       "ImportDeclaration[source.value=/generated\\/app-server\\/v2\\/Thread$/] ImportSpecifier[imported.name='Thread'][local.name='Thread']",
     message: "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
   },
+];
+const turnProtocolGeneratedImportRestrictions = [
+  {
+    selector: "ImportDeclaration[source.value=/generated\\/app-server\\//]:not([source.value=/generated\\/app-server\\/v2\\/ThreadItem$/])",
+    message: "Only generated ThreadItem is allowed in the turn protocol exception. Model other turn payload shapes locally.",
+  },
+];
+const chatAppServerProtocolBoundaryFiles = [
+  "src/features/chat/app-server/inbound/notification-plan.ts",
+  "src/features/chat/app-server/mappers/message-stream/streaming-items.ts",
+  "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
 ];
 const unsafeIteratorRestrictions = [
   {
@@ -719,8 +738,76 @@ export default defineConfig([
         {
           patterns: [
             {
+              group: appServerProtocolConnectionImportPatterns,
+              message:
+                "Keep app-server protocol modules as connection-independent adapters. Put protocol-local projections in protocol modules and let connection/client consume them.",
+            },
+            {
               group: lowerLevelFeatureImportPatterns,
               message: "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, or app-server.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/app-server/**/*.{ts,tsx}"],
+    ignores: ["src/app-server/connection/**/*.{ts,tsx}", "src/app-server/protocol/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: generatedAppServerSourceImportPatterns,
+              message:
+                "Keep generated app-server bindings in the raw connection layer or explicit protocol adapters. App-server services, queries, catalogs, and thread helpers should expose domain models or local projections.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/app-server/protocol/**/*.{ts,tsx}"],
+    ignores: ["src/app-server/protocol/turn.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: appServerProtocolConnectionImportPatterns,
+              message:
+                "Keep app-server protocol modules as connection-independent adapters. Put protocol-local projections in protocol modules and let connection/client consume them.",
+            },
+            {
+              group: lowerLevelFeatureImportPatterns,
+              message: "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, or app-server.",
+            },
+            {
+              group: generatedAppServerSourceImportPatterns,
+              message:
+                "Keep generated app-server bindings out of protocol modules except the explicit turn protocol exception. Model app-server payloads with protocol-local projections.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/app-server/protocol/turn.ts"],
+    rules: {
+      ...restrictedSyntaxRule(turnProtocolGeneratedImportRestrictions),
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: appServerProtocolConnectionImportPatterns,
+              message:
+                "Keep app-server protocol modules as connection-independent adapters. Put protocol-local projections in protocol modules and let connection/client consume them.",
             },
           ],
         },
@@ -739,6 +826,27 @@ export default defineConfig([
               group: nonAppServerBannedAppServerProtocolImportPatterns,
               message:
                 "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
+            },
+            {
+              group: generatedAppServerSourceImportPatterns,
+              message: "Keep generated app-server types behind src/app-server; expose Panel-owned models to feature, UI, and reducer code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: chatAppServerProtocolBoundaryFiles,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: chatAppServerProtocolBoundaryBannedImportPatterns,
+              message:
+                "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
             },
             {
               group: generatedAppServerSourceImportPatterns,

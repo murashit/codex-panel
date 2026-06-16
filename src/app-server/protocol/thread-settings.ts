@@ -1,9 +1,15 @@
-import type { ThreadSettingsUpdateParams } from "../../generated/app-server/v2/ThreadSettingsUpdateParams";
 import type { RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
 
-export type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
-
-type AppServerRuntimeSettingsPatch = Omit<ThreadSettingsUpdateParams, "threadId">;
+type AppServerRuntimeSettingsPatch = Omit<RuntimeSettingsPatch, "collaborationMode"> & {
+  collaborationMode?: {
+    mode: "plan" | "default";
+    settings: {
+      model: string;
+      reasoning_effort: string | null;
+      developer_instructions: string | null;
+    };
+  } | null;
+};
 
 export function appServerRuntimeSettingsPatch(update: RuntimeSettingsPatch): AppServerRuntimeSettingsPatch {
   const { collaborationMode, ...settings } = update;

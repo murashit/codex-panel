@@ -4,8 +4,6 @@ import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 
-export type { SharedServerMetadata } from "../../domain/server/metadata";
-
 export function cloneThreads(threads: readonly Thread[]): Thread[] {
   return threads.map((thread) => ({ ...thread }));
 }

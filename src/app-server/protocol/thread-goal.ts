@@ -1,9 +1,18 @@
-import type { ThreadGoal as AppServerThreadGoal } from "../../generated/app-server/v2/ThreadGoal";
-import type { ThreadGoalStatus as AppServerThreadGoalStatus } from "../../generated/app-server/v2/ThreadGoalStatus";
-import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../domain/threads/goal";
 
-export type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
+interface AppServerThreadGoal {
+  threadId: string;
+  objective: string;
+  status: AppServerThreadGoalStatus;
+  tokenBudget: number | null;
+  tokensUsed: number;
+  timeUsedSeconds: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+type AppServerThreadGoalStatus = ThreadGoalStatus;
+type AppServerJsonValue = number | string | boolean | AppServerJsonValue[] | { [key: string]: AppServerJsonValue | undefined } | null;
 
 export function threadGoalFromAppServerGoal(goal: AppServerThreadGoal | null): ThreadGoal | null {
   if (!goal) return null;
@@ -31,7 +40,7 @@ export function appServerThreadGoalUpdate(update: ThreadGoalUpdate): {
   };
 }
 
-export function appServerThreadGoalUserHistoryItem(text: string): JsonValue {
+export function appServerThreadGoalUserHistoryItem(text: string): AppServerJsonValue {
   return {
     type: "message",
     role: "user",

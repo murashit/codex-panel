@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../connection/client";
-import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
 import {
   appServerHookOperationFromHookItem,
+  type CatalogModel,
   hookItemsFromCatalogHooks,
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
@@ -14,8 +14,8 @@ export interface HookData {
   errors: string[];
 }
 
-interface ModelMetadataClient {
-  listModels(includeHidden: boolean): Promise<ModelListResponse>;
+export interface ModelMetadataClient {
+  listModels(includeHidden: boolean): Promise<{ data: readonly CatalogModel[] }>;
 }
 
 export async function listModelMetadata(client: ModelMetadataClient, options: { includeHidden?: boolean } = {}): Promise<ModelMetadata[]> {

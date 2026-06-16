@@ -1,7 +1,6 @@
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
-import type { FileUpdateChange } from "../../../../app-server/protocol/file-change";
 import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
@@ -19,6 +18,7 @@ import {
   messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
 } from "../mappers/message-stream/turn-items";
+import { normalizeFileChanges, type AppServerFileChange } from "../mappers/message-stream/file-changes";
 import { taskProgressMessageStreamItem } from "../../domain/message-stream/factories/task-progress";
 import type { MessageStreamItem, MessageStreamItemKind } from "../../domain/message-stream/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
@@ -425,10 +425,10 @@ function completedItemPlan(state: ChatState, item: TurnItem, turnId: string): Ch
   };
 }
 
-function fileChangePlan(itemId: string, turnId: string, changes: FileUpdateChange[], status: string): ChatNotificationPlan {
+function fileChangePlan(itemId: string, turnId: string, changes: readonly AppServerFileChange[], status: string): ChatNotificationPlan {
   return actionPlan({
     type: "message-stream/item-upserted",
-    item: streamingFileChangeMessageStreamItem(itemId, turnId, changes, status),
+    item: streamingFileChangeMessageStreamItem(itemId, turnId, normalizeFileChanges(changes), status),
   });
 }
 

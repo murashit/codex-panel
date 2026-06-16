@@ -7,7 +7,6 @@ import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigRea
 import type { ConfigWriteResponse } from "../../generated/app-server/v2/ConfigWriteResponse";
 import type { FsReadFileResponse } from "../../generated/app-server/v2/FsReadFileResponse";
 import type { GetAccountRateLimitsResponse } from "../../generated/app-server/v2/GetAccountRateLimitsResponse";
-import type { HookTrustStatus } from "../../generated/app-server/v2/HookTrustStatus";
 import type { HooksListResponse } from "../../generated/app-server/v2/HooksListResponse";
 import type { CollaborationModeListResponse } from "../../generated/app-server/v2/CollaborationModeListResponse";
 import type { ListMcpServerStatusParams } from "../../generated/app-server/v2/ListMcpServerStatusParams";
@@ -46,9 +45,12 @@ import type { ServerNotification } from "../../generated/app-server/ServerNotifi
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
 import type { CodexInput } from "../../domain/chat/input";
+import type { ThreadGoalUpdate } from "../../domain/threads/goal";
+import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
+import type { AppServerHookOperation } from "../protocol/catalog";
 import { additionalContextFromCodexInput, toAppServerUserInput } from "../protocol/request-input";
-import { appServerThreadGoalUpdate, type ThreadGoalUpdate } from "../protocol/thread-goal";
-import { appServerRuntimeSettingsPatch, type RuntimeServiceTierRequest, type RuntimeSettingsPatch } from "../protocol/thread-settings";
+import { appServerThreadGoalUpdate } from "../protocol/thread-goal";
+import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 
@@ -60,12 +62,6 @@ export interface AppServerClientHandlers {
 }
 
 export type AppServerTransportFactory = (handlers: AppServerTransportHandlers) => AppServerTransport;
-
-export interface AppServerHookOperation {
-  key: string;
-  currentHash: string;
-  trustStatus: HookTrustStatus;
-}
 
 interface AppServerTurnRuntimeOverrides {
   serviceTier?: RuntimeServiceTierRequest;

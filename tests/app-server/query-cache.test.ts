@@ -9,8 +9,8 @@ import {
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { AppServerQueryContext } from "../../src/app-server/query/keys";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
-import type { RateLimitSnapshot } from "../../src/app-server/protocol/runtime-metrics";
-import type { SharedServerMetadata } from "../../src/app-server/query/snapshots";
+import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
+import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
 import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
 

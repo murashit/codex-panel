@@ -5,16 +5,11 @@ import {
   type AppServerStartStructuredTurnOptions,
 } from "../connection/client";
 import { abortablePromise, throwIfAbortSignalAborted } from "../../shared/lifecycle/abortable";
-import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
-import type { RequestId } from "../../generated/app-server/RequestId";
-import type { ServerNotification } from "../../generated/app-server/ServerNotification";
-import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
-import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
-import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
-import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
+import type { RequestId, ServerNotification } from "../connection/rpc-messages";
+import type { ModelMetadataClient } from "../catalog/data";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
 
-export type StructuredTurnOutputSchema = JsonValue;
+export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["outputSchema"];
 
 type StructuredTurnRuntimeOverride = NonNullable<AppServerStartStructuredTurnOptions["runtime"]>;
 
@@ -33,16 +28,14 @@ const DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS: EphemeralStructuredTurnTimers = 
 };
 
 export interface EphemeralStructuredTurnClient {
-  connect(): Promise<InitializeResponse>;
+  connect(): Promise<unknown>;
   disconnect(): void;
   rejectServerRequest(requestId: RequestId, code: number, message: string): void;
-  startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<ThreadStartResponse>;
-  startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse>;
+  startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<{ thread: { id: string } }>;
+  startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<{ turn: TurnRecord }>;
 }
 
-export interface EphemeralStructuredTurnRuntimeClient {
-  listModels(includeHidden?: boolean): Promise<ModelListResponse>;
-}
+export type EphemeralStructuredTurnRuntimeClient = ModelMetadataClient;
 
 type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient & EphemeralStructuredTurnRuntimeClient;
 

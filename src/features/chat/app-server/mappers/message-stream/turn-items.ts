@@ -8,7 +8,6 @@ import type {
 } from "../../../domain/message-stream/items";
 import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
-import type { FileUpdateChange } from "../../../../../app-server/protocol/file-change";
 import type { TurnItem } from "../../../../../app-server/protocol/turn";
 import { definedProp } from "../../../../../utils";
 import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../../../domain/threads/reference";
@@ -18,6 +17,7 @@ import { fileMentionsFromInput } from "../../../domain/message-stream/format/fil
 import { normalizeProposedPlanMarkdown } from "../../../domain/message-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/message-stream/format/user-message-text";
 import { failedStatusLabel, jsonTargetLabel } from "../../../domain/message-stream/format/item-labels";
+import { normalizeFileChanges } from "./file-changes";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
 type AgentMessageItem = Extract<TurnItem, { type: "agentMessage" }>;
@@ -108,11 +108,11 @@ const STANDARD_TOOL_STATES = {
   failed: "failed",
 } as const satisfies ExecutionStateByStatus;
 
-export function messageStreamItemsFromTurns(turns: readonly HistoricalTurn<TurnItem>[]): MessageStreamItem[] {
+export function messageStreamItemsFromTurns(turns: readonly HistoricalTurn[]): MessageStreamItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
   const items: MessageStreamItem[] = [];
   for (const turn of sortedTurns) {
-    for (const item of turn.items) {
+    for (const item of turn.items as readonly TurnItem[]) {
       const streamItem = messageStreamItemFromTurnItem(item, turn.id);
       if (streamItem) items.push(streamItem);
     }
@@ -648,14 +648,6 @@ function fileChangeMessageStreamItemFromData(data: FileChangeMessageStreamData, 
     changes: data.changes,
     executionState: data.executionState,
   };
-}
-
-export function normalizeFileChanges(changes: FileUpdateChange[]): MessageStreamFileChange[] {
-  return changes.map((change) => ({
-    kind: change.kind.type,
-    path: change.path,
-    diff: change.diff,
-  }));
 }
 
 export function shouldSuppressLifecycleItem(item: TurnItem): boolean {

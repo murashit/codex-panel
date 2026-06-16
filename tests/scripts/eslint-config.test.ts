@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
 const ESLINT_STARTUP_TEST_TIMEOUT_MS = 10_000;
+const generatedAppServerImportRoot = "../../generated" + "/app-server";
 
 describe("eslint config", () => {
   it(
@@ -129,6 +130,100 @@ export type Turn = TurnRecord;
 
     expect(conversionMessages).not.toContain("no-restricted-imports");
     expect(ingestionMessages).not.toContain("no-restricted-imports");
+  });
+
+  it("reports turn protocol imports outside chat app-server ingestion and conversion boundaries", async () => {
+    const messages = await lintSource(
+      "src/features/chat/application/threads/history-controller.ts",
+      `
+import type { TurnItem } from "../../../../app-server/protocol/turn";
+
+export type Item = TurnItem;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-imports");
+  });
+
+  it("reports non-turn protocol imports at chat app-server ingestion and conversion boundaries", async () => {
+    const messages = await lintSource(
+      "src/features/chat/app-server/inbound/notification-plan.ts",
+      `
+import type { FileUpdateChange } from "../../../../app-server/protocol/file-change";
+
+export type Change = FileUpdateChange;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-imports");
+  });
+
+  it("keeps generated app-server bindings out of non-turn protocol modules", async () => {
+    const messages = await lintSource(
+      "src/app-server/protocol/request-input.ts",
+      `
+import type { UserInput } from "${generatedAppServerImportRoot}/v2/UserInput";
+
+export type Input = UserInput;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-imports");
+  });
+
+  it("keeps app-server protocol adapters independent from the connection layer", async () => {
+    const messages = await lintSource(
+      "src/app-server/protocol/catalog.ts",
+      `
+import type { AppServerClient } from "../connection/client";
+
+export type Client = AppServerClient;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-imports");
+  });
+
+  it("keeps generated app-server bindings out of app-server service seams", async () => {
+    const messages = await lintSource(
+      "src/app-server/services/runtime-overrides.ts",
+      `
+import type { ModelListResponse } from "${generatedAppServerImportRoot}/v2/ModelListResponse";
+
+export interface RuntimeOverrideModelClient {
+  listModels(includeHidden: boolean): Promise<ModelListResponse>;
+}
+`,
+    );
+
+    expect(messages).toContain("no-restricted-imports");
+  });
+
+  it("allows generated app-server bindings in the explicit turn protocol exception", async () => {
+    const messages = await lintSource(
+      "src/app-server/protocol/turn.ts",
+      `
+import type { ThreadItem as GeneratedTurnItem } from "${generatedAppServerImportRoot}/v2/ThreadItem";
+
+export type TurnItem = GeneratedTurnItem;
+`,
+    );
+
+    expect(messages).not.toContain("no-restricted-imports");
+    expect(messages).not.toContain("no-restricted-syntax");
+  });
+
+  it("reports non-ThreadItem generated app-server imports in the turn protocol exception", async () => {
+    const messages = await lintSource(
+      "src/app-server/protocol/turn.ts",
+      `
+import type { UserInput } from "${generatedAppServerImportRoot}/v2/UserInput";
+
+export type Input = UserInput;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-syntax");
   });
 
   it("reports direct ChatState alias mutation", async () => {

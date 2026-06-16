@@ -1,10 +1,6 @@
 import type { AppServerClient } from "../connection/client";
-import {
-  appServerThreadGoalUserHistoryItem,
-  threadGoalFromAppServerGoal,
-  type ThreadGoal,
-  type ThreadGoalUpdate,
-} from "../protocol/thread-goal";
+import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
+import { appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
 
 export async function readThreadGoal(client: AppServerClient, threadId: string): Promise<ThreadGoal | null> {
   const response = await client.getThreadGoal(threadId);

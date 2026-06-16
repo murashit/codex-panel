@@ -1,10 +1,31 @@
-import type { GetAccountRateLimitsResponse as AppServerAccountRateLimitsResponse } from "../../generated/app-server/v2/GetAccountRateLimitsResponse";
-import type { RateLimitSnapshot as AppServerRateLimitSnapshot } from "../../generated/app-server/v2/RateLimitSnapshot";
-import type { RateLimitWindow as AppServerRateLimitWindow } from "../../generated/app-server/v2/RateLimitWindow";
-import type { SpendControlLimitSnapshot as AppServerSpendControlLimitSnapshot } from "../../generated/app-server/v2/SpendControlLimitSnapshot";
 import type { RateLimitSnapshot, RateLimitWindow, SpendControlLimitSnapshot } from "../../domain/runtime/metrics";
 
-export type { RateLimitSnapshot, ThreadTokenUsage } from "../../domain/runtime/metrics";
+interface AppServerRateLimitWindow {
+  usedPercent: number;
+  windowDurationMins: number | null;
+  resetsAt: number | null;
+}
+
+interface AppServerSpendControlLimitSnapshot {
+  limit: string;
+  used: string;
+  remainingPercent: number;
+  resetsAt: number;
+}
+
+interface AppServerRateLimitSnapshot extends Record<string, unknown> {
+  limitId: string | null;
+  limitName: string | null;
+  primary: AppServerRateLimitWindow | null;
+  secondary: AppServerRateLimitWindow | null;
+  individualLimit: AppServerSpendControlLimitSnapshot | null;
+  rateLimitReachedType: string | null;
+}
+
+interface AppServerAccountRateLimitsResponse {
+  rateLimits: AppServerRateLimitSnapshot;
+  rateLimitsByLimitId: Record<string, AppServerRateLimitSnapshot | undefined> | null;
+}
 
 function rateLimitSnapshotFromAppServerSnapshot(snapshot: AppServerRateLimitSnapshot): RateLimitSnapshot {
   return {

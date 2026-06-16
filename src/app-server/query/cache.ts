@@ -6,6 +6,7 @@ import { readRateLimitMetadataProbe, readRuntimeConfigSnapshot, readSkillMetadat
 import { listThreads } from "../threads/data";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
+import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 import {
   activeThreadsQueryKey,
@@ -16,7 +17,7 @@ import {
   cloneAppServerQueryContext,
   type AppServerQueryContext,
 } from "./keys";
-import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads, type SharedServerMetadata } from "./snapshots";
+import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads } from "./snapshots";
 
 const ACTIVE_THREADS_STALE_TIME_MS = 10_000;
 const APP_SERVER_METADATA_STALE_TIME_MS = 10_000;

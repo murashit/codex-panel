@@ -8,7 +8,7 @@ import { createResumeController, type ResumeControllerHost } from "../../../../s
 import type { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
-import type { ThreadTokenUsage } from "../../../../src/app-server/protocol/runtime-metrics";
+import type { ThreadTokenUsage } from "../../../../src/domain/runtime/metrics";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 
 type ThreadResumeResponse = Awaited<ReturnType<AppServerClient["resumeThread"]>>;

@@ -1,11 +1,9 @@
-import type { FileUpdateChange } from "../../../../../app-server/protocol/file-change";
-import type { MessageStreamItem } from "../../../domain/message-stream/items";
-import { normalizeFileChanges } from "./turn-items";
+import type { MessageStreamFileChange, MessageStreamItem } from "../../../domain/message-stream/items";
 
 export function streamingFileChangeMessageStreamItem(
   itemId: string,
   turnId: string,
-  changes: FileUpdateChange[],
+  changes: readonly MessageStreamFileChange[],
   status: string,
 ): MessageStreamItem {
   return {
@@ -16,6 +14,6 @@ export function streamingFileChangeMessageStreamItem(
     sourceItemId: itemId,
     provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: itemId },
     status,
-    changes: normalizeFileChanges(changes),
+    changes,
   };
 }

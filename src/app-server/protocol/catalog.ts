@@ -1,4 +1,3 @@
-import type { AppServerHookOperation } from "../connection/client";
 import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
 
 export interface CatalogModel {
@@ -39,6 +38,12 @@ export interface CatalogHookMetadata {
   currentHash: string;
   trustStatus: HookItem["trustStatus"];
   [key: string]: unknown;
+}
+
+export interface AppServerHookOperation {
+  key: string;
+  currentHash: string;
+  trustStatus: HookItem["trustStatus"];
 }
 
 function modelMetadataFromCatalogModel(model: CatalogModel): ModelMetadata {

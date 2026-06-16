@@ -1,4 +1,5 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
+import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { AppServerObservedQueryResult, AppServerQueryCache } from "./cache";
 import {
@@ -7,7 +8,6 @@ import {
   cloneAppServerQueryContext,
   type AppServerQueryContext,
 } from "./keys";
-import type { SharedServerMetadata } from "./snapshots";
 
 export interface AppServerSharedQueriesOptions {
   cache: AppServerQueryCache;

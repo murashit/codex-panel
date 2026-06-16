@@ -1,12 +1,9 @@
 import type { AppServerClient } from "../connection/client";
-import type { SortDirection } from "../../generated/app-server/v2/SortDirection";
-import type { ThreadRollbackResponse } from "../../generated/app-server/v2/ThreadRollbackResponse";
 import { threadFromThreadRecord, threadsFromThreadRecords, type ThreadRecord } from "../protocol/thread";
 import {
   chronologicalConversationSummariesFromTurnRecords,
   completedConversationSummariesFromTurnRecords,
   transcriptEntriesFromTurnRecords,
-  type TurnItem,
 } from "../protocol/turn";
 import type { HistoricalTurn } from "../../domain/threads/history";
 import type { Thread } from "../../domain/threads/model";
@@ -15,6 +12,8 @@ import type { ArchiveableThread, ThreadConversationSummaryPage } from "../../dom
 import type { ThreadConversationSummary } from "../../domain/threads/transcript";
 
 const THREAD_LIST_PAGE_LIMIT = 100;
+
+export type ThreadTurnSortDirection = "asc" | "desc";
 
 export async function listThreads(client: AppServerClient, cwd: string, options: { archived?: boolean } = {}): Promise<Thread[]> {
   const archived = options.archived ?? false;
@@ -54,7 +53,7 @@ export async function readCompletedConversationSummariesPage(
   threadId: string,
   cursor: string | null,
   limit: number,
-  sortDirection: SortDirection = "asc",
+  sortDirection: ThreadTurnSortDirection = "asc",
 ): Promise<ThreadConversationSummaryPage> {
   const response = await client.threadTurnsList(threadId, cursor, limit, sortDirection);
   return {
@@ -75,10 +74,17 @@ export async function readReferencedThreadConversationSummaries(
 export interface ThreadRollbackSnapshot {
   thread: Thread;
   cwd: string;
-  turns: readonly HistoricalTurn<TurnItem>[];
+  turns: readonly HistoricalTurn[];
 }
 
-function threadRollbackSnapshotFromAppServerResponse(response: ThreadRollbackResponse): ThreadRollbackSnapshot {
+interface ThreadRollbackResult {
+  readonly thread: ThreadRecord & {
+    readonly cwd: string;
+    readonly turns: readonly HistoricalTurn[];
+  };
+}
+
+function threadRollbackSnapshotFromAppServerResponse(response: ThreadRollbackResult): ThreadRollbackSnapshot {
   return {
     thread: threadFromThreadRecord(response.thread),
     cwd: response.thread.cwd,

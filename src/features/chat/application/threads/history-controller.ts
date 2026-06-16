@@ -1,5 +1,4 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import type { TurnItem } from "../../../../app-server/protocol/turn";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
@@ -56,7 +55,7 @@ export class HistoryController {
     }
   }
 
-  applyLatestPage(threadId: string, response: ThreadTurnsPage<TurnItem>): boolean {
+  applyLatestPage(threadId: string, response: ThreadTurnsPage): boolean {
     if (this.state.activeThread.id !== threadId) return false;
     this.host.setThreadTurnPresence(response.data.length > 0);
     this.host.showLatestPageAtBottom();

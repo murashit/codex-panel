@@ -1,6 +1,4 @@
 import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
-import type { Turn as GeneratedTurnRecord } from "../../generated/app-server/v2/Turn";
-import type { UserInput } from "../../generated/app-server/v2/UserInput";
 import {
   conversationSummaryFromTranscriptEntries,
   nonEmptyConversationSummaries,
@@ -9,7 +7,50 @@ import {
 } from "../../domain/threads/transcript";
 
 export type TurnItem = GeneratedTurnItem;
-export type TurnRecord = GeneratedTurnRecord;
+
+type AppServerUserInput =
+  | { type: "text"; text: string }
+  | { type: "image"; url: string }
+  | { type: "localImage"; path: string }
+  | { type: "mention"; name: string; path: string }
+  | { type: "skill"; name: string; path: string };
+type TurnItemsView = "notLoaded" | "summary" | "full";
+type TurnStatus = "completed" | "interrupted" | "failed" | "inProgress";
+type HttpCodexErrorInfo =
+  | { httpConnectionFailed: { httpStatusCode: number | null } }
+  | { responseStreamConnectionFailed: { httpStatusCode: number | null } }
+  | { responseStreamDisconnected: { httpStatusCode: number | null } }
+  | { responseTooManyFailedAttempts: { httpStatusCode: number | null } };
+type AppServerCodexErrorInfo =
+  | "contextWindowExceeded"
+  | "usageLimitExceeded"
+  | "serverOverloaded"
+  | "cyberPolicy"
+  | "internalServerError"
+  | "unauthorized"
+  | "badRequest"
+  | "threadRollbackFailed"
+  | "sandboxError"
+  | "other"
+  | HttpCodexErrorInfo
+  | { activeTurnNotSteerable: { turnKind: "review" | "compact" } };
+
+interface TurnError {
+  message: string;
+  codexErrorInfo: AppServerCodexErrorInfo | null;
+  additionalDetails: string | null;
+}
+
+export interface TurnRecord {
+  id: string;
+  items: TurnItem[];
+  itemsView: TurnItemsView;
+  status: TurnStatus;
+  error: TurnError | null;
+  startedAt: number | null;
+  completedAt: number | null;
+  durationMs: number | null;
+}
 
 function transcriptEntriesFromTurnRecord(turn: TurnRecord): ThreadTranscriptEntry[] {
   return turn.items.flatMap((item) => transcriptEntriesFromTurnItem(item, turn));
@@ -79,7 +120,7 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
   return [];
 }
 
-function userInputText(content: UserInput[]): string {
+function userInputText(content: readonly AppServerUserInput[]): string {
   const hasText = content.some((item) => item.type === "text" && item.text.length > 0);
   return content
     .map((item) => {
