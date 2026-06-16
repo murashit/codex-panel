@@ -194,12 +194,14 @@ const uiRootBridgeFiles = [
   "src/features/chat/ui/turn-diff/view.ts",
   "src/features/selection-rewrite/popover.tsx",
   "src/features/threads-view/renderer.tsx",
+  "src/settings/render.tsx",
 ];
 const nonChatImperativeDomBridgeFiles = [
   "src/features/selection-rewrite/popover.tsx",
   "src/features/thread-picker/modal.ts",
   "src/features/threads-view/renderer.tsx",
-  "src/settings/dynamic-sections.ts",
+  "src/settings/dynamic-sections.tsx",
+  "src/settings/render.tsx",
   "src/settings/tab.ts",
   "src/shared/diff/render.ts",
   "src/shared/ui/components.tsx",

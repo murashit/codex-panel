@@ -1,10 +1,11 @@
 import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } from "obsidian";
 
 import { DEFAULT_CODEX_PATH } from "../constants";
+import type { ReasoningEffort } from "../domain/catalog/metadata";
 import { SettingsDynamicDataController, type SettingsDynamicDataHost } from "./dynamic-data-controller";
-import { renderArchivedThreadSection, renderHookSection } from "./dynamic-sections";
+import type { SettingsDynamicSectionsState } from "./dynamic-sections";
+import { renderSettingsDynamicSections, unmountSettingsDynamicSections } from "./render";
 
-const CODEX_DEFAULT_VALUE = "__codex-default__";
 const SETTINGS_INTRO_TEXT =
   "Codex Panel stores only panel preferences. Models, sandboxing, approvals, MCP servers, hooks, and network access still come from Codex config.";
 const SEND_SHORTCUT_LABELS = {
@@ -19,6 +20,7 @@ function renderSettingsHeading(containerEl: HTMLElement, name: string): void {
 export class CodexPanelSettingTab extends PluginSettingTab {
   private readonly dynamicData: SettingsDynamicDataController;
   private archivedDeleteConfirmThreadId: string | null = null;
+  private dynamicSectionsRoot: HTMLElement | null = null;
   private readonly cancelArchivedDeleteConfirmOnOutsidePointer = (event: PointerEvent): void => {
     if (!this.archivedDeleteConfirmThreadId) return;
     const target = event.target;
@@ -28,7 +30,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       if (deleteConfirm && this.containerEl.contains(deleteConfirm)) return;
     }
     this.archivedDeleteConfirmThreadId = null;
-    this.renderSettingsTab({ autoLoadCodexData: false });
+    this.renderDynamicSections();
   };
 
   constructor(
@@ -39,7 +41,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     super(app, owner);
     this.dynamicData = new SettingsDynamicDataController(plugin, {
       display: () => {
-        this.display();
+        this.renderDynamicSections();
       },
       notify: (message) => {
         new Notice(message);
@@ -56,11 +58,15 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.containerEl.removeEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
     this.archivedDeleteConfirmThreadId = null;
     this.dynamicData.dispose();
+    unmountSettingsDynamicSections(this.dynamicSectionsRoot);
+    this.dynamicSectionsRoot = null;
     super.hide();
   }
 
   private renderSettingsTab(options: { autoLoadCodexData: boolean }): void {
     const { containerEl } = this;
+    unmountSettingsDynamicSections(this.dynamicSectionsRoot);
+    this.dynamicSectionsRoot = null;
     containerEl.empty();
     containerEl.addClass("codex-panel-settings");
     containerEl.removeEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
@@ -68,7 +74,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
     this.renderHeaderActions(containerEl, SETTINGS_INTRO_TEXT);
     this.renderPanelPreferenceSections(containerEl);
-    this.renderCodexDynamicSections(containerEl);
+    this.dynamicSectionsRoot = containerEl.createDiv({ cls: "codex-panel-settings__preact-sections" });
+    this.renderDynamicSections();
 
     if (options.autoLoadCodexData) this.maybeAutoLoadSettingsData();
   }
@@ -80,21 +87,17 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       .setName("Codex executable")
       .setDesc("Path used to start `codex app-server`. Use an absolute path if Obsidian cannot find `codex`.")
       .addText((text) => {
-        text
-          .setPlaceholder(DEFAULT_CODEX_PATH)
-          .setValue(this.plugin.settings.codexPath)
-          .onChange(async (value) => {
-            const codexPath = value.trim() || DEFAULT_CODEX_PATH;
-            const codexPathChanged = codexPath !== this.plugin.settings.codexPath;
-            this.plugin.settings.codexPath = codexPath;
-            await this.plugin.saveSettings();
-            if (codexPathChanged) {
-              this.dynamicData.resetSettingsDataContext();
-              this.plugin.appServerData.notifyContextChanged();
-              this.plugin.refreshOpenViews();
-              this.renderSettingsTab({ autoLoadCodexData: false });
-            }
-          });
+        text.setPlaceholder(DEFAULT_CODEX_PATH).setValue(this.plugin.settings.codexPath);
+        const commitCodexPath = () => {
+          void this.setCodexPath(text.inputEl.value);
+        };
+        text.inputEl.addEventListener("blur", commitCodexPath);
+        text.inputEl.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          commitCodexPath();
+          text.inputEl.blur();
+        });
       });
     new Setting(configSection)
       .setName("Show chat toolbar")
@@ -132,133 +135,69 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
-
-    const helperSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__helper-section" });
-    renderSettingsHeading(helperSection, "Codex helpers");
-    new Setting(helperSection)
-      .setName("Automatic thread naming")
-      .setDesc("Choose the model and reasoning effort used to suggest thread names.")
-      .addDropdown((dropdown) => {
-        const current = this.plugin.settings.threadNamingModel;
-        const options = this.dynamicData.modelMetadata();
-        dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
-        if (current && !options.some((model) => model.model === current || model.id === current)) {
-          dropdown.addOption(current, `${current} (saved)`);
-        }
-        for (const model of options) {
-          dropdown.addOption(model.model, model.model);
-        }
-        dropdown.setValue(current ?? CODEX_DEFAULT_VALUE).onChange(async (value) => {
-          this.plugin.settings.threadNamingModel = value === CODEX_DEFAULT_VALUE ? null : value;
-          if (!this.dynamicData.namingEffortSupported(this.plugin.settings.threadNamingEffort)) {
-            this.plugin.settings.threadNamingEffort = null;
-          }
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      })
-      .addDropdown((dropdown) => {
-        const current = this.plugin.settings.threadNamingEffort;
-        const options = this.dynamicData.effortOptions(this.plugin.settings.threadNamingModel);
-        dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
-        if (current && !options.includes(current)) {
-          dropdown.addOption(current, `${current} (saved)`);
-        }
-        for (const effort of options) {
-          dropdown.addOption(effort, effort);
-        }
-        dropdown.setValue(current ?? CODEX_DEFAULT_VALUE).onChange(async (value) => {
-          this.plugin.settings.threadNamingEffort = value === CODEX_DEFAULT_VALUE ? null : value;
-          await this.plugin.saveSettings();
-        });
-      });
-
-    new Setting(helperSection)
-      .setName("Selection rewrite")
-      .setDesc("Choose the model and reasoning effort used by rewrite selection.")
-      .addDropdown((dropdown) => {
-        const current = this.plugin.settings.rewriteSelectionModel;
-        const options = this.dynamicData.modelMetadata();
-        dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
-        if (current && !options.some((model) => model.model === current || model.id === current)) {
-          dropdown.addOption(current, `${current} (saved)`);
-        }
-        for (const model of options) {
-          dropdown.addOption(model.model, model.model);
-        }
-        dropdown.setValue(current ?? CODEX_DEFAULT_VALUE).onChange(async (value) => {
-          this.plugin.settings.rewriteSelectionModel = value === CODEX_DEFAULT_VALUE ? null : value;
-          if (!this.dynamicData.rewriteSelectionEffortSupported(this.plugin.settings.rewriteSelectionEffort)) {
-            this.plugin.settings.rewriteSelectionEffort = null;
-          }
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      })
-      .addDropdown((dropdown) => {
-        const current = this.plugin.settings.rewriteSelectionEffort;
-        const options = this.dynamicData.effortOptions(this.plugin.settings.rewriteSelectionModel);
-        dropdown.addOption(CODEX_DEFAULT_VALUE, "Codex default");
-        if (current && !options.includes(current)) {
-          dropdown.addOption(current, `${current} (saved)`);
-        }
-        for (const effort of options) {
-          dropdown.addOption(effort, effort);
-        }
-        dropdown.setValue(current ?? CODEX_DEFAULT_VALUE).onChange(async (value) => {
-          this.plugin.settings.rewriteSelectionEffort = value === CODEX_DEFAULT_VALUE ? null : value;
-          await this.plugin.saveSettings();
-        });
-      });
-    const dynamicData = this.dynamicData.snapshot();
-    if (dynamicData.modelsLifecycle.kind === "failed") {
-      configSection.createEl("p", {
-        cls: "setting-item-description codex-panel-settings__section-status",
-        text: dynamicData.modelsLifecycle.status,
-      });
-    }
   }
 
-  private renderCodexDynamicSections(containerEl: HTMLElement): void {
-    const dynamicData = this.dynamicData.snapshot();
-    renderArchivedThreadSection(containerEl, {
-      exportEnabled: this.plugin.settings.archiveExportEnabled,
-      exportFolderTemplate: this.plugin.settings.archiveExportFolderTemplate,
-      exportFilenameTemplate: this.plugin.settings.archiveExportFilenameTemplate,
-      exportTags: this.plugin.settings.archiveExportTags,
-      threads: dynamicData.archivedThreads,
-      loaded: dynamicData.archivedThreadsLifecycle.kind === "loaded",
-      loading: dynamicData.archivedThreadsLifecycle.kind === "loading",
-      status: dynamicData.archivedThreadsLifecycle.status,
-      deleteConfirmThreadId: this.archivedDeleteConfirmThreadId,
-      onExportEnabledChange: (enabled) => void this.setArchiveExportEnabled(enabled),
-      onExportFolderTemplateChange: (value) => void this.setArchiveExportFolderTemplate(value),
-      onExportFilenameTemplateChange: (value) => void this.setArchiveExportFilenameTemplate(value),
-      onExportTagsChange: (value) => void this.setArchiveExportTags(value),
-      onRestore: (threadId) => {
-        this.archivedDeleteConfirmThreadId = null;
-        void this.dynamicData.restoreArchivedThread(threadId);
-      },
-      onStartDelete: (threadId) => {
-        this.archivedDeleteConfirmThreadId = threadId;
-        this.renderSettingsTab({ autoLoadCodexData: false });
-      },
-      onDelete: (threadId) => {
-        this.archivedDeleteConfirmThreadId = null;
-        void this.dynamicData.deleteArchivedThread(threadId);
-      },
-    });
+  private renderDynamicSections(): void {
+    if (!this.dynamicSectionsRoot) return;
+    renderSettingsDynamicSections(this.dynamicSectionsRoot, this.dynamicSectionsState());
+  }
 
-    renderHookSection(containerEl, {
-      hooks: dynamicData.hooks,
-      warnings: dynamicData.hookWarnings,
-      errors: dynamicData.hookErrors,
-      loaded: dynamicData.hooksLifecycle.kind === "loaded",
-      loading: dynamicData.hooksLifecycle.kind === "loading",
-      status: dynamicData.hooksLifecycle.status,
-      onTrust: (hook) => void this.dynamicData.trustHook(hook),
-      onToggleEnabled: (hook, enabled) => void this.dynamicData.setHookEnabled(hook, enabled),
-    });
+  private dynamicSectionsState(): SettingsDynamicSectionsState {
+    const dynamicData = this.dynamicData.snapshot();
+    return {
+      helper: {
+        threadNamingModel: this.plugin.settings.threadNamingModel,
+        threadNamingEffort: this.plugin.settings.threadNamingEffort,
+        rewriteSelectionModel: this.plugin.settings.rewriteSelectionModel,
+        rewriteSelectionEffort: this.plugin.settings.rewriteSelectionEffort,
+        models: this.dynamicData.modelMetadata(),
+        modelLoadFailed: dynamicData.modelsLifecycle.kind === "failed",
+        modelStatus: dynamicData.modelsLifecycle.status,
+        onThreadNamingModelChange: (value) => void this.setThreadNamingModel(value),
+        onThreadNamingEffortChange: (value) => void this.setThreadNamingEffort(value),
+        onRewriteSelectionModelChange: (value) => void this.setRewriteSelectionModel(value),
+        onRewriteSelectionEffortChange: (value) => void this.setRewriteSelectionEffort(value),
+      },
+      archived: {
+        exportEnabled: this.plugin.settings.archiveExportEnabled,
+        exportFolderTemplate: this.plugin.settings.archiveExportFolderTemplate,
+        exportFilenameTemplate: this.plugin.settings.archiveExportFilenameTemplate,
+        exportTags: this.plugin.settings.archiveExportTags,
+        threads: dynamicData.archivedThreads,
+        loaded: dynamicData.archivedThreadsLifecycle.kind === "loaded",
+        loading: dynamicData.archivedThreadsLifecycle.kind === "loading",
+        status: dynamicData.archivedThreadsLifecycle.status,
+        deleteConfirmThreadId: this.archivedDeleteConfirmThreadId,
+        onExportEnabledChange: (enabled) => void this.setArchiveExportEnabled(enabled),
+        onExportFolderTemplateChange: (value) => void this.setArchiveExportFolderTemplate(value),
+        onExportFilenameTemplateChange: (value) => void this.setArchiveExportFilenameTemplate(value),
+        onExportTagsChange: (value) => void this.setArchiveExportTags(value),
+        onRestore: (threadId) => {
+          this.archivedDeleteConfirmThreadId = null;
+          this.renderDynamicSections();
+          void this.dynamicData.restoreArchivedThread(threadId);
+        },
+        onStartDelete: (threadId) => {
+          this.archivedDeleteConfirmThreadId = threadId;
+          this.renderDynamicSections();
+        },
+        onDelete: (threadId) => {
+          this.archivedDeleteConfirmThreadId = null;
+          this.renderDynamicSections();
+          void this.dynamicData.deleteArchivedThread(threadId);
+        },
+      },
+      hooks: {
+        hooks: dynamicData.hooks,
+        warnings: dynamicData.hookWarnings,
+        errors: dynamicData.hookErrors,
+        loaded: dynamicData.hooksLifecycle.kind === "loaded",
+        loading: dynamicData.hooksLifecycle.kind === "loading",
+        status: dynamicData.hooksLifecycle.status,
+        onTrust: (hook) => void this.dynamicData.trustHook(hook),
+        onToggleEnabled: (hook, enabled) => void this.dynamicData.setHookEnabled(hook, enabled),
+      },
+    };
   }
 
   private renderHeaderActions(containerEl: HTMLElement, introText: string): void {
@@ -283,10 +222,21 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.dynamicData.maybeAutoLoadSettingsData();
   }
 
+  private async setCodexPath(value: string): Promise<void> {
+    const codexPath = value.trim() || DEFAULT_CODEX_PATH;
+    if (codexPath === this.plugin.settings.codexPath) return;
+    this.plugin.settings.codexPath = codexPath;
+    await this.plugin.saveSettings();
+    this.dynamicData.resetSettingsDataContext();
+    this.plugin.appServerData.notifyContextChanged();
+    this.plugin.refreshOpenViews();
+    this.renderSettingsTab({ autoLoadCodexData: false });
+  }
+
   private async setArchiveExportEnabled(enabled: boolean): Promise<void> {
     this.plugin.settings.archiveExportEnabled = enabled;
     await this.plugin.saveSettings();
-    this.display();
+    this.renderDynamicSections();
   }
 
   private async setArchiveExportFolderTemplate(value: string): Promise<void> {
@@ -301,6 +251,34 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async setArchiveExportTags(value: string): Promise<void> {
     this.plugin.settings.archiveExportTags = value.trim();
+    await this.plugin.saveSettings();
+  }
+
+  private async setThreadNamingModel(value: string | null): Promise<void> {
+    this.plugin.settings.threadNamingModel = value;
+    if (!this.dynamicData.namingEffortSupported(this.plugin.settings.threadNamingEffort)) {
+      this.plugin.settings.threadNamingEffort = null;
+    }
+    await this.plugin.saveSettings();
+    this.renderDynamicSections();
+  }
+
+  private async setThreadNamingEffort(value: ReasoningEffort | null): Promise<void> {
+    this.plugin.settings.threadNamingEffort = value;
+    await this.plugin.saveSettings();
+  }
+
+  private async setRewriteSelectionModel(value: string | null): Promise<void> {
+    this.plugin.settings.rewriteSelectionModel = value;
+    if (!this.dynamicData.rewriteSelectionEffortSupported(this.plugin.settings.rewriteSelectionEffort)) {
+      this.plugin.settings.rewriteSelectionEffort = null;
+    }
+    await this.plugin.saveSettings();
+    this.renderDynamicSections();
+  }
+
+  private async setRewriteSelectionEffort(value: ReasoningEffort | null): Promise<void> {
+    this.plugin.settings.rewriteSelectionEffort = value;
     await this.plugin.saveSettings();
   }
 }

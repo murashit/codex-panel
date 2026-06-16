@@ -151,6 +151,10 @@ describe("settings tab", () => {
     expect(folder.getAttribute("aria-label")).toBeNull();
     expect(filename.getAttribute("aria-label")).toBeNull();
     expect(tags.getAttribute("aria-label")).toBeNull();
+    expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
+    expect(folder.type).toBe("text");
+    expect(filename.type).toBe("text");
+    expect(tags.type).toBe("text");
 
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));
@@ -230,6 +234,13 @@ describe("settings tab", () => {
     if (!codexInput) throw new Error("Missing Codex executable input");
     codexInput.value = "/opt/codex";
     codexInput.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(notifyContextChanged).not.toHaveBeenCalled();
+    expect(refreshOpenViews).not.toHaveBeenCalled();
+
+    codexInput.dispatchEvent(new FocusEvent("blur"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
@@ -447,6 +458,8 @@ describe("settings tab", () => {
 
     expect(selectOptions(tab, "Automatic thread naming", 1)).toEqual(["Codex default", "saved-custom-effort (saved)", "extreme"]);
     expect(selectOptions(tab, "Selection rewrite", 1)).toEqual(["Codex default", "extreme"]);
+    expect(selectForSetting(tab, "Automatic thread naming")?.classList.contains("dropdown")).toBe(true);
+    expect(selectForSetting(tab, "Selection rewrite")?.classList.contains("dropdown")).toBe(true);
   });
 
   it("keeps successful sections when one settings data request fails", async () => {
@@ -525,6 +538,39 @@ describe("settings tab", () => {
     expect(client.deleteThread).not.toHaveBeenCalled();
   });
 
+  it("keeps the settings shell mounted while dynamic sections update", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const client = settingsClient({
+      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
+    });
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
+    );
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    await flushPromises();
+
+    const codexInput = inputForSetting(tab, "Codex executable");
+    const shortcut = selectForSetting(tab, "Send shortcut");
+    const archiveToggle = inputForSetting(tab, "Save note by default");
+    if (!codexInput || !shortcut || !archiveToggle) throw new Error("Missing settings controls");
+
+    archiveToggle.checked = true;
+    archiveToggle.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(inputForSetting(tab, "Codex executable")).toBe(codexInput);
+    expect(selectForSetting(tab, "Send shortcut")).toBe(shortcut);
+
+    clickButtonByLabel(tab, "Delete Archived thread");
+
+    expect(inputForSetting(tab, "Codex executable")).toBe(codexInput);
+    expect(selectForSetting(tab, "Send shortcut")).toBe(shortcut);
+    expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).not.toBeNull();
+  });
+
   it("permanently deletes an archived thread from the confirmed settings row", async () => {
     const invalidateThreadsFromOpenSurface = vi.fn();
     const client = settingsClient({
@@ -539,6 +585,7 @@ describe("settings tab", () => {
     await flushPromises();
 
     clickButtonByLabel(tab, "Delete Archived thread");
+    pointerDownButtonByLabel(tab, "Confirm permanent delete Archived thread");
     clickButtonByLabel(tab, "Confirm permanent delete Archived thread");
     await flushPromises();
 
@@ -730,7 +777,7 @@ async function flushPromises(): Promise<void> {
 }
 
 function settingNames(tab: CodexPanelSettingTab): string[] {
-  return Array.from(tab.containerEl.children).flatMap((element) => {
+  return Array.from(settingsSectionRoots(tab)).flatMap((element) => {
     if (element.classList.contains("setting-item")) {
       return [element.querySelector(".setting-item-name")?.textContent ?? ""];
     }
@@ -743,6 +790,13 @@ function settingNames(tab: CodexPanelSettingTab): string[] {
       return [element.querySelector(":scope > .setting-item-heading .setting-item-name")?.textContent ?? ""];
     }
     return [];
+  });
+}
+
+function settingsSectionRoots(tab: CodexPanelSettingTab): Element[] {
+  return Array.from(tab.containerEl.children).flatMap((element) => {
+    if (element.classList.contains("codex-panel-settings__preact-sections")) return Array.from(element.children);
+    return [element];
   });
 }
 
@@ -762,9 +816,17 @@ function buttonLabels(tab: CodexPanelSettingTab): string[] {
 }
 
 function clickButtonByLabel(tab: CodexPanelSettingTab, label: string): void {
+  buttonByLabel(tab, label).click();
+}
+
+function pointerDownButtonByLabel(tab: CodexPanelSettingTab, label: string): void {
+  buttonByLabel(tab, label).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+}
+
+function buttonByLabel(tab: CodexPanelSettingTab, label: string): HTMLButtonElement {
   const button = Array.from(tab.containerEl.querySelectorAll("button")).find((element) => element.ariaLabel === label);
   if (!button) throw new Error(`Could not find button: ${label}`);
-  button.click();
+  return button;
 }
 
 function inputForSetting(tab: CodexPanelSettingTab, name: string): HTMLInputElement | null {
