@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  resumedThreadActionFromActiveRuntime,
-  resumedThreadActionFromAppServerResponse,
-} from "../../../../src/features/chat/application/threads/resume";
+import { resumedThreadActionFromActiveRuntime, resumedThreadAction } from "../../../../src/features/chat/application/threads/resume";
 import type { ThreadActivationSnapshot } from "../../../../src/domain/threads/activation";
 import type { Thread } from "../../../../src/domain/threads/model";
 
@@ -46,8 +43,8 @@ describe("chat thread resume helpers", () => {
   it("can build thread start actions without mutating the thread list", () => {
     const resumed = threadFixture("thread", "Started");
 
-    const action = resumedThreadActionFromAppServerResponse({
-      response: responseRecordFixture(resumed),
+    const action = resumedThreadAction({
+      response: responseFixture(resumed),
       preserveRequestedRuntimeSettings: true,
     });
 
@@ -70,34 +67,6 @@ function responseFixture(thread: Thread): ThreadActivationSnapshot {
     approvalsReviewer: "user",
     activePermissionProfile: null,
     reasoningEffort: "high",
-  };
-}
-
-function responseRecordFixture(thread: Thread): Parameters<typeof resumedThreadActionFromAppServerResponse>[0]["response"] {
-  return {
-    ...responseFixture(thread),
-    thread: {
-      id: thread.id,
-      sessionId: thread.id,
-      forkedFromId: null,
-      parentThreadId: null,
-      preview: thread.preview,
-      ephemeral: false,
-      modelProvider: "openai",
-      createdAt: thread.createdAt,
-      updatedAt: thread.updatedAt,
-      status: { type: "idle" },
-      path: null,
-      cwd: "/vault",
-      cliVersion: "codex-cli 0.0.0",
-      source: "unknown",
-      threadSource: null,
-      agentNickname: null,
-      agentRole: null,
-      gitInfo: null,
-      name: thread.name,
-      turns: [],
-    },
   };
 }
 

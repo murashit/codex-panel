@@ -1,9 +1,10 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import { resumeChatThread, type ChatThreadResumeSnapshot } from "../../app-server/threads/resume";
 import { activeThreadId, canSwitchToThread, listedThreads, messageStreamItemsEmpty } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import type { RestorationController } from "./restoration-controller";
-import { resumedThreadActionFromAppServerResponse } from "./resume";
+import { resumedThreadAction } from "./resume";
 import type { HistoryController } from "./history-controller";
 import type { ChatResumeWorkTracker, ActiveChatResume } from "../lifecycle";
 
@@ -23,6 +24,7 @@ export interface ResumeControllerHost {
   refreshLiveState: () => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
+  resumeFromAppServer?: (client: AppServerClient, threadId: string, cwd: string) => Promise<ChatThreadResumeSnapshot>;
 }
 
 export interface ResumeController {
@@ -55,21 +57,21 @@ async function resumeThread(host: ResumeControllerHost, threadId: string): Promi
   if (!client || isStaleResume(host, resume)) return;
 
   try {
-    const response = await client.resumeThread(threadId, host.vaultPath);
+    const response = await (host.resumeFromAppServer ?? resumeChatThread)(client, threadId, host.vaultPath);
     if (isStaleResume(host, resume)) return;
     applyResumedThread(host, response);
-    recoverResumedThreadTokenUsage(host, response.thread.id, response.thread.path, resume);
-    if (response.initialTurnsPage) {
-      host.history.applyLatestPage(response.thread.id, response.initialTurnsPage);
+    recoverResumedThreadTokenUsage(host, response.activation.thread.id, response.rolloutPath, resume);
+    if (response.initialHistoryPage) {
+      host.history.applyLatestPage(response.activation.thread.id, response.initialHistoryPage);
     } else {
-      await host.history.loadLatest(response.thread.id);
+      await host.history.loadLatest(response.activation.thread.id);
     }
     if (isStaleResume(host, resume)) return;
-    await host.syncThreadGoal(response.thread.id);
+    await host.syncThreadGoal(response.activation.thread.id);
     if (isStaleResume(host, resume)) return;
     const renderFallbackMessage = messageStreamItemsEmpty(host.stateStore.getState());
     if (renderFallbackMessage) {
-      host.addSystemMessage(resumedThreadMessage(response.thread.id));
+      host.addSystemMessage(resumedThreadMessage(response.activation.thread.id));
     }
     host.refreshLiveState();
   } catch (error) {
@@ -78,10 +80,10 @@ async function resumeThread(host: ResumeControllerHost, threadId: string): Promi
   }
 }
 
-function applyResumedThread(host: ResumeControllerHost, response: Awaited<ReturnType<AppServerClient["resumeThread"]>>): void {
+function applyResumedThread(host: ResumeControllerHost, response: ChatThreadResumeSnapshot): void {
   host.stateStore.dispatch(
-    resumedThreadActionFromAppServerResponse({
-      response,
+    resumedThreadAction({
+      response: response.activation,
       listedThreads: listedThreads(host.stateStore.getState()),
     }),
   );

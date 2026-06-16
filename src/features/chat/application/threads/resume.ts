@@ -1,6 +1,5 @@
 import { upsertThread } from "../../../../domain/threads/model";
 import type { Thread } from "../../../../domain/threads/model";
-import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads/data";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
@@ -8,13 +7,6 @@ import type { ActiveThreadResumedAction } from "../state/actions";
 
 interface ResumedThreadActionParams {
   response: ThreadActivationSnapshot;
-  listedThreads?: readonly Thread[];
-  items?: readonly MessageStreamItem[];
-  preserveRequestedRuntimeSettings?: boolean;
-}
-
-interface ResumedThreadFromAppServerParams {
-  response: Parameters<typeof threadActivationSnapshotFromAppServerResponse>[0];
   listedThreads?: readonly Thread[];
   items?: readonly MessageStreamItem[];
   preserveRequestedRuntimeSettings?: boolean;
@@ -36,15 +28,6 @@ interface ResumedThreadFromActiveRuntimeParams {
   items?: readonly MessageStreamItem[];
 }
 
-export function resumedThreadActionFromAppServerResponse(params: ResumedThreadFromAppServerParams): ActiveThreadResumedAction {
-  return resumedThreadAction({
-    response: threadActivationSnapshotFromAppServerResponse(params.response),
-    ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
-    ...(params.items ? { items: params.items } : {}),
-    ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
-  });
-}
-
 export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromActiveRuntimeParams): ActiveThreadResumedAction {
   return resumedThreadAction({
     response: {
@@ -62,7 +45,7 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
   });
 }
 
-function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
+export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
   const { response } = params;
   return {
     type: "active-thread/resumed",

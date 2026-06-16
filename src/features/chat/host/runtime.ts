@@ -1,7 +1,7 @@
 import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerSharedQueries } from "../../../app-server/query/shared-queries";
-import type { ArchiveExportAdapter } from "../../../app-server/services/thread-archive-markdown";
+import type { ArchiveExportAdapter } from "../../../domain/threads/archive-markdown";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type {
   ActiveThreadCatalogReader,

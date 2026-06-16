@@ -1,8 +1,7 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import type { ThreadTurnsPage } from "../../../../domain/threads/history";
+import { readChatThreadHistoryPage, type ChatThreadHistoryPage } from "../../app-server/threads/history";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
 import { messageStreamItems } from "../state/message-stream";
 
 export interface HistoryControllerHost {
@@ -12,6 +11,7 @@ export interface HistoryControllerHost {
   keepCurrentScrollPosition: () => void;
   showLatestPageAtBottom: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
+  readHistoryPage?: (client: AppServerClient, threadId: string, cursor: string | null, limit: number) => Promise<ChatThreadHistoryPage>;
 }
 
 type ThreadHistoryLoadLifecycleState = { kind: "idle" } | { kind: "loading"; threadId: string; mode: "latest" | "older" };
@@ -44,7 +44,7 @@ export class HistoryController {
     if (!client || !threadId) return;
     const load = this.startLoading(threadId, "latest");
     try {
-      const response = await client.threadTurnsList(threadId, null, 20);
+      const response = await this.readHistoryPage(client, threadId, null, 20);
       if (this.isStale(load)) return;
       this.applyLatestPage(threadId, response);
     } catch (error) {
@@ -55,13 +55,13 @@ export class HistoryController {
     }
   }
 
-  applyLatestPage(threadId: string, response: ThreadTurnsPage): boolean {
+  applyLatestPage(threadId: string, response: ChatThreadHistoryPage): boolean {
     if (this.state.activeThread.id !== threadId) return false;
-    this.host.setThreadTurnPresence(response.data.length > 0);
+    this.host.setThreadTurnPresence(response.hadTurns);
     this.host.showLatestPageAtBottom();
     this.dispatch({
       type: "message-stream/items-replaced",
-      items: messageStreamItemsFromTurns(response.data),
+      items: response.items,
       historyCursor: response.nextCursor,
     });
     return true;
@@ -75,11 +75,11 @@ export class HistoryController {
     const cursor = state.messageStream.historyCursor;
     const load = this.startLoading(threadId, "older");
     try {
-      const response = await client.threadTurnsList(threadId, cursor, 20);
+      const response = await this.readHistoryPage(client, threadId, cursor, 20);
       if (this.isStale(load)) return;
       const current = this.state;
       const currentItems = messageStreamItems(current.messageStream);
-      const olderItems = messageStreamItemsFromTurns(response.data);
+      const olderItems = response.items;
       const existingIds = new Set(currentItems.map((item) => item.id));
       this.host.keepCurrentScrollPosition();
       this.dispatch({
@@ -110,6 +110,10 @@ export class HistoryController {
 
   private isStale(load: ActiveThreadHistoryLoad): boolean {
     return this.lifecycle !== load || this.state.activeThread.id !== load.threadId;
+  }
+
+  private readHistoryPage(client: AppServerClient, threadId: string, cursor: string | null, limit: number): Promise<ChatThreadHistoryPage> {
+    return (this.host.readHistoryPage ?? readChatThreadHistoryPage)(client, threadId, cursor, limit);
   }
 }
 

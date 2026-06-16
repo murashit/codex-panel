@@ -9,7 +9,7 @@ import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
 import type { ActiveThreadCatalogReader, ActiveThreadCatalogThreadEvents } from "../../workspace/active-thread-catalog";
 import { ConnectionWorkTracker } from "../../shared/lifecycle/connection-work";
-import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
+import type { ArchiveExportAdapter } from "../../domain/threads/archive-markdown";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
 import { renderThreadsView, unmountThreadsView } from "./renderer";

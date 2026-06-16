@@ -118,11 +118,13 @@ function threadRollbackSnapshotFromAppServerResponse(response: ThreadRollbackRes
   };
 }
 
-export async function rollbackThread(client: AppServerClient, threadId: string): Promise<ThreadRollbackSnapshot> {
-  return threadRollbackSnapshotFromAppServerResponse(await client.rollbackThread(threadId));
+export async function rollbackThread(client: AppServerClient, threadId: string, numTurns?: number): Promise<ThreadRollbackSnapshot> {
+  const response = numTurns === undefined ? await client.rollbackThread(threadId) : await client.rollbackThread(threadId, numTurns);
+  return threadRollbackSnapshotFromAppServerResponse(response);
 }
 
-export function threadFromThreadForkResponse(response: Awaited<ReturnType<AppServerClient["forkThread"]>>): Thread {
+export async function forkThread(client: AppServerClient, threadId: string, cwd: string): Promise<Thread> {
+  const response = await client.forkThread(threadId, cwd);
   return threadFromThreadRecord(response.thread);
 }
 

@@ -13,11 +13,7 @@ import { selectionRewriteOutputParseResultFromText } from "../../../src/features
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
-import {
-  runSelectionRewrite,
-  type SelectionRewriteClient,
-  type SelectionRewriteClientFactory,
-} from "../../../src/features/selection-rewrite/runner";
+import { runSelectionRewrite } from "../../../src/features/selection-rewrite/runner";
 import type {
   AppServerClient,
   AppServerClientHandlers,
@@ -35,6 +31,8 @@ type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
 type Turn = TurnRecord;
 type TurnStartResponse = Awaited<ReturnType<AppServerClient["startStructuredTurn"]>>;
+type SelectionRewriteClientFactory = NonNullable<Parameters<typeof runSelectionRewrite>[0]["clientFactory"]>;
+type SelectionRewriteClient = ReturnType<SelectionRewriteClientFactory>;
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

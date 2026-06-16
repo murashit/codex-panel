@@ -9,57 +9,32 @@ import type { HistoryController } from "../../../../src/features/chat/applicatio
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
 import type { ThreadTokenUsage } from "../../../../src/domain/runtime/metrics";
-import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import type { ChatThreadHistoryPage } from "../../../../src/features/chat/app-server/threads/history";
+import type { ChatThreadResumeSnapshot } from "../../../../src/features/chat/app-server/threads/resume";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 
-type ThreadResumeResponse = Awaited<ReturnType<AppServerClient["resumeThread"]>>;
-
-function appServerThread(id: string): ThreadResumeResponse["thread"] {
+function activation(threadId: string, overrides: Partial<ChatThreadResumeSnapshot> = {}): ChatThreadResumeSnapshot {
   return {
-    id,
-    sessionId: id,
-    forkedFromId: null,
-    parentThreadId: null,
-    preview: "",
-    ephemeral: false,
-    modelProvider: "openai",
-    createdAt: 0,
-    updatedAt: 0,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "test",
-    source: "unknown",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
-    turns: [],
+    activation: {
+      thread: panelThread(threadId),
+      cwd: "/vault",
+      model: "gpt-test",
+      serviceTier: null,
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      activePermissionProfile: null,
+      reasoningEffort: null,
+    },
+    rolloutPath: null,
+    initialHistoryPage: null,
+    ...overrides,
   };
 }
 
-function activation(threadId: string): ThreadResumeResponse {
-  return {
-    thread: appServerThread(threadId),
-    cwd: "/vault",
-    model: "gpt-test",
-    modelProvider: "openai",
-    serviceTier: null,
-    runtimeWorkspaceRoots: [],
-    instructionSources: [],
-    approvalPolicy: "on-request",
-    approvalsReviewer: "user",
-    sandbox: { type: "readOnly", networkAccess: false },
-    activePermissionProfile: null,
-    reasoningEffort: null,
-    initialTurnsPage: null,
-  };
-}
-
-function createController(response: ThreadResumeResponse = activation("thread"), overrides: Partial<ResumeControllerHost> = {}) {
+function createController(response: ChatThreadResumeSnapshot = activation("thread"), overrides: Partial<ResumeControllerHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
-  const resumeThread = vi.fn().mockResolvedValue(response);
-  const client = { resumeThread } as unknown as AppServerClient;
+  const resumeFromAppServer = vi.fn().mockResolvedValue(response);
+  const client = {} as AppServerClient;
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyLatestPage = vi.fn();
   const invalidateHistory = vi.fn();
@@ -80,6 +55,7 @@ function createController(response: ThreadResumeResponse = activation("thread"),
     addSystemMessage: vi.fn(),
     refreshLiveState: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
+    resumeFromAppServer,
     ...overrides,
   };
   return {
@@ -89,7 +65,7 @@ function createController(response: ThreadResumeResponse = activation("thread"),
     invalidateHistory,
     loadLatest,
     restoredClear,
-    resumeThread,
+    resumeThread: resumeFromAppServer,
     stateStore,
   };
 }
@@ -100,7 +76,7 @@ describe("ResumeController", () => {
 
     await controller.resumeThread("thread");
 
-    expect(resumeThread).toHaveBeenCalledWith("thread", "/vault");
+    expect(resumeThread).toHaveBeenCalledWith(expect.anything(), "thread", "/vault");
     expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
     expect(stateStore.getState().activeThread.id).toBe("thread");
     expect(loadLatest).toHaveBeenCalledWith("thread");
@@ -110,19 +86,13 @@ describe("ResumeController", () => {
   });
 
   it("hydrates resumed threads from the initial turns page when app-server returns one", async () => {
-    const response = {
-      ...activation("thread"),
-      initialTurnsPage: {
-        data: [turnFixture([userMessage("u1", "hello")])],
-        nextCursor: "older",
-        backwardsCursor: null,
-      },
-    };
+    const initialHistoryPage = historyPage([message("u1", "hello", "user")], "older");
+    const response = activation("thread", { initialHistoryPage });
     const { controller, applyLatestPage, loadLatest } = createController(response);
 
     await controller.resumeThread("thread");
 
-    expect(applyLatestPage).toHaveBeenCalledWith("thread", response.initialTurnsPage);
+    expect(applyLatestPage).toHaveBeenCalledWith("thread", initialHistoryPage);
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
@@ -158,8 +128,7 @@ describe("ResumeController", () => {
   });
 
   it("recovers rollout token usage without blocking latest history loading", async () => {
-    const response = activation("thread");
-    response.thread.path = "/tmp/rollout.jsonl";
+    const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
     const { controller, loadLatest, stateStore } = createController(response, { recoverTokenUsageFromRollout });
@@ -176,8 +145,7 @@ describe("ResumeController", () => {
   });
 
   it("ignores stale rollout token usage recovery", async () => {
-    const first = activation("thread");
-    first.thread.path = "/tmp/thread.jsonl";
+    const first = activation("thread", { rolloutPath: "/tmp/thread.jsonl" });
     const second = activation("other");
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
@@ -186,7 +154,7 @@ describe("ResumeController", () => {
     await controller.resumeThread("thread");
     stateStore.dispatch({
       type: "active-thread/resumed",
-      thread: { ...second.thread, archived: false },
+      thread: second.activation.thread,
       cwd: "/vault",
       model: null,
       reasoningEffort: null,
@@ -203,8 +171,7 @@ describe("ResumeController", () => {
   });
 
   it("does not let late rollout token usage recovery overwrite live token usage", async () => {
-    const response = activation("thread");
-    response.thread.path = "/tmp/rollout.jsonl";
+    const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
     const { controller, stateStore } = createController(response, { recoverTokenUsageFromRollout });
@@ -218,8 +185,7 @@ describe("ResumeController", () => {
   });
 
   it("ignores rollout token usage recovery failures", async () => {
-    const response = activation("thread");
-    response.thread.path = "/tmp/rollout.jsonl";
+    const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recoverTokenUsageFromRollout = vi.fn().mockRejectedValue(new Error("read failed"));
     const { controller, host, stateStore } = createController(response, { recoverTokenUsageFromRollout });
 
@@ -230,19 +196,6 @@ describe("ResumeController", () => {
     expect(host.addSystemMessage).not.toHaveBeenCalledWith("read failed");
   });
 });
-
-function turnFixture(items: TurnItem[]): TurnRecord {
-  return {
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    error: null,
-    startedAt: 1,
-    completedAt: 2,
-    durationMs: 1000,
-  };
-}
 
 function panelThread(id: string): PanelThread {
   return {
@@ -255,8 +208,14 @@ function panelThread(id: string): PanelThread {
   };
 }
 
-function userMessage(id: string, text: string): TurnItem {
-  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
+function historyPage(items: MessageStreamItem[], nextCursor: string | null): ChatThreadHistoryPage {
+  return { items, nextCursor, hadTurns: items.length > 0 };
+}
+
+function message(id: string, text: string, role: "assistant" | "user"): MessageStreamItem {
+  return role === "user"
+    ? { id, kind: "message", role, text, messageKind: "user", turnId: "turn" }
+    : { id, kind: "message", role, text, messageKind: "assistantResponse", messageState: "completed", turnId: "turn" };
 }
 
 function tokenUsageFixture(inputTokens: number): ThreadTokenUsage {

@@ -1,8 +1,9 @@
 import type { Thread } from "../../../../domain/threads/model";
+import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads/data";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { serviceTierRequestForThreadStart } from "../../application/runtime/thread-settings-update";
-import { resumedThreadActionFromAppServerResponse } from "../../application/threads/resume";
+import { resumedThreadAction } from "../../application/threads/resume";
 import type { ChatServerActionHost } from "./host";
 import type { ChatState } from "../../application/state/root-reducer";
 
@@ -54,8 +55,8 @@ async function startThread(
     response.thread.preview.trim().length > 0 || !fallbackPreview
       ? response
       : { ...response, thread: { ...response.thread, preview: fallbackPreview } };
-  const action = resumedThreadActionFromAppServerResponse({
-    response: activationResponse,
+  const action = resumedThreadAction({
+    response: threadActivationSnapshotFromAppServerResponse(activationResponse),
     listedThreads: state.threadList.listedThreads,
     preserveRequestedRuntimeSettings: requestState.activeThread.id === null,
   });

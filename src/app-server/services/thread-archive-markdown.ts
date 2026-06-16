@@ -1,16 +1,11 @@
 import {
   archivedThreadMarkdown,
   archivedThreadTitle,
+  type ArchiveExportAdapter,
   type ArchiveExportSettings,
   type ArchiveThreadInput,
 } from "../../domain/threads/archive-markdown";
 import { shortThreadId } from "../../utils";
-
-export interface ArchiveExportAdapter {
-  exists(path: string): Promise<boolean>;
-  mkdir(path: string): Promise<void>;
-  write(path: string, data: string): Promise<void>;
-}
 
 export interface ArchiveExportResult {
   path: string;

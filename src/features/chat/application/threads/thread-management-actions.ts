@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { rollbackThread as rollbackThreadOnAppServer, threadFromThreadForkResponse } from "../../../../app-server/threads/data";
+import { forkThread as forkThreadOnAppServer, rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/threads/data";
 import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
@@ -146,14 +146,14 @@ async function forkThreadFromTurn(
 
   try {
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
-    const response = await client.forkThread(threadId, host.vaultPath);
+    const forkedThread = await forkThreadOnAppServer(client, threadId, host.vaultPath);
     if (host.currentClient() !== client) return;
-    const forkedThreadId = response.thread.id;
+    const forkedThreadId = forkedThread.id;
     if (turnsToDrop > 0) {
-      await client.rollbackThread(forkedThreadId, turnsToDrop);
+      await rollbackThreadOnAppServer(client, forkedThreadId, turnsToDrop);
       if (host.currentClient() !== client) return;
     }
-    host.recordForkedThread(threadFromThreadForkResponse(response));
+    host.recordForkedThread(forkedThread);
     if (!threadManagementStillTargetsOriginalPanel(threadManagementState(host), initialActiveThreadId, threadId)) return;
     if (sourceName) {
       try {

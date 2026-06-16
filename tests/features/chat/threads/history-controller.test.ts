@@ -1,27 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
+import { HistoryController, type HistoryControllerHost } from "../../../../src/features/chat/application/threads/history-controller";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import type { ChatThreadHistoryPage } from "../../../../src/features/chat/app-server/threads/history";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import { deferred } from "../../../support/async";
 import { chatStateMessageStreamItems } from "../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../support/state";
 
 describe("HistoryController", () => {
   it("keeps the latest history load when an older request resolves later", async () => {
-    const first = deferred<ThreadTurnsListResponse>();
-    const second = deferred<ThreadTurnsListResponse>();
+    const first = deferred<ChatThreadHistoryPage>();
+    const second = deferred<ChatThreadHistoryPage>();
     const { loader, stateStore } = historyFixture({
-      threadTurnsList: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
+      readHistoryPage: vi.fn<HistoryPageReader>().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
     });
 
     const firstLoad = loader.loadLatest();
     const secondLoad = loader.loadLatest();
 
-    second.resolve(threadTurnsResponse([], "second-cursor"));
+    second.resolve(historyPage([], "second-cursor"));
     await secondLoad;
-    first.resolve(threadTurnsResponse([], "first-cursor"));
+    first.resolve(historyPage([], "first-cursor"));
     await firstLoad;
 
     expect(stateStore.getState().messageStream.historyCursor).toBe("second-cursor");
@@ -29,16 +30,16 @@ describe("HistoryController", () => {
   });
 
   it("ignores a history load that is invalidated while pending", async () => {
-    const pending = deferred<ThreadTurnsListResponse>();
+    const pending = deferred<ChatThreadHistoryPage>();
     const { loader, stateStore, addSystemMessage } = historyFixture({
-      threadTurnsList: vi.fn().mockReturnValue(pending.promise),
+      readHistoryPage: vi.fn<HistoryPageReader>().mockReturnValue(pending.promise),
     });
 
     const loading = loader.loadLatest();
     expect(stateStore.getState().messageStream.loadingHistory).toBe(true);
 
     loader.invalidate();
-    pending.resolve(threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "stale-cursor"));
+    pending.resolve(historyPage([message("assistant", "Stale")], "stale-cursor"));
     await loading;
 
     expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
@@ -48,13 +49,13 @@ describe("HistoryController", () => {
   });
 
   it("applies an already returned latest turns page without requesting history", () => {
-    const threadTurnsList = vi.fn();
-    const { loader, stateStore, showLatestPageAtBottom } = historyFixture({ threadTurnsList });
+    const readHistoryPage = vi.fn<HistoryPageReader>();
+    const { loader, stateStore, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
 
-    const applied = loader.applyLatestPage("thread", threadTurnsResponse([turnFixture([assistantMessage("assistant", "Ready")])], "older"));
+    const applied = loader.applyLatestPage("thread", historyPage([message("assistant", "Ready")], "older"));
 
     expect(applied).toBe(true);
-    expect(threadTurnsList).not.toHaveBeenCalled();
+    expect(readHistoryPage).not.toHaveBeenCalled();
     expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([
       expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" }),
     ]);
@@ -63,9 +64,9 @@ describe("HistoryController", () => {
   });
 
   it("ignores already returned latest turns pages for stale threads", () => {
-    const { loader, stateStore } = historyFixture({ threadTurnsList: vi.fn() });
+    const { loader, stateStore } = historyFixture({ readHistoryPage: vi.fn<HistoryPageReader>() });
 
-    const applied = loader.applyLatestPage("other", threadTurnsResponse([turnFixture([assistantMessage("assistant", "Stale")])], "older"));
+    const applied = loader.applyLatestPage("other", historyPage([message("assistant", "Stale")], "older"));
 
     expect(applied).toBe(false);
     expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
@@ -73,13 +74,13 @@ describe("HistoryController", () => {
   });
 
   it("loads older history without coupling message stream replacement to bottom pin state", async () => {
-    const threadTurnsList = vi.fn().mockResolvedValue(threadTurnsResponse([turnFixture([assistantMessage("older", "Older")])], "next"));
-    const { loader, stateStore, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom } = historyFixture({ threadTurnsList });
+    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older")], "next"));
+    const { loader, stateStore, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
     stateStore.dispatch({ type: "message-stream/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
 
     await loader.loadOlder();
 
-    expect(threadTurnsList).toHaveBeenCalledWith("thread", "cursor", 20);
+    expect(readHistoryPage).toHaveBeenCalledWith(expect.anything(), "thread", "cursor", 20);
     expect(chatStateMessageStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "current"]);
     expect(stateStore.getState().messageStream.historyCursor).toBe("next");
     expect(keepCurrentScrollPosition).toHaveBeenCalledOnce();
@@ -88,9 +89,9 @@ describe("HistoryController", () => {
   });
 });
 
-type ThreadTurnsListResponse = Awaited<ReturnType<AppServerClient["threadTurnsList"]>>;
+type HistoryPageReader = NonNullable<HistoryControllerHost["readHistoryPage"]>;
 
-function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) {
+function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<HistoryPageReader>> }) {
   let state = chatStateFixture();
   state = chatStateWith(state, { activeThread: { id: "thread" } });
   const stateStore = createChatStateStore(state);
@@ -100,40 +101,21 @@ function historyFixture(options: { threadTurnsList: ReturnType<typeof vi.fn> }) 
   const showLatestPageAtBottom = vi.fn();
   const loader = new HistoryController({
     stateStore,
-    currentClient: () =>
-      ({
-        threadTurnsList: options.threadTurnsList,
-      }) as unknown as AppServerClient,
+    currentClient: () => ({}) as AppServerClient,
     addSystemMessage,
     keepCurrentScrollPosition,
     showLatestPageAtBottom,
     setThreadTurnPresence: vi.fn(),
+    readHistoryPage: options.readHistoryPage,
   });
   return { loader, stateStore, addSystemMessage, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom };
 }
 
-function threadTurnsResponse(data: TurnRecord[], nextCursor: string | null): ThreadTurnsListResponse {
-  return { data, nextCursor, backwardsCursor: null };
+function historyPage(items: MessageStreamItem[], nextCursor: string | null): ChatThreadHistoryPage {
+  return { items, nextCursor, hadTurns: items.length > 0 };
 }
 
-function turnFixture(items: TurnItem[]): TurnRecord {
-  return {
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    error: null,
-    startedAt: 1,
-    completedAt: 2,
-    durationMs: 1000,
-  };
-}
-
-function assistantMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
-}
-
-function message(id: string, text: string) {
+function message(id: string, text: string): MessageStreamItem {
   return {
     id,
     kind: "message" as const,
@@ -141,5 +123,6 @@ function message(id: string, text: string) {
     text,
     messageKind: "assistantResponse" as const,
     messageState: "completed" as const,
+    turnId: "turn",
   };
 }

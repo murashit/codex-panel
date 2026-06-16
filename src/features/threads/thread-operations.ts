@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../app-server/connection/client";
 import { archiveThreadOnAppServer, type ArchiveThreadResult } from "../../app-server/services/thread-archive";
-import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
+import type { ArchiveExportAdapter } from "../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 

@@ -106,7 +106,6 @@ const turnProtocolGeneratedImportRestrictions = [
 ];
 const chatAppServerProtocolBoundaryFiles = [
   "src/features/chat/app-server/inbound/notification-plan.ts",
-  "src/features/chat/app-server/mappers/message-stream/streaming-items.ts",
   "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
 ];
 const unsafeIteratorRestrictions = [
@@ -228,9 +227,25 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/ui-root.tsx",
 ];
 const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts", "src/shared/ui/dom-events.ts"];
+const appServerProjectionRpcMethodPattern = "^(resumeThread|threadTurnsList|forkThread|rollbackThread)$";
+const appServerProjectionRpcRestrictions = [
+  {
+    selector: `CallExpression[callee.object.name='client'][callee.property.name=/${appServerProjectionRpcMethodPattern}/]`,
+    message:
+      "Keep app-server projection RPCs behind app-server facades; chat application code should consume Panel-owned snapshots or view models.",
+  },
+];
+const appServerClientProjectionTypeRestrictions = [
+  {
+    selector: `TSIndexedAccessType[objectType.typeName.name='AppServerClient'][indexType.literal.value=/${appServerProjectionRpcMethodPattern}/]`,
+    message:
+      "Do not expose app-server projection RPC signatures through AppServerClient indexed access types; define a Panel-owned projection type instead.",
+  },
+];
 const baseSourceSyntaxRestrictions = [
   ...removedChatStateEscapeHatchRestrictions,
   ...generatedAppServerThreadImportRestrictions,
+  ...appServerClientProjectionTypeRestrictions,
   ...unsafeIteratorRestrictions,
   ...preactFormRestrictions,
 ];
@@ -239,7 +254,7 @@ const sourceSyntaxRestrictions = [...sourceSyntaxRestrictionsWithoutUiRoot, ...u
 const chatSourceSyntaxRestrictions = sourceSyntaxRestrictions;
 const chatDomBridgeSyntaxRestrictions = sourceSyntaxRestrictions;
 const nonChatDomBridgeSyntaxRestrictions = sourceSyntaxRestrictions;
-const pureChatStateSyntaxRestrictions = [...sourceSyntaxRestrictions, ...pureChatStateRestrictions];
+const pureChatStateSyntaxRestrictions = [...sourceSyntaxRestrictions, ...appServerProjectionRpcRestrictions, ...pureChatStateRestrictions];
 const codexPanelEslintPlugin = {
   rules: {
     "no-self-referential-initializer-callback": {
@@ -683,6 +698,14 @@ export default defineConfig([
     ignores: ["src/features/chat/panel/shell-state.tsx", ...chatImperativeDomBridgeFiles],
     rules: {
       ...restrictedSyntaxRule(chatSourceSyntaxRestrictions),
+      "codex-panel/no-imperative-dom": "error",
+      "codex-panel/no-chat-state-direct-mutation": "error",
+    },
+  },
+  {
+    files: ["src/features/chat/application/**/*.{ts,tsx}"],
+    rules: {
+      ...restrictedSyntaxRule([...chatSourceSyntaxRestrictions, ...appServerProjectionRpcRestrictions]),
       "codex-panel/no-imperative-dom": "error",
       "codex-panel/no-chat-state-direct-mutation": "error",
     },

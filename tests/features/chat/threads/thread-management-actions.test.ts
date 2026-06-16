@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import { archiveThreadOnAppServer } from "../../../../src/app-server/services/thread-archive";
-import type { ArchiveExportAdapter } from "../../../../src/app-server/services/thread-archive-markdown";
+import type { ArchiveExportAdapter } from "../../../../src/domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import {
@@ -227,7 +227,7 @@ describe("thread management actions", () => {
   });
 
   it("does not archive or replace the panel from stale fork responses", async () => {
-    const fork = deferred<{ thread: { id: string } }>();
+    const fork = deferred<{ thread: ThreadRecord }>();
     const client = clientMock();
     client.forkThread.mockReturnValue(fork.promise);
     const host = hostMock({ client, items: turnItems() });
@@ -264,7 +264,7 @@ describe("thread management actions", () => {
       approvalsReviewer: null,
       activePermissionProfile: null,
     });
-    fork.resolve({ thread: { id: "forked" } });
+    fork.resolve({ thread: { ...archivedThread(), id: "forked", sessionId: "forked", name: null } });
     await pendingFork;
 
     expect(client.archiveThread).not.toHaveBeenCalled();
@@ -488,7 +488,7 @@ function turnItems(): MessageStreamItem[] {
 
 function clientMock() {
   return {
-    forkThread: vi.fn().mockResolvedValue({ thread: { id: "forked" } }),
+    forkThread: vi.fn().mockResolvedValue({ thread: { ...archivedThread(), id: "forked", sessionId: "forked", name: null } }),
     rollbackThread: vi.fn().mockResolvedValue({ thread: rollbackThread() }),
     compactThread: vi.fn().mockResolvedValue({}),
     archiveThread: vi.fn().mockResolvedValue({}),

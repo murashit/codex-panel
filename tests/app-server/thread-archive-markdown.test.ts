@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { exportArchivedThreadMarkdown, type ArchiveExportAdapter } from "../../src/app-server/services/thread-archive-markdown";
-import type { ArchiveThreadInput } from "../../src/domain/threads/archive-markdown";
+import { exportArchivedThreadMarkdown } from "../../src/app-server/services/thread-archive-markdown";
+import type { ArchiveExportAdapter, ArchiveThreadInput } from "../../src/domain/threads/archive-markdown";
 import type { ThreadTranscriptEntry } from "../../src/domain/threads/transcript";
 
 describe("thread archive markdown export service", () => {

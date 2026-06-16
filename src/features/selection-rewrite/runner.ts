@@ -1,10 +1,10 @@
 import {
   type EphemeralStructuredTurnClient,
-  type EphemeralStructuredTurnClientFactory,
   type EphemeralStructuredTurnRuntimeClient,
   runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
+import type { AppServerClientHandlers } from "../../app-server/connection/client";
 import { resolvedRuntimeOverrideForClient } from "../../app-server/services/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
@@ -36,8 +36,8 @@ export interface RunSelectionRewriteOptions {
 
 export type SelectionRewriteActivity = "reasoning" | "writing";
 
-export type SelectionRewriteClient = EphemeralStructuredTurnClient;
-export type SelectionRewriteClientFactory = EphemeralStructuredTurnClientFactory;
+type SelectionRewriteClient = EphemeralStructuredTurnClient & EphemeralStructuredTurnRuntimeClient;
+type SelectionRewriteClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => SelectionRewriteClient;
 
 export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
   let preview = "";
