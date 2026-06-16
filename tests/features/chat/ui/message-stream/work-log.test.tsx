@@ -259,6 +259,7 @@ describe("work log renderer decisions", () => {
           toolName: "hook",
           turnId: "turn",
           status: "completed",
+          executionState: "completed",
           hookRun: {
             eventName: "postToolUse",
             statusMessage: "Formatted 1 file.",
@@ -276,6 +277,7 @@ describe("work log renderer decisions", () => {
     const element = renderMessageBlockElement(block);
 
     expect(topLevelDetailsSummaries(element)).toEqual(["hook"]);
+    expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["hook"]);
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.textContent).not.toContain("Details");
@@ -302,6 +304,7 @@ describe("work log renderer decisions", () => {
           toolName: "hook",
           turnId: "turn",
           status: "completed",
+          executionState: "completed",
           hookRun: {
             eventName: "postToolUse",
             statusMessage: "Formatted 1 file.",
@@ -328,6 +331,7 @@ describe("work log renderer decisions", () => {
 
     expect(element).toBeDefined();
     expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details: hook");
+    expect(element.querySelector(".codex-panel__tool-item--hook")?.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");

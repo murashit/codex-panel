@@ -12,6 +12,7 @@ import {
   createAutoReviewResultItem,
   createReviewResultItem,
 } from "../../../../src/features/chat/app-server/mappers/message-stream/review-result-items";
+import { hookRunMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/hook-run-items";
 import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
@@ -1437,6 +1438,8 @@ describe("execution state uses typed status adapters before rendered text", () =
     ).toMatchObject({ executionState: "running" });
     expect(autoReviewItem("approved")).toMatchObject({ executionState: "completed" });
     expect(autoReviewItem("timedOut")).toMatchObject({ executionState: "failed" });
+    expect(hookRunMessageStreamItem(hookRun(), "turn", "completed")).toMatchObject({ executionState: "completed" });
+    expect(hookRunMessageStreamItem(hookRun(), "turn", "stopped")).toMatchObject({ executionState: "failed" });
     expect(collabAgentStateExecutionState("inProgress")).toBe("running");
     expect(collabAgentStateExecutionState("failed")).toBe("failed");
   });
@@ -1568,4 +1571,15 @@ function autoReviewItem(status: string): MessageStreamItem {
     review: { status, riskLevel: "low", userAuthorization: "medium", rationale: "Allowed by policy." },
     action: { type: "applyPatch", cwd: "/vault", files: ["/vault/src/main.ts"] },
   });
+}
+
+function hookRun() {
+  return {
+    id: "hook-1",
+    eventName: "postToolUse",
+    statusMessage: "Formatted 1 file.",
+    startedAt: 1n,
+    durationMs: 1n,
+    entries: [{ kind: "feedback", text: "ok" }],
+  };
 }

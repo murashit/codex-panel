@@ -1,5 +1,5 @@
 import { definedProp } from "../../../../../utils";
-import type { HookMessageStreamItem } from "../../../domain/message-stream/items";
+import type { ExecutionState, HookMessageStreamItem } from "../../../domain/message-stream/items";
 
 interface MessageStreamHookRun {
   id: string;
@@ -9,6 +9,17 @@ interface MessageStreamHookRun {
   durationMs: { toString(): string } | number | bigint | null;
   entries: readonly { kind: string; text: string }[];
 }
+
+type MessageStreamExecutionState = Exclude<ExecutionState, null>;
+type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
+
+const HOOK_RUN_STATES = {
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  blocked: "failed",
+  stopped: "failed",
+} as const satisfies ExecutionStateByStatus;
 
 export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: string | null, status: string): HookMessageStreamItem | null {
   if (run.id.length === 0) return null;
@@ -25,6 +36,7 @@ export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: stri
     sourceItemId: displayId,
     provenance: { source: "appServer", channel: "notification", event: "hookRun", sourceItemId: displayId },
     status,
+    executionState: hookRunExecutionState(status),
     hookRun: {
       eventName,
       ...definedProp("statusMessage", run.statusMessage ?? undefined),
@@ -33,6 +45,14 @@ export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: stri
     },
     output: "",
   };
+}
+
+function hookRunExecutionState(status: string): ExecutionState {
+  return executionStateFromStatus(status, HOOK_RUN_STATES);
+}
+
+function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
+  return states[status] ?? null;
 }
 
 function hookRunDisplayId(run: MessageStreamHookRun): string {

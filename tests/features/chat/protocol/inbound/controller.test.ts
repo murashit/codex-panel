@@ -268,6 +268,7 @@ describe("ChatInboundController", () => {
           operation: "postToolUse",
           primaryTarget: { kind: "value", value: "Formatted 1 file." },
           status: "completed",
+          executionState: "completed",
           output: "",
           hookRun: {
             eventName: "postToolUse",
