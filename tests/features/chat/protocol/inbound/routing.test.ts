@@ -44,14 +44,16 @@ describe("chat inbound routing", () => {
     expect(routeServerNotification(notification, { activeThreadId: "thread-active", activeTurnId: "turn-other" }).kind).toBe("inactive");
   });
 
-  it("routes thread-started notifications for the active thread", () => {
+  it("routes thread-started notifications as global thread catalog events", () => {
     const notification = {
       method: "thread/started",
       params: { thread: threadSnapshot("thread-active") },
     } satisfies Extract<ServerNotification, { method: "thread/started" }>;
 
     expect(routeServerNotification(notification, activeScope).kind).toBe("threadLifecycle");
-    expect(routeServerNotification(notification, { activeThreadId: "thread-other", activeTurnId: "turn-active" }).kind).toBe("inactive");
+    expect(routeServerNotification(notification, { activeThreadId: "thread-other", activeTurnId: "turn-active" }).kind).toBe(
+      "threadLifecycle",
+    );
   });
 
   it("classifies every active-thread server request method and extracts its scope", () => {

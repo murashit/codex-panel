@@ -1,5 +1,6 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
+import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
@@ -40,7 +41,9 @@ export interface ChatInboundControllerActions {
   refreshSkills: (forceReload?: boolean) => void;
   applyAppServerMetadataSnapshot: () => void;
   maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
+  upsertActiveThread: (thread: Thread) => void;
   applyThreadArchived: (threadId: string) => void;
+  recordActiveThreadDeleted: (threadId: string) => void;
   applyThreadRenamed: (threadId: string, name: string | null) => void;
   recordMcpStartupStatus: (name: string, status: McpServerStartupStatus, message: string | null) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
@@ -199,8 +202,14 @@ export class ChatInboundController {
       case "maybe-name-thread":
         this.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);
         return;
+      case "upsert-active-thread":
+        this.actions.upsertActiveThread(effect.thread);
+        return;
       case "apply-thread-archived":
         this.actions.applyThreadArchived(effect.threadId);
+        return;
+      case "record-active-thread-deleted":
+        this.actions.recordActiveThreadDeleted(effect.threadId);
         return;
       case "apply-thread-renamed":
         this.actions.applyThreadRenamed(effect.threadId, effect.name);

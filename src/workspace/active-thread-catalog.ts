@@ -21,15 +21,31 @@ export interface ActiveThreadCatalogReader {
   observe(observer: ActiveThreadObserver, options?: { emitCurrent?: boolean }): () => void;
 }
 
-export interface ActiveThreadCatalogMutations {
+export interface ActiveThreadCatalogSourceReplacement {
   replaceFromAppServer(threads: readonly Thread[]): void;
+}
+
+export interface ActiveThreadCatalogThreadUpserts {
   upsertFromAppServer(thread: Thread): void;
+}
+
+export interface ActiveThreadCatalogThreadEvents {
   recordThreadRenamed(threadId: string, name: string | null): void;
   recordThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
+  recordThreadDeleted(threadId: string): void;
+}
+
+export interface ActiveThreadCatalogThreadRestores {
   recordThreadRestored(thread: Thread): void;
 }
 
-export interface ActiveThreadCatalog extends ActiveThreadCatalogReader, ActiveThreadCatalogMutations {}
+export interface ActiveThreadCatalog
+  extends
+    ActiveThreadCatalogReader,
+    ActiveThreadCatalogSourceReplacement,
+    ActiveThreadCatalogThreadUpserts,
+    ActiveThreadCatalogThreadEvents,
+    ActiveThreadCatalogThreadRestores {}
 
 export function createActiveThreadCatalog(options: ActiveThreadCatalogOptions): ActiveThreadCatalog {
   return {
@@ -52,6 +68,9 @@ export function createActiveThreadCatalog(options: ActiveThreadCatalogOptions): 
     recordThreadArchived: (threadId, archiveOptions) => {
       options.queries.updateActiveThreads((current) => (current ? current.filter((thread) => thread.id !== threadId) : null));
       options.surfaces.applyThreadArchived(threadId, archiveOptions);
+    },
+    recordThreadDeleted: (threadId) => {
+      options.queries.updateActiveThreads((current) => (current ? current.filter((thread) => thread.id !== threadId) : null));
     },
     recordThreadRestored: (thread) => {
       options.queries.updateActiveThreads((current) => upsertThread(current ?? [], thread));

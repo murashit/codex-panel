@@ -29,7 +29,9 @@ function controllerForState(
       refreshSkills: vi.fn(),
       applyAppServerMetadataSnapshot: vi.fn(),
       maybeNameThread: vi.fn(),
+      upsertActiveThread: vi.fn(),
       applyThreadArchived: vi.fn(),
+      recordActiveThreadDeleted: vi.fn(),
       applyThreadRenamed: vi.fn(),
       recordMcpStartupStatus: vi.fn(),
       respondToServerRequest: vi.fn(() => true),
@@ -1110,11 +1112,26 @@ describe("ChatInboundController", () => {
       expect(applyThreadArchived).toHaveBeenCalledWith("thread-active");
     });
 
-    it("does not replace the active cwd from unrelated thread-started notifications", () => {
+    it("records deleted thread notifications in the active catalog", () => {
+      const recordActiveThreadDeleted = vi.fn();
+      const refreshActiveThreads = vi.fn();
+      const controller = controllerForState(chatStateFixture(), { recordActiveThreadDeleted, refreshActiveThreads });
+
+      controller.handleNotification({
+        method: "thread/deleted",
+        params: { threadId: "thread-active" },
+      } satisfies Extract<ServerNotification, { method: "thread/deleted" }>);
+
+      expect(recordActiveThreadDeleted).toHaveBeenCalledWith("thread-active");
+      expect(refreshActiveThreads).not.toHaveBeenCalled();
+    });
+
+    it("records unrelated thread-started notifications without replacing the active cwd", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
-      const controller = controllerForState(state);
+      const upsertActiveThread = vi.fn();
+      const controller = controllerForState(state, { upsertActiveThread });
 
       controller.handleNotification({
         method: "thread/started",
@@ -1122,12 +1139,14 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(controller.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(upsertActiveThread).toHaveBeenCalledWith(expect.objectContaining({ id: "thread-other" }));
     });
 
     it("records cwd from active thread-started notifications", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const controller = controllerForState(state);
+      const upsertActiveThread = vi.fn();
+      const controller = controllerForState(state, { upsertActiveThread });
 
       controller.handleNotification({
         method: "thread/started",
@@ -1135,6 +1154,7 @@ describe("ChatInboundController", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(controller.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(upsertActiveThread).toHaveBeenCalledWith(expect.objectContaining({ id: "thread-active" }));
     });
 
     it("replaces optimistic user echoes when completed turns are reconciled", () => {

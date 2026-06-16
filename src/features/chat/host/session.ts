@@ -1178,8 +1178,14 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       maybeNameThread: (threadId, turnId, completedSummary) => {
         autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
       },
+      upsertActiveThread: (thread) => {
+        environment.plugin.threadCatalog.upsertFromAppServer(thread);
+      },
       applyThreadArchived: (threadId) => {
         environment.plugin.threadCatalog.recordThreadArchived(threadId);
+      },
+      recordActiveThreadDeleted: (threadId) => {
+        environment.plugin.threadCatalog.recordThreadDeleted(threadId);
       },
       applyThreadRenamed: (threadId, name) => {
         environment.plugin.threadCatalog.recordThreadRenamed(threadId, name);

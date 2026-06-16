@@ -6,7 +6,6 @@ import type { Thread } from "../../src/domain/threads/model";
 import { createActiveThreadCatalog } from "../../src/workspace/active-thread-catalog";
 
 interface MockSurfaceActions {
-  refreshOpenViews: Mock<() => void>;
   applyThreadArchived: Mock<(threadId: string, options?: { closeOpenPanels?: boolean }) => void>;
   applyThreadRenamed: Mock<(threadId: string, name: string | null) => void>;
 }
@@ -69,6 +68,19 @@ describe("ActiveThreadCatalog", () => {
     expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
   });
 
+  it("applies known delete mutations to cache without archive surface effects", () => {
+    const { catalog, surfaces } = catalogFixture();
+    const listener = vi.fn();
+    catalog.observe(listener);
+    catalog.replaceFromAppServer([thread("thread"), thread("other")]);
+
+    catalog.recordThreadDeleted("thread");
+
+    expect(catalog.snapshot()).toEqual([thread("other")]);
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("other")] }));
+    expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
+  });
+
   it("upserts started, forked, and restored threads without replacing the whole catalog", () => {
     const { catalog } = catalogFixture();
     catalog.replaceFromAppServer([thread("existing")]);
@@ -92,7 +104,7 @@ function catalogFixture(
     queries,
     surfaces,
   });
-  return { catalog, queries, surfaces };
+  return { catalog, surfaces };
 }
 
 function cacheWithThreads(
@@ -114,7 +126,6 @@ function cacheWithThreads(
 
 function surfaceActions(): MockSurfaceActions {
   return {
-    refreshOpenViews: vi.fn(),
     applyThreadArchived: vi.fn(),
     applyThreadRenamed: vi.fn(),
   };

@@ -14,11 +14,15 @@ import type { SharedServerMetadata } from "../../../src/domain/server/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../src/domain/runtime/config";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
+import type { ActiveThreadCatalogSourceReplacement } from "../../../src/workspace/active-thread-catalog";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
+type TestCodexChatHost = CodexChatHost & {
+  threadCatalog: CodexChatHost["threadCatalog"] & ActiveThreadCatalogSourceReplacement;
+};
 
 const connectionMock = vi.hoisted(() => {
   const state = {
@@ -1326,8 +1330,9 @@ interface ChatHostFixtureOverrides {
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   refreshThreadsViewLiveState?: CodexChatHost["workspace"]["refreshThreadsViewLiveState"];
   recordThreadArchived?: CodexChatHost["threadCatalog"]["recordThreadArchived"];
+  recordThreadDeleted?: CodexChatHost["threadCatalog"]["recordThreadDeleted"];
   recordThreadRenamed?: CodexChatHost["threadCatalog"]["recordThreadRenamed"];
-  replaceFromAppServer?: CodexChatHost["threadCatalog"]["replaceFromAppServer"];
+  replaceFromAppServer?: ActiveThreadCatalogSourceReplacement["replaceFromAppServer"];
   upsertFromAppServer?: CodexChatHost["threadCatalog"]["upsertFromAppServer"];
   updateAppServerMetadata?: CodexChatHost["appServerData"]["updateAppServerMetadata"];
   refresh?: CodexChatHost["threadCatalog"]["refresh"];
@@ -1339,7 +1344,7 @@ interface ChatHostFixtureOverrides {
   refreshAppServerMetadata?: CodexChatHost["appServerData"]["refreshAppServerMetadata"];
 }
 
-function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
+function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   let activeThreads = overrides.snapshot?.() ?? null;
   let metadata = overrides.appServerMetadataSnapshot?.() ?? null;
   const models = overrides.modelsSnapshot?.() ?? null;
@@ -1442,6 +1447,14 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
             for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
           }
         }),
+      recordThreadDeleted:
+        overrides.recordThreadDeleted ??
+        ((threadId) => {
+          activeThreads = activeThreads?.filter((thread) => thread.id !== threadId) ?? null;
+          if (activeThreads) {
+            for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
+          }
+        }),
       recordThreadRenamed:
         overrides.recordThreadRenamed ??
         ((threadId, name) => {
@@ -1482,7 +1495,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
           activeThreadResultListeners.delete(listener);
         };
       },
-      recordThreadRestored: vi.fn(),
     },
   };
 }

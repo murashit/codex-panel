@@ -867,10 +867,6 @@ function settingsTabHost(
       notifyContextChanged: options.notifyContextChanged ?? vi.fn(),
     },
     threadCatalog: {
-      replaceFromAppServer: vi.fn(),
-      upsertFromAppServer: vi.fn(),
-      recordThreadRenamed: vi.fn(),
-      recordThreadArchived: vi.fn(),
       recordThreadRestored: options.recordThreadRestored ?? vi.fn(),
     },
   };

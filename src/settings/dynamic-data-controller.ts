@@ -9,7 +9,7 @@ import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
-import type { ActiveThreadCatalogMutations } from "../workspace/active-thread-catalog";
+import type { ActiveThreadCatalogThreadRestores } from "../workspace/active-thread-catalog";
 import { archivedThreadDisplayTitle } from "./archived-thread-title";
 import { loadHookData, loadSettingsCompanionData } from "./app-server-data";
 import {
@@ -33,7 +33,7 @@ type SettingsAppServerData = Pick<
   "modelsSnapshot" | "observeModelsResult" | "fetchModels" | "refreshModels" | "notifyContextChanged"
 >;
 
-type SettingsThreadCatalog = ActiveThreadCatalogMutations;
+type SettingsThreadCatalog = ActiveThreadCatalogThreadRestores;
 
 function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: string): string {
   return thread ? archivedThreadDisplayTitle(thread) : threadId;

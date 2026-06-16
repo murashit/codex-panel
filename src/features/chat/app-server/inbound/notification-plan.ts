@@ -1,9 +1,10 @@
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
+import { threadFromThreadRecord } from "../../../../app-server/protocol/thread";
 import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
-import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
+import { normalizeExplicitThreadName, type Thread } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../utils";
 import {
@@ -54,7 +55,9 @@ export type ChatNotificationEffect =
   | { type: "refresh-skills"; forceReload: boolean }
   | { type: "apply-app-server-metadata-snapshot" }
   | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ThreadConversationSummary | null }
+  | { type: "upsert-active-thread"; thread: Thread }
   | { type: "apply-thread-archived"; threadId: string }
+  | { type: "record-active-thread-deleted"; threadId: string }
   | { type: "apply-thread-renamed"; threadId: string; name: string | null }
   | {
       type: "record-mcp-startup-status";
@@ -248,16 +251,25 @@ const TURN_LIFECYCLE_PLANNERS = {
 
 const THREAD_LIFECYCLE_PLANNERS = {
   "thread/started": (state, notification) => {
+    const effects: ChatNotificationEffect[] = [
+      {
+        type: "upsert-active-thread",
+        thread: threadFromThreadRecord(notification.params.thread),
+      },
+    ];
     if (!state.activeThread.id || state.activeThread.id === notification.params.thread.id) {
-      return actionPlan({ type: "active-thread/cwd-set", cwd: notification.params.thread.cwd });
+      return { actions: [{ type: "active-thread/cwd-set", cwd: notification.params.thread.cwd }], effects };
     }
-    return EMPTY_PLAN;
+    return { actions: [], effects };
   },
   "thread/archived": (_state, notification) => ({
     actions: [],
     effects: [{ type: "apply-thread-archived", threadId: notification.params.threadId }],
   }),
-  "thread/deleted": () => ({ actions: [], effects: [{ type: "refresh-threads" }] }),
+  "thread/deleted": (_state, notification) => ({
+    actions: [],
+    effects: [{ type: "record-active-thread-deleted", threadId: notification.params.threadId }],
+  }),
   "thread/unarchived": () => ({ actions: [], effects: [{ type: "refresh-threads" }] }),
   "thread/name/updated": (_state, notification) => {
     const name = normalizeExplicitThreadName(notification.params.threadName);

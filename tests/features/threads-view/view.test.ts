@@ -426,10 +426,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     getOpenPanelSnapshots: vi.fn(() => []),
     threadCatalog: {
       recordThreadArchived: vi.fn(),
+      recordThreadDeleted: vi.fn(),
       recordThreadRenamed: vi.fn(),
-      replaceFromAppServer: vi.fn(),
-      upsertFromAppServer: vi.fn(),
-      recordThreadRestored: vi.fn(),
       load: vi.fn(async () => []),
       refresh: vi.fn(async () => {
         const client = connectionMock.state.client;

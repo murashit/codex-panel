@@ -7,7 +7,7 @@ import { ConnectionManager, type ConnectionManagerHandlers, StaleConnectionError
 import type { Thread } from "../../domain/threads/model";
 import type { CodexPanelSettings } from "../../settings/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
-import type { ActiveThreadCatalog } from "../../workspace/active-thread-catalog";
+import type { ActiveThreadCatalogReader, ActiveThreadCatalogThreadEvents } from "../../workspace/active-thread-catalog";
 import { ConnectionWorkTracker } from "../../shared/lifecycle/connection-work";
 import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
@@ -40,7 +40,7 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
 }
 
-type ThreadsThreadCatalog = ActiveThreadCatalog;
+type ThreadsThreadCatalog = ActiveThreadCatalogReader & ActiveThreadCatalogThreadEvents;
 
 export interface CodexThreadsSessionEnvironment {
   root: HTMLElement;

@@ -49,6 +49,7 @@ type ServerRequestScopeExtractors = {
 };
 
 const GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS = [
+  "thread/started",
   "thread/archived",
   "thread/deleted",
   "thread/unarchived",

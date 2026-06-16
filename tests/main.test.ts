@@ -633,10 +633,9 @@ function chatHostFixture(): CodexChatHost {
     },
     threadCatalog: {
       recordThreadArchived: vi.fn(),
+      recordThreadDeleted: vi.fn(),
       recordThreadRenamed: vi.fn(),
-      replaceFromAppServer: vi.fn(),
       upsertFromAppServer: vi.fn(),
-      recordThreadRestored: vi.fn(),
       load: vi.fn(() => Promise.resolve([])),
       refresh: vi.fn(() => Promise.resolve([])),
       snapshot: vi.fn(() => null),
