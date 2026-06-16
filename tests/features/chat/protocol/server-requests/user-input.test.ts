@@ -32,6 +32,7 @@ describe("user input model", () => {
             options: [{ label: "Recommended", description: "Use the default path" }],
           },
         ],
+        autoResolutionMs: null,
       },
     };
 
@@ -64,6 +65,7 @@ describe("user input model", () => {
               options: [{ label: "Recommended", description: "Use the default path" }],
             },
           ],
+          autoResolutionMs: null,
         },
       }),
     );

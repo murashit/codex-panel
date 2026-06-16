@@ -269,6 +269,7 @@ export function pendingUserInput(): PendingUserInput {
           options: [{ label: "Narrow", description: "Small change" }],
         },
       ],
+      autoResolutionMs: null,
     },
   };
 }

@@ -153,6 +153,8 @@ function messageStreamItemFromTurnItemData(item: TurnItem, turnId?: string): Mes
       return imageViewMessageStreamItem(item, turnId);
     case "imageGeneration":
       return imageGenerationMessageStreamItem(item, turnId);
+    case "subAgentActivity":
+      return null;
     case "enteredReviewMode":
     case "exitedReviewMode":
       return reviewModeMessageStreamItem(item, turnId);

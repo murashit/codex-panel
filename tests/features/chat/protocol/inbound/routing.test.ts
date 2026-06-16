@@ -294,6 +294,7 @@ function userInputRequest(
       turnId: "turn-active",
       itemId: "input",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+      autoResolutionMs: null,
       ...overrides,
     },
   };

@@ -48,7 +48,12 @@ type ServerRequestScopeExtractors = {
   [Method in ServerRequestMethod]: (request: Extract<ServerRequest, { method: Method }>) => MessageScope;
 };
 
-const GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS = ["thread/archived", "thread/unarchived", "thread/name/updated"] as const;
+const GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS = [
+  "thread/archived",
+  "thread/deleted",
+  "thread/unarchived",
+  "thread/name/updated",
+] as const;
 
 const STREAM_UPDATE_NOTIFICATION_METHODS = [
   "item/agentMessage/delta",
@@ -80,6 +85,7 @@ export type TurnLifecycleNotificationMethod = (typeof TURN_LIFECYCLE_NOTIFICATIO
 const THREAD_LIFECYCLE_NOTIFICATION_METHODS = [
   "thread/started",
   "thread/archived",
+  "thread/deleted",
   "thread/unarchived",
   "thread/name/updated",
   "thread/goal/updated",
@@ -123,6 +129,7 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
   "thread/started": threadStartedNotificationScope,
   "thread/status/changed": threadOnlyNotificationScope,
   "thread/archived": threadOnlyNotificationScope,
+  "thread/deleted": threadOnlyNotificationScope,
   "thread/unarchived": threadOnlyNotificationScope,
   "thread/closed": threadOnlyNotificationScope,
   "skills/changed": unscopedNotificationScope,

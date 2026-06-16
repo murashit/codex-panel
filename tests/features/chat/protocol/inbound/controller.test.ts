@@ -736,6 +736,7 @@ describe("ChatInboundController", () => {
               options: [{ label: "Narrow", description: "Small change" }],
             },
           ],
+          autoResolutionMs: null,
         },
       });
 
@@ -765,6 +766,7 @@ describe("ChatInboundController", () => {
           turnId: "turn-active",
           itemId: "input-1",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          autoResolutionMs: null,
         },
       });
 
@@ -907,6 +909,7 @@ describe("ChatInboundController", () => {
           turnId: "turn-active",
           itemId: "input",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          autoResolutionMs: null,
         },
       });
       controller.handleServerRequest({
@@ -917,6 +920,7 @@ describe("ChatInboundController", () => {
           turnId: "turn-other",
           itemId: "input",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          autoResolutionMs: null,
         },
       });
 
@@ -951,6 +955,7 @@ describe("ChatInboundController", () => {
           turnId: "turn-stale",
           itemId: "input",
           questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+          autoResolutionMs: null,
         },
       });
 
@@ -1000,6 +1005,7 @@ describe("ChatInboundController", () => {
                 turnId: "turn-active",
                 itemId: "input",
                 questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+                autoResolutionMs: null,
               },
             },
           ],
@@ -1084,6 +1090,7 @@ describe("ChatInboundController", () => {
                 turnId: "turn-active",
                 itemId: "input",
                 questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+                autoResolutionMs: null,
               },
             },
           ],
@@ -1858,6 +1865,7 @@ function userInputRequest(id: number): ServerRequest {
       turnId: "turn",
       itemId: "input",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+      autoResolutionMs: null,
     },
   };
 }

@@ -97,6 +97,7 @@ export interface PendingUserInputParams {
   turnId: string;
   itemId: string;
   questions: PendingUserInputQuestion[];
+  autoResolutionMs: number | null;
 }
 
 export interface PendingUserInput {

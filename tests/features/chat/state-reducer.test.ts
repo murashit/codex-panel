@@ -782,6 +782,7 @@ function userInput(requestId: number): ChatState["requests"]["pendingUserInputs"
       turnId: "turn",
       itemId: "input",
       questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
+      autoResolutionMs: null,
     },
   };
 }

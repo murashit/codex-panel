@@ -55,6 +55,7 @@ function userInputRequest(): ServerRequest {
           options: [{ label: "Recommended", description: "Use the default path" }],
         },
       ],
+      autoResolutionMs: null,
     },
   };
 }

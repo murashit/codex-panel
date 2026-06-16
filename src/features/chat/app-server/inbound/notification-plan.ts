@@ -257,6 +257,7 @@ const THREAD_LIFECYCLE_PLANNERS = {
     actions: [],
     effects: [{ type: "apply-thread-archived", threadId: notification.params.threadId }],
   }),
+  "thread/deleted": () => ({ actions: [], effects: [{ type: "refresh-threads" }] }),
   "thread/unarchived": () => ({ actions: [], effects: [{ type: "refresh-threads" }] }),
   "thread/name/updated": (_state, notification) => {
     const name = normalizeExplicitThreadName(notification.params.threadName);
