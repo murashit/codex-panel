@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { compareVersions, isExpectedNextVersion, parseVersion, readJson } from "./utils.mjs";
+import { compareVersions, isExpectedNextVersion, parseVersion, readJson } from "../utils.mjs";
 
 function fail(message) {
   console.error(`release check failed: ${message}`);

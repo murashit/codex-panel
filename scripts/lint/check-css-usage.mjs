@@ -9,7 +9,7 @@ const validArgs = new Set(["--fail-on-candidates"]);
 
 for (const arg of args) {
   if (!validArgs.has(arg)) {
-    console.error("Usage: node scripts/check-css-usage.mjs [--fail-on-candidates]");
+    console.error("Usage: node scripts/lint/check-css-usage.mjs [--fail-on-candidates]");
     process.exit(1);
   }
 }

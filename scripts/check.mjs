@@ -5,13 +5,9 @@ const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const checks = [
   { local: "typecheck", ci: "typecheck:ci", localPhase: "parallel" },
   { local: "test", ci: "test:ci", localPhase: "parallel" },
-  { local: "lint:ts", ci: "lint:ts:ci", localPhase: "parallel" },
-  { local: "lint:css", ci: "lint:css", localPhase: "parallel" },
-  { local: "lint:css:usage:check", ci: null, localPhase: "parallel" },
-  { local: "lint:deps", ci: "lint:deps", localPhase: "parallel" },
+  { local: "lint", ci: "lint:ci", localPhase: "parallel" },
   { local: "format:check", ci: "format:check:ci", localPhase: "parallel" },
   { local: "build:styles:check", ci: "build:styles:check", localPhase: "parallel" },
-  { local: "unused", ci: "unused", localPhase: "parallel" },
   { local: "build", ci: "build", localPhase: "sequential" },
 ];
 

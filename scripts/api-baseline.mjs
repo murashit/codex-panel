@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { readJson } from "./release/utils.mjs";
+import { readJson } from "./utils.mjs";
 
 const args = new Set(process.argv.slice(2));
 const shouldCheck = args.has("--check");

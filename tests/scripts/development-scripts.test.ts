@@ -14,9 +14,7 @@ describe("development scripts", () => {
       scripts: {
         "typecheck:ci": "node fail.mjs",
         "test:ci": 'node -e "process.exit(0)"',
-        "lint:ts:ci": 'node -e "process.exit(0)"',
-        "lint:css": 'node -e "process.exit(0)"',
-        "lint:deps": 'node -e "process.exit(0)"',
+        "lint:ci": 'node -e "process.exit(0)"',
         "format:check:ci": 'node -e "process.exit(0)"',
         build: 'node -e "process.exit(0)"',
       },
@@ -164,7 +162,7 @@ describe("development scripts", () => {
       "src/b.ts": 'import { a } from "./a";\nexport const b = a;\n',
     });
 
-    const result = runNodeScript("scripts/check-import-cycles.mjs", [], cwd);
+    const result = runNodeScript("scripts/lint/check-import-cycles.mjs", [], cwd);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("found 1 cycle");
@@ -178,7 +176,7 @@ describe("development scripts", () => {
       "src/b.ts": 'import type { A } from "./a";\nexport interface B { a?: A }\n',
     });
 
-    const result = runNodeScript("scripts/check-import-cycles.mjs", [], cwd);
+    const result = runNodeScript("scripts/lint/check-import-cycles.mjs", [], cwd);
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("No import cycles found.");
@@ -191,7 +189,7 @@ describe("development scripts", () => {
       "src/b.ts": 'import { a, type A } from "./a";\nexport interface B { a?: A }\nexport const b = a;\n',
     });
 
-    const result = runNodeScript("scripts/check-import-cycles.mjs", [], cwd);
+    const result = runNodeScript("scripts/lint/check-import-cycles.mjs", [], cwd);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("found 1 cycle");

@@ -1,4 +1,4 @@
-import noSpecificityWhere from "./scripts/stylelint-no-specificity-where.mjs";
+import noSpecificityWhere from "./scripts/lint/stylelint-no-specificity-where.mjs";
 
 export default {
   extends: ["stylelint-config-standard"],

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { compareVersions, isExpectedNextVersion, parseVersion, readJson, writeJson } from "./utils.mjs";
+import { compareVersions, isExpectedNextVersion, parseVersion, readJson, writeJson } from "../utils.mjs";
 
 function fail(message) {
   console.error(`release prepare failed: ${message}`);

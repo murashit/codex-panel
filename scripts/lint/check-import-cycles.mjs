@@ -2,7 +2,7 @@ import path from "node:path";
 import ts from "typescript";
 
 if (process.argv.length > 2) {
-  console.error("Usage: node scripts/check-import-cycles.mjs");
+  console.error("Usage: node scripts/lint/check-import-cycles.mjs");
   process.exit(1);
 }
 
