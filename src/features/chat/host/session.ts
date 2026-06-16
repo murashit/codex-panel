@@ -13,8 +13,8 @@ import { getThreadTitle } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { shortThreadId } from "../../../utils";
-import { ThreadOperations } from "../../threads/thread-operations";
-import { ThreadTitleService } from "../../threads/thread-title-service";
+import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
+import { createThreadTitleService, type ThreadTitleService } from "../../threads/thread-title-service";
 import { PendingRequestController } from "../application/pending-requests/controller";
 import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
@@ -619,7 +619,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
 
   private createThreadTitleService(currentClient: CurrentAppServerClient): ThreadTitleService {
     const environment = this.environment;
-    return new ThreadTitleService({
+    return createThreadTitleService({
       settings: {
         current: () => environment.plugin.settingsRef.settings,
         vaultPath: environment.plugin.settingsRef.vaultPath,
@@ -669,7 +669,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
 
   private createThreadOperations(currentClient: CurrentAppServerClient, ensureConnected: () => Promise<void>): ThreadOperations {
     const environment = this.environment;
-    return new ThreadOperations({
+    return createThreadOperations({
       connection: {
         ensureConnected,
         currentClient,

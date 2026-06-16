@@ -4,7 +4,7 @@ import type { AppServerClient } from "../../../src/app-server/connection/client"
 import type { ArchiveThreadResult } from "../../../src/app-server/services/thread-archive";
 import type { ArchiveExportAdapter } from "../../../src/app-server/services/thread-archive-markdown";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import { ThreadOperations, type ThreadOperationsHost } from "../../../src/features/threads/thread-operations";
+import { createThreadOperations, type ThreadOperationsHost } from "../../../src/features/threads/thread-operations";
 
 const archiveMock = vi.hoisted(() => ({
   archiveThreadOnAppServer: vi.fn(),
@@ -77,7 +77,7 @@ function operationsFixture(options: { client?: MockClient | null } = {}) {
     catalog,
     notice,
   };
-  return { operations: new ThreadOperations(host), client, catalog, notice };
+  return { operations: createThreadOperations(host), client, catalog, notice };
 }
 
 type MockClient = ReturnType<typeof clientMock>;

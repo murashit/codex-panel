@@ -10,8 +10,8 @@ import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot
 import type { SharedThreadCatalog } from "../../workspace/shared-thread-catalog";
 import { ConnectionWorkTracker } from "../../shared/lifecycle/connection-work";
 import type { ArchiveExportAdapter } from "../../app-server/services/thread-archive-markdown";
-import { ThreadOperations } from "../threads/thread-operations";
-import { ThreadTitleService } from "../threads/thread-title-service";
+import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
+import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
   completedThreadAutoNameState,
@@ -77,7 +77,7 @@ export class CodexThreadsSession {
   constructor(private readonly environment: CodexThreadsSessionEnvironment) {
     this.deferredTasks = createThreadsViewDeferredTasks(() => this.viewWindow());
     this.connection = new ConnectionManager(() => this.host.settings.codexPath, this.host.vaultPath);
-    this.operations = new ThreadOperations({
+    this.operations = createThreadOperations({
       connection: {
         ensureConnected: () => this.ensureConnected(),
         currentClient: () => this.client,
@@ -92,7 +92,7 @@ export class CodexThreadsSession {
         new Notice(message);
       },
     });
-    this.titleService = new ThreadTitleService({
+    this.titleService = createThreadTitleService({
       settings: {
         current: () => this.host.settings,
         vaultPath: this.host.vaultPath,

@@ -5,7 +5,7 @@ import { createChatStateStore } from "../../../../src/features/chat/application/
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { AutoTitleController } from "../../../../src/features/chat/application/threads/auto-title-controller";
 import { threadTitleContextFromMessageStreamItems } from "../../../../src/features/chat/application/threads/title-context";
-import { ThreadTitleService } from "../../../../src/features/threads/thread-title-service";
+import { createThreadTitleService } from "../../../../src/features/threads/thread-title-service";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { ThreadTitleContext } from "../../../../src/domain/threads/title-generation-model";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
@@ -134,7 +134,7 @@ function controllerFixture(
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
   const currentClient = overrides.currentClient ?? (() => fakeClient());
   const notifyThreadRenamed = vi.fn();
-  const titleService = new ThreadTitleService({
+  const titleService = createThreadTitleService({
     settings: {
       current: () => ({ ...DEFAULT_SETTINGS, codexPath: "codex" }),
       vaultPath: "/vault",

@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../src/app-server/connection/client";
 import { THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE, type ThreadTitleContext } from "../../../src/domain/threads/title-generation-model";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import { ThreadTitleService } from "../../../src/features/threads/thread-title-service";
+import {
+  createThreadTitleService,
+  type ThreadTitleService,
+  type ThreadTitleServiceHost,
+} from "../../../src/features/threads/thread-title-service";
 
 describe("ThreadTitleService", () => {
   it("generates a title from visible context without saving it", async () => {
@@ -45,8 +49,8 @@ describe("ThreadTitleService", () => {
   });
 });
 
-function titleService(options: Partial<ConstructorParameters<typeof ThreadTitleService>[0]> = {}): ThreadTitleService {
-  return new ThreadTitleService({
+function titleService(options: Partial<ThreadTitleServiceHost> = {}): ThreadTitleService {
+  return createThreadTitleService({
     settings: {
       current: () => ({ ...DEFAULT_SETTINGS, codexPath: "codex" }),
       vaultPath: "/vault",

@@ -21,57 +21,79 @@ export interface ThreadOperationsHost {
   notice(message: string): void;
 }
 
-export interface ArchiveThreadOptions {
+interface ArchiveThreadOptions {
   saveMarkdown?: boolean;
   closeOpenPanels?: boolean;
 }
 
-export interface RenameThreadOptions {
+interface RenameThreadOptions {
   shouldPublish?: () => boolean;
 }
 
-export class ThreadOperations {
-  constructor(private readonly host: ThreadOperationsHost) {}
+export interface ThreadOperations {
+  renameThread(threadId: string, value: string, options?: RenameThreadOptions): Promise<boolean>;
+  archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult | null>;
+}
 
-  async renameThread(threadId: string, value: string, options: RenameThreadOptions = {}): Promise<boolean> {
-    const rename = threadRenameFromValue(value);
-    if (!rename) return false;
+export function createThreadOperations(host: ThreadOperationsHost): ThreadOperations {
+  return {
+    renameThread: (threadId, value, options) => renameThread(host, threadId, value, options),
+    archiveThread: (threadId, options) => archiveThread(host, threadId, options),
+  };
+}
 
-    await this.host.connection.ensureConnected();
-    return this.renameConnectedThread(threadId, rename, options);
+async function renameThread(
+  host: ThreadOperationsHost,
+  threadId: string,
+  value: string,
+  options: RenameThreadOptions = {},
+): Promise<boolean> {
+  const rename = threadRenameFromValue(value);
+  if (!rename) return false;
+
+  await host.connection.ensureConnected();
+  return renameConnectedThread(host, threadId, rename, options);
+}
+
+async function renameConnectedThread(
+  host: ThreadOperationsHost,
+  threadId: string,
+  rename: ThreadRename,
+  options: RenameThreadOptions = {},
+): Promise<boolean> {
+  const client = host.connection.currentClient();
+  if (!client) return false;
+
+  const result = await renameThreadOnAppServer(client, threadId, rename);
+  if (options.shouldPublish?.() ?? true) {
+    host.catalog.renameThreadInCatalog(threadId, result.name);
   }
+  return true;
+}
 
-  private async renameConnectedThread(threadId: string, rename: ThreadRename, options: RenameThreadOptions = {}): Promise<boolean> {
-    const client = this.host.connection.currentClient();
-    if (!client) return false;
+async function archiveThread(
+  host: ThreadOperationsHost,
+  threadId: string,
+  options: ArchiveThreadOptions = {},
+): Promise<ArchiveThreadResult | null> {
+  await host.connection.ensureConnected();
+  const client = host.connection.currentClient();
+  if (!client) return null;
 
-    const result = await renameThreadOnAppServer(client, threadId, rename);
-    if (options.shouldPublish?.() ?? true) {
-      this.host.catalog.renameThreadInCatalog(threadId, result.name);
-    }
-    return true;
+  const settings = host.settings.current();
+  const result = await archiveThreadOnAppServer(client, threadId, {
+    settings,
+    vaultPath: host.settings.vaultPath,
+    archiveAdapter: () => host.archiveAdapter(),
+    saveMarkdown: options.saveMarkdown ?? settings.archiveExportEnabled,
+  });
+  if (result.exportedPath) {
+    host.notice(`Saved archived thread to ${result.exportedPath}.`);
   }
-
-  async archiveThread(threadId: string, options: ArchiveThreadOptions = {}): Promise<ArchiveThreadResult | null> {
-    await this.host.connection.ensureConnected();
-    const client = this.host.connection.currentClient();
-    if (!client) return null;
-
-    const settings = this.host.settings.current();
-    const result = await archiveThreadOnAppServer(client, threadId, {
-      settings,
-      vaultPath: this.host.settings.vaultPath,
-      archiveAdapter: () => this.host.archiveAdapter(),
-      saveMarkdown: options.saveMarkdown ?? settings.archiveExportEnabled,
-    });
-    if (result.exportedPath) {
-      this.host.notice(`Saved archived thread to ${result.exportedPath}.`);
-    }
-    if (options.closeOpenPanels === undefined) {
-      this.host.catalog.archiveThreadInCatalog(threadId);
-    } else {
-      this.host.catalog.archiveThreadInCatalog(threadId, { closeOpenPanels: options.closeOpenPanels });
-    }
-    return result;
+  if (options.closeOpenPanels === undefined) {
+    host.catalog.archiveThreadInCatalog(threadId);
+  } else {
+    host.catalog.archiveThreadInCatalog(threadId, { closeOpenPanels: options.closeOpenPanels });
   }
+  return result;
 }
