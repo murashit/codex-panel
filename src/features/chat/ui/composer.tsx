@@ -93,6 +93,8 @@ export function ComposerShell({
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const selectedSuggestionRef = useRef<HTMLDivElement | null>(null);
   const previousDraftRef = useRef(draft);
+  const onHeightChangeRef = useRef(callbacks.onHeightChange);
+  onHeightChangeRef.current = callbacks.onHeightChange;
   const preservedSelection = preserveComposerSelection(composerRef.current, previousDraftRef.current, draft);
   useLayoutEffect(() => {
     const composer = composerRef.current;
@@ -103,6 +105,10 @@ export function ComposerShell({
       onComposer(null);
     };
   }, [onComposer]);
+  useLayoutEffect(() => {
+    const composer = composerRef.current;
+    if (syncComposerHeight(composer)) onHeightChangeRef.current();
+  }, [draft]);
   useLayoutEffect(() => {
     const container = suggestionsRef.current;
     const selected = selectedSuggestionRef.current;

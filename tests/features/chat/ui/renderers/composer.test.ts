@@ -423,6 +423,100 @@ describe("ComposerShell decisions", () => {
     }
   });
 
+  it("shrinks composer autogrow when the controlled draft clears after send", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const onComposer = vi.fn();
+    let scrollHeight = 120;
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "scrollHeight");
+    Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
+      get: () => scrollHeight,
+      configurable: true,
+    });
+
+    try {
+      renderUiRoot(
+        parent,
+        h(ComposerShell, {
+          viewId: "view",
+          draft: "line one\nline two",
+          busy: false,
+          canInterrupt: false,
+          normalPlaceholder: "Ask Codex to work on this task...",
+          suggestions: [],
+          selectedSuggestionIndex: 0,
+          callbacks,
+          meta: {
+            fatal: null,
+            context: {
+              cells: [
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+              ],
+              percent: "--%",
+            },
+            statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+            model: "default",
+            effort: null,
+            planActive: false,
+            autoReviewActive: false,
+            fastActive: false,
+          },
+          onComposer,
+        }),
+      );
+      const composer = parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input");
+      if (!composer) throw new Error("Expected composer shell elements to mount.");
+      expect(composer.style.height).toBe("120px");
+
+      scrollHeight = 56;
+      renderUiRoot(
+        parent,
+        h(ComposerShell, {
+          viewId: "view",
+          draft: "",
+          busy: false,
+          canInterrupt: false,
+          normalPlaceholder: "Ask Codex to work on this task...",
+          suggestions: [],
+          selectedSuggestionIndex: 0,
+          callbacks,
+          meta: {
+            fatal: null,
+            context: {
+              cells: [
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+                { text: "⣀", placeholder: true },
+              ],
+              percent: "--%",
+            },
+            statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+            model: "default",
+            effort: null,
+            planActive: false,
+            autoReviewActive: false,
+            fastActive: false,
+          },
+          onComposer,
+        }),
+      );
+
+      expect(parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input")).toBe(composer);
+      expect(composer.style.height).toBe("56px");
+      expect(callbacks.onHeightChange).toHaveBeenCalled();
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", descriptor);
+      } else {
+        Reflect.deleteProperty(HTMLTextAreaElement.prototype, "scrollHeight");
+      }
+    }
+  });
+
   it("scrolls the selected composer suggestion fully into view below the viewport", () => {
     const { container, option } = composerSuggestionScrollFixture({
       clientHeight: 100,
