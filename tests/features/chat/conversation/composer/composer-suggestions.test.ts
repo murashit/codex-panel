@@ -181,6 +181,12 @@ describe("composer suggestions", () => {
     expect(input).toEqual([
       { type: "text", text },
       { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
+      {
+        type: "additionalContext",
+        key: "codex_panel_wikilinks",
+        kind: "untrusted",
+        value: "Resolved Obsidian wikilinks for the current user input:\n- [[Assets/Diagram.png]] -> Assets/Diagram.png",
+      },
     ]);
   });
 

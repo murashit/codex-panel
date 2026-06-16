@@ -428,7 +428,23 @@ describe("AppServerClient", () => {
     const input = [
       { type: "text" as const, text: "Read [[Alpha]].", text_elements: [] },
       { type: "mention" as const, name: "Alpha", path: "thoughts/Alpha.md" },
+      {
+        type: "additionalContext" as const,
+        key: "codex_panel_wikilinks",
+        kind: "untrusted" as const,
+        value: "Resolved Obsidian wikilinks for the current user input:\n- [[Alpha]] -> thoughts/Alpha.md",
+      },
     ];
+    const serializedInput = [
+      { type: "text" as const, text: "Read [[Alpha]].", text_elements: [] },
+      { type: "mention" as const, name: "Alpha", path: "thoughts/Alpha.md" },
+    ];
+    const additionalContext = {
+      codex_panel_wikilinks: {
+        kind: "untrusted",
+        value: "Resolved Obsidian wikilinks for the current user input:\n- [[Alpha]] -> thoughts/Alpha.md",
+      },
+    };
 
     const startingTurn = client.startTurn({ threadId: "thread-1", cwd: "/vault", input });
     expect(transport.sent[2]).toMatchObject({
@@ -436,7 +452,8 @@ describe("AppServerClient", () => {
       params: {
         threadId: "thread-1",
         cwd: "/vault",
-        input,
+        input: serializedInput,
+        additionalContext,
       },
     });
     transport.emitLine({ id: 2, result: { turn: { id: "turn-1" } } });
@@ -448,7 +465,8 @@ describe("AppServerClient", () => {
       params: {
         threadId: "thread-1",
         expectedTurnId: "turn-1",
-        input,
+        input: serializedInput,
+        additionalContext,
       },
     });
     transport.emitLine({ id: 3, result: { turnId: "turn-1" } });

@@ -45,7 +45,7 @@ import type { ServerNotification } from "../../generated/app-server/ServerNotifi
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type { JsonValue } from "../../generated/app-server/serde_json/JsonValue";
 import type { CodexInput } from "../../domain/chat/input";
-import { toAppServerUserInput } from "../protocol/request-input";
+import { additionalContextFromCodexInput, toAppServerUserInput } from "../protocol/request-input";
 import { appServerThreadGoalUpdate, type ThreadGoalUpdate } from "../protocol/thread-goal";
 import { appServerRuntimeSettingsPatch, type RuntimeServiceTierRequest, type RuntimeSettingsPatch } from "../protocol/thread-settings";
 
@@ -155,6 +155,11 @@ type AppServerClientLifecycleState =
 function toUserInput(input: string | CodexInput): UserInput[] {
   if (typeof input !== "string") return toAppServerUserInput(input);
   return toAppServerUserInput([{ type: "text", text: input }]);
+}
+
+function toAdditionalContext(input: string | CodexInput): ClientRequestParams<"turn/start">["additionalContext"] | undefined {
+  if (typeof input === "string") return undefined;
+  return additionalContextFromCodexInput(input);
 }
 
 function appServerTurnRuntimeParams(runtime: AppServerTurnRuntimeOverrides | undefined): AppServerTurnRuntimeParams {
@@ -413,10 +418,12 @@ export class AppServerClient {
 
   startTurn(options: AppServerStartTurnOptions): Promise<TurnStartResponse> {
     const { threadId, cwd, input, clientUserMessageId, runtime } = options;
+    const additionalContext = toAdditionalContext(input);
     const params: ClientRequestParams<"turn/start"> = {
       threadId,
       cwd,
       ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
+      ...(additionalContext !== undefined ? { additionalContext } : {}),
       ...appServerTurnRuntimeParams(runtime),
       input: toUserInput(input),
     };
@@ -447,11 +454,13 @@ export class AppServerClient {
     input: string | CodexInput,
     clientUserMessageId?: string | null,
   ): Promise<TurnSteerResponse> {
+    const additionalContext = toAdditionalContext(input);
     return this.request("turn/steer", {
       threadId,
       expectedTurnId,
       input: toUserInput(input),
       ...(clientUserMessageId !== undefined ? { clientUserMessageId } : {}),
+      ...(additionalContext !== undefined ? { additionalContext } : {}),
     });
   }
 

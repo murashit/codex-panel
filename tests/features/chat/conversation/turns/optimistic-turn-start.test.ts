@@ -35,6 +35,26 @@ describe("optimistic turn start helpers", () => {
     });
   });
 
+  it("keeps additional context out of optimistic user message text", () => {
+    const text = "Read [[Note]].";
+    const input = [
+      { type: "text" as const, text },
+      { type: "mention" as const, name: "Note", path: "Note.md" },
+      {
+        type: "additionalContext" as const,
+        key: "codex_panel_wikilinks",
+        kind: "untrusted" as const,
+        value: "Resolved Obsidian wikilinks for the current user input:\n- [[Note]] -> Note.md",
+      },
+    ];
+
+    expect(localUserMessageItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
+      text,
+      copyText: text,
+      mentionedFiles: [{ name: "Note", path: "Note.md" }],
+    });
+  });
+
   it("formats resolved skill references in optimistic user messages only for display", () => {
     const text = "Use $obsidian-codex-panel-maintain and $missing.";
     const input = [

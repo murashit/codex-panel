@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { userInputWithWikiLinkMentionsAndSkills } from "../../../../../src/features/chat/application/composer/wikilink-context";
 
+const wikilinkContext = (...mappings: string[]) => ({
+  type: "additionalContext" as const,
+  key: "codex_panel_wikilinks",
+  kind: "untrusted" as const,
+  value: ["Resolved Obsidian wikilinks for the current user input:", ...mappings].join("\n"),
+});
+
 describe("wikilink context", () => {
   it("parses aliases, subpaths, and duplicate links", () => {
     const text = "See [[Alpha|label]], [[Beta#Heading]], [[Gamma^block]], and [[Alpha]].";
@@ -12,6 +19,7 @@ describe("wikilink context", () => {
       { type: "mention", name: "Alpha", path: "Alpha.md" },
       { type: "mention", name: "Beta", path: "Beta.md" },
       { type: "mention", name: "Gamma", path: "Gamma.md" },
+      wikilinkContext("- [[Alpha|label]] -> Alpha.md", "- [[Beta#Heading]] -> Beta.md", "- [[Gamma^block]] -> Gamma.md"),
     ]);
   });
 
@@ -26,8 +34,9 @@ describe("wikilink context", () => {
     expect(input).toEqual([
       { type: "text", text },
       { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
+      wikilinkContext("- [[Alpha#Heading|A]] -> thoughts/Alpha.md"),
     ]);
-    expect(input).toHaveLength(2);
+    expect(input).toHaveLength(3);
   });
 
   it("resolves aliases and subpaths from non-markdown wikilinks by target", () => {
@@ -49,6 +58,11 @@ describe("wikilink context", () => {
       { type: "mention", name: "Projects", path: "Bases/Projects.base" },
       { type: "mention", name: "Paper", path: "References/Paper.pdf" },
       { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
+      wikilinkContext(
+        "- [[Bases/Projects.base|Projects]] -> Bases/Projects.base",
+        "- [[References/Paper.pdf]] -> References/Paper.pdf",
+        "- [[Assets/Diagram.png#crop|Diagram]] -> Assets/Diagram.png",
+      ),
     ]);
   });
 
@@ -63,6 +77,7 @@ describe("wikilink context", () => {
     expect(input).toEqual([
       { type: "text", text },
       { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
+      wikilinkContext("- [[Alpha]] -> thoughts/Alpha.md"),
     ]);
   });
 
@@ -90,6 +105,7 @@ describe("wikilink context", () => {
         name: "obsidian-codex-panel-maintain",
         path: "/vault/___/skills/obsidian-codex-panel-maintain/SKILL.md",
       },
+      wikilinkContext("- [[Alpha]] -> thoughts/Alpha.md"),
     ]);
   });
 
