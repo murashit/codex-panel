@@ -4,7 +4,7 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import type { RestorationController } from "../../../../src/features/chat/application/threads/restoration-controller";
-import { ResumeController } from "../../../../src/features/chat/application/threads/resume-controller";
+import { createResumeController, type ResumeControllerHost } from "../../../../src/features/chat/application/threads/resume-controller";
 import type { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
@@ -56,10 +56,7 @@ function activation(threadId: string): ThreadResumeResponse {
   };
 }
 
-function createController(
-  response: ThreadResumeResponse = activation("thread"),
-  overrides: Partial<ConstructorParameters<typeof ResumeController>[0]> = {},
-) {
+function createController(response: ThreadResumeResponse = activation("thread"), overrides: Partial<ResumeControllerHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   const resumeThread = vi.fn().mockResolvedValue(response);
   const client = { resumeThread } as unknown as AppServerClient;
@@ -86,7 +83,7 @@ function createController(
     ...overrides,
   };
   return {
-    controller: new ResumeController(host),
+    controller: createResumeController(host),
     host,
     applyLatestPage,
     invalidateHistory,

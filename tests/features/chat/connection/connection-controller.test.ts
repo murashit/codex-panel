@@ -6,8 +6,9 @@ import { createChatState } from "../../../../src/features/chat/application/state
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
 import {
-  ChatConnectionController,
+  createChatConnectionController,
   type ChatConnectionAdapter,
+  type ChatConnectionControllerHost,
   type ChatConnectionDiagnosticsActions,
   type ChatConnectionMetadataActions,
 } from "../../../../src/features/chat/application/connection/connection-controller";
@@ -34,7 +35,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
   const diagnostics = {
     refreshPublishedDiagnosticProbes,
   } satisfies ChatConnectionDiagnosticsActions;
-  const host = {
+  const host: ChatConnectionControllerHost = {
     stateStore,
     connection,
     connectionWork: new ConnectionWorkTracker(),
@@ -54,7 +55,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
   };
   return {
     connect,
-    controller: new ChatConnectionController(host),
+    controller: createChatConnectionController(host),
     host,
     refreshPublishedAppServerMetadata,
     refreshPublishedDiagnosticProbes,

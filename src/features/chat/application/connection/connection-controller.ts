@@ -61,93 +61,114 @@ export function handleChatConnectionExit(host: ChatConnectionExitHost): void {
   host.refreshLiveState();
 }
 
-export class ChatConnectionController {
-  constructor(private readonly host: ChatConnectionControllerHost) {}
+export interface ChatConnectionController {
+  ensureConnected(): Promise<void>;
+  invalidate(): void;
+  handleExit(): void;
+  fetchActiveThreads(): Promise<void>;
+  refreshDiagnostics(): Promise<void>;
+  refreshStatusPanel(): Promise<void>;
+  refreshSkills(forceReload?: boolean): Promise<void>;
+}
 
-  async ensureConnected(): Promise<void> {
-    const connecting = this.host.connectionWork.active();
-    if (connecting?.promise) return connecting.promise;
+export function createChatConnectionController(host: ChatConnectionControllerHost): ChatConnectionController {
+  const controller: ChatConnectionController = {
+    ensureConnected: () => ensureConnected(host),
+    invalidate: () => {
+      host.connectionWork.invalidate();
+    },
+    handleExit: () => {
+      handleChatConnectionExit(host);
+    },
+    fetchActiveThreads: () => fetchActiveThreads(host),
+    refreshDiagnostics: () => refreshDiagnostics(host, controller),
+    refreshStatusPanel: () => refreshStatusPanel(host, controller),
+    refreshSkills: (forceReload = false) => refreshSkills(host, forceReload),
+  };
+  return controller;
+}
 
-    if (this.host.connection.isConnected()) {
-      return;
-    }
+async function ensureConnected(host: ChatConnectionControllerHost): Promise<void> {
+  const connecting = host.connectionWork.active();
+  if (connecting?.promise) return connecting.promise;
 
-    const connection = this.host.connectionWork.begin();
-    const promise = this.initializeConnection(connection);
-    connection.promise = promise;
-    try {
-      await promise;
-    } finally {
-      this.host.connectionWork.finish(connection, promise);
-    }
+  if (host.connection.isConnected()) {
+    return;
   }
 
-  invalidate(): void {
-    this.host.connectionWork.invalidate();
+  const connection = host.connectionWork.begin();
+  const promise = initializeConnection(host, connection);
+  connection.promise = promise;
+  try {
+    await promise;
+  } finally {
+    host.connectionWork.finish(connection, promise);
   }
+}
 
-  handleExit(): void {
-    handleChatConnectionExit(this.host);
+async function fetchActiveThreads(host: ChatConnectionControllerHost): Promise<void> {
+  if (!host.connection.currentClient()) return;
+  try {
+    await host.loadSharedThreadList();
+    host.refreshTabHeader();
+  } catch (error) {
+    if (isStaleAppServerSharedQueryContextError(error)) return;
+    host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
+}
 
-  async fetchActiveThreads(): Promise<void> {
-    if (!this.host.connection.currentClient()) return;
-    try {
-      await this.host.loadSharedThreadList();
-      this.host.refreshTabHeader();
-    } catch (error) {
-      if (isStaleAppServerSharedQueryContextError(error)) return;
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
+async function refreshDiagnostics(
+  host: ChatConnectionControllerHost,
+  controller: Pick<ChatConnectionController, "ensureConnected">,
+): Promise<void> {
+  host.clearDeferredDiagnostics();
+  await controller.ensureConnected();
+  if (!host.connection.currentClient()) return;
+  host.clearDeferredDiagnostics();
+  await host.metadata.refreshPublishedAppServerMetadata();
+  await host.diagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
+}
+
+async function refreshStatusPanel(
+  host: ChatConnectionControllerHost,
+  controller: Pick<ChatConnectionController, "fetchActiveThreads" | "refreshDiagnostics">,
+): Promise<void> {
+  try {
+    await controller.refreshDiagnostics();
+  } catch (error) {
+    host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
+  await controller.fetchActiveThreads();
+}
 
-  async refreshDiagnostics(): Promise<void> {
-    this.host.clearDeferredDiagnostics();
-    await this.ensureConnected();
-    if (!this.host.connection.currentClient()) return;
-    this.host.clearDeferredDiagnostics();
-    await this.host.metadata.refreshPublishedAppServerMetadata();
-    await this.host.diagnostics.refreshPublishedDiagnosticProbes({ appServerMetadataSnapshot: true });
-  }
+async function refreshSkills(host: ChatConnectionControllerHost, forceReload = false): Promise<void> {
+  if (!host.connection.currentClient()) return;
+  await host.metadata.refreshPublishedSkills(forceReload);
+}
 
-  async refreshStatusPanel(): Promise<void> {
-    try {
-      await this.refreshDiagnostics();
-    } catch (error) {
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    }
-    await this.fetchActiveThreads();
-  }
-
-  async refreshSkills(forceReload = false): Promise<void> {
-    if (!this.host.connection.currentClient()) return;
-    await this.host.metadata.refreshPublishedSkills(forceReload);
-  }
-
-  private async initializeConnection(connection: ActiveConnectionWork): Promise<void> {
-    this.host.setStatus(STATUS_CONNECTION_STARTING, { kind: "connecting" });
-    try {
-      const initialization = await this.host.connection.connect();
-      if (this.host.connectionWork.isStale(connection)) return;
-      this.host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
-      const client = this.host.connection.currentClient();
-      if (!client) throw new Error("Codex app-server connection did not initialize.");
-      await this.host.metadata.refreshPublishedAppServerMetadata();
-      if (this.host.connectionWork.isStale(connection)) return;
-      await this.host.loadSharedThreadList();
-      if (this.host.connectionWork.isStale(connection)) return;
-      this.host.scheduleDeferredDiagnostics();
-      this.host.refreshTabHeader();
-      this.host.setStatus(STATUS_CONNECTED, { kind: "connected" });
-    } catch (error) {
-      if (this.host.connectionWork.isStale(connection)) return;
-      if (error instanceof StaleConnectionError) return;
-      if (isStaleAppServerSharedQueryContextError(error)) return;
-      const message = connectionErrorMessage(error, this.host.configuredCommand());
-      this.host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
-      this.host.addSystemMessage(message);
-      this.host.notifyConnectionFailed();
-    }
+async function initializeConnection(host: ChatConnectionControllerHost, connection: ActiveConnectionWork): Promise<void> {
+  host.setStatus(STATUS_CONNECTION_STARTING, { kind: "connecting" });
+  try {
+    const initialization = await host.connection.connect();
+    if (host.connectionWork.isStale(connection)) return;
+    host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
+    const client = host.connection.currentClient();
+    if (!client) throw new Error("Codex app-server connection did not initialize.");
+    await host.metadata.refreshPublishedAppServerMetadata();
+    if (host.connectionWork.isStale(connection)) return;
+    await host.loadSharedThreadList();
+    if (host.connectionWork.isStale(connection)) return;
+    host.scheduleDeferredDiagnostics();
+    host.refreshTabHeader();
+    host.setStatus(STATUS_CONNECTED, { kind: "connected" });
+  } catch (error) {
+    if (host.connectionWork.isStale(connection)) return;
+    if (error instanceof StaleConnectionError) return;
+    if (isStaleAppServerSharedQueryContextError(error)) return;
+    const message = connectionErrorMessage(error, host.configuredCommand());
+    host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
+    host.addSystemMessage(message);
+    host.notifyConnectionFailed();
   }
 }
 

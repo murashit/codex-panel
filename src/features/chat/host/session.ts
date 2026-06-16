@@ -26,7 +26,11 @@ import {
 } from "../presentation/runtime/status";
 import { createChatViewDeferredTasks } from "./lifecycle";
 import { ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../application/lifecycle";
-import { ChatConnectionController, handleChatConnectionExit } from "../application/connection/connection-controller";
+import {
+  createChatConnectionController,
+  handleChatConnectionExit,
+  type ChatConnectionController,
+} from "../application/connection/connection-controller";
 import { connectionDiagnosticsModel } from "../application/connection/diagnostics-display";
 import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
 import { createConversationTurnActions } from "../application/conversation/composition";
@@ -1199,7 +1203,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         this.refreshLiveState();
       },
     };
-    const connectionController = new ChatConnectionController({
+    const connectionController = createChatConnectionController({
       ...connectionExitHost,
       connection: {
         connect: () =>

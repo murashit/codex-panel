@@ -20,7 +20,7 @@ import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picke
 import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";
 import type { CodexPanelSettingTabHost } from "./settings/tab";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
-import { SharedThreadCatalog } from "./workspace/shared-thread-catalog";
+import { createSharedThreadCatalog, type SharedThreadCatalog } from "./workspace/shared-thread-catalog";
 
 export interface CodexPanelRuntimeOptions {
   app: App;
@@ -48,7 +48,7 @@ export class CodexPanelRuntime {
         this.refreshThreadsViewLiveState();
       },
     });
-    this.threadCatalog = new SharedThreadCatalog({
+    this.threadCatalog = createSharedThreadCatalog({
       queries: this.appServerSharedQueries,
       surfaces: {
         invalidateThreadsFromOpenSurface: () => {

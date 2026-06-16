@@ -14,51 +14,47 @@ export interface SharedThreadCatalogOptions {
   surfaces: ThreadSurfaceActions;
 }
 
-export class SharedThreadCatalog {
-  constructor(private readonly options: SharedThreadCatalogOptions) {}
-
-  activeThreadsSnapshot(): readonly Thread[] | null {
-    return this.options.queries.activeThreadsSnapshot();
-  }
-
-  async fetchActiveThreads(): Promise<readonly Thread[]> {
-    return this.options.queries.fetchActiveThreads();
-  }
-
-  async refreshActiveThreads(): Promise<readonly Thread[]> {
-    return this.options.queries.refreshActiveThreads();
-  }
-
-  setActiveThreads(threads: readonly Thread[]): void {
-    this.options.queries.setActiveThreads(threads);
-  }
-
+export interface SharedThreadCatalog {
+  activeThreadsSnapshot(): readonly Thread[] | null;
+  fetchActiveThreads(): Promise<readonly Thread[]>;
+  refreshActiveThreads(): Promise<readonly Thread[]>;
+  setActiveThreads(threads: readonly Thread[]): void;
   observeActiveThreadsResult(
     listener: (result: AppServerObservedQueryResult<readonly Thread[]>) => void,
     options?: { emitCurrent?: boolean },
-  ): () => void {
-    return this.options.queries.observeActiveThreadsResult(listener, options);
-  }
+  ): () => void;
+  invalidateThreadsFromOpenSurface(): void;
+  renameThreadInCatalog(threadId: string, name: string | null): void;
+  archiveThreadInCatalog(threadId: string, options?: { closeOpenPanels?: boolean }): void;
+  refreshThreadsViewLiveState(): void;
+}
 
-  invalidateThreadsFromOpenSurface(): void {
-    this.options.surfaces.invalidateThreadsFromOpenSurface();
-  }
-
-  renameThreadInCatalog(threadId: string, name: string | null): void {
-    this.options.queries.updateActiveThreads((current) => {
-      return current ? current.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)) : null;
-    });
-    this.options.surfaces.applyThreadRenamed(threadId, name);
-  }
-
-  archiveThreadInCatalog(threadId: string, options?: { closeOpenPanels?: boolean }): void {
-    this.options.queries.updateActiveThreads((current) => {
-      return current ? current.filter((thread) => thread.id !== threadId) : null;
-    });
-    this.options.surfaces.applyThreadArchived(threadId, options);
-  }
-
-  refreshThreadsViewLiveState(): void {
-    this.options.surfaces.refreshThreadsViewLiveState();
-  }
+export function createSharedThreadCatalog(options: SharedThreadCatalogOptions): SharedThreadCatalog {
+  return {
+    activeThreadsSnapshot: () => options.queries.activeThreadsSnapshot(),
+    fetchActiveThreads: () => options.queries.fetchActiveThreads(),
+    refreshActiveThreads: () => options.queries.refreshActiveThreads(),
+    setActiveThreads: (threads) => {
+      options.queries.setActiveThreads(threads);
+    },
+    observeActiveThreadsResult: (listener, observeOptions) => options.queries.observeActiveThreadsResult(listener, observeOptions),
+    invalidateThreadsFromOpenSurface: () => {
+      options.surfaces.invalidateThreadsFromOpenSurface();
+    },
+    renameThreadInCatalog: (threadId, name) => {
+      options.queries.updateActiveThreads((current) => {
+        return current ? current.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)) : null;
+      });
+      options.surfaces.applyThreadRenamed(threadId, name);
+    },
+    archiveThreadInCatalog: (threadId, archiveOptions) => {
+      options.queries.updateActiveThreads((current) => {
+        return current ? current.filter((thread) => thread.id !== threadId) : null;
+      });
+      options.surfaces.applyThreadArchived(threadId, archiveOptions);
+    },
+    refreshThreadsViewLiveState: () => {
+      options.surfaces.refreshThreadsViewLiveState();
+    },
+  };
 }

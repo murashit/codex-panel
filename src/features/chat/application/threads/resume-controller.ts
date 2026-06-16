@@ -26,73 +26,79 @@ export interface ResumeControllerHost {
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
 }
 
-export class ResumeController {
-  constructor(private readonly host: ResumeControllerHost) {}
+export interface ResumeController {
+  resumeThread(threadId: string): Promise<void>;
+}
 
-  async resumeThread(threadId: string): Promise<void> {
-    if (!canSwitchToThread(this.host.stateStore.getState(), threadId)) {
-      this.host.addSystemMessage(finishBeforeSwitchingThreadsMessage());
-      return;
+export function createResumeController(host: ResumeControllerHost): ResumeController {
+  return {
+    resumeThread: (threadId) => resumeThread(host, threadId),
+  };
+}
+
+async function resumeThread(host: ResumeControllerHost, threadId: string): Promise<void> {
+  if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
+    host.addSystemMessage(finishBeforeSwitchingThreadsMessage());
+    return;
+  }
+  const resume = host.resumeWork.begin(threadId);
+  host.history.invalidate();
+  await host.ensureConnected();
+  const client = host.currentClient();
+  if (!client || isStaleResume(host, resume)) return;
+
+  try {
+    const response = await client.resumeThread(threadId, host.vaultPath);
+    if (isStaleResume(host, resume)) return;
+    applyResumedThread(host, response);
+    recoverResumedThreadTokenUsage(host, response.thread.id, response.thread.path, resume);
+    if (response.initialTurnsPage) {
+      host.history.applyLatestPage(response.thread.id, response.initialTurnsPage);
+    } else {
+      await host.history.loadLatest(response.thread.id);
     }
-    const resume = this.host.resumeWork.begin(threadId);
-    this.host.history.invalidate();
-    await this.host.ensureConnected();
-    const client = this.host.currentClient();
-    if (!client || this.isStale(resume)) return;
-
-    try {
-      const response = await client.resumeThread(threadId, this.host.vaultPath);
-      if (this.isStale(resume)) return;
-      this.applyResumedThread(response);
-      this.recoverResumedThreadTokenUsage(response.thread.id, response.thread.path, resume);
-      if (response.initialTurnsPage) {
-        this.host.history.applyLatestPage(response.thread.id, response.initialTurnsPage);
-      } else {
-        await this.host.history.loadLatest(response.thread.id);
-      }
-      if (this.isStale(resume)) return;
-      await this.host.syncThreadGoal(response.thread.id);
-      if (this.isStale(resume)) return;
-      const renderFallbackMessage = messageStreamItemsEmpty(this.host.stateStore.getState());
-      if (renderFallbackMessage) {
-        this.host.addSystemMessage(resumedThreadMessage(response.thread.id));
-      }
-      this.host.refreshLiveState();
-    } catch (error) {
-      if (this.isStale(resume)) return;
-      this.host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    if (isStaleResume(host, resume)) return;
+    await host.syncThreadGoal(response.thread.id);
+    if (isStaleResume(host, resume)) return;
+    const renderFallbackMessage = messageStreamItemsEmpty(host.stateStore.getState());
+    if (renderFallbackMessage) {
+      host.addSystemMessage(resumedThreadMessage(response.thread.id));
     }
+    host.refreshLiveState();
+  } catch (error) {
+    if (isStaleResume(host, resume)) return;
+    host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
+}
 
-  private applyResumedThread(response: Awaited<ReturnType<AppServerClient["resumeThread"]>>): void {
-    this.host.stateStore.dispatch(
-      resumedThreadActionFromAppServerResponse({
-        response,
-        listedThreads: listedThreads(this.host.stateStore.getState()),
-      }),
-    );
-    this.host.restoration.clear();
-    this.host.clearDeferredRestoredThreadHydration();
-    this.host.resetThreadTurnPresence(false);
-    this.host.notifyActiveThreadIdentityChanged();
-    this.host.refreshLiveState();
-  }
+function applyResumedThread(host: ResumeControllerHost, response: Awaited<ReturnType<AppServerClient["resumeThread"]>>): void {
+  host.stateStore.dispatch(
+    resumedThreadActionFromAppServerResponse({
+      response,
+      listedThreads: listedThreads(host.stateStore.getState()),
+    }),
+  );
+  host.restoration.clear();
+  host.clearDeferredRestoredThreadHydration();
+  host.resetThreadTurnPresence(false);
+  host.notifyActiveThreadIdentityChanged();
+  host.refreshLiveState();
+}
 
-  private recoverResumedThreadTokenUsage(threadId: string, path: string | null, resume: ActiveChatResume): void {
-    if (!path || !this.host.recoverTokenUsageFromRollout) return;
-    void this.host
-      .recoverTokenUsageFromRollout(path)
-      .then((tokenUsage) => {
-        if (!tokenUsage || this.isStale(resume)) return;
-        const state = this.host.stateStore.getState();
-        if (activeThreadId(state) !== threadId || state.activeThread.tokenUsage !== null) return;
-        this.host.stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
-        this.host.refreshLiveState();
-      })
-      .catch(() => undefined);
-  }
+function recoverResumedThreadTokenUsage(host: ResumeControllerHost, threadId: string, path: string | null, resume: ActiveChatResume): void {
+  if (!path || !host.recoverTokenUsageFromRollout) return;
+  void host
+    .recoverTokenUsageFromRollout(path)
+    .then((tokenUsage) => {
+      if (!tokenUsage || isStaleResume(host, resume)) return;
+      const state = host.stateStore.getState();
+      if (activeThreadId(state) !== threadId || state.activeThread.tokenUsage !== null) return;
+      host.stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
+      host.refreshLiveState();
+    })
+    .catch(() => undefined);
+}
 
-  private isStale(resume: ActiveChatResume): boolean {
-    return this.host.resumeWork.isStale(resume) || this.host.closing();
-  }
+function isStaleResume(host: ResumeControllerHost, resume: ActiveChatResume): boolean {
+  return host.resumeWork.isStale(resume) || host.closing();
 }

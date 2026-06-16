@@ -3,7 +3,7 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import { AppServerSharedQueries } from "../../src/app-server/query/shared-queries";
 import type { Thread } from "../../src/domain/threads/model";
-import { SharedThreadCatalog } from "../../src/workspace/shared-thread-catalog";
+import { createSharedThreadCatalog } from "../../src/workspace/shared-thread-catalog";
 
 interface MockSurfaceActions {
   refreshOpenViews: Mock<() => void>;
@@ -80,7 +80,7 @@ function catalogFixture(
     cache: cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([]))),
     context: () => ({ codexPath: "codex", vaultPath: "/vault" }),
   });
-  const catalog = new SharedThreadCatalog({
+  const catalog = createSharedThreadCatalog({
     queries,
     surfaces,
   });
