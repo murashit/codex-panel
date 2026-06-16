@@ -361,6 +361,99 @@ describe("chatReducer", () => {
     expect(next.messageStream.activeSegment?.items[0]).toMatchObject({ id: "cmd", output: "onetwo" });
   });
 
+  it("ignores streaming deltas for a different active turn", () => {
+    let state = chatStateFixture();
+    state = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn-active" });
+    state = chatReducer(state, {
+      type: "message-stream/assistant-delta-appended",
+      itemId: "assistant",
+      turnId: "turn-active",
+      delta: "active",
+    });
+
+    const next = chatReducer(state, {
+      type: "message-stream/assistant-delta-appended",
+      itemId: "stale",
+      turnId: "turn-stale",
+      delta: "stale",
+    });
+
+    expect(next).toBe(state);
+    expect(next.messageStream.activeSegment?.turnId).toBe("turn-active");
+    expect(next.messageStream.activeSegment?.items).toEqual([expect.objectContaining({ id: "assistant", text: "active" })]);
+  });
+
+  it("keeps optimistic active segment items when the first acknowledged delta arrives", () => {
+    let state = chatStateFixture();
+    state = chatReducer(state, {
+      type: "turn/optimistic-started",
+      pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
+      item: message("local-user"),
+    });
+
+    const next = chatReducer(state, {
+      type: "message-stream/assistant-delta-appended",
+      itemId: "assistant",
+      turnId: "turn",
+      delta: "ack",
+    });
+
+    expect(next.messageStream.activeSegment?.turnId).toBe("turn");
+    expect(next.messageStream.activeSegment?.items).toEqual([
+      expect.objectContaining({ id: "local-user" }),
+      expect.objectContaining({ id: "assistant", text: "ack", turnId: "turn" }),
+    ]);
+  });
+
+  it("does not append text to an existing item with a different kind", () => {
+    let state = chatStateFixture();
+    state = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn" });
+    state = chatReducer(state, {
+      type: "message-stream/item-text-appended",
+      itemId: "shared-source",
+      turnId: "turn",
+      label: "Tool",
+      delta: "tool text",
+      kind: "tool",
+    });
+
+    const next = chatReducer(state, {
+      type: "message-stream/item-text-appended",
+      itemId: "shared-source",
+      turnId: "turn",
+      label: "Reasoning",
+      delta: "reasoning text",
+      kind: "reasoning",
+    });
+
+    expect(next).toBe(state);
+    expect(next.messageStream.activeSegment?.items).toEqual([expect.objectContaining({ kind: "tool", text: "Tool: tool text" })]);
+  });
+
+  it("appends text to an existing item when the item kind matches", () => {
+    let state = chatStateFixture();
+    state = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn" });
+    state = chatReducer(state, {
+      type: "message-stream/item-text-appended",
+      itemId: "reasoning",
+      turnId: "turn",
+      label: "Reasoning",
+      delta: "one",
+      kind: "reasoning",
+    });
+
+    const next = chatReducer(state, {
+      type: "message-stream/item-text-appended",
+      itemId: "reasoning",
+      turnId: "turn",
+      label: "Reasoning",
+      delta: "two",
+      kind: "reasoning",
+    });
+
+    expect(next.messageStream.activeSegment?.items).toEqual([expect.objectContaining({ kind: "reasoning", text: "Reasoning: onetwo" })]);
+  });
+
   it("clears running state when a turn start fails", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {

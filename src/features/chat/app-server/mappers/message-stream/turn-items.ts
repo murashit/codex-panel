@@ -159,7 +159,7 @@ function messageStreamItemFromTurnItemData(item: TurnItem, turnId?: string): Mes
     case "contextCompaction":
       return contextCompactionMessageStreamItem(item, turnId);
     default:
-      return assertNever(item);
+      return ignoredUnsupportedTurnItem(item);
   }
 }
 
@@ -660,7 +660,7 @@ export function shouldSuppressLifecycleItem(item: TurnItem): boolean {
   return item.type === "agentMessage" || item.type === "userMessage";
 }
 
-function assertNever(_item: never): null {
+function ignoredUnsupportedTurnItem(_item: never): null {
   return null;
 }
 

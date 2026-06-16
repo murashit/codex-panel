@@ -107,7 +107,7 @@ export class ConnectionManager {
     return promise;
   }
 
-  reconnect(): void {
+  resetConnection(): void {
     this.disconnect();
   }
 

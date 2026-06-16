@@ -2,7 +2,8 @@ import type { App, WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { CodexChatView } from "../features/chat/host/view";
-import type { OpenCodexPanelSnapshot } from "./open-panel-snapshot";
+import type { ChatWorkspacePanelSurface } from "../features/chat/host/surface-handle";
+import type { ChatPanelSnapshot, OpenCodexPanelSnapshot } from "./open-panel-snapshot";
 
 const BOOT_RESTORED_PANEL_LOAD_DELAY_MS = 1_000;
 const BOOT_RESTORED_PANEL_LOAD_STAGGER_MS = 250;
@@ -62,8 +63,9 @@ export class WorkspacePanelCoordinator {
       reveal: true,
     });
     const view = leaf.view as CodexChatView;
-    await view.surface.connect();
-    view.surface.focusComposer();
+    const surface = workspacePanelSurface(view);
+    await surface.connect();
+    surface.focusComposer();
     return view;
   }
 
@@ -74,14 +76,15 @@ export class WorkspacePanelCoordinator {
     await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
     await this.options.app.workspace.revealLeaf(leaf);
     const view = leaf.view as CodexChatView;
-    if (options.connect !== false) await view.surface.connect();
-    view.surface.focusComposer();
+    const surface = workspacePanelSurface(view);
+    if (options.connect !== false) await surface.connect();
+    surface.focusComposer();
     return view;
   }
 
   async openThreadInNewView(threadId: string): Promise<CodexChatView> {
     const view = await this.activateThreadResumeView();
-    await view.surface.openThread(threadId);
+    await workspacePanelSurface(view).openThread(threadId);
     return view;
   }
 
@@ -120,15 +123,15 @@ export class WorkspacePanelCoordinator {
     const leaves = this.panelLeaves();
     this.ensureInitialFocusedPanel(leaves);
     return leaves.flatMap((leaf) =>
-      leaf.view instanceof CodexChatView ? [this.openPanelSnapshotWithFocus(leaf.view.surface.openPanelSnapshot())] : [],
+      leaf.view instanceof CodexChatView ? [this.openPanelSnapshotWithFocus(workspacePanelSurface(leaf.view).openPanelSnapshot())] : [],
     );
   }
 
   async focusOpenPanel(viewId: string, threadId: string | null = null): Promise<boolean> {
     for (const leaf of this.panelLeaves()) {
-      if (leaf.view instanceof CodexChatView && leaf.view.surface.openPanelSnapshot().viewId === viewId) {
+      if (leaf.view instanceof CodexChatView && workspacePanelSurface(leaf.view).openPanelSnapshot().viewId === viewId) {
         await this.options.app.workspace.revealLeaf(leaf);
-        await leaf.view.surface.focusThread(threadId);
+        await workspacePanelSurface(leaf.view).focusThread(threadId);
         return true;
       }
     }
@@ -145,7 +148,7 @@ export class WorkspacePanelCoordinator {
 
   panelLeavesForThread(threadId: string): WorkspaceLeaf[] {
     return this.panelLeaves().filter((leaf) => {
-      if (leaf.view instanceof CodexChatView) return leaf.view.surface.openPanelSnapshot().threadId === threadId;
+      if (leaf.view instanceof CodexChatView) return workspacePanelSurface(leaf.view).openPanelSnapshot().threadId === threadId;
       return restoredThreadId(leaf) === threadId;
     });
   }
@@ -202,7 +205,7 @@ export class WorkspacePanelCoordinator {
   private findOpenThreadPanelTarget(threadId: string): ThreadPanelTarget | null {
     for (const leaf of this.panelLeaves()) {
       if (!(leaf.view instanceof CodexChatView)) continue;
-      if (leaf.view.surface.openPanelSnapshot().threadId !== threadId) continue;
+      if (workspacePanelSurface(leaf.view).openPanelSnapshot().threadId !== threadId) continue;
       return { kind: "open", leaf, view: leaf.view };
     }
     return null;
@@ -220,7 +223,7 @@ export class WorkspacePanelCoordinator {
   private findIdleEmptyThreadPanelTarget(): ThreadPanelTarget | null {
     for (const leaf of this.panelLeaves()) {
       if (!(leaf.view instanceof CodexChatView)) continue;
-      if (!isIdleEmptyPanelSnapshot(leaf.view.surface.openPanelSnapshot())) continue;
+      if (!isIdleEmptyPanelSnapshot(workspacePanelSurface(leaf.view).openPanelSnapshot())) continue;
       return { kind: "empty", leaf, view: leaf.view };
     }
     return null;
@@ -263,15 +266,17 @@ export class WorkspacePanelCoordinator {
 
     await this.options.app.workspace.revealLeaf(target.leaf);
     if ("view" in target) {
-      await target.view.surface.connect();
-      await target.view.surface.focusThread();
+      const surface = workspacePanelSurface(target.view);
+      await surface.connect();
+      await surface.focusThread();
       return target.view;
     }
 
     await target.leaf.loadIfDeferred();
     if (target.leaf.view instanceof CodexChatView) {
-      await target.leaf.view.surface.connect();
-      await target.leaf.view.surface.focusThread();
+      const surface = workspacePanelSurface(target.leaf.view);
+      await surface.connect();
+      await surface.focusThread();
       return target.leaf.view;
     }
 
@@ -282,26 +287,26 @@ export class WorkspacePanelCoordinator {
     switch (target.kind) {
       case "open":
         await this.options.app.workspace.revealLeaf(target.leaf);
-        await target.view.surface.focusThread(threadId);
+        await workspacePanelSurface(target.view).focusThread(threadId);
         return;
       case "restored":
         await this.options.app.workspace.revealLeaf(target.leaf);
         await target.leaf.loadIfDeferred();
         if (target.leaf.view instanceof CodexChatView) {
-          await target.leaf.view.surface.focusThread(threadId);
+          await workspacePanelSurface(target.leaf.view).focusThread(threadId);
         }
         return;
       case "restored-reuse":
         await this.options.app.workspace.revealLeaf(target.leaf);
         await target.leaf.loadIfDeferred();
         if (target.leaf.view instanceof CodexChatView) {
-          await target.leaf.view.surface.openThread(threadId);
+          await workspacePanelSurface(target.leaf.view).openThread(threadId);
         }
         return;
       case "empty":
       case "reuse":
         await this.options.app.workspace.revealLeaf(target.leaf);
-        await target.view.surface.openThread(threadId);
+        await workspacePanelSurface(target.view).openThread(threadId);
         return;
       case "new":
         await this.openThreadInNewView(threadId);
@@ -319,7 +324,7 @@ export class WorkspacePanelCoordinator {
     if (viewId) this.lastFocusedPanelViewId = viewId;
   }
 
-  private openPanelSnapshotWithFocus(snapshot: OpenCodexPanelSnapshot): OpenCodexPanelSnapshot {
+  private openPanelSnapshotWithFocus(snapshot: ChatPanelSnapshot): OpenCodexPanelSnapshot {
     return { ...snapshot, lastFocused: snapshot.viewId === this.lastFocusedPanelViewId };
   }
 
@@ -355,7 +360,7 @@ export class WorkspacePanelCoordinator {
   }
 }
 
-function isIdleEmptyPanelSnapshot(snapshot: OpenCodexPanelSnapshot): boolean {
+function isIdleEmptyPanelSnapshot(snapshot: ChatPanelSnapshot): boolean {
   return (
     snapshot.threadId === null &&
     snapshot.turnLifecycle.kind === "idle" &&
@@ -366,7 +371,11 @@ function isIdleEmptyPanelSnapshot(snapshot: OpenCodexPanelSnapshot): boolean {
 }
 
 function focusedPanelViewId(leaf: WorkspaceLeaf | null): string | null {
-  return leaf?.view instanceof CodexChatView ? leaf.view.surface.openPanelSnapshot().viewId : null;
+  return leaf?.view instanceof CodexChatView ? workspacePanelSurface(leaf.view).openPanelSnapshot().viewId : null;
+}
+
+function workspacePanelSurface(view: CodexChatView): ChatWorkspacePanelSurface {
+  return view.surface;
 }
 
 function restoredThreadId(leaf: WorkspaceLeaf): string | null {

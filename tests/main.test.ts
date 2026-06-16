@@ -84,7 +84,6 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(openView.surface, "openPanelSnapshot").mockReturnValue({
       viewId: "open-view",
       threadId: "thread-1",
-      lastFocused: false,
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
@@ -112,7 +111,6 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(busyView.surface, "openPanelSnapshot").mockReturnValue({
       viewId: "busy-view",
       threadId: "other-thread",
-      lastFocused: false,
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
@@ -125,7 +123,6 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(emptyView.surface, "openPanelSnapshot").mockReturnValue({
       viewId: "empty-view",
       threadId: null,
-      lastFocused: false,
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
@@ -645,23 +642,25 @@ function chatHostFixture(): CodexChatHost {
       focusThreadInOpenView: vi.fn(),
       openTurnDiff: vi.fn(),
     },
-    threadCatalog: {
-      archiveThreadInCatalog: vi.fn(),
-      renameThreadInCatalog: vi.fn(),
-      refreshThreadsViewLiveState: vi.fn(),
-      setActiveThreads: vi.fn(),
+    appServerData: {
       updateAppServerMetadata: vi.fn(() => null),
-      refreshActiveThreads: vi.fn(() => Promise.resolve([])),
-      activeThreadsSnapshot: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),
       fetchAppServerMetadata: vi.fn(() => Promise.resolve(null)),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
       modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn(() => Promise.resolve([])),
       refreshModels: vi.fn(() => Promise.resolve([])),
-      observeActiveThreadsResult: vi.fn(() => () => undefined),
       observeAppServerMetadataResult: vi.fn(() => () => undefined),
       observeModelsResult: vi.fn(() => () => undefined),
+    },
+    threadCatalog: {
+      archiveThreadInCatalog: vi.fn(),
+      renameThreadInCatalog: vi.fn(),
+      refreshThreadsViewLiveState: vi.fn(),
+      setActiveThreads: vi.fn(),
+      refreshActiveThreads: vi.fn(() => Promise.resolve([])),
+      activeThreadsSnapshot: vi.fn(() => null),
+      observeActiveThreadsResult: vi.fn(() => () => undefined),
     },
   };
 }
@@ -696,7 +695,6 @@ function panelSnapshot(
   return {
     viewId: "view",
     threadId: "thread",
-    lastFocused: false,
     turnLifecycle: { kind: "idle" },
     pendingApprovals: 0,
     pendingUserInputs: 0,

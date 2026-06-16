@@ -1,4 +1,4 @@
-import { MutationObserver, QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
+import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
 
 import type { AppServerClient } from "../connection/client";
 import { listModelMetadata } from "../catalog/data";
@@ -13,7 +13,6 @@ import {
   appServerModelsQueryKey,
   appServerQueriesFilter,
   appServerQueryContextIsComplete,
-  appServerQueryScope,
   cloneAppServerQueryContext,
   type AppServerQueryContext,
 } from "./keys";
@@ -45,6 +44,7 @@ interface AppServerQueryOptions<T> {
 export class AppServerQueryCache {
   readonly client: QueryClient;
   private readonly clientRunner: AppServerQueryClientRunner | null;
+  private readonly activeThreadsWriteVersions = new Map<string, number>();
 
   constructor(options: { client?: QueryClient; clientRunner?: AppServerQueryClientRunner } = {}) {
     this.client = options.client ?? createAppServerQueryClient();
@@ -53,6 +53,7 @@ export class AppServerQueryCache {
 
   clear(): void {
     this.client.clear();
+    this.activeThreadsWriteVersions.clear();
   }
 
   clearContext(context: AppServerQueryContext): void {
@@ -60,7 +61,7 @@ export class AppServerQueryCache {
     const filter = appServerQueriesFilter(context);
     void this.client.cancelQueries(filter);
     this.client.removeQueries(filter);
-    this.removeContextMutations(context);
+    this.activeThreadsWriteVersions.delete(this.activeThreadsCacheKey(context));
   }
 
   activeThreadsSnapshot(context: AppServerQueryContext): readonly Thread[] | null {
@@ -94,6 +95,7 @@ export class AppServerQueryCache {
 
   setActiveThreads(context: AppServerQueryContext, threads: readonly Thread[]): void {
     if (!appServerQueryContextIsComplete(context)) return;
+    this.bumpActiveThreadsWriteVersion(context);
     this.client.setQueryData(activeThreadsQueryKey(context), cloneThreads(threads));
   }
 
@@ -104,7 +106,7 @@ export class AppServerQueryCache {
     const current = this.activeThreadsSnapshot(context);
     const next = updater(current);
     if (!next) return null;
-    this.applyActiveThreadsMutation(context, current, next);
+    this.setActiveThreads(context, next);
     return cloneThreads(next);
   }
 
@@ -202,13 +204,32 @@ export class AppServerQueryCache {
 
   private activeThreadsQueryOptions(context: AppServerQueryContext): AppServerQueryOptions<readonly Thread[]> {
     const refreshContext = cloneAppServerQueryContext(context);
+    const key = activeThreadsQueryKey(refreshContext);
+    const writeVersion = this.activeThreadsWriteVersion(refreshContext);
     return {
-      queryKey: activeThreadsQueryKey(refreshContext),
+      queryKey: key,
       queryFn: async (): Promise<readonly Thread[]> => {
-        return cloneThreads(await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath)));
+        const threads = cloneThreads(await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath)));
+        if (this.activeThreadsWriteVersion(refreshContext) !== writeVersion) {
+          return cloneThreads(this.client.getQueryData<readonly Thread[]>(key) ?? threads);
+        }
+        return threads;
       },
       staleTime: ACTIVE_THREADS_STALE_TIME_MS,
     };
+  }
+
+  private activeThreadsWriteVersion(context: AppServerQueryContext): number {
+    return this.activeThreadsWriteVersions.get(this.activeThreadsCacheKey(context)) ?? 0;
+  }
+
+  private bumpActiveThreadsWriteVersion(context: AppServerQueryContext): void {
+    const key = this.activeThreadsCacheKey(context);
+    this.activeThreadsWriteVersions.set(key, (this.activeThreadsWriteVersions.get(key) ?? 0) + 1);
+  }
+
+  private activeThreadsCacheKey(context: AppServerQueryContext): string {
+    return JSON.stringify(activeThreadsQueryKey(context));
   }
 
   private appServerMetadataQueryOptions(
@@ -311,44 +332,6 @@ export class AppServerQueryCache {
       data: result.data === undefined ? null : clone(result.data),
       error: result.error instanceof Error ? result.error : null,
     };
-  }
-
-  private applyActiveThreadsMutation(context: AppServerQueryContext, previous: readonly Thread[] | null, next: readonly Thread[]): void {
-    if (!appServerQueryContextIsComplete(context)) return;
-    const mutationKey = [...activeThreadsQueryKey(context), "optimistic-update"] as const;
-    const observer = new MutationObserver<
-      readonly Thread[],
-      Error,
-      { readonly previous: readonly Thread[] | null; readonly next: readonly Thread[] },
-      { readonly previous: readonly Thread[] | null }
-    >(this.client, {
-      mutationKey,
-      mutationFn: async (variables) => cloneThreads(variables.next),
-      onMutate: (variables) => {
-        void this.client.cancelQueries({ queryKey: activeThreadsQueryKey(context) });
-        this.client.setQueryData(activeThreadsQueryKey(context), cloneThreads(variables.next));
-        return { previous: variables.previous ? cloneThreads(variables.previous) : null };
-      },
-      onError: (_error, _variables, mutationContext) => {
-        if (mutationContext?.previous) {
-          this.client.setQueryData(activeThreadsQueryKey(context), cloneThreads(mutationContext.previous));
-        }
-      },
-    });
-    void observer.mutate({ previous, next }).finally(() => {
-      observer.reset();
-    });
-  }
-
-  private removeContextMutations(context: AppServerQueryContext): void {
-    const scope = appServerQueryScope(context);
-    for (const mutation of this.client.getMutationCache().getAll()) {
-      const mutationKey = mutation.options.mutationKey;
-      if (!Array.isArray(mutationKey)) continue;
-      if (scope.every((part, index) => mutationKey[index] === part)) {
-        this.client.getMutationCache().remove(mutation);
-      }
-    }
   }
 
   private runWithClient<T>(

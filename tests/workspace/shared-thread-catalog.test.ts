@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
+import { AppServerSharedQueries } from "../../src/app-server/query/shared-queries";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
@@ -48,15 +49,18 @@ describe("SharedThreadCatalog", () => {
   it("does not notify stale thread observers after the app-server query context changes", async () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
     const surfaces = surfaceActions();
-    const catalog = new SharedThreadCatalog({
+    const queries = new AppServerSharedQueries({
       cache: cacheWithThreads((queryContext) => {
         expect(queryContext.codexPath).toBe("codex-a");
         return new Promise<Thread[]>((resolve) => {
           resolveThreads = resolve;
         });
       }),
-      surfaces,
       context: () => context,
+    });
+    const catalog = new SharedThreadCatalog({
+      queries,
+      surfaces,
     });
     let resolveThreads!: (threads: Thread[]) => void;
     const listener = vi.fn();
@@ -76,37 +80,40 @@ describe("SharedThreadCatalog", () => {
 
   it("resubscribes active observers when the app-server query context changes", () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const catalog = new SharedThreadCatalog({
+    const queries = new AppServerSharedQueries({
       cache: new AppServerQueryCache(),
-      surfaces: surfaceActions(),
       context: () => context,
+    });
+    const catalog = new SharedThreadCatalog({
+      queries,
+      surfaces: surfaceActions(),
     });
     const listener = vi.fn();
     catalog.observeActiveThreadsResult(listener);
 
     catalog.setActiveThreads([thread("a")]);
     context.codexPath = "codex-b";
-    catalog.notifyAppServerQueryContextChanged();
+    queries.notifyContextChanged();
     catalog.setActiveThreads([thread("b")]);
 
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("b")] }));
     context.codexPath = "codex-a";
-    catalog.notifyAppServerQueryContextChanged();
+    queries.notifyContextChanged();
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("a")] }));
   });
 
-  it("publishes metadata and model snapshots to cache and observers", () => {
-    const { catalog } = catalogFixture();
+  it("publishes metadata and model snapshots to shared query observers", () => {
+    const { queries } = catalogFixture();
     const metadata = serverMetadata({ availableModels: [model("gpt-test")] });
     const metadataListener = vi.fn();
     const modelListener = vi.fn();
-    catalog.observeAppServerMetadataResult(metadataListener);
-    catalog.observeModelsResult(modelListener);
+    queries.observeAppServerMetadataResult(metadataListener);
+    queries.observeModelsResult(modelListener);
 
-    catalog.updateAppServerMetadata(() => metadata);
+    queries.updateAppServerMetadata(() => metadata);
 
-    expect(catalog.appServerMetadataSnapshot()).toEqual(metadata);
-    expect(catalog.modelsSnapshot()).toEqual(metadata.availableModels);
+    expect(queries.appServerMetadataSnapshot()).toEqual(metadata);
+    expect(queries.modelsSnapshot()).toEqual(metadata.availableModels);
     expect(metadataListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: metadata }));
     expect(modelListener).toHaveBeenCalledWith(expect.objectContaining({ data: metadata.availableModels }));
   });
@@ -144,12 +151,15 @@ function catalogFixture(
   options: { fetchThreads?: (context: { codexPath: string; vaultPath: string }) => Promise<readonly Thread[]> } = {},
 ) {
   const surfaces = surfaceActions();
-  const catalog = new SharedThreadCatalog({
+  const queries = new AppServerSharedQueries({
     cache: cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([]))),
-    surfaces,
     context: () => ({ codexPath: "codex", vaultPath: "/vault" }),
   });
-  return { catalog, surfaces };
+  const catalog = new SharedThreadCatalog({
+    queries,
+    surfaces,
+  });
+  return { catalog, queries, surfaces };
 }
 
 function cacheWithThreads(

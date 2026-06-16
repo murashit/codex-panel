@@ -1,5 +1,6 @@
 import { DIAGNOSTIC_PROBE_METHODS, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
 import { CLIENT_VERSION } from "../../../../constants";
+import type { ChatState } from "../state/root-reducer";
 import type {
   Diagnostics,
   InitializeDiagnostics,
@@ -24,6 +25,21 @@ export interface ConnectionDiagnosticsInput {
   configuredCommand: string;
   initializeResponse: InitializeDiagnostics | null;
   diagnostics: Diagnostics;
+}
+
+export interface ConnectionDiagnosticsModelInput {
+  state: Pick<ChatState, "connection">;
+  connected: boolean;
+  configuredCommand: string;
+}
+
+export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): DiagnosticSection[] {
+  return connectionDiagnosticSections({
+    connected: input.connected,
+    configuredCommand: input.configuredCommand,
+    initializeResponse: input.state.connection.initializeResponse,
+    diagnostics: input.state.connection.serverDiagnostics,
+  });
 }
 
 export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput): DiagnosticSection[] {

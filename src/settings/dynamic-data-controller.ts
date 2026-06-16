@@ -3,6 +3,7 @@ import type { AppServerObservedQueryResult } from "../app-server/query/cache";
 import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
 import { setHookItemEnabled, trustHookItem } from "../app-server/catalog/data";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads/data";
+import type { AppServerSharedQueries } from "../app-server/query/shared-queries";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
@@ -22,18 +23,16 @@ import type { CodexPanelSettings } from "./model";
 export interface SettingsDynamicDataHost {
   settings: CodexPanelSettings;
   vaultPath: string;
+  appServerData: SettingsAppServerData;
   threadCatalog: SettingsThreadCatalog;
 }
 
-type SettingsThreadCatalog = Pick<
-  SharedThreadCatalog,
-  | "invalidateThreadsFromOpenSurface"
-  | "modelsSnapshot"
-  | "observeModelsResult"
-  | "fetchModels"
-  | "refreshModels"
-  | "notifyAppServerQueryContextChanged"
+type SettingsAppServerData = Pick<
+  AppServerSharedQueries,
+  "modelsSnapshot" | "observeModelsResult" | "fetchModels" | "refreshModels" | "notifyContextChanged"
 >;
+
+type SettingsThreadCatalog = Pick<SharedThreadCatalog, "invalidateThreadsFromOpenSurface">;
 
 interface SettingsDynamicDataControllerCallbacks {
   display(): void;
@@ -75,8 +74,8 @@ export class SettingsDynamicDataController {
 
   activate(): void {
     if (this.unsubscribeModels) return;
-    this.models = [...(this.host.threadCatalog.modelsSnapshot() ?? [])];
-    this.unsubscribeModels = this.host.threadCatalog.observeModelsResult(
+    this.models = [...(this.host.appServerData.modelsSnapshot() ?? [])];
+    this.unsubscribeModels = this.host.appServerData.observeModelsResult(
       (result) => {
         this.receiveObservedModelsResult(result);
       },
@@ -94,7 +93,7 @@ export class SettingsDynamicDataController {
     this.settingsDataAutoLoadStarted = false;
     this.settingsDynamicOperationId += 1;
     this.settingsDataRefreshLifecycle = { kind: "idle" };
-    this.models = [...(this.host.threadCatalog.modelsSnapshot() ?? [])];
+    this.models = [...(this.host.appServerData.modelsSnapshot() ?? [])];
     this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
     this.hooks = [];
     this.hookWarnings = [];
@@ -142,7 +141,7 @@ export class SettingsDynamicDataController {
     let failedCount = 0;
     try {
       const [modelsResult, companionResult] = await Promise.allSettled([
-        options.forceModels === false ? this.host.threadCatalog.fetchModels() : this.host.threadCatalog.refreshModels(),
+        options.forceModels === false ? this.host.appServerData.fetchModels() : this.host.appServerData.refreshModels(),
         this.withSettingsConnection((client) => loadSettingsCompanionData(client, this.host.vaultPath)),
       ] as const);
       if (this.isStaleSettingsDynamicOperation(operationId)) return;

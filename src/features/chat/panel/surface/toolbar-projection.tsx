@@ -4,7 +4,7 @@ import { h } from "preact";
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import { rateLimitSummary } from "../../presentation/runtime/status";
-import { connectionDiagnosticSections } from "../../application/connection/diagnostics-display";
+import { connectionDiagnosticsModel } from "../../application/connection/diagnostics-display";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../application/state/root-reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../shell-state";
@@ -32,12 +32,6 @@ interface ToolbarStateProjection {
   statusPanelOpen: boolean;
   openPanel: ToolbarViewModel["openPanel"];
   threads: ToolbarThreadRow[];
-}
-
-export interface ConnectionDiagnosticsModelInput {
-  state: Pick<ChatState, "connection">;
-  connected: boolean;
-  configuredCommand: string;
 }
 
 function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, state: ChatPanelToolbarShellState) {
@@ -146,13 +140,4 @@ function toolbarRenameState(renameState: ChatState["ui"]["rename"], threadId: st
     draft: renameState.draft,
     generating: renameState.kind === "generating",
   };
-}
-
-export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): ReturnType<typeof connectionDiagnosticSections> {
-  return connectionDiagnosticSections({
-    connected: input.connected,
-    configuredCommand: input.configuredCommand,
-    initializeResponse: input.state.connection.initializeResponse,
-    diagnostics: input.state.connection.serverDiagnostics,
-  });
 }

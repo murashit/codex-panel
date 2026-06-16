@@ -81,7 +81,7 @@ vi.mock("../../../src/app-server/connection/connection-manager", () => {
       return connectionMock.state.connected;
     }
 
-    reconnect(): void {
+    resetConnection(): void {
       this.disconnect();
     }
 
@@ -1290,15 +1290,15 @@ interface ChatHostFixtureOverrides {
   renameThreadInCatalog?: CodexChatHost["threadCatalog"]["renameThreadInCatalog"];
   refreshThreadsViewLiveState?: CodexChatHost["threadCatalog"]["refreshThreadsViewLiveState"];
   setActiveThreads?: CodexChatHost["threadCatalog"]["setActiveThreads"];
-  updateAppServerMetadata?: CodexChatHost["threadCatalog"]["updateAppServerMetadata"];
+  updateAppServerMetadata?: CodexChatHost["appServerData"]["updateAppServerMetadata"];
   refreshActiveThreads?: CodexChatHost["threadCatalog"]["refreshActiveThreads"];
   activeThreadsSnapshot?: CodexChatHost["threadCatalog"]["activeThreadsSnapshot"];
-  appServerMetadataSnapshot?: CodexChatHost["threadCatalog"]["appServerMetadataSnapshot"];
-  modelsSnapshot?: CodexChatHost["threadCatalog"]["modelsSnapshot"];
-  fetchModels?: CodexChatHost["threadCatalog"]["fetchModels"];
-  refreshModels?: CodexChatHost["threadCatalog"]["refreshModels"];
-  fetchAppServerMetadata?: CodexChatHost["threadCatalog"]["fetchAppServerMetadata"];
-  refreshAppServerMetadata?: CodexChatHost["threadCatalog"]["refreshAppServerMetadata"];
+  appServerMetadataSnapshot?: CodexChatHost["appServerData"]["appServerMetadataSnapshot"];
+  modelsSnapshot?: CodexChatHost["appServerData"]["modelsSnapshot"];
+  fetchModels?: CodexChatHost["appServerData"]["fetchModels"];
+  refreshModels?: CodexChatHost["appServerData"]["refreshModels"];
+  fetchAppServerMetadata?: CodexChatHost["appServerData"]["fetchAppServerMetadata"];
+  refreshAppServerMetadata?: CodexChatHost["appServerData"]["refreshAppServerMetadata"];
 }
 
 function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
@@ -1361,16 +1361,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
       focusThreadInOpenView: overrides.focusThreadInOpenView ?? vi.fn().mockResolvedValue(false),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
     },
-    threadCatalog: {
-      archiveThreadInCatalog: overrides.archiveThreadInCatalog ?? vi.fn(),
-      renameThreadInCatalog: overrides.renameThreadInCatalog ?? vi.fn(),
-      refreshThreadsViewLiveState: overrides.refreshThreadsViewLiveState ?? vi.fn(),
-      setActiveThreads:
-        overrides.setActiveThreads ??
-        ((threads) => {
-          activeThreads = threads;
-          for (const listener of activeThreadResultListeners) listener(queryResult(threads));
-        }),
+    appServerData: {
       updateAppServerMetadata:
         overrides.updateAppServerMetadata ??
         ((updater) => {
@@ -1378,18 +1369,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
           if (!nextMetadata) return null;
           return applyMetadataToCache(nextMetadata);
         }),
-      refreshActiveThreads:
-        overrides.refreshActiveThreads ??
-        (vi.fn(async () => {
-          const client = connectionMock.state.client;
-          if (!client) return activeThreads ?? [];
-          const listThreads = client["listThreads"] as (cwd: string, options: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
-          const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
-          activeThreads = response.data.map(threadFromRecord);
-          for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
-          return activeThreads;
-        }) as CodexChatHost["threadCatalog"]["refreshActiveThreads"]),
-      activeThreadsSnapshot: overrides.activeThreadsSnapshot ?? vi.fn(() => activeThreads),
       appServerMetadataSnapshot: overrides.appServerMetadataSnapshot ?? vi.fn(() => metadata),
       fetchAppServerMetadata:
         overrides.fetchAppServerMetadata ??
@@ -1406,13 +1385,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
       modelsSnapshot: overrides.modelsSnapshot ?? vi.fn(() => models),
       fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
       refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
-      observeActiveThreadsResult: (listener, options = {}) => {
-        activeThreadResultListeners.add(listener);
-        if ((options.emitCurrent ?? true) && activeThreads) listener(queryResult(activeThreads));
-        return () => {
-          activeThreadResultListeners.delete(listener);
-        };
-      },
       observeAppServerMetadataResult: (listener, options = {}) => {
         metadataResultListeners.add(listener);
         if ((options.emitCurrent ?? true) && metadata) listener(queryResult(metadata));
@@ -1425,6 +1397,36 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): CodexChatHost {
         if ((options.emitCurrent ?? true) && models) listener(queryResult(models));
         return () => {
           modelResultListeners.delete(listener);
+        };
+      },
+    },
+    threadCatalog: {
+      archiveThreadInCatalog: overrides.archiveThreadInCatalog ?? vi.fn(),
+      renameThreadInCatalog: overrides.renameThreadInCatalog ?? vi.fn(),
+      refreshThreadsViewLiveState: overrides.refreshThreadsViewLiveState ?? vi.fn(),
+      setActiveThreads:
+        overrides.setActiveThreads ??
+        ((threads) => {
+          activeThreads = threads;
+          for (const listener of activeThreadResultListeners) listener(queryResult(threads));
+        }),
+      refreshActiveThreads:
+        overrides.refreshActiveThreads ??
+        (vi.fn(async () => {
+          const client = connectionMock.state.client;
+          if (!client) return activeThreads ?? [];
+          const listThreads = client["listThreads"] as (cwd: string, options: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
+          const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
+          activeThreads = response.data.map(threadFromRecord);
+          for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
+          return activeThreads;
+        }) as CodexChatHost["threadCatalog"]["refreshActiveThreads"]),
+      activeThreadsSnapshot: overrides.activeThreadsSnapshot ?? vi.fn(() => activeThreads),
+      observeActiveThreadsResult: (listener, options = {}) => {
+        activeThreadResultListeners.add(listener);
+        if ((options.emitCurrent ?? true) && activeThreads) listener(queryResult(activeThreads));
+        return () => {
+          activeThreadResultListeners.delete(listener);
         };
       },
     },

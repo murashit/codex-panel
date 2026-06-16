@@ -74,7 +74,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             if (codexPathChanged) {
               this.dynamicData.resetSettingsDataContext();
-              this.plugin.threadCatalog.notifyAppServerQueryContextChanged();
+              this.plugin.appServerData.notifyContextChanged();
               this.plugin.refreshOpenViews();
               this.renderSettingsTab({ autoLoadCodexData: false });
             }

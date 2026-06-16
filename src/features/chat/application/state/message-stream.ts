@@ -305,7 +305,7 @@ function appendItemTextToMessageStream(
   return updateActiveSegment(state, turnId, (segment) => {
     const index = segment.indexBySourceItemId.get(sourceItemId);
     if (index !== undefined) {
-      return replaceActiveSegmentItem(segment, index, (item) => ({ ...item, text: `${"text" in item ? item.text : ""}${delta}` }));
+      return replaceActiveSegmentItem(segment, index, (item) => appendTextToMatchingStreamItemKind(item, kind, delta));
     }
     return appendActiveSegmentItem(segment, {
       ...streamedTextMessageStreamItem({
@@ -419,8 +419,24 @@ function updateActiveSegment(
   turnId: string,
   update: (segment: ChatMessageStreamActiveSegment) => ChatMessageStreamActiveSegment,
 ): ChatMessageStreamState {
-  const segment = state.activeSegment?.turnId === turnId ? state.activeSegment : activeSegmentFromItems(turnId, []);
+  const activeSegment = state.activeSegment;
+  if (activeSegment?.turnId && activeSegment.turnId !== turnId) return state;
+  const segment =
+    activeSegment?.turnId === turnId
+      ? activeSegment
+      : activeSegment
+        ? activeSegmentFromItems(turnId, activeSegment.items)
+        : activeSegmentFromItems(turnId, []);
   return patchObject(state, { activeSegment: update(segment) });
+}
+
+function appendTextToMatchingStreamItemKind(
+  item: MessageStreamItem,
+  kind: "tool" | "hook" | "reasoning",
+  delta: string,
+): MessageStreamItem {
+  if (item.kind !== kind) return item;
+  return { ...item, text: `${item.text ?? ""}${delta}` };
 }
 
 function shouldUseActiveSegment(

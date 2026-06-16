@@ -201,7 +201,7 @@ describe("settings tab", () => {
 
   it("clears dynamic settings data when the Codex executable changes", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const notifyAppServerQueryContextChanged = vi.fn();
+    const notifyContextChanged = vi.fn();
     const refreshOpenViews = vi.fn();
     const oldClient = settingsClient({
       models: [model("gpt-old")],
@@ -218,7 +218,7 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(newClient));
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-old")]));
     const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-new")]));
-    const tab = newSettingsTab({ saveSettings, notifyAppServerQueryContextChanged, refreshOpenViews, fetchModels, refreshModels });
+    const tab = newSettingsTab({ saveSettings, notifyContextChanged, refreshOpenViews, fetchModels, refreshModels });
 
     tab.display();
     await flushPromises();
@@ -233,7 +233,7 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(notifyAppServerQueryContextChanged).toHaveBeenCalledOnce();
+    expect(notifyContextChanged).toHaveBeenCalledOnce();
     expect(refreshOpenViews).toHaveBeenCalledOnce();
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
@@ -608,8 +608,8 @@ function newSettingsTab(
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModelsResult"];
-    notifyAppServerQueryContextChanged?: () => void;
+    observeModels?: CodexPanelSettingTabHost["appServerData"]["observeModelsResult"];
+    notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
     invalidateThreadsFromOpenSurface?: () => void;
     settings?: Partial<{
@@ -630,8 +630,8 @@ function settingsTabHost(
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: CodexPanelSettingTabHost["threadCatalog"]["observeModelsResult"];
-    notifyAppServerQueryContextChanged?: () => void;
+    observeModels?: CodexPanelSettingTabHost["appServerData"]["observeModelsResult"];
+    notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
     invalidateThreadsFromOpenSurface?: () => void;
     settings?: Partial<{
@@ -660,13 +660,15 @@ function settingsTabHost(
     vaultPath: "/vault",
     saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
     refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
-    threadCatalog: {
-      invalidateThreadsFromOpenSurface: options.invalidateThreadsFromOpenSurface ?? vi.fn(),
+    appServerData: {
       modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
       fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
       refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
       observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),
-      notifyAppServerQueryContextChanged: options.notifyAppServerQueryContextChanged ?? vi.fn(),
+      notifyContextChanged: options.notifyContextChanged ?? vi.fn(),
+    },
+    threadCatalog: {
+      invalidateThreadsFromOpenSurface: options.invalidateThreadsFromOpenSurface ?? vi.fn(),
     },
   };
 }

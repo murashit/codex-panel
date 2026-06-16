@@ -1,8 +1,19 @@
-import type { OpenCodexPanelSnapshot } from "../../../workspace/open-panel-snapshot";
 import type { ChatState } from "../application/state/root-reducer";
 import type { RestoredThreadState } from "../application/lifecycle";
 
-export function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): OpenCodexPanelSnapshot["turnLifecycle"] {
+type OpenCodexPanelTurnLifecycle = { kind: "idle" } | { kind: "starting" } | { kind: "running"; turnId: string };
+
+export interface ChatPanelSnapshot {
+  viewId: string;
+  threadId: string | null;
+  turnLifecycle: OpenCodexPanelTurnLifecycle;
+  pendingApprovals: number;
+  pendingUserInputs: number;
+  hasComposerDraft: boolean;
+  connected: boolean;
+}
+
+export function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): ChatPanelSnapshot["turnLifecycle"] {
   if (state.kind === "running") return { kind: "running", turnId: state.turnId };
   if (state.kind === "starting") return { kind: "starting" };
   return { kind: "idle" };

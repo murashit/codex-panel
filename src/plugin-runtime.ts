@@ -2,11 +2,18 @@ import type { App } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { AppServerQueryCache } from "./app-server/query/cache";
+import { AppServerSharedQueries } from "./app-server/query/shared-queries";
 import type { AppServerClient } from "./app-server/connection/client";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
 import { appServerQueryContextIsComplete, type AppServerQueryContext } from "./app-server/query/keys";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import type { CodexChatHost, PluginSettingsRef } from "./features/chat/host/runtime";
+import type {
+  ChatPanelClientSurface,
+  ChatSharedThreadSurface,
+  ChatViewLifecycleSurface,
+  ChatWorkspacePanelSurface,
+} from "./features/chat/host/surface-handle";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
@@ -27,6 +34,10 @@ export class CodexPanelRuntime {
       runWithClient: (context, operation, options) => this.runWithAppServerClient(context, operation, options),
     },
   });
+  private readonly appServerSharedQueries = new AppServerSharedQueries({
+    cache: this.appServerQueries,
+    context: () => this.appServerQueryContext(),
+  });
   private readonly panels: WorkspacePanelCoordinator;
   private readonly threadCatalog: SharedThreadCatalog;
 
@@ -38,7 +49,7 @@ export class CodexPanelRuntime {
       },
     });
     this.threadCatalog = new SharedThreadCatalog({
-      cache: this.appServerQueries,
+      queries: this.appServerSharedQueries,
       surfaces: {
         invalidateThreadsFromOpenSurface: () => {
           this.invalidateThreadsFromOpenSurface();
@@ -53,7 +64,6 @@ export class CodexPanelRuntime {
           this.refreshThreadsViewLiveState();
         },
       },
-      context: () => this.appServerQueryContext(),
     });
   }
 
@@ -76,7 +86,8 @@ export class CodexPanelRuntime {
 
   async startNewChat(): Promise<void> {
     const view = await this.panels.activateView();
-    await view.surface.startNewThread();
+    const surface: ChatWorkspacePanelSurface = view.surface;
+    await surface.startNewThread();
   }
 
   openThreadPicker(): void {
@@ -109,6 +120,7 @@ export class CodexPanelRuntime {
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
         openTurnDiff: (state) => this.openTurnDiff(state),
       },
+      appServerData: this.appServerSharedQueries,
       threadCatalog: this.threadCatalog,
     };
   }
@@ -132,6 +144,7 @@ export class CodexPanelRuntime {
       refreshOpenViews: () => {
         this.refreshOpenViews();
       },
+      appServerData: this.appServerSharedQueries,
       threadCatalog: this.threadCatalog,
     };
   }
@@ -160,14 +173,15 @@ export class CodexPanelRuntime {
 
   private refreshOpenViews(): void {
     for (const view of this.panels.panelViews()) {
-      view.surface.refreshSettings();
+      const surface: ChatViewLifecycleSurface = view.surface;
+      surface.refreshSettings();
     }
   }
 
   private invalidateThreadsFromOpenSurface(): void {
-    const chatView = this.panels.panelViews().find((view) => view.surface.openPanelSnapshot().connected);
-    if (chatView) {
-      void chatView.surface.refreshSharedThreadList();
+    const chatSurface = this.connectedPanelSurface();
+    if (chatSurface) {
+      void chatSurface.refreshSharedThreadList();
       return;
     }
 
@@ -178,7 +192,8 @@ export class CodexPanelRuntime {
   private applyThreadArchived(threadId: string, archiveOptions: { closeOpenPanels?: boolean } = {}): void {
     const leavesToClose = archiveOptions.closeOpenPanels ? this.panels.panelLeavesForThread(threadId) : [];
     for (const view of this.panels.panelViews()) {
-      view.surface.applyThreadArchived(threadId);
+      const surface: ChatSharedThreadSurface = view.surface;
+      surface.applyThreadArchived(threadId);
     }
     for (const leaf of leavesToClose) {
       leaf.detach();
@@ -187,8 +202,17 @@ export class CodexPanelRuntime {
 
   private applyThreadRenamed(threadId: string, name: string | null): void {
     for (const view of this.panels.panelViews()) {
-      view.surface.applyThreadRenamed(threadId, name);
+      const surface: ChatSharedThreadSurface = view.surface;
+      surface.applyThreadRenamed(threadId, name);
     }
+  }
+
+  private connectedPanelSurface(): (ChatWorkspacePanelSurface & ChatSharedThreadSurface) | null {
+    for (const view of this.panels.panelViews()) {
+      const surface: ChatWorkspacePanelSurface & ChatSharedThreadSurface = view.surface;
+      if (surface.openPanelSnapshot().connected) return surface;
+    }
+    return null;
   }
 
   private refreshThreadsViewLiveState(): void {
@@ -211,9 +235,19 @@ export class CodexPanelRuntime {
     if (!appServerQueryContextIsComplete(context)) {
       throw new Error("Codex app-server query context is incomplete.");
     }
-    const chatView = this.panels.panelViews().find((view) => view.surface.openPanelSnapshot().connected);
-    if (chatView) return chatView.surface.runWithAppServerClient(operation);
+    const chatSurface = this.connectedClientSurface();
+    if (chatSurface) return chatSurface.runWithAppServerClient(operation);
     return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
+  }
+
+  private connectedClientSurface(): ChatPanelClientSurface | null {
+    for (const view of this.panels.panelViews()) {
+      const workspaceSurface: ChatWorkspacePanelSurface = view.surface;
+      if (!workspaceSurface.openPanelSnapshot().connected) continue;
+      const clientSurface: ChatPanelClientSurface = view.surface;
+      return clientSurface;
+    }
+    return null;
   }
 
   private appServerQueryContext(): AppServerQueryContext {
