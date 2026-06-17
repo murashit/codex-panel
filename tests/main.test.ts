@@ -71,6 +71,23 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(firstLeaf.loadIfDeferred).not.toHaveBeenCalled();
   });
 
+  it("clears pending boot panel load timers on reset without cancelling future schedules", async () => {
+    vi.useFakeTimers();
+    const firstLeaf = leaf();
+    const coordinator = panels(await pluginWithLeaves([firstLeaf]));
+
+    coordinator.scheduleBootRestoredPanelLoads();
+    coordinator.reset();
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(firstLeaf.loadIfDeferred).not.toHaveBeenCalled();
+
+    coordinator.scheduleBootRestoredPanelLoads();
+    await vi.advanceTimersByTimeAsync(1_001);
+
+    expect(firstLeaf.loadIfDeferred).toHaveBeenCalledOnce();
+  });
+
   it("loads and focuses a deferred restored panel before opening another panel", async () => {
     const restoredLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
     const plugin = await pluginWithLeaves([restoredLeaf]);
@@ -635,8 +652,17 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
         },
         vault: {
           on: vi.fn(() => ({})),
+          offref: vi.fn(),
           getFiles: vi.fn(() => []),
           getMarkdownFiles: vi.fn(() => []),
+          getAbstractFileByPath: vi.fn(() => null),
+        },
+        metadataCache: {
+          on: vi.fn(() => ({})),
+          offref: vi.fn(),
+          getFirstLinkpathDest: vi.fn(() => null),
+          fileToLinktext: vi.fn((_file: unknown, _sourcePath: string) => ""),
+          getFileCache: vi.fn(() => null),
         },
       },
       containerEl,

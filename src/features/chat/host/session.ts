@@ -137,9 +137,6 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   open(): void {
     this.opened = true;
     this.closing = false;
-    this.graph.composer.controller.registerNoteIndexInvalidation((eventRef) => {
-      this.environment.obsidian.registerEvent(eventRef);
-    });
     this.environment.obsidian.registerPointerDown((event) => {
       this.closeToolbarPanelOnOutsidePointer(event);
     });

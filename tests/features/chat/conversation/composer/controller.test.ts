@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import type { App } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 
@@ -12,6 +11,7 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-roo
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { installObsidianDomShims } from "../../../../support/dom";
 import type { ChatPanelComposerShellState } from "../../../../../src/features/chat/panel/shell-state";
+import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
 
 installObsidianDomShims();
 
@@ -32,7 +32,8 @@ describe("ChatComposerController", () => {
       meta: defaultComposerProjection(state).meta,
     }));
     const controller = new ChatComposerController({
-      app: app(),
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
       stateStore,
       viewId: "view",
       sendShortcut: () => "enter",
@@ -65,7 +66,8 @@ describe("ChatComposerController", () => {
       renderComposerController(parent, controllerRef.current, stateStore);
     });
     const controller = new ChatComposerController({
-      app: app(),
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
       stateStore,
       viewId: "view",
       sendShortcut: () => "enter",
@@ -102,7 +104,8 @@ describe("ChatComposerController", () => {
       renderComposerController(parent, controller, stateStore);
     });
     controller = new ChatComposerController({
-      app: app(),
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
       stateStore,
       viewId: "view",
       sendShortcut: () => "enter",
@@ -147,7 +150,8 @@ describe("ChatComposerController", () => {
       renderComposerController(parent, controller, stateStore);
     });
     controller = new ChatComposerController({
-      app: app(),
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
       stateStore,
       viewId: "view",
       sendShortcut: () => "enter",
@@ -185,7 +189,8 @@ describe("ChatComposerController", () => {
     const parent = document.createElement("div");
     const togglePlan = vi.fn();
     const controller = new ChatComposerController({
-      app: app(),
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
       stateStore,
       viewId: "view",
       sendShortcut: () => "enter",
@@ -214,7 +219,8 @@ describe("ChatComposerController", () => {
     const parent = document.createElement("div");
     const submit = vi.fn();
     const controller = new ChatComposerController({
-      app: app(),
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
       stateStore,
       viewId: "view",
       sendShortcut: () => "enter",
@@ -241,7 +247,8 @@ describe("ChatComposerController", () => {
     stateStore.dispatch({ type: "composer/draft-set", draft: "state draft" });
     const parent = document.createElement("div");
     const controller = new ChatComposerController({
-      app: app(),
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
       stateStore,
       viewId: "view",
       sendShortcut: () => "enter",
@@ -270,16 +277,12 @@ describe("ChatComposerController", () => {
   });
 });
 
-function app(): App {
+function noteProvider(): NoteCandidateProvider {
   return {
-    workspace: {
-      getActiveFile: () => null,
-      getLastOpenFiles: () => [],
-    },
-    vault: {
-      getFiles: () => [],
-    },
-  } as unknown as App;
+    candidates: () => [],
+    resolveMention: () => null,
+    dispose: vi.fn(),
+  };
 }
 
 function skill(name: string): SkillMetadata {

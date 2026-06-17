@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { TFile, type App } from "obsidian";
+import { TFile, type App, type EventRef } from "obsidian";
 
-import { noteCandidates, resolveWikiLinkMention } from "../../../../src/features/chat/panel/composer-obsidian-context";
+import { VaultNoteCandidateProvider } from "../../../../src/features/chat/panel/vault-note-candidate-provider";
 
-describe("Obsidian composer context", () => {
+describe("VaultNoteCandidateProvider", () => {
   it("builds note candidates from markdown files", () => {
     const app = appFixture({
       files: [
@@ -26,8 +26,9 @@ describe("Obsidian composer context", () => {
       ]),
       headings: new Map([["Beta.md", [{ heading: "Overview", level: 1 }]]]),
     });
+    const provider = new VaultNoteCandidateProvider(app);
 
-    expect(noteCandidates(app)).toEqual([
+    expect(provider.candidates("Inbox.md")).toEqual([
       { basename: "Alpha", displayName: "Alpha", path: "notes/Alpha.md", mtime: 100, linktext: "Alpha", headings: [], recentIndex: null },
       {
         basename: "Beta",
@@ -86,16 +87,52 @@ describe("Obsidian composer context", () => {
     ]);
   });
 
+  it("caches file candidates and reprojects linktext by source path", () => {
+    const files = [{ basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } }];
+    const getFiles = vi.fn(() => vaultFiles(files));
+    const fileToLinktext = vi.fn((file: TFile, sourcePath: string) => `${sourcePath}:${file.basename}`);
+    const app = appFixture({ getFiles, fileToLinktext });
+    const provider = new VaultNoteCandidateProvider(app);
+
+    expect(provider.candidates("Daily/Today.md")[0]?.linktext).toBe("Daily/Today.md:Alpha");
+    expect(provider.candidates("Projects.md")[0]?.linktext).toBe("Projects.md:Alpha");
+    expect(provider.candidates("Daily/Today.md")[0]?.linktext).toBe("Daily/Today.md:Alpha");
+    expect(getFiles).toHaveBeenCalledOnce();
+    expect(fileToLinktext).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates cached candidates when the vault changes", () => {
+    const files = [{ basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } }];
+    const app = appFixture({ files });
+    const provider = new VaultNoteCandidateProvider(app);
+
+    expect(provider.candidates("Inbox.md").map((candidate) => candidate.basename)).toEqual(["Alpha"]);
+
+    files.push({ basename: "Beta", path: "notes/Beta.md", stat: { mtime: 200 } });
+    app.triggerVaultEvent("create");
+
+    expect(provider.candidates("Inbox.md").map((candidate) => candidate.basename)).toEqual(["Alpha", "Beta"]);
+  });
+
+  it("unregisters Obsidian events when disposed", () => {
+    const app = appFixture();
+    const provider = new VaultNoteCandidateProvider(app);
+
+    provider.dispose();
+
+    expect(app.offref).toHaveBeenCalledTimes(6);
+  });
+
   it("resolves wikilinks through metadata cache before direct path fallback", () => {
     const linked = tFile("notes/Alpha.md", "Alpha");
     const direct = tFile("Alpha.md", "Alpha direct");
     const app = appFixture({
-      activePath: "Inbox.md",
       linkDestination: linked,
       abstractFiles: new Map([["Alpha.md", direct]]),
     });
+    const provider = new VaultNoteCandidateProvider(app);
 
-    expect(resolveWikiLinkMention(app, "Alpha")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
+    expect(provider.resolveMention("Alpha", "Inbox.md")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
   });
 
   it("resolves direct markdown paths when metadata has no match", () => {
@@ -103,20 +140,21 @@ describe("Obsidian composer context", () => {
     const app = appFixture({
       abstractFiles: new Map([["notes/Alpha.md", direct]]),
     });
+    const provider = new VaultNoteCandidateProvider(app);
 
-    expect(resolveWikiLinkMention(app, "notes/Alpha")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
-    expect(resolveWikiLinkMention(app, "Missing")).toBeNull();
+    expect(provider.resolveMention("notes/Alpha", "")).toEqual({ name: "Alpha", path: "notes/Alpha.md" });
+    expect(provider.resolveMention("Missing", "")).toBeNull();
   });
 
   it("uses the active note only as Obsidian link-resolution context", () => {
     const linked = tFile("notes/Project.md", "Project");
     const getFirstLinkpathDest = vi.fn(() => linked);
     const app = appFixture({
-      activePath: "Daily/Today.md",
       getFirstLinkpathDest,
     });
+    const provider = new VaultNoteCandidateProvider(app);
 
-    expect(resolveWikiLinkMention(app, "Project")).toEqual({ name: "Project", path: "notes/Project.md" });
+    expect(provider.resolveMention("Project", "Daily/Today.md")).toEqual({ name: "Project", path: "notes/Project.md" });
     expect(getFirstLinkpathDest).toHaveBeenCalledWith("Project", "Daily/Today.md");
   });
 
@@ -124,42 +162,73 @@ describe("Obsidian composer context", () => {
     const linked = tFile("Bases/Projects.base", "Projects");
     const getFirstLinkpathDest = vi.fn(() => linked);
     const app = appFixture({
-      activePath: "Daily/Today.md",
       getFirstLinkpathDest,
     });
+    const provider = new VaultNoteCandidateProvider(app);
 
-    expect(resolveWikiLinkMention(app, "Bases/Projects.base")).toEqual({ name: "Projects", path: "Bases/Projects.base" });
+    expect(provider.resolveMention("Bases/Projects.base", "Daily/Today.md")).toEqual({ name: "Projects", path: "Bases/Projects.base" });
     expect(getFirstLinkpathDest).toHaveBeenCalledWith("Bases/Projects.base", "Daily/Today.md");
   });
 });
 
-function appFixture(options: {
-  activePath?: string;
-  linkDestination?: TFile | null;
-  getFirstLinkpathDest?: (target: string, sourcePath: string) => TFile | null;
-  lastOpenFiles?: string[];
-  files?: { basename: string; path: string; stat: { mtime: number } }[];
-  abstractFiles?: Map<string, TFile>;
-  linktexts?: Map<string, string>;
-  headings?: Map<string, { heading: string; level: number }[]>;
-}): App {
+interface AppFixture extends App {
+  offref: ReturnType<typeof vi.fn>;
+  triggerVaultEvent(name: string): void;
+}
+
+function appFixture(
+  options: {
+    linkDestination?: TFile | null;
+    getFirstLinkpathDest?: (target: string, sourcePath: string) => TFile | null;
+    lastOpenFiles?: string[];
+    files?: { basename: string; path: string; stat: { mtime: number } }[];
+    getFiles?: () => TFile[];
+    abstractFiles?: Map<string, TFile>;
+    linktexts?: Map<string, string>;
+    fileToLinktext?: (file: TFile, sourcePath: string, omitMdExtension?: boolean) => string;
+    headings?: Map<string, { heading: string; level: number }[]>;
+  } = {},
+): AppFixture {
+  const refs: { source: "vault" | "metadata"; name: string; callback: () => void; ref: EventRef }[] = [];
+  const offref = vi.fn((ref: EventRef) => {
+    const index = refs.findIndex((event) => event.ref === ref);
+    if (index !== -1) refs.splice(index, 1);
+  });
+  const on =
+    (source: "vault" | "metadata") =>
+    (name: string, callback: () => void): EventRef => {
+      const ref = { id: `${source}:${name}:${refs.length.toString()}` } as unknown as EventRef;
+      refs.push({ source, name, callback, ref });
+      return ref;
+    };
   return {
+    offref,
+    triggerVaultEvent: (name: string) => {
+      for (const event of refs.filter((ref) => ref.source === "vault" && ref.name === name)) {
+        event.callback();
+      }
+    },
     workspace: {
-      getActiveFile: () => (options.activePath ? { path: options.activePath } : null),
       getLastOpenFiles: () => options.lastOpenFiles ?? [],
     },
     metadataCache: {
+      on: on("metadata"),
+      offref,
       getFirstLinkpathDest: options.getFirstLinkpathDest ?? (() => options.linkDestination ?? null),
-      fileToLinktext: (file: TFile, _sourcePath: string, omitMdExtension?: boolean) =>
-        options.linktexts?.get(file.path) ?? (omitMdExtension === true ? file.path.replace(/\.md$/i, "") : file.path),
+      fileToLinktext:
+        options.fileToLinktext ??
+        ((file: TFile, _sourcePath: string, omitMdExtension?: boolean) =>
+          options.linktexts?.get(file.path) ?? (omitMdExtension === true ? file.path.replace(/\.md$/i, "") : file.path)),
       getFileCache: (file: TFile) => ({ headings: options.headings?.get(file.path) ?? [] }),
     },
     vault: {
-      getFiles: () => vaultFiles(options.files ?? []),
+      on: on("vault"),
+      offref,
+      getFiles: options.getFiles ?? (() => vaultFiles(options.files ?? [])),
       getMarkdownFiles: () => vaultFiles(options.files ?? []).filter((file) => file.path.toLowerCase().endsWith(".md")),
       getAbstractFileByPath: (path: string) => options.abstractFiles?.get(path) ?? null,
     },
-  } as unknown as App;
+  } as unknown as AppFixture;
 }
 
 function tFile(path: string, basename: string): TFile {

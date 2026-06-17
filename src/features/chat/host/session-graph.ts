@@ -66,6 +66,7 @@ import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../do
 import type { RuntimeSnapshot } from "../application/runtime/snapshot";
 import type { ChatPanelEnvironment } from "./runtime";
 import { createConnectionBundle, type ChatPanelConnectionBundle, type CurrentAppServerClient } from "./connection-bundle";
+import { VaultNoteCandidateProvider } from "../panel/vault-note-candidate-provider";
 
 export interface ChatPanelSessionGraph {
   connection: {
@@ -640,7 +641,8 @@ function createSessionComposerController(
 ): ChatComposerController {
   const { environment, stateStore } = host;
   return new ChatComposerController({
-    app: environment.obsidian.app,
+    noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
+    sourcePath: () => environment.obsidian.app.workspace.getActiveFile()?.path ?? "",
     stateStore,
     viewId: environment.obsidian.viewId,
     sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,

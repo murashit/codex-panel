@@ -1539,8 +1539,17 @@ async function chatView(
         },
         vault: {
           on: vi.fn(() => ({})),
+          offref: vi.fn(),
           getFiles: vi.fn(() => []),
           getMarkdownFiles: vi.fn(() => []),
+          getAbstractFileByPath: vi.fn(() => null),
+        },
+        metadataCache: {
+          on: vi.fn(() => ({})),
+          offref: vi.fn(),
+          getFirstLinkpathDest: vi.fn(() => null),
+          fileToLinktext: vi.fn(() => ""),
+          getFileCache: vi.fn(() => null),
         },
       },
       containerEl,

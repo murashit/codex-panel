@@ -54,6 +54,7 @@ export class WorkspacePanelCoordinator {
   constructor(private readonly options: WorkspacePanelCoordinatorOptions) {}
 
   reset(): void {
+    this.clearBootRestoredPanelLoadTimers();
     this.bootRestoredPanelLoadLifecycle = { kind: "idle" };
     this.lastFocusedPanelViewId = null;
   }
@@ -173,13 +174,17 @@ export class WorkspacePanelCoordinator {
   }
 
   cancelBootRestoredPanelLoads(): void {
+    this.clearBootRestoredPanelLoadTimers();
+    this.bootRestoredPanelLoadLifecycle = { kind: "cancelled" };
+  }
+
+  private clearBootRestoredPanelLoadTimers(): void {
     if (this.bootRestoredPanelLoadLifecycle.kind === "scheduled") {
       for (const timer of this.bootRestoredPanelLoadLifecycle.timers) {
         window.clearTimeout(timer);
       }
       this.bootRestoredPanelLoadLifecycle.timers.clear();
     }
-    this.bootRestoredPanelLoadLifecycle = { kind: "cancelled" };
   }
 
   private panelLeaves(): WorkspaceLeaf[] {

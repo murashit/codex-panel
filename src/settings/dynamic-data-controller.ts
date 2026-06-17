@@ -59,9 +59,7 @@ export class SettingsDynamicDataController {
   constructor(
     private readonly host: SettingsDynamicDataHost,
     private readonly callbacks: SettingsDynamicDataControllerCallbacks,
-  ) {
-    this.activate();
-  }
+  ) {}
 
   activate(): void {
     if (this.unsubscribeModels) return;
@@ -267,126 +265,84 @@ export class SettingsDynamicDataController {
   }
 
   async trustHook(hook: HookItem): Promise<void> {
-    const operationId = this.nextHooksOperationId();
-    this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-      type: "started",
-      status: "Loading hooks...",
-      operationId,
+    await this.runDynamicSectionOperation({
+      section: "hooks",
+      loadingStatus: "Loading hooks...",
+      failureStatus: (error) => `Could not trust hook: ${errorMessage(error)}`,
+      failureNotice: "Could not trust Codex hook.",
+      operation: async (operationId) => {
+        await this.withSettingsConnection((client) => trustHookItem(client, hook));
+        if (this.isStaleHooksOperation(operationId)) return;
+        this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+          type: "loaded",
+          status: "Trusted hook definition.",
+          operationId,
+        });
+        await this.loadHooks();
+      },
     });
-    this.callbacks.display();
-    try {
-      await this.withSettingsConnection((client) => trustHookItem(client, hook));
-      if (this.isStaleHooksOperation(operationId)) return;
-      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-        type: "loaded",
-        status: "Trusted hook definition.",
-        operationId,
-      });
-      await this.loadHooks();
-    } catch (error) {
-      if (this.isStaleHooksOperation(operationId)) return;
-      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-        type: "failed",
-        status: `Could not trust hook: ${errorMessage(error)}`,
-        operationId,
-      });
-      this.callbacks.notify("Could not trust Codex hook.");
-      this.callbacks.display();
-    }
   }
 
   async setHookEnabled(hook: HookItem, enabled: boolean): Promise<void> {
-    const operationId = this.nextHooksOperationId();
-    this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-      type: "started",
-      status: "Loading hooks...",
-      operationId,
+    await this.runDynamicSectionOperation({
+      section: "hooks",
+      loadingStatus: "Loading hooks...",
+      failureStatus: (error) => `Could not update hook: ${errorMessage(error)}`,
+      failureNotice: "Could not update Codex hook.",
+      operation: async (operationId) => {
+        await this.withSettingsConnection((client) => setHookItemEnabled(client, hook, enabled));
+        if (this.isStaleHooksOperation(operationId)) return;
+        this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+          type: "loaded",
+          status: enabled ? "Enabled hook." : "Disabled hook.",
+          operationId,
+        });
+        await this.loadHooks();
+      },
     });
-    this.callbacks.display();
-    try {
-      await this.withSettingsConnection((client) => setHookItemEnabled(client, hook, enabled));
-      if (this.isStaleHooksOperation(operationId)) return;
-      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-        type: "loaded",
-        status: enabled ? "Enabled hook." : "Disabled hook.",
-        operationId,
-      });
-      await this.loadHooks();
-    } catch (error) {
-      if (this.isStaleHooksOperation(operationId)) return;
-      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-        type: "failed",
-        status: `Could not update hook: ${errorMessage(error)}`,
-        operationId,
-      });
-      this.callbacks.notify("Could not update Codex hook.");
-      this.callbacks.display();
-    }
   }
 
   async restoreArchivedThread(threadId: string): Promise<void> {
-    const operationId = this.nextArchivedThreadsOperationId();
-    this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
-      type: "started",
-      status: "Loading archived threads...",
-      operationId,
+    await this.runDynamicSectionOperation({
+      section: "archivedThreads",
+      loadingStatus: "Loading archived threads...",
+      failureStatus: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
+      failureNotice: "Could not restore archived Codex thread.",
+      operation: async (operationId) => {
+        const restoredThread = await this.withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
+        if (this.isStaleArchivedThreadsOperation(operationId)) return;
+        this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
+        this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+          type: "loaded",
+          status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
+          operationId,
+        });
+        this.host.threadCatalog.recordThreadRestored(restoredThread);
+      },
     });
-    this.callbacks.display();
-    try {
-      const restoredThread = await this.withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
-      if (this.isStaleArchivedThreadsOperation(operationId)) return;
-      this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
-        type: "loaded",
-        status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
-        operationId,
-      });
-      this.host.threadCatalog.recordThreadRestored(restoredThread);
-    } catch (error) {
-      if (this.isStaleArchivedThreadsOperation(operationId)) return;
-      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
-        type: "failed",
-        status: `Could not restore archived thread: ${errorMessage(error)}`,
-        operationId,
-      });
-      this.callbacks.notify("Could not restore archived Codex thread.");
-    } finally {
-      if (!this.isStaleArchivedThreadsOperation(operationId)) this.callbacks.display();
-    }
   }
 
   async deleteArchivedThread(threadId: string): Promise<void> {
-    const operationId = this.nextArchivedThreadsOperationId();
     const title = archivedThreadTitleForStatus(
       this.archivedThreads.find((thread) => thread.id === threadId),
       threadId,
     );
-    this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
-      type: "started",
-      status: "Loading archived threads...",
-      operationId,
+    await this.runDynamicSectionOperation({
+      section: "archivedThreads",
+      loadingStatus: "Loading archived threads...",
+      failureStatus: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
+      failureNotice: "Could not delete archived Codex thread.",
+      operation: async (operationId) => {
+        await this.withSettingsConnection((client) => client.deleteThread(threadId));
+        if (this.isStaleArchivedThreadsOperation(operationId)) return;
+        this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
+        this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+          type: "loaded",
+          status: `Deleted "${title}".`,
+          operationId,
+        });
+      },
     });
-    this.callbacks.display();
-    try {
-      await this.withSettingsConnection((client) => client.deleteThread(threadId));
-      if (this.isStaleArchivedThreadsOperation(operationId)) return;
-      this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
-        type: "loaded",
-        status: `Deleted "${title}".`,
-        operationId,
-      });
-    } catch (error) {
-      if (this.isStaleArchivedThreadsOperation(operationId)) return;
-      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
-        type: "failed",
-        status: `Could not delete archived thread: ${errorMessage(error)}`,
-        operationId,
-      });
-      this.callbacks.notify("Could not delete archived Codex thread.");
-    } finally {
-      if (!this.isStaleArchivedThreadsOperation(operationId)) this.callbacks.display();
-    }
   }
 
   modelMetadata(): ModelMetadata[] {
@@ -407,34 +363,68 @@ export class SettingsDynamicDataController {
   }
 
   private async loadHooks(): Promise<void> {
-    const operationId = this.nextHooksOperationId();
-    this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-      type: "started",
-      status: "Loading hooks...",
-      operationId,
+    await this.runDynamicSectionOperation({
+      section: "hooks",
+      loadingStatus: "Loading hooks...",
+      failureStatus: (error) => `Could not load hooks: ${errorMessage(error)}`,
+      failureNotice: "Could not load Codex hooks.",
+      operation: async (operationId) => {
+        const hooks = await this.withSettingsConnection((client) => loadHookData(client, this.host.vaultPath));
+        if (this.isStaleHooksOperation(operationId)) return;
+        this.hooks = hooks.hooks;
+        this.hookWarnings = hooks.warnings;
+        this.hookErrors = hooks.errors;
+        this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
+          type: "loaded",
+          status: hooks.status,
+          operationId,
+        });
+      },
     });
+  }
+
+  private async runDynamicSectionOperation(options: {
+    section: "hooks" | "archivedThreads";
+    loadingStatus: string;
+    failureStatus: (error: unknown) => string;
+    failureNotice: string;
+    operation: (operationId: number) => Promise<void>;
+  }): Promise<void> {
+    const operationId = options.section === "hooks" ? this.nextHooksOperationId() : this.nextArchivedThreadsOperationId();
+    const stale = (): boolean =>
+      options.section === "hooks" ? this.isStaleHooksOperation(operationId) : this.isStaleArchivedThreadsOperation(operationId);
+    const lifecycle = (): SettingsDynamicSectionLifecycleState =>
+      options.section === "hooks" ? this.hooksLifecycle : this.archivedThreadsLifecycle;
+    const setLifecycle = (state: SettingsDynamicSectionLifecycleState): void => {
+      if (options.section === "hooks") {
+        this.hooksLifecycle = state;
+      } else {
+        this.archivedThreadsLifecycle = state;
+      }
+    };
+
+    setLifecycle(
+      transitionSettingsDynamicSectionLifecycle(lifecycle(), {
+        type: "started",
+        status: options.loadingStatus,
+        operationId,
+      }),
+    );
     this.callbacks.display();
     try {
-      const hooks = await this.withSettingsConnection((client) => loadHookData(client, this.host.vaultPath));
-      if (this.isStaleHooksOperation(operationId)) return;
-      this.hooks = hooks.hooks;
-      this.hookWarnings = hooks.warnings;
-      this.hookErrors = hooks.errors;
-      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-        type: "loaded",
-        status: hooks.status,
-        operationId,
-      });
+      await options.operation(operationId);
     } catch (error) {
-      if (this.isStaleHooksOperation(operationId)) return;
-      this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
-        type: "failed",
-        status: `Could not load hooks: ${errorMessage(error)}`,
-        operationId,
-      });
-      this.callbacks.notify("Could not load Codex hooks.");
+      if (stale()) return;
+      setLifecycle(
+        transitionSettingsDynamicSectionLifecycle(lifecycle(), {
+          type: "failed",
+          status: options.failureStatus(error),
+          operationId,
+        }),
+      );
+      this.callbacks.notify(options.failureNotice);
     } finally {
-      if (!this.isStaleHooksOperation(operationId)) this.callbacks.display();
+      if (!stale()) this.callbacks.display();
     }
   }
 

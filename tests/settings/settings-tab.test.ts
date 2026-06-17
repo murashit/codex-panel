@@ -259,7 +259,7 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).toContain("New archived");
   });
 
-  it("unsubscribes model updates when the settings tab is hidden", () => {
+  it("subscribes model updates only while the settings tab is displayed", () => {
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(settingsClient()),
     );
@@ -267,6 +267,9 @@ describe("settings tab", () => {
     const observeModels = vi.fn(() => unsubscribe);
     const tab = newSettingsTab({ observeModels });
 
+    expect(observeModels).not.toHaveBeenCalled();
+
+    tab.display();
     tab.hide();
     tab.display();
 

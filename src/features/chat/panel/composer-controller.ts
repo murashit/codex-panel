@@ -1,5 +1,3 @@
-import type { App, EventRef } from "obsidian";
-
 import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret";
@@ -9,7 +7,7 @@ import type { ComposerShellProps } from "../ui/composer";
 import { syncComposerHeight, type ComposerCallbacks } from "../ui/composer";
 import type { ChatPanelComposerShellState } from "./shell-state";
 import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "../application/composer/boundary-scroll";
-import { noteCandidates as appNoteCandidates, resolveWikiLinkMention as resolveAppWikiLinkMention } from "./composer-obsidian-context";
+import type { NoteCandidateProvider } from "../application/composer/note-context";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -23,7 +21,8 @@ import { userInputWithWikiLinkMentionsAndSkills } from "../application/composer/
 import type { ChatPanelComposerProjection } from "./surface/composer-projection";
 
 export interface ChatComposerControllerOptions {
-  app: App;
+  noteCandidateProvider: NoteCandidateProvider;
+  sourcePath: () => string;
   stateStore: ChatStateStore;
   viewId: string;
   sendShortcut: () => SendShortcut;
@@ -45,8 +44,6 @@ export interface ChatComposerRenderActions {
 
 export class ChatComposerController {
   private composer: HTMLTextAreaElement | null = null;
-  private noteCandidatesCache: { sourcePath: string; notes: NoteCandidate[] } | null = null;
-  private noteEventsRegistered = false;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
 
@@ -60,18 +57,6 @@ export class ChatComposerController {
 
   get trimmedDraft(): string {
     return this.composer?.value.trim() ?? this.state.composer.draft.trim();
-  }
-
-  registerNoteIndexInvalidation(registerEvent: (eventRef: EventRef) => void): void {
-    if (this.noteEventsRegistered) return;
-    this.noteEventsRegistered = true;
-    const invalidate = () => {
-      this.noteCandidatesCache = null;
-    };
-    registerEvent(this.options.app.vault.on("create", invalidate));
-    registerEvent(this.options.app.vault.on("delete", invalidate));
-    registerEvent(this.options.app.vault.on("rename", invalidate));
-    registerEvent(this.options.app.vault.on("modify", invalidate));
   }
 
   renderState(state: ChatPanelComposerShellState, actions: ChatComposerRenderActions): ComposerShellProps {
@@ -119,6 +104,7 @@ export class ChatComposerController {
 
   dispose(): void {
     this.composer = null;
+    this.options.noteCandidateProvider.dispose();
   }
 
   refreshSuggestions(): void {
@@ -126,9 +112,10 @@ export class ChatComposerController {
   }
 
   codexInput(text: string): CodexInput {
+    const sourcePath = this.options.sourcePath();
     return userInputWithWikiLinkMentionsAndSkills(
       text,
-      (target) => resolveAppWikiLinkMention(this.options.app, target),
+      (target) => this.options.noteCandidateProvider.resolveMention(target, sourcePath),
       this.state.connection.availableSkills,
     );
   }
@@ -290,11 +277,7 @@ export class ChatComposerController {
   }
 
   private noteCandidates(): NoteCandidate[] {
-    const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
-    if (this.noteCandidatesCache?.sourcePath !== sourcePath) {
-      this.noteCandidatesCache = { sourcePath, notes: appNoteCandidates(this.options.app) };
-    }
-    return this.noteCandidatesCache.notes;
+    return [...this.options.noteCandidateProvider.candidates(this.options.sourcePath())];
   }
 
   private composerCallbacks(actions: ChatComposerRenderActions): ComposerCallbacks {
