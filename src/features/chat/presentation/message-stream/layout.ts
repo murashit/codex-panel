@@ -1,22 +1,11 @@
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
 import {
-  messageStreamIsApprovalResult,
-  messageStreamIsAssistantResponse,
-  messageStreamIsCommandEvidence,
-  messageStreamIsContextCompaction,
-  messageStreamIsCoordinationProgress,
-  messageStreamIsGoalChange,
-  messageStreamIsHookEvidence,
   messageStreamIsPermissionDecision,
-  messageStreamIsProposedPlan,
   messageStreamIsReasoningProgress,
   messageStreamIsReviewResult,
-  messageStreamIsTaskProgress,
-  messageStreamIsToolEvidence,
   messageStreamIsTurnInitiator,
   messageStreamIsTurnSteer,
-  messageStreamIsUserInputResult,
   messageStreamIsWorkspaceResult,
   messageStreamSemanticClassifications,
 } from "../../domain/message-stream/semantics";
@@ -103,7 +92,7 @@ export function messageStreamLayoutBlocks(
         type: "activityGroup",
         id: `turn-${turnId}-activity`,
         turnId,
-        summary: turnActivitySummary(groupItems),
+        summary: "Work details",
         items: groupItems,
       });
     }
@@ -216,55 +205,6 @@ function autoReviewSummariesForTurns(items: readonly MessageStreamSemanticClassi
     byTurn.set(item.turnId, summaries);
   }
   return byTurn;
-}
-
-function turnActivitySummary(items: readonly GroupedActivity[]): string {
-  const parts = [
-    countActivityLabel(
-      items,
-      (item) => item.type === "item" && messageStreamIsAssistantResponse(item.classification),
-      "response",
-      "responses",
-    ),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsProposedPlan(item.classification), "plan", "plans"),
-    countActivityLabel(items, (item) => item.type === "steering", "steer", "steers"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsTaskProgress(item.classification), "task progress"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsCoordinationProgress(item.classification), "agent"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsCommandEvidence(item.classification), "command"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsWorkspaceResult(item.classification), "file change"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsToolEvidence(item.classification), "tool"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsHookEvidence(item.classification), "hook"),
-    countActivityLabel(
-      items,
-      (item) => item.type === "item" && messageStreamIsReasoningProgress(item.classification),
-      "thought",
-      "thought notes",
-    ),
-    countActivityLabel(
-      items,
-      (item) => item.type === "item" && messageStreamIsContextCompaction(item.classification),
-      "context compaction",
-    ),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsApprovalResult(item.classification), "approval"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsUserInputResult(item.classification), "input"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsReviewResult(item.classification), "review"),
-    countActivityLabel(items, (item) => item.type === "item" && messageStreamIsGoalChange(item.classification), "goal"),
-  ].filter((part): part is string => Boolean(part));
-
-  if (parts.length === 0) return "Work details";
-  return `Work details: ${parts.join(", ")}`;
-}
-
-function countActivityLabel(
-  items: readonly GroupedActivity[],
-  predicate: (item: GroupedActivity) => boolean,
-  label: string,
-  pluralLabel = `${label}s`,
-): string | null {
-  const count = items.filter(predicate).length;
-  if (count === 0) return null;
-  if (count === 1) return label;
-  return `${String(count)} ${pluralLabel}`;
 }
 
 function textForMessageStreamItem(item: MessageStreamItem): string {

@@ -27,14 +27,6 @@ export function messageStreamIsTurnSteer(classification: MessageStreamSemanticCl
   );
 }
 
-export function messageStreamIsProposedPlan(classification: MessageStreamSemanticClassification): boolean {
-  return messageStreamHasMeaning(classification, "dialogue", "proposal");
-}
-
-export function messageStreamIsAssistantResponse(classification: MessageStreamSemanticClassification): boolean {
-  return messageStreamHasMeaning(classification, "dialogue", "response");
-}
-
 export function messageStreamIsWorkspaceResult(classification: MessageStreamSemanticClassification): boolean {
   return messageStreamHasMeaning(classification, "workspace", "result");
 }
@@ -51,60 +43,29 @@ export function messageStreamIsReasoningProgress(classification: MessageStreamSe
   return classification.item.kind === "reasoning";
 }
 
-export function messageStreamIsContextCompaction(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "contextCompaction";
-}
-
-export function messageStreamIsCommandEvidence(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "command";
-}
-
-export function messageStreamIsToolEvidence(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "tool";
-}
-
-export function messageStreamIsHookEvidence(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "hook";
-}
-
-export function messageStreamIsApprovalResult(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "approvalResult";
-}
-
-export function messageStreamIsUserInputResult(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "userInputResult";
-}
-
 export function messageStreamIsReviewResult(classification: MessageStreamSemanticClassification): boolean {
   return classification.item.kind === "reviewResult";
 }
 
-export function messageStreamIsGoalChange(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "goal";
-}
-
 export function messageStreamRenderFamily(classification: MessageStreamSemanticClassification): MessageStreamRenderFamily | null {
-  if (classification.item.kind === "message" || classification.item.kind === "system" || messageStreamIsUserInputResult(classification)) {
-    return "text";
-  }
-  if (
-    messageStreamIsCommandEvidence(classification) ||
-    messageStreamIsWorkspaceResult(classification) ||
-    messageStreamIsToolEvidence(classification) ||
-    messageStreamIsHookEvidence(classification) ||
-    messageStreamIsGoalChange(classification) ||
-    messageStreamIsApprovalResult(classification) ||
-    messageStreamIsReviewResult(classification)
-  ) {
-    return "toolResult";
-  }
-  if (
-    messageStreamIsTaskProgress(classification) ||
-    messageStreamIsCoordinationProgress(classification) ||
-    messageStreamIsReasoningProgress(classification) ||
-    messageStreamIsContextCompaction(classification)
-  ) {
-    return "work";
+  switch (classification.item.kind) {
+    case "message":
+    case "system":
+    case "userInputResult":
+      return "text";
+    case "command":
+    case "fileChange":
+    case "tool":
+    case "hook":
+    case "goal":
+    case "approvalResult":
+    case "reviewResult":
+      return "toolResult";
+    case "taskProgress":
+    case "agent":
+    case "reasoning":
+    case "contextCompaction":
+      return "work";
   }
   return null;
 }

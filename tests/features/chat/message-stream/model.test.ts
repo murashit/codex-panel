@@ -916,7 +916,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
     const blocks = messageStreamLayoutBlocks(items, null);
     expect(blocks.map((block) => block.type)).toEqual(["item", "activityGroup", "item"]);
-    expect(blocks[1]).toMatchObject({ summary: "Work details: command, thought" });
+    expect(blocks[1]).toMatchObject({ summary: "Work details" });
   });
 
   it("groups completed hook and review logs before the final assistant message", () => {
@@ -950,7 +950,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "turn-t1-activity", "a1"]);
     expect(blocks[1]).toMatchObject({
-      summary: "Work details: command, hook, thought, 2 reviews",
+      summary: "Work details",
       items: [
         { item: { id: "hook-1" } },
         { item: { id: "c1" } },
@@ -1021,7 +1021,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     const blocks = messageStreamLayoutBlocks(items, null);
     expect(blocks.map((block) => block.type)).toEqual(["item", "activityGroup", "item"]);
     expect(blocks[1]).toMatchObject({
-      summary: "Work details: 2 responses, command, file change",
+      summary: "Work details",
       items: [{ item: { id: "a1" } }, { item: { id: "c1" } }, { item: { id: "a2" } }, { item: { id: "f1" } }],
     });
     expect(blocks[2]).toMatchObject({ item: { id: "a3" } });
@@ -1069,7 +1069,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
 
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "u2", "turn-t1-activity", "a1"]);
     expect(blocks[2]).toMatchObject({
-      summary: "Work details: steer, 2 commands",
+      summary: "Work details",
       items: [
         { type: "item", item: { id: "c1" } },
         {
@@ -1084,7 +1084,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     });
   });
 
-  it("pluralizes multiple steering markers as steers in completed turn work details", () => {
+  it("keeps multiple steering markers in completed turn work details", () => {
     const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       { id: "u2", kind: "message", messageKind: "user", role: "user", text: "also check tests", turnId: "t1" },
@@ -1104,7 +1104,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     const activityGroup = blocks.find((block) => block.type === "activityGroup");
 
     expect(activityGroup).toMatchObject({
-      summary: "Work details: 2 steers",
+      summary: "Work details",
       items: [
         { type: "steering", id: "steer-activity-u2" },
         { type: "steering", id: "steer-activity-u3" },
@@ -1158,7 +1158,7 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     expect(blocks.map((block) => (block.type === "item" ? block.item.id : block.id))).toEqual(["u1", "plan-progress-t1", "a1"]);
   });
 
-  it("summarizes task progress and agent activity separately from tools", () => {
+  it("groups task progress and agent activity inside completed turn work details", () => {
     const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
       {
@@ -1198,7 +1198,10 @@ describe("display block grouping keeps work logs subordinate to conversation mes
     ];
 
     const blocks = messageStreamLayoutBlocks(items, null);
-    expect(blocks[1]).toMatchObject({ summary: "Work details: task progress, agent" });
+    expect(blocks[1]).toMatchObject({
+      summary: "Work details",
+      items: [{ item: { id: "plan-progress-t1" } }, { item: { id: "agent-1" } }],
+    });
   });
 
   it("summarizes active subagent states while a turn is running", () => {

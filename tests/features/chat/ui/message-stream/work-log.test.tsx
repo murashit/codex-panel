@@ -330,7 +330,7 @@ describe("work log renderer decisions", () => {
     const element = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")));
 
     expect(element).toBeDefined();
-    expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details: hook");
+    expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details");
     expect(element.querySelector(".codex-panel__tool-item--hook")?.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
