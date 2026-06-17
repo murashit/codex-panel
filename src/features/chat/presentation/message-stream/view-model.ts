@@ -1,4 +1,3 @@
-import { activeAgentRunSummary } from "./agent-summary";
 import {
   messageStreamIsCoordinationProgress,
   messageStreamSemanticClassifications,
@@ -9,7 +8,13 @@ import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type Mess
 import { detailView, type DetailView } from "./detail-view";
 import { messageStreamRenderFamily } from "./render-family";
 import { messageStreamTextView, type MessageStreamTextActions, type MessageStreamTextView } from "./text-view";
-import { agentRunSummaryView, messageStreamStatusView, type AgentRunSummaryView, type MessageStreamStatusView } from "./status-view";
+import {
+  activeAgentRunSummary,
+  agentRunSummaryView,
+  messageStreamStatusView,
+  type AgentRunSummaryView,
+  type MessageStreamStatusView,
+} from "./status-view";
 import type { PendingRequestBlockSnapshot } from "../pending-requests/snapshot";
 
 interface PendingRequestMessageStreamBlockInput {

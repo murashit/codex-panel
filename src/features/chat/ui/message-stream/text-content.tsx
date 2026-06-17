@@ -3,59 +3,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MessageStreamTextView } from "../../presentation/message-stream/text-view";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
-import type { TextItemContentContext, TextItemContext } from "./context";
-import { TextItemHeader } from "./text-item-actions";
-import {
-  AutoReviewSummaries,
-  EditedFiles,
-  MentionedFiles,
-  TextItemDetails,
-  ReferencedThread,
-  SystemDetails,
-  userInputQuestionDetails,
-} from "./text-item-metadata";
+import type { TextItemContentContext } from "./context";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
 
-export function textItemNode(view: MessageStreamTextView, context: TextItemContext): UiNode {
-  return <TextItem view={view} context={context} />;
-}
-
-function TextItem({ view, context }: { view: MessageStreamTextView; context: TextItemContext }): UiNode {
-  const { item } = view;
-  return (
-    <div className={view.className}>
-      <TextItemHeader view={view} context={context} />
-      {view.collapsible ? (
-        <CollapsibleTextItemContent view={view} context={context} />
-      ) : (
-        <TextContent key={view.contentKey} view={view} context={context} />
-      )}
-      {item.kind === "message" && view.editedFiles.length > 0 ? (
-        <EditedFiles item={item} context={context} {...definedProp("annotations", view.annotations)} />
-      ) : null}
-      {item.kind === "message" && item.referencedThread ? <ReferencedThread item={item} /> : null}
-      {item.kind === "message" && item.mentionedFiles && item.mentionedFiles.length > 0 ? (
-        <MentionedFiles item={item} context={context} />
-      ) : null}
-      {item.kind === "message" && view.autoReviewSummaries.length > 0 ? (
-        <AutoReviewSummaries summaries={[...view.autoReviewSummaries]} />
-      ) : null}
-      {item.kind === "system" && item.noticeSections && item.noticeSections.length > 0 ? (
-        <SystemDetails details={item.noticeSections} />
-      ) : item.kind === "userInputResult" && item.questions.length > 0 ? (
-        <TextItemDetails itemId={item.id} details={userInputQuestionDetails(item.questions)} context={context} />
-      ) : null}
-    </div>
-  );
-}
-
-function CollapsibleTextItemContent({ view, context }: { view: MessageStreamTextView; context: TextItemContentContext }): UiNode {
-  const { item } = view;
+export function CollapsibleTextContent({ view, context }: { view: MessageStreamTextView; context: TextItemContentContext }): UiNode {
   const collapseRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [overflows, setOverflows] = useState(false);
-  const expanded = context.disclosures.userMessageExpanded.has(item.id);
+  const expanded = context.disclosures.userMessageExpanded.has(view.id);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -69,7 +25,7 @@ function CollapsibleTextItemContent({ view, context }: { view: MessageStreamText
     return () => {
       content.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
     };
-  }, [item.id, view.body, view.contentMode]);
+  }, [view.id, view.body, view.contentMode]);
 
   useEffect(() => {
     if (!overflows || !expanded) return;
@@ -77,13 +33,13 @@ function CollapsibleTextItemContent({ view, context }: { view: MessageStreamText
     if (!doc) return;
     const collapseOnOutsidePointer = (event: PointerEvent) => {
       if (event.target instanceof Node && collapseRef.current?.contains(event.target)) return;
-      context.onDisclosureToggle?.("userMessageExpanded", item.id, false);
+      context.onDisclosureToggle?.("userMessageExpanded", view.id, false);
     };
     doc.addEventListener("pointerdown", collapseOnOutsidePointer, true);
     return () => {
       doc.removeEventListener("pointerdown", collapseOnOutsidePointer, true);
     };
-  }, [context, expanded, item.id, overflows]);
+  }, [context, expanded, view.id, overflows]);
 
   return (
     <div
@@ -103,7 +59,7 @@ function CollapsibleTextItemContent({ view, context }: { view: MessageStreamText
         onToggle={(event) => {
           if (!event.currentTarget.open) return;
           event.currentTarget.open = false;
-          context.onDisclosureToggle?.("userMessageExpanded", item.id, true);
+          context.onDisclosureToggle?.("userMessageExpanded", view.id, true);
         }}
       >
         <summary tabIndex={-1}>Show more</summary>
@@ -119,7 +75,7 @@ interface TextContentProps {
   collapsed?: boolean;
 }
 
-function TextContent({ view, context, contentRef, collapsed = false }: TextContentProps): UiNode {
+export function TextContent({ view, context, contentRef, collapsed = false }: TextContentProps): UiNode {
   const rendersMarkdown = view.contentMode === "markdown";
   const text = view.body;
   const localRef = useRef<HTMLDivElement | null>(null);
@@ -162,8 +118,4 @@ function userMessageCollapseHeight(element: HTMLElement): number {
   const viewportHeight = element.win.innerHeight;
   if (viewportHeight <= 0) return USER_MESSAGE_COLLAPSE_HEIGHT_PX;
   return Math.min(USER_MESSAGE_COLLAPSE_HEIGHT_PX, viewportHeight * 0.45);
-}
-
-function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
-  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
 }

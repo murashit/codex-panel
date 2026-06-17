@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { implementPlanCandidateFromState } from "../../../../../src/features/chat/application/state/selectors";
+import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/state/selectors";
 import { implementPlan, type PlanImplementationHost } from "../../../../../src/features/chat/application/conversation/composition";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
@@ -71,11 +71,11 @@ describe("implementPlan", () => {
     const latest = planItem("latest");
     resumeThread(stateStore, [first, latest]);
 
-    expect(implementPlanCandidateFromState(stateStore.getState())).toBe(latest);
+    expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: latest.id });
 
     stateStore.dispatch({ type: "composer/draft-set", draft: "edit first" });
 
-    expect(implementPlanCandidateFromState(stateStore.getState())).toBe(latest);
+    expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: latest.id });
   });
 
   it("ignores streaming proposed plans until they are implementable turn outcomes", () => {
@@ -84,7 +84,7 @@ describe("implementPlan", () => {
     const streaming = streamingPlanItem("streaming");
     resumeThread(stateStore, [completed, streaming]);
 
-    expect(implementPlanCandidateFromState(stateStore.getState())).toBe(completed);
+    expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: completed.id });
   });
 
   it("switches out of plan mode and submits the implementation prompt", async () => {

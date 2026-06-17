@@ -2,11 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ApprovalAction, PendingRequestId } from "../../domain/pending-requests/model";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
-import type {
-  MessageStreamForkTarget,
-  MessageStreamPlanImplementationTarget,
-  MessageStreamRollbackTarget,
-} from "../../presentation/message-stream/text-view";
+import type { MessageStreamForkTarget, MessageStreamPlanImplementationTarget } from "../../presentation/message-stream/text-view";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 
 export interface MessageStreamBlock {
@@ -31,11 +27,6 @@ export interface MessageStreamDisclosureState {
   approvalDetails: ReadonlySet<string>;
 }
 
-export type MessageStreamTurnLifecycleState =
-  | { kind: "idle" }
-  | { kind: "starting"; pendingTurnStart: unknown }
-  | { kind: "running"; turnId: string };
-
 export interface PendingRequestBlockActions {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
   resolveUserInput: (requestId: PendingRequestId) => void;
@@ -54,12 +45,11 @@ export interface TextItemContentContext extends TextItemDetailStateContext {
 }
 
 export interface TextItemActionContext extends TextItemDetailStateContext {
-  turnLifecycle: MessageStreamTurnLifecycleState;
   forkActionsItemId: string | null;
   onForkActionsToggle?: (itemId: string | null) => void;
   copyText?: (text: string) => void;
   onImplementPlan?: (target: MessageStreamPlanImplementationTarget) => void;
-  onRollback?: (target: MessageStreamRollbackTarget) => void;
+  onRollback?: () => void;
   onFork?: (target: MessageStreamForkTarget, archiveSource: boolean) => void;
 }
 
@@ -71,7 +61,6 @@ export interface TextItemMetadataContext extends TextItemDetailStateContext {
 
 interface MessageStreamRenderContext {
   activeThreadId: string | null;
-  turnLifecycle: MessageStreamTurnLifecycleState;
   workspaceRoot?: string | null;
   loadOlderTurns: () => void;
   pendingRequests?: PendingRequestBlockContext;

@@ -2,20 +2,31 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ExecutionState } from "../../domain/message-stream/items";
 import type { AgentRunSummaryView, MessageStreamStatusView, StatusChecklistItem } from "../../presentation/message-stream/status-view";
-import { createStatusMessageClassName } from "./status-message";
 
 export function agentRunSummaryNode(view: AgentRunSummaryView): UiNode {
-  return <AgentRunSummaryItem view={view} />;
+  return <AgentRunSummary view={view} />;
 }
 
-export function statusItemNode(view: MessageStreamStatusView): UiNode {
-  if (view.kind === "taskProgress") return <TaskProgressItem view={view} />;
-  if (view.kind === "contextCompaction") return <ContextCompactionItem view={view} />;
-  if (view.kind === "reasoning") return <ReasoningItem view={view} />;
-  return <GenericStatusItem view={view} />;
+export function statusNode(view: MessageStreamStatusView): UiNode {
+  if (view.kind === "taskProgress") return <TaskProgress view={view} />;
+  if (view.kind === "contextCompaction") return <ContextCompaction view={view} />;
+  if (view.kind === "reasoning") return <Reasoning view={view} />;
+  return <GenericStatus view={view} />;
 }
 
-function AgentRunSummaryItem({ view }: { view: AgentRunSummaryView }): UiNode {
+export function createStatusMessageClassName(className: string, tone?: "warning"): string {
+  return [
+    "codex-panel__message",
+    "codex-panel__message--tool",
+    "codex-panel__status-message",
+    className,
+    tone ? `codex-panel__status-message--${tone}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function AgentRunSummary({ view }: { view: AgentRunSummaryView }): UiNode {
   return (
     <StatusMessage label={view.label} className={view.className} state={view.state}>
       <div className="codex-panel__stream-summary">{view.summary}</div>
@@ -24,7 +35,7 @@ function AgentRunSummaryItem({ view }: { view: AgentRunSummaryView }): UiNode {
   );
 }
 
-function TaskProgressItem({ view }: { view: Extract<MessageStreamStatusView, { kind: "taskProgress" }> }): UiNode {
+function TaskProgress({ view }: { view: Extract<MessageStreamStatusView, { kind: "taskProgress" }> }): UiNode {
   return (
     <StatusMessage label={view.label} className={view.className} state={view.state}>
       {view.summary ? <div className="codex-panel__stream-summary">{view.summary}</div> : null}
@@ -50,7 +61,7 @@ function taskStatusMarker(status: StatusChecklistItem["status"]): string {
   return "[ ]";
 }
 
-function ContextCompactionItem({ view }: { view: Extract<MessageStreamStatusView, { kind: "contextCompaction" }> }): UiNode {
+function ContextCompaction({ view }: { view: Extract<MessageStreamStatusView, { kind: "contextCompaction" }> }): UiNode {
   return (
     <StatusMessage label={view.label} className={view.className} state={view.state}>
       <div className="codex-panel__stream-summary">{view.text}</div>
@@ -58,7 +69,7 @@ function ContextCompactionItem({ view }: { view: Extract<MessageStreamStatusView
   );
 }
 
-function GenericStatusItem({ view }: { view: Extract<MessageStreamStatusView, { kind: "generic" }> }): UiNode {
+function GenericStatus({ view }: { view: Extract<MessageStreamStatusView, { kind: "generic" }> }): UiNode {
   return (
     <StatusMessage label={view.label} className={view.className} state={view.state}>
       <div className="codex-panel__stream-summary">{view.text}</div>
@@ -66,7 +77,7 @@ function GenericStatusItem({ view }: { view: Extract<MessageStreamStatusView, { 
   );
 }
 
-function ReasoningItem({ view }: { view: Extract<MessageStreamStatusView, { kind: "reasoning" }> }): UiNode {
+function Reasoning({ view }: { view: Extract<MessageStreamStatusView, { kind: "reasoning" }> }): UiNode {
   return (
     <div className={`codex-panel__reasoning${view.active ? " is-active" : ""}`}>
       <div className="codex-panel__reasoning-role">{view.label}</div>

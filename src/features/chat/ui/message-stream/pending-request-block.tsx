@@ -7,7 +7,7 @@ import {
   type PendingUserInputViewModel,
 } from "../../presentation/pending-requests/view-model";
 import type { PendingRequestBlockActions } from "./context";
-import { createStatusMessageClassName } from "./status-message";
+import { createStatusMessageClassName } from "./status";
 
 export function pendingRequestBlockNode(
   approvals: readonly PendingApprovalViewModel[],

@@ -7,14 +7,14 @@ import {
 } from "../../presentation/message-stream/view-model";
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { detailNode } from "./detail";
-import { agentRunSummaryNode, statusItemNode } from "./status-items";
+import { agentRunSummaryNode, statusNode } from "./status";
 import type { MessageStreamBlock, MessageStreamContext, PendingRequestBlockContext } from "./context";
-import { textItemNode } from "./text-item";
+import { textNode } from "./text";
 
 function streamItemNode(item: MessageStreamRenderedItemView, context: MessageStreamContext): UiNode {
-  if (item.kind === "text") return textItemNode(item.view, context);
+  if (item.kind === "text") return textNode(item.view, context);
   if (item.kind === "detail") return detailNode(item.view, context);
-  return statusItemNode(item.view);
+  return statusNode(item.view);
 }
 
 export function messageStreamBlocks(viewBlocks: readonly MessageStreamViewBlock[], context: MessageStreamContext): MessageStreamBlock[] {

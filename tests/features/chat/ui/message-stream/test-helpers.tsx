@@ -10,7 +10,6 @@ import type {
   MessageStreamBlock,
   MessageStreamContext,
   MessageStreamDisclosureState,
-  MessageStreamTurnLifecycleState,
   PendingRequestBlockActions,
   PendingRequestBlockContext,
 } from "../../../../../src/features/chat/ui/message-stream/context";
@@ -26,7 +25,7 @@ export function messageStreamBlocks(
   const normalized = normalizeMessageStreamContext(context);
   const viewBlocks = messageStreamViewBlocks({
     activeThreadId: normalized.activeThreadId,
-    activeTurnId: activeTurnIdForMessageStream(normalized.turnLifecycle),
+    activeTurnId: activeTurnIdForMessageStream(context.turnLifecycle),
     historyCursor: context.historyCursor,
     loadingHistory: context.loadingHistory,
     items: context.items,
@@ -62,6 +61,7 @@ function messageStreamBlockItemsEmpty(context: TestMessageStreamContext): boolea
 
 type TestMessageStreamContext = Omit<MessageStreamContext, "disclosures" | "forkActionsItemId"> &
   Partial<Pick<MessageStreamContext, "disclosures" | "forkActionsItemId">> & {
+    turnLifecycle: MessageStreamTurnLifecycleState;
     historyCursor: string | null;
     loadingHistory: boolean;
     items: readonly MessageStreamItem[];
@@ -70,6 +70,11 @@ type TestMessageStreamContext = Omit<MessageStreamContext, "disclosures" | "fork
     turnDiffs?: ReadonlyMap<string, string>;
     textActionsByItemId?: ReadonlyMap<string, MessageStreamTextActions>;
   };
+
+type MessageStreamTurnLifecycleState =
+  | { kind: "idle" }
+  | { kind: "starting"; pendingTurnStart: unknown }
+  | { kind: "running"; turnId: string };
 
 export function emptyDisclosures(): MessageStreamDisclosureState {
   return testDisclosures();

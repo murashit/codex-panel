@@ -5,7 +5,7 @@ import { act } from "preact/test-utils";
 import { MarkdownRenderer } from "obsidian";
 
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
-import { implementPlanCandidateFromState } from "../../../../../src/features/chat/application/state/selectors";
+import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/state/selectors";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { deferred } from "../../../../support/async";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
@@ -258,7 +258,7 @@ describe("message stream rendering and message actions", () => {
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      textActionsByItemId: new Map([["u2", { rollback: { itemId: "u2", turnId: "turn-2" } }]]),
+      textActionsByItemId: new Map([["u2", { rollback: true }]]),
       onRollback,
     });
 
@@ -269,7 +269,7 @@ describe("message stream rendering and message actions", () => {
     const button = expectPresent(rendered[2]).querySelector<HTMLButtonElement>(".codex-panel__rollback-turn");
     expect(button?.getAttribute("aria-label")).toBe("Rollback last turn");
     button?.click();
-    expect(onRollback).toHaveBeenCalledWith({ itemId: "u2", turnId: "turn-2" });
+    expect(onRollback).toHaveBeenCalledWith();
   });
 
   it("renders copy actions for copyable messages", () => {
@@ -834,9 +834,9 @@ describe("message stream rendering and message actions", () => {
       },
     };
 
-    expect(implementPlanCandidateFromState(baseState)).toBe(secondPlan);
-    expect(implementPlanCandidateFromState({ ...baseState, runtime: { selectedCollaborationMode: "default" } })).toBeNull();
-    expect(implementPlanCandidateFromState({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
+    expect(implementPlanTargetFromState(baseState)).toEqual({ itemId: secondPlan.id });
+    expect(implementPlanTargetFromState({ ...baseState, runtime: { selectedCollaborationMode: "default" } })).toBeNull();
+    expect(implementPlanTargetFromState({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
   });
 
   it("does not render copy actions for tool items", () => {
@@ -879,7 +879,7 @@ describe("message stream rendering and message actions", () => {
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText,
-      textActionsByItemId: new Map([["u1", { rollback: { itemId: "u1", turnId: "turn-1" } }]]),
+      textActionsByItemId: new Map([["u1", { rollback: true }]]),
       onRollback,
     })[0];
 
@@ -888,7 +888,7 @@ describe("message stream rendering and message actions", () => {
     element.querySelector<HTMLButtonElement>(".codex-panel__rollback-turn")?.click();
 
     expect(copyText).toHaveBeenCalledWith("latest");
-    expect(onRollback).toHaveBeenCalledWith({ itemId: "u1", turnId: "turn-1" });
+    expect(onRollback).toHaveBeenCalledWith();
   });
 
   it("collapses tall user messages without changing the copy payload", () => {

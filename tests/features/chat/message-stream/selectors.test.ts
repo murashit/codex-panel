@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  forkCandidatesFromItems,
-  isForkCandidateItem,
-  isRollbackCandidateItem,
-} from "../../../../src/features/chat/domain/message-stream/selectors";
+import { forkCandidatesFromItems } from "../../../../src/features/chat/domain/message-stream/selectors";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 
 describe("message stream item selectors", () => {
@@ -18,17 +14,6 @@ describe("message stream item selectors", () => {
       { itemId: "a2", turnId: "turn-2" },
       { itemId: "a3", turnId: "turn-3" },
     ]);
-    expect(isForkCandidateItem(expectPresent(streamItems[4]), candidates)).toBe(true);
-    expect(isForkCandidateItem(expectPresent(streamItems[3]), candidates)).toBe(false);
-  });
-
-  it("matches rollback candidate stream items", () => {
-    const streamItems = messageStreamItems();
-    const candidate = { turnId: "turn-3", itemId: "u3" };
-
-    expect(isRollbackCandidateItem(expectPresent(streamItems[5]), candidate)).toBe(true);
-    expect(isRollbackCandidateItem(expectPresent(streamItems[0]), candidate)).toBe(false);
-    expect(isRollbackCandidateItem({ ...expectPresent(streamItems[5]), turnId: "turn-other" }, candidate)).toBe(false);
   });
 });
 
@@ -74,9 +59,4 @@ function messageStreamItems(): MessageStreamItem[] {
       messageState: "completed",
     },
   ];
-}
-
-function expectPresent<T>(value: T | null | undefined): T {
-  if (value === null || value === undefined) throw new Error("Expected value to be present");
-  return value;
 }

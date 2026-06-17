@@ -7,8 +7,8 @@ import {
 } from "../../application/state/root-reducer";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
-import { implementPlanCandidateFromState } from "../../application/state/selectors";
-import { type ForkCandidate, forkCandidatesFromItems } from "../../domain/message-stream/selectors";
+import { implementPlanTargetFromState } from "../../application/state/selectors";
+import { type ForkCandidate, forkCandidatesFromItems, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import {
   messageStreamActiveItems,
   messageStreamItems,
@@ -60,7 +60,6 @@ export interface MessageStreamSurfaceContextOptions {
 
 interface MessageStreamStateProjection {
   activeThreadId: string | null;
-  turnLifecycle: ChatPanelMessageStreamShellState["turn"]["lifecycle"];
   workspaceRoot: string;
   disclosures: ChatDisclosureUiState;
   forkActionsItemId: string | null;
@@ -106,7 +105,6 @@ function messageStreamContextFromProjection(
 ): MessageStreamContext {
   return {
     activeThreadId: projection.activeThreadId,
-    turnLifecycle: projection.turnLifecycle,
     workspaceRoot: projection.workspaceRoot,
     disclosures: projection.disclosures,
     onDisclosureToggle: context.setDisclosureOpen,
@@ -149,13 +147,12 @@ function messageStreamStateProjection(
   const workspaceRoot = state.activeThread.cwd ?? context.vaultPath;
   const rollbackCandidate = busy ? null : messageStreamRollbackCandidate(state.messageStream);
   const forkCandidates = busy ? [] : forkCandidatesFromItems(items);
-  const implementPlanCandidate = implementPlanCandidateFromState(state);
-  const textActionsByItemId = textActionsForMessageStreamItems(rollbackCandidate, forkCandidates, implementPlanCandidate);
+  const implementPlanTarget = implementPlanTargetFromState(state);
+  const textActionsByItemId = textActionsForMessageStreamItems(rollbackCandidate, forkCandidates, implementPlanTarget);
   const activeTurn = activeTurnId({ lifecycle: state.turn.lifecycle });
 
   return {
     activeThreadId: state.activeThread.id,
-    turnLifecycle: state.turn.lifecycle,
     workspaceRoot,
     disclosures: state.ui.disclosures,
     forkActionsItemId: state.ui.messageActions.forkActionsItemId,
@@ -178,19 +175,17 @@ function messageStreamStateProjection(
 function textActionsForMessageStreamItems(
   rollbackCandidate: MessageStreamRollbackCandidate | null,
   forkCandidates: readonly ForkCandidate[],
-  implementPlanCandidate: MessageStreamItem | null,
+  implementPlanTarget: PlanImplementationTarget | null,
 ): ReadonlyMap<string, MessageStreamTextActions> {
   const byItemId = new Map<string, MessageStreamTextActions>();
   for (const candidate of forkCandidates) {
     patchTextActions(byItemId, candidate.itemId, { fork: { itemId: candidate.itemId, turnId: candidate.turnId } });
   }
   if (rollbackCandidate) {
-    patchTextActions(byItemId, rollbackCandidate.itemId, {
-      rollback: { itemId: rollbackCandidate.itemId, turnId: rollbackCandidate.turnId },
-    });
+    patchTextActions(byItemId, rollbackCandidate.itemId, { rollback: true });
   }
-  if (implementPlanCandidate) {
-    patchTextActions(byItemId, implementPlanCandidate.id, { implementPlan: { itemId: implementPlanCandidate.id } });
+  if (implementPlanTarget) {
+    patchTextActions(byItemId, implementPlanTarget.itemId, { implementPlan: implementPlanTarget });
   }
   return byItemId;
 }

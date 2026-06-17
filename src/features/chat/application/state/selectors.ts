@@ -9,7 +9,7 @@ import type {
 } from "./root-reducer";
 import type { Thread } from "../../../../domain/threads/model";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
-import { latestImplementablePlanFromItems } from "../../domain/message-stream/selectors";
+import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import { messageStreamItems, messageStreamIsEmpty } from "./message-stream";
 
 export interface SubmissionStateSnapshot {
@@ -49,17 +49,17 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
 }
 
 export function canImplementPlanItemId(state: ChatState, itemId: string): boolean {
-  return itemId === implementPlanCandidateFromState(state)?.id;
+  return itemId === implementPlanTargetFromState(state)?.itemId;
 }
 
-export function implementPlanCandidateFromState(state: {
+export function implementPlanTargetFromState(state: {
   activeThread: Pick<ChatActiveThreadState, "id">;
   turn: ChatTurnState;
   runtime: Pick<ChatRuntimeState, "selectedCollaborationMode">;
   messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">;
-}): MessageStreamItem | null {
+}): PlanImplementationTarget | null {
   if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
     return null;
   }
-  return latestImplementablePlanFromItems(messageStreamItems(state.messageStream));
+  return latestImplementablePlanTargetFromItems(messageStreamItems(state.messageStream));
 }
