@@ -3,10 +3,10 @@ import { forkThread as forkThreadOnAppServer, rollbackThread as rollbackThreadOn
 import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
+import { resumedThreadActionFromActiveRuntime } from "../state/actions";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
 import { chatTurnBusy, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { resumedThreadActionFromActiveRuntime } from "./resume";
 
 const STATUS_COMPACTION_REQUESTED = "Compaction requested.";
 const STATUS_ROLLBACK_STARTING = "Rolling back latest turn...";

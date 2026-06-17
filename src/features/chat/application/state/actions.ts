@@ -1,11 +1,35 @@
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { Thread } from "../../../../domain/threads/model";
+import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
+import { upsertThread, type Thread } from "../../../../domain/threads/model";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import type { CollaborationMode } from "../../domain/runtime/pending-settings";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { PendingTurnStart } from "../conversation/turn-state";
+
+interface ResumedThreadActionParams {
+  response: ThreadActivationSnapshot;
+  listedThreads?: readonly Thread[];
+  items?: readonly MessageStreamItem[];
+  preserveRequestedRuntimeSettings?: boolean;
+}
+
+interface ResumedThreadFromActiveRuntimeParams {
+  thread: Thread;
+  cwd: string;
+  runtime: Pick<
+    ChatRuntimeState,
+    | "activeModel"
+    | "activeReasoningEffort"
+    | "activeServiceTier"
+    | "activeApprovalPolicy"
+    | "activeApprovalsReviewer"
+    | "activePermissionProfile"
+  >;
+  listedThreads?: readonly Thread[];
+  items?: readonly MessageStreamItem[];
+}
 
 export interface ActiveThreadResumedAction {
   type: "active-thread/resumed";
@@ -96,6 +120,41 @@ export interface TurnStartAcknowledgedAction {
 export interface TurnStartFailedAction {
   type: "turn/start-failed";
   items: readonly MessageStreamItem[];
+}
+
+export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromActiveRuntimeParams): ActiveThreadResumedAction {
+  return resumedThreadAction({
+    response: {
+      thread: params.thread,
+      cwd: params.cwd,
+      model: params.runtime.activeModel,
+      reasoningEffort: params.runtime.activeReasoningEffort,
+      serviceTier: params.runtime.activeServiceTier,
+      approvalPolicy: params.runtime.activeApprovalPolicy,
+      approvalsReviewer: params.runtime.activeApprovalsReviewer,
+      activePermissionProfile: params.runtime.activePermissionProfile,
+    },
+    ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
+    ...(params.items ? { items: params.items } : {}),
+  });
+}
+
+export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
+  const { response } = params;
+  return {
+    type: "active-thread/resumed",
+    thread: response.thread,
+    cwd: response.cwd,
+    model: response.model,
+    reasoningEffort: response.reasoningEffort,
+    serviceTier: response.serviceTier,
+    approvalPolicy: response.approvalPolicy,
+    approvalsReviewer: response.approvalsReviewer,
+    activePermissionProfile: response.activePermissionProfile,
+    ...(params.items ? { items: params.items } : {}),
+    ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
+    ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
+  };
 }
 
 export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettingsAppliedActionSettings): ActiveThreadSettingsAppliedAction {

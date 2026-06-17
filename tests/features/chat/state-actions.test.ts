@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { resumedThreadActionFromActiveRuntime, resumedThreadAction } from "../../../../src/features/chat/application/threads/resume";
-import type { ThreadActivationSnapshot } from "../../../../src/domain/threads/activation";
-import type { Thread } from "../../../../src/domain/threads/model";
+import { resumedThreadActionFromActiveRuntime, resumedThreadAction } from "../../../src/features/chat/application/state/actions";
+import type { ThreadActivationSnapshot } from "../../../src/domain/threads/activation";
+import type { Thread } from "../../../src/domain/threads/model";
 
 describe("chat thread resume helpers", () => {
   it("builds thread resumed actions from response snapshots", () => {
