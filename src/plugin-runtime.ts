@@ -18,7 +18,7 @@ import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
 import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";
-import type { CodexPanelSettingTabHost } from "./settings/tab";
+import type { CodexPanelSettingTabHost } from "./settings/host";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 import { createActiveThreadCatalog, type ActiveThreadCatalog } from "./workspace/active-thread-catalog";
 

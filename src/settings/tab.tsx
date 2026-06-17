@@ -3,8 +3,12 @@ import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } fro
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
 import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root";
-import { SettingsDynamicDataController, type SettingsDynamicDataHost } from "./dynamic-data-controller";
-import { SettingsDynamicSections, type SettingsDynamicSectionsState } from "./dynamic-sections";
+import { ArchivedThreadSection } from "./archived-section";
+import { SettingsDynamicDataController } from "./dynamic-data-controller";
+import { HelperSettingsSection } from "./helper-section";
+import type { CodexPanelSettingTabHost } from "./host";
+import { HookSection } from "./hook-section";
+import type { SettingsSectionsState } from "./section-state";
 
 const SETTINGS_INTRO_TEXT =
   "Codex Panel stores only panel preferences. Models, sandboxing, approvals, MCP servers, hooks, and network access still come from Codex config.";
@@ -139,10 +143,18 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private renderDynamicSections(): void {
     if (!this.dynamicSectionsRoot) return;
-    renderUiRoot(this.dynamicSectionsRoot, <SettingsDynamicSections state={this.dynamicSectionsState()} />);
+    const state = this.dynamicSectionsState();
+    renderUiRoot(
+      this.dynamicSectionsRoot,
+      <>
+        <HelperSettingsSection state={state.helper} />
+        <ArchivedThreadSection state={state.archived} />
+        <HookSection state={state.hooks} />
+      </>,
+    );
   }
 
-  private dynamicSectionsState(): SettingsDynamicSectionsState {
+  private dynamicSectionsState(): SettingsSectionsState {
     const dynamicData = this.dynamicData.snapshot();
     return {
       helper: {
@@ -281,9 +293,4 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.plugin.settings.rewriteSelectionEffort = value;
     await this.plugin.saveSettings();
   }
-}
-
-export interface CodexPanelSettingTabHost extends SettingsDynamicDataHost {
-  saveSettings(): Promise<void>;
-  refreshOpenViews(): void;
 }

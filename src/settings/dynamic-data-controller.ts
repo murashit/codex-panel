@@ -4,14 +4,13 @@ import { isStaleAppServerSharedQueryContextError } from "../app-server/query/sha
 import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
 import { setHookItemEnabled, trustHookItem } from "../app-server/catalog";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads";
-import type { AppServerSharedQueries } from "../app-server/query/shared-queries";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
-import type { ActiveThreadCatalogThreadRestores } from "../workspace/active-thread-catalog";
 import { archivedThreadDisplayTitle } from "./archived-thread-title";
 import { loadHookData, loadSettingsCompanionData } from "./app-server-data";
+import type { SettingsDynamicDataHost } from "./host";
 import {
   createSettingsDynamicSectionLifecycle,
   transitionSettingsDataRefreshLifecycle,
@@ -19,21 +18,6 @@ import {
   type SettingsDataRefreshLifecycleState,
   type SettingsDynamicSectionLifecycleState,
 } from "./lifecycle";
-import type { CodexPanelSettings } from "./model";
-
-export interface SettingsDynamicDataHost {
-  settings: CodexPanelSettings;
-  vaultPath: string;
-  appServerData: SettingsAppServerData;
-  threadCatalog: SettingsThreadCatalog;
-}
-
-type SettingsAppServerData = Pick<
-  AppServerSharedQueries,
-  "modelsSnapshot" | "observeModelsResult" | "fetchModels" | "refreshModels" | "notifyContextChanged"
->;
-
-type SettingsThreadCatalog = ActiveThreadCatalogThreadRestores;
 
 function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: string): string {
   return thread ? archivedThreadDisplayTitle(thread) : threadId;
@@ -411,7 +395,7 @@ export class SettingsDynamicDataController {
   }
 
   effortOptions(modelIdOrName: string | null): ReasoningEffort[] {
-    const model = this.selectedModel(modelIdOrName);
+    const model = findModelMetadataByIdOrName(this.models, modelIdOrName);
     return model ? supportedEffortsForModelMetadata(model) : [];
   }
 
@@ -495,9 +479,5 @@ export class SettingsDynamicDataController {
 
   private isStaleArchivedThreadsOperation(operationId: number): boolean {
     return operationId !== this.archivedThreadsOperationId;
-  }
-
-  private selectedModel(modelIdOrName: string | null): ModelMetadata | null {
-    return findModelMetadataByIdOrName(this.models, modelIdOrName);
   }
 }

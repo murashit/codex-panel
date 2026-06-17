@@ -1,0 +1,84 @@
+import type { ComponentChild as UiNode } from "preact";
+
+import type { HookItem } from "../domain/catalog/metadata";
+import type { HookSectionState } from "./section-state";
+import { SettingRow, SettingsHeading } from "./setting-components";
+
+export function HookSection({ state }: { state: HookSectionState }): UiNode {
+  return (
+    <section className="codex-panel-settings__dynamic-section codex-panel-settings__hook-section">
+      <SettingsHeading dynamic name="Hook status" desc="Review discovered hooks, trust changes, and turn hooks on or off." />
+      {state.loaded ? (
+        <Hooks state={state} />
+      ) : !state.loading && state.status ? (
+        <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
+      ) : null}
+    </section>
+  );
+}
+
+function Hooks({ state }: { state: HookSectionState }): UiNode {
+  return (
+    <>
+      {state.hooks.length === 0 ? (
+        <p className="setting-item-description">No hooks found for this vault root.</p>
+      ) : (
+        <div className="setting-items codex-panel-settings__dynamic-list codex-panel-settings__hook-list">
+          {state.hooks.map((hook) => (
+            <HookRow key={hook.key} hook={hook} state={state} />
+          ))}
+        </div>
+      )}
+      {state.warnings.map((warning) => (
+        <p key={`warning:${warning}`} className="setting-item-description codex-panel-settings__hook-warning">
+          {warning}
+        </p>
+      ))}
+      {state.errors.map((error) => (
+        <p key={`error:${error}`} className="setting-item-description codex-panel-settings__hook-error">
+          {error}
+        </p>
+      ))}
+    </>
+  );
+}
+
+function HookRow({ hook, state }: { hook: HookItem; state: HookSectionState }): UiNode {
+  const canTrust = !hook.isManaged && (hook.trustStatus === "untrusted" || hook.trustStatus === "modified");
+  const hookName = firstNonEmptyString(hook.statusMessage, hook.command, hook.matcher, hook.eventName);
+  return (
+    <SettingRow
+      className="codex-panel-settings__dynamic-row codex-panel-settings__hook-row"
+      name={hookName}
+      desc={`${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${hook.enabled ? "enabled" : "disabled"}`}
+      extraInfo={<div className="codex-panel-settings__hook-hash">{hook.currentHash}</div>}
+    >
+      <button
+        type="button"
+        disabled={state.loading || !canTrust}
+        onClick={() => {
+          state.onTrust(hook);
+        }}
+      >
+        Trust
+      </button>
+      <button
+        type="button"
+        disabled={state.loading || hook.isManaged}
+        onClick={() => {
+          state.onToggleEnabled(hook, !hook.enabled);
+        }}
+      >
+        {hook.enabled ? "Disable" : "Enable"}
+      </button>
+    </SettingRow>
+  );
+}
+
+function firstNonEmptyString(...values: (string | null | undefined)[]): string {
+  return (
+    values.find((value): value is string => typeof value === "string" && value.length > 0) ??
+    values.find((value): value is string => typeof value === "string") ??
+    ""
+  );
+}

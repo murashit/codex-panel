@@ -8,7 +8,7 @@ import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/me
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import { SettingsDynamicDataController, type SettingsDynamicDataSnapshot } from "../../src/settings/dynamic-data-controller";
 import { CodexPanelSettingTab } from "../../src/settings/tab";
-import type { CodexPanelSettingTabHost } from "../../src/settings/tab";
+import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import type { Thread } from "../../src/domain/threads/model";
 import { archivedThreadDisplayTitle } from "../../src/settings/archived-thread-title";
 import { notices } from "../mocks/obsidian";
