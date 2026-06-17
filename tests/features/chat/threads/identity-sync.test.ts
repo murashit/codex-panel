@@ -31,7 +31,7 @@ function createController() {
   const host = {
     stateStore,
     restoration,
-    invalidateResumeWork: vi.fn(),
+    invalidateThreadWork: vi.fn(),
     clearDeferredRestoredThreadHydration: vi.fn(),
     resetThreadTurnPresence: vi.fn(),
     notifyActiveThreadIdentityChanged: vi.fn(),
@@ -59,7 +59,7 @@ describe("createIdentitySync", () => {
     controller.applyThreadArchived("thread");
 
     expect(stateStore.getState().activeThread.id).toBeNull();
-    expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
+    expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
   });

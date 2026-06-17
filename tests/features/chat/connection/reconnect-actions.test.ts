@@ -21,7 +21,7 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
   const host: ChatReconnectActionsHost = {
     stateStore,
     invalidateConnectionWork: vi.fn(),
-    invalidateResumeWork: vi.fn(),
+    invalidateThreadWork: vi.fn(),
     clearDeferredDiagnostics: vi.fn(),
     resetConnection: vi.fn(),
     setStatus: vi.fn(),
@@ -41,7 +41,7 @@ describe("reconnectPanel", () => {
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.invalidateConnectionWork).toHaveBeenCalledOnce();
-    expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
+    expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledOnce();
     expect(host.resetConnection).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });

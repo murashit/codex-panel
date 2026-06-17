@@ -23,7 +23,7 @@ import type { ChatStateStore } from "../application/state/store";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
 import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
 import { AutoTitleController } from "../application/threads/auto-title-controller";
-import type { HistoryController } from "../application/threads/history-controller";
+import { HistoryController } from "../application/threads/history-controller";
 import type { IdentitySync } from "../application/threads/identity-sync";
 import { createThreadLifecycleParts } from "../application/threads/lifecycle-parts";
 import {
@@ -101,18 +101,22 @@ export interface ChatPanelSessionGraph {
     composer: ChatPanelComposerSurface;
   };
   actions: {
-    invalidateResumeWork(): void;
+    invalidateThreadWork(): void;
     refreshSharedThreads(): Promise<void>;
     startNewThread(): Promise<void>;
     dispose(): void;
   };
   runtime: {
-    applyCachedAppServerState(): void;
-    subscribeAppServerState(): void;
-    unsubscribeAppServerState(): void;
+    sharedState: ChatPanelSharedStateBinding;
     refreshLiveState(): void;
     deferLiveStateRefresh(): void;
   };
+}
+
+interface ChatPanelSharedStateBinding {
+  applyCached(): void;
+  subscribe(): void;
+  unsubscribe(): void;
 }
 
 interface ChatPanelSessionStatus {
@@ -159,44 +163,19 @@ interface ChatPanelSurfacePresenterParts {
   messageStreamPresenter: MessageStreamPresenter;
 }
 
-interface ChatPanelSessionGraphActionParts {
-  serverParts: ChatPanelConnectionBundle;
-  invalidateResumeWork: () => void;
-  startNewThread: () => Promise<void>;
-  composerController: ChatComposerController;
-  messageStreamPresenter: MessageStreamPresenter;
-}
-
-interface ChatPanelSessionGraphRuntimeParts {
-  serverActions: ChatPanelConnectionBundle["serverActions"];
-}
-
 export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): ChatPanelSessionGraph {
-  const { actionParts, runtimeParts, ...graphObjects } = buildChatPanelSessionGraphObjects(host);
-  return {
-    ...graphObjects,
-    actions: createChatPanelSessionGraphActions(actionParts),
-    runtime: createChatPanelSessionGraphRuntime(host, runtimeParts),
-  };
-}
-
-interface ChatPanelSessionGraphObjects extends Omit<ChatPanelSessionGraph, "actions" | "runtime"> {
-  actionParts: ChatPanelSessionGraphActionParts;
-  runtimeParts: ChatPanelSessionGraphRuntimeParts;
-}
-
-function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): ChatPanelSessionGraphObjects {
   const { environment, stateStore } = host;
   const localItemIds = createLocalChatItemIdFactory();
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
   const status = createSessionStatus(stateStore, localItemIds);
-  let threadLifecycle!: ChatPanelThreadLifecycle;
-  const invalidateGraphResumeWork = () => {
-    threadLifecycle.invalidate();
-  };
   const titleService = createSessionThreadTitleService(host, currentClient);
   const autoTitle = createSessionAutoTitleController(host, currentClient, titleService);
+  const history = createSessionHistoryController(host, currentClient, status, autoTitle);
+  const invalidateThreadWork = () => {
+    host.resumeWork.invalidate();
+    history.invalidate();
+  };
   const goalSync = createSessionGoalSyncActions(host, currentClient, status);
   const serverParts = createConnectionBundle(
     {
@@ -204,7 +183,7 @@ function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): Cha
       stateStore,
       connectionWork: host.connectionWork,
       deferredTasks: host.deferredTasks,
-      invalidateResumeWork: invalidateGraphResumeWork,
+      invalidateThreadWork,
       deferLiveStateRefresh: () => {
         deferLiveStateRefresh(host);
       },
@@ -235,13 +214,29 @@ function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): Cha
   const runtimeSettings = createSessionRuntimeSettingsActions(host, currentClient, status);
   const goals = createSessionGoalActions(host, currentClient, ensureConnected, status);
   const rename = createSessionThreadRenameEditor(stateStore, threadOperations, titleService, ensureConnected, status);
-  threadLifecycle = createSessionThreadLifecycle(host, currentClient, ensureConnected, status, goals, autoTitle);
-  const { history, identity, restoration, resume } = threadLifecycle;
+  const threadLifecycle = createSessionThreadLifecycle(
+    host,
+    currentClient,
+    ensureConnected,
+    status,
+    goals,
+    autoTitle,
+    history,
+    invalidateThreadWork,
+  );
+  const { identity, restoration, resume } = threadLifecycle;
 
   const composerSurface = createSessionComposerSurface(threadLifecycle, runtimeSettings);
   const messageStreamScrollBridge = new MessageStreamScrollBridge();
   const composerController = createSessionComposerController(host, composerSurface, runtimeSettings, messageStreamScrollBridge);
-  const startNewThread = createStartNewThreadAction(host, { identity, composerController });
+  const startNewThread = async (): Promise<void> => {
+    if (chatTurnBusy(stateStore.getState())) return;
+
+    identity.clearActiveThreadContext();
+    stateStore.dispatch({ type: "ui/panel-set", panel: null });
+    stateStore.dispatch({ type: "connection/status-set", statusText: "New chat." });
+    composerController.focus();
+  };
   const threadActionParts = createThreadActionParts(host, {
     operations: threadOperations,
     ensureConnected,
@@ -266,7 +261,7 @@ function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): Cha
     serverDiagnostics,
     goals,
     autoTitle,
-    invalidateResumeWork: invalidateGraphResumeWork,
+    invalidateThreadWork,
     startNewThread,
     runtimeProjection: {
       connectionDiagnosticDetails: () => connectionDiagnosticDetails(host, connection),
@@ -292,6 +287,19 @@ function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): Cha
     messageStreamScrollBridge,
     startNewThread,
   });
+  const refreshSharedThreads = async (): Promise<void> => {
+    try {
+      await serverParts.refreshSharedThreads();
+    } catch (error) {
+      if (isStaleAppServerSharedQueryContextError(error)) return;
+      throw error;
+    }
+  };
+  const dispose = (): void => {
+    surfaceAndPresenter.messageStreamPresenter.dispose();
+    composerController.dispose();
+  };
+  const sharedState = createChatPanelSharedStateBinding(host, serverParts.serverActions);
 
   return {
     connection: {
@@ -322,15 +330,20 @@ function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): Cha
       goal: surfaceAndPresenter.goalSurface,
       composer: composerSurface,
     },
-    actionParts: {
-      serverParts,
-      invalidateResumeWork: invalidateGraphResumeWork,
+    actions: {
+      invalidateThreadWork,
+      refreshSharedThreads,
       startNewThread,
-      composerController,
-      messageStreamPresenter: surfaceAndPresenter.messageStreamPresenter,
+      dispose,
     },
-    runtimeParts: {
-      serverActions: serverParts.serverActions,
+    runtime: {
+      sharedState,
+      refreshLiveState: () => {
+        refreshLiveState(host);
+      },
+      deferLiveStateRefresh: () => {
+        deferLiveStateRefresh(host);
+      },
     },
   };
 }
@@ -339,59 +352,21 @@ function createConnectionManager(environment: ChatPanelEnvironment): ConnectionM
   return new ConnectionManager(() => environment.plugin.settingsRef.settings.codexPath, environment.plugin.settingsRef.vaultPath);
 }
 
-function createStartNewThreadAction(
+function createChatPanelSharedStateBinding(
   host: ChatPanelSessionGraphHost,
-  input: {
-    identity: IdentitySync;
-    composerController: ChatComposerController;
-  },
-): () => Promise<void> {
-  return async () => {
-    if (chatTurnBusy(host.stateStore.getState())) return;
-
-    input.identity.clearActiveThreadContext();
-    host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
-    host.stateStore.dispatch({ type: "connection/status-set", statusText: "New chat." });
-    input.composerController.focus();
-  };
-}
-
-function createChatPanelSessionGraphActions(input: ChatPanelSessionGraphActionParts): ChatPanelSessionGraph["actions"] {
-  return {
-    invalidateResumeWork: () => {
-      input.invalidateResumeWork();
-    },
-    refreshSharedThreads: async () => {
-      try {
-        await input.serverParts.refreshSharedThreads();
-      } catch (error) {
-        if (isStaleAppServerSharedQueryContextError(error)) return;
-        throw error;
-      }
-    },
-    startNewThread: input.startNewThread,
-    dispose: () => {
-      input.messageStreamPresenter.dispose();
-      input.composerController.dispose();
-    },
-  };
-}
-
-function createChatPanelSessionGraphRuntime(
-  host: ChatPanelSessionGraphHost,
-  input: ChatPanelSessionGraphRuntimeParts,
-): ChatPanelSessionGraph["runtime"] {
+  serverActions: ChatPanelConnectionBundle["serverActions"],
+): ChatPanelSharedStateBinding {
   const unsubscribers: (() => void)[] = [];
 
   const receiveThreads = (threads: readonly Thread[]): void => {
-    input.serverActions.threads.applyThreadList(threads);
+    serverActions.threads.applyThreadList(threads);
     refreshTabHeader(host);
   };
   const receiveThreadResult = (result: AppServerObservedQueryResult<readonly Thread[]>): void => {
     if (result.data) receiveThreads(result.data);
   };
   const receiveAppServerMetadata = (metadata: SharedServerMetadata): void => {
-    input.serverActions.metadata.applyAppServerMetadata(metadata);
+    serverActions.metadata.applyAppServerMetadata(metadata);
   };
   const receiveAppServerMetadataResult = (result: AppServerObservedQueryResult<SharedServerMetadata>): void => {
     if (result.data) receiveAppServerMetadata(result.data);
@@ -402,38 +377,32 @@ function createChatPanelSessionGraphRuntime(
   const receiveModelsResult = (result: AppServerObservedQueryResult<readonly ModelMetadata[]>): void => {
     if (result.data) receiveModels(result.data);
   };
-  const unsubscribeAppServerState = (): void => {
+  const unsubscribe = (): void => {
     while (unsubscribers.length > 0) {
       unsubscribers.pop()?.();
     }
   };
-  const applyCachedAppServerState = (): void => {
+  const applyCached = (): void => {
     const threads = host.environment.plugin.threadCatalog.snapshot();
-    if (threads) input.serverActions.threads.applyThreadList(threads);
+    if (threads) serverActions.threads.applyThreadList(threads);
     const metadata = host.environment.plugin.appServerData.appServerMetadataSnapshot();
-    if (metadata) input.serverActions.metadata.applyAppServerMetadata(metadata);
+    if (metadata) serverActions.metadata.applyAppServerMetadata(metadata);
     const models = host.environment.plugin.appServerData.modelsSnapshot();
     if (models) receiveModels(models);
   };
 
   return {
-    applyCachedAppServerState,
-    subscribeAppServerState: () => {
-      unsubscribeAppServerState();
-      applyCachedAppServerState();
+    applyCached,
+    subscribe: () => {
+      unsubscribe();
+      applyCached();
       unsubscribers.push(
         host.environment.plugin.threadCatalog.observe(receiveThreadResult, { emitCurrent: false }),
         host.environment.plugin.appServerData.observeAppServerMetadataResult(receiveAppServerMetadataResult, { emitCurrent: false }),
         host.environment.plugin.appServerData.observeModelsResult(receiveModelsResult, { emitCurrent: false }),
       );
     },
-    unsubscribeAppServerState,
-    refreshLiveState: () => {
-      refreshLiveState(host);
-    },
-    deferLiveStateRefresh: () => {
-      deferLiveStateRefresh(host);
-    },
+    unsubscribe,
   };
 }
 
@@ -472,6 +441,28 @@ function createSessionAutoTitleController(
         host.environment.plugin.threadCatalog.recordThreadRenamed(threadId, name);
       }
       return true;
+    },
+  });
+}
+
+function createSessionHistoryController(
+  host: ChatPanelSessionGraphHost,
+  currentClient: CurrentAppServerClient,
+  status: ChatPanelSessionStatus,
+  autoTitle: AutoTitleController,
+): HistoryController {
+  return new HistoryController({
+    stateStore: host.stateStore,
+    currentClient,
+    addSystemMessage: status.addSystemMessage,
+    keepCurrentScrollPosition: () => {
+      host.messageScrollIntent.preservePosition();
+    },
+    showLatestPageAtBottom: () => {
+      host.messageScrollIntent.forceBottom();
+    },
+    setThreadTurnPresence: (hadTurns) => {
+      autoTitle.resetThreadTurnPresence(hadTurns);
     },
   });
 }
@@ -587,6 +578,8 @@ function createSessionThreadLifecycle(
   status: ChatPanelSessionStatus,
   goals: ChatPanelGoalActions,
   autoTitle: AutoTitleController,
+  history: HistoryController,
+  invalidateThreadWork: () => void,
 ): ChatPanelThreadLifecycle {
   return createThreadLifecycleParts({
     settingsRef: host.environment.plugin.settingsRef,
@@ -598,6 +591,8 @@ function createSessionThreadLifecycle(
     lifecycle: {
       deferredTasks: host.deferredTasks,
       resumeWork: host.resumeWork,
+      history,
+      invalidateThreadWork,
       getOpened: host.getOpened,
       getClosing: host.getClosing,
     },
@@ -613,14 +608,6 @@ function createSessionThreadLifecycle(
     liveState: {
       refresh: () => {
         refreshLiveState(host);
-      },
-    },
-    scroll: {
-      preservePosition: () => {
-        host.messageScrollIntent.preservePosition();
-      },
-      forceBottom: () => {
-        host.messageScrollIntent.forceBottom();
       },
     },
     goals,
@@ -752,7 +739,7 @@ function createComposerAndTurnActions(
     serverDiagnostics: ChatServerDiagnosticsActions;
     goals: ChatPanelGoalActions;
     autoTitle: AutoTitleController;
-    invalidateResumeWork: () => void;
+    invalidateThreadWork: () => void;
     startNewThread: () => Promise<void>;
     runtimeProjection: {
       connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
@@ -777,7 +764,7 @@ function createComposerAndTurnActions(
     serverDiagnostics,
     goals,
     autoTitle,
-    invalidateResumeWork,
+    invalidateThreadWork,
     startNewThread,
     runtimeProjection,
   } = input;
@@ -794,8 +781,8 @@ function createComposerAndTurnActions(
     invalidateConnectionWork: () => {
       host.connectionWork.invalidate();
     },
-    invalidateResumeWork: () => {
-      invalidateResumeWork();
+    invalidateThreadWork: () => {
+      invalidateThreadWork();
     },
     clearDeferredDiagnostics: () => {
       host.deferredTasks.clearDiagnostics();

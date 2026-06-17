@@ -12,7 +12,7 @@ const STATUS_THREAD_READY_TO_RESUME = "Thread ready to resume.";
 export interface RestorationControllerHost {
   deferredTasks: ChatViewDeferredTasks;
   opened: () => boolean;
-  invalidateResumeWork: () => void;
+  invalidateThreadWork: () => void;
   stateStore: ChatStateStore;
   setStatus: (status: string) => void;
   refreshTabHeader: () => void;
@@ -44,7 +44,7 @@ export class RestorationController {
   }
 
   restore(restoredThread: RestoredThreadState): void {
-    this.host.invalidateResumeWork();
+    this.host.invalidateThreadWork();
     this.lifecycle = transitionRestoredThreadLifecycle(this.lifecycle, {
       type: "placeholder-restored",
       restoredThread,

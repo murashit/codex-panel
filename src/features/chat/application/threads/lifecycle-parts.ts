@@ -3,7 +3,7 @@ import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollou
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
 import type { GoalActions } from "./goal-actions";
-import { HistoryController } from "./history-controller";
+import type { HistoryController } from "./history-controller";
 import { createIdentitySync } from "./identity-sync";
 import { createResumeController, type ResumeController } from "./resume-controller";
 import { RestorationController } from "./restoration-controller";
@@ -18,6 +18,8 @@ export interface ThreadLifecyclePartsContext {
   lifecycle: {
     deferredTasks: ChatViewDeferredTasks;
     resumeWork: ChatResumeWorkTracker;
+    history: HistoryController;
+    invalidateThreadWork: () => void;
     getOpened: () => boolean;
     getClosing: () => boolean;
   };
@@ -32,10 +34,6 @@ export interface ThreadLifecyclePartsContext {
   liveState: {
     refresh: () => void;
   };
-  scroll: {
-    preservePosition: () => void;
-    forceBottom: () => void;
-  };
   goals: GoalActions;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
 }
@@ -45,28 +43,15 @@ export interface ThreadLifecycleParts {
   restoration: RestorationController;
   resume: ResumeController;
   identity: ReturnType<typeof createIdentitySync>;
-  invalidate(): void;
 }
 
 export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext): ThreadLifecycleParts {
-  const { settingsRef, stateStore, client, lifecycle, thread, status, liveState, scroll, goals, resetThreadTurnPresence } = context;
-  const { deferredTasks, resumeWork } = lifecycle;
-  const history = new HistoryController({
-    stateStore,
-    currentClient: client.currentClient,
-    addSystemMessage: status.addSystemMessage,
-    keepCurrentScrollPosition: scroll.preservePosition,
-    showLatestPageAtBottom: scroll.forceBottom,
-    setThreadTurnPresence: resetThreadTurnPresence,
-  });
-  const invalidateResumeWork = () => {
-    resumeWork.invalidate();
-    history.invalidate();
-  };
+  const { settingsRef, stateStore, client, lifecycle, thread, status, liveState, goals, resetThreadTurnPresence } = context;
+  const { deferredTasks, resumeWork, history, invalidateThreadWork } = lifecycle;
   const restoration = new RestorationController({
     deferredTasks,
     opened: lifecycle.getOpened,
-    invalidateResumeWork,
+    invalidateThreadWork,
     stateStore,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
@@ -97,7 +82,7 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
   const identity = createIdentitySync({
     stateStore,
     restoration,
-    invalidateResumeWork,
+    invalidateThreadWork,
     clearDeferredRestoredThreadHydration: () => {
       restoration.clearHydration();
     },
@@ -112,6 +97,5 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     restoration,
     resume,
     identity,
-    invalidate: invalidateResumeWork,
   };
 }

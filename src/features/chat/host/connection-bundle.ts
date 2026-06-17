@@ -45,7 +45,7 @@ interface ChatPanelConnectionBundleHost {
   stateStore: ChatStateStore;
   connectionWork: ConnectionWorkTracker;
   deferredTasks: ChatViewDeferredTasks;
-  invalidateResumeWork: () => void;
+  invalidateThreadWork: () => void;
   deferLiveStateRefresh: () => void;
   refreshTabHeader: () => void;
   refreshLiveState: () => void;
@@ -168,8 +168,8 @@ export function createConnectionBundle(
   const connectionExitHost = {
     stateStore,
     connectionWork: host.connectionWork,
-    invalidateResumeWork: () => {
-      host.invalidateResumeWork();
+    invalidateThreadWork: () => {
+      host.invalidateThreadWork();
     },
     setStatus: status.set,
     resetThreadTurnPresence: (hadTurns: boolean) => {

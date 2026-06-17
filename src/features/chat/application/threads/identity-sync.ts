@@ -5,7 +5,7 @@ import type { ChatStateStore } from "../state/store";
 export interface IdentitySyncHost {
   stateStore: ChatStateStore;
   restoration: RestorationController;
-  invalidateResumeWork: () => void;
+  invalidateThreadWork: () => void;
   clearDeferredRestoredThreadHydration: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   notifyActiveThreadIdentityChanged: () => void;
@@ -34,7 +34,7 @@ export function createIdentitySync(host: IdentitySyncHost): IdentitySync {
 }
 
 function clearActiveThreadContext(host: IdentitySyncHost): void {
-  host.invalidateResumeWork();
+  host.invalidateThreadWork();
   host.restoration.clear();
   host.clearDeferredRestoredThreadHydration();
   host.stateStore.dispatch({ type: "active-thread/cleared" });

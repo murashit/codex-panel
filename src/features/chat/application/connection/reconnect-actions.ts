@@ -7,7 +7,7 @@ const STATUS_RECONNECTING = "Reconnecting...";
 export interface ChatReconnectActionsHost {
   stateStore: ChatStateStore;
   invalidateConnectionWork: () => void;
-  invalidateResumeWork: () => void;
+  invalidateThreadWork: () => void;
   clearDeferredDiagnostics: () => void;
   resetConnection: () => void;
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -20,7 +20,7 @@ export async function reconnectPanel(host: ChatReconnectActionsHost): Promise<vo
   const threadId = activeThreadId(host.stateStore.getState());
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   host.invalidateConnectionWork();
-  host.invalidateResumeWork();
+  host.invalidateThreadWork();
   host.clearDeferredDiagnostics();
   host.resetConnection();
   host.stateStore.dispatch({ type: "turn/scoped-cleared" });

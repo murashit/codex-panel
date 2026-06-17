@@ -16,7 +16,7 @@ describe("RestorationController", () => {
     const controller = new RestorationController({
       deferredTasks: createChatViewDeferredTasks(() => window),
       opened: () => true,
-      invalidateResumeWork: vi.fn(),
+      invalidateThreadWork: vi.fn(),
       stateStore,
       setStatus: vi.fn(),
       refreshTabHeader: vi.fn(),
@@ -63,7 +63,7 @@ function restoredThreadControllerFixture(overrides: Partial<ConstructorParameter
   return new RestorationController({
     deferredTasks: createChatViewDeferredTasks(() => window),
     opened: () => false,
-    invalidateResumeWork: vi.fn(),
+    invalidateThreadWork: vi.fn(),
     stateStore: createChatStateStore(createChatState()),
     setStatus: vi.fn(),
     refreshTabHeader: vi.fn(),

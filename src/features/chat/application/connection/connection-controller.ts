@@ -32,7 +32,7 @@ export interface ChatConnectionControllerHost {
   connectionWork: ConnectionWorkTracker;
   metadata: ChatConnectionMetadataActions;
   diagnostics: ChatConnectionDiagnosticsActions;
-  invalidateResumeWork: () => void;
+  invalidateThreadWork: () => void;
   refreshSharedThreads: () => Promise<void>;
   scheduleDeferredDiagnostics: () => void;
   clearDeferredDiagnostics: () => void;
@@ -47,12 +47,12 @@ export interface ChatConnectionControllerHost {
 
 type ChatConnectionExitHost = Pick<
   ChatConnectionControllerHost,
-  "connectionWork" | "invalidateResumeWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence" | "refreshLiveState"
+  "connectionWork" | "invalidateThreadWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence" | "refreshLiveState"
 >;
 
 export function handleChatConnectionExit(host: ChatConnectionExitHost): void {
   host.connectionWork.invalidate();
-  host.invalidateResumeWork();
+  host.invalidateThreadWork();
   host.setStatus(STATUS_CONNECTION_STOPPED, { kind: "disconnected", message: STATUS_CONNECTION_STOPPED });
   host.stateStore.dispatch({ type: "connection/scoped-cleared" });
   host.resetThreadTurnPresence(false);

@@ -4,15 +4,25 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import { ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../../../../src/features/chat/application/lifecycle";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import type { GoalActions } from "../../../../src/features/chat/application/threads/goal-actions";
+import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { createThreadLifecycleParts } from "../../../../src/features/chat/application/threads/lifecycle-parts";
 
 describe("ThreadLifecycleParts", () => {
-  it("invalidates resume and history work together", () => {
+  it("uses the provided history and thread invalidation hook", () => {
     const resumeWork = new ChatResumeWorkTracker();
-    const resume = resumeWork.begin("thread");
+    const stateStore = createChatStateStore();
+    const history = new HistoryController({
+      stateStore,
+      currentClient: () => null as AppServerClient | null,
+      addSystemMessage: vi.fn(),
+      keepCurrentScrollPosition: vi.fn(),
+      showLatestPageAtBottom: vi.fn(),
+      setThreadTurnPresence: vi.fn(),
+    });
+    const invalidateThreadWork = vi.fn();
     const parts = createThreadLifecycleParts({
       settingsRef: { vaultPath: "/vault" },
-      stateStore: createChatStateStore(),
+      stateStore,
       client: {
         currentClient: () => null as AppServerClient | null,
         ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -20,6 +30,8 @@ describe("ThreadLifecycleParts", () => {
       lifecycle: {
         deferredTasks: deferredTasks(),
         resumeWork,
+        history,
+        invalidateThreadWork,
         getOpened: () => true,
         getClosing: () => false,
       },
@@ -34,21 +46,20 @@ describe("ThreadLifecycleParts", () => {
       liveState: {
         refresh: vi.fn(),
       },
-      scroll: {
-        preservePosition: vi.fn(),
-        forceBottom: vi.fn(),
-      },
       goals: {
         syncThreadGoal: vi.fn().mockResolvedValue(undefined),
       } as unknown as GoalActions,
       resetThreadTurnPresence: vi.fn(),
     });
-    const invalidateHistory = vi.spyOn(parts.history, "invalidate");
 
-    parts.invalidate();
+    parts.restoration.restore({
+      threadId: "thread",
+      title: "Thread",
+      explicitName: null,
+    });
 
-    expect(resumeWork.isStale(resume)).toBe(true);
-    expect(invalidateHistory).toHaveBeenCalledOnce();
+    expect(parts.history).toBe(history);
+    expect(invalidateThreadWork).toHaveBeenCalledOnce();
   });
 });
 

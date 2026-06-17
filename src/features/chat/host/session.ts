@@ -66,7 +66,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       return;
     }
 
-    this.graph.actions.invalidateResumeWork();
+    this.graph.actions.invalidateThreadWork();
     this.graph.thread.restoration.clear();
     this.graph.thread.restoration.clearHydration();
     this.scheduleWarmup();
@@ -77,9 +77,9 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     if (!appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
       this.observedAppServerContext = nextContext;
       this.connectionWork.invalidate();
-      this.graph.actions.invalidateResumeWork();
+      this.graph.actions.invalidateThreadWork();
       this.graph.connection.manager.resetConnection();
-      this.graph.runtime.applyCachedAppServerState();
+      this.graph.runtime.sharedState.applyCached();
     }
     this.mountOrRepairShell();
   }
@@ -143,7 +143,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.environment.obsidian.registerPointerDown((event) => {
       this.closeToolbarPanelOnOutsidePointer(event);
     });
-    this.graph.runtime.subscribeAppServerState();
+    this.graph.runtime.sharedState.subscribe();
     this.mountOrRepairShell();
     this.scheduleWarmup();
     this.scheduleRestoredThreadHydration();
@@ -153,9 +153,9 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.opened = false;
     this.closing = true;
     this.connectionWork.invalidate();
-    this.graph.actions.invalidateResumeWork();
+    this.graph.actions.invalidateThreadWork();
     this.deferredTasks.clearAll();
-    this.graph.runtime.unsubscribeAppServerState();
+    this.graph.runtime.sharedState.unsubscribe();
     const panelRoot = this.environment.view.panelRoot();
     this.graph.actions.dispose();
     unmountChatPanelShell(panelRoot);

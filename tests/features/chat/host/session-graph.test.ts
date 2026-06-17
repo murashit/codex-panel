@@ -13,6 +13,7 @@ import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
 import type { Thread } from "../../../../src/domain/threads/model";
+import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/runtime";
 import { installObsidianDomShims } from "../../../support/dom";
 
@@ -30,12 +31,12 @@ describe("createChatPanelSessionGraph actions", () => {
     document.body.replaceChildren();
   });
 
-  it("invalidates resume work through the graph thread lifecycle", () => {
+  it("invalidates thread work through the graph action", () => {
     const { graph, resumeWork } = sessionGraphFixture();
     const resume = resumeWork.begin("thread-1");
     const invalidateHistory = vi.spyOn(graph.thread.history, "invalidate");
 
-    graph.actions.invalidateResumeWork();
+    graph.actions.invalidateThreadWork();
 
     expect(resumeWork.isStale(resume)).toBe(true);
     expect(invalidateHistory).toHaveBeenCalledOnce();
@@ -77,6 +78,60 @@ describe("createChatPanelSessionGraph actions", () => {
 
     expect(refresh).toHaveBeenCalledOnce();
     expect(stateStore.getState().threadList.threadsLoaded).toBe(false);
+  });
+
+  it("applies cached shared state from the runtime binding", () => {
+    const thread = threadFixture({ id: "thread-1", preview: "Cached thread" });
+    const model = modelFixture({ id: "model-1", model: "gpt-cached" });
+    const { graph, stateStore } = sessionGraphFixture({
+      environment: {
+        plugin: {
+          threadCatalog: {
+            snapshot: vi.fn(() => [thread]),
+          },
+          appServerData: {
+            modelsSnapshot: vi.fn(() => [model]),
+          },
+        },
+      },
+    });
+
+    graph.runtime.sharedState.applyCached();
+
+    expect(stateStore.getState().threadList.listedThreads).toEqual([thread]);
+    expect(stateStore.getState().connection.availableModels).toEqual([model]);
+  });
+
+  it("subscribes and unsubscribes fixed shared state observers", () => {
+    const cleanupThreads = vi.fn();
+    const cleanupMetadata = vi.fn();
+    const cleanupModels = vi.fn();
+    const observeThreads = vi.fn(() => cleanupThreads);
+    const observeMetadata = vi.fn(() => cleanupMetadata);
+    const observeModels = vi.fn(() => cleanupModels);
+    const { graph } = sessionGraphFixture({
+      environment: {
+        plugin: {
+          threadCatalog: {
+            observe: observeThreads,
+          },
+          appServerData: {
+            observeAppServerMetadataResult: observeMetadata,
+            observeModelsResult: observeModels,
+          },
+        },
+      },
+    });
+
+    graph.runtime.sharedState.subscribe();
+    graph.runtime.sharedState.unsubscribe();
+
+    expect(observeThreads).toHaveBeenCalledWith(expect.any(Function), { emitCurrent: false });
+    expect(observeMetadata).toHaveBeenCalledWith(expect.any(Function), { emitCurrent: false });
+    expect(observeModels).toHaveBeenCalledWith(expect.any(Function), { emitCurrent: false });
+    expect(cleanupThreads).toHaveBeenCalledOnce();
+    expect(cleanupMetadata).toHaveBeenCalledOnce();
+    expect(cleanupModels).toHaveBeenCalledOnce();
   });
 
   it("starts a new thread from graph state and composer actions", async () => {
@@ -283,6 +338,24 @@ describe("createChatPanelSessionGraph actions", () => {
       archived: false,
       createdAt: 1,
       updatedAt: 1,
+      ...overrides,
+    };
+  }
+
+  function modelFixture(overrides: Partial<ModelMetadata> = {}): ModelMetadata {
+    return {
+      id: "model",
+      model: "gpt-5",
+      displayName: "GPT-5",
+      description: "",
+      hidden: false,
+      supportedReasoningEfforts: [],
+      defaultReasoningEffort: null,
+      inputModalities: [],
+      additionalSpeedTiers: [],
+      serviceTiers: [],
+      defaultServiceTier: null,
+      isDefault: false,
       ...overrides,
     };
   }

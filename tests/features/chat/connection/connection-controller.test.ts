@@ -41,7 +41,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
     connectionWork: new ConnectionWorkTracker(),
     metadata,
     diagnostics,
-    invalidateResumeWork: vi.fn(),
+    invalidateThreadWork: vi.fn(),
     refreshSharedThreads: vi.fn().mockResolvedValue(undefined),
     scheduleDeferredDiagnostics: vi.fn(),
     clearDeferredDiagnostics: vi.fn(),
@@ -120,7 +120,7 @@ describe("ChatConnectionController", () => {
 
     controller.handleExit();
 
-    expect(host.invalidateResumeWork).toHaveBeenCalledOnce();
+    expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Codex app-server stopped.", {
       kind: "disconnected",
       message: "Codex app-server stopped.",
