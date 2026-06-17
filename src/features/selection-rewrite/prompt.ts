@@ -1,4 +1,4 @@
-import type { SelectionRewriteState } from "./model";
+import { selectionRewriteTextRangeOffsets, type SelectionRewriteState } from "./model";
 
 const MAX_NOTE_CONTEXT_CHARS = 20_000;
 
@@ -34,7 +34,7 @@ export function buildSelectionRewritePrompt(state: SelectionRewriteState): strin
     fenced(state.originalText),
     "",
     "Current note context:",
-    fenced(truncateNoteContext(state.noteText)),
+    fenced(selectionCenteredNoteContext(state)),
     "",
     "Reminder: use the note context only to make the selected-text replacement coherent.",
   ].join("\n");
@@ -54,7 +54,32 @@ function safeBacktickFence(text: string): string {
   return "`".repeat(longestRun + 1);
 }
 
-function truncateNoteContext(text: string): string {
+function selectionCenteredNoteContext(state: SelectionRewriteState): string {
+  const text = state.noteText;
   if (text.length <= MAX_NOTE_CONTEXT_CHARS) return text;
-  return `${text.slice(0, MAX_NOTE_CONTEXT_CHARS - 1)}…`;
+
+  const offsets = selectionRewriteTextRangeOffsets(text, state.targetRange, state.originalText);
+  if (!offsets) return `${text.slice(0, MAX_NOTE_CONTEXT_CHARS - 1)}…`;
+
+  const prefix = offsets.from > 0 ? "…\n" : "";
+  const suffix = offsets.to < text.length ? "\n…" : "";
+  const bodyBudget = MAX_NOTE_CONTEXT_CHARS - prefix.length - suffix.length;
+  const selectedLength = Math.max(0, offsets.to - offsets.from);
+  if (selectedLength >= bodyBudget) {
+    const end = Math.min(text.length, offsets.from + bodyBudget);
+    return `${offsets.from > 0 ? prefix : ""}${text.slice(offsets.from, end)}${end < text.length ? suffix : ""}`;
+  }
+
+  const surroundingBudget = Math.max(0, bodyBudget - selectedLength);
+  let start = Math.max(0, offsets.from - Math.floor(surroundingBudget / 2));
+  let end = Math.min(text.length, offsets.to + Math.ceil(surroundingBudget / 2));
+
+  const currentLength = end - start;
+  if (currentLength < bodyBudget) {
+    const missing = bodyBudget - currentLength;
+    start = Math.max(0, start - missing);
+    end = Math.min(text.length, end + (bodyBudget - (end - start)));
+  }
+
+  return `${start > 0 ? prefix : ""}${text.slice(start, end)}${end < text.length ? suffix : ""}`;
 }

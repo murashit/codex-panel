@@ -141,7 +141,7 @@ export class SelectionRewritePopover {
     const { editor } = this.options;
     const state = this.session.state;
     const currentText = editor.getRange(state.targetRange.from, state.targetRange.to);
-    if (!canApplySelectionRewrite(currentText, state.originalText)) {
+    if (!canApplySelectionRewrite({ currentText, currentNoteText: editor.getValue() }, state)) {
       new Notice("Selection changed. Generate the rewrite again before applying.");
       this.session.setStatus("Selection changed. Generate the rewrite again before applying.");
       this.renderView();

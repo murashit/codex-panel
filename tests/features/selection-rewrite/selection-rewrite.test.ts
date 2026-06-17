@@ -86,6 +86,23 @@ describe("selection rewrite prompt", () => {
     expect(prompt).toContain("````text\n```ts");
     expect(prompt).toContain("`````text\n````markdown");
   });
+
+  it("centers long note context around the selection", () => {
+    const noteText = `START ONLY\n${"filler\n".repeat(4_000)}Near before\nRevise this sentence.\nNear after`;
+    const prompt = buildSelectionRewritePrompt(
+      rewriteState({
+        noteText,
+        targetRange: {
+          from: { line: 4_002, ch: 0 },
+          to: { line: 4_002, ch: 22 },
+        },
+      }),
+    );
+
+    expect(prompt).toContain("Near before");
+    expect(prompt).toContain("Near after");
+    expect(prompt).not.toContain("START ONLY");
+  });
 });
 
 describe("selection rewrite diff", () => {
@@ -129,9 +146,19 @@ describe("selection rewrite diff", () => {
 });
 
 describe("selection rewrite apply guard", () => {
-  it("allows apply only when the current range still matches the original text", () => {
-    expect(canApplySelectionRewrite("original", "original")).toBe(true);
-    expect(canApplySelectionRewrite("changed", "original")).toBe(false);
+  it("allows apply only when the current range and surrounding note context still match the original selection", () => {
+    const state = rewriteState();
+    expect(canApplySelectionRewrite({ currentText: "Revise this sentence.", currentNoteText: state.noteText }, state)).toBe(true);
+    expect(canApplySelectionRewrite({ currentText: "Changed sentence.", currentNoteText: state.noteText }, state)).toBe(false);
+    expect(
+      canApplySelectionRewrite(
+        {
+          currentText: "Revise this sentence.",
+          currentNoteText: "# Heading\n\nRevise this sentence.\n\nEdited next paragraph.",
+        },
+        state,
+      ),
+    ).toBe(false);
   });
 });
 
@@ -601,21 +628,25 @@ function popoverOptions(
   };
 }
 
-function editorFixture(options: { currentText?: string } = {}): {
+function editorFixture(options: { currentText?: string; currentNoteText?: string } = {}): {
   editor: ConstructorParameters<typeof SelectionRewritePopover>[0]["editor"];
   getRange: ReturnType<typeof vi.fn>;
+  getValue: ReturnType<typeof vi.fn>;
   replaceRange: ReturnType<typeof vi.fn>;
 } {
   const getRange = vi.fn(() => options.currentText ?? "Revise this sentence.");
+  const getValue = vi.fn(() => options.currentNoteText ?? rewriteState().noteText);
   const replaceRange = vi.fn();
   return {
     editor: {
       getCursor: () => ({ line: 1, ch: 22 }),
       getRange,
+      getValue,
       posToOffset: () => 0,
       replaceRange,
     } as unknown as ConstructorParameters<typeof SelectionRewritePopover>[0]["editor"],
     getRange,
+    getValue,
     replaceRange,
   };
 }
