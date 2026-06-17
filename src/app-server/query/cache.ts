@@ -336,11 +336,11 @@ export class AppServerQueryCache {
   }> {
     try {
       const data = cloneModelMetadata(await this.client.fetchQuery(this.modelsQueryOptionsWithClient(context, client)));
-      return { data, probe: diagnosticProbeOk("model/list", `${String(data.length)} models`) };
+      return { data, probe: diagnosticProbeOk("model/list", `${String(data.length)} models`, Date.now()) };
     } catch (error) {
       return {
         data: this.modelsSnapshot(context) ?? [],
-        probe: diagnosticProbeError("model/list", error),
+        probe: diagnosticProbeError("model/list", error, Date.now()),
       };
     }
   }

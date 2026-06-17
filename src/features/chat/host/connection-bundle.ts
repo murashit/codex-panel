@@ -4,6 +4,7 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
+import type { LocalIdSource } from "../../../shared/id/local-id";
 import {
   createChatConnectionController,
   handleChatConnectionExit,
@@ -35,6 +36,7 @@ interface ChatPanelConnectionStatus {
 interface ChatPanelConnectionBundleInput {
   connection: ConnectionManager;
   currentClient: CurrentAppServerClient;
+  localItemIds: LocalIdSource;
   status: ChatPanelConnectionStatus;
   goalSync: ChatPanelGoalSyncActions;
   autoTitle: AutoTitleActions;
@@ -95,7 +97,7 @@ export function createConnectionBundle(
   input: ChatPanelConnectionBundleInput,
 ): ChatPanelConnectionBundle {
   const { environment, stateStore } = host;
-  const { connection, currentClient, status, goalSync, autoTitle } = input;
+  const { connection, currentClient, localItemIds, status, goalSync, autoTitle } = input;
   const serverMetadata = createChatServerMetadataActions({
     stateStore,
     vaultPath: environment.plugin.settingsRef.vaultPath,
@@ -133,38 +135,42 @@ export function createConnectionBundle(
       status.addSystemMessage(error instanceof Error ? error.message : String(error));
     });
   };
-  const inboundController = new ChatInboundController(stateStore, {
-    refreshActiveThreads: () => {
-      refreshSharedThreadsQuietly();
+  const inboundController = new ChatInboundController(
+    stateStore,
+    {
+      refreshActiveThreads: () => {
+        refreshSharedThreadsQuietly();
+      },
+      refreshRateLimits: () => {
+        void serverMetadata.refreshRateLimits({ preserveExistingOnFailure: true });
+      },
+      refreshSkills: (forceReload) => void serverMetadata.refreshSkills(forceReload),
+      applyAppServerMetadataSnapshot: () => {
+        serverMetadata.applyAppServerMetadataSnapshot();
+      },
+      maybeNameThread: (threadId, turnId, completedSummary) => {
+        autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
+      },
+      upsertActiveThread: (thread) => {
+        environment.plugin.threadCatalog.upsertFromAppServer(thread);
+      },
+      applyThreadArchived: (threadId) => {
+        environment.plugin.threadCatalog.recordThreadArchived(threadId);
+      },
+      recordActiveThreadDeleted: (threadId) => {
+        environment.plugin.threadCatalog.recordThreadDeleted(threadId);
+      },
+      applyThreadRenamed: (threadId, name) => {
+        environment.plugin.threadCatalog.recordThreadRenamed(threadId, name);
+      },
+      recordMcpStartupStatus: (name, mcpStatus, message) => {
+        serverDiagnostics.recordMcpStartupStatus(name, mcpStatus, message);
+      },
+      respondToServerRequest: (requestId, result) => respondToCurrentServerRequest(currentClient, requestId, result),
+      rejectServerRequest: (requestId, code, message) => rejectCurrentServerRequest(currentClient, requestId, code, message),
     },
-    refreshRateLimits: () => {
-      void serverMetadata.refreshRateLimits({ preserveExistingOnFailure: true });
-    },
-    refreshSkills: (forceReload) => void serverMetadata.refreshSkills(forceReload),
-    applyAppServerMetadataSnapshot: () => {
-      serverMetadata.applyAppServerMetadataSnapshot();
-    },
-    maybeNameThread: (threadId, turnId, completedSummary) => {
-      autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
-    },
-    upsertActiveThread: (thread) => {
-      environment.plugin.threadCatalog.upsertFromAppServer(thread);
-    },
-    applyThreadArchived: (threadId) => {
-      environment.plugin.threadCatalog.recordThreadArchived(threadId);
-    },
-    recordActiveThreadDeleted: (threadId) => {
-      environment.plugin.threadCatalog.recordThreadDeleted(threadId);
-    },
-    applyThreadRenamed: (threadId, name) => {
-      environment.plugin.threadCatalog.recordThreadRenamed(threadId, name);
-    },
-    recordMcpStartupStatus: (name, mcpStatus, message) => {
-      serverDiagnostics.recordMcpStartupStatus(name, mcpStatus, message);
-    },
-    respondToServerRequest: (requestId, result) => respondToCurrentServerRequest(currentClient, requestId, result),
-    rejectServerRequest: (requestId, code, message) => rejectCurrentServerRequest(currentClient, requestId, code, message),
-  });
+    localItemIds,
+  );
   const connectionExitHost = {
     stateStore,
     connectionWork: host.connectionWork,

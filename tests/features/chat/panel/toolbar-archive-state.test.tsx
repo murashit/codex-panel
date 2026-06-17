@@ -162,7 +162,7 @@ function surfaceFixture(
       settings: { sendShortcut: () => "enter" },
       actions: {
         goal: {
-          saveObjective: async () => undefined,
+          saveObjective: async () => true,
           setStatus: async () => undefined,
           clear: async () => undefined,
           startEditing: () => undefined,

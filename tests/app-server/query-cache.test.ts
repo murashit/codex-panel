@@ -385,20 +385,20 @@ function metadata(
   diagnostics = diagnosticsWithProbe(
     diagnostics,
     overrides.modelProbeStatus === "failed"
-      ? diagnosticProbeError("model/list", new Error("offline"))
-      : diagnosticProbeOk("model/list", "1 models"),
+      ? diagnosticProbeError("model/list", new Error("offline"), 1)
+      : diagnosticProbeOk("model/list", "1 models", 1),
   );
   diagnostics = diagnosticsWithProbe(
     diagnostics,
     overrides.skillsProbeStatus === "failed"
-      ? diagnosticProbeError("skills/list", new Error("offline"))
-      : diagnosticProbeOk("skills/list", "0 skills"),
+      ? diagnosticProbeError("skills/list", new Error("offline"), 1)
+      : diagnosticProbeOk("skills/list", "0 skills", 1),
   );
   diagnostics = diagnosticsWithProbe(
     diagnostics,
     overrides.rateLimitProbeStatus === "failed"
-      ? diagnosticProbeError("account/rateLimits/read", new Error("offline"))
-      : diagnosticProbeOk("account/rateLimits/read", "available"),
+      ? diagnosticProbeError("account/rateLimits/read", new Error("offline"), 1)
+      : diagnosticProbeOk("account/rateLimits/read", "available", 1),
   );
   return {
     runtimeConfig: overrides.runtimeConfig ?? emptyRuntimeConfigSnapshot(),

@@ -46,65 +46,22 @@ describe("createToolbarPanelActions", () => {
 });
 
 describe("createChatPanelToolbarActions", () => {
-  it("reports compact without an active thread through the inbound controller", () => {
-    const stateStore = createChatStateStore(createChatState());
+  it("delegates compacting the active thread", () => {
     const deps = toolbarActionDeps();
-    const actions = createChatPanelToolbarActions({ stateStore, startNewThread: vi.fn() }, deps);
+    const actions = createChatPanelToolbarActions({ startNewThread: vi.fn() }, deps);
 
     actions.compactConversation();
 
-    expect((deps.inboundController.addSystemMessage as unknown as ReturnType<typeof vi.fn>).mock.calls).toEqual([
-      ["No active thread to compact."],
-    ]);
-    expect(vi.mocked(deps.threadActions.compactThread)).not.toHaveBeenCalled();
-  });
-
-  it("compacts the active thread", () => {
-    const stateStore = createChatStateStore(createChatState());
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      thread: { id: "thread", name: null, preview: "", archived: false, createdAt: 1, updatedAt: 1 },
-      cwd: "/vault",
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalPolicy: null,
-      approvalsReviewer: null,
-      activePermissionProfile: null,
-    });
-    const deps = toolbarActionDeps();
-    const actions = createChatPanelToolbarActions({ stateStore, startNewThread: vi.fn() }, deps);
-
-    actions.compactConversation();
-
-    expect(vi.mocked(deps.threadActions.compactThread)).toHaveBeenCalledWith("thread");
+    expect(vi.mocked(deps.threadActions.compactActiveThread)).toHaveBeenCalledOnce();
   });
 
   it("starts the goal editor from the active goal", () => {
-    const stateStore = createChatStateStore(createChatState());
-    stateStore.dispatch({
-      type: "active-thread/goal-set",
-      goal: {
-        threadId: "thread",
-        objective: "Ship it",
-        status: "active",
-        tokenBudget: 5,
-        tokensUsed: 0,
-        timeUsedSeconds: 0,
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    });
-    const actions = createChatPanelToolbarActions({ stateStore, startNewThread: vi.fn() }, toolbarActionDeps());
+    const deps = toolbarActionDeps();
+    const actions = createChatPanelToolbarActions({ startNewThread: vi.fn() }, deps);
 
     actions.setGoal();
 
-    expect(stateStore.getState().ui.goalEditor).toEqual({
-      kind: "editing",
-      threadId: "thread",
-      objectiveDraft: "Ship it",
-      tokenBudgetDraft: 5,
-    });
+    expect(vi.mocked(deps.goals.startEditingCurrent)).toHaveBeenCalledOnce();
   });
 });
 
@@ -114,11 +71,14 @@ function toolbarActionDeps(): Parameters<typeof createChatPanelToolbarActions>[1
       typeof createChatPanelToolbarActions
     >[1]["connectionController"],
     reconnectPanel: vi.fn(),
-    inboundController: { addSystemMessage: vi.fn() } as unknown as Parameters<typeof createChatPanelToolbarActions>[1]["inboundController"],
     threadActions: {
       archiveThread: vi.fn().mockResolvedValue(undefined),
+      compactActiveThread: vi.fn().mockResolvedValue(undefined),
       compactThread: vi.fn().mockResolvedValue(undefined),
     } as unknown as ThreadManagementActions,
+    goals: {
+      startEditingCurrent: vi.fn(),
+    } as unknown as Parameters<typeof createChatPanelToolbarActions>[1]["goals"],
     toolbarPanels: {
       toggleChatActions: vi.fn(),
       toggleHistory: vi.fn(),

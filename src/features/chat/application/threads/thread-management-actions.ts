@@ -30,6 +30,7 @@ export interface ThreadManagementActionsHost {
 }
 
 export interface ThreadManagementActions {
+  compactActiveThread: () => Promise<void>;
   compactThread: (threadId: string) => Promise<void>;
   archiveThread: (threadId: string, saveMarkdown?: boolean) => Promise<void>;
   forkThread: (threadId: string) => Promise<void>;
@@ -40,6 +41,7 @@ export interface ThreadManagementActions {
 
 export function createThreadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
   return {
+    compactActiveThread: () => compactActiveThread(host),
     compactThread: (threadId) => compactThread(host, threadId),
     archiveThread: (threadId, saveMarkdown) => archiveThread(host, threadId, saveMarkdown),
     forkThread: (threadId) => forkThread(host, threadId),
@@ -81,8 +83,21 @@ function noCompletedTurnToRollbackMessage(): string {
   return "No completed turn to roll back.";
 }
 
+function noActiveThreadToCompactMessage(): string {
+  return "No active thread to compact.";
+}
+
 function rollbackCompletedMessage(): string {
   return "Rolled back the latest turn. Local file changes were not reverted.";
+}
+
+async function compactActiveThread(host: ThreadManagementActionsHost): Promise<void> {
+  const threadId = threadManagementState(host).activeThread.id;
+  if (!threadId) {
+    host.addSystemMessage(noActiveThreadToCompactMessage());
+    return;
+  }
+  await compactThread(host, threadId);
 }
 
 async function compactThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {

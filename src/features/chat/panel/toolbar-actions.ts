@@ -2,9 +2,9 @@ import type { ThreadManagementActions } from "../application/threads/thread-mana
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatConnectionController } from "../application/connection/connection-controller";
+import type { GoalActions } from "../application/threads/goal-actions";
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
 import type { SelectionActions } from "../application/threads/selection-actions";
-import type { ChatInboundController } from "../app-server/inbound/controller";
 import type { ToolbarActions } from "../ui/toolbar";
 
 export interface ToolbarPanelActionsHost {
@@ -25,15 +25,14 @@ export interface ToolbarPanelActions {
 }
 
 export interface ChatPanelToolbarActionsHost {
-  stateStore: ChatStateStore;
   startNewThread: () => Promise<void>;
 }
 
 export interface ChatPanelToolbarActionDependencies {
   connectionController: ChatConnectionController;
   reconnectPanel: () => Promise<void>;
-  inboundController: ChatInboundController;
   threadActions: ThreadManagementActions;
+  goals: GoalActions;
   toolbarPanels: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;
   selection: SelectionActions;
@@ -133,17 +132,10 @@ export function createChatPanelToolbarActions(host: ChatPanelToolbarActionsHost,
       deps.toolbarPanels.toggleChatActions();
     },
     compactConversation: () => {
-      void compactConversation(host.stateStore.getState(), deps);
+      void deps.threadActions.compactActiveThread();
     },
     setGoal: () => {
-      host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
-      const goal = host.stateStore.getState().activeThread.goal;
-      host.stateStore.dispatch({
-        type: "ui/goal-editor-started",
-        threadId: goal?.threadId ?? null,
-        objective: goal?.objective ?? "",
-        tokenBudget: goal?.tokenBudget ?? null,
-      });
+      deps.goals.startEditingCurrent();
     },
     toggleHistory: () => {
       deps.toolbarPanels.toggleHistory();
@@ -182,18 +174,6 @@ export function createChatPanelToolbarActions(host: ChatPanelToolbarActionsHost,
       void deps.rename.autoNameDraft(threadId);
     },
   };
-}
-
-async function compactConversation(
-  state: ReturnType<ChatStateStore["getState"]>,
-  deps: Pick<ChatPanelToolbarActionDependencies, "inboundController" | "threadActions">,
-): Promise<void> {
-  const threadId = state.activeThread.id;
-  if (!threadId) {
-    deps.inboundController.addSystemMessage("No active thread to compact.");
-    return;
-  }
-  await deps.threadActions.compactThread(threadId);
 }
 
 function isToolbarElement(target: EventTarget | null, viewWindow: ToolbarDomWindow | null): target is Element {

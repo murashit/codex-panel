@@ -37,6 +37,17 @@ describe("thread management actions", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Compaction requested.");
   });
 
+  it("reports compacting without an active thread", async () => {
+    const client = clientMock();
+    const host = hostMock({ client, items: [] });
+    const controller = threadManagementActions(host);
+
+    await controller.compactActiveThread();
+
+    expect(host.addSystemMessage).toHaveBeenCalledWith("No active thread to compact.");
+    expect(client.compactThread).not.toHaveBeenCalled();
+  });
+
   it("does not report compaction completion after the panel switches threads", async () => {
     const compact = deferred<undefined>();
     const client = clientMock();

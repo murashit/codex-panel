@@ -187,11 +187,11 @@ async function probeDiagnostic<T>(
     const statuses = mcpServerStatuses?.(response);
     return {
       method,
-      probe: diagnosticProbeOk(method, summarize(response)),
+      probe: diagnosticProbeOk(method, summarize(response), Date.now()),
       ...(statuses ? { mcpServerStatuses: statuses } : {}),
     };
   } catch (error) {
-    return { method, probe: diagnosticProbeError(method, error) };
+    return { method, probe: diagnosticProbeError(method, error, Date.now()) };
   }
 }
 

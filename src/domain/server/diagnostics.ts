@@ -89,11 +89,7 @@ function createDiagnosticProbeResult(method: DiagnosticProbeMethod): DiagnosticP
   };
 }
 
-export function diagnosticProbeOk(
-  method: DiagnosticProbeMethod,
-  summary: string | null = null,
-  checkedAt = Date.now(),
-): DiagnosticProbeResult {
+export function diagnosticProbeOk(method: DiagnosticProbeMethod, summary: string | null, checkedAt: number): DiagnosticProbeResult {
   return {
     method,
     status: "ok",
@@ -103,7 +99,7 @@ export function diagnosticProbeOk(
   };
 }
 
-export function diagnosticProbeError(method: DiagnosticProbeMethod, error: unknown, checkedAt = Date.now()): DiagnosticProbeResult {
+export function diagnosticProbeError(method: DiagnosticProbeMethod, error: unknown, checkedAt: number): DiagnosticProbeResult {
   return {
     method,
     status: "failed",

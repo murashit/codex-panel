@@ -177,7 +177,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     host.resumeWork.invalidate();
     history.invalidate();
   };
-  const goalSync = createSessionGoalSyncActions(host, currentClient, status);
+  const goalSync = createSessionGoalSyncActions(host, currentClient, localItemIds, status);
   const serverParts = createConnectionBundle(
     {
       environment,
@@ -198,6 +198,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     {
       connection,
       currentClient,
+      localItemIds,
       goalSync,
       autoTitle,
       status,
@@ -213,7 +214,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const refreshActiveThreads = () => connectionController.refreshActiveThreads();
   const threadOperations = createSessionThreadOperations(environment, currentClient);
   const runtimeSettings = createSessionRuntimeSettingsActions(host, currentClient, status);
-  const goals = createSessionGoalActions(host, currentClient, ensureConnected, status);
+  const goals = createSessionGoalActions(host, currentClient, localItemIds, ensureConnected, status, serverThreads);
   const rename = createSessionThreadRenameEditorActions(stateStore, threadOperations, titleService, ensureConnected, status);
   const threadLifecycle = createSessionThreadLifecycle(
     host,
@@ -249,6 +250,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   });
   const composerAndTurn = createComposerAndTurnActions(host, {
     connection,
+    localItemIds,
     ensureConnected,
     currentClient,
     status,
@@ -274,8 +276,6 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const surfaceAndPresenter = createSurfacesAndPresenter(host, {
     connection,
     connectionController,
-    inboundController,
-    serverThreads,
     goals,
     rename,
     threadActions: threadActionParts.actions,
@@ -471,11 +471,13 @@ function createSessionHistoryController(
 function createSessionGoalSyncActions(
   host: ChatPanelSessionGraphHost,
   currentClient: CurrentAppServerClient,
+  localItemIds: LocalIdSource,
   status: ChatPanelSessionStatus,
 ): ChatPanelGoalSyncActions {
   return createThreadGoalSyncActions({
     stateStore: host.stateStore,
     currentClient,
+    localItemIds,
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
     },
@@ -537,13 +539,17 @@ function createSessionRuntimeSettingsActions(
 function createSessionGoalActions(
   host: ChatPanelSessionGraphHost,
   currentClient: CurrentAppServerClient,
+  localItemIds: LocalIdSource,
   ensureConnected: () => Promise<void>,
   status: ChatPanelSessionStatus,
+  serverThreads: ChatServerThreadActions,
 ): ChatPanelGoalActions {
   return createGoalActions({
     stateStore: host.stateStore,
     currentClient,
+    localItemIds,
     ensureConnected,
+    startThread: (preview, options) => serverThreads.startThread(preview, options),
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
     },
@@ -728,6 +734,7 @@ function createComposerAndTurnActions(
   host: ChatPanelSessionGraphHost,
   input: {
     connection: ConnectionManager;
+    localItemIds: LocalIdSource;
     ensureConnected: () => Promise<void>;
     currentClient: CurrentAppServerClient;
     status: ChatPanelSessionStatus;
@@ -753,6 +760,7 @@ function createComposerAndTurnActions(
 ): ChatPanelComposerAndTurnParts {
   const {
     connection,
+    localItemIds,
     ensureConnected,
     currentClient,
     status,
@@ -806,6 +814,7 @@ function createComposerAndTurnActions(
     {
       vaultPath: host.environment.plugin.settingsRef.vaultPath,
       stateStore: host.stateStore,
+      localItemIds,
       client: {
         currentClient,
         ensureConnected,
@@ -864,8 +873,6 @@ function createSurfacesAndPresenter(
   input: {
     connection: ConnectionManager;
     connectionController: ChatPanelConnectionBundle["connection"]["controller"];
-    inboundController: ChatInboundController;
-    serverThreads: ChatServerThreadActions;
     goals: ChatPanelGoalActions;
     rename: ThreadRenameEditorActions;
     threadActions: ChatPanelThreadActions;
@@ -882,8 +889,6 @@ function createSurfacesAndPresenter(
   const {
     connection,
     connectionController,
-    inboundController,
-    serverThreads,
     goals,
     rename,
     threadActions,
@@ -899,14 +904,13 @@ function createSurfacesAndPresenter(
   const { environment, stateStore } = host;
   const toolbarActions = createChatPanelToolbarActions(
     {
-      stateStore,
       startNewThread,
     },
     {
       connectionController,
       reconnectPanel: reconnect,
-      inboundController,
       threadActions,
+      goals,
       toolbarPanels,
       rename,
       selection,
@@ -926,12 +930,8 @@ function createSurfacesAndPresenter(
   const goalSurface = createChatPanelGoalSurface(
     {
       sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
-      stateStore,
     },
     {
-      connectionController,
-      inboundController,
-      threadStarter: serverThreads,
       goals,
     },
   );

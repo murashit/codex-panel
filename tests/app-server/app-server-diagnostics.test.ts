@@ -57,8 +57,8 @@ describe("app-server diagnostics", () => {
   });
 
   it("shortens error messages and tracks MCP server diagnostics", () => {
-    expect(diagnosticProbeError("model/list", "a\n b\t c").message).toBe("a b c");
-    expect(diagnosticProbeError("model/list", "x".repeat(200)).message).toHaveLength(160);
+    expect(diagnosticProbeError("model/list", "a\n b\t c", 1).message).toBe("a b c");
+    expect(diagnosticProbeError("model/list", "x".repeat(200), 1).message).toHaveLength(160);
 
     let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",

@@ -12,6 +12,7 @@ import type { ChatStateStore } from "../../../../../src/features/chat/applicatio
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
+import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -23,21 +24,25 @@ function controllerForState(
 ): ChatInboundController & { currentState(): ChatState } {
   const store = testStoreForState(state);
   return Object.assign(
-    new ChatInboundController(store, {
-      refreshActiveThreads: vi.fn(),
-      refreshRateLimits: vi.fn(),
-      refreshSkills: vi.fn(),
-      applyAppServerMetadataSnapshot: vi.fn(),
-      maybeNameThread: vi.fn(),
-      upsertActiveThread: vi.fn(),
-      applyThreadArchived: vi.fn(),
-      recordActiveThreadDeleted: vi.fn(),
-      applyThreadRenamed: vi.fn(),
-      recordMcpStartupStatus: vi.fn(),
-      respondToServerRequest: vi.fn(() => true),
-      rejectServerRequest: vi.fn(() => true),
-      ...actions,
-    }),
+    new ChatInboundController(
+      store,
+      {
+        refreshActiveThreads: vi.fn(),
+        refreshRateLimits: vi.fn(),
+        refreshSkills: vi.fn(),
+        applyAppServerMetadataSnapshot: vi.fn(),
+        maybeNameThread: vi.fn(),
+        upsertActiveThread: vi.fn(),
+        applyThreadArchived: vi.fn(),
+        recordActiveThreadDeleted: vi.fn(),
+        applyThreadRenamed: vi.fn(),
+        recordMcpStartupStatus: vi.fn(),
+        respondToServerRequest: vi.fn(() => true),
+        rejectServerRequest: vi.fn(() => true),
+        ...actions,
+      },
+      createLocalIdSource({ nowMs: () => 1, seed: "test" }),
+    ),
     {
       currentState: () => store.getState(),
     },

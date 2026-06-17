@@ -8,7 +8,9 @@ import {
   createTurnSubmissionActions,
   type TurnSubmissionActionsHost,
 } from "../../../../../src/features/chat/application/conversation/turn-submission-actions";
+import { optimisticTurnStart } from "../../../../../src/features/chat/application/conversation/optimistic-turn-start";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { chatStateMessageStreamItems } from "../../support/message-stream";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -61,6 +63,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
     ...overrides,
+    localItemIds: overrides.localItemIds ?? createLocalIdSource(),
   };
   return { host, startTurn, stateStore, steerTurn };
 }
@@ -162,6 +165,34 @@ describe("TurnSubmissionActions", () => {
         (item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up",
       ),
     ).toBe(true);
+  });
+
+  it("reports busy turns that cannot be steered", async () => {
+    const { host, startTurn, stateStore, steerTurn } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: thread("thread"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: null,
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    const optimistic = optimisticTurnStart({ id: "local-user", text: "pending", codexInput: textInput("pending") });
+    stateStore.dispatch({
+      type: "turn/optimistic-started",
+      item: optimistic.item,
+      pendingTurnStart: optimistic.pendingTurnStart,
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    await actions.sendTurnText("follow up");
+
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Current turn is not steerable yet.");
+    expect(steerTurn).not.toHaveBeenCalled();
+    expect(startTurn).not.toHaveBeenCalled();
   });
 
   it("keeps local user ids distinct when submissions share the same timestamp", async () => {

@@ -2,7 +2,7 @@ import type { RequestId, ServerNotification, ServerRequest } from "../../../../a
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
-import { createLocalIdSource, type LocalIdSource } from "../../../../shared/id/local-id";
+import type { LocalIdSource } from "../../../../shared/id/local-id";
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
@@ -51,11 +51,10 @@ export interface ChatInboundControllerActions {
 }
 
 export class ChatInboundController {
-  private readonly localItemIds: LocalIdSource = createLocalIdSource();
-
   constructor(
     private readonly store: ChatStateStore,
     private readonly actions: ChatInboundControllerActions,
+    private readonly localItemIds: LocalIdSource,
   ) {}
 
   private get state(): ChatState {

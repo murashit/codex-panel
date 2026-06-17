@@ -1,6 +1,7 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import type { LocalIdSource } from "../../../../shared/id/local-id";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import { activeThreadId, canImplementPlanItemId } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
@@ -15,6 +16,7 @@ const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 export interface ConversationTurnActionsContext {
   vaultPath: string;
   stateStore: ChatStateStore;
+  localItemIds: LocalIdSource;
   client: {
     currentClient: () => AppServerClient | null;
     ensureConnected: () => Promise<void>;
@@ -81,10 +83,11 @@ export function createConversationTurnActions(
   context: ConversationTurnActionsContext,
   refs: ConversationTurnActionsRefs,
 ): ConversationTurnActions {
-  const { vaultPath, stateStore, client, status, runtime, thread, composer, scroll } = context;
+  const { vaultPath, stateStore, localItemIds, client, status, runtime, thread, composer, scroll } = context;
   const turnSubmission = createTurnSubmissionActions({
     stateStore,
     vaultPath,
+    localItemIds,
     currentClient: client.currentClient,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     startThread: (preview) => refs.threadStarter.startThread(preview),

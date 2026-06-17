@@ -4,6 +4,7 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import type { ThreadGoal } from "../../../../src/domain/threads/goal";
 import { createGoalActions } from "../../../../src/features/chat/application/threads/goal-actions";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { createLocalIdSource } from "../../../../src/shared/id/local-id";
 import { deferred } from "../../../support/async";
 import { chatStateFixture, chatStateWith } from "../support/state";
 
@@ -18,7 +19,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
       refreshLiveState,
@@ -39,7 +42,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -70,7 +75,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
       refreshLiveState: vi.fn(),
@@ -101,7 +108,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -127,7 +136,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -154,7 +165,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
       refreshLiveState: vi.fn(),
@@ -181,6 +194,73 @@ describe("createGoalActions", () => {
     ]);
   });
 
+  it("starts a thread before saving a new goal objective when no thread is active", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const savedGoal = goal({ threadId: "thread-new", objective: "Plan release" });
+    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: savedGoal });
+    const injectThreadItems = vi.fn().mockResolvedValue({});
+    const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
+    const startThread = vi.fn().mockImplementation(async () => {
+      stateStore.dispatch({
+        type: "active-thread/resumed",
+        thread: { id: "thread-new", name: null, preview: "Plan release", archived: false, createdAt: 1, updatedAt: 1 },
+        cwd: "/vault",
+        model: null,
+        reasoningEffort: null,
+        serviceTier: null,
+        approvalPolicy: null,
+        approvalsReviewer: null,
+        activePermissionProfile: null,
+      });
+      return { threadId: "thread-new" };
+    });
+    const controller = createGoalActions({
+      stateStore,
+      currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread,
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await expect(controller.saveObjective(" Plan release ", null)).resolves.toBe(true);
+
+    expect(startThread).toHaveBeenCalledWith("Plan release", { syncGoal: false });
+    expect(setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Plan release", status: "active", tokenBudget: null });
+    expect(injectThreadItems).toHaveBeenCalledWith("thread-new", [
+      {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: "Plan release" }],
+      },
+    ]);
+  });
+
+  it("rejects empty goal objective saves before connecting or starting a thread", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const ensureConnected = vi.fn().mockResolvedValue(undefined);
+    const startThread = vi.fn().mockResolvedValue({ threadId: "thread" });
+    const addSystemMessage = vi.fn();
+    const controller = createGoalActions({
+      stateStore,
+      currentClient: () => ({ setThreadGoal: vi.fn() }) as unknown as AppServerClient,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      ensureConnected,
+      startThread,
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await expect(controller.saveObjective("   ", null)).resolves.toBe(false);
+
+    expect(addSystemMessage).toHaveBeenCalledWith("Goal objective cannot be empty.");
+    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(startThread).not.toHaveBeenCalled();
+  });
+
   it("reports goal user history injection failures while the thread remains active", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -192,7 +272,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -217,7 +299,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -240,7 +324,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent,
       refreshLiveState: vi.fn(),
@@ -264,7 +350,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
       refreshLiveState: vi.fn(),
@@ -286,7 +374,9 @@ describe("createGoalActions", () => {
     const controller = createGoalActions({
       stateStore,
       currentClient: () => client,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
       ensureConnected: vi.fn().mockResolvedValue(undefined),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),

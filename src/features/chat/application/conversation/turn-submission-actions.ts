@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
-import { createLocalIdSource, type LocalIdSource } from "../../../../shared/id/local-id";
+import type { LocalIdSource } from "../../../../shared/id/local-id";
 import { submissionStateSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import {
@@ -18,6 +18,7 @@ const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 export interface TurnSubmissionActionsHost {
   stateStore: ChatStateStore;
   vaultPath: string;
+  localItemIds: LocalIdSource;
   currentClient: () => AppServerClient | null;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startThread: (preview?: string) => Promise<unknown>;
@@ -30,6 +31,14 @@ export interface TurnSubmissionActionsHost {
   addSystemMessage: (text: string) => void;
 }
 
+type TurnSubmissionSnapshot = ReturnType<typeof submissionStateSnapshot>;
+
+type TurnSubmissionPlan =
+  | { kind: "blocked"; message: string }
+  | { kind: "steer"; threadId: string; turnId: string }
+  | { kind: "start-thread-then-turn" }
+  | { kind: "start-turn"; threadId: string };
+
 function currentTurnNotSteerableMessage(): string {
   return "Current turn is not steerable yet.";
 }
@@ -39,11 +48,9 @@ export interface TurnSubmissionActions {
 }
 
 export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): TurnSubmissionActions {
-  const localItemIds = createLocalIdSource();
-
   return {
     sendTurnText: (text, codexInputOverride, referencedThread) =>
-      sendTurnText(host, localItemIds, text, codexInputOverride, referencedThread),
+      sendTurnText(host, host.localItemIds, text, codexInputOverride, referencedThread),
   };
 }
 
@@ -59,20 +66,24 @@ async function sendTurnText(
   if (!client) return;
 
   const initialState = submissionStateSnapshot(host.stateStore.getState());
-  if (initialState.busy) {
-    await steerCurrentTurn(host, localItemIds, client, text, codexInputOverride, referencedThread);
-    return;
-  }
+  const plan = planTurnSubmission(initialState);
 
   let optimisticUserId: string | null = null;
   try {
-    if (!initialState.activeThreadId) {
-      const threadResponse = await host.startThread(text);
-      if (!threadResponse) return;
-      host.notifyActiveThreadIdentityChanged();
-      host.resetThreadTurnPresence(false);
+    switch (plan.kind) {
+      case "blocked":
+        host.addSystemMessage(plan.message);
+        return;
+      case "steer":
+        await steerCurrentTurn(host, localItemIds, client, plan, text, codexInputOverride, referencedThread);
+        return;
+      case "start-thread-then-turn":
+        if (!(await startThreadForTurn(host, text))) return;
+        break;
+      case "start-turn":
+        break;
     }
-    const activeThreadId = submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
+    const activeThreadId = plan.kind === "start-turn" ? plan.threadId : submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
     if (!activeThreadId) return;
     if (!(await host.applyPendingThreadSettings())) return;
 
@@ -133,42 +144,52 @@ async function sendTurnText(
   }
 }
 
+function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
+  if (state.busy) {
+    return state.activeThreadId && state.activeTurnId
+      ? { kind: "steer", threadId: state.activeThreadId, turnId: state.activeTurnId }
+      : { kind: "blocked", message: currentTurnNotSteerableMessage() };
+  }
+  return state.activeThreadId ? { kind: "start-turn", threadId: state.activeThreadId } : { kind: "start-thread-then-turn" };
+}
+
+async function startThreadForTurn(host: TurnSubmissionActionsHost, text: string): Promise<boolean> {
+  const threadResponse = await host.startThread(text);
+  if (!threadResponse) return false;
+  host.notifyActiveThreadIdentityChanged();
+  host.resetThreadTurnPresence(false);
+  return true;
+}
+
 async function steerCurrentTurn(
   host: TurnSubmissionActionsHost,
   localItemIds: LocalIdSource,
   client: AppServerClient,
+  plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
   text: string,
   codexInputOverride?: CodexInput,
   referencedThread?: ReferencedThreadMetadata,
 ): Promise<void> {
-  const state = submissionStateSnapshot(host.stateStore.getState());
-  const threadId = state.activeThreadId;
-  const expectedTurnId = state.activeTurnId;
-  if (!threadId || !expectedTurnId) {
-    host.addSystemMessage(currentTurnNotSteerableMessage());
-    return;
-  }
-
   const codexInput = codexInputOverride ?? host.codexInput(text);
   const localSteerId = localItemIds.next("local-steer");
   host.setDraft("", { clearSuggestions: true });
 
   try {
-    await client.steerTurn(threadId, expectedTurnId, codexInput, localSteerId);
-    if (!isCurrentTurn(host, threadId, expectedTurnId)) return;
+    await client.steerTurn(plan.threadId, plan.turnId, codexInput, localSteerId);
+    if (!isCurrentTurn(host, plan.threadId, plan.turnId)) return;
     host.stateStore.dispatch({
       type: "message-stream/item-added",
       item: localUserMessageItemFromInput({
         id: localSteerId,
         text,
-        turnId: expectedTurnId,
+        turnId: plan.turnId,
         referencedThread,
         codexInput,
       }),
     });
     host.setStatus(STATUS_STEERED_CURRENT_TURN);
   } catch (error) {
-    if (!isCurrentTurn(host, threadId, expectedTurnId)) return;
+    if (!isCurrentTurn(host, plan.threadId, plan.turnId)) return;
     host.setDraft(text, { focus: true });
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }

@@ -258,10 +258,10 @@ describe("chat server actions", () => {
       rateLimit: rateLimitFixture(),
       serverDiagnostics: diagnosticsWithProbe(
         diagnosticsWithProbe(
-          diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "1 models")),
-          diagnosticProbeOk("skills/list", "1 skills"),
+          diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "1 models", 1)),
+          diagnosticProbeOk("skills/list", "1 skills", 1),
         ),
-        diagnosticProbeOk("account/rateLimits/read", "available"),
+        diagnosticProbeOk("account/rateLimits/read", "available", 1),
       ),
     });
     const refreshAppServerMetadata = vi.fn<() => Promise<SharedServerMetadata | null>>().mockResolvedValue(refreshedMetadata);
@@ -333,7 +333,7 @@ describe("chat server actions", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const metadataCache = metadataCacheHost({
       current: serverMetadataFixture({
-        serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "cached models")),
+        serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "cached models", 1)),
       }),
     });
     const listModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-direct")] });
@@ -456,7 +456,7 @@ describe("chat server actions", () => {
     const stateStore = createChatStateStore(state);
     const metadata = serverMetadataFixture({
       availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-cached")]),
-      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("model/list", new Error("offline"))),
+      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("model/list", new Error("offline"), 1)),
     });
     const controller = createChatServerMetadataActions({
       stateStore,
@@ -478,7 +478,7 @@ describe("chat server actions", () => {
     const stateStore = createChatStateStore(state);
     const metadata = serverMetadataFixture({
       availableModels: [],
-      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("model/list", new Error("offline"))),
+      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("model/list", new Error("offline"), 1)),
     });
     const controller = createChatServerMetadataActions({
       stateStore,
