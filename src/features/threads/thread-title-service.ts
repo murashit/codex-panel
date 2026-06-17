@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../app-server/connection/client";
 import { generateThreadTitleWithCodex } from "../../app-server/services/thread-title-generation";
-import { readCompletedConversationSummariesPage } from "../../app-server/threads/data";
+import { readCompletedConversationSummariesPage } from "../../app-server/threads";
 import type { ThreadConversationSummary } from "../../domain/threads/transcript";
 import {
   findThreadTitleContext,

@@ -1,10 +1,10 @@
 import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
 
 import type { AppServerClient } from "../connection/client";
-import { listModelMetadata } from "../catalog/data";
+import { listModelMetadata } from "../catalog";
 import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
-import { listThreads } from "../threads/data";
+import { listThreads } from "../threads";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";

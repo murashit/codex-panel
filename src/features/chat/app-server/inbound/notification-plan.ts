@@ -1,7 +1,7 @@
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
-import { threadFromAppServerRecord } from "../../../../app-server/threads/data";
+import { threadFromAppServerRecord } from "../../../../app-server/threads";
 import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { normalizeExplicitThreadName, type Thread } from "../../../../domain/threads/model";

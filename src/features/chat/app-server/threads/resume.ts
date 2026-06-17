@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads/data";
+import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { ChatThreadHistoryPage } from "./history";
 import { chatThreadHistoryPageFromTurnsPage } from "./history";

@@ -1,6 +1,6 @@
 import type { RuntimeOverride, RuntimeOverrideSettings } from "../../domain/runtime/overrides";
 import { runtimeOverride, validatedRuntimeOverrideForModelMetadata } from "../../domain/runtime/overrides";
-import { listModelMetadata, type ModelMetadataClient } from "../catalog/data";
+import { listModelMetadata, type ModelMetadataClient } from "../catalog";
 
 export async function resolvedRuntimeOverrideForClient(
   client: ModelMetadataClient,

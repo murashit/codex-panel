@@ -6,7 +6,7 @@ import {
 } from "../connection/client";
 import { abortablePromise, throwIfAbortSignalAborted } from "../../shared/lifecycle/abortable";
 import type { RequestId, ServerNotification } from "../connection/rpc-messages";
-import type { ModelMetadataClient } from "../catalog/data";
+import type { ModelMetadataClient } from "../catalog";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
 
 export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["outputSchema"];

@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../app-server/connection/client";
-import { listHookData, type HookData } from "../app-server/catalog/data";
-import { listThreads } from "../app-server/threads/data";
+import { listHookData, type HookData } from "../app-server/catalog";
+import { listThreads } from "../app-server/threads";
 import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 

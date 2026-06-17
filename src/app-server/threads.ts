@@ -1,21 +1,21 @@
-import type { AppServerClient } from "../connection/client";
-import { appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
-import { threadFromThreadRecord, threadsFromThreadRecords, type ThreadRecord } from "../protocol/thread";
+import type { AppServerClient } from "./connection/client";
+import { appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "./protocol/thread-goal";
+import { threadFromThreadRecord, threadsFromThreadRecords, type ThreadRecord } from "./protocol/thread";
 import {
   chronologicalConversationSummariesFromTurnRecords,
   completedConversationSummariesFromTurnRecords,
   transcriptEntriesFromTurnRecords,
-} from "../protocol/turn";
-import { normalizeReasoningEffort } from "../../domain/catalog/metadata";
-import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../domain/runtime/policy";
-import { parseServiceTier } from "../../domain/runtime/policy";
-import type { ArchiveThreadInput } from "../../domain/threads/archive-markdown";
-import type { ThreadActivationSnapshot } from "../../domain/threads/activation";
-import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
-import type { HistoricalTurn } from "../../domain/threads/history";
-import type { Thread } from "../../domain/threads/model";
-import { REFERENCED_THREAD_TURN_LIMIT } from "../../domain/threads/reference";
-import type { ThreadConversationSummary } from "../../domain/threads/transcript";
+} from "./protocol/turn";
+import { normalizeReasoningEffort } from "../domain/catalog/metadata";
+import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../domain/runtime/policy";
+import { parseServiceTier } from "../domain/runtime/policy";
+import type { ArchiveThreadInput } from "../domain/threads/archive-markdown";
+import type { ThreadActivationSnapshot } from "../domain/threads/activation";
+import type { ThreadGoal, ThreadGoalUpdate } from "../domain/threads/goal";
+import type { HistoricalTurn } from "../domain/threads/history";
+import type { Thread } from "../domain/threads/model";
+import { REFERENCED_THREAD_TURN_LIMIT } from "../domain/threads/reference";
+import type { ThreadConversationSummary } from "../domain/threads/transcript";
 
 const THREAD_LIST_PAGE_LIMIT = 100;
 

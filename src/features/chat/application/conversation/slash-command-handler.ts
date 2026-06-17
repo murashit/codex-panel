@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { codexTextInputWithAttachments, type CodexInput } from "../../../../domain/chat/input";
-import { readReferencedThreadConversationSummaries } from "../../../../app-server/threads/data";
+import { readReferencedThreadConversationSummaries } from "../../../../app-server/threads";
 import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
 import { shortThreadId } from "../../../../utils";
