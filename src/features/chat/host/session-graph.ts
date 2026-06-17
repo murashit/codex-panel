@@ -53,6 +53,7 @@ import { threadTitleContextFromMessageStreamItems } from "../application/threads
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
+import { archiveExportSettings } from "../../threads/archive-export-settings";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../presentation/runtime/messages";
 import {
   effortStatusLines as buildEffortStatusLines,
@@ -101,12 +102,9 @@ export interface ChatPanelSessionGraph {
   };
   actions: {
     invalidateResumeWork(): void;
-    refreshSharedThreadList(): Promise<void>;
+    refreshSharedThreads(): Promise<void>;
     startNewThread(): Promise<void>;
-    statusSummaryLines(): string[];
-    modelStatusLines(): string[];
-    effortStatusLines(): string[];
-    connectionDiagnosticDetails(): MessageStreamNoticeSection[];
+    dispose(): void;
   };
   runtime: {
     applyCachedAppServerState(): void;
@@ -162,10 +160,11 @@ interface ChatPanelSurfacePresenterParts {
 }
 
 interface ChatPanelSessionGraphActionParts {
-  connection: ConnectionManager;
   serverParts: ChatPanelConnectionBundle;
   invalidateResumeWork: () => void;
   startNewThread: () => Promise<void>;
+  composerController: ChatComposerController;
+  messageStreamPresenter: MessageStreamPresenter;
 }
 
 interface ChatPanelSessionGraphRuntimeParts {
@@ -176,7 +175,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const { actionParts, runtimeParts, ...graphObjects } = buildChatPanelSessionGraphObjects(host);
   return {
     ...graphObjects,
-    actions: createChatPanelSessionGraphActions(host, actionParts),
+    actions: createChatPanelSessionGraphActions(actionParts),
     runtime: createChatPanelSessionGraphRuntime(host, runtimeParts),
   };
 }
@@ -192,10 +191,9 @@ function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): Cha
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
   const status = createSessionStatus(stateStore, localItemIds);
-  let threadHistory: HistoryController | null = null;
+  let threadLifecycle!: ChatPanelThreadLifecycle;
   const invalidateGraphResumeWork = () => {
-    host.resumeWork.invalidate();
-    threadHistory?.invalidate();
+    threadLifecycle.invalidate();
   };
   const titleService = createSessionThreadTitleService(host, currentClient);
   const autoTitle = createSessionAutoTitleController(host, currentClient, titleService);
@@ -237,9 +235,8 @@ function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): Cha
   const runtimeSettings = createSessionRuntimeSettingsActions(host, currentClient, status);
   const goals = createSessionGoalActions(host, currentClient, ensureConnected, status);
   const rename = createSessionThreadRenameEditor(stateStore, threadOperations, titleService, ensureConnected, status);
-  const threadLifecycle = createSessionThreadLifecycle(host, currentClient, ensureConnected, status, goals, autoTitle);
+  threadLifecycle = createSessionThreadLifecycle(host, currentClient, ensureConnected, status, goals, autoTitle);
   const { history, identity, restoration, resume } = threadLifecycle;
-  threadHistory = history;
 
   const composerSurface = createSessionComposerSurface(threadLifecycle, runtimeSettings);
   const messageStreamScrollBridge = new MessageStreamScrollBridge();
@@ -326,10 +323,11 @@ function buildChatPanelSessionGraphObjects(host: ChatPanelSessionGraphHost): Cha
       composer: composerSurface,
     },
     actionParts: {
-      connection,
       serverParts,
       invalidateResumeWork: invalidateGraphResumeWork,
       startNewThread,
+      composerController,
+      messageStreamPresenter: surfaceAndPresenter.messageStreamPresenter,
     },
     runtimeParts: {
       serverActions: serverParts.serverActions,
@@ -358,27 +356,24 @@ function createStartNewThreadAction(
   };
 }
 
-function createChatPanelSessionGraphActions(
-  host: ChatPanelSessionGraphHost,
-  input: ChatPanelSessionGraphActionParts,
-): ChatPanelSessionGraph["actions"] {
+function createChatPanelSessionGraphActions(input: ChatPanelSessionGraphActionParts): ChatPanelSessionGraph["actions"] {
   return {
     invalidateResumeWork: () => {
       input.invalidateResumeWork();
     },
-    refreshSharedThreadList: async () => {
+    refreshSharedThreads: async () => {
       try {
-        await input.serverParts.refreshSharedThreadList();
+        await input.serverParts.refreshSharedThreads();
       } catch (error) {
         if (isStaleAppServerSharedQueryContextError(error)) return;
         throw error;
       }
     },
     startNewThread: input.startNewThread,
-    statusSummaryLines: () => statusSummaryLines(host),
-    modelStatusLines: () => modelStatusLines(host),
-    effortStatusLines: () => effortStatusLines(host),
-    connectionDiagnosticDetails: () => connectionDiagnosticDetails(host, input.connection),
+    dispose: () => {
+      input.messageStreamPresenter.dispose();
+      input.composerController.dispose();
+    },
   };
 }
 
@@ -505,7 +500,7 @@ function createSessionThreadOperations(environment: ChatPanelEnvironment, curren
   return createThreadOperations({
     clientAccess: createCurrentClientAccess(currentClient),
     archiveExport: {
-      settings: () => environment.plugin.settingsRef.settings,
+      settings: () => archiveExportSettings(environment.plugin.settingsRef.settings),
       enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled,
       vaultPath: environment.plugin.settingsRef.vaultPath,
     },

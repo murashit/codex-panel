@@ -367,12 +367,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
     vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
+    const refreshSharedThreads = vi.spyOn(connectedView.surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
     threadCatalog(plugin).recordThreadArchived("thread-1");
 
-    expect(refreshSharedThreadList).not.toHaveBeenCalled();
+    expect(refreshSharedThreads).not.toHaveBeenCalled();
   });
 
   it("closes matching chat panels only when archive notification requests it", async () => {
@@ -381,11 +381,11 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     const matchingLeaf = leaf();
     matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
     vi.spyOn((matchingLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-1" }));
-    vi.spyOn((matchingLeaf.view as CodexChatView).surface, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn((matchingLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const otherLeaf = leaf();
     otherLeaf.view = chatView(CodexChatView, otherLeaf);
     vi.spyOn((otherLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ threadId: "thread-2" }));
-    vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreadList").mockResolvedValue(undefined);
+    vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
     threadCatalog(plugin).recordThreadArchived("thread-1");
@@ -407,12 +407,12 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
     vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    const refreshSharedThreadList = vi.spyOn(connectedView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
+    const refreshSharedThreads = vi.spyOn(connectedView.surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
     threadCatalog(plugin).recordThreadRenamed("thread-1", "Renamed thread");
 
-    expect(refreshSharedThreadList).not.toHaveBeenCalled();
+    expect(refreshSharedThreads).not.toHaveBeenCalled();
   });
 
   it("single-flights shared thread list refreshes and caches successful results", async () => {
@@ -513,7 +513,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(sourceView.surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "source", threadId: "thread-1", connected: true }),
     );
-    const sourceRefresh = vi.spyOn(sourceView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
+    const sourceRefresh = vi.spyOn(sourceView.surface, "refreshSharedThreads").mockResolvedValue(undefined);
 
     const remainingLeaf = leaf();
     remainingLeaf.view = chatView(CodexChatView, remainingLeaf);
@@ -521,7 +521,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     vi.spyOn(remainingView.surface, "openPanelSnapshot").mockReturnValue(
       panelSnapshot({ viewId: "remaining", threadId: "forked-thread", connected: true }),
     );
-    const remainingRefresh = vi.spyOn(remainingView.surface, "refreshSharedThreadList").mockResolvedValue(undefined);
+    const remainingRefresh = vi.spyOn(remainingView.surface, "refreshSharedThreads").mockResolvedValue(undefined);
 
     const leaves = [sourceLeaf, remainingLeaf];
     sourceLeaf.detach.mockImplementation(() => {

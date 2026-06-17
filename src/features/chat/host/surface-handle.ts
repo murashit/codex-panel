@@ -20,7 +20,7 @@ export interface ChatWorkspacePanelSurface {
 }
 
 export interface ChatSharedThreadSurface {
-  refreshSharedThreadList(): Promise<void>;
+  refreshSharedThreads(): Promise<void>;
   applyThreadArchived(threadId: string): void;
   applyThreadRenamed(threadId: string, name: string | null): void;
 }

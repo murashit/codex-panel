@@ -4,9 +4,9 @@ export function positionSelectionRewritePopover(root: HTMLElement, editor: Edito
   if (!root.isConnected) return false;
 
   const view = editorViewFromEditor(editor);
-  if (view?.dom instanceof HTMLElement && !view.dom.isConnected) return false;
+  if (isViewHTMLElement(view?.dom, viewWindow) && !view.dom.isConnected) return false;
 
-  const anchor = selectionRect(viewWindow) ?? editorCursorRect(editor) ?? root.ownerDocument.body.getBoundingClientRect();
+  const anchor = selectionRect(viewWindow) ?? editorCursorRect(editor, viewWindow) ?? root.ownerDocument.body.getBoundingClientRect();
   const size = root.getBoundingClientRect();
   const viewportWidth = viewWindow.innerWidth;
   const viewportHeight = viewWindow.innerHeight;
@@ -27,7 +27,7 @@ function selectionRect(viewWindow: Window): DOMRect | null {
   return rect.width > 0 || rect.height > 0 ? rect : null;
 }
 
-function editorCursorRect(editor: Editor): DOMRect | null {
+function editorCursorRect(editor: Editor, viewWindow: Window): DOMRect | null {
   const view = editorViewFromEditor(editor);
   if (!view) return null;
 
@@ -35,7 +35,7 @@ function editorCursorRect(editor: Editor): DOMRect | null {
   if (typeof view.coordsAtPos === "function") {
     return view.coordsAtPos(offset, 1) ?? view.coordsAtPos(offset, -1) ?? null;
   }
-  return view.dom instanceof HTMLElement ? view.dom.getBoundingClientRect() : null;
+  return isViewHTMLElement(view.dom, viewWindow) ? view.dom.getBoundingClientRect() : null;
 }
 
 function editorViewFromEditor(editor: Editor): { coordsAtPos?: (pos: number, side?: -1 | 1) => DOMRect | null; dom?: unknown } | null {
@@ -50,6 +50,10 @@ function editorViewFromEditor(editor: Editor): { coordsAtPos?: (pos: number, sid
 
 function isEditorView(value: unknown): value is { coordsAtPos?: (pos: number, side?: -1 | 1) => DOMRect | null; dom?: unknown } {
   return Boolean(value && typeof value === "object" && ("coordsAtPos" in value || "dom" in value));
+}
+
+function isViewHTMLElement(value: unknown, viewWindow: Window): value is HTMLElement {
+  return value instanceof (viewWindow as Window & { HTMLElement: typeof HTMLElement }).HTMLElement;
 }
 
 function clamp(value: number, min: number, max: number): number {

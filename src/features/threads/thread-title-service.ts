@@ -47,8 +47,9 @@ async function generateTitle(host: ThreadTitleServiceHost, threadId: string): Pr
 }
 
 async function resolveThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {
-  const persistedContext = await persistedThreadTitleContext(host, threadId);
-  return persistedContext ?? host.visibleContext?.(threadId) ?? null;
+  const visibleContext = host.visibleContext?.(threadId);
+  if (visibleContext) return visibleContext;
+  return persistedThreadTitleContext(host, threadId);
 }
 
 async function persistedThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {

@@ -70,17 +70,28 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   let state = createEphemeralStructuredTurnState();
   const timers = options.timers ?? DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS;
   let timeout: ReturnType<Window["setTimeout"]> | undefined;
-  let rejectCompletedTurn: ((error: Error) => void) | null = null;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
+  let operationAbortError: Error | null = null;
+  const operationAbort = new AbortController();
+  const abortOperation = (error: Error): void => {
+    if (operationAbort.signal.aborted) return;
+    operationAbortError = error;
+    operationAbort.abort();
+  };
+  const abortableOperation = <T>(promise: Promise<T>): Promise<T> =>
+    abortable(
+      abortable(promise, options.signal, () => ephemeralStructuredTurnAbortError(options.abortMessage)),
+      operationAbort.signal,
+      () => operationAbortError ?? ephemeralStructuredTurnAbortError(options.abortMessage),
+    );
 
-  const completedTurn = new Promise<TurnRecord>((resolve, reject) => {
-    rejectCompletedTurn = reject;
-    timeout = timers.setTimeout(() => {
-      if (state.lifecycle.kind === "completed") return;
-      state = completeEphemeralStructuredTurnState(state);
-      reject(new Error(options.timedOutMessage));
-    }, options.timeoutMs);
+  timeout = timers.setTimeout(() => {
+    if (state.lifecycle.kind === "completed") return;
+    state = completeEphemeralStructuredTurnState(state);
+    abortOperation(new Error(options.timedOutMessage));
+  }, options.timeoutMs);
 
+  const completedTurn = new Promise<TurnRecord>((resolve) => {
     handleNotification = (notification): void => {
       const result = transitionEphemeralStructuredTurnNotification(state, notification);
       state = result.state;
@@ -102,23 +113,19 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     onExit: () => {
       if (state.lifecycle.kind === "completed") return;
       state = completeEphemeralStructuredTurnState(state);
-      rejectCompletedTurn?.(new Error(options.exitedMessage));
+      abortOperation(new Error(options.exitedMessage));
     },
   });
 
   try {
-    await abortable(client.connect(), options.signal, options.abortMessage);
-    const runtime = options.resolveRuntime
-      ? await abortable(options.resolveRuntime(client), options.signal, options.abortMessage)
-      : (options.runtime ?? {});
-    const threadResponse = await abortable(
+    await abortableOperation(client.connect());
+    const runtime = options.resolveRuntime ? await abortableOperation(options.resolveRuntime(client)) : (options.runtime ?? {});
+    const threadResponse = await abortableOperation(
       client.startEphemeralThread({
         cwd: options.cwd,
         serviceName: options.serviceName,
         developerInstructions: options.developerInstructions,
       }),
-      options.signal,
-      options.abortMessage,
     );
     state = {
       ...state,
@@ -127,7 +134,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
         threadId: threadResponse.thread.id,
       }),
     };
-    const turnResponse = await abortable(
+    const turnResponse = await abortableOperation(
       client.startStructuredTurn({
         threadId: threadResponse.thread.id,
         cwd: options.cwd,
@@ -135,8 +142,6 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
         outputSchema: options.outputSchema,
         runtime,
       }),
-      options.signal,
-      options.abortMessage,
     );
     state = {
       ...state,
@@ -148,10 +153,10 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     };
     return turnResponse.turn.status === "completed"
       ? turnWithCollectedItems(turnResponse.turn, state.completedItems)
-      : await abortable(completedTurn, options.signal, options.abortMessage);
+      : await abortableOperation(completedTurn);
   } finally {
     state = completeEphemeralStructuredTurnState(state);
-    if (timeout !== undefined) timers.clearTimeout(timeout);
+    timers.clearTimeout(timeout);
     client.disconnect();
   }
 }
@@ -258,8 +263,8 @@ function throwIfAborted(signal: AbortSignal | undefined, message: string | undef
   throwIfAbortSignalAborted(signal, () => ephemeralStructuredTurnAbortError(message));
 }
 
-function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined, message: string | undefined): Promise<T> {
-  return abortablePromise(promise, signal, () => ephemeralStructuredTurnAbortError(message));
+function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined, abortError: () => Error): Promise<T> {
+  return abortablePromise(promise, signal, abortError);
 }
 
 function ephemeralStructuredTurnAbortError(message: string | undefined): Error {

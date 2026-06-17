@@ -84,8 +84,8 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.mountOrRepairShell();
   }
 
-  refreshSharedThreadList(): Promise<void> {
-    return this.graph.actions.refreshSharedThreadList();
+  refreshSharedThreads(): Promise<void> {
+    return this.graph.actions.refreshSharedThreads();
   }
 
   async runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
@@ -157,8 +157,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.deferredTasks.clearAll();
     this.graph.runtime.unsubscribeAppServerState();
     const panelRoot = this.environment.view.panelRoot();
-    this.graph.render.messageStreamPresenter.dispose();
-    this.graph.composer.controller.dispose();
+    this.graph.actions.dispose();
     unmountChatPanelShell(panelRoot);
     this.graph.connection.manager.disconnect();
     this.graph.runtime.refreshLiveState();

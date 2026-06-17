@@ -67,6 +67,11 @@ async function connectedClient(): Promise<{ client: AppServerClient; transport: 
   return { client, transport };
 }
 
+function expectTransport(transport: FakeTransport | undefined): FakeTransport {
+  if (!transport) throw new Error("Expected app-server transport.");
+  return transport;
+}
+
 function latestSent(transport: FakeTransport): RpcOutboundMessage {
   const message = transport.sent.at(-1);
   if (!message) throw new Error("Expected an outbound app-server message.");
@@ -272,6 +277,81 @@ describe("AppServerClient", () => {
     expect(client.isConnected()).toBe(false);
     expect(transport.isRunning()).toBe(false);
     await expect(listing).rejects.toThrow("transport failed");
+    expect(onExit).toHaveBeenCalledOnce();
+    expect(onExit).toHaveBeenCalledWith(null, null);
+
+    transport.emitExit(1);
+
+    expect(onExit).toHaveBeenCalledOnce();
+  });
+
+  it("ignores stale transport events after reconnecting", async () => {
+    const transports: FakeTransport[] = [];
+    const onExit = vi.fn();
+    const onNotification = vi.fn();
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit,
+      },
+      500,
+      (handlers) => {
+        const transport = new FakeTransport(handlers);
+        transports.push(transport);
+        return transport;
+      },
+    );
+
+    const firstConnect = client.connect();
+    transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await firstConnect;
+    client.disconnect();
+    const secondConnect = client.connect();
+    const secondInitialize = latestSent(expectTransport(transports[1]));
+    if (!("id" in secondInitialize) || typeof secondInitialize.id !== "number") throw new Error("Expected initialize request.");
+    transports[1]?.emitLine({ id: secondInitialize.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await secondConnect;
+
+    transports[0]?.emitLine({ method: "warning", params: { message: "stale" } });
+    transports[0]?.emitError(new Error("stale failure"));
+    transports[0]?.emitExit(1);
+
+    expect(client.isConnected()).toBe(true);
+    expect(onNotification).not.toHaveBeenCalled();
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it("ignores synchronous transport callbacks before the transport becomes active", async () => {
+    let transport!: FakeTransport;
+    const onExit = vi.fn();
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit,
+      },
+      500,
+      (handlers) => {
+        handlers.onLine(JSON.stringify({ method: "warning", params: { message: "early" } }));
+        handlers.onError(new Error("early failure"));
+        handlers.onExit(1, null);
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    );
+
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    expect(client.isConnected()).toBe(true);
     expect(onExit).not.toHaveBeenCalled();
   });
 

@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import {
   createChatConnectionController,
@@ -61,7 +62,7 @@ export interface ChatPanelConnectionBundle {
     metadata: ChatServerMetadataActions;
     diagnostics: ChatServerDiagnosticsActions;
   };
-  refreshSharedThreadList: () => Promise<void>;
+  refreshSharedThreads: () => Promise<void>;
 }
 
 function respondToCurrentServerRequest(currentClient: CurrentAppServerClient, requestId: RespondRequestId, result: unknown): boolean {
@@ -122,13 +123,19 @@ export function createConnectionBundle(
       void goalSync.syncThreadGoal(threadId);
     },
   });
-  const refreshSharedThreadList = async (): Promise<void> => {
+  const refreshSharedThreads = async (): Promise<void> => {
     const threads = await environment.plugin.threadCatalog.refresh();
     serverThreads.applyThreadList(threads);
   };
+  const refreshSharedThreadsQuietly = (): void => {
+    void refreshSharedThreads().catch((error: unknown) => {
+      if (isStaleAppServerSharedQueryContextError(error)) return;
+      status.addSystemMessage(error instanceof Error ? error.message : String(error));
+    });
+  };
   const inboundController = new ChatInboundController(stateStore, {
     refreshActiveThreads: () => {
-      void refreshSharedThreadList();
+      refreshSharedThreadsQuietly();
     },
     refreshRateLimits: () => {
       void serverMetadata.refreshRateLimits({ preserveExistingOnFailure: true });
@@ -202,7 +209,7 @@ export function createConnectionBundle(
     diagnostics: {
       refreshDiagnosticProbes: (options) => serverDiagnostics.refreshDiagnosticProbes(options),
     },
-    refreshSharedThreadList,
+    refreshSharedThreads,
     scheduleDeferredDiagnostics: () => {
       host.deferredTasks.scheduleDiagnostics(() => {
         if (connection.isConnected()) {
@@ -238,6 +245,6 @@ export function createConnectionBundle(
       metadata: serverMetadata,
       diagnostics: serverDiagnostics,
     },
-    refreshSharedThreadList,
+    refreshSharedThreads,
   };
 }

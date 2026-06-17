@@ -11,6 +11,7 @@ import {
 } from "../../../src/features/selection-rewrite/model";
 import { selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
+import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
 import { runSelectionRewrite } from "../../../src/features/selection-rewrite/runner";
@@ -157,6 +158,27 @@ describe("selection rewrite apply guard", () => {
         state,
       ),
     ).toBe(false);
+  });
+});
+
+describe("selection rewrite positioning", () => {
+  it("uses the target view window HTMLElement constructor for editor DOM checks", () => {
+    const frame = document.createElement("iframe");
+    document.body.appendChild(frame);
+    const viewWindow = expectPresent(frame.contentWindow);
+    const viewDocument = expectPresent(frame.contentDocument);
+    const root = viewDocument.createElement("div");
+    viewDocument.body.appendChild(root);
+    const editorDom = viewDocument.createElement("div");
+    const editor = {
+      cm: {
+        dom: editorDom,
+      },
+      getCursor: () => ({ line: 0, ch: 0 }),
+      posToOffset: () => 0,
+    };
+
+    expect(positionSelectionRewritePopover(root, editor as never, viewWindow, 8)).toBe(false);
   });
 });
 

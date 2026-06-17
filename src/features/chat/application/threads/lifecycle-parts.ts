@@ -45,6 +45,7 @@ export interface ThreadLifecycleParts {
   restoration: RestorationController;
   resume: ResumeController;
   identity: ReturnType<typeof createIdentitySync>;
+  invalidate(): void;
 }
 
 export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext): ThreadLifecycleParts {
@@ -111,5 +112,6 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     restoration,
     resume,
     identity,
+    invalidate: invalidateResumeWork,
   };
 }

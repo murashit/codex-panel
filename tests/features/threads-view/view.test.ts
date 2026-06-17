@@ -408,8 +408,15 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
   const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog"));
   return {
     settings: {
-      ...DEFAULT_SETTINGS,
-      codexPath: "codex",
+      archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
+      codexPath: () => "codex",
+      threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
+      threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
+      archiveExportSettings: () => ({
+        archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
+        archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
+        archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
+      }),
     },
     vaultPath: "/vault",
     clientAccess: {

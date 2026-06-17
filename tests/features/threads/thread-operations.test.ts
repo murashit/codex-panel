@@ -105,7 +105,11 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
       },
     },
     archiveExport: {
-      settings: () => ({ ...DEFAULT_SETTINGS, archiveExportEnabled: false }),
+      settings: () => ({
+        archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
+        archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
+        archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
+      }),
       enabled: () => false,
       vaultPath: "/vault",
     },

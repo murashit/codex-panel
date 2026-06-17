@@ -171,6 +171,50 @@ describe("runEphemeralStructuredTurn", () => {
       developerInstructions: "Return JSON.",
     });
   });
+
+  it.each([
+    {
+      stage: "connect",
+      configure: (fake: FakeStructuredTurnClient): void => {
+        fake.connectImpl = () => new Promise<InitializeResponse>(() => undefined);
+      },
+    },
+    {
+      stage: "runtime resolution",
+      configure: (_fake: FakeStructuredTurnClient): void => undefined,
+      resolveRuntime: (): Promise<NonNullable<AppServerStartStructuredTurnOptions["runtime"]>> =>
+        new Promise<NonNullable<AppServerStartStructuredTurnOptions["runtime"]>>(() => undefined),
+    },
+    {
+      stage: "ephemeral thread start",
+      configure: (fake: FakeStructuredTurnClient): void => {
+        fake.startEphemeralThreadImpl = () => new Promise<ThreadStartResponse>(() => undefined);
+      },
+    },
+    {
+      stage: "structured turn start",
+      configure: (fake: FakeStructuredTurnClient): void => {
+        fake.startStructuredTurnImpl = () => new Promise<TurnStartResponse>(() => undefined);
+      },
+    },
+    { stage: "completion wait", configure: (_fake: FakeStructuredTurnClient): void => undefined },
+  ])("times out during $stage and disconnects the client", async ({ configure, resolveRuntime }) => {
+    const timers = timerHarness();
+    const { clientFactory, client } = fakeStructuredTurnClientFactory(configure);
+
+    const running = runEphemeralStructuredTurn({
+      ...runOptions(clientFactory),
+      ...(resolveRuntime ? { resolveRuntime } : {}),
+      timers,
+    });
+    await Promise.resolve();
+
+    timers.fireTimeout();
+
+    await expect(running).rejects.toThrow("Structured test timed out.");
+    expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
+    expect(timers.clearTimeout).toHaveBeenCalledWith(123);
+  });
 });
 
 function runOptions(clientFactory: EphemeralStructuredTurnClientFactory): Parameters<typeof runEphemeralStructuredTurn>[0] {
@@ -212,6 +256,7 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
   readonly listModels = vi.fn(async (): Promise<ModelListResponse> => ({ data: [], nextCursor: null }));
   readonly rejectServerRequest = vi.fn();
+  readonly disconnect = vi.fn();
   readonly structuredTurnStarted: Promise<void>;
   private resolveStructuredTurnStarted!: () => void;
 
@@ -223,10 +268,6 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
 
   async connect(): Promise<InitializeResponse> {
     return this.connectImpl ? this.connectImpl() : ({ codexHome: "/tmp/codex" } as InitializeResponse);
-  }
-
-  disconnect(): void {
-    return undefined;
   }
 
   async startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<ThreadStartResponse> {
@@ -247,6 +288,25 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   request(request: ServerRequest): void {
     this.handlers.onServerRequest(request);
   }
+}
+
+function timerHarness(): {
+  setTimeout: ReturnType<typeof vi.fn<(callback: () => void, delayMs: number) => number>>;
+  clearTimeout: ReturnType<typeof vi.fn<(timer: number) => void>>;
+  fireTimeout(): void;
+} {
+  let timeoutCallback: (() => void) | null = null;
+  return {
+    setTimeout: vi.fn((callback: () => void, _delayMs: number) => {
+      timeoutCallback = callback;
+      return 123;
+    }),
+    clearTimeout: vi.fn(),
+    fireTimeout: () => {
+      if (!timeoutCallback) throw new Error("Expected timeout to be scheduled.");
+      timeoutCallback();
+    },
+  };
 }
 
 function threadStartResponse(threadId: string): ThreadStartResponse {

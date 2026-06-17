@@ -11,13 +11,16 @@ import {
 describe("ThreadTitleService", () => {
   it("generates a title from visible context without saving it", async () => {
     const generateThreadTitle = vi.fn().mockResolvedValue("Generated title");
+    const withClient = vi.fn().mockRejectedValue(new Error("should not read persisted context"));
     const service = titleService({
       visibleContext: () => titleContext("visible request", "visible response"),
       generateThreadTitle,
+      clientAccess: { withClient },
     });
 
     await expect(service.generateTitle("thread")).resolves.toBe("Generated title");
 
+    expect(withClient).not.toHaveBeenCalled();
     expect(generateThreadTitle).toHaveBeenCalledWith(titleContext("visible request", "visible response"));
   });
 

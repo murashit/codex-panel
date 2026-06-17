@@ -30,7 +30,7 @@ import {
 } from "./view-lifecycle";
 
 export interface CodexThreadsHost {
-  readonly settings: CodexThreadsSettings;
+  readonly settings: CodexThreadsSettingsAccess;
   readonly vaultPath: string;
   readonly clientAccess: AppServerClientAccess;
   readonly threadCatalog: ThreadsThreadCatalog;
@@ -41,11 +41,12 @@ export interface CodexThreadsHost {
 
 type ThreadsThreadCatalog = ActiveThreadCatalogReader & ActiveThreadCatalogThreadEvents;
 
-interface CodexThreadsSettings extends ArchiveExportSettings {
-  codexPath: string;
-  threadNamingModel: string | null;
-  threadNamingEffort: ReasoningEffort | null;
-  archiveExportEnabled: boolean;
+export interface CodexThreadsSettingsAccess {
+  archiveExportEnabled(): boolean;
+  codexPath(): string;
+  threadNamingModel(): string | null;
+  threadNamingEffort(): ReasoningEffort | null;
+  archiveExportSettings(): ArchiveExportSettings;
 }
 
 export interface CodexThreadsSessionEnvironment {
@@ -79,8 +80,8 @@ export class CodexThreadsSession {
     this.operations = createThreadOperations({
       clientAccess: this.host.clientAccess,
       archiveExport: {
-        settings: () => this.host.settings,
-        enabled: () => this.host.settings.archiveExportEnabled,
+        settings: () => this.host.settings.archiveExportSettings(),
+        enabled: () => this.host.settings.archiveExportEnabled(),
         vaultPath: this.host.vaultPath,
       },
       archiveAdapter: () => this.environment.archiveAdapter(),
@@ -90,10 +91,10 @@ export class CodexThreadsSession {
       },
     });
     this.titleService = createThreadTitleService({
-      codexPath: () => this.host.settings.codexPath,
+      codexPath: () => this.host.settings.codexPath(),
       vaultPath: this.host.vaultPath,
-      threadNamingModel: () => this.host.settings.threadNamingModel,
-      threadNamingEffort: () => this.host.settings.threadNamingEffort,
+      threadNamingModel: () => this.host.settings.threadNamingModel(),
+      threadNamingEffort: () => this.host.settings.threadNamingEffort(),
       clientAccess: this.host.clientAccess,
     });
   }
@@ -195,7 +196,7 @@ export class CodexThreadsSession {
           this.host.getOpenPanelSnapshots(),
           this.renameStates,
           this.archiveConfirmThreadId,
-          this.host.settings.archiveExportEnabled,
+          this.host.settings.archiveExportEnabled(),
         ),
       },
       {

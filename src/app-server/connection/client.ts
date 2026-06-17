@@ -198,21 +198,29 @@ export class AppServerClient {
       throw new Error("Codex app-server is already running.");
     }
 
-    let transport: AppServerTransport;
+    const transportRef: { current: AppServerTransport | null } = { current: null };
     const transportHandlers: AppServerTransportHandlers = {
       onLine: (line) => {
+        const transport = transportRef.current;
+        if (!transport) return;
         if (!this.isActiveTransport(transport)) return;
         this.rpc.handleLine(line);
       },
       onLog: (message) => {
+        const transport = transportRef.current;
+        if (!transport) return;
         if (!this.isActiveTransport(transport)) return;
         this.handlers.onLog(message);
       },
       onError: (error) => {
+        const transport = transportRef.current;
+        if (!transport) return;
         if (!this.isActiveTransport(transport)) return;
         this.failActiveTransport(transport, error);
       },
       onExit: (code, signal) => {
+        const transport = transportRef.current;
+        if (!transport) return;
         if (!this.isActiveTransport(transport)) return;
         const intentional = this.intentionallyStoppedTransports.has(transport);
         this.lifecycle = { kind: "disconnected" };
@@ -221,9 +229,10 @@ export class AppServerClient {
         this.handlers.onExit(code, signal);
       },
     };
-    transport = this.transportFactory
+    const transport = this.transportFactory
       ? this.transportFactory(transportHandlers)
       : new StdioAppServerTransport(this.codexPath, this.cwd, transportHandlers);
+    transportRef.current = transport;
     this.lifecycle = { kind: "starting", transport };
     transport.start();
 
@@ -536,9 +545,13 @@ export class AppServerClient {
 
   private failActiveTransport(transport: AppServerTransport, error: Error): void {
     if (!this.isActiveTransport(transport)) return;
+    const wasInitialized = this.lifecycle.kind === "initialized";
     this.lifecycle = { kind: "disconnected" };
     this.rpc.rejectAll(error);
     this.intentionallyStoppedTransports.add(transport);
     transport.stop();
+    if (wasInitialized) {
+      this.handlers.onExit(null, null);
+    }
   }
 }

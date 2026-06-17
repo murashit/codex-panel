@@ -18,7 +18,8 @@ import type {
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
-import { CodexThreadsView, type CodexThreadsHost } from "./features/threads-view/view";
+import { archiveExportSettings } from "./features/threads/archive-export-settings";
+import { CodexThreadsView, type CodexThreadsHost, type CodexThreadsSettingsAccess } from "./features/threads-view/view";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 import { createActiveThreadCatalog, type ActiveThreadCatalog } from "./workspace/active-thread-catalog";
@@ -125,13 +126,23 @@ export class CodexPanelRuntime implements AppServerClientAccess {
 
   threadsHost(): CodexThreadsHost {
     return {
-      settings: this.options.settingsRef.settings,
+      settings: this.threadsSettings(),
       vaultPath: this.options.settingsRef.vaultPath,
       clientAccess: this,
       threadCatalog: this.threadCatalog,
       openNewPanel: () => this.panels.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
       getOpenPanelSnapshots: () => this.panels.getOpenPanelSnapshots(),
+    };
+  }
+
+  private threadsSettings(): CodexThreadsSettingsAccess {
+    return {
+      archiveExportEnabled: () => this.options.settingsRef.settings.archiveExportEnabled,
+      codexPath: () => this.options.settingsRef.settings.codexPath,
+      threadNamingModel: () => this.options.settingsRef.settings.threadNamingModel,
+      threadNamingEffort: () => this.options.settingsRef.settings.threadNamingEffort,
+      archiveExportSettings: () => archiveExportSettings(this.options.settingsRef.settings),
     };
   }
 

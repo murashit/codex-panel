@@ -1,0 +1,289 @@
+// @vitest-environment jsdom
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { StaleAppServerSharedQueryContextError } from "../../../../src/app-server/query/shared-queries";
+import { createChatStateStore, type ChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
+import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
+import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
+import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
+import { createChatMessageScrollIntentState } from "../../../../src/features/chat/panel/surface/message-stream-scroll";
+import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
+import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
+import type { Thread } from "../../../../src/domain/threads/model";
+import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/runtime";
+import { installObsidianDomShims } from "../../../support/dom";
+
+installObsidianDomShims();
+
+describe("createChatPanelSessionGraph actions", () => {
+  let panelRoot: HTMLElement;
+
+  beforeEach(() => {
+    panelRoot = document.body.createDiv();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  it("invalidates resume work through the graph thread lifecycle", () => {
+    const { graph, resumeWork } = sessionGraphFixture();
+    const resume = resumeWork.begin("thread-1");
+    const invalidateHistory = vi.spyOn(graph.thread.history, "invalidate");
+
+    graph.actions.invalidateResumeWork();
+
+    expect(resumeWork.isStale(resume)).toBe(true);
+    expect(invalidateHistory).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes shared threads inside the graph connection bundle", async () => {
+    const thread = threadFixture({ id: "thread-1", preview: "From catalog" });
+    const refresh = vi.fn().mockResolvedValue([thread]);
+    const { graph, stateStore } = sessionGraphFixture({
+      environment: {
+        plugin: {
+          threadCatalog: {
+            refresh,
+          },
+        },
+      },
+    });
+
+    await graph.actions.refreshSharedThreads();
+
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(stateStore.getState().threadList.listedThreads).toEqual([thread]);
+    expect(stateStore.getState().threadList.threadsLoaded).toBe(true);
+  });
+
+  it("treats stale shared thread refreshes as graph-local no-ops", async () => {
+    const refresh = vi.fn().mockRejectedValue(new StaleAppServerSharedQueryContextError());
+    const { graph, stateStore } = sessionGraphFixture({
+      environment: {
+        plugin: {
+          threadCatalog: {
+            refresh,
+          },
+        },
+      },
+    });
+
+    await expect(graph.actions.refreshSharedThreads()).resolves.toBeUndefined();
+
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(stateStore.getState().threadList.threadsLoaded).toBe(false);
+  });
+
+  it("starts a new thread from graph state and composer actions", async () => {
+    const focusComposer = vi.spyOn(ChatComposerController.prototype, "focus").mockImplementation(() => undefined);
+    const refreshLiveState = vi.fn();
+    const requestWorkspaceLayoutSave = vi.fn();
+    const refreshTabHeader = vi.fn();
+    const { graph, stateStore } = sessionGraphFixture({
+      environment: {
+        obsidian: {
+          requestWorkspaceLayoutSave,
+        },
+        plugin: {
+          workspace: {
+            refreshThreadsViewLiveState: refreshLiveState,
+          },
+        },
+        view: {
+          refreshTabHeader,
+        },
+      },
+    });
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      thread: threadFixture({ id: "thread-1", preview: "Active" }),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalPolicy: "on-request",
+      approvalsReviewer: null,
+      activePermissionProfile: null,
+    });
+    stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
+
+    await graph.actions.startNewThread();
+
+    expect(stateStore.getState().activeThread.id).toBeNull();
+    expect(stateStore.getState().ui.toolbarPanel).toBeNull();
+    expect(stateStore.getState().connection.statusText).toBe("New chat.");
+    expect(focusComposer).toHaveBeenCalledOnce();
+    expect(refreshTabHeader).toHaveBeenCalledOnce();
+    expect(requestWorkspaceLayoutSave).toHaveBeenCalledOnce();
+    expect(refreshLiveState).toHaveBeenCalledOnce();
+  });
+
+  it("does not clear the current thread while a turn is busy", async () => {
+    const focusComposer = vi.spyOn(ChatComposerController.prototype, "focus").mockImplementation(() => undefined);
+    const { graph, stateStore } = sessionGraphFixture();
+    stateStore.dispatch({
+      type: "turn/started",
+      threadId: "thread-1",
+      turnId: "turn-1",
+    });
+
+    await graph.actions.startNewThread();
+
+    expect(stateStore.getState().activeThread.id).toBe("thread-1");
+    expect(focusComposer).not.toHaveBeenCalled();
+  });
+
+  it("disposes presenter and composer resources from the graph action", () => {
+    const disposePresenter = vi.spyOn(MessageStreamPresenter.prototype, "dispose").mockImplementation(() => undefined);
+    const disposeComposer = vi.spyOn(ChatComposerController.prototype, "dispose").mockImplementation(() => undefined);
+    const { graph } = sessionGraphFixture();
+
+    graph.actions.dispose();
+
+    expect(disposePresenter).toHaveBeenCalledOnce();
+    expect(disposeComposer).toHaveBeenCalledOnce();
+  });
+
+  function sessionGraphFixture(
+    options: {
+      environment?: PartialChatPanelEnvironment;
+    } = {},
+  ): {
+    graph: ReturnType<typeof createChatPanelSessionGraph>;
+    stateStore: ChatStateStore;
+    resumeWork: ChatResumeWorkTracker;
+  } {
+    const stateStore = createChatStateStore();
+    const resumeWork = new ChatResumeWorkTracker();
+    const environment = chatPanelEnvironmentFixture(options.environment);
+    const graph = createChatPanelSessionGraph({
+      environment,
+      stateStore,
+      deferredTasks: createChatViewDeferredTasks(() => window),
+      resumeWork,
+      connectionWork: new ConnectionWorkTracker(),
+      messageScrollIntent: createChatMessageScrollIntentState(),
+      getOpened: () => true,
+      getClosing: () => false,
+      viewWindow: () => window,
+    });
+    return { graph, stateStore, resumeWork };
+  }
+
+  interface PartialChatPanelEnvironment {
+    obsidian?: Partial<ChatPanelEnvironment["obsidian"]>;
+    plugin?: {
+      workspace?: Partial<ChatPanelEnvironment["plugin"]["workspace"]>;
+      threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
+      appServerData?: Partial<ChatPanelEnvironment["plugin"]["appServerData"]>;
+      settingsRef?: Partial<ChatPanelEnvironment["plugin"]["settingsRef"]>;
+    };
+    view?: Partial<ChatPanelEnvironment["view"]>;
+  }
+
+  function chatPanelEnvironmentFixture(overrides: PartialChatPanelEnvironment = {}): ChatPanelEnvironment {
+    const threadCatalog = threadCatalogFixture(overrides.plugin?.threadCatalog);
+    const appServerData = appServerDataFixture(overrides.plugin?.appServerData);
+    return {
+      obsidian: {
+        app: {
+          workspace: {
+            getActiveFile: vi.fn(() => null),
+            getActiveViewOfType: vi.fn(() => null),
+            getLastOpenFiles: vi.fn(() => []),
+            on: vi.fn(() => ({})),
+            openLinkText: vi.fn(),
+          },
+          vault: {
+            on: vi.fn(() => ({})),
+            getFiles: vi.fn(() => []),
+            getMarkdownFiles: vi.fn(() => []),
+          },
+        } as never,
+        owner: {} as never,
+        viewId: "codex-test-view",
+        registerEvent: vi.fn(),
+        registerPointerDown: vi.fn(),
+        archiveAdapter: vi.fn(),
+        requestWorkspaceLayoutSave: vi.fn(),
+        ...overrides.obsidian,
+      },
+      plugin: {
+        settingsRef: {
+          settings: {
+            ...DEFAULT_SETTINGS,
+            codexPath: "codex",
+            sendShortcut: "enter",
+          },
+          vaultPath: "/vault",
+          ...overrides.plugin?.settingsRef,
+        },
+        workspace: {
+          openThreadInNewView: vi.fn().mockResolvedValue(undefined),
+          focusThreadInOpenView: vi.fn().mockResolvedValue(false),
+          openTurnDiff: vi.fn().mockResolvedValue(undefined),
+          refreshThreadsViewLiveState: vi.fn(),
+          ...overrides.plugin?.workspace,
+        },
+        appServerData,
+        threadCatalog,
+      },
+      view: {
+        panelRoot: () => panelRoot,
+        viewWindow: () => window,
+        containsElement: (element) => panelRoot.contains(element),
+        refreshTabHeader: vi.fn(),
+        ...overrides.view,
+      },
+    };
+  }
+
+  function threadCatalogFixture(
+    overrides: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]> = {},
+  ): ChatPanelEnvironment["plugin"]["threadCatalog"] {
+    return {
+      load: vi.fn().mockResolvedValue([]),
+      refresh: vi.fn().mockResolvedValue([]),
+      snapshot: vi.fn(() => null),
+      observe: vi.fn(() => () => undefined),
+      recordThreadArchived: vi.fn(),
+      recordThreadDeleted: vi.fn(),
+      recordThreadRenamed: vi.fn(),
+      upsertFromAppServer: vi.fn(),
+      ...overrides,
+    };
+  }
+
+  function appServerDataFixture(
+    overrides: Partial<ChatPanelEnvironment["plugin"]["appServerData"]> = {},
+  ): ChatPanelEnvironment["plugin"]["appServerData"] {
+    return {
+      updateAppServerMetadata: vi.fn(() => null),
+      appServerMetadataSnapshot: vi.fn(() => null),
+      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
+      modelsSnapshot: vi.fn(() => null),
+      fetchModels: vi.fn().mockResolvedValue([]),
+      refreshModels: vi.fn().mockResolvedValue([]),
+      observeAppServerMetadataResult: vi.fn(() => () => undefined),
+      observeModelsResult: vi.fn(() => () => undefined),
+      ...overrides,
+    };
+  }
+
+  function threadFixture(overrides: Partial<Thread> = {}): Thread {
+    return {
+      id: "thread",
+      preview: "",
+      name: null,
+      archived: false,
+      createdAt: 1,
+      updatedAt: 1,
+      ...overrides,
+    };
+  }
+});
