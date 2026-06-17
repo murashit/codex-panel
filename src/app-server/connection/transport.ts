@@ -39,6 +39,7 @@ export class StdioAppServerTransport implements AppServerTransport {
     });
 
     this.process.once("error", (error) => {
+      this.flushStderr();
       this.reader?.close();
       this.reader = null;
       this.process = null;
@@ -46,6 +47,7 @@ export class StdioAppServerTransport implements AppServerTransport {
     });
 
     this.process.once("exit", (code, signal) => {
+      this.flushStderr();
       this.reader?.close();
       this.reader = null;
       this.process = null;
@@ -75,6 +77,7 @@ export class StdioAppServerTransport implements AppServerTransport {
   }
 
   stop(): void {
+    this.flushStderr();
     this.reader?.close();
     this.reader = null;
     if (this.process && !this.process.killed) {
@@ -95,5 +98,11 @@ export class StdioAppServerTransport implements AppServerTransport {
       const trimmed = line.trim();
       if (trimmed.length > 0) this.handlers.onLog(trimmed);
     }
+  }
+
+  private flushStderr(): void {
+    const trimmed = this.stderrBuffer.trim();
+    this.stderrBuffer = "";
+    if (trimmed.length > 0) this.handlers.onLog(trimmed);
   }
 }
