@@ -88,7 +88,7 @@ export function messageStreamLayoutBlocks(
       const groupItems = groupedActivities.get(turnId) ?? [];
       blocks.push({
         type: "activityGroup",
-        id: `turn-${turnId}-activity`,
+        id: turnActivityGroupId(turnId),
         turnId,
         summary: "Work details",
         items: groupItems,
@@ -121,11 +121,19 @@ function isEmptyCompletedReasoningItem(item: MessageStreamItem): boolean {
 function steeringActivityGroupItem(classification: MessageStreamSemanticClassification): MessageStreamActivityGroupItem {
   return {
     type: "steering",
-    id: `steer-activity-${classification.item.id}`,
+    id: steerActivityGroupId(classification.item.id),
     label: STEERING_ACTIVITY_LABEL,
     text: textForMessageStreamItem(classification.item),
     sourceItemId: classification.item.sourceItemId ?? classification.item.id,
   };
+}
+
+function turnActivityGroupId(turnId: string): string {
+  return `turn-${turnId}-activity`;
+}
+
+function steerActivityGroupId(itemId: string): string {
+  return `steer-activity-${itemId}`;
 }
 
 function isCompletedTurnDetailItem(classification: MessageStreamSemanticClassification, turnOutcomeIdByTurn: Map<string, string>): boolean {

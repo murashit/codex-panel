@@ -1,13 +1,14 @@
 import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../../../constants";
+import { createLocalIdSource } from "../../../shared/id/local-id";
 import type { CodexChatHost } from "./runtime";
 import { ChatPanelSession } from "./session";
 import type { ChatSurfaceHandle } from "./surface-handle";
 
 export class CodexChatView extends ItemView {
   readonly surface: ChatSurfaceHandle;
-  private readonly viewId = `codex-panel-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  private readonly viewId = createLocalIdSource().next("codex-panel");
 
   constructor(leaf: WorkspaceLeaf, plugin: CodexChatHost) {
     super(leaf);

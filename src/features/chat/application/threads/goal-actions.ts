@@ -1,10 +1,10 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/threads";
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
+import { createLocalIdSource, type LocalIdSource } from "../../../../shared/id/local-id";
 import type { ChatStateStore } from "../state/store";
 import type { GoalMessageStreamItem } from "../../domain/message-stream/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
-import { createLocalChatItemIdFactory } from "../../domain/local-id";
 
 export interface ThreadGoalSyncHost {
   stateStore: ChatStateStore;
@@ -34,14 +34,14 @@ function emptyGoalObjectiveMessage(): string {
 }
 
 export function createThreadGoalSyncActions(host: ThreadGoalSyncHost): ThreadGoalSyncActions {
-  const localItemIds = createLocalChatItemIdFactory();
+  const localItemIds = createLocalIdSource();
   return {
     syncThreadGoal: (threadId) => syncThreadGoal(host, localItemIds, threadId),
   };
 }
 
 export function createGoalActions(host: GoalActionsHost): GoalActions {
-  const localItemIds = createLocalChatItemIdFactory();
+  const localItemIds = createLocalIdSource();
   return {
     activeGoal: () => host.stateStore.getState().activeThread.goal,
     syncThreadGoal: (threadId) => syncThreadGoal(host, localItemIds, threadId),
@@ -51,11 +51,7 @@ export function createGoalActions(host: GoalActionsHost): GoalActions {
   };
 }
 
-async function syncThreadGoal(
-  host: ThreadGoalSyncHost,
-  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
-  threadId: string,
-): Promise<void> {
+async function syncThreadGoal(host: ThreadGoalSyncHost, localItemIds: LocalIdSource, threadId: string): Promise<void> {
   const client = host.currentClient();
   if (!client) return;
   try {
@@ -67,7 +63,7 @@ async function syncThreadGoal(
 
 async function setObjective(
   host: GoalActionsHost,
-  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  localItemIds: LocalIdSource,
   threadId: string,
   objective: string,
   tokenBudget: number | null,
@@ -90,20 +86,11 @@ async function setObjective(
   return applied;
 }
 
-function setGoalStatus(
-  host: GoalActionsHost,
-  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
-  threadId: string,
-  status: ThreadGoalStatus,
-): Promise<boolean> {
+function setGoalStatus(host: GoalActionsHost, localItemIds: LocalIdSource, threadId: string, status: ThreadGoalStatus): Promise<boolean> {
   return setGoal(host, localItemIds, threadId, { status });
 }
 
-async function clearGoal(
-  host: GoalActionsHost,
-  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
-  threadId: string,
-): Promise<boolean> {
+async function clearGoal(host: GoalActionsHost, localItemIds: LocalIdSource, threadId: string): Promise<boolean> {
   await host.ensureConnected();
   const client = host.currentClient();
   if (!client) return false;
@@ -117,12 +104,7 @@ async function clearGoal(
   }
 }
 
-async function setGoal(
-  host: GoalActionsHost,
-  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
-  threadId: string,
-  params: ThreadGoalUpdate,
-): Promise<boolean> {
+async function setGoal(host: GoalActionsHost, localItemIds: LocalIdSource, threadId: string, params: ThreadGoalUpdate): Promise<boolean> {
   await host.ensureConnected();
   const client = host.currentClient();
   if (!client) return false;
@@ -136,7 +118,7 @@ async function setGoal(
 
 function applyGoalIfActive(
   host: ThreadGoalSyncHost,
-  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  localItemIds: LocalIdSource,
   threadId: string,
   goal: ThreadGoal | null,
   options: { reportChange: boolean },

@@ -38,7 +38,7 @@ export interface ThreadRenameEditorActions {
 }
 
 export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsHost): ThreadRenameEditorActions {
-  let nextRenameGenerationId = 1;
+  let nextRenameGenerationToken = 1;
 
   const action = {
     editState(threadId: string): RenameEditState | null {
@@ -99,11 +99,11 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
         type: "ui/rename-generation-started",
         threadId,
         originalDraft: editingState.draft,
-        generationId: nextRenameGenerationId,
+        generationToken: nextRenameGenerationToken,
       });
       const generatingState: ChatRenameUiState = host.stateStore.getState().ui.rename;
       if (generatingState.kind !== "generating") return;
-      nextRenameGenerationId += 1;
+      nextRenameGenerationToken += 1;
 
       try {
         const title = await host.generateThreadTitle(threadId);

@@ -62,7 +62,7 @@ import {
 } from "../presentation/runtime/status";
 import { connectionDiagnosticsModel } from "../application/connection/diagnostics-display";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
-import { createLocalChatItemIdFactory, type LocalChatItemIdFactory } from "../domain/local-id";
+import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
 import type { RuntimeSnapshot } from "../application/runtime/snapshot";
 import type { ChatPanelEnvironment } from "./runtime";
 import { createConnectionBundle, type ChatPanelConnectionBundle, type CurrentAppServerClient } from "./connection-bundle";
@@ -166,7 +166,7 @@ interface ChatPanelSurfacePresenterParts {
 
 export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): ChatPanelSessionGraph {
   const { environment, stateStore } = host;
-  const localItemIds = createLocalChatItemIdFactory();
+  const localItemIds = createLocalIdSource();
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
   const status = createSessionStatus(stateStore, localItemIds);
@@ -985,7 +985,7 @@ function collaborationModeLabel(stateStore: ChatStateStore): string {
   return formatCollaborationModeLabel(stateStore.getState().runtime.selectedCollaborationMode);
 }
 
-function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalChatItemIdFactory): ChatPanelSessionStatus {
+function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {
   return {
     set: (statusText, phase) => {
       dispatch(stateStore, { type: "connection/status-set", statusText, ...(phase ? { phase } : {}) });

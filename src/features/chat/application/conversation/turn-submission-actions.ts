@@ -1,9 +1,9 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import { createLocalIdSource, type LocalIdSource } from "../../../../shared/id/local-id";
 import { submissionStateSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
-import { createLocalChatItemIdFactory } from "../../domain/local-id";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
@@ -39,7 +39,7 @@ export interface TurnSubmissionActions {
 }
 
 export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): TurnSubmissionActions {
-  const localItemIds = createLocalChatItemIdFactory();
+  const localItemIds = createLocalIdSource();
 
   return {
     sendTurnText: (text, codexInputOverride, referencedThread) =>
@@ -49,7 +49,7 @@ export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): Tu
 
 async function sendTurnText(
   host: TurnSubmissionActionsHost,
-  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  localItemIds: LocalIdSource,
   text: string,
   codexInputOverride?: CodexInput,
   referencedThread?: ReferencedThreadMetadata,
@@ -135,7 +135,7 @@ async function sendTurnText(
 
 async function steerCurrentTurn(
   host: TurnSubmissionActionsHost,
-  localItemIds: ReturnType<typeof createLocalChatItemIdFactory>,
+  localItemIds: LocalIdSource,
   client: AppServerClient,
   text: string,
   codexInputOverride?: CodexInput,

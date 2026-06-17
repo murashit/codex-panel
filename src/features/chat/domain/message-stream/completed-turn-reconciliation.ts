@@ -1,4 +1,4 @@
-import { isLocalUserMessageId } from "../local-id";
+import { isLocalUserMessageId } from "../local-message-ids";
 import type { MessageStreamItem, MessageStreamMessageItem } from "./items";
 import { upsertMessageStreamItemById } from "./updates";
 

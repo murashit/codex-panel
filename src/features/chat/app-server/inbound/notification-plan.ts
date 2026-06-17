@@ -74,7 +74,7 @@ export interface ChatNotificationPlan {
   effects: readonly ChatNotificationEffect[];
 }
 
-export type LocalItemIdFactory = (prefix: string) => string;
+export type LocalItemIdProvider = (prefix: string) => string;
 
 const EMPTY_PLAN: ChatNotificationPlan = { actions: [], effects: [] };
 const MESSAGE_CONTEXT_COMPACTED = "Context compacted.";
@@ -85,7 +85,7 @@ type ServerNotificationPlanner<M extends ServerNotification["method"]> = (
 type ServerNotificationPlannerMap<M extends ServerNotification["method"]> = { [Method in M]: ServerNotificationPlanner<Method> };
 type ServerNotificationLocalPlanner<M extends ServerNotification["method"]> = (
   notification: Extract<ServerNotification, { method: M }>,
-  localItemId: LocalItemIdFactory,
+  localItemId: LocalItemIdProvider,
 ) => ChatNotificationPlan;
 type ServerNotificationLocalPlannerMap<M extends ServerNotification["method"]> = {
   [Method in M]: ServerNotificationLocalPlanner<Method>;
@@ -93,7 +93,7 @@ type ServerNotificationLocalPlannerMap<M extends ServerNotification["method"]> =
 type ServerNotificationStatePlanner<M extends ServerNotification["method"]> = (
   state: ChatState,
   notification: Extract<ServerNotification, { method: M }>,
-  localItemId: LocalItemIdFactory,
+  localItemId: LocalItemIdProvider,
 ) => ChatNotificationPlan;
 type ServerNotificationStatePlannerMap<M extends ServerNotification["method"]> = {
   [Method in M]: ServerNotificationStatePlanner<Method>;
@@ -316,7 +316,7 @@ export const PLANNED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND = {
 export function planChatNotification(
   state: ChatState,
   notification: ServerNotification,
-  localItemId: LocalItemIdFactory,
+  localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   const route = routeServerNotification(notification, {
     activeThreadId: state.activeThread.id,
@@ -344,14 +344,18 @@ export function planChatNotification(
   }
 }
 
-function planStreamUpdate(state: ChatState, notification: StreamUpdateNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
+function planStreamUpdate(
+  state: ChatState,
+  notification: StreamUpdateNotification,
+  localItemId: LocalItemIdProvider,
+): ChatNotificationPlan {
   return planNotificationWithStateByMethod(state, notification, STREAM_UPDATE_PLANNERS, localItemId);
 }
 
 function planTurnLifecycle(
   state: ChatState,
   notification: TurnLifecycleNotification,
-  localItemId: LocalItemIdFactory,
+  localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   return planNotificationWithStateByMethod(state, notification, TURN_LIFECYCLE_PLANNERS, localItemId);
 }
@@ -359,7 +363,7 @@ function planTurnLifecycle(
 function planThreadLifecycle(
   state: ChatState,
   notification: ThreadLifecycleNotification,
-  localItemId: LocalItemIdFactory,
+  localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   return planNotificationWithStateByMethod(state, notification, THREAD_LIFECYCLE_PLANNERS, localItemId);
 }
@@ -368,7 +372,7 @@ function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatN
   return planNotificationByMethod(notification, DIAGNOSTIC_STATUS_PLANNERS);
 }
 
-function planUserVisibleNotice(notification: UserVisibleNoticeNotification, localItemId: LocalItemIdFactory): ChatNotificationPlan {
+function planUserVisibleNotice(notification: UserVisibleNoticeNotification, localItemId: LocalItemIdProvider): ChatNotificationPlan {
   return planNotificationWithLocalItemIdByMethod(notification, USER_VISIBLE_NOTICE_PLANNERS, localItemId);
 }
 
@@ -383,7 +387,7 @@ function planNotificationByMethod<M extends ServerNotification["method"]>(
 function planNotificationWithLocalItemIdByMethod<M extends ServerNotification["method"]>(
   notification: Extract<ServerNotification, { method: M }>,
   planners: ServerNotificationLocalPlannerMap<M>,
-  localItemId: LocalItemIdFactory,
+  localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   const planner = planners[notification.method];
   return planner(notification, localItemId);
@@ -393,7 +397,7 @@ function planNotificationWithStateByMethod<M extends ServerNotification["method"
   state: ChatState,
   notification: Extract<ServerNotification, { method: M }>,
   planners: ServerNotificationStatePlannerMap<M>,
-  localItemId: LocalItemIdFactory,
+  localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   const planner = planners[notification.method];
   return planner(state, notification, localItemId);
@@ -405,7 +409,7 @@ function plannerMethods<M extends ServerNotification["method"]>(planners: Record
 
 function jsonNoticePlan(
   notification: Extract<ServerNotification, { method: Exclude<UserVisibleNoticeNotificationMethod, "thread/compacted"> }>,
-  localItemId: LocalItemIdFactory,
+  localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   return systemMessagePlan({ id: localItemId("system"), text: `${notification.method}: ${jsonPreview(notification.params)}` });
 }

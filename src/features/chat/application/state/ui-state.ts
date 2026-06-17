@@ -1,5 +1,5 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
-import type { PendingRequestId } from "../../domain/pending-requests/model";
+import { pendingRequestDerivedKeyPrefix, type PendingRequestId } from "../../domain/pending-requests/model";
 import type { DisclosureSetAction } from "./actions";
 
 export type ChatRenameUiState =
@@ -10,7 +10,7 @@ export type ChatRenameUiState =
       readonly threadId: string;
       readonly draft: string;
       readonly originalDraft: string;
-      readonly generationId: number;
+      readonly generationToken: number;
     };
 
 export type ChatRenameGeneratingUiState = Extract<ChatRenameUiState, { kind: "generating" }>;
@@ -60,7 +60,7 @@ export type UiAction =
   | { type: "ui/rename-started"; threadId: string; draft: string }
   | { type: "ui/rename-draft-updated"; threadId: string; draft: string }
   | { type: "ui/rename-cancelled"; threadId: string }
-  | { type: "ui/rename-generation-started"; threadId: string; originalDraft: string; generationId: number }
+  | { type: "ui/rename-generation-started"; threadId: string; originalDraft: string; generationToken: number }
   | { type: "ui/rename-generation-succeeded"; generatingState: ChatRenameGeneratingUiState; draft: string }
   | { type: "ui/rename-generation-finished"; threadId: string; generatingState: ChatRenameGeneratingUiState }
   | { type: "ui/rename-cleared" }
@@ -117,7 +117,7 @@ export function reduceUiSlice(state: ChatUiState, action: UiAction): ChatUiState
       return patchObject(state, { rename: renameUiStateCancelled(state.rename, action.threadId) });
     case "ui/rename-generation-started":
       return patchObject(state, {
-        rename: renameUiGenerationStarted(state.rename, action.threadId, action.originalDraft, action.generationId),
+        rename: renameUiGenerationStarted(state.rename, action.threadId, action.originalDraft, action.generationToken),
       });
     case "ui/rename-generation-succeeded":
       return patchObject(state, { rename: renameUiGenerationSucceeded(state.rename, action.generatingState, action.draft) });
@@ -172,7 +172,7 @@ export function renameGenerationStillActive(
     state.kind === "generating" &&
     state.threadId === generatingState.threadId &&
     state.originalDraft === generatingState.originalDraft &&
-    state.generationId === generatingState.generationId
+    state.generationToken === generatingState.generationToken
   );
 }
 
@@ -187,8 +187,8 @@ export function clearAllRequestDisclosures(state: ChatUiState): ChatUiState {
 }
 
 export function clearResolvedRequestDisclosures(state: ChatUiState, requestId: PendingRequestId): ChatUiState {
-  const id = String(requestId);
-  const approvalDetails = filterStringSet(state.disclosures.approvalDetails, (key) => !key.startsWith(`${id}:`));
+  const keyPrefix = pendingRequestDerivedKeyPrefix(requestId);
+  const approvalDetails = filterStringSet(state.disclosures.approvalDetails, (key) => !key.startsWith(keyPrefix));
   if (approvalDetails === state.disclosures.approvalDetails) return state;
   return patchObject(state, {
     disclosures: {
@@ -268,7 +268,7 @@ function renameUiGenerationStarted(
   state: ChatRenameUiState,
   threadId: string,
   originalDraft: string,
-  generationId: number,
+  generationToken: number,
 ): ChatRenameUiState {
   if (state.kind !== "editing" || state.threadId !== threadId) return state;
   return {
@@ -276,7 +276,7 @@ function renameUiGenerationStarted(
     threadId,
     draft: state.draft,
     originalDraft,
-    generationId,
+    generationToken,
   };
 }
 

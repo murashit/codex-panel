@@ -1,6 +1,7 @@
 import type { ChatStateStore } from "../state/store";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import {
+  approvalDetailsDisclosureId,
   answersForPendingUserInput,
   type ApprovalAction,
   type PendingApproval,
@@ -72,7 +73,7 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
       host.stateStore.dispatch({
         type: "ui/disclosure-set",
         bucket: "approvalDetails",
-        id: `${String(requestId)}:details`,
+        id: approvalDetailsDisclosureId(requestId),
         open: expanded,
       });
     },

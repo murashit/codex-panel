@@ -1,6 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
+import { approvalDetailsDisclosureId } from "../../domain/pending-requests/model";
 import {
   type PendingApprovalViewModel,
   type PendingUserInputQuestionViewModel,
@@ -130,7 +131,7 @@ function ApprovalDetails({
   approvalDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
 }): UiNode {
-  const detailId = `${String(approval.requestId)}:details`;
+  const detailId = approvalDetailsDisclosureId(approval.requestId);
   return (
     <details
       className="codex-panel__approval-details"
@@ -210,7 +211,7 @@ function UserInputQuestions({
               {question.options && question.options.length > 0 ? (
                 <>
                   {question.options.map((option) => {
-                    const groupName = `codex-panel-${String(input.requestId)}-${question.id}`;
+                    const groupName = userInputRadioGroupName(input.requestId, question.id);
                     return (
                       <label key={option.label} className="codex-panel__user-input-option">
                         <input
@@ -232,7 +233,7 @@ function UserInputQuestions({
                   })}
                   {question.isOther ? (
                     <OtherUserInputOption
-                      groupName={`codex-panel-${String(input.requestId)}-${question.id}`}
+                      groupName={userInputRadioGroupName(input.requestId, question.id)}
                       current={current}
                       optionLabels={new Set(question.options.map((option) => option.label))}
                       question={question}
@@ -250,6 +251,10 @@ function UserInputQuestions({
       })}
     </>
   );
+}
+
+function userInputRadioGroupName(requestId: PendingUserInputViewModel["requestId"], questionId: string): string {
+  return `codex-panel-${String(requestId)}-${questionId}`;
 }
 
 function OtherUserInputOption({

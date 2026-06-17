@@ -40,10 +40,10 @@ export interface SettingsDynamicDataSnapshot {
 
 export class SettingsDynamicDataController {
   private settingsDataAutoLoadStarted = false;
-  private settingsRefreshOperationId = 0;
-  private modelsOperationId = 0;
-  private hooksOperationId = 0;
-  private archivedThreadsOperationId = 0;
+  private settingsRefreshOperationToken = 0;
+  private modelsOperationToken = 0;
+  private hooksOperationToken = 0;
+  private archivedThreadsOperationToken = 0;
   private settingsDataRefreshLifecycle: SettingsDataRefreshLifecycleState = { kind: "idle" };
 
   private archivedThreads: Thread[] = [];
@@ -80,10 +80,10 @@ export class SettingsDynamicDataController {
 
   resetSettingsDataContext(): void {
     this.settingsDataAutoLoadStarted = false;
-    this.settingsRefreshOperationId += 1;
-    this.modelsOperationId += 1;
-    this.hooksOperationId += 1;
-    this.archivedThreadsOperationId += 1;
+    this.settingsRefreshOperationToken += 1;
+    this.modelsOperationToken += 1;
+    this.hooksOperationToken += 1;
+    this.archivedThreadsOperationToken += 1;
     this.settingsDataRefreshLifecycle = { kind: "idle" };
     this.models = [...(this.host.appServerData.modelsSnapshot() ?? [])];
     this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
@@ -108,28 +108,28 @@ export class SettingsDynamicDataController {
 
   async refreshSettingsData(options: { forceModels?: boolean } = {}): Promise<void> {
     this.settingsDataAutoLoadStarted = true;
-    const operationId = this.nextSettingsRefreshOperationId();
-    const modelsOperationId = this.nextModelsOperationId();
-    const hooksOperationId = this.nextHooksOperationId();
-    const archivedThreadsOperationId = this.nextArchivedThreadsOperationId();
+    const operationToken = this.nextSettingsRefreshOperationToken();
+    const modelsOperationToken = this.nextModelsOperationToken();
+    const hooksOperationToken = this.nextHooksOperationToken();
+    const archivedThreadsOperationToken = this.nextArchivedThreadsOperationToken();
     this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, {
       type: "started",
-      operationId,
+      operationToken,
     });
     this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
       type: "started",
       status: "Loading models...",
-      operationId: modelsOperationId,
+      operationToken: modelsOperationToken,
     });
     this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
       type: "started",
       status: "Loading archived threads...",
-      operationId: archivedThreadsOperationId,
+      operationToken: archivedThreadsOperationToken,
     });
     this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
       type: "started",
       status: "Loading hooks...",
-      operationId: hooksOperationId,
+      operationToken: hooksOperationToken,
     });
     this.callbacks.display();
 
@@ -139,16 +139,16 @@ export class SettingsDynamicDataController {
         options.forceModels === false ? this.host.appServerData.fetchModels() : this.host.appServerData.refreshModels(),
         this.withSettingsConnection((client) => loadSettingsCompanionData(client, this.host.vaultPath)),
       ] as const);
-      if (this.isStaleSettingsRefreshOperation(operationId)) return;
+      if (this.isStaleSettingsRefreshOperation(operationToken)) return;
 
-      if (this.isStaleModelsOperation(modelsOperationId)) {
+      if (this.isStaleModelsOperation(modelsOperationToken)) {
         // A newer models operation owns this section.
       } else if (modelsResult.status === "fulfilled") {
         this.models = [...modelsResult.value];
         this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
           type: "loaded",
           status: `Loaded ${String(modelsResult.value.length)} model${modelsResult.value.length === 1 ? "" : "s"}.`,
-          operationId: modelsOperationId,
+          operationToken: modelsOperationToken,
         });
       } else if (isStaleAppServerSharedQueryContextError(modelsResult.reason)) {
         return;
@@ -157,7 +157,7 @@ export class SettingsDynamicDataController {
         this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
           type: "failed",
           status: `Could not load models: ${errorMessage(modelsResult.reason)}`,
-          operationId: modelsOperationId,
+          operationToken: modelsOperationToken,
         });
       }
 
@@ -169,7 +169,7 @@ export class SettingsDynamicDataController {
               archivedThreads: { ok: false as const, status: `Could not load archived threads: ${errorMessage(companionResult.reason)}` },
             };
 
-      if (this.isStaleHooksOperation(hooksOperationId)) {
+      if (this.isStaleHooksOperation(hooksOperationToken)) {
         // A newer hooks operation owns this section.
       } else if (companion.hooks.ok) {
         this.hooks = companion.hooks.data.hooks;
@@ -178,67 +178,67 @@ export class SettingsDynamicDataController {
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
           status: companion.hooks.status,
-          operationId: hooksOperationId,
+          operationToken: hooksOperationToken,
         });
       } else {
         failedCount += 1;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "failed",
           status: companion.hooks.status,
-          operationId: hooksOperationId,
+          operationToken: hooksOperationToken,
         });
       }
 
-      if (this.isStaleArchivedThreadsOperation(archivedThreadsOperationId)) {
+      if (this.isStaleArchivedThreadsOperation(archivedThreadsOperationToken)) {
         // A newer archived threads operation owns this section.
       } else if (companion.archivedThreads.ok) {
         this.archivedThreads = companion.archivedThreads.data;
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: companion.archivedThreads.status,
-          operationId: archivedThreadsOperationId,
+          operationToken: archivedThreadsOperationToken,
         });
       } else {
         failedCount += 1;
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "failed",
           status: companion.archivedThreads.status,
-          operationId: archivedThreadsOperationId,
+          operationToken: archivedThreadsOperationToken,
         });
       }
     } catch (error) {
-      if (this.isStaleSettingsRefreshOperation(operationId)) return;
+      if (this.isStaleSettingsRefreshOperation(operationToken)) return;
       failedCount = 3;
       const message = errorMessage(error);
-      if (!this.isStaleModelsOperation(modelsOperationId)) {
+      if (!this.isStaleModelsOperation(modelsOperationToken)) {
         this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
           type: "failed",
           status: `Could not load models: ${message}`,
-          operationId: modelsOperationId,
+          operationToken: modelsOperationToken,
         });
       }
-      if (!this.isStaleHooksOperation(hooksOperationId)) {
+      if (!this.isStaleHooksOperation(hooksOperationToken)) {
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "failed",
           status: `Could not load hooks: ${message}`,
-          operationId: hooksOperationId,
+          operationToken: hooksOperationToken,
         });
       }
-      if (!this.isStaleArchivedThreadsOperation(archivedThreadsOperationId)) {
+      if (!this.isStaleArchivedThreadsOperation(archivedThreadsOperationToken)) {
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "failed",
           status: `Could not load archived threads: ${message}`,
-          operationId: archivedThreadsOperationId,
+          operationToken: archivedThreadsOperationToken,
         });
       }
     } finally {
-      const staleOperation = this.isStaleSettingsRefreshOperation(operationId);
+      const staleRefresh = this.isStaleSettingsRefreshOperation(operationToken);
       this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, {
         type: "completed",
         failedCount,
-        operationId,
+        operationToken,
       });
-      if (!staleOperation) {
+      if (!staleRefresh) {
         if (failedCount > 0) {
           this.callbacks.notify("Could not refresh all Codex data.");
         }
@@ -270,13 +270,13 @@ export class SettingsDynamicDataController {
       loadingStatus: "Loading hooks...",
       failureStatus: (error) => `Could not trust hook: ${errorMessage(error)}`,
       failureNotice: "Could not trust Codex hook.",
-      operation: async (operationId) => {
+      operation: async (operationToken) => {
         await this.withSettingsConnection((client) => trustHookItem(client, hook));
-        if (this.isStaleHooksOperation(operationId)) return;
+        if (this.isStaleHooksOperation(operationToken)) return;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
           status: "Trusted hook definition.",
-          operationId,
+          operationToken,
         });
         await this.loadHooks();
       },
@@ -289,13 +289,13 @@ export class SettingsDynamicDataController {
       loadingStatus: "Loading hooks...",
       failureStatus: (error) => `Could not update hook: ${errorMessage(error)}`,
       failureNotice: "Could not update Codex hook.",
-      operation: async (operationId) => {
+      operation: async (operationToken) => {
         await this.withSettingsConnection((client) => setHookItemEnabled(client, hook, enabled));
-        if (this.isStaleHooksOperation(operationId)) return;
+        if (this.isStaleHooksOperation(operationToken)) return;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
           status: enabled ? "Enabled hook." : "Disabled hook.",
-          operationId,
+          operationToken,
         });
         await this.loadHooks();
       },
@@ -308,14 +308,14 @@ export class SettingsDynamicDataController {
       loadingStatus: "Loading archived threads...",
       failureStatus: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not restore archived Codex thread.",
-      operation: async (operationId) => {
+      operation: async (operationToken) => {
         const restoredThread = await this.withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
-        if (this.isStaleArchivedThreadsOperation(operationId)) return;
+        if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
-          operationId,
+          operationToken,
         });
         this.host.threadCatalog.recordThreadRestored(restoredThread);
       },
@@ -332,14 +332,14 @@ export class SettingsDynamicDataController {
       loadingStatus: "Loading archived threads...",
       failureStatus: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not delete archived Codex thread.",
-      operation: async (operationId) => {
+      operation: async (operationToken) => {
         await this.withSettingsConnection((client) => client.deleteThread(threadId));
-        if (this.isStaleArchivedThreadsOperation(operationId)) return;
+        if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: `Deleted "${title}".`,
-          operationId,
+          operationToken,
         });
       },
     });
@@ -368,16 +368,16 @@ export class SettingsDynamicDataController {
       loadingStatus: "Loading hooks...",
       failureStatus: (error) => `Could not load hooks: ${errorMessage(error)}`,
       failureNotice: "Could not load Codex hooks.",
-      operation: async (operationId) => {
+      operation: async (operationToken) => {
         const hooks = await this.withSettingsConnection((client) => loadHookData(client, this.host.vaultPath));
-        if (this.isStaleHooksOperation(operationId)) return;
+        if (this.isStaleHooksOperation(operationToken)) return;
         this.hooks = hooks.hooks;
         this.hookWarnings = hooks.warnings;
         this.hookErrors = hooks.errors;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
           status: hooks.status,
-          operationId,
+          operationToken,
         });
       },
     });
@@ -388,11 +388,11 @@ export class SettingsDynamicDataController {
     loadingStatus: string;
     failureStatus: (error: unknown) => string;
     failureNotice: string;
-    operation: (operationId: number) => Promise<void>;
+    operation: (operationToken: number) => Promise<void>;
   }): Promise<void> {
-    const operationId = options.section === "hooks" ? this.nextHooksOperationId() : this.nextArchivedThreadsOperationId();
+    const operationToken = options.section === "hooks" ? this.nextHooksOperationToken() : this.nextArchivedThreadsOperationToken();
     const stale = (): boolean =>
-      options.section === "hooks" ? this.isStaleHooksOperation(operationId) : this.isStaleArchivedThreadsOperation(operationId);
+      options.section === "hooks" ? this.isStaleHooksOperation(operationToken) : this.isStaleArchivedThreadsOperation(operationToken);
     const lifecycle = (): SettingsDynamicSectionLifecycleState =>
       options.section === "hooks" ? this.hooksLifecycle : this.archivedThreadsLifecycle;
     const setLifecycle = (state: SettingsDynamicSectionLifecycleState): void => {
@@ -407,19 +407,19 @@ export class SettingsDynamicDataController {
       transitionSettingsDynamicSectionLifecycle(lifecycle(), {
         type: "started",
         status: options.loadingStatus,
-        operationId,
+        operationToken,
       }),
     );
     this.callbacks.display();
     try {
-      await options.operation(operationId);
+      await options.operation(operationToken);
     } catch (error) {
       if (stale()) return;
       setLifecycle(
         transitionSettingsDynamicSectionLifecycle(lifecycle(), {
           type: "failed",
           status: options.failureStatus(error),
-          operationId,
+          operationToken,
         }),
       );
       this.callbacks.notify(options.failureNotice);
@@ -434,39 +434,39 @@ export class SettingsDynamicDataController {
     });
   }
 
-  private nextSettingsRefreshOperationId(): number {
-    this.settingsRefreshOperationId += 1;
-    return this.settingsRefreshOperationId;
+  private nextSettingsRefreshOperationToken(): number {
+    this.settingsRefreshOperationToken += 1;
+    return this.settingsRefreshOperationToken;
   }
 
-  private nextModelsOperationId(): number {
-    this.modelsOperationId += 1;
-    return this.modelsOperationId;
+  private nextModelsOperationToken(): number {
+    this.modelsOperationToken += 1;
+    return this.modelsOperationToken;
   }
 
-  private nextHooksOperationId(): number {
-    this.hooksOperationId += 1;
-    return this.hooksOperationId;
+  private nextHooksOperationToken(): number {
+    this.hooksOperationToken += 1;
+    return this.hooksOperationToken;
   }
 
-  private nextArchivedThreadsOperationId(): number {
-    this.archivedThreadsOperationId += 1;
-    return this.archivedThreadsOperationId;
+  private nextArchivedThreadsOperationToken(): number {
+    this.archivedThreadsOperationToken += 1;
+    return this.archivedThreadsOperationToken;
   }
 
-  private isStaleSettingsRefreshOperation(operationId: number): boolean {
-    return operationId !== this.settingsRefreshOperationId;
+  private isStaleSettingsRefreshOperation(operationToken: number): boolean {
+    return operationToken !== this.settingsRefreshOperationToken;
   }
 
-  private isStaleModelsOperation(operationId: number): boolean {
-    return operationId !== this.modelsOperationId;
+  private isStaleModelsOperation(operationToken: number): boolean {
+    return operationToken !== this.modelsOperationToken;
   }
 
-  private isStaleHooksOperation(operationId: number): boolean {
-    return operationId !== this.hooksOperationId;
+  private isStaleHooksOperation(operationToken: number): boolean {
+    return operationToken !== this.hooksOperationToken;
   }
 
-  private isStaleArchivedThreadsOperation(operationId: number): boolean {
-    return operationId !== this.archivedThreadsOperationId;
+  private isStaleArchivedThreadsOperation(operationToken: number): boolean {
+    return operationToken !== this.archivedThreadsOperationToken;
   }
 }

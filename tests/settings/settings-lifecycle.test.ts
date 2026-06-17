@@ -12,38 +12,46 @@ describe("settings lifecycle", () => {
   it("tracks settings data refresh lifecycle", () => {
     const idle = { kind: "idle" } as const;
 
-    const loading = transitionSettingsDataRefreshLifecycle(idle, { type: "started", operationId: 1 });
-    expect(loading).toEqual({ kind: "loading", operationId: 1 });
-    expect(transitionSettingsDataRefreshLifecycle(loading, { type: "started", operationId: 0 })).toBe(loading);
+    const loading = transitionSettingsDataRefreshLifecycle(idle, { type: "started", operationToken: 1 });
+    expect(loading).toEqual({ kind: "loading", operationToken: 1 });
+    expect(transitionSettingsDataRefreshLifecycle(loading, { type: "started", operationToken: 0 })).toBe(loading);
 
-    const newerLoading = transitionSettingsDataRefreshLifecycle(loading, { type: "started", operationId: 2 });
-    expect(newerLoading).toEqual({ kind: "loading", operationId: 2 });
-    expect(transitionSettingsDataRefreshLifecycle(newerLoading, { type: "completed", failedCount: 2, operationId: 1 })).toBe(newerLoading);
+    const newerLoading = transitionSettingsDataRefreshLifecycle(loading, { type: "started", operationToken: 2 });
+    expect(newerLoading).toEqual({ kind: "loading", operationToken: 2 });
+    expect(transitionSettingsDataRefreshLifecycle(newerLoading, { type: "completed", failedCount: 2, operationToken: 1 })).toBe(
+      newerLoading,
+    );
 
-    const completed = transitionSettingsDataRefreshLifecycle(newerLoading, { type: "completed", failedCount: 2, operationId: 2 });
-    expect(completed).toEqual({ kind: "completed", failedCount: 2, operationId: 2 });
+    const completed = transitionSettingsDataRefreshLifecycle(newerLoading, { type: "completed", failedCount: 2, operationToken: 2 });
+    expect(completed).toEqual({ kind: "completed", failedCount: 2, operationToken: 2 });
   });
 
   it("tracks dynamic section lifecycle", () => {
     const idle = createSettingsDynamicSectionLifecycle();
     expect(idle).toEqual({ kind: "idle", status: "" });
 
-    const loading = transitionSettingsDynamicSectionLifecycle(idle, { type: "started", status: "Loading hooks...", operationId: 1 });
-    expect(loading).toEqual({ kind: "loading", status: "Loading hooks...", operationId: 1 });
+    const loading = transitionSettingsDynamicSectionLifecycle(idle, { type: "started", status: "Loading hooks...", operationToken: 1 });
+    expect(loading).toEqual({ kind: "loading", status: "Loading hooks...", operationToken: 1 });
 
-    expect(transitionSettingsDynamicSectionLifecycle(loading, { type: "loaded", status: "Stale result.", operationId: 0 })).toBe(loading);
+    expect(transitionSettingsDynamicSectionLifecycle(loading, { type: "loaded", status: "Stale result.", operationToken: 0 })).toBe(
+      loading,
+    );
 
-    const loaded = transitionSettingsDynamicSectionLifecycle(loading, { type: "loaded", status: "Loaded 1 hook.", operationId: 1 });
-    expect(loaded).toEqual({ kind: "loaded", status: "Loaded 1 hook.", operationId: 1 });
+    const loaded = transitionSettingsDynamicSectionLifecycle(loading, { type: "loaded", status: "Loaded 1 hook.", operationToken: 1 });
+    expect(loaded).toEqual({ kind: "loaded", status: "Loaded 1 hook.", operationToken: 1 });
 
-    const failed = transitionSettingsDynamicSectionLifecycle(loaded, { type: "failed", status: "Could not load hooks.", operationId: 1 });
-    expect(failed).toEqual({ kind: "failed", status: "Could not load hooks.", operationId: 1 });
+    const failed = transitionSettingsDynamicSectionLifecycle(loaded, {
+      type: "failed",
+      status: "Could not load hooks.",
+      operationToken: 1,
+    });
+    expect(failed).toEqual({ kind: "failed", status: "Could not load hooks.", operationToken: 1 });
 
-    const laterLoaded = transitionSettingsDynamicSectionLifecycle(failed, { type: "loaded", status: "Loaded 2 hooks.", operationId: 2 });
+    const laterLoaded = transitionSettingsDynamicSectionLifecycle(failed, { type: "loaded", status: "Loaded 2 hooks.", operationToken: 2 });
     expect(
-      transitionSettingsDynamicSectionLifecycle(laterLoaded, { type: "started", status: "Loading old hooks...", operationId: 1 }),
+      transitionSettingsDynamicSectionLifecycle(laterLoaded, { type: "started", status: "Loading old hooks...", operationToken: 1 }),
     ).toBe(laterLoaded);
-    expect(transitionSettingsDynamicSectionLifecycle(laterLoaded, { type: "failed", status: "Late old failure.", operationId: 1 })).toBe(
+    expect(transitionSettingsDynamicSectionLifecycle(laterLoaded, { type: "failed", status: "Late old failure.", operationToken: 1 })).toBe(
       laterLoaded,
     );
 

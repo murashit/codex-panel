@@ -123,8 +123,7 @@ export function ComposerShell({
   });
   const sendMode = composerSendMode(busy, canInterrupt, draft);
   const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
-  const selectedSuggestionId =
-    suggestions.length > 0 ? `${viewId}-composer-suggestion-${String(normalizedSelectedSuggestionIndex)}` : undefined;
+  const selectedSuggestionId = suggestions.length > 0 ? composerSuggestionOptionId(viewId, normalizedSelectedSuggestionIndex) : undefined;
 
   return (
     <div className="codex-panel__composer">
@@ -136,7 +135,7 @@ export function ComposerShell({
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={suggestions.length > 0 ? "true" : "false"}
-          aria-controls={`${viewId}-composer-suggestions`}
+          aria-controls={composerSuggestionsListId(viewId)}
           aria-activedescendant={selectedSuggestionId}
           value={draft}
           onInput={(event) => {
@@ -527,13 +526,13 @@ function ComposerSuggestions({
     <div
       ref={containerRef}
       className="codex-panel__composer-suggestions"
-      id={`${viewId}-composer-suggestions`}
+      id={composerSuggestionsListId(viewId)}
       role="listbox"
       hidden={suggestions.length === 0}
     >
       {suggestions.map((suggestion, index) => {
         const selected = index === selectedIndex;
-        const optionId = `${viewId}-composer-suggestion-${String(index)}`;
+        const optionId = composerSuggestionOptionId(viewId, index);
         return (
           <div
             key={optionId}
@@ -558,4 +557,12 @@ function ComposerSuggestions({
       })}
     </div>
   );
+}
+
+function composerSuggestionsListId(viewId: string): string {
+  return `${viewId}-composer-suggestions`;
+}
+
+function composerSuggestionOptionId(viewId: string, index: number): string {
+  return `${viewId}-composer-suggestion-${String(index)}`;
 }
