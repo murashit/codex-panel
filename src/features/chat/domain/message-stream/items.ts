@@ -241,7 +241,7 @@ export interface ReasoningMessageStreamItem extends ToolMessageStreamBase {
   readonly text: string;
 }
 
-export interface ContextCompactionMessageStreamItem extends MessageStreamBase {
+interface ContextCompactionMessageStreamItem extends MessageStreamBase {
   readonly kind: "contextCompaction";
   readonly role: "tool";
 }

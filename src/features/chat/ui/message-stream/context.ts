@@ -2,8 +2,11 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ApprovalAction, PendingRequestId } from "../../domain/pending-requests/model";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
-import type { TextMessageStreamItem } from "../../presentation/message-stream/text-view";
+import type {
+  MessageStreamForkTarget,
+  MessageStreamPlanImplementationTarget,
+  MessageStreamRollbackTarget,
+} from "../../presentation/message-stream/text-view";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 
 export interface MessageStreamBlock {
@@ -11,21 +14,17 @@ export interface MessageStreamBlock {
   node: UiNode;
 }
 
-export type { TextMessageStreamItem };
-
 type MessageStreamDisclosureBucket =
-  | "toolResults"
+  | "details"
   | "activityGroups"
-  | "agentDetails"
   | "textDetails"
   | "userMessageExpanded"
   | "goalObjectiveExpanded"
   | "approvalDetails";
 
 export interface MessageStreamDisclosureState {
-  toolResults: ReadonlySet<string>;
+  details: ReadonlySet<string>;
   activityGroups: ReadonlySet<string>;
-  agentDetails: ReadonlySet<string>;
   textDetails: ReadonlySet<string>;
   userMessageExpanded: ReadonlySet<string>;
   goalObjectiveExpanded: ReadonlySet<string>;
@@ -59,12 +58,9 @@ export interface TextItemActionContext extends TextItemDetailStateContext {
   forkActionsItemId: string | null;
   onForkActionsToggle?: (itemId: string | null) => void;
   copyText?: (text: string) => void;
-  canImplementPlanItem?: (item: MessageStreamItem) => boolean;
-  onImplementPlanItem?: (item: MessageStreamItem) => void;
-  canRollbackItem?: (item: MessageStreamItem) => boolean;
-  onRollbackItem?: (item: MessageStreamItem) => void;
-  canForkItem?: (item: MessageStreamItem) => boolean;
-  onForkItem?: (item: MessageStreamItem, archiveSource: boolean) => void;
+  onImplementPlan?: (target: MessageStreamPlanImplementationTarget) => void;
+  onRollback?: (target: MessageStreamRollbackTarget) => void;
+  onFork?: (target: MessageStreamForkTarget, archiveSource: boolean) => void;
 }
 
 export interface TextItemMetadataContext extends TextItemDetailStateContext {

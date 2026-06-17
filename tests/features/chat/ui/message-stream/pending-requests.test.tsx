@@ -49,8 +49,8 @@ describe("pending request renderer decisions", () => {
     );
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
-    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__work-message")).toBe(true);
-    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__work-message--warning")).toBe(
+    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__status-message")).toBe(true);
+    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__status-message--warning")).toBe(
       true,
     );
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")?.textContent).toBe("Submit");
@@ -420,11 +420,11 @@ describe("pending request renderer decisions", () => {
     const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__message--approval-result")).toBe(true);
-    expect(element.classList.contains("codex-panel__tool-result")).toBe(true);
+    expect(element.classList.contains("codex-panel__detail")).toBe(true);
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(element.querySelector(".codex-panel__message-content")).toBeNull();
-    expect(element.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("approval");
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("Allowed for this session: Need access");
+    expect(element.querySelector(".codex-panel__detail-header")?.textContent).toBe("approval");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("Allowed for this session: Need access");
     expect(element.querySelector("details summary")?.textContent).toBe("approval");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusallowed for session");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("scopesession");

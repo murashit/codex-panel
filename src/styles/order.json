@@ -9,7 +9,7 @@
   "23-chat-goal.css",
   "30-chat-layout.css",
   "31-chat-messages.css",
-  "32-chat-work-items.css",
+  "32-chat-stream-items.css",
   "33-chat-pending-requests.css",
   "34-chat-composer.css",
   "35-chat-turn-diff-view.css",

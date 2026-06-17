@@ -157,7 +157,7 @@
 }
 
 .codex-panel__activity-group > .codex-panel__message,
-.codex-panel__activity-group > .codex-panel__work-message,
+.codex-panel__activity-group > .codex-panel__status-message,
 .codex-panel__activity-group > .codex-panel__reasoning {
   margin-top: var(--codex-panel-section-gap);
   margin-bottom: var(--codex-panel-section-gap);

@@ -8,12 +8,7 @@ import {
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
 import { implementPlanCandidateFromState } from "../../application/state/selectors";
-import {
-  type ForkCandidate,
-  forkCandidatesFromItems,
-  isForkCandidateItem,
-  isRollbackCandidateItem,
-} from "../../domain/message-stream/selectors";
+import { type ForkCandidate, forkCandidatesFromItems } from "../../domain/message-stream/selectors";
 import {
   messageStreamActiveItems,
   messageStreamItems,
@@ -26,11 +21,12 @@ import type { ChatPanelMessageStreamShellState } from "../shell-state";
 import { pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/snapshot";
 import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
+import type { MessageStreamTextActions } from "../../presentation/message-stream/text-view";
 
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
   forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
-  implementPlan: (item: MessageStreamItem) => void;
+  implementPlan: (itemId: string) => void;
   openTurnDiff: (state: ChatTurnDiffViewState) => void;
 }
 
@@ -65,18 +61,9 @@ export interface MessageStreamSurfaceContextOptions {
 interface MessageStreamStateProjection {
   activeThreadId: string | null;
   turnLifecycle: ChatPanelMessageStreamShellState["turn"]["lifecycle"];
-  historyCursor: string | null;
-  loadingHistory: boolean;
-  items: readonly MessageStreamItem[];
-  stableItems: readonly MessageStreamItem[];
-  activeItems: readonly MessageStreamItem[];
-  turnDiffs: ChatPanelMessageStreamShellState["messageStream"]["turnDiffs"];
   workspaceRoot: string;
   disclosures: ChatDisclosureUiState;
   forkActionsItemId: string | null;
-  implementPlanCandidate: MessageStreamItem | null;
-  rollbackCandidate: MessageStreamRollbackCandidate | null;
-  forkCandidates: readonly ForkCandidate[];
   viewBlocks: readonly MessageStreamViewBlock[];
 }
 
@@ -128,18 +115,15 @@ function messageStreamContextFromProjection(
     loadOlderTurns: context.loadOlderTurns,
     renderMarkdown: context.renderMarkdown,
     copyText: context.copyMessageText,
-    canImplementPlanItem: (item: MessageStreamItem) => item.id === projection.implementPlanCandidate?.id,
-    onImplementPlanItem: (item) => {
-      context.actions.implementPlan(item);
+    onImplementPlan: (target) => {
+      context.actions.implementPlan(target.itemId);
     },
-    canRollbackItem: (item: MessageStreamItem) => isRollbackCandidateItem(item, projection.rollbackCandidate),
-    onRollbackItem: () => {
+    onRollback: () => {
       if (projection.activeThreadId) context.actions.rollbackThread(projection.activeThreadId);
     },
-    canForkItem: (item: MessageStreamItem) => isForkCandidateItem(item, projection.forkCandidates),
-    onForkItem: (item, archiveSource) => {
-      if (projection.activeThreadId && item.turnId) {
-        context.actions.forkThreadFromTurn(projection.activeThreadId, item.turnId, archiveSource);
+    onFork: (target, archiveSource) => {
+      if (projection.activeThreadId) {
+        context.actions.forkThreadFromTurn(projection.activeThreadId, target.turnId, archiveSource);
       }
     },
     openTurnDiff: (turnDiffState) => {
@@ -166,23 +150,15 @@ function messageStreamStateProjection(
   const rollbackCandidate = busy ? null : messageStreamRollbackCandidate(state.messageStream);
   const forkCandidates = busy ? [] : forkCandidatesFromItems(items);
   const implementPlanCandidate = implementPlanCandidateFromState(state);
+  const textActionsByItemId = textActionsForMessageStreamItems(rollbackCandidate, forkCandidates, implementPlanCandidate);
   const activeTurn = activeTurnId({ lifecycle: state.turn.lifecycle });
 
   return {
     activeThreadId: state.activeThread.id,
     turnLifecycle: state.turn.lifecycle,
-    historyCursor: state.messageStream.historyCursor,
-    loadingHistory: state.messageStream.loadingHistory,
-    items,
-    stableItems,
-    activeItems,
-    turnDiffs: state.messageStream.turnDiffs,
     workspaceRoot,
     disclosures: state.ui.disclosures,
     forkActionsItemId: state.ui.messageActions.forkActionsItemId,
-    implementPlanCandidate,
-    rollbackCandidate,
-    forkCandidates,
     viewBlocks: messageStreamViewBlocks({
       activeThreadId: state.activeThread.id,
       activeTurnId: activeTurn,
@@ -193,9 +169,34 @@ function messageStreamStateProjection(
       activeItems,
       workspaceRoot,
       turnDiffs: state.messageStream.turnDiffs,
+      textActionsByItemId,
       pendingRequests: messageStreamBlockItemsEmpty(stableItems, activeItems) ? null : pendingRequestBlockFromContext(context),
     }),
   };
+}
+
+function textActionsForMessageStreamItems(
+  rollbackCandidate: MessageStreamRollbackCandidate | null,
+  forkCandidates: readonly ForkCandidate[],
+  implementPlanCandidate: MessageStreamItem | null,
+): ReadonlyMap<string, MessageStreamTextActions> {
+  const byItemId = new Map<string, MessageStreamTextActions>();
+  for (const candidate of forkCandidates) {
+    patchTextActions(byItemId, candidate.itemId, { fork: { itemId: candidate.itemId, turnId: candidate.turnId } });
+  }
+  if (rollbackCandidate) {
+    patchTextActions(byItemId, rollbackCandidate.itemId, {
+      rollback: { itemId: rollbackCandidate.itemId, turnId: rollbackCandidate.turnId },
+    });
+  }
+  if (implementPlanCandidate) {
+    patchTextActions(byItemId, implementPlanCandidate.id, { implementPlan: { itemId: implementPlanCandidate.id } });
+  }
+  return byItemId;
+}
+
+function patchTextActions(byItemId: Map<string, MessageStreamTextActions>, itemId: string, patch: MessageStreamTextActions): void {
+  byItemId.set(itemId, { ...byItemId.get(itemId), ...patch });
 }
 
 function pendingRequestBlockFromContext(

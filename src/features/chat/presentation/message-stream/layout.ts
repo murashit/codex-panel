@@ -1,9 +1,7 @@
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
 import {
-  messageStreamIsPermissionDecision,
-  messageStreamIsReasoningProgress,
-  messageStreamIsReviewResult,
+  messageStreamIsAutoReviewDecision,
   messageStreamIsTurnInitiator,
   messageStreamIsTurnSteer,
   messageStreamIsWorkspaceResult,
@@ -113,12 +111,11 @@ export function messageStreamLayoutBlocks(
 type GroupedActivity = MessageStreamActivityGroupItem;
 
 function shouldShowPresentationItem(classification: MessageStreamSemanticClassification): boolean {
-  const { item } = classification;
-  return (
-    !messageStreamIsReasoningProgress(classification) ||
-    item.executionState !== "completed" ||
-    textForMessageStreamItem(item).trim().length > 0
-  );
+  return !isEmptyCompletedReasoningItem(classification.item);
+}
+
+function isEmptyCompletedReasoningItem(item: MessageStreamItem): boolean {
+  return item.kind === "reasoning" && item.executionState === "completed" && textForMessageStreamItem(item).trim().length === 0;
 }
 
 function steeringActivityGroupItem(classification: MessageStreamSemanticClassification): MessageStreamActivityGroupItem {
@@ -195,7 +192,7 @@ function autoReviewSummariesForTurns(items: readonly MessageStreamSemanticClassi
   const byTurn = new Map<string, string[]>();
   for (const classification of items) {
     const { item } = classification;
-    if (!item.turnId || !messageStreamIsReviewResult(classification) || !messageStreamIsPermissionDecision(classification)) {
+    if (!item.turnId || !messageStreamIsAutoReviewDecision(classification)) {
       continue;
     }
     const summary = textForMessageStreamItem(item).trim();

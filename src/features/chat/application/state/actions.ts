@@ -76,14 +76,7 @@ export interface ActiveThreadRestoredPlaceholderAction {
 
 export interface DisclosureSetAction {
   type: "ui/disclosure-set";
-  bucket:
-    | "toolResults"
-    | "activityGroups"
-    | "agentDetails"
-    | "textDetails"
-    | "userMessageExpanded"
-    | "goalObjectiveExpanded"
-    | "approvalDetails";
+  bucket: "details" | "activityGroups" | "textDetails" | "userMessageExpanded" | "goalObjectiveExpanded" | "approvalDetails";
   id: string;
   open: boolean;
 }

@@ -16,6 +16,7 @@ import type {
 } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
+import type { MessageStreamTextActions } from "../../../../../src/features/chat/presentation/message-stream/text-view";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
@@ -33,6 +34,7 @@ export function messageStreamBlocks(
     activeItems: context.activeItems,
     workspaceRoot: normalized.workspaceRoot,
     turnDiffs: context.turnDiffs,
+    textActionsByItemId: context.textActionsByItemId,
     pendingRequests: pendingRequestBlockInput(context),
   });
   const blocks = rawMessageStreamBlocks(viewBlocks, normalized);
@@ -66,6 +68,7 @@ type TestMessageStreamContext = Omit<MessageStreamContext, "disclosures" | "fork
     stableItems?: readonly MessageStreamItem[];
     activeItems?: readonly MessageStreamItem[];
     turnDiffs?: ReadonlyMap<string, string>;
+    textActionsByItemId?: ReadonlyMap<string, MessageStreamTextActions>;
   };
 
 export function emptyDisclosures(): MessageStreamDisclosureState {
@@ -76,9 +79,8 @@ export function testDisclosures(
   overrides: Partial<Record<keyof MessageStreamDisclosureState, readonly string[]>> = {},
 ): MessageStreamDisclosureState {
   return {
-    toolResults: new Set(overrides.toolResults),
+    details: new Set(overrides.details),
     activityGroups: new Set(overrides.activityGroups),
-    agentDetails: new Set(overrides.agentDetails),
     textDetails: new Set(overrides.textDetails),
     userMessageExpanded: new Set(overrides.userMessageExpanded),
     goalObjectiveExpanded: new Set(overrides.goalObjectiveExpanded),

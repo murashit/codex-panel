@@ -7,7 +7,6 @@ import type { ChatStateStore } from "../../application/state/store";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../shell-state";
 import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
@@ -33,7 +32,7 @@ export function ChatPanelMessageStream({ presenter }: { presenter: ChatPanelMess
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
   forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
-  implementPlan: (item: MessageStreamItem) => void;
+  implementPlan: (itemId: string) => void;
   openTurnDiff: (state: ChatTurnDiffViewState) => void;
 }
 

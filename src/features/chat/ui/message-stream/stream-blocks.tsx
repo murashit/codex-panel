@@ -6,15 +6,15 @@ import {
   type MessageStreamViewBlock,
 } from "../../presentation/message-stream/view-model";
 import { pendingRequestBlockNode } from "./pending-request-block";
-import { toolResultNode } from "./tool-result";
-import { agentRunSummaryNode, workItemNode } from "./work-items";
+import { detailNode } from "./detail";
+import { agentRunSummaryNode, statusItemNode } from "./status-items";
 import type { MessageStreamBlock, MessageStreamContext, PendingRequestBlockContext } from "./context";
 import { textItemNode } from "./text-item";
 
 function streamItemNode(item: MessageStreamRenderedItemView, context: MessageStreamContext): UiNode {
   if (item.kind === "text") return textItemNode(item.view, context);
-  if (item.kind === "toolResult") return toolResultNode(item.view, context);
-  return workItemNode(item.view, context);
+  if (item.kind === "detail") return detailNode(item.view, context);
+  return statusItemNode(item.view);
 }
 
 export function messageStreamBlocks(viewBlocks: readonly MessageStreamViewBlock[], context: MessageStreamContext): MessageStreamBlock[] {
@@ -110,11 +110,11 @@ function ActivityGroup({
 
 function SteeringActivity({ activity }: { activity: Extract<MessageStreamActivityItemView, { type: "steering" }> }): UiNode {
   return (
-    <div className="codex-panel__message codex-panel__message--tool codex-panel__tool-item codex-panel__tool-result codex-panel__tool-result--plain">
-      <div className="codex-panel__tool-result-header">
-        <span className="codex-panel__message-role codex-panel__tool-result-label">{activity.label}</span>
+    <div className="codex-panel__message codex-panel__message--tool codex-panel__detail-item codex-panel__detail codex-panel__detail--plain">
+      <div className="codex-panel__detail-header">
+        <span className="codex-panel__message-role codex-panel__detail-label">{activity.label}</span>
       </div>
-      <div className="codex-panel__tool-summary">{activity.text}</div>
+      <div className="codex-panel__stream-summary">{activity.text}</div>
     </div>
   );
 }

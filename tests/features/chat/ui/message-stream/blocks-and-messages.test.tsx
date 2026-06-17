@@ -111,7 +111,7 @@ describe("message stream rendering and message actions", () => {
     const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__message--review-result")).toBe(true);
-    expect(element.classList.contains("codex-panel__tool-result--plain")).toBe(true);
+    expect(element.classList.contains("codex-panel__detail--plain")).toBe(true);
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("auto-review");
     expect(element.textContent).toContain("Auto-review denied this command.");
     expect(element.querySelector("details")).toBeNull();
@@ -135,7 +135,7 @@ describe("message stream rendering and message actions", () => {
             auditFacts: [
               { key: "status", value: "approved" },
               { key: "action", value: "apply patch" },
-              { key: "files", value: "src/ui/tool-result-view.ts\nsrc/ui/message-stream.ts" },
+              { key: "files", value: "src/ui/detail-view.ts\nsrc/ui/message-stream.ts" },
             ],
           },
         },
@@ -155,9 +155,7 @@ describe("message stream rendering and message actions", () => {
     expect(element.textContent).not.toContain("▶Review");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusapproved");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("actionapply patch");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain(
-      "filessrc/ui/tool-result-view.ts\nsrc/ui/message-stream.ts",
-    );
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("filessrc/ui/detail-view.ts\nsrc/ui/message-stream.ts");
     expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
   });
 
@@ -227,8 +225,8 @@ describe("message stream rendering and message actions", () => {
     const element = renderMessageBlockElement(block);
 
     expect(element.classList.contains("codex-panel__message--tool")).toBe(true);
-    expect(element.querySelector(".codex-panel__tool-result-label")?.textContent).toBe("goal");
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("set: Ship the feature");
+    expect(element.querySelector(".codex-panel__detail-label")?.textContent).toBe("goal");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("set: Ship the feature");
     expect(element.querySelector("details")?.open).toBe(false);
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("actionset");
     expect(element.querySelector(".codex-panel__output-title")?.textContent).toBe("Objective");
@@ -236,7 +234,7 @@ describe("message stream rendering and message actions", () => {
   });
 
   it("renders rollback action only for the eligible user message", () => {
-    const onRollbackItem = vi.fn();
+    const onRollback = vi.fn();
     const items = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "older", turnId: "turn-1" },
       {
@@ -260,8 +258,8 @@ describe("message stream rendering and message actions", () => {
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      canRollbackItem: (item) => item.id === "u2",
-      onRollbackItem,
+      textActionsByItemId: new Map([["u2", { rollback: { itemId: "u2", turnId: "turn-2" } }]]),
+      onRollback,
     });
 
     const rendered = blocks.map((block) => renderMessageBlockElement(block));
@@ -271,7 +269,7 @@ describe("message stream rendering and message actions", () => {
     const button = expectPresent(rendered[2]).querySelector<HTMLButtonElement>(".codex-panel__rollback-turn");
     expect(button?.getAttribute("aria-label")).toBe("Rollback last turn");
     button?.click();
-    expect(onRollbackItem).toHaveBeenCalledWith(expect.objectContaining({ id: "u2" }));
+    expect(onRollback).toHaveBeenCalledWith({ itemId: "u2", turnId: "turn-2" });
   });
 
   it("renders copy actions for copyable messages", () => {
@@ -315,7 +313,7 @@ describe("message stream rendering and message actions", () => {
 
   it("expands assistant fork actions in the copy action region and defaults repeat clicks to plain fork", () => {
     const onForkActionsToggle = vi.fn();
-    const onForkItem = vi.fn();
+    const onFork = vi.fn();
     const item: MessageStreamItem = {
       id: "a1",
       kind: "message",
@@ -339,8 +337,8 @@ describe("message stream rendering and message actions", () => {
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
-      canForkItem: () => true,
-      onForkItem,
+      textActionsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
+      onFork,
     })[0];
 
     const closedElement = renderMessageBlockElement(closedBlock);
@@ -363,8 +361,8 @@ describe("message stream rendering and message actions", () => {
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
-      canForkItem: () => true,
-      onForkItem,
+      textActionsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
+      onFork,
     })[0];
 
     const openElement = renderMessageBlockElement(openBlock);
@@ -376,11 +374,11 @@ describe("message stream rendering and message actions", () => {
     expect(openFork.getAttribute("aria-label")).toBe("Fork");
     expect(openFork.getAttribute("data-icon")).toBe("file-plus-corner");
     openFork.click();
-    expect(onForkItem).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }), false);
+    expect(onFork).toHaveBeenCalledWith({ itemId: "a1", turnId: "turn-1" }, false);
   });
 
   it("runs fork and archive from the expanded assistant fork actions", () => {
-    const onForkItem = vi.fn();
+    const onFork = vi.fn();
     const item: MessageStreamItem = {
       id: "a1",
       kind: "message",
@@ -403,14 +401,14 @@ describe("message stream rendering and message actions", () => {
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
-      canForkItem: () => true,
-      onForkItem,
+      textActionsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
+      onFork,
     })[0];
 
     const element = renderMessageBlockElement(block);
     expectPresent(element.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-message")).click();
 
-    expect(onForkItem).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }), true);
+    expect(onFork).toHaveBeenCalledWith({ itemId: "a1", turnId: "turn-1" }, true);
   });
 
   it("updates message content when a streaming plan delta completes", () => {
@@ -761,7 +759,7 @@ describe("message stream rendering and message actions", () => {
   });
 
   it("renders implement plan action for eligible proposed plans", () => {
-    const onImplementPlanItem = vi.fn();
+    const onImplementPlan = vi.fn();
     const block = messageStreamBlocks({
       activeThreadId: "thread",
       turnLifecycle: idleTurnLifecycle(),
@@ -784,8 +782,8 @@ describe("message stream rendering and message actions", () => {
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
-      canImplementPlanItem: () => true,
-      onImplementPlanItem,
+      textActionsByItemId: new Map([["p1", { implementPlan: { itemId: "p1" } }]]),
+      onImplementPlan,
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -793,7 +791,7 @@ describe("message stream rendering and message actions", () => {
 
     expect(button?.getAttribute("aria-label")).toBe("Implement plan");
     button?.click();
-    expect(onImplementPlanItem).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }));
+    expect(onImplementPlan).toHaveBeenCalledWith({ itemId: "p1" });
   });
 
   it("selects only the latest proposed plan as an implement candidate", () => {
@@ -869,7 +867,7 @@ describe("message stream rendering and message actions", () => {
 
   it("renders copy and rollback actions together when both apply", () => {
     const copyText = vi.fn();
-    const onRollbackItem = vi.fn();
+    const onRollback = vi.fn();
     const block = messageStreamBlocks({
       activeThreadId: "thread",
       turnLifecycle: idleTurnLifecycle(),
@@ -881,8 +879,8 @@ describe("message stream rendering and message actions", () => {
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText,
-      canRollbackItem: () => true,
-      onRollbackItem,
+      textActionsByItemId: new Map([["u1", { rollback: { itemId: "u1", turnId: "turn-1" } }]]),
+      onRollback,
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -890,7 +888,7 @@ describe("message stream rendering and message actions", () => {
     element.querySelector<HTMLButtonElement>(".codex-panel__rollback-turn")?.click();
 
     expect(copyText).toHaveBeenCalledWith("latest");
-    expect(onRollbackItem).toHaveBeenCalledWith(expect.objectContaining({ id: "u1" }));
+    expect(onRollback).toHaveBeenCalledWith({ itemId: "u1", turnId: "turn-1" });
   });
 
   it("collapses tall user messages without changing the copy payload", () => {
@@ -1029,8 +1027,6 @@ describe("message stream rendering and message actions", () => {
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      canRollbackItem: () => false,
-      onRollbackItem: vi.fn(),
     })[0];
 
     expect(renderMessageBlockElement(block).querySelector(".codex-panel__rollback-turn")).toBeNull();
@@ -1065,8 +1061,8 @@ describe("message stream rendering and message actions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("npm run check (exit 1)");
-    expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBeNull();
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("npm run check (exit 1)");
+    expect(element.querySelector(".codex-panel__stream-summary")?.getAttribute("title")).toBeNull();
     expect(topLevelDetailsSummaries(element)).toEqual(["command"]);
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["command"]);
     expect(element.textContent).not.toContain("Details");
@@ -1171,7 +1167,7 @@ describe("message stream rendering and message actions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe('"semantic target" in src');
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe('"semantic target" in src');
   });
 
   it("renders file diffs inside a single file change details block", () => {
@@ -1200,7 +1196,7 @@ describe("message stream rendering and message actions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/main.ts");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("src/main.ts");
     expect(topLevelDetailsSummaries(element)).toEqual(["file change"]);
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["file change"]);
     expect(element.textContent).not.toContain("Details");
@@ -1235,7 +1231,7 @@ describe("message stream rendering and message actions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("src/main.ts (failed)");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("src/main.ts (failed)");
   });
 
   it("renders the edited files footer with an open diff action when aggregated turn diff exists", () => {

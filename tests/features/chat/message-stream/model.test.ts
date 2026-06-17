@@ -811,7 +811,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("preserves context compaction items as short work items", () => {
+  it("preserves context compaction items as short status items", () => {
     const item: TurnItem = { type: "contextCompaction", id: "compact-1" };
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
@@ -897,7 +897,7 @@ describe("permission detail rows", () => {
   });
 });
 
-describe("display block grouping keeps work logs subordinate to conversation messages", () => {
+describe("display block grouping keeps message stream details subordinate to conversation messages", () => {
   it("groups completed turn activities before the final assistant message", () => {
     const items: MessageStreamItem[] = [
       { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },

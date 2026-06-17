@@ -803,9 +803,8 @@ function goal(threadId: string): ThreadGoal {
 function uiDisclosureCount(state: ChatState): number {
   const disclosures = state.ui.disclosures;
   return (
-    disclosures.toolResults.size +
+    disclosures.details.size +
     disclosures.activityGroups.size +
-    disclosures.agentDetails.size +
     disclosures.textDetails.size +
     disclosures.userMessageExpanded.size +
     disclosures.goalObjectiveExpanded.size +

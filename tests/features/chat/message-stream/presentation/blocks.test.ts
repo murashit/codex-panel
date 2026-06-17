@@ -25,8 +25,8 @@ describe("message stream presentation blocks", () => {
       items: [userMessage("u1", "turn"), taskProgressItem("task", "turn"), assistantMessage("a1", "turn")],
     });
 
-    expect(blocks.map((block) => block.kind)).toEqual(["text", "text", "work"]);
-    expect(blocks.find((block) => block.key === "live-task:task")).toMatchObject({ kind: "work" });
+    expect(blocks.map((block) => block.kind)).toEqual(["text", "text", "status"]);
+    expect(blocks.find((block) => block.key === "live-task:task")).toMatchObject({ kind: "status" });
   });
 
   it("anchors active agent summaries at the first active agent item", () => {
@@ -38,8 +38,39 @@ describe("message stream presentation blocks", () => {
       items: [userMessage("u1", "turn"), agentItem("agent", "turn")],
     });
 
-    expect(blocks.map((block) => block.kind)).toEqual(["text", "work", "liveAgentSummary"]);
+    expect(blocks.map((block) => block.kind)).toEqual(["text", "detail", "liveAgentSummary"]);
     expect(blocks.find((block) => block.kind === "liveAgentSummary")).toMatchObject({ key: "live-agents:turn" });
+  });
+
+  it("renders unknown item kinds as generic status updates", () => {
+    const blocks = messageStreamViewBlocks({
+      activeThreadId: "thread",
+      activeTurnId: null,
+      historyCursor: null,
+      loadingHistory: false,
+      items: [
+        {
+          id: "unknown",
+          kind: "futureKind",
+          role: "tool",
+          status: "running",
+          output: "raw output",
+          operation: "future operation",
+        } as unknown as MessageStreamItem,
+      ],
+    });
+
+    expect(blocks).toMatchObject([
+      {
+        kind: "status",
+        key: "item:unknown",
+        view: {
+          kind: "generic",
+          label: "futureKind",
+          text: "running",
+        },
+      },
+    ]);
   });
 });
 

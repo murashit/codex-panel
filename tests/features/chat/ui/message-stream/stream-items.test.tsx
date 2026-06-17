@@ -17,7 +17,7 @@ import {
   unmountUiRootInAct,
 } from "./test-helpers";
 
-describe("work log renderer decisions", () => {
+describe("message stream item renderer decisions", () => {
   it("renders generic tool details as visible sections inside one details block", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
@@ -47,7 +47,7 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("123");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("123");
     expect(topLevelDetailsSummaries(element)).toEqual(["github.pull_request_read"]);
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["github.pull_request_read"]);
     expect(element.querySelector<HTMLElement>("details summary")?.tabIndex).toBe(-1);
@@ -92,8 +92,8 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(expectPresent(block));
 
-    expect(element.querySelector(".codex-panel__tool-result-header")?.textContent).toBe("steer");
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("also check tests and keep the summary compact");
+    expect(element.querySelector(".codex-panel__detail-header")?.textContent).toBe("steer");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("also check tests and keep the summary compact");
   });
 
   it("renders path summary tools relative to the workspace root", () => {
@@ -122,8 +122,8 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("assets/image.png");
-    expect(element.querySelector(".codex-panel__tool-summary")?.getAttribute("title")).toBeNull();
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("assets/image.png");
+    expect(element.querySelector(".codex-panel__stream-summary")?.getAttribute("title")).toBeNull();
   });
 
   it("derives generic tool summaries from primary targets instead of item text", () => {
@@ -153,7 +153,7 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("search: codex app-server");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("search: codex app-server");
   });
 
   it("updates path summary tools when the workspace root changes", () => {
@@ -180,10 +180,10 @@ describe("work log renderer decisions", () => {
     };
 
     renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault" }));
-    expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("project/assets/image.png");
+    expect(parent.querySelector(".codex-panel__stream-summary")?.textContent).toBe("project/assets/image.png");
 
     renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault/project" }));
-    expect(parent.querySelector(".codex-panel__tool-summary")?.textContent).toBe("assets/image.png");
+    expect(parent.querySelector(".codex-panel__stream-summary")?.textContent).toBe("assets/image.png");
     unmountUiRootInAct(parent);
   });
 
@@ -213,7 +213,7 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("/tmp/image.png");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/tmp/image.png");
   });
 
   it("does not treat generic tool summaries as paths without an explicit marker", () => {
@@ -241,7 +241,7 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("/vault/project");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/vault/project");
   });
 
   it("renders hook metadata as rows inside one details block", () => {
@@ -279,7 +279,7 @@ describe("work log renderer decisions", () => {
     expect(topLevelDetailsSummaries(element)).toEqual(["hook"]);
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["hook"]);
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.textContent).not.toContain("Details");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
@@ -321,7 +321,7 @@ describe("work log renderer decisions", () => {
           messageState: "completed",
         },
       ],
-      disclosures: testDisclosures({ activityGroups: ["turn"], toolResults: ["hook-1"] }),
+      disclosures: testDisclosures({ activityGroups: ["turn"], details: ["hook-1:details"] }),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
@@ -331,8 +331,8 @@ describe("work log renderer decisions", () => {
 
     expect(element).toBeDefined();
     expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details");
-    expect(element.querySelector(".codex-panel__tool-item--hook")?.classList.contains("codex-panel__execution--completed")).toBe(true);
-    expect(element.querySelector(".codex-panel__tool-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
+    expect(element.querySelector(".codex-panel__detail-item--hook")?.classList.contains("codex-panel__execution--completed")).toBe(true);
+    expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
     expect(element.querySelector(".codex-panel__output-title")?.textContent).toBe("Hook output");
@@ -368,7 +368,7 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.classList.contains("codex-panel__work-message")).toBe(true);
+    expect(element.classList.contains("codex-panel__status-message")).toBe(true);
     expect(element.classList.contains("codex-panel__task-progress")).toBe(true);
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("tasks");
     expect(element.textContent).toContain("[x]Inspect code");
@@ -588,13 +588,12 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.classList.contains("codex-panel__work-message")).toBe(true);
+    expect(element.classList.contains("codex-panel__detail")).toBe(true);
     expect(element.classList.contains("codex-panel__agent-activity")).toBe(true);
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("agent");
-    const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__tool-summary"));
+    const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__stream-summary"));
     expect(summary.textContent).toBe("spawn child: Inspect the renderer. (completed)");
-    expect(summary.classList.contains("codex-panel__agent-activity-summary")).toBe(true);
-    expect([...element.querySelectorAll("details summary")].map((detailsSummary) => detailsSummary.textContent)).toEqual(["Details"]);
+    expect([...element.querySelectorAll("details summary")].map((detailsSummary) => detailsSummary.textContent)).toEqual(["agent"]);
     expect(element.textContent).toContain("targetchild");
     expect(element.textContent).toContain("PromptInspect the renderer.");
     expect(element.textContent).toContain("childcompleted: Done");
@@ -630,7 +629,7 @@ describe("work log renderer decisions", () => {
     })[0];
 
     const element = renderMessageBlockElement(block);
-    const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__agent-activity-summary"));
+    const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__stream-summary"));
 
     expect(summary.textContent).toBe(`spawn child: Inspect the renderer. ${"a".repeat(73)}... (running)`);
   });
@@ -670,17 +669,20 @@ describe("work log renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__agent-thread")?.textContent).toBe("019e061e");
-    expect(element.querySelector(".codex-panel__agent-status")?.textContent).toBe("completed: Done");
-    expect(element.querySelector(".codex-panel__agent-status")?.textContent).not.toContain("a".repeat(180));
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["Details"]);
+    const agentRows = [...element.querySelectorAll(".codex-panel__meta-grid dt, .codex-panel__meta-grid dd")].map(
+      (node) => node.textContent,
+    );
+    expect(agentRows).toContain("019e061e");
+    expect(agentRows).toContain("completed: Done");
+    expect(agentRows.join("")).not.toContain("a".repeat(180));
+    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["agent"]);
     expect(element.querySelector<HTMLElement>("details summary")?.tabIndex).toBe(-1);
     expect(element.textContent).toContain("Agent output 019e061e");
     expect(element.textContent).toContain(longMessage);
     const details = element.querySelector("details");
     expect(details?.hasAttribute("open")).toBe(false);
     details?.dispatchEvent(new Event("toggle"));
-    expect(onDisclosureToggle).toHaveBeenCalledWith("agentDetails", "agent-1", false);
+    expect(onDisclosureToggle).toHaveBeenCalledWith("details", "agent-1:agent-details", false);
   });
 
   it("renders a compact live agent summary while subagents are running", () => {
@@ -717,7 +719,7 @@ describe("work log renderer decisions", () => {
 
     const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));
 
-    expect(summary.classList.contains("codex-panel__work-message")).toBe(true);
+    expect(summary.classList.contains("codex-panel__status-message")).toBe(true);
     expect(summary.classList.contains("codex-panel__agent-summary")).toBe(true);
     expect(summary.textContent).toContain("agents");
     expect(summary.textContent).toContain("Agents 1 running, 1 done");
@@ -725,7 +727,7 @@ describe("work log renderer decisions", () => {
     expect(summary.textContent).not.toContain("donecompleted");
   });
 
-  it("renders context compaction as a one-line work item while running and after completion", () => {
+  it("renders context compaction as a one-line status item while running and after completion", () => {
     const runningParent = document.createElement("div");
     const item: MessageStreamItem = {
       id: "compact-1",
@@ -753,7 +755,7 @@ describe("work log renderer decisions", () => {
       runningParent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:compact-1"] .codex-panel__context-compaction'),
     );
     expect(running.querySelector(".codex-panel__message-role")?.textContent).toBe("context");
-    expect(running.querySelector(".codex-panel__tool-summary")?.textContent).toBe("Compacting context...");
+    expect(running.querySelector(".codex-panel__stream-summary")?.textContent).toBe("Compacting context...");
     expect(running.classList.contains("codex-panel__execution--running")).toBe(true);
     unmountUiRootInAct(runningParent);
 
@@ -776,7 +778,7 @@ describe("work log renderer decisions", () => {
     const completed = expectPresent(
       completedParent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:compact-1"] .codex-panel__context-compaction'),
     );
-    expect(completed.querySelector(".codex-panel__tool-summary")?.textContent).toBe("Context compacted");
+    expect(completed.querySelector(".codex-panel__stream-summary")?.textContent).toBe("Context compacted");
     expect(completed.classList.contains("codex-panel__execution--completed")).toBe(true);
     unmountUiRootInAct(completedParent);
   });

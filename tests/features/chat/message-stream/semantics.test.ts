@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { messageStreamItemFromTurnItem } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
-import { messageStreamSemanticClassifications } from "../../../../src/features/chat/domain/message-stream/semantics";
+import {
+  messageStreamIsAutoReviewDecision,
+  messageStreamSemanticClassifications,
+} from "../../../../src/features/chat/domain/message-stream/semantics";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import type { TurnItem } from "../../../../src/app-server/protocol/turn";
 
@@ -62,7 +65,7 @@ describe("message stream semantic classification", () => {
     expect(semantic.map(({ placement }) => ("turnRole" in placement ? placement.turnRole : null))).toEqual(["initiator", "initiator"]);
   });
 
-  it("classifies work item meaning independently from payload shape", () => {
+  it("classifies message stream item meaning independently from payload shape", () => {
     const semantic = messageStreamSemanticClassifications([
       commandItem("cmd"),
       {
@@ -143,6 +146,7 @@ describe("message stream semantic classification", () => {
       { plane: "permission", event: "decision" },
       { plane: "permission", event: "decision" },
     ]);
+    expect(semantic.map(messageStreamIsAutoReviewDecision)).toEqual([true, true]);
   });
 
   it("marks completed proposed plans as implementable turn outcomes", () => {

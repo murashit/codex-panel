@@ -29,9 +29,8 @@ interface ChatMessageActionsUiState {
 }
 
 const CHAT_DISCLOSURE_BUCKETS = [
-  "toolResults",
+  "details",
   "activityGroups",
-  "agentDetails",
   "textDetails",
   "userMessageExpanded",
   "goalObjectiveExpanded",

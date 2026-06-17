@@ -1,9 +1,4 @@
-import type {
-  MessageStreamMeaningEvent,
-  MessageStreamMeaningPlane,
-  MessageStreamRenderFamily,
-  MessageStreamSemanticClassification,
-} from "./types";
+import type { MessageStreamMeaningEvent, MessageStreamMeaningPlane, MessageStreamSemanticClassification } from "./types";
 
 function messageStreamHasMeaning(
   classification: MessageStreamSemanticClassification,
@@ -35,41 +30,14 @@ export function messageStreamIsCoordinationProgress(classification: MessageStrea
   return messageStreamHasMeaning(classification, "coordination", "progress");
 }
 
-export function messageStreamIsTaskProgress(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "taskProgress";
-}
-
-export function messageStreamIsReasoningProgress(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "reasoning";
-}
-
-export function messageStreamIsReviewResult(classification: MessageStreamSemanticClassification): boolean {
-  return classification.item.kind === "reviewResult";
-}
-
-export function messageStreamRenderFamily(classification: MessageStreamSemanticClassification): MessageStreamRenderFamily | null {
-  switch (classification.item.kind) {
-    case "message":
-    case "system":
-    case "userInputResult":
-      return "text";
-    case "command":
-    case "fileChange":
-    case "tool":
-    case "hook":
-    case "goal":
-    case "approvalResult":
-    case "reviewResult":
-      return "toolResult";
-    case "taskProgress":
-    case "agent":
-    case "reasoning":
-    case "contextCompaction":
-      return "work";
-  }
-  return null;
-}
-
-export function messageStreamIsPermissionDecision(classification: MessageStreamSemanticClassification): boolean {
+function messageStreamIsPermissionDecision(classification: MessageStreamSemanticClassification): boolean {
   return messageStreamHasMeaning(classification, "permission", "decision");
+}
+
+export function messageStreamIsAutoReviewDecision(classification: MessageStreamSemanticClassification): boolean {
+  const { provenance } = classification;
+  if (!messageStreamIsPermissionDecision(classification) || !provenance) return false;
+  if (provenance.source === "appServer" && provenance.channel === "notification") return provenance.event === "autoReview";
+  if (provenance.source === "panel" && provenance.channel === "notice") return provenance.reason === "parsedAutoReview";
+  return false;
 }

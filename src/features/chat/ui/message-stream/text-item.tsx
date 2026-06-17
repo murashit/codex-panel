@@ -25,7 +25,7 @@ function TextItem({ view, context }: { view: MessageStreamTextView; context: Tex
   const { item } = view;
   return (
     <div className={view.className}>
-      <TextItemHeader item={item} context={context} />
+      <TextItemHeader view={view} context={context} />
       {view.collapsible ? (
         <CollapsibleTextItemContent view={view} context={context} />
       ) : (
@@ -69,7 +69,7 @@ function CollapsibleTextItemContent({ view, context }: { view: MessageStreamText
     return () => {
       content.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
     };
-  }, [item.id, item.text, view.contentMode]);
+  }, [item.id, view.body, view.contentMode]);
 
   useEffect(() => {
     if (!overflows || !expanded) return;
@@ -121,8 +121,7 @@ interface TextContentProps {
 
 function TextContent({ view, context, contentRef, collapsed = false }: TextContentProps): UiNode {
   const rendersMarkdown = view.contentMode === "markdown";
-  const { item } = view;
-  const text = item.text;
+  const text = view.body;
   const localRef = useRef<HTMLDivElement | null>(null);
   const contextRef = useRef(context);
   useLayoutEffect(() => {

@@ -48,8 +48,8 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
   };
 }
 
-export function canImplementPlan(state: ChatState, item: MessageStreamItem): boolean {
-  return item.id === implementPlanCandidateFromState(state)?.id;
+export function canImplementPlanItemId(state: ChatState, itemId: string): boolean {
+  return itemId === implementPlanCandidateFromState(state)?.id;
 }
 
 export function implementPlanCandidateFromState(state: {

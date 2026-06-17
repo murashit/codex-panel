@@ -7,7 +7,7 @@ import {
   type PendingUserInputViewModel,
 } from "../../presentation/pending-requests/view-model";
 import type { PendingRequestBlockActions } from "./context";
-import { createWorkMessageClassName } from "./work-message";
+import { createStatusMessageClassName } from "./status-message";
 
 export function pendingRequestBlockNode(
   approvals: readonly PendingApprovalViewModel[],
@@ -61,7 +61,7 @@ function PendingRequestBlock({
   }, [autoFocusRequested, consumeAutoFocus, autoFocusSignature]);
   if (approvals.length === 0 && pendingUserInputs.length === 0) return null;
   return (
-    <div ref={requestRef} className={createWorkMessageClassName("codex-panel__pending-request-block", "warning")}>
+    <div ref={requestRef} className={createStatusMessageClassName("codex-panel__pending-request-block", "warning")}>
       <div className="codex-panel__message-role">Request</div>
       {approvals.map((approval) => (
         <ApprovalCard key={String(approval.requestId)} approval={approval} approvalDetails={approvalDetails} actions={actions} />

@@ -93,7 +93,7 @@ describe("implementPlan", () => {
     resumeThread(stateStore, [plan]);
     stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
 
-    await implementPlan(host, plan);
+    await implementPlan(host, plan.id);
 
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
@@ -108,7 +108,7 @@ describe("implementPlan", () => {
     const latest = planItem("latest");
     resumeThread(stateStore, [first, latest]);
 
-    await implementPlan(host, first);
+    await implementPlan(host, first.id);
 
     expect(ensureConnected).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();

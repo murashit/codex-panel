@@ -5,7 +5,7 @@ import type { AppServerClientAccess } from "../../../app-server/connection/clien
 import type { AppServerObservedQueryResult } from "../../../app-server/query/cache";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
-import type { MessageStreamItem, MessageStreamNoticeSection } from "../domain/message-stream/items";
+import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../threads/thread-title-service";
 import { PendingRequestController } from "../application/pending-requests/controller";
@@ -959,7 +959,7 @@ function createSurfacesAndPresenter(
     actions: {
       rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),
       forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
-      implementPlan: (item: MessageStreamItem) => void turnActions.planImplementation.implement(item),
+      implementPlan: (itemId) => void turnActions.planImplementation.implement(itemId),
       openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
     },
     requests: {

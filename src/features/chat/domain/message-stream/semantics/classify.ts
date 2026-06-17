@@ -102,6 +102,7 @@ function meaningForMessageStreamItem(item: MessageStreamItem): MessageStreamMean
     case "system":
       return { plane: "diagnostic", event: "notice" };
   }
+  return { plane: "diagnostic", event: "notice" };
 }
 
 function reviewResultMeaning(item: Extract<MessageStreamItem, { kind: "reviewResult" }>): MessageStreamMeaning {

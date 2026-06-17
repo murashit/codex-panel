@@ -1,8 +1,8 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
-import type { MessageStreamItem, MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import { activeThreadId, canImplementPlan } from "../state/selectors";
+import { activeThreadId, canImplementPlanItemId } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { GoalActions } from "../threads/goal-actions";
@@ -69,8 +69,7 @@ export interface PlanImplementationHost {
 }
 
 interface PlanImplementation {
-  canImplement: (item: MessageStreamItem) => boolean;
-  implement: (item: MessageStreamItem) => Promise<void>;
+  implement: (itemId: string) => Promise<void>;
 }
 
 export interface ConversationTurnActions {
@@ -151,8 +150,7 @@ export function createConversationTurnActions(
 
   return {
     planImplementation: {
-      canImplement: (item) => canImplementPlan(stateStore.getState(), item),
-      implement: (item) => implementPlan(planImplementationHost, item),
+      implement: (itemId) => implementPlan(planImplementationHost, itemId),
     },
     composerSubmit: {
       submit: () => submitComposer(composerSubmitHost),
@@ -165,8 +163,8 @@ async function startThreadForGoal(actions: ConversationThreadStarter, objective:
   return response?.threadId ?? null;
 }
 
-export async function implementPlan(host: PlanImplementationHost, item: MessageStreamItem): Promise<void> {
-  if (!canImplementPlan(host.stateStore.getState(), item)) return;
+export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
+  if (!canImplementPlanItemId(host.stateStore.getState(), itemId)) return;
   await host.ensureConnected();
   if (!host.currentClient() || !activeThreadId(host.stateStore.getState())) return;
 

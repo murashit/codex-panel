@@ -63,8 +63,6 @@ export interface MessageStreamSemanticActions {
   isTurnOutcome: boolean;
 }
 
-export type MessageStreamRenderFamily = "text" | "toolResult" | "work";
-
 export interface MessageStreamSemanticClassification {
   item: MessageStreamItem;
   provenance?: MessageStreamItemProvenance;

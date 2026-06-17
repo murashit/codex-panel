@@ -1,22 +1,15 @@
 import { activeAgentRunSummary } from "./agent-summary";
-import { messageStreamRenderFamily } from "../../domain/message-stream/semantics";
 import {
   messageStreamIsCoordinationProgress,
-  messageStreamIsTaskProgress,
   messageStreamSemanticClassifications,
   type MessageStreamSemanticClassification,
 } from "../../domain/message-stream/semantics";
 import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type MessageStreamLayoutBlock } from "./layout";
-import { messageStreamTextView, type MessageStreamTextView, type TextMessageStreamItem } from "./text-view";
-import { toolResultView, type ToolResultMessageStreamItem, type ToolResultView } from "./tool-result-view";
-import {
-  agentRunSummaryView,
-  messageStreamWorkView,
-  type AgentRunSummaryView,
-  type MessageStreamWorkView,
-  type WorkMessageStreamItem,
-} from "./work-view";
+import { detailView, type DetailView } from "./detail-view";
+import { messageStreamRenderFamily } from "./render-family";
+import { messageStreamTextView, type MessageStreamTextActions, type MessageStreamTextView } from "./text-view";
+import { agentRunSummaryView, messageStreamStatusView, type AgentRunSummaryView, type MessageStreamStatusView } from "./status-view";
 import type { PendingRequestBlockSnapshot } from "../pending-requests/snapshot";
 
 interface PendingRequestMessageStreamBlockInput {
@@ -34,6 +27,7 @@ export interface MessageStreamPresentationBlockInput {
   activeItems?: readonly MessageStreamItem[] | undefined;
   workspaceRoot?: string | null | undefined;
   turnDiffs?: ReadonlyMap<string, string> | undefined;
+  textActionsByItemId?: ReadonlyMap<string, MessageStreamTextActions> | undefined;
   pendingRequests?: PendingRequestMessageStreamBlockInput | null | undefined;
 }
 
@@ -80,12 +74,12 @@ export type MessageStreamRenderedItemView =
       view: MessageStreamTextView;
     }
   | {
-      kind: "toolResult";
-      view: ToolResultView;
+      kind: "detail";
+      view: DetailView;
     }
   | {
-      kind: "work";
-      view: MessageStreamWorkView;
+      kind: "status";
+      view: MessageStreamStatusView;
     };
 
 export type MessageStreamActivityItemView =
@@ -203,7 +197,7 @@ function activeTurnLiveBlocks(
 
   return semanticItems.flatMap((classification): MessageStreamPresentationBlock[] => {
     const { item } = classification;
-    if (messageStreamIsTaskProgress(classification) && item.turnId === activeTurnId) {
+    if (isLiveTaskProgressItem(item, activeTurnId)) {
       return [
         {
           kind: "liveTask",
@@ -217,6 +211,10 @@ function activeTurnLiveBlocks(
     }
     return [];
   });
+}
+
+function isLiveTaskProgressItem(item: MessageStreamItem, activeTurnId: string): boolean {
+  return item.kind === "taskProgress" && item.turnId === activeTurnId;
 }
 
 function activeAgentRunSummaryAnchorId(items: readonly MessageStreamSemanticClassification[], activeTurnId: string): string | null {
@@ -243,7 +241,7 @@ function messageStreamViewBlockFromPresentationBlock(
   if (block.kind === "pendingRequests") return block;
   if (block.kind === "liveAgentSummary") return { kind: "liveAgentSummary", key: block.key, view: agentRunSummaryView(block.summary) };
   if (block.kind === "liveTask") {
-    return { kind: "work", key: block.key, view: messageStreamWorkView(block.item, workViewContext(input)) };
+    return { kind: "status", key: block.key, view: messageStreamStatusView(block.item, statusViewContext(input)) };
   }
   if (block.kind === "activityGroup") {
     return {
@@ -272,16 +270,23 @@ function messageStreamRenderedItemView(
   annotations?: MessageStreamItemAnnotations,
 ): MessageStreamRenderedItemView {
   const renderFamily = messageStreamRenderFamily(classification);
-  if (renderFamily === "text") return { kind: "text", view: messageStreamTextView(textItemFromSemantic(classification), annotations) };
-  if (renderFamily === "toolResult") {
-    return { kind: "toolResult", view: toolResultView(toolResultItemFromSemantic(classification), input.workspaceRoot) };
+  switch (renderFamily) {
+    case "text":
+      return {
+        kind: "text",
+        view: messageStreamTextView(classification.item, annotations, {
+          activeTurnId: input.activeTurnId,
+          ...definedProp("actions", input.textActionsByItemId?.get(classification.item.id)),
+        }),
+      };
+    case "detail":
+      return { kind: "detail", view: detailView(classification.item, input.workspaceRoot) };
+    case "status":
+      return { kind: "status", view: messageStreamStatusView(classification.item, statusViewContext(input)) };
   }
-  if (renderFamily === "work")
-    return { kind: "work", view: messageStreamWorkView(workItemFromSemantic(classification), workViewContext(input)) };
-  return unhandledClassification(classification);
 }
 
-function workViewContext(input: MessageStreamPresentationBlockInput): Parameters<typeof messageStreamWorkView>[1] {
+function statusViewContext(input: MessageStreamPresentationBlockInput): Parameters<typeof messageStreamStatusView>[1] {
   return {
     activeTurnId: input.activeTurnId,
     items: input.items,
@@ -289,31 +294,6 @@ function workViewContext(input: MessageStreamPresentationBlockInput): Parameters
   };
 }
 
-function textItemFromSemantic({ item }: MessageStreamSemanticClassification): TextMessageStreamItem {
-  if (item.kind === "message" || item.kind === "system" || item.kind === "userInputResult") return item;
-  throw new Error(`Message stream semantic expected text item: ${JSON.stringify(item)}`);
-}
-
-function toolResultItemFromSemantic({ item }: MessageStreamSemanticClassification): ToolResultMessageStreamItem {
-  if (
-    item.kind === "command" ||
-    item.kind === "fileChange" ||
-    item.kind === "goal" ||
-    item.kind === "tool" ||
-    item.kind === "hook" ||
-    item.kind === "approvalResult" ||
-    item.kind === "reviewResult"
-  ) {
-    return item;
-  }
-  throw new Error(`Message stream semantic expected tool result item: ${JSON.stringify(item)}`);
-}
-
-function workItemFromSemantic({ item }: MessageStreamSemanticClassification): WorkMessageStreamItem {
-  if (item.kind === "taskProgress" || item.kind === "agent" || item.kind === "reasoning" || item.kind === "contextCompaction") return item;
-  throw new Error(`Message stream semantic expected work item: ${JSON.stringify(item)}`);
-}
-
-function unhandledClassification(classification: MessageStreamSemanticClassification): never {
-  throw new Error(`Unhandled message stream classification: ${JSON.stringify(classification)}`);
+function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
+  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
 }
