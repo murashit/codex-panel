@@ -37,6 +37,8 @@ export interface SelectionRewritePopoverOptions {
   runtimeSettings: SelectionRewriteRuntimeSettings;
   sendShortcut: SendShortcut;
   state: SelectionRewriteState;
+  viewDocument: Document;
+  viewWindow: Window;
 }
 
 type Cleanup = () => void;
@@ -62,24 +64,24 @@ export class SelectionRewritePopover {
     const elements = this.createElements();
     this.elements = elements;
 
-    this.addDomListener(activeWindow, "resize", () => {
+    this.addDomListener(this.options.viewWindow, "resize", () => {
       this.position();
     });
     this.addDomListener(
-      activeWindow,
+      this.options.viewWindow,
       "scroll",
       () => {
         this.position();
       },
       true,
     );
-    this.addDomListener(activeDocument, "keydown", (event) => {
+    this.addDomListener(this.options.viewDocument, "keydown", (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
         this.cancel();
       }
     });
-    this.addDomListener(activeDocument, "pointerdown", (event) => {
+    this.addDomListener(this.options.viewDocument, "pointerdown", (event) => {
       if (!this.elements?.root.contains(event.target as Node | null)) this.cancel();
     });
 
@@ -127,7 +129,7 @@ export class SelectionRewritePopover {
   }
 
   private createElements(): SelectionRewriteElements {
-    const root = activeDocument.body.createDiv({ cls: "codex-panel-selection-rewrite" });
+    const root = this.options.viewDocument.body.createDiv({ cls: "codex-panel-selection-rewrite" });
     root.setAttr("role", "dialog");
     const elements: SelectionRewriteElements = { root, instruction: null, applyButton: null };
     this.renderView(elements);
@@ -172,7 +174,7 @@ export class SelectionRewritePopover {
 
   private position(): void {
     if (!this.elements) return;
-    if (!positionSelectionRewritePopover(this.elements.root, this.options.editor, POPOVER_MARGIN)) this.close();
+    if (!positionSelectionRewritePopover(this.elements.root, this.options.editor, this.options.viewWindow, POPOVER_MARGIN)) this.close();
   }
 
   private renderView(elements: SelectionRewriteElements | null = this.elements): void {

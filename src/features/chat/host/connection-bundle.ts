@@ -45,7 +45,6 @@ interface ChatPanelConnectionBundleHost {
   connectionWork: ConnectionWorkTracker;
   deferredTasks: ChatViewDeferredTasks;
   invalidateResumeWork: () => void;
-  loadSharedThreadList: () => Promise<void>;
   deferLiveStateRefresh: () => void;
   refreshTabHeader: () => void;
   refreshLiveState: () => void;
@@ -62,6 +61,7 @@ export interface ChatPanelConnectionBundle {
     metadata: ChatServerMetadataActions;
     diagnostics: ChatServerDiagnosticsActions;
   };
+  refreshSharedThreadList: () => Promise<void>;
 }
 
 function respondToCurrentServerRequest(currentClient: CurrentAppServerClient, requestId: RespondRequestId, result: unknown): boolean {
@@ -122,9 +122,13 @@ export function createConnectionBundle(
       void goalSync.syncThreadGoal(threadId);
     },
   });
+  const refreshSharedThreadList = async (): Promise<void> => {
+    const threads = await environment.plugin.threadCatalog.refresh();
+    serverThreads.applyThreadList(threads);
+  };
   const inboundController = new ChatInboundController(stateStore, {
     refreshActiveThreads: () => {
-      void host.loadSharedThreadList();
+      void refreshSharedThreadList();
     },
     refreshRateLimits: () => {
       void serverMetadata.refreshRateLimits({ preserveExistingOnFailure: true });
@@ -198,7 +202,7 @@ export function createConnectionBundle(
     diagnostics: {
       refreshDiagnosticProbes: (options) => serverDiagnostics.refreshDiagnosticProbes(options),
     },
-    loadSharedThreadList: () => host.loadSharedThreadList(),
+    refreshSharedThreadList,
     scheduleDeferredDiagnostics: () => {
       host.deferredTasks.scheduleDiagnostics(() => {
         if (connection.isConnected()) {
@@ -234,5 +238,6 @@ export function createConnectionBundle(
       metadata: serverMetadata,
       diagnostics: serverDiagnostics,
     },
+    refreshSharedThreadList,
   };
 }

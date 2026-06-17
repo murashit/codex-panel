@@ -57,6 +57,7 @@ describe("selection rewrite command", () => {
       getCursor: vi.fn((which: "from" | "to") => (which === "from" ? from : to)),
     };
     const view = new MarkdownView({} as never);
+    Object.assign(view, { containerEl: { doc: document } });
     view.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });
 
     registerSelectionRewriteCommand(plugin as never);

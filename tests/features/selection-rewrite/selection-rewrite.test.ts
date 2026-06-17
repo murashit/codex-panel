@@ -38,8 +38,6 @@ installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 beforeEach(() => {
-  Object.defineProperty(globalThis, "activeDocument", { configurable: true, value: document });
-  Object.defineProperty(globalThis, "activeWindow", { configurable: true, value: window });
   document.body.replaceChildren();
 });
 
@@ -624,6 +622,8 @@ function popoverOptions(
     runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
     sendShortcut: "enter",
     state: rewriteState(),
+    viewDocument: document,
+    viewWindow: window,
     ...overrides,
   };
 }

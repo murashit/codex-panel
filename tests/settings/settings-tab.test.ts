@@ -841,22 +841,27 @@ function settingsTabHost(
     }>;
   } = {},
 ): CodexPanelSettingTabHost {
+  const settings = {
+    codexPath: "codex",
+    threadNamingModel: options.settings?.threadNamingModel ?? null,
+    threadNamingEffort: options.settings?.threadNamingEffort ?? null,
+    rewriteSelectionModel: options.settings?.rewriteSelectionModel ?? null,
+    rewriteSelectionEffort: options.settings?.rewriteSelectionEffort ?? null,
+    showToolbar: true,
+    sendShortcut: options.sendShortcut ?? "enter",
+    scrollThreadFromComposerEdges: false,
+    archiveExportEnabled: false,
+    archiveExportFolderTemplate: "Codex Archives",
+    archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
+    archiveExportTags: "",
+  };
   return {
-    settings: {
-      codexPath: "codex",
-      threadNamingModel: options.settings?.threadNamingModel ?? null,
-      threadNamingEffort: options.settings?.threadNamingEffort ?? null,
-      rewriteSelectionModel: options.settings?.rewriteSelectionModel ?? null,
-      rewriteSelectionEffort: options.settings?.rewriteSelectionEffort ?? null,
-      showToolbar: true,
-      sendShortcut: options.sendShortcut ?? "enter",
-      scrollThreadFromComposerEdges: false,
-      archiveExportEnabled: false,
-      archiveExportFolderTemplate: "Codex Archives",
-      archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
-      archiveExportTags: "",
-    },
+    settings,
     vaultPath: "/vault",
+    clientAccess: {
+      withClient: <T>(operation: (client: never) => Promise<T>, clientOptions?: { unhandledServerRequestMessage?: string }) =>
+        withShortLivedAppServerClientMock(settings.codexPath, "/vault", operation, clientOptions) as Promise<T>,
+    },
     saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
     refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
     appServerData: {

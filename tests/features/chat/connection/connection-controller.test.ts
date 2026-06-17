@@ -42,7 +42,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
     metadata,
     diagnostics,
     invalidateResumeWork: vi.fn(),
-    loadSharedThreadList: vi.fn().mockResolvedValue(undefined),
+    refreshSharedThreadList: vi.fn().mockResolvedValue(undefined),
     scheduleDeferredDiagnostics: vi.fn(),
     clearDeferredDiagnostics: vi.fn(),
     refreshTabHeader: vi.fn(),
@@ -77,7 +77,7 @@ describe("ChatConnectionController", () => {
       userAgent: "test",
     });
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
-    expect(host.loadSharedThreadList).toHaveBeenCalledOnce();
+    expect(host.refreshSharedThreadList).toHaveBeenCalledOnce();
     expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
@@ -97,7 +97,7 @@ describe("ChatConnectionController", () => {
 
     await controller.refreshActiveThreads();
 
-    expect(host.loadSharedThreadList).toHaveBeenCalledOnce();
+    expect(host.refreshSharedThreadList).toHaveBeenCalledOnce();
     expect(refreshAppServerMetadata).not.toHaveBeenCalled();
   });
 

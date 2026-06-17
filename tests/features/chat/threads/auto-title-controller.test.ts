@@ -135,11 +135,13 @@ function controllerFixture(
   const currentClient = overrides.currentClient ?? (() => fakeClient());
   const notifyThreadRenamed = vi.fn();
   const titleService = createThreadTitleService({
-    settings: {
-      current: () => ({ ...DEFAULT_SETTINGS, codexPath: "codex" }),
-      vaultPath: "/vault",
+    codexPath: () => "codex",
+    vaultPath: "/vault",
+    threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
+    threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
+    clientAccess: {
+      withClient: async (operation) => operation(currentClient()),
     },
-    currentClient,
     visibleCompletedTurnContext: (turnId) =>
       threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(stateStore.getState().messageStream)),
     generateThreadTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),

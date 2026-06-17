@@ -47,8 +47,8 @@ describe("ThreadOperations", () => {
   it("does not notify surfaces when an operation has no current client", async () => {
     const { operations, catalog } = operationsFixture({ client: null });
 
-    await expect(operations.renameThread("thread", "Title")).resolves.toBe(false);
-    await expect(operations.archiveThread("thread")).resolves.toBeNull();
+    await expect(operations.renameThread("thread", "Title")).rejects.toThrow("No current client.");
+    await expect(operations.archiveThread("thread")).rejects.toThrow("No current client.");
 
     expect(catalog.recordThreadRenamed).not.toHaveBeenCalled();
     expect(catalog.recordThreadArchived).not.toHaveBeenCalled();
@@ -63,7 +63,7 @@ describe("ThreadOperations", () => {
       currentClient = secondClient;
     });
 
-    await expect(operations.renameThread("thread", "Title")).resolves.toBe(false);
+    await expect(operations.renameThread("thread", "Title")).rejects.toThrow("Client changed.");
 
     expect(catalog.recordThreadRenamed).not.toHaveBeenCalled();
   });
@@ -78,7 +78,7 @@ describe("ThreadOperations", () => {
       return { exportedPath: null } satisfies ArchiveThreadResult;
     });
 
-    await expect(operations.archiveThread("thread")).resolves.toBeNull();
+    await expect(operations.archiveThread("thread")).rejects.toThrow("Client changed.");
 
     expect(catalog.recordThreadArchived).not.toHaveBeenCalled();
   });
@@ -95,12 +95,18 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
   };
   const notice = vi.fn();
   const host: ThreadOperationsHost = {
-    connection: {
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
-      currentClient: () => currentClient() as AppServerClient | null,
+    clientAccess: {
+      withClient: async (operation) => {
+        const client = currentClient() as AppServerClient | null;
+        if (!client) throw new Error("No current client.");
+        const result = await operation(client);
+        if ((currentClient() as AppServerClient | null) !== client) throw new Error("Client changed.");
+        return result;
+      },
     },
-    settings: {
-      current: () => ({ ...DEFAULT_SETTINGS, archiveExportEnabled: false }),
+    archiveExport: {
+      settings: () => ({ ...DEFAULT_SETTINGS, archiveExportEnabled: false }),
+      enabled: () => false,
       vaultPath: "/vault",
     },
     archiveAdapter: () => archiveAdapterMock(),

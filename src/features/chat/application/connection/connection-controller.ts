@@ -33,7 +33,7 @@ export interface ChatConnectionControllerHost {
   metadata: ChatConnectionMetadataActions;
   diagnostics: ChatConnectionDiagnosticsActions;
   invalidateResumeWork: () => void;
-  loadSharedThreadList: () => Promise<void>;
+  refreshSharedThreadList: () => Promise<void>;
   scheduleDeferredDiagnostics: () => void;
   clearDeferredDiagnostics: () => void;
   refreshTabHeader: () => void;
@@ -107,7 +107,7 @@ async function ensureConnected(host: ChatConnectionControllerHost): Promise<void
 async function refreshActiveThreads(host: ChatConnectionControllerHost): Promise<void> {
   if (!host.connection.currentClient()) return;
   try {
-    await host.loadSharedThreadList();
+    await host.refreshSharedThreadList();
     host.refreshTabHeader();
   } catch (error) {
     if (isStaleAppServerSharedQueryContextError(error)) return;
@@ -154,7 +154,7 @@ async function initializeConnection(host: ChatConnectionControllerHost, connecti
     if (!client) throw new Error("Codex app-server connection did not initialize.");
     await host.metadata.refreshAppServerMetadata();
     if (host.connectionWork.isStale(connection)) return;
-    await host.loadSharedThreadList();
+    await host.refreshSharedThreadList();
     if (host.connectionWork.isStale(connection)) return;
     host.scheduleDeferredDiagnostics();
     host.refreshTabHeader();

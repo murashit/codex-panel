@@ -3,7 +3,7 @@ import type { App, WorkspaceLeaf } from "obsidian";
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { CodexChatView } from "../features/chat/host/view";
 import type { ChatWorkspacePanelSurface } from "../features/chat/host/surface-handle";
-import type { ChatPanelSnapshot, OpenCodexPanelSnapshot } from "./open-panel-snapshot";
+import type { ChatPanelSnapshot } from "../features/chat/panel/snapshot";
 
 const BOOT_RESTORED_PANEL_LOAD_DELAY_MS = 1_000;
 const BOOT_RESTORED_PANEL_LOAD_STAGGER_MS = 250;
@@ -37,6 +37,10 @@ type ThreadPanelTarget =
     };
 
 type BootRestoredPanelLoadLifecycleState = { kind: "idle" } | { kind: "scheduled"; timers: Set<number> } | { kind: "cancelled" };
+
+export interface OpenCodexPanelSnapshot extends ChatPanelSnapshot {
+  lastFocused: boolean;
+}
 
 export interface WorkspacePanelCoordinatorOptions {
   app: App;

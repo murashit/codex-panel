@@ -38,6 +38,10 @@ class FakeTransport implements AppServerTransport {
     this.running = false;
     this.handlers.onExit(code, signal);
   }
+
+  emitError(error: Error): void {
+    this.handlers.onError(error);
+  }
 }
 
 async function connectedClient(): Promise<{ client: AppServerClient; transport: FakeTransport }> {
@@ -210,6 +214,65 @@ describe("AppServerClient", () => {
     expect(client.isConnected()).toBe(false);
     expect(() => client.initializeResponse).toThrow("Codex app-server has not initialized.");
     await expect(listing).rejects.toThrow("Codex app-server disconnected.");
+  });
+
+  it("does not notify external exit handlers for intentional disconnect exits", async () => {
+    let transport!: FakeTransport;
+    const onExit = vi.fn();
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit,
+      },
+      500,
+      (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    );
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    client.disconnect();
+    transport.emitExit(0);
+
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it("fails active transports on transport error without waiting for exit", async () => {
+    let transport!: FakeTransport;
+    const onExit = vi.fn();
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit,
+      },
+      500,
+      (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    );
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+    const listing = client.listModels();
+
+    transport.emitError(new Error("transport failed"));
+
+    expect(client.isConnected()).toBe(false);
+    expect(transport.isRunning()).toBe(false);
+    await expect(listing).rejects.toThrow("transport failed");
+    expect(onExit).not.toHaveBeenCalled();
   });
 
   it("sends typed turn steering requests", async () => {

@@ -173,6 +173,7 @@ function appServerTurnRuntimeParams(runtime: AppServerTurnRuntimeOverrides | und
 export class AppServerClient {
   private lifecycle: AppServerClientLifecycleState = { kind: "disconnected" };
   private readonly rpc: JsonRpcClient;
+  private readonly intentionallyStoppedTransports = new WeakSet<AppServerTransport>();
 
   constructor(
     private readonly codexPath: string,
@@ -197,21 +198,30 @@ export class AppServerClient {
       throw new Error("Codex app-server is already running.");
     }
 
+    let transport: AppServerTransport;
     const transportHandlers: AppServerTransportHandlers = {
       onLine: (line) => {
+        if (!this.isActiveTransport(transport)) return;
         this.rpc.handleLine(line);
       },
-      onLog: this.handlers.onLog,
+      onLog: (message) => {
+        if (!this.isActiveTransport(transport)) return;
+        this.handlers.onLog(message);
+      },
       onError: (error) => {
-        this.rpc.rejectAll(error);
+        if (!this.isActiveTransport(transport)) return;
+        this.failActiveTransport(transport, error);
       },
       onExit: (code, signal) => {
+        if (!this.isActiveTransport(transport)) return;
+        const intentional = this.intentionallyStoppedTransports.has(transport);
         this.lifecycle = { kind: "disconnected" };
         this.rpc.rejectAll(new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`));
+        if (intentional) return;
         this.handlers.onExit(code, signal);
       },
     };
-    const transport = this.transportFactory
+    transport = this.transportFactory
       ? this.transportFactory(transportHandlers)
       : new StdioAppServerTransport(this.codexPath, this.cwd, transportHandlers);
     this.lifecycle = { kind: "starting", transport };
@@ -234,9 +244,12 @@ export class AppServerClient {
   }
 
   disconnect(): void {
-    this.activeTransport()?.stop();
+    const transport = this.activeTransport();
     this.lifecycle = { kind: "disconnected" };
     this.rpc.rejectAll(new Error("Codex app-server disconnected."));
+    if (!transport) return;
+    this.intentionallyStoppedTransports.add(transport);
+    transport.stop();
   }
 
   isConnected(): boolean {
@@ -515,5 +528,17 @@ export class AppServerClient {
 
   private activeTransport(): AppServerTransport | null {
     return this.lifecycle.kind === "disconnected" ? null : this.lifecycle.transport;
+  }
+
+  private isActiveTransport(transport: AppServerTransport): boolean {
+    return this.activeTransport() === transport;
+  }
+
+  private failActiveTransport(transport: AppServerTransport, error: Error): void {
+    if (!this.isActiveTransport(transport)) return;
+    this.lifecycle = { kind: "disconnected" };
+    this.rpc.rejectAll(error);
+    this.intentionallyStoppedTransports.add(transport);
+    transport.stop();
   }
 }

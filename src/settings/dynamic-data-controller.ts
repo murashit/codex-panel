@@ -1,7 +1,6 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerObservedQueryResult } from "../app-server/query/cache";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
-import { withShortLivedAppServerClient } from "../app-server/connection/short-lived-client";
 import { setHookItemEnabled, trustHookItem } from "../app-server/catalog";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
@@ -440,7 +439,7 @@ export class SettingsDynamicDataController {
   }
 
   private async withSettingsConnection<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    return withShortLivedAppServerClient(this.host.settings.codexPath, this.host.vaultPath, operation, {
+    return this.host.clientAccess.withClient(operation, {
       unhandledServerRequestMessage: "Codex Panel settings does not handle server requests.",
     });
   }

@@ -1,4 +1,4 @@
-import type { OpenCodexPanelSnapshot } from "../../workspace/open-panel-snapshot";
+import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import type { Thread } from "../../domain/threads/model";
 import { explicitThreadName, getThreadTitle } from "../../domain/threads/model";
 

@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../app-server/connection/client";
+import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import { generateThreadTitleWithCodex } from "../../app-server/services/thread-title-generation";
 import { readCompletedConversationSummariesPage } from "../../app-server/threads";
 import type { ThreadConversationSummary } from "../../domain/threads/transcript";
@@ -8,14 +8,14 @@ import {
   threadTitleContextFromConversationSummary,
   type ThreadTitleContext,
 } from "../../domain/threads/title-generation-model";
-import type { CodexPanelSettings } from "../../settings/model";
+import type { ReasoningEffort } from "../../domain/catalog/metadata";
 
 export interface ThreadTitleServiceHost {
-  settings: {
-    current(): CodexPanelSettings;
-    vaultPath: string;
-  };
-  currentClient(): AppServerClient | null;
+  codexPath: () => string;
+  vaultPath: string;
+  threadNamingModel: () => string | null;
+  threadNamingEffort: () => ReasoningEffort | null;
+  clientAccess: AppServerClientAccess;
   visibleContext?(threadId: string): ThreadTitleContext | null;
   visibleCompletedTurnContext?(turnId: string): ThreadTitleContext | null;
   generateThreadTitle?(context: ThreadTitleContext): Promise<string | null>;
@@ -47,14 +47,17 @@ async function generateTitle(host: ThreadTitleServiceHost, threadId: string): Pr
 }
 
 async function resolveThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {
-  const client = host.currentClient();
-  const persistedContext = client
-    ? await findThreadTitleContext({
-        threadId,
-        readTurns: (id, cursor, limit, sortDirection) => readCompletedConversationSummariesPage(client, id, cursor, limit, sortDirection),
-      })
-    : null;
+  const persistedContext = await persistedThreadTitleContext(host, threadId);
   return persistedContext ?? host.visibleContext?.(threadId) ?? null;
+}
+
+async function persistedThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {
+  return host.clientAccess.withClient((client) =>
+    findThreadTitleContext({
+      threadId,
+      readTurns: (id, cursor, limit, sortDirection) => readCompletedConversationSummariesPage(client, id, cursor, limit, sortDirection),
+    }),
+  );
 }
 
 function completedTurnContext(
@@ -69,9 +72,8 @@ function completedTurnContext(
 
 async function generateTitleFromContext(host: ThreadTitleServiceHost, context: ThreadTitleContext): Promise<string | null> {
   if (host.generateThreadTitle) return host.generateThreadTitle(context);
-  const settings = host.settings.current();
-  return generateThreadTitleWithCodex(settings.codexPath, host.settings.vaultPath, context, {
-    threadNamingModel: settings.threadNamingModel,
-    threadNamingEffort: settings.threadNamingEffort,
+  return generateThreadTitleWithCodex(host.codexPath(), host.vaultPath, context, {
+    threadNamingModel: host.threadNamingModel(),
+    threadNamingEffort: host.threadNamingEffort(),
   });
 }

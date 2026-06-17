@@ -1,16 +1,13 @@
-import type { AppServerClient } from "../../app-server/connection/client";
+import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import { archiveThreadOnAppServer, type ArchiveThreadResult } from "../../app-server/services/thread-archive";
-import type { ArchiveExportAdapter } from "../../domain/threads/archive-markdown";
+import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../domain/threads/model";
-import type { CodexPanelSettings } from "../../settings/model";
 
 export interface ThreadOperationsHost {
-  connection: {
-    ensureConnected(): Promise<void>;
-    currentClient(): AppServerClient | null;
-  };
-  settings: {
-    current(): CodexPanelSettings;
+  clientAccess: AppServerClientAccess;
+  archiveExport: {
+    settings(): ArchiveExportSettings;
+    enabled(): boolean;
     vaultPath: string;
   };
   archiveAdapter(): ArchiveExportAdapter;
@@ -51,12 +48,7 @@ async function renameThread(
   const name = normalizeExplicitThreadName(value);
   if (!name) return false;
 
-  await host.connection.ensureConnected();
-  const client = host.connection.currentClient();
-  if (!client) return false;
-
-  await client.setThreadName(threadId, name);
-  if (host.connection.currentClient() !== client) return false;
+  await host.clientAccess.withClient((client) => client.setThreadName(threadId, name));
   if (options.shouldPublish?.() ?? true) {
     host.catalog.recordThreadRenamed(threadId, name);
   }
@@ -68,18 +60,15 @@ async function archiveThread(
   threadId: string,
   options: ArchiveThreadOptions = {},
 ): Promise<ArchiveThreadResult | null> {
-  await host.connection.ensureConnected();
-  const client = host.connection.currentClient();
-  if (!client) return null;
-
-  const settings = host.settings.current();
-  const result = await archiveThreadOnAppServer(client, threadId, {
-    settings,
-    vaultPath: host.settings.vaultPath,
-    archiveAdapter: () => host.archiveAdapter(),
-    saveMarkdown: options.saveMarkdown ?? settings.archiveExportEnabled,
-  });
-  if (host.connection.currentClient() !== client) return null;
+  const archiveSettings = host.archiveExport.settings();
+  const result = await host.clientAccess.withClient((client) =>
+    archiveThreadOnAppServer(client, threadId, {
+      settings: archiveSettings,
+      vaultPath: host.archiveExport.vaultPath,
+      archiveAdapter: () => host.archiveAdapter(),
+      saveMarkdown: options.saveMarkdown ?? host.archiveExport.enabled(),
+    }),
+  );
   if (result.exportedPath) {
     host.notice(`Saved archived thread to ${result.exportedPath}.`);
   }

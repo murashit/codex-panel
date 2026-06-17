@@ -105,8 +105,6 @@ function threadPickerHost(threads: readonly Thread[]): TestThreadPickerHost {
   const openedAvailable: string[] = [];
   return {
     app: {} as never,
-    settings: { codexPath: "codex" } as never,
-    vaultPath: "/vault",
     openedCurrent,
     openedAvailable,
     threadCatalog: {

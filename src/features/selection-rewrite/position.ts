@@ -1,15 +1,15 @@
 import type { Editor } from "obsidian";
 
-export function positionSelectionRewritePopover(root: HTMLElement, editor: Editor, margin: number): boolean {
+export function positionSelectionRewritePopover(root: HTMLElement, editor: Editor, viewWindow: Window, margin: number): boolean {
   if (!root.isConnected) return false;
 
   const view = editorViewFromEditor(editor);
   if (view?.dom instanceof HTMLElement && !view.dom.isConnected) return false;
 
-  const anchor = selectionRect() ?? editorCursorRect(editor) ?? root.ownerDocument.body.getBoundingClientRect();
+  const anchor = selectionRect(viewWindow) ?? editorCursorRect(editor) ?? root.ownerDocument.body.getBoundingClientRect();
   const size = root.getBoundingClientRect();
-  const viewportWidth = activeWindow.innerWidth;
-  const viewportHeight = activeWindow.innerHeight;
+  const viewportWidth = viewWindow.innerWidth;
+  const viewportHeight = viewWindow.innerHeight;
   const left = clamp(anchor.left, margin, viewportWidth - size.width - margin);
   const belowTop = anchor.bottom + margin;
   const aboveTop = anchor.top - size.height - margin;
@@ -20,8 +20,8 @@ export function positionSelectionRewritePopover(root: HTMLElement, editor: Edito
   return true;
 }
 
-function selectionRect(): DOMRect | null {
-  const selection = activeWindow.getSelection();
+function selectionRect(viewWindow: Window): DOMRect | null {
+  const selection = viewWindow.getSelection();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
   const rect = selection.getRangeAt(0).getBoundingClientRect();
   return rect.width > 0 || rect.height > 0 ? rect : null;

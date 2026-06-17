@@ -1,4 +1,3 @@
-import type { CodexPanelSettings } from "../../../../settings/model";
 import type { ChatConnectionController } from "../../application/connection/connection-controller";
 import type { ChatInboundController } from "../../app-server/inbound/controller";
 import type { GoalActions } from "../../application/threads/goal-actions";
@@ -31,7 +30,7 @@ export interface ChatPanelGoalSurface {
 }
 
 export interface ChatPanelGoalSurfaceHost {
-  settings: CodexPanelSettings;
+  sendShortcut: () => SendShortcut;
   stateStore: ChatStateStore;
 }
 
@@ -60,7 +59,7 @@ export function createChatPanelGoalSurface(host: ChatPanelGoalSurfaceHost, deps:
 
   return {
     settings: {
-      sendShortcut: () => host.settings.sendShortcut,
+      sendShortcut: host.sendShortcut,
     },
     actions: {
       goal: {

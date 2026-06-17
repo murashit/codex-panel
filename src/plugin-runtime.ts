@@ -4,6 +4,7 @@ import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants"
 import { AppServerQueryCache } from "./app-server/query/cache";
 import { AppServerSharedQueries } from "./app-server/query/shared-queries";
 import type { AppServerClient } from "./app-server/connection/client";
+import type { AppServerClientAccess } from "./app-server/connection/client-access";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
 import { appServerQueryContextIsComplete, type AppServerQueryContext } from "./app-server/query/keys";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
@@ -28,7 +29,7 @@ export interface CodexPanelRuntimeOptions {
   saveSettings(): Promise<void>;
 }
 
-export class CodexPanelRuntime {
+export class CodexPanelRuntime implements AppServerClientAccess {
   private readonly appServerQueries = new AppServerQueryCache({
     clientRunner: {
       runWithClient: (context, operation, options) => this.runWithAppServerClient(context, operation, options),
@@ -126,6 +127,7 @@ export class CodexPanelRuntime {
     return {
       settings: this.options.settingsRef.settings,
       vaultPath: this.options.settingsRef.vaultPath,
+      clientAccess: this,
       threadCatalog: this.threadCatalog,
       openNewPanel: () => this.panels.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
@@ -137,6 +139,7 @@ export class CodexPanelRuntime {
     return {
       settings: this.options.settingsRef.settings,
       vaultPath: this.options.settingsRef.vaultPath,
+      clientAccess: this,
       saveSettings: () => this.options.saveSettings(),
       refreshOpenViews: () => {
         this.refreshOpenViews();
@@ -149,12 +152,14 @@ export class CodexPanelRuntime {
   private threadPickerHost(): ThreadPickerHost {
     return {
       app: this.options.app,
-      settings: this.options.settingsRef.settings,
-      vaultPath: this.options.settingsRef.vaultPath,
       threadCatalog: this.threadCatalog,
       openThreadInCurrentView: (threadId) => this.panels.openThreadInCurrentView(threadId),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
     };
+  }
+
+  withClient<T>(operation: (client: AppServerClient) => Promise<T>, options: { unhandledServerRequestMessage?: string } = {}): Promise<T> {
+    return this.runWithAppServerClient(this.appServerQueryContext(), operation, options);
   }
 
   private async openTurnDiff(state: ChatTurnDiffViewState): Promise<void> {

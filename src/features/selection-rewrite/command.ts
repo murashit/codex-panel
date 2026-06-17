@@ -34,6 +34,12 @@ export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandH
         new Notice("Select text to rewrite first.");
         return;
       }
+      const viewDocument = view.containerEl.doc;
+      const viewWindow = viewDocument.defaultView;
+      if (!viewWindow) {
+        new Notice("Could not open rewrite popover for this note.");
+        return;
+      }
 
       const rewriteState: SelectionRewriteState = {
         filePath: view.file.path,
@@ -61,6 +67,8 @@ export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandH
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,
         state: rewriteState,
+        viewDocument,
+        viewWindow,
       });
       popover.open();
       activePopovers.add(popover);

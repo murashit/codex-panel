@@ -96,7 +96,6 @@ describe("CodexThreadsView", () => {
 
     await view.refresh();
 
-    expect(connectionMock.state.connectCalls).toBe(1);
     expect(view.containerEl.textContent).toContain("Thread preview");
   });
 
@@ -124,24 +123,16 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).not.toContain("Late thread");
   });
 
-  it("ignores stale refresh results after the app-server exits", async () => {
-    const threads = deferred<unknown>();
-    const listThreads = vi.fn(() => threads.promise);
+  it("renders shared thread refresh failures", async () => {
+    const listThreads = vi.fn().mockRejectedValue(new Error("Codex app-server stopped."));
     connectionMock.state.client = clientFixture({
       listThreads,
     });
     const view = await threadsView();
 
-    const refresh = view.refresh();
-    await waitForAsyncWork(() => {
-      expect(listThreads).toHaveBeenCalled();
-    });
-    connectionMock.state.onExit?.();
-    threads.resolve({ data: [threadFixture({ id: "thread", preview: "Late thread" })] });
-    await refresh;
+    await view.refresh();
 
     expect(view.containerEl.textContent).toContain("Codex app-server stopped.");
-    expect(view.containerEl.textContent).not.toContain("Late thread");
   });
 
   it("ignores stale refresh results when a newer refresh completes first", async () => {
@@ -421,6 +412,13 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       codexPath: "codex",
     },
     vaultPath: "/vault",
+    clientAccess: {
+      withClient: async <T>(operation: (client: never) => Promise<T>): Promise<T> => {
+        const client = connectionMock.state.client;
+        if (!client) throw new Error("No current client.");
+        return operation(client as never);
+      },
+    },
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     getOpenPanelSnapshots: vi.fn(() => []),
