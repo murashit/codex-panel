@@ -14,6 +14,14 @@ import { installObsidianDomShims } from "./support/dom";
 
 installObsidianDomShims();
 
+const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
+  withShortLivedAppServerClientMock: vi.fn(),
+}));
+
+vi.mock("../src/app-server/connection/short-lived-client", () => ({
+  withShortLivedAppServerClient: withShortLivedAppServerClientMock,
+}));
+
 function panels(plugin: CodexPanelPlugin) {
   return new WorkspacePanelCoordinator({
     app: plugin.app,
@@ -28,6 +36,7 @@ function threadCatalog(plugin: CodexPanelPlugin) {
 describe("CodexPanelPlugin boot restored panel loading", () => {
   beforeEach(() => {
     vi.useRealTimers();
+    withShortLivedAppServerClientMock.mockReset();
   });
 
   it("loads restored Codex panel leaves after startup without blocking onload", async () => {
@@ -503,6 +512,33 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     expect(runWithAppServerClient).toHaveBeenCalledTimes(2);
     expect(threadCatalog(plugin).snapshot()).toEqual([thread("cached")]);
+  });
+
+  it("uses a short-lived client when the operation declares an unhandled server-request policy", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const connectedLeaf = leaf();
+    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
+    const connectedView = connectedLeaf.view as CodexChatView;
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient").mockResolvedValue("chat-result");
+    const shortLivedClient = { readEffectiveConfig: vi.fn().mockResolvedValue({}) };
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _vaultPath: string, operation: (client: typeof shortLivedClient) => Promise<unknown>) =>
+        operation(shortLivedClient),
+    );
+    const plugin = await pluginWithLeaves([connectedLeaf]);
+    plugin.settings.codexPath = "codex";
+
+    const result = await plugin.runtime.withClient((client) => client.readEffectiveConfig("/vault") as Promise<unknown>, {
+      unhandledServerRequestMessage: "Settings refresh does not handle server requests.",
+    });
+
+    expect(result).toEqual({});
+    expect(runWithAppServerClient).not.toHaveBeenCalled();
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith("codex", "/vault", expect.any(Function), {
+      unhandledServerRequestMessage: "Settings refresh does not handle server requests.",
+    });
+    expect(shortLivedClient.readEffectiveConfig).toHaveBeenCalledWith("/vault");
   });
 
   it("refreshes shared thread lists from a remaining connected panel after the archived panel is detached", async () => {

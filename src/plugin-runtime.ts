@@ -229,6 +229,9 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     if (!appServerQueryContextIsComplete(context)) {
       throw new Error("Codex app-server query context is incomplete.");
     }
+    if (options.unhandledServerRequestMessage !== undefined) {
+      return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
+    }
     const chatSurface = this.connectedClientSurface();
     if (chatSurface) return chatSurface.runWithAppServerClient(operation);
     return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
