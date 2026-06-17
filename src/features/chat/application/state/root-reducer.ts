@@ -38,14 +38,13 @@ import type {
   ClearLocalTurnAction,
   ConnectionInitializedAction,
   ThreadListAppliedAction,
-  MessageStreamItemAddedAction,
   TurnOptimisticStartedAction,
   TurnStartAcknowledgedAction,
   TurnStartFailedAction,
-  UserInputDraftSetAction,
 } from "./actions";
 import {
   initialChatMessageStreamState,
+  isMessageStreamAction,
   messageStreamItems,
   messageStreamStartActiveSegment,
   messageStreamWithActiveTurnItems,
@@ -57,6 +56,7 @@ import {
 } from "./message-stream";
 import {
   initialChatRequestState,
+  isRequestAction,
   reduceRequestSlice,
   resolveChatRequest,
   type ChatRequestState,
@@ -246,9 +246,7 @@ type ChatSliceAction =
   | ActiveThreadAction
   | RuntimeAction
   | RequestAction
-  | UserInputDraftSetAction
   | MessageStreamAction
-  | MessageStreamItemAddedAction
   | ComposerAction
   | UiAction;
 
@@ -291,9 +289,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 function reduceChatTransition(state: ChatState, action: ChatTransitionAction): ChatState {
   switch (action.type) {
     case "connection/scoped-cleared":
-      return reduceDisconnectedConnectionStateClearedTransition(state);
+      return clearConnectionScopedState(state);
     case "active-thread/cleared":
-      return reduceActiveThreadClearedTransition(state);
+      return clearThreadScopedState(state);
     case "active-thread/resumed":
       return reduceActiveThreadResumedTransition(state, action);
     case "active-thread/settings-applied":
@@ -307,7 +305,7 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
     case "turn/completed":
       return reduceTurnCompletedTransition(state, action);
     case "turn/scoped-cleared":
-      return reduceTurnScopedClearedTransition(state);
+      return clearTurnScopedState(state);
     case "turn/optimistic-started":
       return reduceTurnOptimisticStartedTransition(state, action);
     case "turn/start-acknowledged":
@@ -321,17 +319,10 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
   }
 }
 
-function reduceDisconnectedConnectionStateClearedTransition(state: ChatState): ChatState {
-  return clearDisconnectedConnectionState(state);
-}
-
-function reduceActiveThreadClearedTransition(state: ChatState): ChatState {
-  return clearActiveThreadState(state);
-}
-
 function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThreadResumedAction): ChatState {
   const runtimeBase = action.preserveRequestedRuntimeSettings ? state.runtime : initialChatRuntimeState();
-  return patchChatState(clearActiveTurnState(state), {
+  const turnScopedState = clearTurnScopedState(state);
+  return patchChatState(turnScopedState, {
     connection: {
       ...state.connection,
       statusText: action.status ?? state.connection.statusText,
@@ -385,7 +376,7 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
 }
 
 function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, action: ActiveThreadRestoredPlaceholderAction): ChatState {
-  return clearActiveTurnState(
+  return clearTurnScopedState(
     patchChatState(state, {
       activeThread: {
         id: action.threadId,
@@ -430,10 +421,6 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
     messageStream: messageStreamWithItems(state.messageStream, action.items),
     connection: { ...state.connection, statusText: turnCompletedStatus(action.status) },
   });
-}
-
-function reduceTurnScopedClearedTransition(state: ChatState): ChatState {
-  return clearActiveTurnState(state);
 }
 
 function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOptimisticStartedAction): ChatState {
@@ -489,6 +476,44 @@ function reduceRequestResolvedTransition(state: ChatState, action: RequestResolv
     messageStream: action.resultItem
       ? reduceMessageStreamSlice(state.messageStream, { type: "message-stream/item-added", item: action.resultItem })
       : state.messageStream,
+  });
+}
+
+function clearTurnScopedState(state: ChatState): ChatState {
+  return patchChatState(state, {
+    turn: {
+      lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
+    },
+    messageStream: messageStreamWithItems(state.messageStream, messageStreamItems(state.messageStream)),
+    requests: initialRequestState(),
+    ui: clearAllRequestDisclosures(state.ui),
+  });
+}
+
+function clearThreadScopedState(state: ChatState): ChatState {
+  return clearTurnScopedState(
+    patchChatState(state, {
+      activeThread: initialActiveThreadState(),
+      runtime: initialChatRuntimeState(),
+      messageStream: initialMessageStreamState(),
+      composer: initialComposerState(),
+      ui: initialUiState(),
+    }),
+  );
+}
+
+function clearConnectionScopedState(state: ChatState): ChatState {
+  return patchChatState(clearTurnScopedState(state), {
+    activeThread: initialActiveThreadState(),
+    runtime: initialChatRuntimeState(),
+    connection: {
+      ...state.connection,
+      serverDiagnostics: createServerDiagnostics(),
+      rateLimit: null,
+      availableModels: [],
+      availableSkills: [],
+    },
+    threadList: initialThreadListState(),
   });
 }
 
@@ -601,44 +626,6 @@ function reduceComposerSlice(state: ChatComposerState, action: ChatSliceAction):
   }
 }
 
-function clearActiveTurnState(state: ChatState): ChatState {
-  return patchChatState(state, {
-    turn: {
-      lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
-    },
-    messageStream: messageStreamWithItems(state.messageStream, messageStreamItems(state.messageStream)),
-    requests: initialRequestState(),
-    ui: clearAllRequestDisclosures(state.ui),
-  });
-}
-
-function clearActiveThreadState(state: ChatState): ChatState {
-  return clearActiveTurnState(
-    patchChatState(state, {
-      activeThread: initialActiveThreadState(),
-      runtime: initialChatRuntimeState(),
-      messageStream: initialMessageStreamState(),
-      composer: initialComposerState(),
-      ui: initialUiState(),
-    }),
-  );
-}
-
-function clearDisconnectedConnectionState(state: ChatState): ChatState {
-  return patchChatState(clearActiveTurnState(state), {
-    activeThread: initialActiveThreadState(),
-    runtime: initialChatRuntimeState(),
-    connection: {
-      ...state.connection,
-      serverDiagnostics: createServerDiagnostics(),
-      rateLimit: null,
-      availableModels: [],
-      availableSkills: [],
-    },
-    threadList: initialThreadListState(),
-  });
-}
-
 function initialConnectionState(): ChatConnectionState {
   return {
     phase: { kind: "idle" },
@@ -747,38 +734,6 @@ function cloneActiveSegment(segment: ChatMessageStreamActiveSegment | null): Cha
     indexById: new Map(segment.indexById),
     indexBySourceItemId: new Map(segment.indexBySourceItemId),
   };
-}
-
-function isMessageStreamAction(action: ChatSliceAction): action is MessageStreamAction {
-  switch (action.type) {
-    case "message-stream/item-added":
-    case "message-stream/system-item-added":
-    case "message-stream/deduped-log-added":
-    case "message-stream/history-loading-set":
-    case "message-stream/items-replaced":
-    case "message-stream/item-upserted":
-    case "message-stream/reasoning-completed":
-    case "message-stream/assistant-delta-appended":
-    case "message-stream/plan-delta-appended":
-    case "message-stream/item-text-appended":
-    case "message-stream/tool-output-appended":
-    case "message-stream/item-output-appended":
-    case "message-stream/turn-diff-updated":
-      return true;
-    default:
-      return false;
-  }
-}
-
-function isRequestAction(action: ChatSliceAction): action is RequestAction {
-  switch (action.type) {
-    case "request/approval-queued":
-    case "request/user-input-queued":
-    case "request/user-input-draft-set":
-      return true;
-    default:
-      return false;
-  }
 }
 
 function setComposerSuggestionsSlice(

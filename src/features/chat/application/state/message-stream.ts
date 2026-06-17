@@ -70,6 +70,27 @@ export type MessageStreamAction =
     }
   | { type: "message-stream/turn-diff-updated"; turnId: string; diff: string };
 
+export function isMessageStreamAction(action: { type: string }): action is MessageStreamAction {
+  switch (action.type) {
+    case "message-stream/item-added":
+    case "message-stream/system-item-added":
+    case "message-stream/deduped-log-added":
+    case "message-stream/history-loading-set":
+    case "message-stream/items-replaced":
+    case "message-stream/item-upserted":
+    case "message-stream/reasoning-completed":
+    case "message-stream/assistant-delta-appended":
+    case "message-stream/plan-delta-appended":
+    case "message-stream/item-text-appended":
+    case "message-stream/tool-output-appended":
+    case "message-stream/item-output-appended":
+    case "message-stream/turn-diff-updated":
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function initialChatMessageStreamState(items: readonly MessageStreamItem[] = []): ChatMessageStreamState {
   return {
     stableItems: items,

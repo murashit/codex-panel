@@ -17,6 +17,17 @@ export type RequestAction =
   | { type: "request/user-input-queued"; input: PendingUserInput }
   | { type: "request/user-input-draft-set"; key: string; value: string };
 
+export function isRequestAction(action: { type: string }): action is RequestAction {
+  switch (action.type) {
+    case "request/approval-queued":
+    case "request/user-input-queued":
+    case "request/user-input-draft-set":
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function initialChatRequestState(): ChatRequestState {
   return {
     approvals: [],

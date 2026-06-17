@@ -28,24 +28,19 @@ interface ChatMessageActionsUiState {
   readonly forkActionsItemId: string | null;
 }
 
-export type ChatDisclosureBucket =
-  | "toolResults"
-  | "activityGroups"
-  | "agentDetails"
-  | "textDetails"
-  | "userMessageExpanded"
-  | "goalObjectiveExpanded"
-  | "approvalDetails";
+const CHAT_DISCLOSURE_BUCKETS = [
+  "toolResults",
+  "activityGroups",
+  "agentDetails",
+  "textDetails",
+  "userMessageExpanded",
+  "goalObjectiveExpanded",
+  "approvalDetails",
+] as const;
 
-export interface ChatDisclosureUiState {
-  readonly toolResults: ReadonlySet<string>;
-  readonly activityGroups: ReadonlySet<string>;
-  readonly agentDetails: ReadonlySet<string>;
-  readonly textDetails: ReadonlySet<string>;
-  readonly userMessageExpanded: ReadonlySet<string>;
-  readonly goalObjectiveExpanded: ReadonlySet<string>;
-  readonly approvalDetails: ReadonlySet<string>;
-}
+export type ChatDisclosureBucket = (typeof CHAT_DISCLOSURE_BUCKETS)[number];
+
+export type ChatDisclosureUiState = Readonly<Record<ChatDisclosureBucket, ReadonlySet<string>>>;
 
 export interface ChatUiState {
   readonly toolbarPanel: "history" | "chat-actions" | "status-panel" | null;
@@ -152,15 +147,7 @@ export function reduceUiSlice(state: ChatUiState, action: UiAction): ChatUiState
 }
 
 export function cloneDisclosureUiState(state: ChatDisclosureUiState): ChatDisclosureUiState {
-  return {
-    toolResults: new Set(state.toolResults),
-    activityGroups: new Set(state.activityGroups),
-    agentDetails: new Set(state.agentDetails),
-    textDetails: new Set(state.textDetails),
-    userMessageExpanded: new Set(state.userMessageExpanded),
-    goalObjectiveExpanded: new Set(state.goalObjectiveExpanded),
-    approvalDetails: new Set(state.approvalDetails),
-  };
+  return disclosureUiStateFrom((bucket) => new Set(state[bucket]));
 }
 
 export function maybeClearGoalObjectiveExpansion(
@@ -247,15 +234,15 @@ function initialMessageActionsUiState(): ChatMessageActionsUiState {
 }
 
 function initialDisclosureUiState(): ChatDisclosureUiState {
-  return {
-    toolResults: new Set(),
-    activityGroups: new Set(),
-    agentDetails: new Set(),
-    textDetails: new Set(),
-    userMessageExpanded: new Set(),
-    goalObjectiveExpanded: new Set(),
-    approvalDetails: new Set(),
-  };
+  return disclosureUiStateFrom(() => new Set());
+}
+
+function disclosureUiStateFrom(factory: (bucket: ChatDisclosureBucket) => ReadonlySet<string>): ChatDisclosureUiState {
+  const disclosures = {} as Record<ChatDisclosureBucket, ReadonlySet<string>>;
+  for (const bucket of CHAT_DISCLOSURE_BUCKETS) {
+    disclosures[bucket] = factory(bucket);
+  }
+  return disclosures;
 }
 
 function goalObjectiveResetKey(goal: ThreadGoal | null): string {

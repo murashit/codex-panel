@@ -88,12 +88,6 @@ export interface DisclosureSetAction {
   open: boolean;
 }
 
-export interface UserInputDraftSetAction {
-  type: "request/user-input-draft-set";
-  key: string;
-  value: string;
-}
-
 export interface TurnOptimisticStartedAction {
   type: "turn/optimistic-started";
   item: MessageStreamItem;
@@ -109,11 +103,6 @@ export interface TurnStartAcknowledgedAction {
 export interface TurnStartFailedAction {
   type: "turn/start-failed";
   items: readonly MessageStreamItem[];
-}
-
-export interface MessageStreamItemAddedAction {
-  type: "message-stream/item-added";
-  item: MessageStreamItem;
 }
 
 export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettingsAppliedActionSettings): ActiveThreadSettingsAppliedAction {
