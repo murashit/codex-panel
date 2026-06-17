@@ -9,13 +9,22 @@ import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../application/state/root-reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../shell-state";
 import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
-import type { ChatPanelToolbarSurface } from "./model";
 import { runtimeSnapshotForToolbarShellState } from "./runtime-snapshot";
 
-type ToolbarState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "runtime" | "ui">;
+export interface ChatPanelToolbarSurface {
+  state: {
+    connected: () => boolean;
+    nowMs: () => number;
+  };
+  settings: {
+    vaultPath: () => string;
+    configuredCommand: () => string;
+    archiveExportEnabled: () => boolean;
+  };
+}
 
 interface ToolbarViewModelInput {
-  state: ToolbarState;
+  state: ChatPanelToolbarShellState;
   snapshot: RuntimeSnapshot;
   connected: boolean;
   nowMs: number;
@@ -88,7 +97,11 @@ function runtimeDebugDetails(input: ToolbarViewModelInput): string {
   );
 }
 
-function toolbarStateProjection(input: Pick<ToolbarViewModelInput, "state" | "turnBusy" | "archiveExportEnabled">): ToolbarStateProjection {
+function toolbarStateProjection(input: {
+  state: ChatPanelToolbarShellState;
+  turnBusy: boolean;
+  archiveExportEnabled: boolean;
+}): ToolbarStateProjection {
   const historyOpen = input.state.ui.toolbarPanel === "history";
   const chatActionsOpen = input.state.ui.toolbarPanel === "chat-actions";
   const statusPanelOpen = input.state.ui.toolbarPanel === "status-panel";

@@ -6,11 +6,9 @@ import { act } from "preact/test-utils";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
-import type {
-  ChatPanelComposerSurface,
-  ChatPanelGoalSurface,
-  ChatPanelToolbarSurface,
-} from "../../../../src/features/chat/panel/surface/model";
+import type { ChatPanelComposerSurface } from "../../../../src/features/chat/panel/surface/composer-projection";
+import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
+import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
 import { installObsidianDomShims } from "../../../support/dom";

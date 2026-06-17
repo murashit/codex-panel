@@ -14,22 +14,62 @@ import { compactReasoningEffortLabel } from "../../presentation/runtime/messages
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
-import type { ChatState } from "../../application/state/root-reducer";
 import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
 import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../shell-state";
 import { explicitThreadName } from "../../../../domain/threads/model";
-import type {
-  ChatPanelComposerContextMeter,
-  ChatPanelComposerContextMeterCell,
-  ChatPanelComposerMeta,
-  ChatPanelComposerProjection,
-  ChatPanelComposerRuntimeChoice,
-  ChatPanelComposerSurface,
-  RestoredThreadTitleSnapshot,
-} from "./model";
 import { runtimeSnapshotForShellState } from "./runtime-snapshot";
 
-type ComposerMetaState = Pick<ChatState, "connection" | "runtime">;
+interface RestoredThreadTitleSnapshot {
+  threadId: string;
+  title: string | null;
+  explicitName: string | null;
+}
+
+interface ChatPanelComposerContextMeterCell {
+  text: string;
+  placeholder: boolean;
+}
+
+interface ChatPanelComposerContextMeter {
+  cells: ChatPanelComposerContextMeterCell[];
+  percent: string;
+}
+
+interface ChatPanelComposerRuntimeChoice {
+  label: string;
+  selected?: boolean;
+  disabled?: boolean;
+  meta?: string;
+  onClick: () => void;
+}
+
+interface ChatPanelComposerMeta {
+  fatal: string | null;
+  context: ChatPanelComposerContextMeter;
+  statusSummary: string;
+  model: string;
+  effort: string | null;
+  planActive: boolean;
+  autoReviewActive: boolean;
+  fastActive: boolean;
+  modelChoices?: ChatPanelComposerRuntimeChoice[];
+  effortChoices?: ChatPanelComposerRuntimeChoice[];
+}
+
+export interface ChatPanelComposerProjection {
+  placeholder: string;
+  meta: ChatPanelComposerMeta;
+}
+
+export interface ChatPanelComposerSurface {
+  thread: {
+    restoredPlaceholder: () => RestoredThreadTitleSnapshot | null;
+  };
+  runtime: {
+    requestModel: (model: string) => Promise<void>;
+    requestReasoningEffort: (effort: ReasoningEffort) => Promise<void>;
+  };
+}
 
 export interface ChatPanelComposerController {
   renderState(state: ChatPanelComposerShellState, actions: ChatPanelComposerActions): ComposerShellProps;
@@ -40,7 +80,7 @@ export interface ChatPanelComposerActions {
 }
 
 interface RuntimeComposerChoicesInput {
-  state: Pick<ChatState, "connection">;
+  state: ChatPanelComposerShellState;
   snapshot: RuntimeSnapshot;
   requestModel: (model: string) => void;
   requestReasoningEffort: (effort: ReasoningEffort) => void;
@@ -81,7 +121,7 @@ export function chatPanelComposerProjection(
 }
 
 function composerMetaViewModel(
-  state: ComposerMetaState,
+  state: ChatPanelComposerShellState,
   snapshot: RuntimeSnapshot,
 ): Omit<ChatPanelComposerMeta, "modelChoices" | "effortChoices"> {
   if (state.connection.phase.kind === "failed" || state.connection.phase.kind === "disconnected") {
@@ -182,10 +222,7 @@ function onOffLabel(active: boolean): string {
   return active ? "on" : "off";
 }
 
-function activeComposerThreadName(
-  state: Pick<ChatState, "activeThread" | "threadList">,
-  restoredThread: RestoredThreadTitleSnapshot | null,
-): string | null {
+function activeComposerThreadName(state: ChatPanelComposerShellState, restoredThread: RestoredThreadTitleSnapshot | null): string | null {
   const threadId = state.activeThread.id;
   if (!threadId) return null;
   const thread = state.threadList.listedThreads.find((item) => item.id === threadId);

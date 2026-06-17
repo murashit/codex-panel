@@ -61,7 +61,9 @@ import { createChatServerMetadataActions, type ChatServerMetadataActions } from 
 import { createChatServerThreadActions, type ChatServerThreadActions } from "../app-server/actions/threads";
 import { ChatInboundController } from "../app-server/inbound/controller";
 import { ChatComposerController } from "../panel/composer-controller";
-import type { ChatPanelComposerSurface, ChatPanelGoalSurface, ChatPanelToolbarSurface } from "../panel/surface/model";
+import type { ChatPanelComposerSurface } from "../panel/surface/composer-projection";
+import type { ChatPanelGoalSurface } from "../panel/surface/goal-projection";
+import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
 import { chatPanelComposerProjection } from "../panel/surface/composer-projection";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import {
@@ -69,7 +71,7 @@ import {
   MessageStreamScrollBridge,
   type ChatMessageScrollIntentState,
 } from "../panel/surface/message-stream-scroll";
-import { createChatPanelGoalSurface } from "../panel/surface/goal-surface";
+import { createChatPanelGoalSurface } from "../panel/surface/goal-projection";
 import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import type { ToolbarActions } from "../ui/toolbar";
 import { pendingRequestsSignature } from "../domain/pending-requests/signatures";

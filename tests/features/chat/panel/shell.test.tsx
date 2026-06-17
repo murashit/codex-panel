@@ -6,11 +6,9 @@ import { act } from "preact/test-utils";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
-import type {
-  ChatPanelComposerSurface,
-  ChatPanelGoalSurface,
-  ChatPanelToolbarSurface,
-} from "../../../../src/features/chat/panel/surface/model";
+import type { ChatPanelComposerSurface } from "../../../../src/features/chat/panel/surface/composer-projection";
+import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
+import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();

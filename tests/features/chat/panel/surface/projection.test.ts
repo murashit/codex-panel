@@ -13,8 +13,8 @@ import { ChatPanelToolbar } from "../../../../../src/features/chat/panel/surface
 import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { ChatPanelGoal } from "../../../../../src/features/chat/panel/surface/goal-projection";
-import type { ChatPanelComposerSurface, ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/model";
+import type { ChatPanelComposerSurface } from "../../../../../src/features/chat/panel/surface/composer-projection";
+import { ChatPanelGoal, type ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/goal-projection";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";

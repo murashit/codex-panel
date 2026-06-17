@@ -20,7 +20,7 @@ import {
   type NoteCandidate,
 } from "../application/composer/suggestions";
 import { userInputWithWikiLinkMentionsAndSkills } from "../application/composer/wikilink-context";
-import type { ChatPanelComposerProjection } from "./surface/model";
+import type { ChatPanelComposerProjection } from "./surface/composer-projection";
 
 export interface ChatComposerControllerOptions {
   app: App;
