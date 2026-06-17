@@ -13,7 +13,7 @@ import type { ChatViewDeferredTasks } from "../application/lifecycle";
 import type { ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { createThreadGoalSyncActions } from "../application/threads/goal-actions";
-import type { AutoTitleController } from "../application/threads/auto-title-controller";
+import type { AutoTitleActions } from "../application/threads/auto-title-actions";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
@@ -37,7 +37,7 @@ interface ChatPanelConnectionBundleInput {
   currentClient: CurrentAppServerClient;
   status: ChatPanelConnectionStatus;
   goalSync: ChatPanelGoalSyncActions;
-  autoTitle: AutoTitleController;
+  autoTitle: AutoTitleActions;
 }
 
 interface ChatPanelConnectionBundleHost {

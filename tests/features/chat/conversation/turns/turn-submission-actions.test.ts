@@ -5,9 +5,9 @@ import type { CodexInput } from "../../../../../src/domain/chat/input";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
-  TurnSubmissionController,
-  type TurnSubmissionControllerHost,
-} from "../../../../../src/features/chat/application/conversation/turn-submission-controller";
+  createTurnSubmissionActions,
+  type TurnSubmissionActionsHost,
+} from "../../../../../src/features/chat/application/conversation/turn-submission-actions";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { chatStateMessageStreamItems } from "../../support/message-stream";
 
@@ -24,7 +24,7 @@ function thread(id: string): Thread {
   };
 }
 
-type TurnSubmissionHostOverrides = Partial<TurnSubmissionControllerHost>;
+type TurnSubmissionHostOverrides = Partial<TurnSubmissionActionsHost>;
 
 function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -34,7 +34,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     startTurn,
     steerTurn,
   } as unknown as AppServerClient;
-  const host: TurnSubmissionControllerHost = {
+  const host: TurnSubmissionActionsHost = {
     stateStore,
     vaultPath: "/vault",
     currentClient: () => client,
@@ -65,12 +65,12 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   return { host, startTurn, stateStore, steerTurn };
 }
 
-describe("TurnSubmissionController", () => {
+describe("TurnSubmissionActions", () => {
   it("starts a thread when needed and acknowledges the optimistic turn", async () => {
     const { host, startTurn, stateStore } = createHost();
-    const controller = new TurnSubmissionController(host);
+    const actions = createTurnSubmissionActions(host);
 
-    await controller.sendTurnText("hello");
+    await actions.sendTurnText("hello");
 
     expect(host.startThread).toHaveBeenCalledWith("hello");
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
@@ -93,9 +93,9 @@ describe("TurnSubmissionController", () => {
       return true;
     });
     host.applyPendingThreadSettings = applyPendingThreadSettings;
-    const controller = new TurnSubmissionController(host);
+    const actions = createTurnSubmissionActions(host);
 
-    await controller.sendTurnText("hello");
+    await actions.sendTurnText("hello");
 
     expect(applyPendingThreadSettings).toHaveBeenCalledOnce();
     expect(vi.mocked(host.startThread).mock.invocationCallOrder[0]).toBeLessThan(
@@ -121,9 +121,9 @@ describe("TurnSubmissionController", () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
       throw new Error("offline");
     });
-    const controller = new TurnSubmissionController(host);
+    const actions = createTurnSubmissionActions(host);
 
-    await controller.sendTurnText("hello");
+    await actions.sendTurnText("hello");
 
     expect(host.setDraft).toHaveBeenCalledWith("");
     expect(host.setDraft).not.toHaveBeenCalledWith("hello");
@@ -144,9 +144,9 @@ describe("TurnSubmissionController", () => {
       activePermissionProfile: null,
     });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
-    const controller = new TurnSubmissionController(host);
+    const actions = createTurnSubmissionActions(host);
 
-    await controller.sendTurnText("follow up");
+    await actions.sendTurnText("follow up");
 
     expect(steerTurn).toHaveBeenCalledWith(
       "thread",
@@ -183,8 +183,8 @@ describe("TurnSubmissionController", () => {
         });
       }
 
-      await new TurnSubmissionController(first.host).sendTurnText("first");
-      await new TurnSubmissionController(second.host).sendTurnText("second");
+      await createTurnSubmissionActions(first.host).sendTurnText("first");
+      await createTurnSubmissionActions(second.host).sendTurnText("second");
 
       const firstId = first.startTurn.mock.calls[0]?.[0].clientUserMessageId;
       const secondId = second.startTurn.mock.calls[0]?.[0].clientUserMessageId;
@@ -214,9 +214,9 @@ describe("TurnSubmissionController", () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
       return {};
     });
-    const controller = new TurnSubmissionController(host);
+    const actions = createTurnSubmissionActions(host);
 
-    await controller.sendTurnText("follow up");
+    await actions.sendTurnText("follow up");
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
@@ -242,9 +242,9 @@ describe("TurnSubmissionController", () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
       throw new Error("offline");
     });
-    const controller = new TurnSubmissionController(host);
+    const actions = createTurnSubmissionActions(host);
 
-    await controller.sendTurnText("follow up");
+    await actions.sendTurnText("follow up");
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });

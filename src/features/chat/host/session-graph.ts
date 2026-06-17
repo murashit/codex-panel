@@ -8,7 +8,7 @@ import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../threads/thread-title-service";
-import { PendingRequestController } from "../application/pending-requests/controller";
+import { createPendingRequestActions, type PendingRequestActions } from "../application/pending-requests/pending-request-actions";
 import {
   createConversationTurnActions,
   type ConversationTurnActions as ChatPanelConversationTurnActions,
@@ -22,17 +22,17 @@ import { messageStreamItems } from "../application/state/message-stream";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
 import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
-import { AutoTitleController } from "../application/threads/auto-title-controller";
+import { createAutoTitleActions, type AutoTitleActions } from "../application/threads/auto-title-actions";
 import { HistoryController } from "../application/threads/history-controller";
 import type { IdentitySync } from "../application/threads/identity-sync";
 import { createThreadLifecycleParts } from "../application/threads/lifecycle-parts";
 import {
   activeThreadRenameTitleContext,
-  ThreadRenameEditorController,
-  type ThreadRenameEditorController as ThreadRenameEditorControllerInstance,
-} from "../application/threads/rename-editor-controller";
+  createThreadRenameEditorActions,
+  type ThreadRenameEditorActions,
+} from "../application/threads/rename-editor-actions";
 import type { RestorationController } from "../application/threads/restoration-controller";
-import type { ResumeController } from "../application/threads/resume-controller";
+import type { ResumeActions } from "../application/threads/resume-actions";
 import { createSelectionActions } from "../application/threads/selection-actions";
 import { createThreadManagementActions, type ThreadManagementActionsHost } from "../application/threads/thread-management-actions";
 import type { ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
@@ -80,10 +80,10 @@ export interface ChatPanelSessionGraph {
   };
   thread: {
     history: HistoryController;
-    resume: ResumeController;
+    resume: ResumeActions;
     restoration: RestorationController;
     identity: IdentitySync;
-    rename: ThreadRenameEditorControllerInstance;
+    rename: ThreadRenameEditorActions;
   };
   toolbar: {
     panels: ToolbarPanelActions;
@@ -152,7 +152,7 @@ interface ChatPanelThreadActionParts {
 }
 
 interface ChatPanelComposerAndTurnParts {
-  pendingRequests: PendingRequestController;
+  pendingRequests: PendingRequestActions;
   reconnect: () => Promise<void>;
   turnActions: ChatPanelConversationTurnActions;
 }
@@ -171,7 +171,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const currentClient = () => connection.currentClient();
   const status = createSessionStatus(stateStore, localItemIds);
   const titleService = createSessionThreadTitleService(host, currentClient);
-  const autoTitle = createSessionAutoTitleController(host, currentClient, titleService);
+  const autoTitle = createSessionAutoTitleActions(host, currentClient, titleService);
   const history = createSessionHistoryController(host, currentClient, status, autoTitle);
   const invalidateThreadWork = () => {
     host.resumeWork.invalidate();
@@ -214,7 +214,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const threadOperations = createSessionThreadOperations(environment, currentClient);
   const runtimeSettings = createSessionRuntimeSettingsActions(host, currentClient, status);
   const goals = createSessionGoalActions(host, currentClient, ensureConnected, status);
-  const rename = createSessionThreadRenameEditor(stateStore, threadOperations, titleService, ensureConnected, status);
+  const rename = createSessionThreadRenameEditorActions(stateStore, threadOperations, titleService, ensureConnected, status);
   const threadLifecycle = createSessionThreadLifecycle(
     host,
     currentClient,
@@ -421,12 +421,12 @@ function createSessionThreadTitleService(host: ChatPanelSessionGraphHost, curren
   });
 }
 
-function createSessionAutoTitleController(
+function createSessionAutoTitleActions(
   host: ChatPanelSessionGraphHost,
   currentClient: CurrentAppServerClient,
   titleService: ThreadTitleService,
-): AutoTitleController {
-  return new AutoTitleController({
+): AutoTitleActions {
+  return createAutoTitleActions({
     stateStore: host.stateStore,
     completedTurnTitleContext: (turnId, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
@@ -450,7 +450,7 @@ function createSessionHistoryController(
   host: ChatPanelSessionGraphHost,
   currentClient: CurrentAppServerClient,
   status: ChatPanelSessionStatus,
-  autoTitle: AutoTitleController,
+  autoTitle: AutoTitleActions,
 ): HistoryController {
   return new HistoryController({
     stateStore: host.stateStore,
@@ -556,14 +556,14 @@ function createSessionGoalActions(
   });
 }
 
-function createSessionThreadRenameEditor(
+function createSessionThreadRenameEditorActions(
   stateStore: ChatStateStore,
   operations: ThreadOperations,
   titleService: ThreadTitleService,
   ensureConnected: () => Promise<void>,
   status: ChatPanelSessionStatus,
-): ThreadRenameEditorControllerInstance {
-  return new ThreadRenameEditorController({
+): ThreadRenameEditorActions {
+  return createThreadRenameEditorActions({
     stateStore,
     ensureConnected,
     addSystemMessage: status.addSystemMessage,
@@ -578,7 +578,7 @@ function createSessionThreadLifecycle(
   ensureConnected: () => Promise<void>,
   status: ChatPanelSessionStatus,
   goals: ChatPanelGoalActions,
-  autoTitle: AutoTitleController,
+  autoTitle: AutoTitleActions,
   history: HistoryController,
   invalidateThreadWork: () => void,
 ): ChatPanelThreadLifecycle {
@@ -678,7 +678,7 @@ function createThreadActionParts(
     currentClient: CurrentAppServerClient;
     status: ChatPanelSessionStatus;
     composerController: ChatComposerController;
-    resume: ResumeController;
+    resume: ResumeActions;
     refreshActiveThreads: () => Promise<void>;
   },
 ): ChatPanelThreadActionParts {
@@ -740,7 +740,7 @@ function createComposerAndTurnActions(
     serverThreads: ChatServerThreadActions;
     serverDiagnostics: ChatServerDiagnosticsActions;
     goals: ChatPanelGoalActions;
-    autoTitle: AutoTitleController;
+    autoTitle: AutoTitleActions;
     invalidateThreadWork: () => void;
     startNewThread: () => Promise<void>;
     runtimeProjection: {
@@ -770,7 +770,7 @@ function createComposerAndTurnActions(
     startNewThread,
     runtimeProjection,
   } = input;
-  const pendingRequests = new PendingRequestController({
+  const pendingRequests = createPendingRequestActions({
     stateStore: host.stateStore,
     responder: inboundController,
     composerHasFocus: () => composerController.hasFocus(),
@@ -867,13 +867,13 @@ function createSurfacesAndPresenter(
     inboundController: ChatInboundController;
     serverThreads: ChatServerThreadActions;
     goals: ChatPanelGoalActions;
-    rename: ThreadRenameEditorControllerInstance;
+    rename: ThreadRenameEditorActions;
     threadActions: ChatPanelThreadActions;
     toolbarPanels: ToolbarPanelActions;
     selection: ChatPanelSelectionActions;
     reconnect: () => Promise<void>;
     history: HistoryController;
-    pendingRequests: PendingRequestController;
+    pendingRequests: PendingRequestActions;
     turnActions: ChatPanelConversationTurnActions;
     messageStreamScrollBridge: MessageStreamScrollBridge;
     startNewThread: () => Promise<void>;

@@ -2,7 +2,7 @@ import type { ThreadManagementActions } from "../application/threads/thread-mana
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatConnectionController } from "../application/connection/connection-controller";
-import type { ThreadRenameEditorController } from "../application/threads/rename-editor-controller";
+import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
 import type { SelectionActions } from "../application/threads/selection-actions";
 import type { ChatInboundController } from "../app-server/inbound/controller";
 import type { ToolbarActions } from "../ui/toolbar";
@@ -35,7 +35,7 @@ export interface ChatPanelToolbarActionDependencies {
   inboundController: ChatInboundController;
   threadActions: ThreadManagementActions;
   toolbarPanels: ToolbarPanelActions;
-  rename: ThreadRenameEditorController;
+  rename: ThreadRenameEditorActions;
   selection: SelectionActions;
 }
 

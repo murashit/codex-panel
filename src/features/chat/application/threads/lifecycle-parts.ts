@@ -5,7 +5,7 @@ import type { ChatStateStore } from "../state/store";
 import type { GoalActions } from "./goal-actions";
 import type { HistoryController } from "./history-controller";
 import { createIdentitySync } from "./identity-sync";
-import { createResumeController, type ResumeController } from "./resume-controller";
+import { createResumeActions, type ResumeActions } from "./resume-actions";
 import { RestorationController } from "./restoration-controller";
 
 export interface ThreadLifecyclePartsContext {
@@ -41,7 +41,7 @@ export interface ThreadLifecyclePartsContext {
 export interface ThreadLifecycleParts {
   history: HistoryController;
   restoration: RestorationController;
-  resume: ResumeController;
+  resume: ResumeActions;
   identity: ReturnType<typeof createIdentitySync>;
 }
 
@@ -56,7 +56,7 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
   });
-  const resume = createResumeController({
+  const resume = createResumeActions({
     stateStore,
     vaultPath: settingsRef.vaultPath,
     resumeWork,

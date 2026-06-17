@@ -4,7 +4,7 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import type { RestorationController } from "../../../../src/features/chat/application/threads/restoration-controller";
-import { createResumeController, type ResumeControllerHost } from "../../../../src/features/chat/application/threads/resume-controller";
+import { createResumeActions, type ResumeActionsHost } from "../../../../src/features/chat/application/threads/resume-actions";
 import type { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
@@ -31,7 +31,7 @@ function activation(threadId: string, overrides: Partial<ChatThreadResumeSnapsho
   };
 }
 
-function createController(response: ChatThreadResumeSnapshot = activation("thread"), overrides: Partial<ResumeControllerHost> = {}) {
+function createActions(response: ChatThreadResumeSnapshot = activation("thread"), overrides: Partial<ResumeActionsHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   const resumeFromAppServer = vi.fn().mockResolvedValue(response);
   const client = {} as AppServerClient;
@@ -59,7 +59,7 @@ function createController(response: ChatThreadResumeSnapshot = activation("threa
     ...overrides,
   };
   return {
-    controller: createResumeController(host),
+    actions: createResumeActions(host),
     host,
     applyLatestPage,
     invalidateHistory,
@@ -70,11 +70,11 @@ function createController(response: ChatThreadResumeSnapshot = activation("threa
   };
 }
 
-describe("ResumeController", () => {
+describe("ResumeActions", () => {
   it("resumes the thread and loads its latest history", async () => {
-    const { controller, host, loadLatest, restoredClear, resumeThread, stateStore } = createController();
+    const { actions, host, loadLatest, restoredClear, resumeThread, stateStore } = createActions();
 
-    await controller.resumeThread("thread");
+    await actions.resumeThread("thread");
 
     expect(resumeThread).toHaveBeenCalledWith(expect.anything(), "thread", "/vault");
     expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
@@ -88,18 +88,18 @@ describe("ResumeController", () => {
   it("hydrates resumed threads from the initial turns page when app-server returns one", async () => {
     const initialHistoryPage = historyPage([message("u1", "hello", "user")], "older");
     const response = activation("thread", { initialHistoryPage });
-    const { controller, applyLatestPage, loadLatest } = createController(response);
+    const { actions, applyLatestPage, loadLatest } = createActions(response);
 
-    await controller.resumeThread("thread");
+    await actions.resumeThread("thread");
 
     expect(applyLatestPage).toHaveBeenCalledWith("thread", initialHistoryPage);
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
   it("refreshes live state after resumed history and goal sync finish", async () => {
-    const { controller, host } = createController();
+    const { actions, host } = createActions();
 
-    await controller.resumeThread("thread");
+    await actions.resumeThread("thread");
 
     expect(vi.mocked(host.refreshLiveState).mock.invocationCallOrder.at(-1)).toBeGreaterThan(
       vi.mocked(host.syncThreadGoal).mock.invocationCallOrder[0] ?? 0,
@@ -107,7 +107,7 @@ describe("ResumeController", () => {
   });
 
   it("does not switch threads while a different turn is busy", async () => {
-    const { controller, host, resumeThread, stateStore } = createController();
+    const { actions, host, resumeThread, stateStore } = createActions();
     stateStore.dispatch({
       type: "active-thread/resumed",
       thread: panelThread("active"),
@@ -121,7 +121,7 @@ describe("ResumeController", () => {
     });
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
-    await controller.resumeThread("other");
+    await actions.resumeThread("other");
 
     expect(resumeThread).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the current turn before switching threads.");
@@ -131,9 +131,9 @@ describe("ResumeController", () => {
     const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
-    const { controller, loadLatest, stateStore } = createController(response, { recoverTokenUsageFromRollout });
+    const { actions, loadLatest, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await controller.resumeThread("thread");
+    await actions.resumeThread("thread");
 
     expect(recoverTokenUsageFromRollout).toHaveBeenCalledWith("/tmp/rollout.jsonl");
     expect(loadLatest).toHaveBeenCalledWith("thread");
@@ -149,9 +149,9 @@ describe("ResumeController", () => {
     const second = activation("other");
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
-    const { controller, stateStore } = createController(first, { recoverTokenUsageFromRollout });
+    const { actions, stateStore } = createActions(first, { recoverTokenUsageFromRollout });
 
-    await controller.resumeThread("thread");
+    await actions.resumeThread("thread");
     stateStore.dispatch({
       type: "active-thread/resumed",
       thread: second.activation.thread,
@@ -174,9 +174,9 @@ describe("ResumeController", () => {
     const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recovery = deferred<ThreadTokenUsage | null>();
     const recoverTokenUsageFromRollout = vi.fn().mockReturnValue(recovery.promise);
-    const { controller, stateStore } = createController(response, { recoverTokenUsageFromRollout });
+    const { actions, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await controller.resumeThread("thread");
+    await actions.resumeThread("thread");
     stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage: tokenUsageFixture(99) });
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
@@ -187,9 +187,9 @@ describe("ResumeController", () => {
   it("ignores rollout token usage recovery failures", async () => {
     const response = activation("thread", { rolloutPath: "/tmp/rollout.jsonl" });
     const recoverTokenUsageFromRollout = vi.fn().mockRejectedValue(new Error("read failed"));
-    const { controller, host, stateStore } = createController(response, { recoverTokenUsageFromRollout });
+    const { actions, host, stateStore } = createActions(response, { recoverTokenUsageFromRollout });
 
-    await controller.resumeThread("thread");
+    await actions.resumeThread("thread");
     await Promise.resolve();
 
     expect(stateStore.getState().activeThread.tokenUsage).toBeNull();

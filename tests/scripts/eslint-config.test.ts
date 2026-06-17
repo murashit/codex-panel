@@ -99,7 +99,7 @@ export const status = signal("idle");
 
   it("reports non-turn app-server protocol imports outside app-server", async () => {
     const messages = await lintSource(
-      "src/features/chat/application/pending-requests/controller.ts",
+      "src/features/chat/application/pending-requests/pending-request-actions.ts",
       `
 import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/protocol/runtime-metrics";
 

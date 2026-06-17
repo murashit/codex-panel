@@ -8,7 +8,7 @@ import type { RestorationController } from "./restoration-controller";
 import type { HistoryController } from "./history-controller";
 import type { ChatResumeWorkTracker, ActiveChatResume } from "../lifecycle";
 
-export interface ResumeControllerHost {
+export interface ResumeActionsHost {
   stateStore: ChatStateStore;
   vaultPath: string;
   resumeWork: ChatResumeWorkTracker;
@@ -27,11 +27,11 @@ export interface ResumeControllerHost {
   resumeFromAppServer?: (client: AppServerClient, threadId: string, cwd: string) => Promise<ChatThreadResumeSnapshot>;
 }
 
-export interface ResumeController {
+export interface ResumeActions {
   resumeThread(threadId: string): Promise<void>;
 }
 
-export function createResumeController(host: ResumeControllerHost): ResumeController {
+export function createResumeActions(host: ResumeActionsHost): ResumeActions {
   return {
     resumeThread: (threadId) => resumeThread(host, threadId),
   };
@@ -45,7 +45,7 @@ function resumedThreadMessage(threadId: string): string {
   return `Resumed thread ${threadId}`;
 }
 
-async function resumeThread(host: ResumeControllerHost, threadId: string): Promise<void> {
+async function resumeThread(host: ResumeActionsHost, threadId: string): Promise<void> {
   if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
     host.addSystemMessage(finishBeforeSwitchingThreadsMessage());
     return;
@@ -80,7 +80,7 @@ async function resumeThread(host: ResumeControllerHost, threadId: string): Promi
   }
 }
 
-function applyResumedThread(host: ResumeControllerHost, response: ChatThreadResumeSnapshot): void {
+function applyResumedThread(host: ResumeActionsHost, response: ChatThreadResumeSnapshot): void {
   host.stateStore.dispatch(
     resumedThreadAction({
       response: response.activation,
@@ -94,7 +94,7 @@ function applyResumedThread(host: ResumeControllerHost, response: ChatThreadResu
   host.refreshLiveState();
 }
 
-function recoverResumedThreadTokenUsage(host: ResumeControllerHost, threadId: string, path: string | null, resume: ActiveChatResume): void {
+function recoverResumedThreadTokenUsage(host: ResumeActionsHost, threadId: string, path: string | null, resume: ActiveChatResume): void {
   if (!path || !host.recoverTokenUsageFromRollout) return;
   void host
     .recoverTokenUsageFromRollout(path)
@@ -108,6 +108,6 @@ function recoverResumedThreadTokenUsage(host: ResumeControllerHost, threadId: st
     .catch(() => undefined);
 }
 
-function isStaleResume(host: ResumeControllerHost, resume: ActiveChatResume): boolean {
+function isStaleResume(host: ResumeActionsHost, resume: ActiveChatResume): boolean {
   return host.resumeWork.isStale(resume) || host.closing();
 }

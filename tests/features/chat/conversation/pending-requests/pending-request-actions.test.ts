@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { PendingRequestController } from "../../../../../src/features/chat/application/pending-requests/controller";
+import { createPendingRequestActions } from "../../../../../src/features/chat/application/pending-requests/pending-request-actions";
 import { toPendingUserInput } from "../../../../../src/features/chat/app-server/requests/user-input";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
@@ -11,12 +11,12 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-describe("PendingRequestController", () => {
+describe("PendingRequestActions", () => {
   it("resolves user input from immutable draft state and refreshes the host", () => {
     const stateStore = createChatStateStore(createChatState());
     const resolveUserInput = vi.fn();
     const refreshLiveState = vi.fn();
-    const pendingRequests = new PendingRequestController({
+    const pendingRequests = createPendingRequestActions({
       stateStore,
       responder: {
         resolveApproval: vi.fn(),

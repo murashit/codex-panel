@@ -8,7 +8,7 @@ import type { ThreadManagementActions } from "../threads/thread-management-actio
 import type { GoalActions } from "../threads/goal-actions";
 import { submitComposer, type ComposerSubmitActions, type ComposerSubmitActionsHost } from "./composer-submit-actions";
 import { executeSlashCommandWithState, type SlashCommandHandlerHost } from "./slash-command-handler";
-import { TurnSubmissionController } from "./turn-submission-controller";
+import { createTurnSubmissionActions } from "./turn-submission-actions";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 
@@ -82,7 +82,7 @@ export function createConversationTurnActions(
   refs: ConversationTurnActionsRefs,
 ): ConversationTurnActions {
   const { vaultPath, stateStore, client, status, runtime, thread, composer, scroll } = context;
-  const turnSubmission = new TurnSubmissionController({
+  const turnSubmission = createTurnSubmissionActions({
     stateStore,
     vaultPath,
     currentClient: client.currentClient,

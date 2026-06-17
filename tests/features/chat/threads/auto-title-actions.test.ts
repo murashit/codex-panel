@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
-import { AutoTitleController } from "../../../../src/features/chat/application/threads/auto-title-controller";
+import {
+  createAutoTitleActions,
+  type AutoTitleActions,
+  type AutoTitleActionsHost,
+} from "../../../../src/features/chat/application/threads/auto-title-actions";
 import { threadTitleContextFromMessageStreamItems } from "../../../../src/features/chat/application/threads/title-context";
 import { createThreadTitleService } from "../../../../src/features/threads/thread-title-service";
 import type { Thread } from "../../../../src/domain/threads/model";
@@ -11,11 +15,11 @@ import type { ThreadTitleContext } from "../../../../src/domain/threads/title-ge
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 
-describe("AutoTitleController", () => {
+describe("AutoTitleActions", () => {
   it("prefers visible turn items over completed turn summaries for active streamed turns", async () => {
     const setThreadName = vi.fn().mockResolvedValue({});
     const generateThreadTitle = vi.fn().mockResolvedValue("Visible context title");
-    const { controller, stateStore } = controllerFixture({
+    const { actions, stateStore } = actionsFixture({
       currentClient: () => fakeClient({ setThreadName }),
       generateThreadTitle,
     });
@@ -35,7 +39,7 @@ describe("AutoTitleController", () => {
       ],
     });
 
-    controller.maybeAutoTitleThread("thread", "turn", {
+    actions.maybeAutoTitleThread("thread", "turn", {
       userText: "Completed payload request.",
       assistantText: "Completed payload response.",
     });
@@ -51,7 +55,7 @@ describe("AutoTitleController", () => {
   it("uses visible turn items when completed turn summaries are unavailable", async () => {
     const setThreadName = vi.fn().mockResolvedValue({});
     const generateThreadTitle = vi.fn().mockResolvedValue("Visible context title");
-    const { controller, stateStore } = controllerFixture({
+    const { actions, stateStore } = actionsFixture({
       currentClient: () => fakeClient({ setThreadName }),
       generateThreadTitle,
     });
@@ -71,7 +75,7 @@ describe("AutoTitleController", () => {
       ],
     });
 
-    controller.maybeAutoTitleThread("thread", "turn", null);
+    actions.maybeAutoTitleThread("thread", "turn", null);
     await flushPromises();
 
     expect(generateThreadTitle).toHaveBeenCalledWith({
@@ -84,12 +88,12 @@ describe("AutoTitleController", () => {
   it("does not apply a completed auto-title after the thread leaves the list", async () => {
     const generatedTitle = deferred<string | null>();
     const setThreadName = vi.fn().mockResolvedValue({});
-    const { controller, stateStore, notifyThreadRenamed } = controllerFixture({
+    const { actions, stateStore, notifyThreadRenamed } = actionsFixture({
       currentClient: () => fakeClient({ setThreadName }),
       generateThreadTitle: vi.fn(() => generatedTitle.promise),
     });
 
-    controller.maybeAutoTitleThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
+    actions.maybeAutoTitleThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
     await flushPromises();
 
     stateStore.dispatch({ type: "thread-list/applied", threads: [] });
@@ -103,12 +107,12 @@ describe("AutoTitleController", () => {
   it("does not overwrite a manual name when auto-title save finishes later", async () => {
     const savedName = deferred<object>();
     const setThreadName = vi.fn(() => savedName.promise);
-    const { controller, stateStore, notifyThreadRenamed } = controllerFixture({
+    const { actions, stateStore, notifyThreadRenamed } = actionsFixture({
       currentClient: () => fakeClient({ setThreadName }),
       generateThreadTitle: vi.fn().mockResolvedValue("Generated title"),
     });
 
-    controller.maybeAutoTitleThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
+    actions.maybeAutoTitleThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
     await flushPromises();
     expect(setThreadName).toHaveBeenCalledWith("thread", "Generated title");
 
@@ -121,13 +125,13 @@ describe("AutoTitleController", () => {
   });
 });
 
-function controllerFixture(
+function actionsFixture(
   overrides: {
     currentClient?: () => AppServerClient;
     generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null>;
   } = {},
-): ConstructorParameters<typeof AutoTitleController>[0] & {
-  controller: AutoTitleController;
+): AutoTitleActionsHost & {
+  actions: AutoTitleActions;
   notifyThreadRenamed: ReturnType<typeof vi.fn>;
 } {
   const stateStore = createChatStateStore();
@@ -155,8 +159,8 @@ function controllerFixture(
       if (options.shouldPublish()) notifyThreadRenamed(threadId, value);
       return true;
     },
-  } satisfies ConstructorParameters<typeof AutoTitleController>[0];
-  return { ...host, notifyThreadRenamed, controller: new AutoTitleController(host) };
+  } satisfies AutoTitleActionsHost;
+  return { ...host, notifyThreadRenamed, actions: createAutoTitleActions(host) };
 }
 
 function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
