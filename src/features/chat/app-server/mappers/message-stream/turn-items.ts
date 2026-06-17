@@ -1,16 +1,9 @@
-import type {
-  CommandMessageStreamTarget,
-  ExecutionState,
-  MessageStreamFileChange,
-  MessageStreamFileMention,
-  MessageStreamItem,
-  MessageStreamPrimaryTarget,
-} from "../../../domain/message-stream/items";
+import type { CommandMessageStreamTarget, ExecutionState, MessageStreamItem } from "../../../domain/message-stream/items";
 import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { TurnItem } from "../../../../../app-server/protocol/turn";
 import { definedProp } from "../../../../../utils";
-import { referencedThreadMetadataFromPrompt, type ReferencedThreadMetadata } from "../../../../../domain/threads/reference";
+import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
 import { turnUserItemText } from "../../../../../app-server/protocol/turn";
 import { agentMessageStreamItem } from "./agent-items";
 import { fileMentionsFromInput } from "../../../domain/message-stream/format/file-mentions";
@@ -35,56 +28,10 @@ type ReviewModeItem = Extract<TurnItem, { type: "enteredReviewMode" }> | Extract
 type ContextCompactionItem = Extract<TurnItem, { type: "contextCompaction" }>;
 type MessageStreamExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
-interface BaseStreamItemData {
+interface TurnItemSourceFields {
   id: string;
-}
-
-interface UserMessageStreamItemData extends BaseStreamItemData {
-  text: string;
-  displayText: string;
-  clientId: string | null;
-  mentionedFiles: MessageStreamFileMention[];
-  referencedThread: {
-    text: string;
-    displayText: string;
-    reference: ReferencedThreadMetadata;
-  } | null;
-}
-
-interface MessageStreamTextData extends BaseStreamItemData {
-  text: string;
-}
-
-interface ToolMessageStreamData extends BaseStreamItemData {
-  text?: string;
-  toolName?: string;
-  primaryTarget?: MessageStreamPrimaryTarget;
-  operation?: string;
-  failureReason?: string;
-  status?: string;
-  output?: string;
-  toolCall?: Extract<MessageStreamItem, { kind: "tool" }>["toolCall"];
-  webSearch?: Extract<MessageStreamItem, { kind: "tool" }>["webSearch"];
-  imageGeneration?: Extract<MessageStreamItem, { kind: "tool" }>["imageGeneration"];
-  executionState?: ExecutionState;
-}
-
-interface CommandMessageStreamData extends BaseStreamItemData {
-  commandAction: "read" | "search" | "listFiles" | "command";
-  commandTarget: CommandMessageStreamTarget;
-  command: string;
-  cwd: string;
-  status: string;
-  exitCode?: number;
-  durationMs?: number;
-  output: string;
-  executionState: ExecutionState;
-}
-
-interface FileChangeMessageStreamData extends BaseStreamItemData {
-  status: string;
-  changes: MessageStreamFileChange[];
-  executionState: ExecutionState;
+  turnId?: string;
+  sourceItemId: string;
 }
 
 const COMMAND_STATES = {
@@ -120,11 +67,11 @@ export function messageStreamItemsFromTurns(turns: readonly HistoricalTurn[]): M
 }
 
 export function messageStreamItemFromTurnItem(item: TurnItem, turnId?: string): MessageStreamItem | null {
-  const streamItem = messageStreamItemFromTurnItemData(item, turnId);
+  const streamItem = messageStreamItemFromTurnItemCore(item, turnId);
   return streamItem ? withTurnItemProvenance(streamItem, item) : null;
 }
 
-function messageStreamItemFromTurnItemData(item: TurnItem, turnId?: string): MessageStreamItem | null {
+function messageStreamItemFromTurnItemCore(item: TurnItem, turnId?: string): MessageStreamItem | null {
   switch (item.type) {
     case "userMessage":
       return userMessageStreamItem(item, turnId);
@@ -174,151 +121,93 @@ function withTurnItemProvenance(item: MessageStreamItem, turnItem: TurnItem): Me
   return { ...item, provenance };
 }
 
-function userMessageStreamItem(item: UserMessageItem, turnId?: string): MessageStreamItem {
-  return userMessageStreamItemFromData(userMessageStreamTextDataFromItem(item), turnId);
-}
-
-function userMessageStreamTextDataFromItem(item: UserMessageItem): UserMessageStreamItemData {
-  const text = turnUserItemText(item);
-  const referencedThread = referencedThreadMetadataFromPrompt(text);
+function turnItemSourceFields(item: { id: string }, turnId?: string): TurnItemSourceFields {
   return {
     id: item.id,
-    text,
-    displayText: userMessageDisplayText(text, item.content),
-    clientId: item.clientId,
-    mentionedFiles: fileMentionsFromInput(item.content),
-    referencedThread: referencedThread
-      ? {
-          text: referencedThread.text,
-          displayText: userMessageDisplayText(referencedThread.text, item.content),
-          reference: referencedThread.reference,
-        }
-      : null,
+    ...definedProp("turnId", turnId),
+    sourceItemId: item.id,
   };
 }
 
-function userMessageStreamItemFromData(data: UserMessageStreamItemData, turnId?: string): MessageStreamItem {
-  if (data.referencedThread) {
+function userMessageStreamItem(item: UserMessageItem, turnId?: string): MessageStreamItem {
+  const text = turnUserItemText(item);
+  const referencedThread = referencedThreadMetadataFromPrompt(text);
+  const mentionedFiles = fileMentionsFromInput(item.content);
+  if (referencedThread) {
     return {
-      id: data.id,
+      ...turnItemSourceFields(item, turnId),
       kind: "message",
       messageKind: "user",
       role: "user",
-      text: data.referencedThread.displayText,
-      copyText: data.referencedThread.text,
-      referencedThread: data.referencedThread.reference,
-      ...definedProp("turnId", turnId),
-      ...definedProp("clientId", data.clientId),
-      sourceItemId: data.id,
-      ...(data.mentionedFiles.length > 0 ? { mentionedFiles: data.mentionedFiles } : {}),
+      text: userMessageDisplayText(referencedThread.text, item.content),
+      copyText: referencedThread.text,
+      referencedThread: referencedThread.reference,
+      ...definedProp("clientId", item.clientId),
+      ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
     };
   }
   return {
-    id: data.id,
+    ...turnItemSourceFields(item, turnId),
     kind: "message",
     messageKind: "user",
     role: "user",
-    text: data.displayText,
-    copyText: data.text,
-    ...definedProp("turnId", turnId),
-    ...definedProp("clientId", data.clientId),
-    sourceItemId: data.id,
-    ...(data.mentionedFiles.length > 0 ? { mentionedFiles: data.mentionedFiles } : {}),
+    text: userMessageDisplayText(text, item.content),
+    copyText: text,
+    ...definedProp("clientId", item.clientId),
+    ...(mentionedFiles.length > 0 ? { mentionedFiles } : {}),
   };
 }
 
 function assistantMessageStreamItemFromTurn(item: AgentMessageItem, turnId?: string): MessageStreamItem {
-  return assistantResponseMessageStreamItemFromData(agentMessageStreamTextDataFromItem(item), turnId);
-}
-
-function agentMessageStreamTextDataFromItem(item: AgentMessageItem): MessageStreamTextData {
-  return { id: item.id, text: item.text };
-}
-
-function assistantResponseMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
-    id: data.id,
+    ...turnItemSourceFields(item, turnId),
     kind: "message",
     messageKind: "assistantResponse",
     role: "assistant",
-    text: data.text,
-    copyText: data.text,
-    ...definedProp("turnId", turnId),
-    sourceItemId: data.id,
+    text: item.text,
+    copyText: item.text,
     messageState: "completed",
   };
 }
 
 function proposedPlanMessageStreamItem(item: PlanItem, turnId?: string): MessageStreamItem {
-  return proposedPlanMessageStreamItemFromData(proposedPlanMessageStreamItemDataFromItem(item), turnId);
-}
-
-function proposedPlanMessageStreamItemDataFromItem(item: PlanItem): MessageStreamTextData {
   const text = normalizeProposedPlanMarkdown(item.text);
-  return { id: item.id, text };
-}
-
-function proposedPlanMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
-    id: data.id,
+    ...turnItemSourceFields(item, turnId),
     kind: "message",
     messageKind: "proposedPlan",
     role: "assistant",
-    text: data.text,
-    copyText: data.text,
-    ...definedProp("turnId", turnId),
-    sourceItemId: data.id,
+    text,
+    copyText: text,
     messageState: "completed",
   };
 }
 
 function hookPromptMessageStreamItem(item: HookPromptItem, turnId?: string): MessageStreamItem {
-  return hookPromptMessageStreamItemFromData(hookPromptMessageStreamItemDataFromItem(item), turnId);
-}
-
-function hookPromptMessageStreamItemDataFromItem(item: HookPromptItem): MessageStreamTextData {
-  return { id: item.id, text: item.fragments.map((fragment) => fragment.text).join("\n\n") || "Hook prompt" };
-}
-
-function hookPromptMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
-    id: data.id,
+    ...turnItemSourceFields(item, turnId),
     kind: "hook",
     role: "tool",
-    text: data.text,
-    ...definedProp("turnId", turnId),
-    sourceItemId: data.id,
+    text: item.fragments.map((fragment) => fragment.text).join("\n\n") || "Hook prompt",
   };
 }
 
 function reasoningMessageStreamItem(item: ReasoningItem, turnId?: string): MessageStreamItem {
-  return reasoningMessageStreamItemFromData(reasoningMessageStreamItemDataFromItem(item), turnId);
-}
-
-function reasoningMessageStreamItemDataFromItem(item: ReasoningItem): MessageStreamTextData {
-  return { id: item.id, text: reasoningText(item) };
-}
-
-function reasoningMessageStreamItemFromData(data: MessageStreamTextData, turnId?: string): MessageStreamItem {
   return {
-    id: data.id,
+    ...turnItemSourceFields(item, turnId),
     kind: "reasoning",
     role: "tool",
-    text: data.text,
-    ...definedProp("turnId", turnId),
-    sourceItemId: data.id,
+    text: reasoningText(item),
   };
 }
 
 function mcpToolCallMessageStreamItem(item: McpToolCallItem, turnId?: string): MessageStreamItem {
-  return toolMessageStreamItemFromData(mcpToolCallMessageStreamItemDataFromItem(item), turnId);
-}
-
-function mcpToolCallMessageStreamItemDataFromItem(item: McpToolCallItem): ToolMessageStreamData {
   const name = `${item.server}.${item.tool}`;
   const target = jsonTargetLabel(item.arguments);
   return {
-    id: item.id,
+    ...turnItemSourceFields(item, turnId),
+    kind: "tool",
+    role: "tool",
     toolName: name,
     ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
     ...(item.error?.message ? { failureReason: item.error.message } : {}),
@@ -333,37 +222,14 @@ function mcpToolCallMessageStreamItemDataFromItem(item: McpToolCallItem): ToolMe
   };
 }
 
-function toolMessageStreamItemFromData(data: ToolMessageStreamData, turnId?: string): MessageStreamItem {
-  return {
-    id: data.id,
-    kind: "tool",
-    role: "tool",
-    ...definedProp("text", data.text),
-    ...definedProp("toolName", data.toolName),
-    ...definedProp("primaryTarget", data.primaryTarget),
-    ...definedProp("operation", data.operation),
-    ...definedProp("failureReason", data.failureReason),
-    ...definedProp("turnId", turnId),
-    sourceItemId: data.id,
-    ...definedProp("status", data.status),
-    ...definedProp("toolCall", data.toolCall),
-    ...definedProp("webSearch", data.webSearch),
-    ...definedProp("imageGeneration", data.imageGeneration),
-    ...definedProp("output", data.output),
-    ...("executionState" in data ? { executionState: data.executionState } : {}),
-  };
-}
-
 function dynamicToolCallMessageStreamItem(item: DynamicToolCallItem, turnId?: string): MessageStreamItem {
-  return toolMessageStreamItemFromData(dynamicToolCallMessageStreamItemDataFromItem(item), turnId);
-}
-
-function dynamicToolCallMessageStreamItemDataFromItem(item: DynamicToolCallItem): ToolMessageStreamData {
   const name = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
   const target = jsonTargetLabel(item.arguments);
   const failure = item.success === false ? "failed" : failedStatusLabel(item.status);
   return {
-    id: item.id,
+    ...turnItemSourceFields(item, turnId),
+    kind: "tool",
+    role: "tool",
     toolName: name,
     ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
     ...(failure ? { failureReason: failure } : {}),
@@ -378,41 +244,36 @@ function dynamicToolCallMessageStreamItemDataFromItem(item: DynamicToolCallItem)
 }
 
 function webSearchMessageStreamItem(item: WebSearchItem, turnId?: string): MessageStreamItem {
-  return toolMessageStreamItemFromData(webSearchMessageStreamItemDataFromItem(item), turnId);
-}
-
-function webSearchMessageStreamItemDataFromItem(item: WebSearchItem): ToolMessageStreamData {
+  const target = webSearchTarget(item);
   return {
-    id: item.id,
+    ...turnItemSourceFields(item, turnId),
+    kind: "tool",
+    role: "tool",
     toolName: "web search",
     operation: item.action?.type ?? (item.query ? "search" : "webSearch"),
-    ...(webSearchTarget(item) ? { primaryTarget: { kind: "value" as const, value: webSearchTarget(item) ?? "" } } : {}),
-    webSearch: webSearchDetails(item),
+    ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
+    ...definedProp("webSearch", webSearchDetails(item)),
     output: "",
   };
 }
 
 function imageViewMessageStreamItem(item: ImageViewItem, turnId?: string): MessageStreamItem {
-  return toolMessageStreamItemFromData(imageViewMessageStreamItemDataFromItem(item), turnId);
-}
-
-function imageViewMessageStreamItemDataFromItem(item: ImageViewItem): ToolMessageStreamData {
   return {
-    id: item.id,
+    ...turnItemSourceFields(item, turnId),
+    kind: "tool",
+    role: "tool",
     toolName: "imageView",
     primaryTarget: { kind: "path", path: item.path },
   };
 }
 
 function imageGenerationMessageStreamItem(item: ImageGenerationItem, turnId?: string): MessageStreamItem {
-  return toolMessageStreamItemFromData(imageGenerationMessageStreamItemDataFromItem(item), turnId);
-}
-
-function imageGenerationMessageStreamItemDataFromItem(item: ImageGenerationItem): ToolMessageStreamData {
   const target = item.savedPath ?? item.result;
   const failureReason = failedStatusLabel(item.status);
   return {
-    id: item.id,
+    ...turnItemSourceFields(item, turnId),
+    kind: "tool",
+    role: "tool",
     toolName: "imageGeneration",
     ...(target
       ? { primaryTarget: item.savedPath ? { kind: "path" as const, path: item.savedPath } : { kind: "value" as const, value: target } }
@@ -430,12 +291,10 @@ function imageGenerationMessageStreamItemDataFromItem(item: ImageGenerationItem)
 }
 
 function reviewModeMessageStreamItem(item: ReviewModeItem, turnId?: string): MessageStreamItem {
-  return toolMessageStreamItemFromData(reviewModeMessageStreamItemDataFromItem(item), turnId);
-}
-
-function reviewModeMessageStreamItemDataFromItem(item: ReviewModeItem): ToolMessageStreamData {
   return {
-    id: item.id,
+    ...turnItemSourceFields(item, turnId),
+    kind: "tool",
+    role: "tool",
     toolName: item.type,
     primaryTarget: { kind: "value", value: item.type === "enteredReviewMode" ? "Entered review mode" : "Exited review mode" },
     output: item.review,
@@ -443,20 +302,10 @@ function reviewModeMessageStreamItemDataFromItem(item: ReviewModeItem): ToolMess
 }
 
 function contextCompactionMessageStreamItem(item: ContextCompactionItem, turnId?: string): MessageStreamItem {
-  return contextCompactionMessageStreamItemFromData(contextCompactionMessageStreamItemDataFromItem(item), turnId);
-}
-
-function contextCompactionMessageStreamItemDataFromItem(item: ContextCompactionItem): BaseStreamItemData {
-  return { id: item.id };
-}
-
-function contextCompactionMessageStreamItemFromData(data: BaseStreamItemData, turnId?: string): MessageStreamItem {
   return {
-    id: data.id,
+    ...turnItemSourceFields(item, turnId),
     kind: "contextCompaction",
     role: "tool",
-    ...definedProp("turnId", turnId),
-    sourceItemId: data.id,
   };
 }
 
@@ -583,14 +432,12 @@ function webSearchDetails(item: WebSearchItem): Extract<MessageStreamItem, { kin
 }
 
 function commandMessageStreamItem(item: CommandExecutionItem, turnId?: string): MessageStreamItem {
-  return commandMessageStreamItemFromData(commandMessageStreamItemDataFromItem(item), turnId);
-}
-
-function commandMessageStreamItemDataFromItem(item: CommandExecutionItem): CommandMessageStreamData {
   const exitCode = typeof item.exitCode === "number" ? item.exitCode : undefined;
   const durationMs = typeof item.durationMs === "number" ? item.durationMs : undefined;
   return {
-    id: item.id,
+    ...turnItemSourceFields(item, turnId),
+    kind: "command",
+    role: "tool",
     commandAction: commandActionKind(item),
     commandTarget: commandTarget(item),
     command: item.command,
@@ -603,49 +450,15 @@ function commandMessageStreamItemDataFromItem(item: CommandExecutionItem): Comma
   };
 }
 
-function commandMessageStreamItemFromData(data: CommandMessageStreamData, turnId?: string): MessageStreamItem {
-  return {
-    id: data.id,
-    kind: "command",
-    role: "tool",
-    commandAction: data.commandAction,
-    commandTarget: data.commandTarget,
-    ...definedProp("turnId", turnId),
-    sourceItemId: data.id,
-    command: data.command,
-    cwd: data.cwd,
-    status: data.status,
-    ...definedProp("exitCode", data.exitCode),
-    ...definedProp("durationMs", data.durationMs),
-    output: data.output,
-    executionState: data.executionState,
-  };
-}
-
 function fileChangeMessageStreamItem(item: FileChangeItem, turnId?: string): MessageStreamItem {
-  return fileChangeMessageStreamItemFromData(fileChangeMessageStreamItemDataFromItem(item), turnId);
-}
-
-function fileChangeMessageStreamItemDataFromItem(item: FileChangeItem): FileChangeMessageStreamData {
   const changes = normalizeFileChanges(item.changes);
   return {
-    id: item.id,
+    ...turnItemSourceFields(item, turnId),
+    kind: "fileChange",
+    role: "tool",
     status: item.status,
     changes,
     executionState: patchApplyExecutionState(item.status),
-  };
-}
-
-function fileChangeMessageStreamItemFromData(data: FileChangeMessageStreamData, turnId?: string): MessageStreamItem {
-  return {
-    id: data.id,
-    kind: "fileChange",
-    role: "tool",
-    ...definedProp("turnId", turnId),
-    sourceItemId: data.id,
-    status: data.status,
-    changes: data.changes,
-    executionState: data.executionState,
   };
 }
 

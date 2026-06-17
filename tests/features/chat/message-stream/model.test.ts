@@ -767,6 +767,32 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it("omits absent web search details instead of storing undefined fields", () => {
+    const item: TurnItem = {
+      type: "webSearch",
+      id: "search-empty",
+      query: "",
+      action: null,
+    };
+
+    expect(messageStreamItemFromTurnItem(item, "t1")).toEqual({
+      id: "search-empty",
+      kind: "tool",
+      role: "tool",
+      toolName: "web search",
+      operation: "webSearch",
+      turnId: "t1",
+      sourceItemId: "search-empty",
+      output: "",
+      provenance: {
+        source: "appServer",
+        channel: "turnItem",
+        itemType: "webSearch",
+        itemId: "search-empty",
+      },
+    });
+  });
+
   it("preserves review mode items with their review output", () => {
     const entered: TurnItem = { type: "enteredReviewMode", id: "review-entered", review: "Review started" };
     const exited: TurnItem = { type: "exitedReviewMode", id: "review-exited", review: "Review finished" };
