@@ -146,12 +146,13 @@ function controllerFixture(
   });
   const host = {
     stateStore,
+    completedTurnTitleContext: (turnId: string, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
+    generateTitleFromContext: (context) => titleService.generate(context),
     renameGeneratedTitle: async (threadId: string, value: string, options: { shouldPublish: () => boolean }) => {
       await currentClient().setThreadName(threadId, value);
       if (options.shouldPublish()) notifyThreadRenamed(threadId, value);
       return true;
     },
-    titleService,
   } satisfies ConstructorParameters<typeof AutoTitleController>[0];
   return { ...host, notifyThreadRenamed, controller: new AutoTitleController(host) };
 }

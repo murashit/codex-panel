@@ -4,10 +4,9 @@ import { readReferencedThreadConversationSummaries } from "../../../../app-serve
 import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
 import { shortThreadId } from "../../../../utils";
-import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
-import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import {
   executeSlashCommand as runSlashCommand,
+  type SlashCommandActionPorts,
   type SlashCommandExecutionResult,
   type ThreadReferenceInput,
 } from "./slash-command-execution";
@@ -18,37 +17,12 @@ import { submissionStateSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import { currentModel, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
-import type { GoalActions } from "../threads/goal-actions";
-import type { ThreadManagementActions } from "../threads/thread-management-actions";
 
-export interface SlashCommandHandlerHost {
+export interface SlashCommandHandlerHost extends SlashCommandActionPorts {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   codexInput: (text: string) => CodexInput;
   setStatus: (status: string) => void;
-  startNewThread: () => Promise<void>;
-  startThreadForGoal: (objective: string) => Promise<string | null>;
-  resumeThread: (threadId: string) => Promise<void>;
-  reconnect: () => Promise<void>;
-  threadActions: Pick<ThreadManagementActions, "forkThread" | "rollbackThread" | "compactThread" | "archiveThread" | "renameThread">;
-  runtimeSettings: Pick<
-    ChatRuntimeSettingsActions,
-    | "toggleFastMode"
-    | "toggleCollaborationMode"
-    | "toggleAutoReview"
-    | "requestModel"
-    | "resetModelToConfig"
-    | "requestReasoningEffort"
-    | "resetReasoningEffortToConfig"
-  >;
-  goals: Pick<GoalActions, "activeGoal" | "setObjective" | "setStatus" | "clear">;
-  addSystemMessage: (text: string) => void;
-  addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
-  statusSummaryLines: () => string[];
-  connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
-  mcpStatusLines: () => Promise<string[]>;
-  modelStatusLines: () => string[];
-  effortStatusLines: () => string[];
 }
 
 function referencedThreadStatus(thread: Thread, includedTurns: number): string {

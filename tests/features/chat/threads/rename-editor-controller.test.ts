@@ -160,22 +160,18 @@ function controllerFixture(
     stateStore,
     ensureConnected: overrides.ensureConnected ?? vi.fn().mockResolvedValue(undefined),
     addSystemMessage: overrides.addSystemMessage ?? vi.fn(),
-    operations: {
-      renameThread: async (threadId: string, value: string) => {
-        const name = normalizeExplicitThreadName(value);
-        if (!name) return false;
-        await currentClient().setThreadName(threadId, name);
-        stateStore.dispatch({
-          type: "thread-list/applied",
-          threads: stateStore.getState().threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)),
-        });
-        notifyThreadRenamed(threadId, name);
-        return true;
-      },
+    renameThread: async (threadId: string, value: string) => {
+      const name = normalizeExplicitThreadName(value);
+      if (!name) return false;
+      await currentClient().setThreadName(threadId, name);
+      stateStore.dispatch({
+        type: "thread-list/applied",
+        threads: stateStore.getState().threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)),
+      });
+      notifyThreadRenamed(threadId, name);
+      return true;
     },
-    titleService: {
-      generateTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
-    },
+    generateThreadTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
   } satisfies ConstructorParameters<typeof ThreadRenameEditorController>[0];
   return { ...host, notifyThreadRenamed, controller: new ThreadRenameEditorController(host) };
 }

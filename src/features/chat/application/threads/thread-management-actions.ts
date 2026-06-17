@@ -16,7 +16,7 @@ const STATUS_ROLLBACK_FAILED = "Rollback failed.";
 export interface ThreadManagementActionsHost {
   stateStore: ChatStateStore;
   vaultPath: string;
-  operations: Pick<ThreadOperations, "archiveThread" | "renameThread">;
+  operations: ThreadOperations;
   ensureConnected: () => Promise<void>;
   currentClient: () => AppServerClient | null;
   addSystemMessage: (text: string) => void;

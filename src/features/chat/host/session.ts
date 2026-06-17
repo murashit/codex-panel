@@ -668,7 +668,8 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   private createAutoTitleController(currentClient: CurrentAppServerClient, titleService: ThreadTitleService): AutoTitleController {
     return new AutoTitleController({
       stateStore: this.stateStore,
-      titleService,
+      completedTurnTitleContext: (turnId, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
+      generateTitleFromContext: (context) => titleService.generate(context),
       renameGeneratedTitle: async (threadId, title, options) => {
         const name = normalizeExplicitThreadName(title);
         if (!name) return false;
@@ -766,8 +767,8 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       stateStore: this.stateStore,
       ensureConnected,
       addSystemMessage: status.addSystemMessage,
-      operations,
-      titleService,
+      renameThread: (threadId, value, options) => operations.renameThread(threadId, value, options),
+      generateThreadTitle: (threadId) => titleService.generateTitle(threadId),
     });
   }
 

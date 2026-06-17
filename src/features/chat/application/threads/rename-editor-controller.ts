@@ -23,8 +23,8 @@ export interface ThreadRenameEditorControllerHost {
   stateStore: ChatStateStore;
   ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
-  operations: Pick<ThreadOperations, "renameThread">;
-  titleService: Pick<ThreadTitleService, "generateTitle">;
+  renameThread: ThreadOperations["renameThread"];
+  generateThreadTitle: ThreadTitleService["generateTitle"];
 }
 
 export class ThreadRenameEditorController {
@@ -77,7 +77,7 @@ export class ThreadRenameEditorController {
     await this.host.ensureConnected();
     if (this.renameState !== editingState) return;
 
-    const result = await this.host.operations.renameThread(threadId, value);
+    const result = await this.host.renameThread(threadId, value);
     if (!result) {
       if (this.renameState === editingState) this.cancel(threadId);
       return;
@@ -106,7 +106,7 @@ export class ThreadRenameEditorController {
     this.nextRenameGenerationId += 1;
 
     try {
-      const title = await this.host.titleService.generateTitle(threadId);
+      const title = await this.host.generateThreadTitle(threadId);
       this.dispatch({ type: "ui/rename-generation-succeeded", generatingState, draft: title });
     } catch (error) {
       if (renameGenerationStillActive(this.renameState, generatingState)) {

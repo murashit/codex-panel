@@ -20,35 +20,48 @@ import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../d
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
-export interface SlashCommandExecutionContext {
-  activeThreadId: string | null;
-  busy: boolean;
-  listedThreads: readonly Thread[];
+export interface SlashCommandActionPorts {
   startNewThread: () => Promise<void>;
   startThreadForGoal: (objective: string) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
-  referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
-  threadActions: Pick<ThreadManagementActions, "forkThread" | "rollbackThread" | "compactThread" | "archiveThread" | "renameThread">;
+  threadActions: {
+    forkThread: ThreadManagementActions["forkThread"];
+    rollbackThread: ThreadManagementActions["rollbackThread"];
+    compactThread: ThreadManagementActions["compactThread"];
+    archiveThread: ThreadManagementActions["archiveThread"];
+    renameThread: ThreadManagementActions["renameThread"];
+  };
   reconnect: () => Promise<void>;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
-  runtimeSettings: Pick<
-    ChatRuntimeSettingsActions,
-    | "toggleFastMode"
-    | "toggleCollaborationMode"
-    | "toggleAutoReview"
-    | "requestModel"
-    | "resetModelToConfig"
-    | "requestReasoningEffort"
-    | "resetReasoningEffortToConfig"
-  >;
-  supportedReasoningEfforts: () => readonly ReasoningEffort[];
-  goals: Pick<GoalActions, "activeGoal" | "setObjective" | "setStatus" | "clear">;
+  runtimeSettings: {
+    toggleFastMode: ChatRuntimeSettingsActions["toggleFastMode"];
+    toggleCollaborationMode: ChatRuntimeSettingsActions["toggleCollaborationMode"];
+    toggleAutoReview: ChatRuntimeSettingsActions["toggleAutoReview"];
+    requestModel: ChatRuntimeSettingsActions["requestModel"];
+    resetModelToConfig: ChatRuntimeSettingsActions["resetModelToConfig"];
+    requestReasoningEffort: ChatRuntimeSettingsActions["requestReasoningEffort"];
+    resetReasoningEffortToConfig: ChatRuntimeSettingsActions["resetReasoningEffortToConfig"];
+  };
+  goals: {
+    activeGoal: GoalActions["activeGoal"];
+    setObjective: GoalActions["setObjective"];
+    setStatus: GoalActions["setStatus"];
+    clear: GoalActions["clear"];
+  };
   statusSummaryLines: () => string[];
   connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
   mcpStatusLines: () => Promise<string[]>;
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
+}
+
+export interface SlashCommandExecutionContext extends SlashCommandActionPorts {
+  activeThreadId: string | null;
+  busy: boolean;
+  listedThreads: readonly Thread[];
+  referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
+  supportedReasoningEfforts: () => readonly ReasoningEffort[];
 }
 
 export interface SlashCommandExecutionResult {

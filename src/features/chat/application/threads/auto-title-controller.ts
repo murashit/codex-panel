@@ -7,7 +7,8 @@ import type { ChatStateStore } from "../state/store";
 
 export interface AutoTitleControllerHost {
   stateStore: ChatStateStore;
-  titleService: Pick<ThreadTitleService, "completedTurnContext" | "generate">;
+  completedTurnTitleContext: ThreadTitleService["completedTurnContext"];
+  generateTitleFromContext: ThreadTitleService["generate"];
   renameGeneratedTitle(threadId: string, title: string, options: { shouldPublish: () => boolean }): Promise<boolean>;
 }
 
@@ -33,7 +34,7 @@ export class AutoTitleController {
     if (hadTurnsBeforeThisCompletion) return;
     if (this.threadHasTitle(threadId)) return;
     if (this.attemptedThreadIds.has(threadId) || this.inFlightThreadIds.has(threadId)) return;
-    const context = this.host.titleService.completedTurnContext(turnId, completedSummary);
+    const context = this.host.completedTurnTitleContext(turnId, completedSummary);
     if (!context) return;
 
     this.attemptedThreadIds.add(threadId);
@@ -58,7 +59,7 @@ export class AutoTitleController {
   }
 
   private async generateTitle(context: ThreadTitleContext): Promise<string | null> {
-    return this.host.titleService.generate(context);
+    return this.host.generateTitleFromContext(context);
   }
 
   private threadHasTitle(threadId: string): boolean {
