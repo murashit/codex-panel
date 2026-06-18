@@ -5,11 +5,11 @@ import { collabAgentStateExecutionState } from "../../../domain/message-stream/a
 type MessageStreamExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
 
-const STANDARD_TOOL_STATES = {
+const STANDARD_TOOL_STATES: ExecutionStateByStatus = {
   inProgress: "running",
   completed: "completed",
   failed: "failed",
-} as const satisfies ExecutionStateByStatus;
+};
 
 interface MessageStreamCollabAgentToolCall {
   id: string;
@@ -72,9 +72,5 @@ function collabAgentExecutionState(tool: string, status: string, receiverThreadI
 }
 
 function collabAgentToolCallExecutionState(status: string): ExecutionState {
-  return executionStateFromStatus(status, STANDARD_TOOL_STATES);
-}
-
-function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
-  return states[status] ?? null;
+  return STANDARD_TOOL_STATES[status] ?? null;
 }

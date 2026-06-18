@@ -5,13 +5,13 @@ import { permissionRows } from "../../../domain/message-stream/format/permission
 type MessageStreamExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
 
-const AUTO_REVIEW_STATES = {
+const AUTO_REVIEW_STATES: ExecutionStateByStatus = {
   inProgress: "running",
   approved: "completed",
   denied: "failed",
   timedOut: "failed",
   aborted: "failed",
-} as const satisfies ExecutionStateByStatus;
+};
 
 type AutoReviewNotification = AutoReviewStartedNotification | AutoReviewCompletedNotification;
 
@@ -187,9 +187,5 @@ function autoReviewActionLabel(action: AutoReviewAction): string {
 }
 
 function autoReviewExecutionState(status: string): ExecutionState {
-  return executionStateFromStatus(status, AUTO_REVIEW_STATES);
-}
-
-function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
-  return states[status] ?? null;
+  return AUTO_REVIEW_STATES[status] ?? null;
 }

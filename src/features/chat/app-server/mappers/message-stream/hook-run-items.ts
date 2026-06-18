@@ -13,13 +13,13 @@ interface MessageStreamHookRun {
 type MessageStreamExecutionState = Exclude<ExecutionState, null>;
 type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
 
-const HOOK_RUN_STATES = {
+const HOOK_RUN_STATES: ExecutionStateByStatus = {
   running: "running",
   completed: "completed",
   failed: "failed",
   blocked: "failed",
   stopped: "failed",
-} as const satisfies ExecutionStateByStatus;
+};
 
 export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: string | null, status: string): HookMessageStreamItem | null {
   if (run.id.length === 0) return null;
@@ -48,11 +48,7 @@ export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: stri
 }
 
 function hookRunExecutionState(status: string): ExecutionState {
-  return executionStateFromStatus(status, HOOK_RUN_STATES);
-}
-
-function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
-  return states[status] ?? null;
+  return HOOK_RUN_STATES[status] ?? null;
 }
 
 function hookRunDisplayId(run: MessageStreamHookRun): string {

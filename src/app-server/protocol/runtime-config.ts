@@ -16,7 +16,7 @@ export interface ConfigReadResult {
 }
 
 export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadResult): RuntimeConfigSnapshot {
-  const config = asConfigRecord(response.config);
+  const config = asRecord(response.config);
   const tools = asRecordOrNull(config["tools"]);
   const workspaceWrite = asRecordOrNull(config["sandbox_workspace_write"]);
   const effort = config["model_reasoning_effort"];
@@ -42,18 +42,12 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadRes
   };
 }
 
-type ConfigProjectionRecord = Record<string, unknown>;
-
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 function asRecordOrNull(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
-}
-
-function asConfigRecord(value: unknown): ConfigProjectionRecord {
-  return asRecord(value);
 }
 
 function selectedConfigProfile(layers: ConfigReadResult["layers"]): string | null {
