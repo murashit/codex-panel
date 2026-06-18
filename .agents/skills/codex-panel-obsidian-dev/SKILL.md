@@ -10,6 +10,7 @@ Use this skill for live Obsidian checks after building Codex Panel or when inves
 ## Ground Rules
 
 - Work from the Codex Panel repository root.
+- Use `docs/development.md` for the build and generated-asset expectations before live Obsidian validation.
 - Treat `obsidian plugin:reload id=codex-panel`, `obsidian reload`, `obsidian restart`, `obsidian devtools`, `obsidian eval`, `obsidian dev:cdp`, and `obsidian dev:mobile` as state-changing or intrusive. Ask the user before running them.
 - Prefer read-only inspection first: `plugin`, `commands`, `dev:errors`, `dev:dom`, `dev:css`, `dev:console`, `dev:screenshot`, `version`.
 - If `dev:console` reports that the debugger is not attached, ask before running `obsidian dev:debug on`.

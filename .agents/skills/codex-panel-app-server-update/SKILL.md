@@ -10,13 +10,14 @@ Use this skill when Codex Panel needs to follow Codex CLI or experimental `codex
 ## Ground Rules
 
 - Treat `src/generated/app-server/` as generated output. Do not hand-edit generated bindings.
+- Use `docs/design.md` for app-server boundary and source-of-truth decisions before adding compatibility layers or product behavior.
 - Prefer current Codex CLI behavior over broad backward compatibility unless a concrete user need requires compatibility code.
 - Separate required compatibility fixes from optional cleanup or product improvements.
 - Do not rely on local Git hooks. Run required generation and verification commands explicitly.
 
 ## Procedure
 
-1. Read the README Compatibility and Development sections, `package.json`, and app-server-related source around requests, notifications, threads, approvals, Plan mode, hooks, and model listing.
+1. Read the README Compatibility section, `docs/design.md`, `docs/development.md`, `package.json`, and app-server-related source around requests, notifications, threads, approvals, runtime settings, hooks, and model listing.
 2. Compare the README Compatibility table's `codex.testedCliVersion` with the target `codex --version`.
 3. Check official Codex CLI or app-server release information when the target version is newer or behavior is uncertain.
 4. Regenerate bindings with `npm run generate:app-server-types`.

@@ -1,9 +1,13 @@
-This repository contains the Codex Panel Obsidian plugin. Use the tracked docs as the source of truth: `README.md` for user-facing behavior, `docs/development.md` for development workflow, and `docs/release.md` for releases.
+This repository contains the Codex Panel Obsidian plugin.
 
 Jujutsu is the recommended local change-management workflow when available.
 
-## Working Rules
+## What To Read
 
-- Follow the documented ownership and source layout boundaries.
-- Do not hand-edit generated app-server bindings.
-- Keep internal validation notes and reasoning out of public release notes.
+- Read `README.md` for user-facing behavior, requirements, commands, privacy, and compatibility.
+- Read `docs/design.md` when changing responsibility boundaries, runtime ownership, app-server source-of-truth behavior, UI ownership, or testing philosophy.
+- Read `docs/development.md` before implementation work, generated binding work, source layout decisions, validation, or compatibility baseline changes.
+- Read `docs/release.md` for release preparation, release notes, preflight, tagging, pushing, and release repair.
+- Use the repo-local skills in `.agents/skills/` when a task matches a more specific workflow.
+
+When implementation, design, or workflow changes create drift from docs or lint policy, update the affected docs or lint settings in the same change and report that update.
