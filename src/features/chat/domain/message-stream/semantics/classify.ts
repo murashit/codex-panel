@@ -4,7 +4,7 @@ import type {
   MessageStreamLifecycle,
   MessageStreamMeaning,
   MessageStreamPlacement,
-  MessageStreamSemanticActions,
+  MessageStreamSemanticCapabilities,
   MessageStreamSemanticClassification,
 } from "./types";
 
@@ -26,13 +26,13 @@ function messageStreamSemanticClassification(
     placement,
     meaning,
     ...definedProp("lifecycle", lifecycle),
-    actions: messageStreamSemanticActions({ item, placement, meaning, ...definedProp("lifecycle", lifecycle) }),
+    capabilities: messageStreamSemanticCapabilities({ item, placement, meaning, ...definedProp("lifecycle", lifecycle) }),
   };
 }
 
-function messageStreamSemanticActions(
+function messageStreamSemanticCapabilities(
   classification: Pick<MessageStreamSemanticClassification, "item" | "placement" | "meaning" | "lifecycle">,
-): MessageStreamSemanticActions {
+): MessageStreamSemanticCapabilities {
   const { item, placement, meaning, lifecycle } = classification;
   const isDialogueOutcome =
     placement.scope === "turn" &&

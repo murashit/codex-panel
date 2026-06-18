@@ -64,7 +64,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     expect(projection.context.workspaceRoot).toBe("/repo");
     expect(projection.blocks).toEqual([{ kind: "empty", key: "empty" }]);
     expect(projection.context.disclosures.textDetails.size).toBe(0);
-    expect(projection.context.forkActionsItemId).toBeNull();
+    expect(projection.context.forkMenuItemId).toBeNull();
   });
 
   it("wires message stream disclosure actions through the surface context", () => {
@@ -578,8 +578,8 @@ function messageStreamSurfaceContext(options: {
     setDisclosureOpen: (bucket, id, open) => {
       options.dispatch({ type: "ui/disclosure-set", bucket, id, open });
     },
-    setForkActionsItem: (itemId) => {
-      options.dispatch({ type: "ui/message-fork-actions-set", itemId });
+    setForkMenuItem: (itemId) => {
+      options.dispatch({ type: "ui/message-fork-menu-set", itemId });
     },
     loadOlderTurns: vi.fn(),
     renderObsidianMarkdown: vi.fn(),

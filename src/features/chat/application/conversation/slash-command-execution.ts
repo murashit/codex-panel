@@ -20,7 +20,7 @@ import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../d
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
-export interface SlashCommandActionPorts {
+export interface SlashCommandExecutionPorts {
   startNewThread: () => Promise<void>;
   startThreadForGoal: (objective: string) => Promise<string | null>;
   resumeThread: (threadId: string) => Promise<void>;
@@ -56,7 +56,7 @@ export interface SlashCommandActionPorts {
   effortStatusLines: () => string[];
 }
 
-export interface SlashCommandExecutionContext extends SlashCommandActionPorts {
+export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts {
   activeThreadId: string | null;
   busy: boolean;
   listedThreads: readonly Thread[];

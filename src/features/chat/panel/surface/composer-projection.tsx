@@ -71,7 +71,7 @@ export interface ChatPanelComposerSurface {
   };
 }
 
-export interface ChatPanelComposerController {
+export interface ChatPanelComposerRenderer {
   renderState(state: ChatPanelComposerShellState, actions: ChatPanelComposerActions): ComposerShellProps;
 }
 
@@ -91,14 +91,14 @@ function composerPlaceholder(threadName: string | null): string {
 }
 
 export function ChatPanelComposer({
-  controller,
+  renderer,
   actions,
 }: {
-  controller: ChatPanelComposerController;
+  renderer: ChatPanelComposerRenderer;
   actions: ChatPanelComposerActions;
 }): UiNode {
   const state = composerStateFromShellState(useChatPanelShellState());
-  return h(ComposerShell, controller.renderState(state, actions));
+  return h(ComposerShell, renderer.renderState(state, actions));
 }
 
 export function chatPanelComposerProjection(

@@ -373,7 +373,7 @@ describe("pending request renderer decisions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown,
     })[0];
@@ -412,7 +412,7 @@ describe("pending request renderer decisions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -464,7 +464,7 @@ describe("pending request renderer decisions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -485,7 +485,7 @@ describe("pending request renderer decisions", () => {
       loadingHistory: false,
       items: [{ id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" }],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
@@ -507,7 +507,7 @@ describe("pending request renderer decisions", () => {
       loadingHistory: false,
       items: [{ id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" }],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
@@ -537,7 +537,7 @@ describe("pending request renderer decisions", () => {
             { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
           ],
           disclosures: emptyDisclosures(),
-          forkActionsItemId: null,
+          forkMenuItemId: null,
           loadOlderTurns: vi.fn(),
           renderMarkdown: (element, text) => element.createDiv({ text }),
           pendingRequests: pendingRequestContext({
@@ -567,7 +567,7 @@ describe("pending request renderer decisions", () => {
       loadingHistory: false,
       items: [],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
@@ -593,7 +593,7 @@ describe("pending request renderer decisions", () => {
         { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
       ] satisfies MessageStreamItem[],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };

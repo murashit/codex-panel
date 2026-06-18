@@ -14,7 +14,7 @@ export interface MessageStreamForkTarget {
 
 export type MessageStreamPlanImplementationTarget = PlanImplementationTarget;
 
-export interface MessageStreamTextActions {
+export interface MessageStreamTextActionTargets {
   fork?: MessageStreamForkTarget;
   rollback?: true;
   implementPlan?: MessageStreamPlanImplementationTarget;
@@ -66,7 +66,7 @@ export interface MessageStreamTextView {
   renderMode: MessageStreamTextRenderMode;
   collapsible: boolean;
   copyText?: string;
-  actions: MessageStreamTextActions;
+  actionTargets: MessageStreamTextActionTargets;
   metadata: MessageStreamTextMetadataView;
 }
 
@@ -75,7 +75,7 @@ type MessageStreamTextRenderMode = "text" | "streamMarkdown" | "obsidianMarkdown
 export function messageStreamTextView(
   item: MessageStreamItem,
   annotations?: MessageStreamItemAnnotations,
-  options: { activeTurnId?: string | null; actions?: MessageStreamTextActions } = {},
+  options: { activeTurnId?: string | null; actionTargets?: MessageStreamTextActionTargets } = {},
 ): MessageStreamTextView {
   const renderMode = textRenderMode(item);
   const body = bodyForTextItem(item);
@@ -88,7 +88,7 @@ export function messageStreamTextView(
     renderMode,
     collapsible: item.kind === "message" && item.role === "user",
     ...definedProp("copyText", copyTextForTextItem(item, options.activeTurnId ?? null)),
-    actions: options.actions ?? {},
+    actionTargets: options.actionTargets ?? {},
     metadata: textMetadataView(item, annotations),
   };
 }

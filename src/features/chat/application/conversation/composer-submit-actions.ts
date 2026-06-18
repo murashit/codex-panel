@@ -15,7 +15,7 @@ export interface ComposerSubmitActionsHost {
     readonly trimmedDraft: string;
     setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean }): void;
   };
-  slashCommands: {
+  slashCommandExecutor: {
     execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined>;
   };
   turnSubmission: {
@@ -58,7 +58,7 @@ async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
     host.composer.setDraft("", { clearSuggestions: true });
-    const result = await host.slashCommands.execute(slashCommand.command, slashCommand.args);
+    const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args);
     if (result?.composerDraft !== undefined) {
       host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
     }

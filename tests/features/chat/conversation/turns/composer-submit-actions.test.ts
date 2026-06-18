@@ -33,7 +33,7 @@ function createHost(draft: string) {
       },
       setDraft,
     },
-    slashCommands: { execute },
+    slashCommandExecutor: { execute },
     turnSubmission: { sendTurnText },
     connection: {
       currentClient: () => client,

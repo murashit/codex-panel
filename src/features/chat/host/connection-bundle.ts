@@ -14,7 +14,7 @@ import type { ChatViewDeferredTasks } from "../application/lifecycle";
 import type { ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { createThreadGoalSyncActions } from "../application/threads/goal-actions";
-import type { AutoTitleActions } from "../application/threads/auto-title-actions";
+import type { AutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
@@ -39,7 +39,7 @@ interface ChatPanelConnectionBundleInput {
   localItemIds: LocalIdSource;
   status: ChatPanelConnectionStatus;
   goalSync: ChatPanelGoalSyncActions;
-  autoTitle: AutoTitleActions;
+  autoTitleCoordinator: AutoTitleCoordinator;
 }
 
 interface ChatPanelConnectionBundleHost {
@@ -97,7 +97,7 @@ export function createConnectionBundle(
   input: ChatPanelConnectionBundleInput,
 ): ChatPanelConnectionBundle {
   const { environment, stateStore } = host;
-  const { connection, currentClient, localItemIds, status, goalSync, autoTitle } = input;
+  const { connection, currentClient, localItemIds, status, goalSync, autoTitleCoordinator } = input;
   const serverMetadata = createChatServerMetadataActions({
     stateStore,
     vaultPath: environment.plugin.settingsRef.vaultPath,
@@ -149,7 +149,7 @@ export function createConnectionBundle(
         serverMetadata.applyAppServerMetadataSnapshot();
       },
       maybeNameThread: (threadId, turnId, completedSummary) => {
-        autoTitle.maybeAutoTitleThread(threadId, turnId, completedSummary);
+        autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedSummary);
       },
       upsertActiveThread: (thread) => {
         environment.plugin.threadCatalog.upsertFromAppServer(thread);
@@ -179,7 +179,7 @@ export function createConnectionBundle(
     },
     setStatus: status.set,
     resetThreadTurnPresence: (hadTurns: boolean) => {
-      autoTitle.resetThreadTurnPresence(hadTurns);
+      autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
     refreshLiveState: () => {
       host.refreshLiveState();

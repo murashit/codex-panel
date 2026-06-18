@@ -5,19 +5,19 @@ import type { ThreadTitleService } from "../../../threads/thread-title-service";
 import type { ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
-export interface AutoTitleActionsHost {
+export interface AutoTitleCoordinatorHost {
   stateStore: ChatStateStore;
   completedTurnTitleContext: ThreadTitleService["completedTurnContext"];
   generateTitleFromContext: ThreadTitleService["generate"];
   renameGeneratedTitle(threadId: string, title: string, options: { shouldPublish: () => boolean }): Promise<boolean>;
 }
 
-export interface AutoTitleActions {
+export interface AutoTitleCoordinator {
   resetThreadTurnPresence(hadTurns: boolean): void;
   maybeAutoTitleThread(threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null): void;
 }
 
-export function createAutoTitleActions(host: AutoTitleActionsHost): AutoTitleActions {
+export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): AutoTitleCoordinator {
   let activeThreadHadTurns = false;
   const attemptedThreadIds = new Set<string>();
   const inFlightThreadIds = new Set<string>();
@@ -65,6 +65,6 @@ export function createAutoTitleActions(host: AutoTitleActionsHost): AutoTitleAct
   };
 }
 
-function state(host: AutoTitleActionsHost): ChatState {
+function state(host: AutoTitleCoordinatorHost): ChatState {
   return host.stateStore.getState();
 }

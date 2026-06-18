@@ -41,23 +41,23 @@ function Text({ view, context }: { view: MessageStreamTextView; context: TextIte
 }
 
 function TextHeader({ view, context }: { view: MessageStreamTextView; context: TextItemActionContext }): UiNode {
-  const forkActionsOpen = context.forkActionsItemId === view.id;
+  const forkMenuOpen = context.forkMenuItemId === view.id;
   const roleRef = useRef<HTMLDivElement | null>(null);
-  const { fork, implementPlan, rollback } = view.actions;
+  const { fork, implementPlan, rollback } = view.actionTargets;
 
   useEffect(() => {
-    if (!forkActionsOpen) return;
+    if (!forkMenuOpen) return;
     const doc = roleRef.current?.ownerDocument;
     if (!doc) return;
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (event.target instanceof Node && roleRef.current?.contains(event.target)) return;
-      context.onForkActionsToggle?.(null);
+      context.onForkMenuToggle?.(null);
     };
     return listenDomEvent(doc, "pointerdown", closeOnOutsidePointer, true);
-  }, [context, forkActionsOpen]);
+  }, [context, forkMenuOpen]);
 
   const copyAction =
-    view.copyText !== undefined && context.copyText && !forkActionsOpen ? (
+    view.copyText !== undefined && context.copyText && !forkMenuOpen ? (
       <TextAction
         icon="copy"
         label="Copy message"
@@ -67,15 +67,15 @@ function TextHeader({ view, context }: { view: MessageStreamTextView; context: T
     ) : null;
 
   return (
-    <div ref={roleRef} className={`codex-panel__message-role${forkActionsOpen ? " codex-panel__message-role--fork-open" : ""}`}>
+    <div ref={roleRef} className={`codex-panel__message-role${forkMenuOpen ? " codex-panel__message-role--fork-open" : ""}`}>
       <span>{view.roleLabel}</span>
-      {forkActionsOpen && fork ? (
+      {forkMenuOpen && fork ? (
         <TextAction
           icon="archive"
           label="Fork and archive"
           className="codex-panel__fork-and-archive-message"
           onClick={() => {
-            context.onForkActionsToggle?.(null);
+            context.onForkMenuToggle?.(null);
             context.onFork?.(fork, true);
           }}
         />
@@ -84,15 +84,15 @@ function TextHeader({ view, context }: { view: MessageStreamTextView; context: T
       )}
       {fork ? (
         <TextAction
-          icon={forkActionsOpen ? "file-plus-corner" : "lucide-split"}
-          label={forkActionsOpen ? "Fork" : "Fork from here"}
+          icon={forkMenuOpen ? "file-plus-corner" : "lucide-split"}
+          label={forkMenuOpen ? "Fork" : "Fork from here"}
           className="codex-panel__fork-message"
           onClick={() => {
-            if (forkActionsOpen) {
-              context.onForkActionsToggle?.(null);
+            if (forkMenuOpen) {
+              context.onForkMenuToggle?.(null);
               context.onFork?.(fork, false);
             } else {
-              context.onForkActionsToggle?.(view.id);
+              context.onForkMenuToggle?.(view.id);
             }
           }}
         />

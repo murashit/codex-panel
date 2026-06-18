@@ -144,8 +144,8 @@ function isCompletedTurnDetailItem(classification: MessageStreamSemanticClassifi
 
 function turnOutcomeItemsByTurn(items: readonly MessageStreamSemanticClassification[]): Map<string, string> {
   const turnOutcomeIdByTurn = new Map<string, string>();
-  for (const { item, actions } of items) {
-    if (!item.turnId || !actions.isTurnOutcome) continue;
+  for (const { item, capabilities } of items) {
+    if (!item.turnId || !capabilities.isTurnOutcome) continue;
     turnOutcomeIdByTurn.set(item.turnId, item.id);
   }
   return turnOutcomeIdByTurn;

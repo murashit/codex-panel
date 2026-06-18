@@ -170,15 +170,15 @@ const imperativeDomAssignmentProperties = new Set([
 const pureChatStateRestrictions = [
   {
     selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
-    message: "Keep chat state transforms deterministic; generate IDs or timestamps at the controller/view boundary.",
+    message: "Keep chat state transforms deterministic; generate IDs or timestamps at an application or UI boundary.",
   },
   {
     selector: "NewExpression[callee.name='Date']",
-    message: "Keep chat state transforms deterministic; pass dates in from the controller/view boundary.",
+    message: "Keep chat state transforms deterministic; pass dates in from an application or UI boundary.",
   },
   {
     selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
-    message: "Keep chat state transforms deterministic; generate IDs at the controller/view boundary.",
+    message: "Keep chat state transforms deterministic; generate IDs at an application or UI boundary.",
   },
   {
     selector: "NewExpression[callee.name=/^(AppServerClient|ConnectionManager|Notice)$/]",

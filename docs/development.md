@@ -28,9 +28,17 @@ The source tree is organized by responsibility rather than by the original singl
 - `src/domain/` contains panel-owned, generated-independent meaning models and pure derivations shared by app-server, features, workspace, and settings code. Domain code must not import app-server protocol, generated bindings, feature modules, UI, or Obsidian APIs; app-server protocol and service modules adapt generated payloads into domain models at the boundary.
 - `src/styles/` contains the authored CSS modules and `order.json` concatenation order. `scripts/build-styles.mjs` concatenates them into the ignored root `styles.css`, which remains the Obsidian release asset.
 
+## Implementation Conventions
+
 Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns; feature-neutral behavior belongs in `src/shared/`, `src/domain/`, or `src/app-server/`. Lower-level modules must not import `src/features/`, and generated app-server types should stay behind `src/app-server/`.
 
 Codex Panel's runtime UI is Preact-owned. Use imperative DOM writes only for explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Revisit the project design notes before adding a parallel UI state or runtime path.
+
+## Naming Conventions
+
+Name modules by responsibility: use `Controller` only for stateful lifecycle/control surfaces, `Handler` for inbound event or request entrypoints, `Actions` for caller-facing command or callback bundles without lifecycle ownership, `Coordinator` for stateful background or cross-surface coordination, `Service` for reusable domain capabilities, `Presenter` for UI state projection, `Renderer` for render-only UI contracts, and `Host`/`Ports` for dependency boundary objects. Use `State`, `Snapshot`, `Projection`, `ViewModel`, `Options`, `Context`, `Result`, `Target`, `Capabilities`, or `ActionTargets` for data/value objects; do not use `Actions` for passive data. Use boundary/infrastructure nouns such as `Client`, `Transport`, `Cache`, `Store`, `Catalog`, `Manager`, `Bridge`, `Tracker`, `Session`, `Runtime`, `Provider`, or `Adapter` only when the object owns that concrete boundary or lifecycle role.
+
+Prefer functions and factory-created objects over classes. Use a class only when it owns mutable lifecycle/resource state, extends or implements an external class-based API such as Obsidian views/modals/tabs, or represents an `Error`; do not use a class merely to group pure functions or dependencies.
 
 ## App-Server Bindings
 

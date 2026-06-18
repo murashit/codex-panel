@@ -25,7 +25,7 @@ import {
   withMessageContentScrollHeight,
 } from "./test-helpers";
 
-describe("message stream rendering and message actions", () => {
+describe("message stream rendering and message action menu", () => {
   it("inserts completed-turn activity groups between conversation blocks", () => {
     const parent = document.createElement("div");
     const baseContext = {
@@ -34,7 +34,7 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
@@ -125,7 +125,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: testDisclosures({ activityGroups: ["t1"] }),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     });
@@ -163,7 +163,7 @@ describe("message stream rendering and message actions", () => {
       loadingHistory: false,
       items: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." }],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -201,7 +201,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -243,7 +243,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown,
     })[0];
@@ -277,7 +277,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element, text) => element.createDiv({ text }),
     })[0];
@@ -315,10 +315,10 @@ describe("message stream rendering and message actions", () => {
       loadingHistory: false,
       items: [...items],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
-      textActionsByItemId: new Map([["u2", { rollback: true }]]),
+      textActionTargetsByItemId: new Map([["u2", { rollback: true }]]),
       onRollback,
     });
 
@@ -353,7 +353,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText,
@@ -372,7 +372,7 @@ describe("message stream rendering and message actions", () => {
   });
 
   it("expands assistant fork actions in the copy action region and defaults repeat clicks to plain fork", () => {
-    const onForkActionsToggle = vi.fn();
+    const onForkMenuToggle = vi.fn();
     const onFork = vi.fn();
     const item: MessageStreamItem = {
       id: "a1",
@@ -392,12 +392,12 @@ describe("message stream rendering and message actions", () => {
       loadingHistory: false,
       items: [item],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
-      onForkActionsToggle,
+      forkMenuItemId: null,
+      onForkMenuToggle,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
-      textActionsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
+      textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
       onFork,
     })[0];
 
@@ -407,7 +407,7 @@ describe("message stream rendering and message actions", () => {
     expect(initialFork.getAttribute("aria-label")).toBe("Fork from here");
     expect(initialFork.getAttribute("data-icon")).toBe("lucide-split");
     initialFork.click();
-    expect(onForkActionsToggle).toHaveBeenCalledWith("a1");
+    expect(onForkMenuToggle).toHaveBeenCalledWith("a1");
 
     const openBlock = messageStreamBlocks({
       activeThreadId: "thread",
@@ -416,12 +416,12 @@ describe("message stream rendering and message actions", () => {
       loadingHistory: false,
       items: [item],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: "a1",
-      onForkActionsToggle,
+      forkMenuItemId: "a1",
+      onForkMenuToggle,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
-      textActionsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
+      textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
       onFork,
     })[0];
 
@@ -456,12 +456,12 @@ describe("message stream rendering and message actions", () => {
       loadingHistory: false,
       items: [item],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: "a1",
-      onForkActionsToggle: vi.fn(),
+      forkMenuItemId: "a1",
+      onForkMenuToggle: vi.fn(),
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
-      textActionsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
+      textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
       onFork,
     })[0];
 
@@ -479,7 +479,7 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text: `markdown:${text}` }),
     };
@@ -537,7 +537,7 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown,
     };
@@ -612,7 +612,7 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => {
         markdownRenderer.renderObsidianMarkdown(element, text);
@@ -686,7 +686,7 @@ describe("message stream rendering and message actions", () => {
       historyCursor: null,
       loadingHistory: false,
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderObsidianMarkdown: vi.fn(),
       renderStreamMarkdown,
@@ -739,7 +739,7 @@ describe("message stream rendering and message actions", () => {
         historyCursor: null,
         loadingHistory: false,
         disclosures: emptyDisclosures(),
-        forkActionsItemId: null,
+        forkMenuItemId: null,
         loadOlderTurns: vi.fn(),
         renderObsidianMarkdown: (element: HTMLElement, text: string) => {
           markdownRenderer.renderObsidianMarkdown(element, text);
@@ -820,7 +820,7 @@ describe("message stream rendering and message actions", () => {
       loadingHistory: false,
       items: [item],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent: HTMLElement, text: string) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -853,11 +853,11 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
-      textActionsByItemId: new Map([["p1", { implementPlan: { itemId: "p1" } }]]),
+      textActionTargetsByItemId: new Map([["p1", { implementPlan: { itemId: "p1" } }]]),
       onImplementPlan,
     })[0];
 
@@ -931,7 +931,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
@@ -950,11 +950,11 @@ describe("message stream rendering and message actions", () => {
       loadingHistory: false,
       items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-1" }],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText,
-      textActionsByItemId: new Map([["u1", { rollback: true }]]),
+      textActionTargetsByItemId: new Map([["u1", { rollback: true }]]),
       onRollback,
     })[0];
 
@@ -999,7 +999,7 @@ describe("message stream rendering and message actions", () => {
               },
             ],
             disclosures: testDisclosures({ userMessageExpanded: [...expandedMessages] }),
-            forkActionsItemId: null,
+            forkMenuItemId: null,
             onDisclosureToggle,
             loadOlderTurns: vi.fn(),
             renderMarkdown: (parent, text) => parent.createDiv({ text }),
@@ -1054,7 +1054,7 @@ describe("message stream rendering and message actions", () => {
         loadingHistory: false,
         items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "short", turnId: "turn-1" }],
         disclosures: emptyDisclosures(),
-        forkActionsItemId: null,
+        forkMenuItemId: null,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
       })[0];
@@ -1081,7 +1081,7 @@ describe("message stream rendering and message actions", () => {
           },
         ],
         disclosures: emptyDisclosures(),
-        forkActionsItemId: null,
+        forkMenuItemId: null,
         loadOlderTurns: vi.fn(),
         renderMarkdown: (parent, text) => parent.createDiv({ text }),
       })[0];
@@ -1099,7 +1099,7 @@ describe("message stream rendering and message actions", () => {
       loadingHistory: false,
       items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "running", turnId: "turn-1" }],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1129,7 +1129,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1167,7 +1167,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1204,7 +1204,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1235,7 +1235,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1264,7 +1264,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1299,7 +1299,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
@@ -1338,7 +1338,7 @@ describe("message stream rendering and message actions", () => {
       ],
       turnDiffs: new Map([["turn", "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new"]]),
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       openTurnDiff,
@@ -1386,7 +1386,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -1417,7 +1417,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
@@ -1458,7 +1458,7 @@ describe("message stream rendering and message actions", () => {
         },
       ],
       disclosures: emptyDisclosures(),
-      forkActionsItemId: null,
+      forkMenuItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (parent, text) => parent.createDiv({ text }),
       openTurnDiff: vi.fn(),

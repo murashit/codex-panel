@@ -21,7 +21,7 @@ import type { ChatPanelMessageStreamShellState } from "../shell-state";
 import { pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/snapshot";
 import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
-import type { MessageStreamTextActions } from "../../presentation/message-stream/text-view";
+import type { MessageStreamTextActionTargets } from "../../presentation/message-stream/text-view";
 
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
@@ -40,7 +40,7 @@ interface ChatMessageStreamRequests {
 export interface ChatMessageStreamSurfaceContext {
   vaultPath: string;
   setDisclosureOpen: (bucket: ChatDisclosureBucket, id: string, open: boolean) => void;
-  setForkActionsItem: (itemId: string | null) => void;
+  setForkMenuItem: (itemId: string | null) => void;
   loadOlderTurns: () => void;
   renderObsidianMarkdown: (element: HTMLElement, text: string) => void;
   renderStreamMarkdown: (element: HTMLElement, text: string) => void;
@@ -64,7 +64,7 @@ interface MessageStreamStateProjection {
   activeThreadId: string | null;
   workspaceRoot: string;
   disclosures: ChatDisclosureUiState;
-  forkActionsItemId: string | null;
+  forkMenuItemId: string | null;
   viewBlocks: readonly MessageStreamViewBlock[];
 }
 
@@ -79,8 +79,8 @@ export function createMessageStreamSurfaceContext(options: MessageStreamSurfaceC
     setDisclosureOpen: (bucket, id, open) => {
       options.dispatch({ type: "ui/disclosure-set", bucket, id, open });
     },
-    setForkActionsItem: (itemId) => {
-      options.dispatch({ type: "ui/message-fork-actions-set", itemId });
+    setForkMenuItem: (itemId) => {
+      options.dispatch({ type: "ui/message-fork-menu-set", itemId });
     },
     loadOlderTurns: options.loadOlderTurns,
     renderObsidianMarkdown: options.renderObsidianMarkdown,
@@ -111,8 +111,8 @@ function messageStreamContextFromProjection(
     workspaceRoot: projection.workspaceRoot,
     disclosures: projection.disclosures,
     onDisclosureToggle: context.setDisclosureOpen,
-    forkActionsItemId: projection.forkActionsItemId,
-    onForkActionsToggle: context.setForkActionsItem,
+    forkMenuItemId: projection.forkMenuItemId,
+    onForkMenuToggle: context.setForkMenuItem,
     loadOlderTurns: context.loadOlderTurns,
     renderObsidianMarkdown: context.renderObsidianMarkdown,
     renderStreamMarkdown: context.renderStreamMarkdown,
@@ -152,14 +152,14 @@ function messageStreamStateProjection(
   const rollbackCandidate = busy ? null : messageStreamRollbackCandidate(state.messageStream);
   const forkCandidates = busy ? [] : forkCandidatesFromItems(items);
   const implementPlanTarget = implementPlanTargetFromState(state);
-  const textActionsByItemId = textActionsForMessageStreamItems(rollbackCandidate, forkCandidates, implementPlanTarget);
+  const textActionTargetsByItemId = textActionTargetsForMessageStreamItems(rollbackCandidate, forkCandidates, implementPlanTarget);
   const activeTurn = activeTurnId({ lifecycle: state.turn.lifecycle });
 
   return {
     activeThreadId: state.activeThread.id,
     workspaceRoot,
     disclosures: state.ui.disclosures,
-    forkActionsItemId: state.ui.messageActions.forkActionsItemId,
+    forkMenuItemId: state.ui.messageActionMenu.forkMenuItemId,
     viewBlocks: messageStreamViewBlocks({
       activeThreadId: state.activeThread.id,
       activeTurnId: activeTurn,
@@ -170,31 +170,35 @@ function messageStreamStateProjection(
       activeItems,
       workspaceRoot,
       turnDiffs: state.messageStream.turnDiffs,
-      textActionsByItemId,
+      textActionTargetsByItemId,
       pendingRequests: messageStreamBlockItemsEmpty(stableItems, activeItems) ? null : pendingRequestBlockFromContext(context),
     }),
   };
 }
 
-function textActionsForMessageStreamItems(
+function textActionTargetsForMessageStreamItems(
   rollbackCandidate: MessageStreamRollbackCandidate | null,
   forkCandidates: readonly ForkCandidate[],
   implementPlanTarget: PlanImplementationTarget | null,
-): ReadonlyMap<string, MessageStreamTextActions> {
-  const byItemId = new Map<string, MessageStreamTextActions>();
+): ReadonlyMap<string, MessageStreamTextActionTargets> {
+  const byItemId = new Map<string, MessageStreamTextActionTargets>();
   for (const candidate of forkCandidates) {
-    patchTextActions(byItemId, candidate.itemId, { fork: { itemId: candidate.itemId, turnId: candidate.turnId } });
+    patchTextActionTargets(byItemId, candidate.itemId, { fork: { itemId: candidate.itemId, turnId: candidate.turnId } });
   }
   if (rollbackCandidate) {
-    patchTextActions(byItemId, rollbackCandidate.itemId, { rollback: true });
+    patchTextActionTargets(byItemId, rollbackCandidate.itemId, { rollback: true });
   }
   if (implementPlanTarget) {
-    patchTextActions(byItemId, implementPlanTarget.itemId, { implementPlan: implementPlanTarget });
+    patchTextActionTargets(byItemId, implementPlanTarget.itemId, { implementPlan: implementPlanTarget });
   }
   return byItemId;
 }
 
-function patchTextActions(byItemId: Map<string, MessageStreamTextActions>, itemId: string, patch: MessageStreamTextActions): void {
+function patchTextActionTargets(
+  byItemId: Map<string, MessageStreamTextActionTargets>,
+  itemId: string,
+  patch: MessageStreamTextActionTargets,
+): void {
   byItemId.set(itemId, { ...byItemId.get(itemId), ...patch });
 }
 

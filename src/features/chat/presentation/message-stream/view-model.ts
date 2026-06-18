@@ -7,7 +7,7 @@ import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem 
 import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type MessageStreamLayoutBlock } from "./layout";
 import { detailView, type DetailView } from "./detail-view";
 import { messageStreamRenderFamily } from "./render-family";
-import { messageStreamTextView, type MessageStreamTextActions, type MessageStreamTextView } from "./text-view";
+import { messageStreamTextView, type MessageStreamTextActionTargets, type MessageStreamTextView } from "./text-view";
 import {
   activeAgentRunSummary,
   agentRunSummaryView,
@@ -32,7 +32,7 @@ export interface MessageStreamPresentationBlockInput {
   activeItems?: readonly MessageStreamItem[] | undefined;
   workspaceRoot?: string | null | undefined;
   turnDiffs?: ReadonlyMap<string, string> | undefined;
-  textActionsByItemId?: ReadonlyMap<string, MessageStreamTextActions> | undefined;
+  textActionTargetsByItemId?: ReadonlyMap<string, MessageStreamTextActionTargets> | undefined;
   pendingRequests?: PendingRequestMessageStreamBlockInput | null | undefined;
 }
 
@@ -300,7 +300,7 @@ function messageStreamRenderedItemView(
         kind: "text",
         view: messageStreamTextView(classification.item, annotations, {
           activeTurnId: input.activeTurnId,
-          ...definedProp("actions", input.textActionsByItemId?.get(classification.item.id)),
+          ...definedProp("actionTargets", input.textActionTargetsByItemId?.get(classification.item.id)),
         }),
       };
     case "detail":

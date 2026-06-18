@@ -100,7 +100,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActio
       }),
     },
     composer: {
-      controller: {
+      renderer: {
         renderState: () => ({
           viewId: "view",
           draft: "",

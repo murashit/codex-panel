@@ -24,8 +24,8 @@ type ChatGoalEditorUiState =
       readonly tokenBudgetDraft: number | null;
     };
 
-interface ChatMessageActionsUiState {
-  readonly forkActionsItemId: string | null;
+interface ChatMessageActionMenuUiState {
+  readonly forkMenuItemId: string | null;
 }
 
 const CHAT_DISCLOSURE_BUCKETS = [
@@ -46,7 +46,7 @@ export interface ChatUiState {
   readonly archiveConfirmThreadId: string | null;
   readonly rename: ChatRenameUiState;
   readonly goalEditor: ChatGoalEditorUiState;
-  readonly messageActions: ChatMessageActionsUiState;
+  readonly messageActionMenu: ChatMessageActionMenuUiState;
   readonly disclosures: ChatDisclosureUiState;
 }
 
@@ -67,7 +67,7 @@ export type UiAction =
   | { type: "ui/goal-editor-started"; threadId: string | null; objective: string; tokenBudget: number | null }
   | { type: "ui/goal-editor-draft-updated"; objective: string }
   | { type: "ui/goal-editor-closed" }
-  | { type: "ui/message-fork-actions-set"; itemId: string | null }
+  | { type: "ui/message-fork-menu-set"; itemId: string | null }
   | DisclosureSetAction;
 
 export function initialUiState(): ChatUiState {
@@ -76,7 +76,7 @@ export function initialUiState(): ChatUiState {
     archiveConfirmThreadId: null,
     rename: initialRenameUiState(),
     goalEditor: initialGoalEditorUiState(),
-    messageActions: initialMessageActionsUiState(),
+    messageActionMenu: initialMessageActionMenuUiState(),
     disclosures: initialDisclosureUiState(),
   };
 }
@@ -95,7 +95,7 @@ export function isUiAction(action: { type: string }): action is UiAction {
     case "ui/goal-editor-started":
     case "ui/goal-editor-draft-updated":
     case "ui/goal-editor-closed":
-    case "ui/message-fork-actions-set":
+    case "ui/message-fork-menu-set":
     case "ui/disclosure-set":
       return true;
     default:
@@ -138,8 +138,8 @@ export function reduceUiSlice(state: ChatUiState, action: UiAction): ChatUiState
       return patchObject(state, { goalEditor: goalEditorDraftUpdated(state.goalEditor, action.objective) });
     case "ui/goal-editor-closed":
       return patchObject(state, { goalEditor: initialGoalEditorUiState() });
-    case "ui/message-fork-actions-set":
-      return patchObject(state, { messageActions: { forkActionsItemId: action.itemId } });
+    case "ui/message-fork-menu-set":
+      return patchObject(state, { messageActionMenu: { forkMenuItemId: action.itemId } });
     case "ui/disclosure-set":
       return setDisclosureSlice(state, action.bucket, action.id, action.open);
   }
@@ -228,8 +228,8 @@ function initialGoalEditorUiState(): ChatGoalEditorUiState {
   return { kind: "closed" };
 }
 
-function initialMessageActionsUiState(): ChatMessageActionsUiState {
-  return { forkActionsItemId: null };
+function initialMessageActionMenuUiState(): ChatMessageActionMenuUiState {
+  return { forkMenuItemId: null };
 }
 
 function initialDisclosureUiState(): ChatDisclosureUiState {

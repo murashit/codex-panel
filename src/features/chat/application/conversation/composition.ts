@@ -8,7 +8,7 @@ import type { ChatStateStore } from "../state/store";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { GoalActions } from "../threads/goal-actions";
 import { submitComposer, type ComposerSubmitActions, type ComposerSubmitActionsHost } from "./composer-submit-actions";
-import { executeSlashCommandWithState, type SlashCommandHandlerHost } from "./slash-command-handler";
+import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
 import { createTurnSubmissionActions } from "./turn-submission-actions";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
@@ -99,7 +99,7 @@ export function createConversationTurnActions(
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
   });
-  const slashCommandHost: SlashCommandHandlerHost = {
+  const slashCommandExecutorHost: SlashCommandExecutorHost = {
     stateStore,
     currentClient: client.currentClient,
     codexInput: composer.codexInput,
@@ -136,8 +136,8 @@ export function createConversationTurnActions(
       },
       setDraft: composer.setDraft,
     },
-    slashCommands: {
-      execute: (command, args) => executeSlashCommandWithState(slashCommandHost, command, args),
+    slashCommandExecutor: {
+      execute: (command, args) => executeSlashCommandWithState(slashCommandExecutorHost, command, args),
     },
     turnSubmission,
     connection: {
@@ -161,8 +161,8 @@ export function createConversationTurnActions(
   };
 }
 
-async function startThreadForGoal(actions: ConversationThreadStarter, objective: string): Promise<string | null> {
-  const response = await actions.startThread(objective, { syncGoal: false });
+async function startThreadForGoal(starter: ConversationThreadStarter, objective: string): Promise<string | null> {
+  const response = await starter.startThread(objective, { syncGoal: false });
   return response?.threadId ?? null;
 }
 

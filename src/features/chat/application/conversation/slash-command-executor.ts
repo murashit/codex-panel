@@ -6,7 +6,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import { shortThreadId } from "../../../../utils";
 import {
   executeSlashCommand as runSlashCommand,
-  type SlashCommandActionPorts,
+  type SlashCommandExecutionPorts,
   type SlashCommandExecutionResult,
   type ThreadReferenceInput,
 } from "./slash-command-execution";
@@ -18,7 +18,7 @@ import type { ChatStateStore } from "../state/store";
 import { currentModel, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 
-export interface SlashCommandHandlerHost extends SlashCommandActionPorts {
+export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   codexInput: (text: string) => CodexInput;
@@ -34,7 +34,7 @@ function referencedThreadUnreadableMessage(): string {
 }
 
 export async function executeSlashCommandWithState(
-  host: SlashCommandHandlerHost,
+  host: SlashCommandExecutorHost,
   command: SlashCommandName,
   args: string,
 ): Promise<SlashCommandExecutionResult | undefined> {
@@ -61,7 +61,7 @@ function supportedReasoningEfforts(state: ReturnType<ChatStateStore["getState"]>
 }
 
 async function referencedThreadInput(
-  host: SlashCommandHandlerHost,
+  host: SlashCommandExecutorHost,
   client: AppServerClient,
   thread: Thread,
   message: string,

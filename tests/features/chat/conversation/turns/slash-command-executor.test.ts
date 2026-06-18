@@ -7,8 +7,8 @@ import { createChatState } from "../../../../../src/features/chat/application/st
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   executeSlashCommandWithState,
-  type SlashCommandHandlerHost,
-} from "../../../../../src/features/chat/application/conversation/slash-command-handler";
+  type SlashCommandExecutorHost,
+} from "../../../../../src/features/chat/application/conversation/slash-command-executor";
 import type { Thread } from "../../../../../src/domain/threads/model";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -24,14 +24,14 @@ function thread(id: string, name: string | null = null): Thread {
   };
 }
 
-type SlashCommandHostOverrides = Partial<SlashCommandHandlerHost>;
+type SlashCommandExecutorHostOverrides = Partial<SlashCommandExecutorHost>;
 
-function createHost(overrides: SlashCommandHostOverrides = {}) {
+function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
   const threadTurnsList = vi.fn().mockResolvedValue({ data: [] });
   const client = { threadTurnsList } as unknown as AppServerClient;
   const compactThread = vi.fn().mockResolvedValue(undefined);
-  const host: SlashCommandHandlerHost = {
+  const host: SlashCommandExecutorHost = {
     stateStore,
     currentClient: () => client,
     codexInput: vi.fn((text: string) => textInput(text)),

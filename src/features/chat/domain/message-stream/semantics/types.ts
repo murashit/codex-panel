@@ -56,7 +56,7 @@ export interface MessageStreamLifecycle {
   state: Exclude<ExecutionState, null>;
 }
 
-export interface MessageStreamSemanticActions {
+export interface MessageStreamSemanticCapabilities {
   canForkFromHere: boolean;
   canRollbackToPrompt: boolean;
   canImplementPlan: boolean;
@@ -69,5 +69,5 @@ export interface MessageStreamSemanticClassification {
   placement: MessageStreamPlacement;
   meaning: MessageStreamMeaning;
   lifecycle?: MessageStreamLifecycle;
-  actions: MessageStreamSemanticActions;
+  capabilities: MessageStreamSemanticCapabilities;
 }

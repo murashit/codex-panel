@@ -15,7 +15,7 @@ import type {
 } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
-import type { MessageStreamTextActions } from "../../../../../src/features/chat/presentation/message-stream/text-view";
+import type { MessageStreamTextActionTargets } from "../../../../../src/features/chat/presentation/message-stream/text-view";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
@@ -33,7 +33,7 @@ export function messageStreamBlocks(
     activeItems: context.activeItems,
     workspaceRoot: normalized.workspaceRoot,
     turnDiffs: context.turnDiffs,
-    textActionsByItemId: context.textActionsByItemId,
+    textActionTargetsByItemId: context.textActionTargetsByItemId,
     pendingRequests: pendingRequestBlockInput(context),
   });
   const blocks = rawMessageStreamBlocks(viewBlocks, normalized);
@@ -61,9 +61,9 @@ function messageStreamBlockItemsEmpty(context: TestMessageStreamContext): boolea
 
 type TestMessageStreamContext = Omit<
   MessageStreamContext,
-  "disclosures" | "forkActionsItemId" | "renderObsidianMarkdown" | "renderStreamMarkdown"
+  "disclosures" | "forkMenuItemId" | "renderObsidianMarkdown" | "renderStreamMarkdown"
 > &
-  Partial<Pick<MessageStreamContext, "disclosures" | "forkActionsItemId" | "renderObsidianMarkdown" | "renderStreamMarkdown">> & {
+  Partial<Pick<MessageStreamContext, "disclosures" | "forkMenuItemId" | "renderObsidianMarkdown" | "renderStreamMarkdown">> & {
     renderMarkdown?: (parent: HTMLElement, text: string) => void;
     turnLifecycle: MessageStreamTurnLifecycleState;
     historyCursor: string | null;
@@ -72,7 +72,7 @@ type TestMessageStreamContext = Omit<
     stableItems?: readonly MessageStreamItem[];
     activeItems?: readonly MessageStreamItem[];
     turnDiffs?: ReadonlyMap<string, string>;
-    textActionsByItemId?: ReadonlyMap<string, MessageStreamTextActions>;
+    textActionTargetsByItemId?: ReadonlyMap<string, MessageStreamTextActionTargets>;
   };
 
 type MessageStreamTurnLifecycleState =
@@ -108,7 +108,7 @@ function normalizeMessageStreamContext(context: TestMessageStreamContext): Messa
   return {
     ...context,
     disclosures: context.disclosures ?? emptyDisclosures(),
-    forkActionsItemId: context.forkActionsItemId ?? null,
+    forkMenuItemId: context.forkMenuItemId ?? null,
     renderObsidianMarkdown,
     renderStreamMarkdown,
   };

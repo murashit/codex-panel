@@ -709,7 +709,7 @@ export function cloneChatState(state: ChatState): ChatState {
       archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
       rename: { ...state.ui.rename },
       goalEditor: { ...state.ui.goalEditor },
-      messageActions: { ...state.ui.messageActions },
+      messageActionMenu: { ...state.ui.messageActionMenu },
       disclosures: cloneDisclosureUiState(state.ui.disclosures),
     },
   };

@@ -191,7 +191,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         goal: this.graph.surface.goal,
         messageStream: this.graph.render.messageStreamPresenter,
         composer: {
-          controller: this.graph.composer.controller,
+          renderer: this.graph.composer.controller,
           actions: {
             submit: () => void this.graph.composer.submission.submit(),
           },

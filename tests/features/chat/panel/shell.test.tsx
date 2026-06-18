@@ -211,7 +211,7 @@ function shellParts(): ChatPanelShellParts {
       }),
     },
     composer: {
-      controller: {
+      renderer: {
         renderState: (state) => ({
           viewId: "view",
           draft: state.composer.draft,

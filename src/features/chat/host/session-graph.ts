@@ -22,7 +22,7 @@ import { messageStreamItems } from "../application/state/message-stream";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
 import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
-import { createAutoTitleActions, type AutoTitleActions } from "../application/threads/auto-title-actions";
+import { createAutoTitleCoordinator, type AutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
 import { HistoryController } from "../application/threads/history-controller";
 import type { IdentitySync } from "../application/threads/identity-sync";
 import { createThreadLifecycleParts } from "../application/threads/lifecycle-parts";
@@ -171,8 +171,8 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const currentClient = () => connection.currentClient();
   const status = createSessionStatus(stateStore, localItemIds);
   const titleService = createSessionThreadTitleService(host, currentClient);
-  const autoTitle = createSessionAutoTitleActions(host, currentClient, titleService);
-  const history = createSessionHistoryController(host, currentClient, status, autoTitle);
+  const autoTitleCoordinator = createSessionAutoTitleCoordinator(host, currentClient, titleService);
+  const history = createSessionHistoryController(host, currentClient, status, autoTitleCoordinator);
   const invalidateThreadWork = () => {
     host.resumeWork.invalidate();
     history.invalidate();
@@ -200,7 +200,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       currentClient,
       localItemIds,
       goalSync,
-      autoTitle,
+      autoTitleCoordinator,
       status,
     },
   );
@@ -222,7 +222,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     ensureConnected,
     status,
     goals,
-    autoTitle,
+    autoTitleCoordinator,
     history,
     invalidateThreadWork,
   );
@@ -263,7 +263,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     serverThreads,
     serverDiagnostics,
     goals,
-    autoTitle,
+    autoTitleCoordinator,
     invalidateThreadWork,
     startNewThread,
     runtimeProjection: {
@@ -421,12 +421,12 @@ function createSessionThreadTitleService(host: ChatPanelSessionGraphHost, curren
   });
 }
 
-function createSessionAutoTitleActions(
+function createSessionAutoTitleCoordinator(
   host: ChatPanelSessionGraphHost,
   currentClient: CurrentAppServerClient,
   titleService: ThreadTitleService,
-): AutoTitleActions {
-  return createAutoTitleActions({
+): AutoTitleCoordinator {
+  return createAutoTitleCoordinator({
     stateStore: host.stateStore,
     completedTurnTitleContext: (turnId, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
@@ -450,7 +450,7 @@ function createSessionHistoryController(
   host: ChatPanelSessionGraphHost,
   currentClient: CurrentAppServerClient,
   status: ChatPanelSessionStatus,
-  autoTitle: AutoTitleActions,
+  autoTitleCoordinator: AutoTitleCoordinator,
 ): HistoryController {
   return new HistoryController({
     stateStore: host.stateStore,
@@ -463,7 +463,7 @@ function createSessionHistoryController(
       host.messageScrollIntent.forceBottom();
     },
     setThreadTurnPresence: (hadTurns) => {
-      autoTitle.resetThreadTurnPresence(hadTurns);
+      autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
   });
 }
@@ -584,7 +584,7 @@ function createSessionThreadLifecycle(
   ensureConnected: () => Promise<void>,
   status: ChatPanelSessionStatus,
   goals: ChatPanelGoalActions,
-  autoTitle: AutoTitleActions,
+  autoTitleCoordinator: AutoTitleCoordinator,
   history: HistoryController,
   invalidateThreadWork: () => void,
 ): ChatPanelThreadLifecycle {
@@ -619,7 +619,7 @@ function createSessionThreadLifecycle(
     },
     goals,
     resetThreadTurnPresence: (hadTurns) => {
-      autoTitle.resetThreadTurnPresence(hadTurns);
+      autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
     },
   });
 }
@@ -747,7 +747,7 @@ function createComposerAndTurnActions(
     serverThreads: ChatServerThreadActions;
     serverDiagnostics: ChatServerDiagnosticsActions;
     goals: ChatPanelGoalActions;
-    autoTitle: AutoTitleActions;
+    autoTitleCoordinator: AutoTitleCoordinator;
     invalidateThreadWork: () => void;
     startNewThread: () => Promise<void>;
     runtimeProjection: {
@@ -773,7 +773,7 @@ function createComposerAndTurnActions(
     serverThreads,
     serverDiagnostics,
     goals,
-    autoTitle,
+    autoTitleCoordinator,
     invalidateThreadWork,
     startNewThread,
     runtimeProjection,
@@ -836,7 +836,7 @@ function createComposerAndTurnActions(
           notifyActiveThreadIdentityChanged(host);
         },
         resetTurnPresence: (hadTurns) => {
-          autoTitle.resetThreadTurnPresence(hadTurns);
+          autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
         },
       },
       composer: {

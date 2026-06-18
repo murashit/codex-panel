@@ -34,7 +34,7 @@ describe("message stream semantic classification", () => {
       { scope: "turn", turnId: "turn", turnRole: "steer" },
       { scope: "turn", turnId: "turn", turnRole: "outcome" },
     ]);
-    expect(semantic[2]?.actions).toMatchObject({ isTurnOutcome: true, canForkFromHere: true });
+    expect(semantic[2]?.capabilities).toMatchObject({ isTurnOutcome: true, canForkFromHere: true });
   });
 
   it("uses local steer provenance before falling back to turn order", () => {
@@ -175,13 +175,13 @@ describe("message stream semantic classification", () => {
       meaning: { plane: "dialogue", event: "proposal" },
       placement: { scope: "turn", turnRole: "detail" },
       lifecycle: { state: "running" },
-      actions: { canImplementPlan: false, isTurnOutcome: false },
+      capabilities: { canImplementPlan: false, isTurnOutcome: false },
     });
     expect(completed).toMatchObject({
       meaning: { plane: "dialogue", event: "proposal" },
       placement: { scope: "turn", turnRole: "outcome" },
       lifecycle: { state: "completed" },
-      actions: { canImplementPlan: true, isTurnOutcome: true },
+      capabilities: { canImplementPlan: true, isTurnOutcome: true },
     });
   });
 

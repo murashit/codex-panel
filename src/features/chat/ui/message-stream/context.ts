@@ -46,8 +46,8 @@ export interface TextItemContentContext extends TextItemDetailStateContext {
 }
 
 export interface TextItemActionContext extends TextItemDetailStateContext {
-  forkActionsItemId: string | null;
-  onForkActionsToggle?: (itemId: string | null) => void;
+  forkMenuItemId: string | null;
+  onForkMenuToggle?: (itemId: string | null) => void;
   copyText?: (text: string) => void;
   onImplementPlan?: (target: MessageStreamPlanImplementationTarget) => void;
   onRollback?: () => void;

@@ -42,7 +42,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["previous:details"]) } } });
-    state = chatStateWith(state, { ui: { messageActions: { forkActionsItemId: "previous" } } });
+    state = chatStateWith(state, { ui: { messageActionMenu: { forkMenuItemId: "previous" } } });
     state = chatStateWith(state, {
       ui: { goalEditor: { kind: "editing", threadId: "thread", objectiveDraft: "draft", tokenBudgetDraft: null } },
     });
@@ -79,7 +79,7 @@ describe("chatReducer", () => {
     expect(next.composer.suggestions).toEqual([]);
     expect(next.composer.suggestionsDismissedSignature).toBeNull();
     expect(uiDisclosureCount(next)).toBe(0);
-    expect(next.ui.messageActions.forkActionsItemId).toBeNull();
+    expect(next.ui.messageActionMenu.forkMenuItemId).toBeNull();
     expect(next.ui.goalEditor.kind).toBe("closed");
   });
 
@@ -103,7 +103,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { runtime: { selectedCollaborationMode: "plan" } });
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["previous:details"]) } } });
-    state = chatStateWith(state, { ui: { messageActions: { forkActionsItemId: "previous" } } });
+    state = chatStateWith(state, { ui: { messageActionMenu: { forkMenuItemId: "previous" } } });
     state = chatStateWith(state, {
       ui: { goalEditor: { kind: "editing", threadId: "previous-thread", objectiveDraft: "draft", tokenBudgetDraft: null } },
     });
@@ -139,7 +139,7 @@ describe("chatReducer", () => {
     expect(next.runtime.activeCollaborationMode).toBeNull();
     expect(next.runtime.selectedCollaborationMode).toBe("default");
     expect(uiDisclosureCount(next)).toBe(0);
-    expect(next.ui.messageActions.forkActionsItemId).toBeNull();
+    expect(next.ui.messageActionMenu.forkMenuItemId).toBeNull();
     expect(next.ui.goalEditor.kind).toBe("closed");
   });
 
@@ -590,7 +590,7 @@ describe("chatReducer", () => {
     expect(state.ui.toolbarPanel).toBe("status-panel");
   });
 
-  it("updates typed disclosures, message actions, goal editor, and user input drafts through typed UI actions", () => {
+  it("updates typed disclosures, message action menu, goal editor, and user input drafts through typed UI actions", () => {
     let state = chatStateFixture();
 
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: true });
@@ -598,8 +598,8 @@ describe("chatReducer", () => {
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
     expect(state.ui.disclosures.goalObjectiveExpanded.has("thread")).toBe(true);
 
-    state = chatReducer(state, { type: "ui/message-fork-actions-set", itemId: "message-1" });
-    expect(state.ui.messageActions.forkActionsItemId).toBe("message-1");
+    state = chatReducer(state, { type: "ui/message-fork-menu-set", itemId: "message-1" });
+    expect(state.ui.messageActionMenu.forkMenuItemId).toBe("message-1");
 
     state = chatReducer(state, { type: "ui/goal-editor-started", threadId: "thread", objective: "old", tokenBudget: 10 });
     state = chatReducer(state, { type: "ui/goal-editor-draft-updated", objective: "new" });
