@@ -109,7 +109,7 @@ function ApprovalCard({
       <div className="codex-panel__pending-request-actions">
         {approval.actions.map((option) => (
           <ActionButton
-            key={option.label}
+            key={option.id}
             label={option.label}
             className={option.className}
             onClick={() => {

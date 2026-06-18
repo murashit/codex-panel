@@ -63,8 +63,11 @@ describe("approval model", () => {
   });
 
   it("uses command approval decisions supplied by app-server", () => {
-    const networkDecision = {
+    const allowRegistryDecision = {
       applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } },
+    } satisfies CommandApprovalDecision;
+    const allowApiDecision = {
+      applyNetworkPolicyAmendment: { network_policy_amendment: { host: "api.github.com", action: "allow" } },
     } satisfies CommandApprovalDecision;
     const request: ServerRequest = {
       id: 30,
@@ -81,15 +84,50 @@ describe("approval model", () => {
         commandActions: [],
         proposedExecpolicyAmendment: null,
         proposedNetworkPolicyAmendments: [],
-        availableDecisions: [networkDecision, "decline"],
+        availableDecisions: [allowRegistryDecision, allowApiDecision, "decline"],
       },
     };
     const approval = expectPresent(toPendingApproval(request));
     const options = approvalActionOptions(approval);
 
-    expect(options.map((option) => option.label)).toEqual(["Allow network rule", "Deny"]);
-    expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual({ decision: networkDecision });
-    expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual({ decision: "decline" });
+    expect(options.map((option) => option.label)).toEqual(["Allow network rule", "Allow network rule", "Deny"]);
+    expect(new Set(options.map((option) => option.id)).size).toBe(options.length);
+    expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual({ decision: allowRegistryDecision });
+    expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual({ decision: allowApiDecision });
+    expect(approvalResponse(approval, expectPresent(options[2]).action)).toEqual({ decision: "decline" });
+  });
+
+  it("keeps future simple command decisions renderable", () => {
+    const futureDecision = "restartWithNetwork" as CommandApprovalDecision;
+    const request = {
+      id: 32,
+      method: "item/commandExecution/requestApproval",
+      params: {
+        command: null,
+        cwd: "/tmp/project",
+        threadId: "thread",
+        turnId: "turn",
+        itemId: "command",
+        startedAtMs: 1,
+        reason: null,
+        commandActions: [],
+        proposedExecpolicyAmendment: null,
+        proposedNetworkPolicyAmendments: [],
+        availableDecisions: [futureDecision],
+      },
+    } as unknown as ServerRequest;
+    const approval = expectPresent(toPendingApproval(request));
+    const options = approvalActionOptions(approval);
+
+    expect(options).toEqual([
+      {
+        id: "command-decision:0:restartWithNetwork",
+        label: "Choose",
+        action: { kind: "command-decision", decision: futureDecision },
+        className: "mod-warning",
+      },
+    ]);
+    expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual({ decision: futureDecision });
   });
 
   it("falls back to generic command approval actions when app-server omits decisions", () => {
@@ -193,6 +231,82 @@ describe("approval model", () => {
       { key: "reason", value: "Need network" },
       { key: "cwd", value: "/tmp/project" },
       { key: "network", value: "enabled" },
+    ]);
+  });
+
+  it("formats command approval request payloads as compact detail rows", () => {
+    const approval = expectPresent(
+      toPendingApproval({
+        id: 25,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          command: "rg TODO src && sed -n '1,20p' src/main.ts",
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "command",
+          startedAtMs: 1,
+          reason: "Needs network access",
+          networkApprovalContext: { host: "registry.npmjs.org", protocol: "https" },
+          commandActions: [
+            { type: "search", command: "rg TODO src", query: "TODO", path: "/tmp/project/src" },
+            { type: "read", command: "sed -n '1,20p' src/main.ts", name: "main.ts", path: "/tmp/project/src/main.ts" },
+            { type: "listFiles", command: "ls", path: null },
+          ],
+          additionalPermissions: {
+            network: { enabled: true },
+            fileSystem: {
+              read: null,
+              write: null,
+              entries: [{ path: { type: "path", path: "/tmp/project/generated" }, access: "write" }],
+            },
+          },
+          proposedExecpolicyAmendment: ["rg", "TODO"],
+          proposedNetworkPolicyAmendments: [
+            { host: "registry.npmjs.org", action: "allow" },
+            { host: "example.com", action: "deny" },
+          ],
+        },
+      }),
+    );
+
+    expect(approvalDetails(approval)).toEqual([
+      { key: "reason", value: "Needs network access" },
+      { key: "command", value: "rg TODO src && sed -n '1,20p' src/main.ts" },
+      { key: "cwd", value: "/tmp/project" },
+      { key: "network", value: "https://registry.npmjs.org" },
+      { key: "actions", value: 'search "TODO" in src\nread src/main.ts\nlist files workspace' },
+      { key: "additional network", value: "enabled" },
+      { key: "additional filesystem", value: "/tmp/project/generated (write)" },
+      { key: "future command rule", value: "rg\nTODO" },
+      { key: "future network rules", value: "allow registry.npmjs.org\ndeny example.com" },
+    ]);
+  });
+
+  it("keeps unknown command approval detail payload entries visible", () => {
+    const approval = expectPresent(
+      toPendingApproval({
+        id: 26,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          command: null,
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "command",
+          startedAtMs: 1,
+          reason: null,
+          commandActions: [{ path: "/tmp/project/src/main.ts" }, "legacy action"],
+          proposedExecpolicyAmendment: null,
+          proposedNetworkPolicyAmendments: [{ host: "api.github.com" }, { action: "allow" }, "legacy rule"],
+        },
+      }),
+    );
+
+    expect(approvalDetails(approval)).toEqual([
+      { key: "cwd", value: "/tmp/project" },
+      { key: "actions", value: '{\n  "path": "/tmp/project/src/main.ts"\n}\nlegacy action' },
+      { key: "future network rules", value: "rule api.github.com\nallow (unknown host)\nlegacy rule" },
     ]);
   });
 

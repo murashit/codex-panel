@@ -109,14 +109,18 @@ export interface PendingUserInput {
 export function approvalActionKind(action: ApprovalAction): "accept" | "accept-session" | "decline" | "cancel" {
   if (!isCommandDecisionAction(action)) return action;
   const decision = action.decision;
-  if (decision === "accept") return "accept";
-  if (decision === "acceptForSession") return "accept-session";
-  if (decision === "cancel") return "cancel";
-  if (decision === "decline") return "decline";
+  if (typeof decision === "string") return simpleApprovalActionKind(decision);
   if ("acceptWithExecpolicyAmendment" in decision) return "accept-session";
   if ("applyNetworkPolicyAmendment" in decision) {
     return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "accept-session" : "decline";
   }
+  return "decline";
+}
+
+function simpleApprovalActionKind(decision: string): "accept" | "accept-session" | "decline" | "cancel" {
+  if (decision === "accept") return "accept";
+  if (decision === "acceptForSession") return "accept-session";
+  if (decision === "cancel") return "cancel";
   return "decline";
 }
 
