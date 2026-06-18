@@ -38,7 +38,7 @@ import { createThreadManagementActions, type ThreadManagementActionsHost } from 
 import type { ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import type { ChatServerMetadataActions } from "../app-server/actions/metadata";
 import type { ChatServerThreadActions } from "../app-server/actions/threads";
-import type { ChatInboundController } from "../app-server/inbound/controller";
+import type { ChatInboundHandler } from "../app-server/inbound/handler";
 import { ChatComposerController } from "../panel/composer-controller";
 import { chatPanelComposerProjection, type ChatPanelComposerSurface } from "../panel/surface/composer-projection";
 import { createChatPanelGoalSurface, type ChatPanelGoalSurface } from "../panel/surface/goal-projection";
@@ -206,7 +206,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   );
   const {
     connection: { controller },
-    inboundController,
+    inboundHandler,
   } = serverParts;
   const connectionController = controller;
   const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
@@ -254,7 +254,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     ensureConnected,
     currentClient,
     status,
-    inboundController,
+    inboundHandler,
     threadLifecycle,
     threadActions: threadActionParts.actions,
     selection: threadActionParts.selection,
@@ -738,7 +738,7 @@ function createComposerAndTurnActions(
     ensureConnected: () => Promise<void>;
     currentClient: CurrentAppServerClient;
     status: ChatPanelSessionStatus;
-    inboundController: ChatInboundController;
+    inboundHandler: ChatInboundHandler;
     threadLifecycle: ChatPanelThreadLifecycle;
     threadActions: ChatPanelThreadActions;
     selection: ChatPanelSelectionActions;
@@ -764,7 +764,7 @@ function createComposerAndTurnActions(
     ensureConnected,
     currentClient,
     status,
-    inboundController,
+    inboundHandler,
     threadLifecycle,
     threadActions,
     selection,
@@ -780,7 +780,7 @@ function createComposerAndTurnActions(
   } = input;
   const pendingRequests = createPendingRequestActions({
     stateStore: host.stateStore,
-    responder: inboundController,
+    responder: inboundHandler,
     composerHasFocus: () => composerController.hasFocus(),
     refreshLiveState: () => {
       refreshLiveState(host);

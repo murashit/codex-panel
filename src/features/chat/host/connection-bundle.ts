@@ -19,7 +19,7 @@ import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { createChatServerDiagnosticsActions, type ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import { createChatServerMetadataActions, type ChatServerMetadataActions } from "../app-server/actions/metadata";
 import { createChatServerThreadActions, type ChatServerThreadActions } from "../app-server/actions/threads";
-import { ChatInboundController } from "../app-server/inbound/controller";
+import { createChatInboundHandler, type ChatInboundHandler } from "../app-server/inbound/handler";
 import type { ChatPanelEnvironment } from "./runtime";
 
 export type CurrentAppServerClient = () => AppServerClient | null;
@@ -58,7 +58,7 @@ export interface ChatPanelConnectionBundle {
     manager: ConnectionManager;
     controller: ChatConnectionController;
   };
-  inboundController: ChatInboundController;
+  inboundHandler: ChatInboundHandler;
   serverActions: {
     threads: ChatServerThreadActions;
     metadata: ChatServerMetadataActions;
@@ -135,7 +135,7 @@ export function createConnectionBundle(
       status.addSystemMessage(error instanceof Error ? error.message : String(error));
     });
   };
-  const inboundController = new ChatInboundController(
+  const inboundHandler = createChatInboundHandler(
     stateStore,
     {
       refreshActiveThreads: () => {
@@ -191,15 +191,15 @@ export function createConnectionBundle(
       connect: () =>
         connection.connect({
           onNotification: (notification) => {
-            inboundController.handleNotification(notification);
+            inboundHandler.handleNotification(notification);
             host.deferLiveStateRefresh();
           },
           onServerRequest: (request) => {
-            inboundController.handleServerRequest(request);
+            inboundHandler.handleServerRequest(request);
             host.deferLiveStateRefresh();
           },
           onLog: (message) => {
-            inboundController.handleAppServerLog(message);
+            inboundHandler.handleAppServerLog(message);
           },
           onExit: () => {
             handleChatConnectionExit(connectionExitHost);
@@ -245,7 +245,7 @@ export function createConnectionBundle(
       manager: connection,
       controller: connectionController,
     },
-    inboundController,
+    inboundHandler,
     serverActions: {
       threads: serverThreads,
       metadata: serverMetadata,

@@ -1,0 +1,273 @@
+import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
+import type { Thread } from "../../../../domain/threads/model";
+import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
+import type { LocalIdSource } from "../../../../shared/id/local-id";
+import { classifyAppServerLog } from "./app-server-logs";
+import { activeTurnId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
+import type { ChatStateStore } from "../../application/state/store";
+import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import { createStructuredSystemItem, createSystemItem } from "../../domain/message-stream/factories/system-items";
+import type { ApprovalAction, PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";
+import { approvalResponse } from "../requests/approval";
+import { userInputResponse } from "../requests/user-input";
+import { createApprovalResultItem, createUserInputResultItem } from "../../domain/pending-requests/result-items";
+import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
+import { routeServerRequest } from "./routing";
+
+function cannotSendApprovalResponseMessage(): string {
+  return "Could not send approval response because Codex app-server is not connected.";
+}
+
+function cannotSendUserInputMessage(): string {
+  return "Could not send user input because Codex app-server is not connected.";
+}
+
+function cannotCancelUserInputMessage(): string {
+  return "Could not cancel user input because Codex app-server is not connected.";
+}
+
+function userCancelledInputRequestMessage(): string {
+  return "User cancelled input request.";
+}
+
+function cannotRejectServerRequestMessage(): string {
+  return "Could not reject app-server request because Codex app-server is not connected.";
+}
+
+export interface ChatInboundHandlerActions {
+  refreshActiveThreads: () => void;
+  refreshRateLimits: () => void;
+  refreshSkills: (forceReload?: boolean) => void;
+  applyAppServerMetadataSnapshot: () => void;
+  maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
+  upsertActiveThread: (thread: Thread) => void;
+  applyThreadArchived: (threadId: string) => void;
+  recordActiveThreadDeleted: (threadId: string) => void;
+  applyThreadRenamed: (threadId: string, name: string | null) => void;
+  recordMcpStartupStatus: (name: string, status: McpServerStartupStatus, message: string | null) => void;
+  respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
+  rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
+}
+
+export interface ChatInboundHandler {
+  handleNotification(notification: ServerNotification): void;
+  handleServerRequest(request: ServerRequest): void;
+  handleAppServerLog(message: string): void;
+  resolveApproval(approval: PendingApproval, action: ApprovalAction): void;
+  resolveUserInput(input: PendingUserInput, answers: Record<string, string>): void;
+  cancelUserInput(input: PendingUserInput): void;
+  addSystemMessage(text: string): void;
+  addStructuredSystemMessage(text: string, details: MessageStreamNoticeSection[]): void;
+  addDedupedSystemMessage(text: string): void;
+}
+
+interface ChatInboundHandlerContext {
+  store: ChatStateStore;
+  actions: ChatInboundHandlerActions;
+  localItemIds: LocalIdSource;
+}
+
+export function createChatInboundHandler(
+  store: ChatStateStore,
+  actions: ChatInboundHandlerActions,
+  localItemIds: LocalIdSource,
+): ChatInboundHandler {
+  const context: ChatInboundHandlerContext = { store, actions, localItemIds };
+  return {
+    handleNotification: (notification) => {
+      handleNotification(context, notification);
+    },
+    handleServerRequest: (request) => {
+      handleServerRequest(context, request);
+    },
+    handleAppServerLog: (message) => {
+      handleAppServerLog(context, message);
+    },
+    resolveApproval: (approval, action) => {
+      resolveApproval(context, approval, action);
+    },
+    resolveUserInput: (input, answers) => {
+      resolveUserInput(context, input, answers);
+    },
+    cancelUserInput: (input) => {
+      cancelUserInput(context, input);
+    },
+    addSystemMessage: (text) => {
+      addSystemMessage(context, text);
+    },
+    addStructuredSystemMessage: (text, details) => {
+      addStructuredSystemMessage(context, text, details);
+    },
+    addDedupedSystemMessage: (text) => {
+      addDedupedSystemMessage(context, text);
+    },
+  };
+}
+
+function state(context: ChatInboundHandlerContext): ChatState {
+  return context.store.getState();
+}
+
+function dispatch(context: ChatInboundHandlerContext, action: ChatAction): void {
+  context.store.dispatch(action);
+}
+
+function handleNotification(context: ChatInboundHandlerContext, notification: ServerNotification): void {
+  const plan = planChatNotification(state(context), notification, (prefix) => localItemId(context, prefix));
+  for (const action of plan.actions) dispatch(context, action);
+  for (const effect of plan.effects) runNotificationEffect(context, effect);
+}
+
+function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
+  const route = routeServerRequest(request, activeRouteScope(context));
+  switch (route.kind) {
+    case "approval":
+      queueApprovalRequest(context, route.approval);
+      return;
+    case "userInput":
+      queueUserInputRequest(context, route.input);
+      return;
+    case "inactive":
+      rejectServerRequest(context, request, `Rejected inactive app-server request: ${request.method}`);
+      return;
+    case "unsupported":
+      rejectUnsupportedServerRequest(context, request);
+      return;
+    case "unknown":
+      rejectUnknownServerRequest(context, request);
+      return;
+  }
+}
+
+function handleAppServerLog(context: ChatInboundHandlerContext, message: string): void {
+  const classified = classifyAppServerLog(message);
+  if (classified === null) return;
+  if (classified.kind === "plain") {
+    addDedupedSystemMessage(context, classified.text);
+  } else {
+    addDedupedSystemMessage(context, `app-server error: ${classified.text}`);
+  }
+}
+
+function resolveApproval(context: ChatInboundHandlerContext, approval: PendingApproval, action: ApprovalAction): void {
+  if (!state(context).requests.approvals.includes(approval)) return;
+  if (!context.actions.respondToServerRequest(approval.requestId, approvalResponse(approval, action))) {
+    addSystemMessage(context, cannotSendApprovalResponseMessage());
+    return;
+  }
+  dispatch(context, { type: "request/resolved", requestId: approval.requestId, resultItem: createApprovalResultItem(approval, action) });
+}
+
+function resolveUserInput(context: ChatInboundHandlerContext, input: PendingUserInput, answers: Record<string, string>): void {
+  if (!state(context).requests.pendingUserInputs.includes(input)) return;
+  if (!context.actions.respondToServerRequest(input.requestId, userInputResponse(input, answers))) {
+    addSystemMessage(context, cannotSendUserInputMessage());
+    return;
+  }
+  dispatch(context, {
+    type: "request/resolved",
+    requestId: input.requestId,
+    resultItem: createUserInputResultItem(input, answers, "submitted"),
+  });
+}
+
+function cancelUserInput(context: ChatInboundHandlerContext, input: PendingUserInput): void {
+  if (!state(context).requests.pendingUserInputs.includes(input)) return;
+  if (!context.actions.rejectServerRequest(input.requestId, -32000, userCancelledInputRequestMessage())) {
+    addSystemMessage(context, cannotCancelUserInputMessage());
+    return;
+  }
+  dispatch(context, {
+    type: "request/resolved",
+    requestId: input.requestId,
+    resultItem: createUserInputResultItem(input, {}, "cancelled"),
+  });
+}
+
+function addSystemMessage(context: ChatInboundHandlerContext, text: string): void {
+  dispatch(context, { type: "message-stream/system-item-added", item: createSystemItem(localItemId(context, "system"), text) });
+}
+
+function addStructuredSystemMessage(context: ChatInboundHandlerContext, text: string, details: MessageStreamNoticeSection[]): void {
+  dispatch(context, {
+    type: "message-stream/system-item-added",
+    item: createStructuredSystemItem(localItemId(context, "system"), text, details),
+  });
+}
+
+function addDedupedSystemMessage(context: ChatInboundHandlerContext, text: string): void {
+  dispatch(context, { type: "message-stream/deduped-log-added", text, item: createSystemItem(localItemId(context, "system"), text) });
+}
+
+function queueApprovalRequest(context: ChatInboundHandlerContext, approval: PendingApproval): void {
+  dispatch(context, { type: "request/approval-queued", approval });
+}
+
+function queueUserInputRequest(context: ChatInboundHandlerContext, userInput: PendingUserInput): void {
+  dispatch(context, { type: "request/user-input-queued", input: userInput });
+}
+
+function activeRouteScope(context: ChatInboundHandlerContext): { activeThreadId: string | null; activeTurnId: string | null } {
+  const current = state(context);
+  return {
+    activeThreadId: current.activeThread.id,
+    activeTurnId: activeTurnId(current),
+  };
+}
+
+function rejectUnsupportedServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
+  const message = `Rejected unsupported app-server request: ${request.method}`;
+  rejectServerRequest(context, request, message);
+}
+
+function rejectUnknownServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
+  const message = `Rejected unknown app-server request: ${request.method}`;
+  context.actions.rejectServerRequest(request.id, -32601, message);
+}
+
+function rejectServerRequest(context: ChatInboundHandlerContext, request: ServerRequest, message: string): void {
+  addSystemMessage(context, message);
+  if (!context.actions.rejectServerRequest(request.id, -32601, message)) {
+    addSystemMessage(context, cannotRejectServerRequestMessage());
+  }
+}
+
+function localItemId(context: ChatInboundHandlerContext, prefix: string): string {
+  return context.localItemIds.next(prefix);
+}
+
+function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatNotificationEffect): void {
+  switch (effect.type) {
+    case "refresh-threads":
+      context.actions.refreshActiveThreads();
+      return;
+    case "refresh-rate-limits":
+      context.actions.refreshRateLimits();
+      return;
+    case "refresh-skills":
+      context.actions.refreshSkills(effect.forceReload);
+      return;
+    case "apply-app-server-metadata-snapshot":
+      context.actions.applyAppServerMetadataSnapshot();
+      return;
+    case "maybe-name-thread":
+      context.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);
+      return;
+    case "upsert-active-thread":
+      context.actions.upsertActiveThread(effect.thread);
+      return;
+    case "apply-thread-archived":
+      context.actions.applyThreadArchived(effect.threadId);
+      return;
+    case "record-active-thread-deleted":
+      context.actions.recordActiveThreadDeleted(effect.threadId);
+      return;
+    case "apply-thread-renamed":
+      context.actions.applyThreadRenamed(effect.threadId, effect.name);
+      return;
+    case "record-mcp-startup-status":
+      context.actions.recordMcpStartupStatus(effect.name, effect.status, effect.message);
+      return;
+  }
+}
