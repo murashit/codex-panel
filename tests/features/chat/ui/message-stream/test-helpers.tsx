@@ -59,8 +59,12 @@ function messageStreamBlockItemsEmpty(context: TestMessageStreamContext): boolea
   return (context.stableItems?.length ?? 0) === 0 && (context.activeItems?.length ?? 0) === 0;
 }
 
-type TestMessageStreamContext = Omit<MessageStreamContext, "disclosures" | "forkActionsItemId"> &
-  Partial<Pick<MessageStreamContext, "disclosures" | "forkActionsItemId">> & {
+type TestMessageStreamContext = Omit<
+  MessageStreamContext,
+  "disclosures" | "forkActionsItemId" | "renderObsidianMarkdown" | "renderStreamMarkdown"
+> &
+  Partial<Pick<MessageStreamContext, "disclosures" | "forkActionsItemId" | "renderObsidianMarkdown" | "renderStreamMarkdown">> & {
+    renderMarkdown?: (parent: HTMLElement, text: string) => void;
     turnLifecycle: MessageStreamTurnLifecycleState;
     historyCursor: string | null;
     loadingHistory: boolean;
@@ -94,10 +98,19 @@ export function testDisclosures(
 }
 
 function normalizeMessageStreamContext(context: TestMessageStreamContext): MessageStreamContext {
+  const renderObsidianMarkdown =
+    context.renderObsidianMarkdown ??
+    context.renderMarkdown ??
+    ((parent: HTMLElement, text: string) => {
+      parent.createDiv({ text });
+    });
+  const renderStreamMarkdown = context.renderStreamMarkdown ?? context.renderMarkdown ?? renderObsidianMarkdown;
   return {
     ...context,
     disclosures: context.disclosures ?? emptyDisclosures(),
     forkActionsItemId: context.forkActionsItemId ?? null,
+    renderObsidianMarkdown,
+    renderStreamMarkdown,
   };
 }
 

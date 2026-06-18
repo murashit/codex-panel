@@ -615,7 +615,7 @@ describe("message stream rendering and message actions", () => {
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => {
-        markdownRenderer.renderMarkdown(element, text);
+        markdownRenderer.renderObsidianMarkdown(element, text);
       },
     };
 
@@ -670,24 +670,15 @@ describe("message stream rendering and message actions", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("ignores stale async markdown renders after streaming content updates", async () => {
+  it("uses stream markdown for streaming assistant responses without calling the Obsidian renderer", async () => {
     const parent = document.createElement("div");
-    const firstRender = deferred<undefined>();
     const renderMarkdown = vi.spyOn(MarkdownRenderer, "render");
-    renderMarkdown
-      .mockImplementationOnce((_app, text: string, element: HTMLElement) =>
-        firstRender.promise.then(() => {
-          element.textContent = `stale:${text}`;
-        }),
-      )
-      .mockImplementation((_app, text: string, element: HTMLElement) => {
-        element.textContent = `fresh:${text}`;
-        return Promise.resolve();
-      });
-    const markdownRenderer = new MarkdownMessageRenderer({
-      app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
-      owner: {} as never,
-      vaultPath: "/vault",
+    renderMarkdown.mockImplementation((_app, text: string, element: HTMLElement) => {
+      element.textContent = `obsidian:${text}`;
+      return Promise.resolve();
+    });
+    const renderStreamMarkdown = vi.fn((element: HTMLElement, text: string) => {
+      element.replaceChildren(element.createEl("strong", { text: `stream:${text.replace(/\*/g, "")}` }));
     });
     const baseContext = {
       activeThreadId: "thread",
@@ -697,9 +688,8 @@ describe("message stream rendering and message actions", () => {
       disclosures: emptyDisclosures(),
       forkActionsItemId: null,
       loadOlderTurns: vi.fn(),
-      renderMarkdown: (element: HTMLElement, text: string) => {
-        markdownRenderer.renderMarkdown(element, text);
-      },
+      renderObsidianMarkdown: vi.fn(),
+      renderStreamMarkdown,
     };
 
     renderMessageStreamBlocksInAct(
@@ -719,34 +709,59 @@ describe("message stream rendering and message actions", () => {
         ],
       }),
     );
-    const staleContent = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-content"));
+
+    expect(parent.querySelector(".codex-panel__message-content")?.innerHTML).toBe("<strong>stream:old</strong>");
+    expect(renderStreamMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "old");
+    expect(baseContext.renderObsidianMarkdown).not.toHaveBeenCalled();
+    expect(renderMarkdown).not.toHaveBeenCalled();
+    renderMarkdown.mockRestore();
+    unmountUiRootInAct(parent);
+  });
+
+  it("uses Obsidian markdown for completed assistant responses", async () => {
+    const parent = document.createElement("div");
+    const renderMarkdown = vi.spyOn(MarkdownRenderer, "render");
+    renderMarkdown.mockImplementationOnce((_app, text: string, element: HTMLElement) => {
+      element.textContent = `obsidian:${text}`;
+      return Promise.resolve();
+    });
+    const markdownRenderer = new MarkdownMessageRenderer({
+      app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
+      owner: {} as never,
+      vaultPath: "/vault",
+    });
 
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
-        ...baseContext,
+        activeThreadId: "thread",
+        turnLifecycle: idleTurnLifecycle(),
+        historyCursor: null,
+        loadingHistory: false,
+        disclosures: emptyDisclosures(),
+        forkActionsItemId: null,
+        loadOlderTurns: vi.fn(),
+        renderObsidianMarkdown: (element: HTMLElement, text: string) => {
+          markdownRenderer.renderObsidianMarkdown(element, text);
+        },
+        renderStreamMarkdown: vi.fn(),
         items: [
           {
             id: "a1",
             kind: "message",
             role: "assistant",
-            text: "new",
+            text: "**done**",
             turnId: "turn-1",
             messageKind: "assistantResponse",
-            messageState: "streaming",
+            messageState: "completed",
           },
         ],
       }),
     );
     await Promise.resolve();
-    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("fresh:new");
 
-    firstRender.resolve(undefined);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(staleContent.isConnected).toBe(true);
-    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("fresh:new");
+    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("obsidian:**done**");
+    expect(renderMarkdown).toHaveBeenCalledOnce();
     renderMarkdown.mockRestore();
     unmountUiRootInAct(parent);
   });
@@ -772,8 +787,8 @@ describe("message stream rendering and message actions", () => {
       vaultPath: "/vault",
     });
 
-    markdownRenderer.renderMarkdown(parent, "old");
-    markdownRenderer.renderMarkdown(parent, "new");
+    markdownRenderer.renderObsidianMarkdown(parent, "old");
+    markdownRenderer.renderObsidianMarkdown(parent, "new");
     await Promise.resolve();
     expect(parent.textContent).toBe("fresh:new");
 

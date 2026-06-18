@@ -582,7 +582,8 @@ function messageStreamSurfaceContext(options: {
       options.dispatch({ type: "ui/message-fork-actions-set", itemId });
     },
     loadOlderTurns: vi.fn(),
-    renderMarkdown: vi.fn(),
+    renderObsidianMarkdown: vi.fn(),
+    renderStreamMarkdown: vi.fn(),
     copyMessageText: vi.fn(),
     actions: {
       rollbackThread: vi.fn(),
@@ -637,7 +638,7 @@ async function renderedInternalLink(
     vaultPath: context.vaultPath,
   });
 
-  markdownRenderer.renderMarkdown(parent, "[[Link]]");
+  markdownRenderer.renderObsidianMarkdown(parent, "[[Link]]");
   await Promise.resolve();
   await Promise.resolve();
   renderMarkdown.mockRestore();

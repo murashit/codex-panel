@@ -41,7 +41,8 @@ export interface TextItemDetailStateContext {
 }
 
 export interface TextItemContentContext extends TextItemDetailStateContext {
-  renderMarkdown: (parent: HTMLElement, text: string) => void;
+  renderObsidianMarkdown: (parent: HTMLElement, text: string) => void;
+  renderStreamMarkdown: (parent: HTMLElement, text: string) => void;
 }
 
 export interface TextItemActionContext extends TextItemDetailStateContext {

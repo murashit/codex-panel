@@ -14,7 +14,7 @@ export class MarkdownMessageRenderer {
 
   constructor(private readonly options: MarkdownMessageRendererOptions) {}
 
-  renderMarkdown(parent: HTMLElement, text: string): void {
+  renderObsidianMarkdown(parent: HTMLElement, text: string): void {
     const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
     const generation = (this.renderGenerations.get(parent) ?? 0) + 1;
     this.renderGenerations.set(parent, generation);

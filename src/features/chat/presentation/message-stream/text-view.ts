@@ -63,27 +63,29 @@ export interface MessageStreamTextView {
   body: string;
   className: string;
   contentKey: string;
-  contentMode: "markdown" | "text";
+  renderMode: MessageStreamTextRenderMode;
   collapsible: boolean;
   copyText?: string;
   actions: MessageStreamTextActions;
   metadata: MessageStreamTextMetadataView;
 }
 
+type MessageStreamTextRenderMode = "text" | "streamMarkdown" | "obsidianMarkdown";
+
 export function messageStreamTextView(
   item: MessageStreamItem,
   annotations?: MessageStreamItemAnnotations,
   options: { activeTurnId?: string | null; actions?: MessageStreamTextActions } = {},
 ): MessageStreamTextView {
-  const contentMode = textContentMode(item);
+  const renderMode = textRenderMode(item);
   const body = bodyForTextItem(item);
   return {
     id: item.id,
     roleLabel: roleLabelForTextItem(item),
     body,
     className: `${textItemClass(item)}${executionClassName(item.executionState ?? null)}`,
-    contentKey: `${item.id}\u001f${contentMode}`,
-    contentMode,
+    contentKey: `${item.id}\u001f${renderMode}`,
+    renderMode,
     collapsible: item.kind === "message" && item.role === "user",
     ...definedProp("copyText", copyTextForTextItem(item, options.activeTurnId ?? null)),
     actions: options.actions ?? {},
@@ -91,8 +93,10 @@ export function messageStreamTextView(
   };
 }
 
-function textContentMode(item: MessageStreamItem): "markdown" | "text" {
-  return item.kind === "message" && (item.messageKind !== "proposedPlan" || item.messageState === "completed") ? "markdown" : "text";
+function textRenderMode(item: MessageStreamItem): MessageStreamTextRenderMode {
+  if (item.kind !== "message") return "text";
+  if (item.messageKind === "assistantResponse" && item.messageState === "streaming") return "streamMarkdown";
+  return item.messageKind !== "proposedPlan" || item.messageState === "completed" ? "obsidianMarkdown" : "text";
 }
 
 function bodyForTextItem(item: MessageStreamItem): string {

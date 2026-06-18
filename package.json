@@ -63,6 +63,7 @@
     "@preact/signals": "^2.9.1",
     "@tanstack/query-core": "^5.101.0",
     "@tanstack/virtual-core": "3.17.0",
+    "micromark": "^4.0.2",
     "preact": "^10.29.2"
   }
 }

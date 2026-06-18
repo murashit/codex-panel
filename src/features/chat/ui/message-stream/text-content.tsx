@@ -25,7 +25,7 @@ export function CollapsibleTextContent({ view, context }: { view: MessageStreamT
     return () => {
       content.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
     };
-  }, [view.id, view.body, view.contentMode]);
+  }, [view.id, view.body, view.renderMode]);
 
   useEffect(() => {
     if (!overflows || !expanded) return;
@@ -76,7 +76,7 @@ interface TextContentProps {
 }
 
 export function TextContent({ view, context, contentRef, collapsed = false }: TextContentProps): UiNode {
-  const rendersMarkdown = view.contentMode === "markdown";
+  const rendersMarkdown = view.renderMode !== "text";
   const text = view.body;
   const localRef = useRef<HTMLDivElement | null>(null);
   const contextRef = useRef(context);
@@ -87,12 +87,14 @@ export function TextContent({ view, context, contentRef, collapsed = false }: Te
     const content = localRef.current;
     if (!content) return;
     const currentContext = contextRef.current;
-    if (rendersMarkdown) {
-      currentContext.renderMarkdown(content, text);
+    if (view.renderMode === "obsidianMarkdown") {
+      currentContext.renderObsidianMarkdown(content, text);
+    } else if (view.renderMode === "streamMarkdown") {
+      currentContext.renderStreamMarkdown(content, text);
     } else {
       content.textContent = text;
     }
-  }, [view.contentMode, rendersMarkdown, text]);
+  }, [view.renderMode, text]);
   return (
     <div
       ref={(element) => {

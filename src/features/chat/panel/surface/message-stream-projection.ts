@@ -42,7 +42,8 @@ export interface ChatMessageStreamSurfaceContext {
   setDisclosureOpen: (bucket: ChatDisclosureBucket, id: string, open: boolean) => void;
   setForkActionsItem: (itemId: string | null) => void;
   loadOlderTurns: () => void;
-  renderMarkdown: (element: HTMLElement, text: string) => void;
+  renderObsidianMarkdown: (element: HTMLElement, text: string) => void;
+  renderStreamMarkdown: (element: HTMLElement, text: string) => void;
   copyMessageText: (text: string) => void;
   actions: ChatMessageStreamActions;
   requests: ChatMessageStreamRequests;
@@ -52,7 +53,8 @@ export interface MessageStreamSurfaceContextOptions {
   vaultPath: string;
   dispatch: (action: ChatAction) => void;
   loadOlderTurns: () => void;
-  renderMarkdown: (element: HTMLElement, text: string) => void;
+  renderObsidianMarkdown: (element: HTMLElement, text: string) => void;
+  renderStreamMarkdown: (element: HTMLElement, text: string) => void;
   copyMessageText: (text: string) => void;
   actions: ChatMessageStreamActions;
   requests: ChatMessageStreamRequests;
@@ -81,7 +83,8 @@ export function createMessageStreamSurfaceContext(options: MessageStreamSurfaceC
       options.dispatch({ type: "ui/message-fork-actions-set", itemId });
     },
     loadOlderTurns: options.loadOlderTurns,
-    renderMarkdown: options.renderMarkdown,
+    renderObsidianMarkdown: options.renderObsidianMarkdown,
+    renderStreamMarkdown: options.renderStreamMarkdown,
     copyMessageText: options.copyMessageText,
     actions: options.actions,
     requests: options.requests,
@@ -111,7 +114,8 @@ function messageStreamContextFromProjection(
     forkActionsItemId: projection.forkActionsItemId,
     onForkActionsToggle: context.setForkActionsItem,
     loadOlderTurns: context.loadOlderTurns,
-    renderMarkdown: context.renderMarkdown,
+    renderObsidianMarkdown: context.renderObsidianMarkdown,
+    renderStreamMarkdown: context.renderStreamMarkdown,
     copyText: context.copyMessageText,
     onImplementPlan: (target) => {
       context.actions.implementPlan(target.itemId);
