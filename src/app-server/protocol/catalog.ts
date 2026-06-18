@@ -36,14 +36,16 @@ export interface CatalogHookMetadata {
   enabled: boolean;
   isManaged: boolean;
   currentHash: string;
-  trustStatus: HookItem["trustStatus"];
+  trustStatus: AppServerHookTrustStatus;
   [key: string]: unknown;
 }
+
+type AppServerHookTrustStatus = "managed" | "untrusted" | "trusted" | "modified";
 
 export interface AppServerHookOperation {
   key: string;
   currentHash: string;
-  trustStatus: HookItem["trustStatus"];
+  trustStatus: AppServerHookTrustStatus;
 }
 
 function modelMetadataFromCatalogModel(model: CatalogModel): ModelMetadata {
@@ -93,7 +95,7 @@ function hookItemFromCatalogHook(hook: CatalogHookMetadata): HookItem {
     enabled: hook.enabled,
     isManaged: hook.isManaged,
     currentHash: hook.currentHash,
-    trustStatus: hook.trustStatus,
+    trustStatus: hookTrustStatusFromCatalogTrustStatus(hook.trustStatus),
   };
 }
 
@@ -105,6 +107,14 @@ export function appServerHookOperationFromHookItem(hook: HookItem): AppServerHoo
   return {
     key: hook.key,
     currentHash: hook.currentHash,
-    trustStatus: hook.trustStatus,
+    trustStatus: appServerHookTrustStatus(hook.trustStatus),
   };
+}
+
+function hookTrustStatusFromCatalogTrustStatus(status: AppServerHookTrustStatus): HookItem["trustStatus"] {
+  return status;
+}
+
+function appServerHookTrustStatus(status: HookItem["trustStatus"]): AppServerHookTrustStatus {
+  return status;
 }
