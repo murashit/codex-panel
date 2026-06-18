@@ -73,6 +73,8 @@ type MessageStreamPresentationBlock =
       snapshot: PendingRequestBlockSnapshot;
     };
 
+type MessageStreamPresentationBlockSource = (input: MessageStreamPresentationBlockInput) => readonly MessageStreamPresentationBlock[];
+
 export type MessageStreamRenderedItemView =
   | {
       kind: "text";
@@ -138,36 +140,53 @@ export function messageStreamViewBlocks(input: MessageStreamPresentationBlockInp
 }
 
 function messageStreamPresentationBlocks(input: MessageStreamPresentationBlockInput): MessageStreamPresentationBlock[] {
-  const blocks: MessageStreamPresentationBlock[] = [];
-
-  if (input.activeThreadId && input.historyCursor) {
-    blocks.push({ kind: "historyBar", key: "history-bar", loadingHistory: input.loadingHistory });
-  }
-
+  const headerBlocks = historyPresentationBlocks(input);
   if (messageStreamBlockItemsEmpty(input)) {
-    blocks.push({ kind: "empty", key: "empty" });
-    return blocks;
+    return [...headerBlocks, { kind: "empty", key: "empty" }];
   }
 
-  for (const block of layoutBlocksForInput(input)) {
-    if (block.type === "item") {
-      blocks.push({ kind: "item", key: `item:${block.item.id}`, block });
-    } else {
-      blocks.push({ kind: "activityGroup", key: `activity:${block.id}`, block });
-    }
-  }
+  return [
+    ...headerBlocks,
+    ...collectPresentationBlocks(input, [layoutPresentationBlocks, activeTurnPresentationBlocks, pendingRequestPresentationBlocks]),
+  ];
+}
 
-  if (input.activeTurnId) blocks.push(...activeTurnLiveBlocks(input, input.activeTurnId));
-  if (input.pendingRequests?.signature) {
-    blocks.push({
+function collectPresentationBlocks(
+  input: MessageStreamPresentationBlockInput,
+  sources: readonly MessageStreamPresentationBlockSource[],
+): MessageStreamPresentationBlock[] {
+  return sources.flatMap((source) => source(input));
+}
+
+function historyPresentationBlocks(input: MessageStreamPresentationBlockInput): readonly MessageStreamPresentationBlock[] {
+  if (!input.activeThreadId || !input.historyCursor) return [];
+  return [{ kind: "historyBar", key: "history-bar", loadingHistory: input.loadingHistory }];
+}
+
+function layoutPresentationBlocks(input: MessageStreamPresentationBlockInput): readonly MessageStreamPresentationBlock[] {
+  return layoutBlocksForInput(input).map(presentationBlockFromLayoutBlock);
+}
+
+function presentationBlockFromLayoutBlock(block: MessageStreamLayoutBlock): MessageStreamPresentationBlock {
+  if (block.type === "item") return { kind: "item", key: `item:${block.item.id}`, block };
+  return { kind: "activityGroup", key: `activity:${block.id}`, block };
+}
+
+function activeTurnPresentationBlocks(input: MessageStreamPresentationBlockInput): readonly MessageStreamPresentationBlock[] {
+  if (!input.activeTurnId) return [];
+  return activeTurnLiveBlocks(input, input.activeTurnId);
+}
+
+function pendingRequestPresentationBlocks(input: MessageStreamPresentationBlockInput): readonly MessageStreamPresentationBlock[] {
+  if (!input.pendingRequests?.signature) return [];
+  return [
+    {
       kind: "pendingRequests",
       key: "pending-requests",
       signature: input.pendingRequests.signature,
       snapshot: input.pendingRequests.snapshot,
-    });
-  }
-
-  return blocks;
+    },
+  ];
 }
 
 function messageStreamBlockItemsEmpty(input: MessageStreamPresentationBlockInput): boolean {
