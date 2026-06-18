@@ -6,6 +6,7 @@ import { MarkdownRenderer } from "obsidian";
 
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/state/selectors";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { deferred } from "../../../../support/async";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
@@ -92,6 +93,65 @@ describe("message stream rendering and message actions", () => {
     const activitySummary = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="activity:turn-t1-activity"] summary');
     expect(activitySummary?.textContent).toBe("Work details");
     expect(activitySummary?.tabIndex).toBe(-1);
+    unmountUiRootInAct(parent);
+  });
+
+  it("remeasures Work details when the activity group is collapsed", async () => {
+    const parent = document.createElement("div");
+    const blocks = messageStreamBlocks({
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      items: [
+        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
+        {
+          id: "hook-1",
+          kind: "hook",
+          role: "tool",
+          text: "userPromptSubmit: Saving jj baseline",
+          toolName: "hook",
+          turnId: "t1",
+          status: "completed",
+        },
+        {
+          id: "a1",
+          kind: "message",
+          role: "assistant",
+          text: "done",
+          turnId: "t1",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+        },
+      ],
+      disclosures: testDisclosures({ activityGroups: ["t1"] }),
+      forkActionsItemId: null,
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
+    });
+    const activityBlock = expectPresent(blocks.find((block) => block.key === "activity:turn-t1-activity"));
+
+    renderMessageStreamBlocksInAct(parent, [activityBlock]);
+
+    const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-block"));
+    const virtualizer = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-virtualizer"));
+    const activityGroup = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__activity-group"));
+
+    Object.defineProperty(host, "offsetHeight", { value: 520, configurable: true });
+    await act(async () => {
+      activityGroup.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(virtualizer.style.height).toBe("520px");
+
+    Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
+    await act(async () => {
+      activityGroup.open = false;
+      activityGroup.dispatchEvent(new Event("toggle"));
+      await Promise.resolve();
+    });
+
+    expect(virtualizer.style.height).toBe("120px");
     unmountUiRootInAct(parent);
   });
 

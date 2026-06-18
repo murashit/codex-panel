@@ -85,11 +85,11 @@ function MessageStreamBlockHost({
   virtualItem: { index: number; start: number };
 }): UiNode {
   const blockRef = useRef<HTMLDivElement | null>(null);
-  const cleanupContentRenderedListener = useRef<(() => void) | null>(null);
+  const cleanupBlockListeners = useRef<(() => void) | null>(null);
   const setBlock = useCallback(
     (element: HTMLDivElement | null) => {
-      cleanupContentRenderedListener.current?.();
-      cleanupContentRenderedListener.current = null;
+      cleanupBlockListeners.current?.();
+      cleanupBlockListeners.current = null;
       blockRef.current = element;
       measureBlock(element);
       if (!element) return;
@@ -97,8 +97,10 @@ function MessageStreamBlockHost({
         if (blockRef.current === element && element.isConnected) measureBlock(element);
       };
       element.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, remeasure);
-      cleanupContentRenderedListener.current = () => {
+      element.addEventListener("toggle", remeasure, true);
+      cleanupBlockListeners.current = () => {
         element.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, remeasure);
+        element.removeEventListener("toggle", remeasure, true);
       };
     },
     [measureBlock],
@@ -106,8 +108,8 @@ function MessageStreamBlockHost({
 
   useLayoutEffect(() => {
     return () => {
-      cleanupContentRenderedListener.current?.();
-      cleanupContentRenderedListener.current = null;
+      cleanupBlockListeners.current?.();
+      cleanupBlockListeners.current = null;
     };
   }, []);
 
