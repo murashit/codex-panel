@@ -6,7 +6,7 @@ import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
-import { StreamMarkdownMessageRenderer } from "../../ui/message-stream/stream-markdown-renderer";
+import { renderStreamMarkdown } from "../../ui/message-stream/stream-markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
 import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../shell-state";
@@ -79,16 +79,11 @@ export interface MessageStreamPresenterOptions {
 
 export class MessageStreamPresenter {
   private readonly obsidianMarkdownRenderer: MarkdownMessageRenderer;
-  private readonly streamMarkdownRenderer: StreamMarkdownMessageRenderer;
 
   constructor(private readonly options: MessageStreamPresenterOptions) {
     this.obsidianMarkdownRenderer = new MarkdownMessageRenderer({
       app: options.obsidian.app,
       owner: options.obsidian.owner,
-      vaultPath: options.workspace.vaultPath,
-    });
-    this.streamMarkdownRenderer = new StreamMarkdownMessageRenderer({
-      app: options.obsidian.app,
       vaultPath: options.workspace.vaultPath,
     });
   }
@@ -124,7 +119,10 @@ export class MessageStreamPresenter {
         this.obsidianMarkdownRenderer.renderObsidianMarkdown(element, text);
       },
       renderStreamMarkdown: (element, text) => {
-        this.streamMarkdownRenderer.renderStreamMarkdown(element, text);
+        renderStreamMarkdown(element, text, {
+          app: this.options.obsidian.app,
+          vaultPath: this.options.workspace.vaultPath,
+        });
       },
       copyMessageText: (text) => void this.copyMessageText(text),
       actions: this.options.actions,
