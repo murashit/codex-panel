@@ -20,7 +20,7 @@ jj git push --remote origin --bookmark main
 git push origin X.Y.Z
 ```
 
-`release:prepare` updates the version files and creates a `## Changes` release notes template. `release:preflight` verifies the local Jujutsu/Git state, release metadata, lockfile, and full build once after the release commit is on `main`.
+`release:prepare` updates the version files and creates a `## Changes` release notes template. `release:preflight` verifies the local Jujutsu/Git state, release metadata, lockfile, and the same non-cached `npm run check:ci` validation used by CI after the release commit is on `main`.
 
 Release notes should normally include only user-facing changes. Internal implementation changes, validation details, and release procedure notes should be omitted when minor; when they are important enough to mention, group them into at most one concise bullet.
 
