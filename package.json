@@ -30,7 +30,7 @@
     "lint:css": "stylelint \"src/**/*.css\" --max-warnings=0",
     "lint:css-usage": "node scripts/lint/check-css-usage.mjs --fail-on-candidates",
     "lint:deps": "node scripts/lint/check-import-cycles.mjs",
-    "lint:ts": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0",
+    "lint:ts": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0 --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache",
     "lint:ts:ci": "eslint src tests scripts \"*.config.ts\" \"*.config.mjs\" --max-warnings=0",
     "lint:unused": "knip --no-progress",
     "release:check": "node scripts/release/check.mjs",
