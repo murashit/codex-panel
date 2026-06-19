@@ -8,13 +8,9 @@ const repoRoot = process.cwd();
 
 describe("development scripts", () => {
   it("fails style builds when CSS files are missing from the style order file", async () => {
-    const cwd = await tempWorkspace();
-    await mkdir(path.join(cwd, "src", "styles"), { recursive: true });
-    await writeJson(path.join(cwd, "src", "styles", "order.json"), ["00-tokens.css"]);
-    await writeFile(path.join(cwd, "src", "styles", "00-tokens.css"), ".codex-panel { color: var(--text-normal); }\n");
-    await writeFile(path.join(cwd, "src", "styles", "10-unlisted.css"), ".codex-panel__extra { display: block; }\n");
+    const cwd = await styleOrderFixture();
 
-    const result = runNodeScript("scripts/build-styles.mjs", ["--check"], cwd);
+    const result = runNodeScript("scripts/build-styles.mjs", [], cwd);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("CSS files missing from src/styles/order.json: 10-unlisted.css");
@@ -207,6 +203,15 @@ describe("development scripts", () => {
 
 async function tempWorkspace(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), "codex-panel-scripts-"));
+}
+
+async function styleOrderFixture(): Promise<string> {
+  const cwd = await tempWorkspace();
+  await mkdir(path.join(cwd, "src", "styles"), { recursive: true });
+  await writeJson(path.join(cwd, "src", "styles", "order.json"), ["00-tokens.css"]);
+  await writeFile(path.join(cwd, "src", "styles", "00-tokens.css"), ".codex-panel { color: var(--text-normal); }\n");
+  await writeFile(path.join(cwd, "src", "styles", "10-unlisted.css"), ".codex-panel__extra { display: block; }\n");
+  return cwd;
 }
 
 async function writeImportCycleFixture(cwd: string, files: Record<string, string>): Promise<void> {

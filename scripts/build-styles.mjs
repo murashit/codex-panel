@@ -5,32 +5,19 @@ import { fileURLToPath } from "node:url";
 const sourceDir = path.join("src", "styles");
 const orderPath = path.join(sourceDir, "order.json");
 const outputPath = "styles.css";
-const checkMode = process.argv.includes("--check");
-const validArgs = new Set(["--check"]);
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  for (const arg of process.argv.slice(2)) {
-    if (!validArgs.has(arg)) {
-      console.error("Usage: node scripts/build-styles.mjs [--check]");
-      process.exit(1);
-    }
+  if (process.argv.length > 2) {
+    console.error("Usage: node scripts/build-styles.mjs");
+    process.exit(1);
   }
-
-  if (checkMode) {
-    await checkStyles();
-  } else {
-    await buildStyles();
-  }
+  await buildStyles();
 }
 
 export async function buildStyles() {
+  await checkStyleOrder();
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, await renderStyles());
-}
-
-async function checkStyles() {
-  await checkStyleOrder();
-  await renderStyles();
 }
 
 export async function renderStyles() {

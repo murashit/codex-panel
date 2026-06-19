@@ -3,15 +3,18 @@ import { spawnSync } from "node:child_process";
 import { readJson } from "./utils.mjs";
 
 const args = new Set(process.argv.slice(2));
-const shouldCheck = args.has("--check");
 const asJson = args.has("--json");
+const validArgs = new Set(["--json"]);
+
+for (const arg of args) {
+  if (!validArgs.has(arg)) {
+    console.error("Usage: node scripts/api-baseline.mjs [--json]");
+    process.exit(1);
+  }
+}
 
 function fail(message) {
   failures.push(message);
-}
-
-function warn(message) {
-  warnings.push(message);
 }
 
 function parseSemver(value) {
@@ -111,8 +114,6 @@ function displayValue(value) {
 }
 
 const failures = [];
-const warnings = [];
-
 const packageJson = await readJson("package.json");
 const packageLockJson = await readJson("package-lock.json");
 const manifestJson = await readJson("manifest.json");
@@ -148,9 +149,7 @@ if (!codexReadmeSemver) {
   fail("README.md Compatibility table must define `codex.testedCliVersion` as X.Y.Z.");
 }
 if (!codexLocalSemver) {
-  const message = "local codex --version could not be read.";
-  if (shouldCheck) fail(message);
-  else warn(message);
+  fail("local codex --version could not be read.");
 }
 if (codexReadmeSemver && codexLocalSemver && minorKey(codexReadmeSemver) !== minorKey(codexLocalSemver)) {
   fail(`local Codex CLI minor ${minorKey(codexLocalSemver)} does not match compatibility table minor ${minorKey(codexReadmeSemver)}.`);
@@ -215,7 +214,6 @@ const report = {
     lockedPackageVersion: obsidianLockVersion,
     lockedPackageMinor: minorKey(obsidianLockSemver),
   },
-  warnings,
   failures,
 };
 
@@ -243,11 +241,6 @@ if (asJson) {
   console.log(`  package obsidian: ${displayValue(report.obsidian.packageDependency)}`);
   console.log(`  package range: ${report.obsidian.packageDependencyRange}`);
   console.log(`  package-lock obsidian: ${displayValue(report.obsidian.lockedPackageVersion)}`);
-  if (warnings.length > 0) {
-    console.log("");
-    console.log("Warnings");
-    for (const message of warnings) console.log(`  - ${message}`);
-  }
   if (failures.length > 0) {
     console.log("");
     console.log("Failures");
@@ -255,4 +248,4 @@ if (asJson) {
   }
 }
 
-if (shouldCheck && failures.length > 0) process.exit(1);
+if (failures.length > 0) process.exit(1);

@@ -11,13 +11,13 @@ npm run check
 npm run build
 ```
 
-Run `npm run format` after edits and before `npm run check` so Prettier-only issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, lint checks, Prettier check, CSS build verification, and a production esbuild bundle. The local `npm run check` path runs checks in parallel and uses local caches where available. Use `npm run check:ci` when you need to reproduce the sequential, non-cached CI validation path.
+Run `npm run format` after edits and before `npm run check` so Prettier-only issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, lint checks, and Prettier check in parallel, then runs the CSS build verification and production esbuild bundle as the final step. `npm run check` and `npm run check:ci` use the same script runner; the local path uses caches where available, while `npm run check:ci` uses the non-cached validation commands used by CI.
 
 ## Generated and Loaded Files
 
 `main.js`, `styles.css`, `data.json`, and `node_modules/` are ignored by Git. `main.js` and `styles.css` are still the files Obsidian loads, so run `npm run build` after source changes.
 
-CSS is authored in `src/styles/` and generated into the ignored root `styles.css` release asset. Use `npm run build:styles` when only regenerating CSS, or `npm run build:styles:check` to verify that the authored CSS can be rendered.
+CSS is authored in `src/styles/` and generated into the ignored root `styles.css` release asset. Use `npm run build:styles` when only regenerating CSS; it also verifies the authored CSS order before writing `styles.css`.
 
 The app-server TypeScript bindings in `src/generated/app-server/` are generated from the installed Codex CLI:
 
@@ -72,9 +72,8 @@ Use the local API baseline report when checking whether the development environm
 
 ```sh
 npm run api:baseline
-npm run api:baseline:check
 ```
 
-Obsidian runtime compatibility is declared through `manifest.json` and `versions.json`. The `obsidian` npm package provides compile-time TypeScript API definitions; it is not runtime validation for an Obsidian app-version matrix. Because the project does not run app-version smoke tests, keep the API type package in the same minor as `manifest.minAppVersion` and use the latest patch in that minor for local type checking. Raise `manifest.minAppVersion` only when intentionally adopting a newer Obsidian app/API minor.
+Obsidian runtime compatibility is declared through `manifest.json` and `versions.json`. The `obsidian` npm package provides compile-time TypeScript API definitions; it is not runtime validation for an Obsidian app-version matrix. Because the project does not run app-version smoke tests, keep the API type package in the same minor as `manifest.minAppVersion` and use the latest patch in that minor for local type checking. `npm run api:baseline` exits non-zero when the local environment or recorded baselines drift. Raise `manifest.minAppVersion` only when intentionally adopting a newer Obsidian app/API minor.
 
 Codex app-server compatibility is managed by Codex CLI minor version. README records the tested Codex CLI patch version, and the baseline check verifies that the local `codex --version` is in the same minor before app-server binding or compatibility work.
