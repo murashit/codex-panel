@@ -5,6 +5,10 @@ import { describe, expect, it } from "vitest";
 const repoRoot = process.cwd();
 const ESLINT_STARTUP_TEST_TIMEOUT_MS = 10_000;
 const generatedAppServerImportRoot = "../../generated" + "/app-server";
+const eslint = new ESLint({
+  cwd: repoRoot,
+  overrideConfigFile: path.join(repoRoot, "eslint.config.mjs"),
+});
 
 describe("eslint config", () => {
   it(
@@ -538,10 +542,6 @@ export type Item = MessageStreamItem;
 });
 
 async function lintSource(filePath: string, source: string): Promise<string[]> {
-  const eslint = new ESLint({
-    cwd: repoRoot,
-    overrideConfigFile: path.join(repoRoot, "eslint.config.mjs"),
-  });
   const [result] = await eslint.lintText(source, { filePath: path.join(repoRoot, filePath) });
   return (result?.messages ?? []).map((message) => message.ruleId ?? message.message);
 }
