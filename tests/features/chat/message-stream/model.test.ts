@@ -683,6 +683,22 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it("preserves sleep items as completed wait tool summaries", () => {
+    const item: TurnItem = {
+      type: "sleep",
+      id: "sleep-1",
+      durationMs: 2500,
+    };
+
+    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+      kind: "tool",
+      toolName: "sleep",
+      primaryTarget: { kind: "value", value: "2500 ms" },
+      output: "",
+      executionState: "completed",
+    });
+  });
+
   it("preserves image generation status, details, and state", () => {
     const item: TurnItem = {
       type: "imageGeneration",

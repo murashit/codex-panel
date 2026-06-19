@@ -23,6 +23,7 @@ type McpToolCallItem = Extract<TurnItem, { type: "mcpToolCall" }>;
 type DynamicToolCallItem = Extract<TurnItem, { type: "dynamicToolCall" }>;
 type WebSearchItem = Extract<TurnItem, { type: "webSearch" }>;
 type ImageViewItem = Extract<TurnItem, { type: "imageView" }>;
+type SleepItem = Extract<TurnItem, { type: "sleep" }>;
 type ImageGenerationItem = Extract<TurnItem, { type: "imageGeneration" }>;
 type ReviewModeItem = Extract<TurnItem, { type: "enteredReviewMode" }> | Extract<TurnItem, { type: "exitedReviewMode" }>;
 type ContextCompactionItem = Extract<TurnItem, { type: "contextCompaction" }>;
@@ -97,6 +98,8 @@ function messageStreamItemFromTurnItemCore(item: TurnItem, turnId?: string): Mes
       return webSearchMessageStreamItem(item, turnId);
     case "imageView":
       return imageViewMessageStreamItem(item, turnId);
+    case "sleep":
+      return sleepMessageStreamItem(item, turnId);
     case "imageGeneration":
       return imageGenerationMessageStreamItem(item, turnId);
     case "subAgentActivity":
@@ -264,6 +267,18 @@ function imageViewMessageStreamItem(item: ImageViewItem, turnId?: string): Messa
     role: "tool",
     toolName: "imageView",
     primaryTarget: { kind: "path", path: item.path },
+  };
+}
+
+function sleepMessageStreamItem(item: SleepItem, turnId?: string): MessageStreamItem {
+  return {
+    ...turnItemSourceFields(item, turnId),
+    kind: "tool",
+    role: "tool",
+    toolName: "sleep",
+    primaryTarget: { kind: "value", value: `${String(item.durationMs)} ms` },
+    output: "",
+    executionState: "completed",
   };
 }
 
