@@ -4,6 +4,8 @@ GitHub Releases attach only `main.js`, `manifest.json`, and `styles.css` as Obsi
 
 Release work is Jujutsu-first in a colocated Git repository; Git is still used to push the tag that triggers the GitHub Release workflow. If the checkout has not been initialized for Jujutsu yet, run `jj git init --colocate` and `jj bookmark track main --remote=origin` once.
 
+Plugin versions use SemVer-shaped numbers for Obsidian distribution, but they are not a library API compatibility contract. Prefer patch releases for fixes, dependency updates, internal changes, and compatibility refreshes that preserve existing workflows. Prefer minor releases for user-visible capabilities, settings, workflow additions, or supported-runtime baseline changes. Reserve major releases for disruptive workflow, settings, storage, or support-policy changes.
+
 Create a release by preparing the next version, editing the generated release notes, committing the release changes, then running the preflight before pushing the matching tag:
 
 ```sh
