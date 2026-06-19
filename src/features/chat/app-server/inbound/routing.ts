@@ -1,6 +1,7 @@
 import type { ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import type { PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";
+import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../domain/pending-requests/model";
 import { toPendingApproval } from "../requests/approval";
+import { toPendingMcpElicitation } from "../requests/mcp-elicitation";
 import { toPendingUserInput } from "../requests/user-input";
 
 export interface ActiveRouteScope {
@@ -11,6 +12,7 @@ export interface ActiveRouteScope {
 export type ServerRequestRoute =
   | { kind: "approval"; request: ServerRequest; approval: PendingApproval }
   | { kind: "userInput"; request: ServerRequest; input: PendingUserInput }
+  | { kind: "mcpElicitation"; request: ServerRequest; elicitation: PendingMcpElicitation }
   | { kind: "unsupported"; request: ServerRequest }
   | { kind: "unknown"; request: ServerRequest }
   | { kind: "inactive"; request: ServerRequest };
@@ -213,7 +215,7 @@ const SERVER_REQUEST_ROUTE_KIND_BY_METHOD: ServerRequestRouteKindByMethod = {
   "item/fileChange/requestApproval": "approval",
   "item/permissions/requestApproval": "approval",
   "item/tool/requestUserInput": "userInput",
-  "mcpServer/elicitation/request": "unsupported",
+  "mcpServer/elicitation/request": "mcpElicitation",
   "item/tool/call": "unsupported",
   "account/chatgptAuthTokens/refresh": "unsupported",
   "attestation/generate": "unsupported",
@@ -239,6 +241,11 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
     case "userInput": {
       const input = toPendingUserInput(request);
       if (input) return { kind: "userInput", request, input };
+      return { kind: "unsupported", request };
+    }
+    case "mcpElicitation": {
+      const elicitation = toPendingMcpElicitation(request);
+      if (elicitation) return { kind: "mcpElicitation", request, elicitation };
       return { kind: "unsupported", request };
     }
     case "unsupported":

@@ -74,15 +74,16 @@ describe("user input model", () => {
       ["a", "first"],
     ]);
 
-    expect(pendingRequestsSignature([], [], drafts)).toBe("");
-    expect(pendingRequestFocusSignature([], [])).toBe("");
-    expect(pendingRequestFocusSignature([], [input])).toBe(
+    expect(pendingRequestsSignature([], [], [], drafts, new Map())).toBe("");
+    expect(pendingRequestFocusSignature([], [], [])).toBe("");
+    expect(pendingRequestFocusSignature([], [input], [])).toBe(
       JSON.stringify({
         approvals: [],
         inputs: [{ id: 7, method: "item/tool/requestUserInput" }],
+        mcpElicitations: [],
       }),
     );
-    expect(pendingRequestsSignature([], [input], drafts)).toBe(
+    expect(pendingRequestsSignature([], [input], [], drafts, new Map())).toBe(
       JSON.stringify({
         approvals: [],
         inputs: [
@@ -98,10 +99,12 @@ describe("user input model", () => {
             ],
           },
         ],
+        mcpElicitations: [],
         drafts: [
           ["a", "first"],
           ["z", "last"],
         ],
+        mcpDrafts: [],
       }),
     );
   });

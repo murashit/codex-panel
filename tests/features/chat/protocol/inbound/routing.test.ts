@@ -62,7 +62,7 @@ describe("chat inbound routing", () => {
       { request: fileChangeApprovalRequest(), kind: "approval" },
       { request: permissionsApprovalRequest(), kind: "approval" },
       { request: userInputRequest({ threadId: "thread-active" }), kind: "userInput" },
-      { request: mcpElicitationRequest(), kind: "unsupported" },
+      { request: mcpElicitationRequest(), kind: "mcpElicitation" },
       { request: dynamicToolCallRequest(), kind: "unsupported" },
     ] as const;
 
@@ -146,7 +146,7 @@ describe("chat inbound routing", () => {
   it("classifies supported server request families before unsupported requests", () => {
     expect(routeServerRequest(commandApprovalRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("approval");
     expect(routeServerRequest(userInputRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("userInput");
-    expect(routeServerRequest(mcpElicitationRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("unsupported");
+    expect(routeServerRequest(mcpElicitationRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("mcpElicitation");
   });
 
   it("classifies inactive requests before request-family handling", () => {

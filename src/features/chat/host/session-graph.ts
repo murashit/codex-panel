@@ -965,7 +965,13 @@ function createSurfacesAndPresenter(
     requests: {
       pendingSignature: () => {
         const state = stateStore.getState();
-        return pendingRequestsSignature(state.requests.approvals, state.requests.pendingUserInputs, state.requests.userInputDrafts);
+        return pendingRequestsSignature(
+          state.requests.approvals,
+          state.requests.pendingUserInputs,
+          state.requests.pendingMcpElicitations,
+          state.requests.userInputDrafts,
+          state.requests.mcpElicitationDrafts,
+        );
       },
       pendingSnapshot: () => pendingRequests.snapshot(),
       pendingActions: () => pendingRequests.actions(),

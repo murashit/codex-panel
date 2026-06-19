@@ -8,10 +8,22 @@ import { activeTurnId, type ChatAction, type ChatState } from "../../application
 import type { ChatStateStore } from "../../application/state/store";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/message-stream/factories/system-items";
-import type { ApprovalAction, PendingApproval, PendingUserInput } from "../../domain/pending-requests/model";
+import {
+  contentForPendingMcpElicitation,
+  type ApprovalAction,
+  type McpElicitationAction,
+  type PendingApproval,
+  type PendingMcpElicitation,
+  type PendingUserInput,
+} from "../../domain/pending-requests/model";
 import { approvalResponse } from "../requests/approval";
+import { mcpElicitationResponse } from "../requests/mcp-elicitation";
 import { userInputResponse } from "../requests/user-input";
-import { createApprovalResultItem, createUserInputResultItem } from "../../domain/pending-requests/result-items";
+import {
+  createApprovalResultItem,
+  createMcpElicitationResultItem,
+  createUserInputResultItem,
+} from "../../domain/pending-requests/result-items";
 import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
 import { routeServerRequest } from "./routing";
 
@@ -25,6 +37,10 @@ function cannotSendUserInputMessage(): string {
 
 function cannotCancelUserInputMessage(): string {
   return "Could not cancel user input because Codex app-server is not connected.";
+}
+
+function cannotSendMcpElicitationMessage(): string {
+  return "Could not send MCP request response because Codex app-server is not connected.";
 }
 
 function userCancelledInputRequestMessage(): string {
@@ -57,6 +73,7 @@ export interface ChatInboundHandler {
   resolveApproval(approval: PendingApproval, action: ApprovalAction): void;
   resolveUserInput(input: PendingUserInput, answers: Record<string, string>): void;
   cancelUserInput(input: PendingUserInput): void;
+  resolveMcpElicitation(elicitation: PendingMcpElicitation, action: McpElicitationAction): void;
   addSystemMessage(text: string): void;
   addStructuredSystemMessage(text: string, details: MessageStreamNoticeSection[]): void;
   addDedupedSystemMessage(text: string): void;
@@ -93,6 +110,9 @@ export function createChatInboundHandler(
     cancelUserInput: (input) => {
       cancelUserInput(context, input);
     },
+    resolveMcpElicitation: (elicitation, action) => {
+      resolveMcpElicitation(context, elicitation, action);
+    },
     addSystemMessage: (text) => {
       addSystemMessage(context, text);
     },
@@ -127,6 +147,9 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
       return;
     case "userInput":
       queueUserInputRequest(context, route.input);
+      return;
+    case "mcpElicitation":
+      queueMcpElicitationRequest(context, route.elicitation);
       return;
     case "inactive":
       rejectServerRequest(context, request, `Rejected inactive app-server request: ${request.method}`);
@@ -185,6 +208,20 @@ function cancelUserInput(context: ChatInboundHandlerContext, input: PendingUserI
   });
 }
 
+function resolveMcpElicitation(context: ChatInboundHandlerContext, elicitation: PendingMcpElicitation, action: McpElicitationAction): void {
+  if (!state(context).requests.pendingMcpElicitations.includes(elicitation)) return;
+  const content = action === "accept" ? contentForPendingMcpElicitation(elicitation, state(context).requests.mcpElicitationDrafts) : null;
+  if (!context.actions.respondToServerRequest(elicitation.requestId, mcpElicitationResponse(action, content))) {
+    addSystemMessage(context, cannotSendMcpElicitationMessage());
+    return;
+  }
+  dispatch(context, {
+    type: "request/resolved",
+    requestId: elicitation.requestId,
+    resultItem: createMcpElicitationResultItem(elicitation, action, content),
+  });
+}
+
 function addSystemMessage(context: ChatInboundHandlerContext, text: string): void {
   dispatch(context, { type: "message-stream/system-item-added", item: createSystemItem(localItemId(context, "system"), text) });
 }
@@ -206,6 +243,10 @@ function queueApprovalRequest(context: ChatInboundHandlerContext, approval: Pend
 
 function queueUserInputRequest(context: ChatInboundHandlerContext, userInput: PendingUserInput): void {
   dispatch(context, { type: "request/user-input-queued", input: userInput });
+}
+
+function queueMcpElicitationRequest(context: ChatInboundHandlerContext, elicitation: PendingMcpElicitation): void {
+  dispatch(context, { type: "request/mcp-elicitation-queued", elicitation });
 }
 
 function activeRouteScope(context: ChatInboundHandlerContext): { activeThreadId: string | null; activeTurnId: string | null } {

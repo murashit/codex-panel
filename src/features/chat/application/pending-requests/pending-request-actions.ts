@@ -4,7 +4,9 @@ import {
   approvalDetailsDisclosureId,
   answersForPendingUserInput,
   type ApprovalAction,
+  type McpElicitationAction,
   type PendingApproval,
+  type PendingMcpElicitation,
   type PendingUserInput,
 } from "../../domain/pending-requests/model";
 import type { PendingRequestBlockActions, PendingRequestBlockState, PendingRequestId } from "./block";
@@ -14,6 +16,7 @@ interface PendingRequestResponder {
   resolveApproval: (approval: PendingApproval, action: ApprovalAction) => void;
   resolveUserInput: (input: PendingUserInput, answers: Record<string, string>) => void;
   cancelUserInput: (input: PendingUserInput) => void;
+  resolveMcpElicitation: (elicitation: PendingMcpElicitation, action: McpElicitationAction) => void;
 }
 
 export interface PendingRequestActionsHost {
@@ -29,6 +32,7 @@ export interface PendingRequestActions {
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void;
   resolveUserInput(requestId: PendingRequestId): void;
   cancelUserInput(requestId: PendingRequestId): void;
+  resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): void;
   consumeAutoFocus(): boolean;
 }
 
@@ -59,6 +63,13 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
     commitRequestAction(host);
   };
 
+  const resolveMcpElicitation = (requestId: PendingRequestId, action: McpElicitationAction): void => {
+    const elicitation = pendingMcpElicitation(host, requestId);
+    if (!elicitation) return;
+    host.responder.resolveMcpElicitation(elicitation, action);
+    commitRequestAction(host);
+  };
+
   const blockActions: PendingRequestBlockActions = {
     resolveApproval: (requestId, approvalAction) => {
       resolveApproval(requestId, approvalAction);
@@ -68,6 +79,9 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
     },
     cancelUserInput: (requestId) => {
       cancelUserInput(requestId);
+    },
+    resolveMcpElicitation: (requestId, action) => {
+      resolveMcpElicitation(requestId, action);
     },
     setApprovalDetailsExpanded: (requestId, expanded) => {
       host.stateStore.dispatch({
@@ -79,6 +93,9 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
     },
     setUserInputDraft: (key, value) => {
       host.stateStore.dispatch({ type: "request/user-input-draft-set", key, value });
+    },
+    setMcpElicitationDraft: (key, value) => {
+      host.stateStore.dispatch({ type: "request/mcp-elicitation-draft-set", key, value });
     },
   };
 
@@ -94,10 +111,15 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
     resolveApproval,
     resolveUserInput,
     cancelUserInput,
+    resolveMcpElicitation,
 
     consumeAutoFocus(): boolean {
       const state = host.stateStore.getState();
-      const signature = pendingRequestFocusSignature(state.requests.approvals, state.requests.pendingUserInputs);
+      const signature = pendingRequestFocusSignature(
+        state.requests.approvals,
+        state.requests.pendingUserInputs,
+        state.requests.pendingMcpElicitations,
+      );
       if (!signature) {
         lastFocusSignature = "";
         return false;
@@ -113,7 +135,9 @@ function pendingRequestBlockState(state: ChatState): PendingRequestBlockState {
   return {
     approvals: state.requests.approvals,
     pendingUserInputs: state.requests.pendingUserInputs,
+    pendingMcpElicitations: state.requests.pendingMcpElicitations,
     userInputDrafts: state.requests.userInputDrafts,
+    mcpElicitationDrafts: state.requests.mcpElicitationDrafts,
     approvalDetails: state.ui.disclosures.approvalDetails,
   };
 }
@@ -124,6 +148,10 @@ function pendingApproval(host: PendingRequestActionsHost, requestId: PendingRequ
 
 function pendingUserInput(host: PendingRequestActionsHost, requestId: PendingRequestId): PendingUserInput | null {
   return host.stateStore.getState().requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
+}
+
+function pendingMcpElicitation(host: PendingRequestActionsHost, requestId: PendingRequestId): PendingMcpElicitation | null {
+  return host.stateStore.getState().requests.pendingMcpElicitations.find((elicitation) => elicitation.requestId === requestId) ?? null;
 }
 
 function commitRequestAction(host: PendingRequestActionsHost): void {

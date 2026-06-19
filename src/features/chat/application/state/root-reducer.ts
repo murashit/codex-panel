@@ -698,7 +698,9 @@ export function cloneChatState(state: ChatState): ChatState {
     requests: {
       approvals: [...state.requests.approvals],
       pendingUserInputs: [...state.requests.pendingUserInputs],
+      pendingMcpElicitations: [...state.requests.pendingMcpElicitations],
       userInputDrafts: new Map(state.requests.userInputDrafts),
+      mcpElicitationDrafts: new Map(state.requests.mcpElicitationDrafts),
     },
     composer: {
       ...state.composer,

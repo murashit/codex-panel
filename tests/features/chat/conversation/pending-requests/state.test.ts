@@ -31,7 +31,9 @@ describe("chat pending request state", () => {
         },
       ],
       pendingUserInputs: [],
+      pendingMcpElicitations: [],
       userInputDrafts: new Map([["2:note", "draft"]]),
+      mcpElicitationDrafts: new Map(),
     };
 
     const next = resolveChatRequest(state, 1);

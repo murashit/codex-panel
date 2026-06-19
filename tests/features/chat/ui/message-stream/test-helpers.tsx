@@ -208,7 +208,9 @@ export function renderPendingRequestNode(
   const snapshot = pendingRequestBlockSnapshotFromState({
     approvals,
     pendingUserInputs,
+    pendingMcpElicitations: [],
     userInputDrafts: drafts.values,
+    mcpElicitationDrafts: new Map(),
     approvalDetails,
   });
   renderUiRootInAct(
@@ -216,7 +218,9 @@ export function renderPendingRequestNode(
     pendingRequestBlockNode(
       snapshot.approvals,
       snapshot.pendingUserInputs,
+      snapshot.pendingMcpElicitations,
       snapshot.userInputDrafts,
+      snapshot.mcpElicitationDrafts,
       snapshot.approvalDetails,
       actions,
       autoFocusRequested,
@@ -231,7 +235,9 @@ export function pendingRequestActions(overrides: Partial<PendingRequestBlockActi
     resolveApproval: vi.fn(),
     resolveUserInput: vi.fn(),
     cancelUserInput: vi.fn(),
+    resolveMcpElicitation: vi.fn(),
     setUserInputDraft: vi.fn(),
+    setMcpElicitationDraft: vi.fn(),
     ...overrides,
   };
 }

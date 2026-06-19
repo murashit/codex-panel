@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/model";
 import {
   type PendingApprovalViewModel,
+  type PendingMcpElicitationFieldViewModel,
+  type PendingMcpElicitationViewModel,
   type PendingUserInputQuestionViewModel,
   type PendingUserInputViewModel,
 } from "../../presentation/pending-requests/view-model";
@@ -13,7 +15,9 @@ import { createStatusMessageClassName } from "./status";
 export function pendingRequestBlockNode(
   approvals: readonly PendingApprovalViewModel[],
   pendingUserInputs: readonly PendingUserInputViewModel[],
+  pendingMcpElicitations: readonly PendingMcpElicitationViewModel[],
   userInputDrafts: ReadonlyMap<string, string>,
+  mcpElicitationDrafts: ReadonlyMap<string, string>,
   approvalDetails: ReadonlySet<string>,
   actions: PendingRequestBlockActions,
   autoFocusRequested = false,
@@ -24,7 +28,9 @@ export function pendingRequestBlockNode(
     <PendingRequestBlock
       approvals={approvals}
       pendingUserInputs={pendingUserInputs}
+      pendingMcpElicitations={pendingMcpElicitations}
       userInputDrafts={userInputDrafts}
+      mcpElicitationDrafts={mcpElicitationDrafts}
       approvalDetails={approvalDetails}
       actions={actions}
       autoFocusRequested={autoFocusRequested}
@@ -37,7 +43,9 @@ export function pendingRequestBlockNode(
 function PendingRequestBlock({
   approvals,
   pendingUserInputs,
+  pendingMcpElicitations,
   userInputDrafts,
+  mcpElicitationDrafts,
   approvalDetails,
   actions,
   autoFocusRequested,
@@ -46,7 +54,9 @@ function PendingRequestBlock({
 }: {
   approvals: readonly PendingApprovalViewModel[];
   pendingUserInputs: readonly PendingUserInputViewModel[];
+  pendingMcpElicitations: readonly PendingMcpElicitationViewModel[];
   userInputDrafts: ReadonlyMap<string, string>;
+  mcpElicitationDrafts: ReadonlyMap<string, string>;
   approvalDetails: ReadonlySet<string>;
   actions: PendingRequestBlockActions;
   autoFocusRequested: boolean;
@@ -60,7 +70,7 @@ function PendingRequestBlock({
     if (!shouldFocus) return;
     focusPendingRequestControl(requestRef.current);
   }, [autoFocusRequested, consumeAutoFocus, autoFocusSignature]);
-  if (approvals.length === 0 && pendingUserInputs.length === 0) return null;
+  if (approvals.length === 0 && pendingUserInputs.length === 0 && pendingMcpElicitations.length === 0) return null;
   return (
     <div ref={requestRef} className={createStatusMessageClassName("codex-panel__pending-request-block", "warning")}>
       <div className="codex-panel__message-role">Request</div>
@@ -69,6 +79,14 @@ function PendingRequestBlock({
       ))}
       {pendingUserInputs.map((input) => (
         <UserInputCard key={String(input.requestId)} input={input} userInputDrafts={userInputDrafts} actions={actions} />
+      ))}
+      {pendingMcpElicitations.map((elicitation) => (
+        <McpElicitationCard
+          key={String(elicitation.requestId)}
+          elicitation={elicitation}
+          mcpElicitationDrafts={mcpElicitationDrafts}
+          actions={actions}
+        />
       ))}
     </div>
   );
@@ -79,6 +97,10 @@ function focusPendingRequestControl(container: HTMLElement | null): void {
   for (const selector of [
     ".codex-panel__user-input-radio:checked",
     ".codex-panel__user-input-text",
+    ".codex-panel__mcp-elicitation-input",
+    ".codex-panel__mcp-elicitation-checkbox",
+    ".codex-panel__mcp-elicitation-radio:checked",
+    ".codex-panel__mcp-elicitation-radio",
     ".codex-panel__user-input-radio",
     ".codex-panel__pending-request-button.mod-cta",
     ".codex-panel__pending-request-button",
@@ -88,6 +110,99 @@ function focusPendingRequestControl(container: HTMLElement | null): void {
     target.focus({ preventScroll: true });
     return;
   }
+}
+
+function McpElicitationCard({
+  elicitation,
+  mcpElicitationDrafts,
+  actions,
+}: {
+  elicitation: PendingMcpElicitationViewModel;
+  mcpElicitationDrafts: ReadonlyMap<string, string>;
+  actions: PendingRequestBlockActions;
+}): UiNode {
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const accept = () => {
+    if (elicitation.mode === "form" && !validateMcpElicitationForm(formRef.current, elicitation, mcpElicitationDrafts)) return;
+    actions.resolveMcpElicitation(elicitation.requestId, "accept");
+  };
+  return (
+    <PendingRequestCard className="codex-panel__mcp-elicitation">
+      <div className="codex-panel__pending-request-info">
+        <div className="codex-panel__pending-request-title">{elicitation.title}</div>
+        <div className="codex-panel__pending-request-body">{elicitation.body}</div>
+        {elicitation.mode === "url" && elicitation.url ? (
+          <a className="codex-panel__mcp-elicitation-url" href={elicitation.url} target="_blank" rel="noreferrer">
+            {elicitation.url}
+          </a>
+        ) : (
+          <form
+            ref={formRef}
+            className="codex-panel__mcp-elicitation-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              accept();
+            }}
+          >
+            <McpElicitationFields fields={elicitation.fields} drafts={mcpElicitationDrafts} actions={actions} />
+          </form>
+        )}
+      </div>
+      <div className="codex-panel__pending-request-actions">
+        <ActionButton label="Accept" className="mod-cta" onClick={accept} />
+        <ActionButton
+          label="Decline"
+          className=""
+          onClick={() => {
+            actions.resolveMcpElicitation(elicitation.requestId, "decline");
+          }}
+        />
+        <ActionButton
+          label="Cancel"
+          className=""
+          onClick={() => {
+            actions.resolveMcpElicitation(elicitation.requestId, "cancel");
+          }}
+        />
+      </div>
+    </PendingRequestCard>
+  );
+}
+
+function validateMcpElicitationForm(
+  form: HTMLFormElement | null,
+  elicitation: PendingMcpElicitationViewModel,
+  drafts: ReadonlyMap<string, string>,
+): boolean {
+  if (!form) return true;
+  clearMcpElicitationCustomValidity(form);
+  for (const field of elicitation.fields) {
+    if (field.type !== "multi-select") continue;
+    const selectedCount = selectedMcpElicitationValues(drafts.get(field.draftKey) ?? field.defaultDraft).size;
+    const message = mcpElicitationMultiSelectValidationMessage(field, selectedCount);
+    if (!message) continue;
+    const input = Array.from(form.querySelectorAll<HTMLInputElement>("input[data-mcp-elicitation-field]")).find(
+      (candidate) => candidate.dataset["mcpElicitationField"] === field.id,
+    );
+    input?.setCustomValidity(message);
+  }
+  return form.reportValidity();
+}
+
+function clearMcpElicitationCustomValidity(form: HTMLFormElement): void {
+  form.querySelectorAll<HTMLInputElement>(".codex-panel__mcp-elicitation-checkbox").forEach((input) => {
+    input.setCustomValidity("");
+  });
+}
+
+function mcpElicitationMultiSelectValidationMessage(field: PendingMcpElicitationFieldViewModel, selectedCount: number): string | null {
+  if (typeof field.minItems === "number" && selectedCount < field.minItems) {
+    return `Select at least ${String(field.minItems)} option${field.minItems === 1 ? "" : "s"}.`;
+  }
+  if (typeof field.maxItems === "number" && selectedCount > field.maxItems) {
+    return `Select no more than ${String(field.maxItems)} option${field.maxItems === 1 ? "" : "s"}.`;
+  }
+  return null;
 }
 
 function ApprovalCard({
@@ -251,6 +366,163 @@ function UserInputQuestions({
       })}
     </>
   );
+}
+
+function McpElicitationFields({
+  fields,
+  drafts,
+  actions,
+}: {
+  fields: readonly PendingMcpElicitationFieldViewModel[];
+  drafts: ReadonlyMap<string, string>;
+  actions: PendingRequestBlockActions;
+}): UiNode {
+  return (
+    <div className="codex-panel__mcp-elicitation-fields">
+      {fields.map((field) => (
+        <McpElicitationField key={field.id} field={field} drafts={drafts} actions={actions} />
+      ))}
+    </div>
+  );
+}
+
+function McpElicitationField({
+  field,
+  drafts,
+  actions,
+}: {
+  field: PendingMcpElicitationFieldViewModel;
+  drafts: ReadonlyMap<string, string>;
+  actions: PendingRequestBlockActions;
+}): UiNode {
+  const current = drafts.get(field.draftKey) ?? field.defaultDraft;
+  return (
+    <div className="codex-panel__mcp-elicitation-field">
+      <label className="codex-panel__mcp-elicitation-label">
+        <span>{field.title}</span>
+        {field.required ? <span className="codex-panel__mcp-elicitation-required">Required</span> : null}
+      </label>
+      {field.description ? <div className="codex-panel__mcp-elicitation-description">{field.description}</div> : null}
+      <McpElicitationFieldControl field={field} current={current} actions={actions} />
+    </div>
+  );
+}
+
+function McpElicitationFieldControl({
+  field,
+  current,
+  actions,
+}: {
+  field: PendingMcpElicitationFieldViewModel;
+  current: string;
+  actions: PendingRequestBlockActions;
+}): UiNode {
+  switch (field.type) {
+    case "boolean":
+      return (
+        <label className="codex-panel__mcp-elicitation-option">
+          <input
+            className="codex-panel__mcp-elicitation-checkbox"
+            type="checkbox"
+            checked={current === "true"}
+            onChange={(event) => {
+              actions.setMcpElicitationDraft(field.draftKey, event.currentTarget.checked ? "true" : "false");
+            }}
+          />
+          <span>Enabled</span>
+        </label>
+      );
+    case "single-select":
+      return (
+        <div className="codex-panel__mcp-elicitation-options">
+          {field.options?.map((option) => (
+            <label key={option.value} className="codex-panel__mcp-elicitation-option">
+              <input
+                className="codex-panel__mcp-elicitation-radio"
+                type="radio"
+                name={`codex-panel-mcp-${field.draftKey}`}
+                value={option.value}
+                required={field.required}
+                checked={current === option.value}
+                onChange={(event) => {
+                  if (event.currentTarget.checked) actions.setMcpElicitationDraft(field.draftKey, option.value);
+                }}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      );
+    case "multi-select":
+      return (
+        <div className="codex-panel__mcp-elicitation-options">
+          {field.options?.map((option) => {
+            const selected = selectedMcpElicitationValues(current);
+            return (
+              <label key={option.value} className="codex-panel__mcp-elicitation-option">
+                <input
+                  className="codex-panel__mcp-elicitation-checkbox"
+                  type="checkbox"
+                  value={option.value}
+                  data-mcp-elicitation-field={field.id}
+                  checked={selected.has(option.value)}
+                  onChange={(event) => {
+                    const next = new Set(selected);
+                    if (event.currentTarget.checked) {
+                      next.add(option.value);
+                    } else {
+                      next.delete(option.value);
+                    }
+                    actions.setMcpElicitationDraft(field.draftKey, JSON.stringify([...next]));
+                  }}
+                />
+                <span>{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      );
+    case "number":
+    case "integer":
+      return (
+        <input
+          className="codex-panel__mcp-elicitation-input"
+          type="number"
+          step={field.type === "integer" ? "1" : "any"}
+          min={field.minimum ?? undefined}
+          max={field.maximum ?? undefined}
+          required={field.required}
+          value={current}
+          onInput={(event) => {
+            actions.setMcpElicitationDraft(field.draftKey, event.currentTarget.value);
+          }}
+        />
+      );
+    default:
+      return (
+        <input
+          className="codex-panel__mcp-elicitation-input"
+          type={field.format === "email" ? "email" : field.format === "uri" ? "url" : field.format === "date" ? "date" : "text"}
+          minLength={field.minLength ?? undefined}
+          maxLength={field.maxLength ?? undefined}
+          required={field.required}
+          value={current}
+          onInput={(event) => {
+            actions.setMcpElicitationDraft(field.draftKey, event.currentTarget.value);
+          }}
+        />
+      );
+  }
+}
+
+function selectedMcpElicitationValues(draft: string): Set<string> {
+  try {
+    const values = JSON.parse(draft) as unknown;
+    if (Array.isArray(values)) return new Set(values.filter((value): value is string => typeof value === "string"));
+  } catch {
+    return new Set();
+  }
+  return new Set();
 }
 
 function userInputRadioGroupName(requestId: PendingUserInputViewModel["requestId"], questionId: string): string {

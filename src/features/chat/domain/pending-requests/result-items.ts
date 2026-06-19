@@ -1,6 +1,14 @@
-import { approvalActionKind, type ApprovalAction, type PendingApproval, type PendingUserInput } from "./model";
+import {
+  approvalActionKind,
+  type ApprovalAction,
+  type McpElicitationAction,
+  type McpElicitationContentValue,
+  type PendingApproval,
+  type PendingMcpElicitation,
+  type PendingUserInput,
+} from "./model";
 import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval";
-import type { MessageStreamItem } from "../message-stream/items";
+import type { MessageStreamItem, MessageStreamUserInputQuestionResult } from "../message-stream/items";
 import { definedProp } from "../../../../utils";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): MessageStreamItem {
@@ -49,6 +57,24 @@ export function createUserInputResultItem(
   };
 }
 
+export function createMcpElicitationResultItem(
+  elicitation: PendingMcpElicitation,
+  action: McpElicitationAction,
+  content: Record<string, McpElicitationContentValue> | null,
+): MessageStreamItem {
+  const accepted = action === "accept";
+  return {
+    id: `mcp-elicitation-${action}-${String(elicitation.requestId)}`,
+    kind: "userInputResult",
+    role: "tool",
+    text: mcpElicitationResultText(elicitation, action),
+    ...definedProp("turnId", elicitation.params.turnId ?? undefined),
+    provenance: { source: "localUser", channel: "response", interaction: "userInputResponse", sourceId: String(elicitation.requestId) },
+    executionState: accepted ? "completed" : "failed",
+    questions: mcpElicitationResultQuestions(elicitation, accepted ? content : null),
+  };
+}
+
 function approvalResultText(approval: PendingApproval, action: ApprovalAction): string {
   return `${approvalResultPrefix(action)}: ${approvalResultSummary(approval)}`;
 }
@@ -72,4 +98,39 @@ function approvalResultStatus(action: ApprovalAction): string {
 function approvalTurnId(approval: PendingApproval): string | undefined {
   const params = approval.params as { turnId?: unknown };
   return typeof params.turnId === "string" ? params.turnId : undefined;
+}
+
+function mcpElicitationResultText(elicitation: PendingMcpElicitation, action: McpElicitationAction): string {
+  const label = `MCP request from ${elicitation.params.serverName}`;
+  if (action === "accept") return `${label} accepted.`;
+  if (action === "decline") return `${label} declined.`;
+  return `${label} cancelled.`;
+}
+
+function mcpElicitationResultQuestions(
+  elicitation: PendingMcpElicitation,
+  content: Record<string, McpElicitationContentValue> | null,
+): readonly MessageStreamUserInputQuestionResult[] {
+  if (elicitation.params.mode === "url") {
+    return [
+      {
+        id: "url",
+        header: "URL",
+        question: elicitation.params.message,
+        ...(content ? { answer: elicitation.params.url } : {}),
+      },
+    ];
+  }
+  return elicitation.params.fields.map((field) => ({
+    id: field.id,
+    header: field.title || field.id,
+    question: field.description ?? field.title,
+    ...(content ? { answer: formatMcpElicitationContentValue(content[field.id]) } : {}),
+  }));
+}
+
+function formatMcpElicitationContentValue(value: McpElicitationContentValue | undefined): string {
+  if (Array.isArray(value)) return value.join(", ");
+  if (value === null || typeof value === "undefined") return "";
+  return String(value);
 }

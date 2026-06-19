@@ -2,8 +2,12 @@ import { approvalDetails, approvalSummary, approvalTitle } from "../../domain/pe
 import { approvalActionOptions, type ApprovalActionOption } from "./approval-view";
 import {
   type PendingApproval,
+  type PendingMcpElicitation,
+  type PendingMcpElicitationField,
   type PendingRequestId as DomainPendingRequestId,
   type PendingUserInput,
+  mcpElicitationDraftKey,
+  mcpElicitationFieldDefaultDraft,
   questionDefaultAnswer,
   userInputDraftKey,
   userInputOtherDraftKey,
@@ -50,6 +54,40 @@ export interface PendingUserInputViewModel {
   questions: PendingUserInputQuestionViewModel[];
 }
 
+interface PendingMcpElicitationOptionViewModel {
+  value: string;
+  label: string;
+}
+
+export interface PendingMcpElicitationFieldViewModel {
+  id: string;
+  title: string;
+  description: string | null;
+  type: PendingMcpElicitationField["type"];
+  required: boolean;
+  defaultDraft: string;
+  draftKey: string;
+  options: readonly PendingMcpElicitationOptionViewModel[] | null;
+  format?: string | null;
+  minimum?: number | null;
+  maximum?: number | null;
+  minLength?: number | null;
+  maxLength?: number | null;
+  minItems?: number | null;
+  maxItems?: number | null;
+}
+
+export interface PendingMcpElicitationViewModel {
+  requestId: PendingRequestId;
+  title: string;
+  body: string;
+  mode: "form" | "url";
+  serverName: string;
+  message: string;
+  fields: readonly PendingMcpElicitationFieldViewModel[];
+  url: string | null;
+}
+
 export function pendingApprovalViewModel(approval: PendingApproval): PendingApprovalViewModel {
   return {
     requestId: approval.requestId,
@@ -77,4 +115,54 @@ export function pendingUserInputViewModel(input: PendingUserInput): PendingUserI
       options: question.options,
     })),
   };
+}
+
+export function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): PendingMcpElicitationViewModel {
+  const title = `MCP request from ${elicitation.params.serverName}`;
+  if (elicitation.params.mode === "url") {
+    return {
+      requestId: elicitation.requestId,
+      title,
+      body: elicitation.params.message,
+      mode: "url",
+      serverName: elicitation.params.serverName,
+      message: elicitation.params.message,
+      fields: [],
+      url: elicitation.params.url,
+    };
+  }
+  return {
+    requestId: elicitation.requestId,
+    title,
+    body: elicitation.params.message,
+    mode: "form",
+    serverName: elicitation.params.serverName,
+    message: elicitation.params.message,
+    fields: elicitation.params.fields.map((field) => ({
+      id: field.id,
+      title: field.title,
+      description: field.description,
+      type: field.type,
+      required: field.required,
+      defaultDraft: mcpElicitationFieldDefaultDraft(field),
+      draftKey: mcpElicitationDraftKey(elicitation.requestId, field.id),
+      options: "options" in field ? field.options : null,
+      ...mcpElicitationFieldConstraints(field),
+    })),
+    url: null,
+  };
+}
+
+function mcpElicitationFieldConstraints(field: PendingMcpElicitationField): Partial<PendingMcpElicitationFieldViewModel> {
+  switch (field.type) {
+    case "string":
+      return { format: field.format, minLength: field.minLength, maxLength: field.maxLength };
+    case "number":
+    case "integer":
+      return { minimum: field.minimum, maximum: field.maximum };
+    case "multi-select":
+      return { minItems: field.minItems, maxItems: field.maxItems };
+    default:
+      return {};
+  }
 }

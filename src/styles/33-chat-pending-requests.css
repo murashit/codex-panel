@@ -124,3 +124,85 @@
 .codex-panel__user-input-other-text {
   grid-column: 2;
 }
+
+.codex-panel__mcp-elicitation.codex-panel__pending-request-card .codex-panel__pending-request-actions {
+  margin-top: var(--codex-panel-section-gap);
+}
+
+.codex-panel__mcp-elicitation-url {
+  display: inline-block;
+  margin-top: var(--codex-panel-control-gap);
+  overflow-wrap: anywhere;
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel__mcp-elicitation-fields {
+  display: grid;
+  gap: var(--codex-panel-item-gap);
+  margin-top: var(--codex-panel-item-gap);
+}
+
+.codex-panel__mcp-elicitation-field {
+  display: grid;
+  gap: var(--codex-panel-control-gap);
+}
+
+.codex-panel__mcp-elicitation-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--codex-panel-item-gap);
+  color: var(--codex-panel-item-title-color);
+  font-size: var(--codex-panel-item-title-size);
+  font-weight: var(--codex-panel-item-title-weight);
+}
+
+.codex-panel__mcp-elicitation-required {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-normal);
+}
+
+.codex-panel__mcp-elicitation-description {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel__mcp-elicitation-input {
+  width: 100%;
+  min-height: var(--codex-panel-size-user-input-text-min-height);
+  min-width: 0;
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel__mcp-elicitation-options {
+  display: grid;
+  gap: var(--codex-panel-control-gap);
+}
+
+.codex-panel__mcp-elicitation-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--codex-panel-control-gap) var(--codex-panel-item-gap);
+  align-items: start;
+  padding: 0 var(--codex-panel-control-gap);
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-tight);
+  cursor: default;
+}
+
+.codex-panel__mcp-elicitation-option:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
+  background: var(--background-modifier-hover);
+}
+
+.codex-panel__mcp-elicitation-radio,
+.codex-panel__mcp-elicitation-checkbox {
+  grid-column: 1;
+  align-self: start;
+  margin: var(--codex-panel-panel-gap) 0 0;
+}

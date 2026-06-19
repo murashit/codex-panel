@@ -725,7 +725,15 @@ describe("ChatInboundHandler", () => {
 
   describe("interactive server requests", () => {
     it("queues and resolves requestUserInput server requests", () => {
-      const state = chatStateFixture();
+      let state = chatStateFixture();
+      state = chatStateWith(state, {
+        requests: {
+          mcpElicitationDrafts: new Map([
+            ["45:mcp:title", "Fix tests"],
+            ["45:mcp:notify", "false"],
+          ]),
+        },
+      });
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
@@ -791,6 +799,91 @@ describe("ChatInboundHandler", () => {
       });
     });
 
+    it("queues and accepts MCP elicitation form server requests", () => {
+      let state = chatStateFixture();
+      state = chatStateWith(state, {
+        requests: {
+          mcpElicitationDrafts: new Map([
+            ["45:mcp:title", "Fix tests"],
+            ["45:mcp:notify", "false"],
+          ]),
+        },
+      });
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(state, { respondToServerRequest });
+
+      handler.handleServerRequest({
+        id: 45,
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thread-active",
+          turnId: null,
+          serverName: "github",
+          mode: "form",
+          _meta: null,
+          message: "Provide issue details",
+          requestedSchema: {
+            type: "object",
+            required: ["title"],
+            properties: {
+              title: { type: "string", title: "Title", default: "Issue" },
+              notify: { type: "boolean", title: "Notify", default: true },
+            },
+          },
+        },
+      });
+
+      expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
+      handler.resolveMcpElicitation(expectPresent(handler.currentState().requests.pendingMcpElicitations[0]), "accept");
+
+      expect(respondToServerRequest).toHaveBeenCalledWith(45, {
+        action: "accept",
+        content: { title: "Fix tests", notify: false },
+        _meta: null,
+      });
+      expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
+      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+        kind: "userInputResult",
+        role: "tool",
+        text: "MCP request from github accepted.",
+        questions: [
+          expect.objectContaining({ id: "title", answer: "Fix tests" }),
+          expect.objectContaining({ id: "notify", answer: "false" }),
+        ],
+      });
+    });
+
+    it("declines MCP elicitation URL server requests", () => {
+      const state = chatStateFixture();
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(state, { respondToServerRequest });
+
+      handler.handleServerRequest({
+        id: 46,
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          serverName: "github",
+          mode: "url",
+          _meta: null,
+          message: "Confirm in browser",
+          url: "https://example.com/confirm",
+          elicitationId: "elicit-1",
+        },
+      });
+
+      handler.resolveMcpElicitation(expectPresent(handler.currentState().requests.pendingMcpElicitations[0]), "decline");
+
+      expect(respondToServerRequest).toHaveBeenCalledWith(46, { action: "decline", content: null, _meta: null });
+      expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
+      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+        kind: "userInputResult",
+        text: "MCP request from github declined.",
+        executionState: "failed",
+      });
+    });
+
     it("ignores stale requestUserInput objects with a reused request id", () => {
       const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
@@ -807,6 +900,22 @@ describe("ChatInboundHandler", () => {
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(rejectServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().requests.pendingUserInputs).toEqual([current]);
+      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+    });
+
+    it("ignores stale MCP elicitation objects with a reused request id", () => {
+      const state = chatStateFixture();
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(state, { respondToServerRequest });
+
+      handler.handleServerRequest(mcpElicitationRequest(47));
+      const current = expectPresent(handler.currentState().requests.pendingMcpElicitations[0]);
+      const stale = { ...current };
+
+      handler.resolveMcpElicitation(stale, "accept");
+
+      expect(respondToServerRequest).not.toHaveBeenCalled();
+      expect(handler.currentState().requests.pendingMcpElicitations).toEqual([current]);
       expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
     });
 
@@ -864,6 +973,7 @@ describe("ChatInboundHandler", () => {
         handler.handleServerRequest(request);
       }
       handler.handleServerRequest(userInputRequest(20));
+      handler.handleServerRequest(mcpElicitationRequest(21));
       const unsupported = unsupportedRequests();
       for (const request of unsupported) {
         handler.handleServerRequest(request);
@@ -872,6 +982,7 @@ describe("ChatInboundHandler", () => {
 
       expect(handler.currentState().requests.approvals.map((approval) => approval.requestId)).toEqual([10, 11, 12]);
       expect(handler.currentState().requests.pendingUserInputs.map((input) => input.requestId)).toEqual([20]);
+      expect(handler.currentState().requests.pendingMcpElicitations.map((elicitation) => elicitation.requestId)).toEqual([21]);
       const unsupportedMessages = unsupported.map((request) => `Rejected unsupported app-server request: ${request.method}`);
       expect(rejectServerRequest).toHaveBeenCalledTimes(unsupportedMessages.length + 1);
       for (const [index, request] of unsupported.entries()) {
@@ -1021,7 +1132,43 @@ describe("ChatInboundHandler", () => {
           ],
         },
       });
-      state = chatStateWith(state, { requests: { userInputDrafts: new Map([["50:note", "draft"]]) } });
+      state = chatStateWith(state, {
+        requests: {
+          pendingMcpElicitations: [
+            {
+              requestId: 50,
+              method: "mcpServer/elicitation/request",
+              params: {
+                threadId: "thread-active",
+                turnId: null,
+                serverName: "github",
+                mode: "form",
+                message: "Need input",
+                meta: null,
+                fields: [
+                  {
+                    id: "title",
+                    title: "Title",
+                    description: null,
+                    type: "string",
+                    required: true,
+                    format: null,
+                    minLength: null,
+                    maxLength: null,
+                    defaultValue: "",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      state = chatStateWith(state, {
+        requests: {
+          userInputDrafts: new Map([["50:note", "draft"]]),
+          mcpElicitationDrafts: new Map([["50:mcp:title", "draft"]]),
+        },
+      });
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -1031,7 +1178,9 @@ describe("ChatInboundHandler", () => {
 
       expect(handler.currentState().requests.approvals).toEqual([]);
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
+      expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
       expect(handler.currentState().requests.userInputDrafts.size).toBe(0);
+      expect(handler.currentState().requests.mcpElicitationDrafts.size).toBe(0);
     });
   });
 
@@ -1898,6 +2047,22 @@ function userInputRequest(id: number): ServerRequest {
   };
 }
 
+function mcpElicitationRequest(id: number): ServerRequest {
+  return {
+    id,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread",
+      turnId: null,
+      serverName: "server",
+      mode: "form",
+      _meta: null,
+      message: "Need input",
+      requestedSchema: { type: "object", properties: {} },
+    },
+  };
+}
+
 function appServerThread(id: string, cwd: string): ThreadStartedNotification["params"]["thread"] {
   return {
     id,
@@ -1955,19 +2120,6 @@ function promptSubmitHookRun(id: string, startedAt: bigint): Extract<ServerNotif
 
 function unsupportedRequests(): ServerRequest[] {
   return [
-    {
-      id: 21,
-      method: "mcpServer/elicitation/request",
-      params: {
-        threadId: "thread",
-        turnId: "turn",
-        serverName: "server",
-        mode: "form",
-        _meta: null,
-        message: "Need input",
-        requestedSchema: { type: "object", properties: {} },
-      },
-    },
     {
       id: 22,
       method: "item/tool/call",

@@ -22,6 +22,7 @@ describe("PendingRequestActions", () => {
         resolveApproval: vi.fn(),
         resolveUserInput,
         cancelUserInput: vi.fn(),
+        resolveMcpElicitation: vi.fn(),
       },
       composerHasFocus: () => false,
       refreshLiveState,

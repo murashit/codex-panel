@@ -3,8 +3,15 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PendingRequestBlockSnapshot } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
-import { pendingApprovalViewModel } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
-import type { PendingApproval, PendingUserInput } from "../../../../../src/features/chat/domain/pending-requests/model";
+import {
+  pendingApprovalViewModel,
+  pendingMcpElicitationViewModel,
+} from "../../../../../src/features/chat/presentation/pending-requests/view-model";
+import type {
+  PendingApproval,
+  PendingMcpElicitation,
+  PendingUserInput,
+} from "../../../../../src/features/chat/domain/pending-requests/model";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { changeInputValue } from "../../../../support/dom";
@@ -497,6 +504,123 @@ describe("pending request renderer decisions", () => {
     expect(expectPresent(blocks[1]).node).not.toBeUndefined();
   });
 
+  it("renders MCP elicitation fields and resolves them separately from Plan mode input", () => {
+    const parent = document.createElement("div");
+    const resolveMcpElicitation = vi.fn();
+    const setMcpElicitationDraft = vi.fn();
+
+    renderMessageStreamBlocksInAct(
+      parent,
+      messageStreamBlocks({
+        activeThreadId: "thread",
+        turnLifecycle: idleTurnLifecycle(),
+        historyCursor: null,
+        loadingHistory: false,
+        items: [
+          { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
+        ],
+        disclosures: emptyDisclosures(),
+        forkMenuItemId: null,
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        pendingRequests: pendingRequestContext({
+          signature: "mcp:51",
+          snapshot: emptyPendingRequestBlockSnapshot({
+            pendingMcpElicitations: [pendingMcpElicitationViewModel(pendingMcpElicitation())],
+          }),
+          actions: pendingRequestActions({ resolveMcpElicitation, setMcpElicitationDraft }),
+        }),
+      }),
+    );
+
+    expect(parent.querySelector(".codex-panel__pending-request-title")?.textContent).toBe("MCP request from github");
+    changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "Updated");
+    actEvent(() => {
+      expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
+    });
+
+    expect(setMcpElicitationDraft).toHaveBeenCalledWith("51:mcp:title", "Updated");
+    expect(resolveMcpElicitation).toHaveBeenCalledWith(51, "accept");
+    unmountUiRootInAct(parent);
+  });
+
+  it("does not accept invalid MCP elicitation forms", () => {
+    const parent = document.createElement("div");
+    const resolveMcpElicitation = vi.fn();
+
+    renderMessageStreamBlocksInAct(
+      parent,
+      messageStreamBlocks({
+        activeThreadId: "thread",
+        turnLifecycle: idleTurnLifecycle(),
+        historyCursor: null,
+        loadingHistory: false,
+        items: [
+          { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
+        ],
+        disclosures: emptyDisclosures(),
+        forkMenuItemId: null,
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        pendingRequests: pendingRequestContext({
+          signature: "mcp:52",
+          snapshot: emptyPendingRequestBlockSnapshot({
+            pendingMcpElicitations: [pendingMcpElicitation({ requestId: 52, defaultValue: "" })].map(pendingMcpElicitationViewModel),
+          }),
+          actions: pendingRequestActions({ resolveMcpElicitation }),
+        }),
+      }),
+    );
+
+    actEvent(() => {
+      expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
+    });
+    expect(resolveMcpElicitation).not.toHaveBeenCalled();
+
+    changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "Ready");
+    actEvent(() => {
+      expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
+    });
+    expect(resolveMcpElicitation).toHaveBeenCalledWith(52, "accept");
+    unmountUiRootInAct(parent);
+  });
+
+  it("does not accept MCP multi-select fields below minItems", () => {
+    const parent = document.createElement("div");
+    const resolveMcpElicitation = vi.fn();
+
+    renderMessageStreamBlocksInAct(
+      parent,
+      messageStreamBlocks({
+        activeThreadId: "thread",
+        turnLifecycle: idleTurnLifecycle(),
+        historyCursor: null,
+        loadingHistory: false,
+        items: [
+          { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
+        ],
+        disclosures: emptyDisclosures(),
+        forkMenuItemId: null,
+        loadOlderTurns: vi.fn(),
+        renderMarkdown: (element, text) => element.createDiv({ text }),
+        pendingRequests: pendingRequestContext({
+          signature: "mcp:53",
+          snapshot: emptyPendingRequestBlockSnapshot({
+            pendingMcpElicitations: [pendingMcpMultiSelectElicitation()],
+          }),
+          actions: pendingRequestActions({ resolveMcpElicitation }),
+        }),
+      }),
+    );
+
+    actEvent(() => {
+      expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
+    });
+
+    expect(resolveMcpElicitation).not.toHaveBeenCalled();
+    unmountUiRootInAct(parent);
+  });
+
   it("does not consume pending request autofocus while building message stream blocks", () => {
     const consumeAutoFocus = vi.fn(() => true);
 
@@ -639,8 +763,75 @@ function emptyPendingRequestBlockSnapshot(overrides: Partial<PendingRequestBlock
   return {
     approvals: [],
     pendingUserInputs: [],
+    pendingMcpElicitations: [],
     userInputDrafts: new Map(),
+    mcpElicitationDrafts: new Map(),
     approvalDetails: new Set(),
     ...overrides,
   };
+}
+
+function pendingMcpElicitation({
+  requestId = 51,
+  defaultValue = "Issue",
+}: {
+  requestId?: PendingMcpElicitation["requestId"];
+  defaultValue?: string;
+} = {}): PendingMcpElicitation {
+  return {
+    requestId,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread",
+      turnId: null,
+      serverName: "github",
+      mode: "form",
+      message: "Provide issue details",
+      meta: null,
+      fields: [
+        {
+          id: "title",
+          title: "Title",
+          description: "Issue title",
+          type: "string",
+          required: true,
+          format: null,
+          minLength: null,
+          maxLength: null,
+          defaultValue,
+        },
+      ],
+    },
+  };
+}
+
+function pendingMcpMultiSelectElicitation(): ReturnType<typeof pendingMcpElicitationViewModel> {
+  return pendingMcpElicitationViewModel({
+    requestId: 53,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread",
+      turnId: null,
+      serverName: "github",
+      mode: "form",
+      message: "Choose labels",
+      meta: null,
+      fields: [
+        {
+          id: "labels",
+          title: "Labels",
+          description: null,
+          type: "multi-select",
+          required: true,
+          options: [
+            { value: "bug", label: "Bug" },
+            { value: "docs", label: "Docs" },
+          ],
+          minItems: 1,
+          maxItems: 2,
+          defaultValue: [],
+        },
+      ],
+    },
+  });
 }

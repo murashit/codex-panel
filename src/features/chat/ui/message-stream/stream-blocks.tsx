@@ -50,7 +50,9 @@ function presentationBlockNode(block: MessageStreamViewBlock, context: MessageSt
       node: pendingRequestBlockNode(
         block.snapshot.approvals,
         block.snapshot.pendingUserInputs,
+        block.snapshot.pendingMcpElicitations,
         block.snapshot.userInputDrafts,
+        block.snapshot.mcpElicitationDrafts,
         block.snapshot.approvalDetails,
         pendingRequests.actions(),
         false,

@@ -427,14 +427,18 @@ describe("message stream item renderer decisions", () => {
         snapshot: () => ({
           approvals: [],
           pendingUserInputs: [],
+          pendingMcpElicitations: [],
           userInputDrafts: new Map(),
+          mcpElicitationDrafts: new Map(),
           approvalDetails: new Set(),
         }),
         actions: () => ({
           resolveApproval: vi.fn(),
           resolveUserInput: vi.fn(),
           cancelUserInput: vi.fn(),
+          resolveMcpElicitation: vi.fn(),
           setUserInputDraft: vi.fn(),
+          setMcpElicitationDraft: vi.fn(),
         }),
         consumeAutoFocus: () => false,
       },

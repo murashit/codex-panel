@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ApprovalAction, PendingRequestId } from "../../domain/pending-requests/model";
+import type { ApprovalAction, McpElicitationAction, PendingRequestId } from "../../domain/pending-requests/model";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
 import type { MessageStreamForkTarget, MessageStreamPlanImplementationTarget } from "../../presentation/message-stream/text-view";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
@@ -31,8 +31,10 @@ export interface PendingRequestBlockActions {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
   resolveUserInput: (requestId: PendingRequestId) => void;
   cancelUserInput: (requestId: PendingRequestId) => void;
+  resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
   setApprovalDetailsExpanded?: (requestId: PendingRequestId, expanded: boolean) => void;
   setUserInputDraft: (key: string, value: string) => void;
+  setMcpElicitationDraft: (key: string, value: string) => void;
 }
 
 export interface TextItemDetailStateContext {
