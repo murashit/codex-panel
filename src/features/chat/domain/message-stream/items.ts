@@ -10,6 +10,7 @@ export type MessageStreamItemKind =
   | "agent"
   | "hook"
   | "reasoning"
+  | "wait"
   | "contextCompaction"
   | "system"
   | "goal"
@@ -246,6 +247,12 @@ interface ContextCompactionMessageStreamItem extends MessageStreamBase {
   readonly role: "tool";
 }
 
+interface WaitMessageStreamItem extends MessageStreamBase {
+  readonly kind: "wait";
+  readonly role: "tool";
+  readonly text: string;
+}
+
 interface TaskProgressStep {
   readonly step: string;
   readonly status: "pending" | "inProgress" | "completed";
@@ -304,6 +311,7 @@ export type MessageStreamItem =
   | ToolCallMessageStreamItem
   | HookMessageStreamItem
   | ReasoningMessageStreamItem
+  | WaitMessageStreamItem
   | ContextCompactionMessageStreamItem
   | TaskProgressMessageStreamItem
   | AgentMessageStreamItem

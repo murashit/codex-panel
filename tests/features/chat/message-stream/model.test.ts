@@ -683,7 +683,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("preserves sleep items as completed wait tool summaries", () => {
+  it("preserves sleep items as completed wait status summaries", () => {
     const item: TurnItem = {
       type: "sleep",
       id: "sleep-1",
@@ -691,10 +691,8 @@ describe("turn item conversion preserves app-server semantics", () => {
     };
 
     expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
-      kind: "tool",
-      toolName: "sleep",
-      primaryTarget: { kind: "value", value: "2500 ms" },
-      output: "",
+      kind: "wait",
+      text: "Waited 2.5s",
       executionState: "completed",
     });
   });

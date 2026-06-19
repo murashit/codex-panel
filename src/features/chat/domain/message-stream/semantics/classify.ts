@@ -85,6 +85,8 @@ function meaningForMessageStreamItem(item: MessageStreamItem): MessageStreamMean
       return { plane: "execution", event: "evidence" };
     case "reasoning":
       return { plane: "execution", event: "progress" };
+    case "wait":
+      return { plane: "execution", event: "progress" };
     case "taskProgress":
       return { plane: "execution", event: "progress" };
     case "agent":

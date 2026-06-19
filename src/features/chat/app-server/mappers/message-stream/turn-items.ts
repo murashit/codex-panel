@@ -273,11 +273,9 @@ function imageViewMessageStreamItem(item: ImageViewItem, turnId?: string): Messa
 function sleepMessageStreamItem(item: SleepItem, turnId?: string): MessageStreamItem {
   return {
     ...turnItemSourceFields(item, turnId),
-    kind: "tool",
+    kind: "wait",
     role: "tool",
-    toolName: "sleep",
-    primaryTarget: { kind: "value", value: `${String(item.durationMs)} ms` },
-    output: "",
+    text: `Waited ${durationLabel(item.durationMs)}`,
     executionState: "completed",
   };
 }
@@ -568,4 +566,10 @@ function jsonTargetPrimitive(value: unknown): string | null {
 
 function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
   return states[status] ?? null;
+}
+
+function durationLabel(durationMs: number): string {
+  if (durationMs < 1000) return `${String(durationMs)}ms`;
+  if (durationMs % 1000 === 0) return `${String(durationMs / 1000)}s`;
+  return `${String(durationMs / 1000)}s`;
 }

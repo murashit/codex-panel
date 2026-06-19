@@ -19,6 +19,7 @@ export function messageStreamRenderFamily(classification: MessageStreamSemanticC
       return "detail";
     case "taskProgress":
     case "reasoning":
+    case "wait":
     case "contextCompaction":
       return "status";
   }

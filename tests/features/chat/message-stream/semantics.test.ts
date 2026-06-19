@@ -79,6 +79,7 @@ describe("message stream semantic classification", () => {
       { id: "tool", kind: "tool", role: "tool", text: "tool", toolCall: { arguments: { k: "v" } } },
       { id: "hook", kind: "hook", role: "tool", text: "hook" },
       { id: "reasoning", kind: "reasoning", role: "tool", text: "thinking" },
+      { id: "wait", kind: "wait", role: "tool", text: "Waited 2.5s", executionState: "completed" },
     ]);
 
     expect(semantic.map(({ meaning }) => meaning)).toEqual([
@@ -86,6 +87,7 @@ describe("message stream semantic classification", () => {
       { plane: "workspace", event: "result" },
       { plane: "execution", event: "evidence" },
       { plane: "execution", event: "evidence" },
+      { plane: "execution", event: "progress" },
       { plane: "execution", event: "progress" },
     ]);
   });
