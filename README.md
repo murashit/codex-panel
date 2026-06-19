@@ -170,10 +170,11 @@ Codex Panel acts as a local Obsidian client for Codex App Server:
 
 ## Compatibility
 
-| Key                      | Version   | Policy                                                     |
-| ------------------------ | --------- | ---------------------------------------------------------- |
-| `obsidian.minAppVersion` | `1.12.0`  | Track the latest patch for this Obsidian minor.            |
-| `codex.testedCliVersion` | `0.141.0` | Track app-server compatibility by Codex CLI minor version. |
+| Key                      | Version   | Policy                                                                                              |
+| ------------------------ | --------- | --------------------------------------------------------------------------------------------------- |
+| `manifest.minAppVersion` | `1.12.0`  | Minimum Obsidian desktop version declared for plugin loading.                                       |
+| `obsidian` API types     | `1.12.3`  | TypeScript API package used for compile-time checks; kept in the same minor as `manifest` baseline. |
+| `codex.testedCliVersion` | `0.141.0` | Track app-server compatibility by Codex CLI minor version.                                          |
 
 Codex Panel depends on the experimental `codex app-server` API.
 

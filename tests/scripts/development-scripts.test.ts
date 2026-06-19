@@ -106,7 +106,8 @@ describe("development scripts", () => {
         "| Key | Version | Notes |",
         "| --- | --- | --- |",
         "| `codex.testedCliVersion` | `0.139.0` | Tested CLI. |",
-        "| `obsidian.minAppVersion` | `1.12.0` | Minimum app version. |",
+        "| `manifest.minAppVersion` | `1.12.0` | Minimum app version. |",
+        "| `obsidian` API types | `1.12.3` | Compile-time API package. |",
       ].join("\n"),
     );
     await writeFile(
