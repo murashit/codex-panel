@@ -1,39 +1,21 @@
-import type { PendingRequestId, PendingUserInput, PendingUserInputParams } from "../../domain/pending-requests/model";
+import type { ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import {
+  appServerUserInputRequest,
+  appServerUserInputResponse,
+  type AppServerUserInputResponse,
+} from "../../../../app-server/protocol/server-requests";
+import type { PendingUserInput } from "../../domain/pending-requests/model";
 
-interface UserInputRequestLike {
-  id: PendingRequestId;
-  method: string;
-  params: unknown;
-}
-
-interface AppServerUserInputRequest extends UserInputRequestLike {
-  method: "item/tool/requestUserInput";
-  params: PendingUserInputParams;
-}
-
-interface UserInputResponse {
-  answers: Record<string, { answers: string[] }>;
-}
-
-export function toPendingUserInput(request: UserInputRequestLike): PendingUserInput | null {
-  if (request.method !== "item/tool/requestUserInput") return null;
-  const userInputRequest = request as AppServerUserInputRequest;
+export function toPendingUserInput(request: ServerRequest): PendingUserInput | null {
+  const userInputRequest = appServerUserInputRequest(request);
+  if (!userInputRequest) return null;
   return {
-    requestId: userInputRequest.id,
+    requestId: userInputRequest.requestId,
     method: userInputRequest.method,
     params: userInputRequest.params,
   };
 }
 
-export function userInputResponse(input: PendingUserInput, answers: Record<string, string>): UserInputResponse {
-  return {
-    answers: Object.fromEntries(
-      input.params.questions.map((question) => [
-        question.id,
-        {
-          answers: [answers[question.id] ?? ""],
-        },
-      ]),
-    ),
-  };
+export function userInputResponse(input: PendingUserInput, answers: Record<string, string>): AppServerUserInputResponse {
+  return appServerUserInputResponse(input.params.questions, answers);
 }

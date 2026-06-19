@@ -7,7 +7,7 @@ export type CommandApprovalDecision =
   | { acceptWithExecpolicyAmendment: unknown }
   | { applyNetworkPolicyAmendment: { network_policy_amendment: { action: "allow" | "deny"; [key: string]: unknown } } };
 
-export interface CommandApprovalParams {
+interface CommandApprovalParams {
   threadId: string;
   turnId: string;
   itemId: string;
@@ -24,7 +24,7 @@ export interface CommandApprovalParams {
   availableDecisions?: CommandApprovalDecision[] | null;
 }
 
-export interface FileChangeApprovalParams {
+interface FileChangeApprovalParams {
   threadId: string;
   turnId: string;
   itemId: string;
@@ -33,7 +33,7 @@ export interface FileChangeApprovalParams {
   grantRoot: string | null;
 }
 
-export interface PermissionProfile {
+interface PermissionProfile {
   network?: { enabled?: boolean | null } | null;
   fileSystem?: {
     entries?: readonly { path: unknown; access?: unknown }[] | null;
@@ -43,7 +43,7 @@ export interface PermissionProfile {
   } | null;
 }
 
-export interface PermissionsApprovalParams {
+interface PermissionsApprovalParams {
   threadId: string;
   turnId: string;
   itemId: string;
@@ -56,7 +56,7 @@ export interface PermissionsApprovalParams {
 
 export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel" | CommandApprovalDecisionAction;
 
-export interface CommandApprovalDecisionAction {
+interface CommandApprovalDecisionAction {
   kind: "command-decision";
   decision: CommandApprovalDecision;
 }
@@ -92,7 +92,7 @@ export interface PendingUserInputQuestion {
   options: PendingUserInputOption[] | null;
 }
 
-export interface PendingUserInputParams {
+interface PendingUserInputParams {
   threadId: string;
   turnId: string;
   itemId: string;
@@ -110,7 +110,7 @@ export type McpElicitationAction = "accept" | "decline" | "cancel";
 
 export type McpElicitationContentValue = string | number | boolean | readonly string[] | null;
 
-export interface PendingMcpElicitationOption {
+interface PendingMcpElicitationOption {
   value: string;
   label: string;
 }
@@ -198,7 +198,7 @@ function simpleApprovalActionKind(decision: string): "accept" | "accept-session"
   return "decline";
 }
 
-export function isCommandDecisionAction(action: ApprovalAction): action is CommandApprovalDecisionAction {
+function isCommandDecisionAction(action: ApprovalAction): action is CommandApprovalDecisionAction {
   return typeof action === "object";
 }
 

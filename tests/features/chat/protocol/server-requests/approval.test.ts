@@ -62,6 +62,31 @@ describe("approval model", () => {
     });
   });
 
+  it("normalizes omitted file change optional fields before display", () => {
+    const approval = expectPresent(
+      toPendingApproval({
+        id: 29,
+        method: "item/fileChange/requestApproval",
+        params: {
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "file",
+          startedAtMs: 1,
+        },
+      } as unknown as ServerRequest),
+    );
+
+    expect(approval).toMatchObject({
+      method: "item/fileChange/requestApproval",
+      params: {
+        reason: null,
+        grantRoot: null,
+      },
+    });
+    expect(approvalSummary(approval)).toBe("Allow file changes?");
+    expect(approvalDetails(approval)).toEqual([]);
+  });
+
   it("uses command approval decisions supplied by app-server", () => {
     const allowRegistryDecision = {
       applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } },
@@ -300,7 +325,7 @@ describe("approval model", () => {
           proposedExecpolicyAmendment: null,
           proposedNetworkPolicyAmendments: [{ host: "api.github.com" }, { action: "allow" }, "legacy rule"],
         },
-      }),
+      } as unknown as ServerRequest),
     );
 
     expect(approvalDetails(approval)).toEqual([

@@ -158,7 +158,33 @@ export type Change = FileUpdateChange;
     expect(messages).toContain("no-restricted-imports");
   });
 
-  it("keeps generated app-server bindings out of non-turn protocol modules", async () => {
+  it("reports server request protocol imports outside app-server and chat request bridges", async () => {
+    const messages = await lintSource(
+      "src/features/chat/panel/surface/message-stream-presenter.ts",
+      `
+import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-imports");
+  });
+
+  it("allows server request protocol imports in chat request bridges", async () => {
+    const messages = await lintSource(
+      "src/features/chat/app-server/requests/user-input.ts",
+      `
+import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`,
+    );
+
+    expect(messages).not.toContain("no-restricted-imports");
+  });
+
+  it("keeps generated app-server bindings out of non-exception protocol modules", async () => {
     const messages = await lintSource(
       "src/app-server/protocol/request-input.ts",
       `
@@ -211,6 +237,32 @@ export type TurnItem = GeneratedTurnItem;
 
     expect(messages).not.toContain("no-restricted-imports");
     expect(messages).not.toContain("no-restricted-syntax");
+  });
+
+  it("allows generated app-server bindings in the explicit server request protocol exception", async () => {
+    const messages = await lintSource(
+      "src/app-server/protocol/server-requests.ts",
+      `
+import type { ServerRequest } from "${generatedAppServerImportRoot}/ServerRequest";
+
+export type Request = ServerRequest;
+`,
+    );
+
+    expect(messages).not.toContain("no-restricted-imports");
+  });
+
+  it("reports unrelated generated app-server imports in the server request protocol exception", async () => {
+    const messages = await lintSource(
+      "src/app-server/protocol/server-requests.ts",
+      `
+import type { ToolRequestUserInputParams } from "${generatedAppServerImportRoot}/v2/ToolRequestUserInputParams";
+
+export type Params = ToolRequestUserInputParams;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-syntax");
   });
 
   it("reports non-ThreadItem generated app-server imports in the turn protocol exception", async () => {

@@ -22,7 +22,7 @@ The app-server API is experimental. The project tracks the supported Codex CLI m
 
 ## Code Boundaries
 
-Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before data reaches features, workspace coordination, settings, or UI.
+Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before data reaches features, workspace coordination, settings, or UI. Feature-local app-server integration modules may route and apply those projections, but they should not hand-copy generated request or response shapes when a shared app-server protocol adapter can own that mapping.
 
 Turn stream conversion is the main exception: raw app-server stream payloads may be consumed at the conversion boundary because the event set is broad and changes with Codex. The rest of chat state and UI should still use panel-owned display models.
 
