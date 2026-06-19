@@ -7,20 +7,23 @@ import { describe, expect, it } from "vitest";
 const repoRoot = process.cwd();
 
 describe("development scripts", () => {
-  it("propagates CI check failures", async () => {
+  it("propagates check:ci script failures", async () => {
     const cwd = await tempWorkspace();
+    const scripts = await readPackageScripts();
     await writeFile(path.join(cwd, "fail.mjs"), "process.exit(7);\n");
     await writeJson(path.join(cwd, "package.json"), {
       scripts: {
+        "check:ci": scripts["check:ci"],
         "typecheck:ci": "node fail.mjs",
         "test:ci": 'node -e "process.exit(0)"',
         "lint:ci": 'node -e "process.exit(0)"',
         "format:check:ci": 'node -e "process.exit(0)"',
+        "build:styles:check": 'node -e "process.exit(0)"',
         build: 'node -e "process.exit(0)"',
       },
     });
 
-    const result = runNodeScript("scripts/check.mjs", ["--ci"], cwd);
+    const result = runNpmScript("check:ci", cwd);
 
     expect(result.status).toBe(7);
   });
@@ -251,6 +254,20 @@ function runNodeScript(script: string, args: string[] = [], cwd = repoRoot, env:
     env: { ...process.env, ...env },
     shell: false,
   });
+}
+
+function runNpmScript(script: string, cwd = repoRoot) {
+  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+  return spawnSync(npmCommand, ["run", script], {
+    cwd,
+    encoding: "utf8",
+    shell: false,
+  });
+}
+
+async function readPackageScripts(): Promise<Record<string, string>> {
+  const packageJson = JSON.parse(await readFile(path.join(repoRoot, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  return packageJson.scripts;
 }
 
 async function writeJson(file: string, value: unknown): Promise<void> {
