@@ -157,6 +157,50 @@ interface ChatPanelComposerAndTurnParts {
   turnActions: ChatPanelConversationTurnActions;
 }
 
+interface ChatPanelRuntimeProjection {
+  connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
+  modelStatusLines: () => string[];
+  effortStatusLines: () => string[];
+  statusSummaryLines: () => string[];
+}
+
+interface ChatPanelComposerAndTurnInput {
+  connection: ConnectionManager;
+  localItemIds: LocalIdSource;
+  ensureConnected: () => Promise<void>;
+  currentClient: CurrentAppServerClient;
+  status: ChatPanelSessionStatus;
+  inboundHandler: ChatInboundHandler;
+  threadLifecycle: ChatPanelThreadLifecycle;
+  threadActions: ChatPanelThreadActions;
+  selection: ChatPanelSelectionActions;
+  composerController: ChatComposerController;
+  runtimeSettings: ChatPanelRuntimeSettingsActions;
+  serverThreads: ChatServerThreadActions;
+  serverDiagnostics: ChatServerDiagnosticsActions;
+  goals: ChatPanelGoalActions;
+  autoTitleCoordinator: AutoTitleCoordinator;
+  invalidateThreadWork: () => void;
+  startNewThread: () => Promise<void>;
+  runtimeProjection: ChatPanelRuntimeProjection;
+}
+
+interface ChatPanelSurfacePresenterInput {
+  connection: ConnectionManager;
+  connectionController: ChatPanelConnectionBundle["connection"]["controller"];
+  goals: ChatPanelGoalActions;
+  rename: ThreadRenameEditorActions;
+  threadActions: ChatPanelThreadActions;
+  toolbarPanels: ToolbarPanelActions;
+  selection: ChatPanelSelectionActions;
+  reconnect: () => Promise<void>;
+  history: HistoryController;
+  pendingRequests: PendingRequestActions;
+  turnActions: ChatPanelConversationTurnActions;
+  messageStreamScrollBridge: MessageStreamScrollBridge;
+  startNewThread: () => Promise<void>;
+}
+
 interface ChatPanelSurfacePresenterParts {
   toolbarActions: ToolbarActions;
   toolbarSurface: ChatPanelToolbarSurface;
@@ -178,7 +222,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     history.invalidate();
   };
   const goalSync = createSessionGoalSyncActions(host, currentClient, localItemIds, status);
-  const serverParts = createConnectionBundle(
+  const connectionBundle = createConnectionBundle(
     {
       environment,
       stateStore,
@@ -207,9 +251,9 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const {
     connection: { controller },
     inboundHandler,
-  } = serverParts;
+  } = connectionBundle;
   const connectionController = controller;
-  const { threads: serverThreads, diagnostics: serverDiagnostics } = serverParts.serverActions;
+  const { threads: serverThreads, diagnostics: serverDiagnostics } = connectionBundle.serverActions;
   const ensureConnected = () => connectionController.ensureConnected();
   const refreshActiveThreads = () => connectionController.refreshActiveThreads();
   const threadOperations = createSessionThreadOperations(environment, currentClient);
@@ -266,14 +310,9 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     autoTitleCoordinator,
     invalidateThreadWork,
     startNewThread,
-    runtimeProjection: {
-      connectionDiagnosticDetails: () => connectionDiagnosticDetails(host, connection),
-      modelStatusLines: () => modelStatusLines(host),
-      effortStatusLines: () => effortStatusLines(host),
-      statusSummaryLines: () => statusSummaryLines(host),
-    },
+    runtimeProjection: createSessionRuntimeProjection(host, connection),
   });
-  const surfaceAndPresenter = createSurfacesAndPresenter(host, {
+  const surfaceParts = createSurfacesAndPresenter(host, {
     connection,
     connectionController,
     goals,
@@ -290,24 +329,24 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   });
   const refreshSharedThreads = async (): Promise<void> => {
     try {
-      await serverParts.refreshSharedThreads();
+      await connectionBundle.refreshSharedThreads();
     } catch (error) {
       if (isStaleAppServerSharedQueryContextError(error)) return;
       throw error;
     }
   };
   const dispose = (): void => {
-    surfaceAndPresenter.messageStreamPresenter.dispose();
+    surfaceParts.messageStreamPresenter.dispose();
     composerController.dispose();
   };
-  const sharedState = createChatPanelSharedStateBinding(host, serverParts.serverActions);
+  const sharedState = createChatPanelSharedStateBinding(host, connectionBundle.serverActions);
 
   return {
     connection: {
       manager: connection,
       controller: connectionController,
     },
-    serverActions: serverParts.serverActions,
+    serverActions: connectionBundle.serverActions,
     thread: {
       history,
       resume,
@@ -317,18 +356,18 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     },
     toolbar: {
       panels: threadActionParts.toolbarPanels,
-      actions: surfaceAndPresenter.toolbarActions,
+      actions: surfaceParts.toolbarActions,
     },
     composer: {
       controller: composerController,
       submission: composerAndTurn.turnActions.composerSubmit,
     },
     render: {
-      messageStreamPresenter: surfaceAndPresenter.messageStreamPresenter,
+      messageStreamPresenter: surfaceParts.messageStreamPresenter,
     },
     surface: {
-      toolbar: surfaceAndPresenter.toolbarSurface,
-      goal: surfaceAndPresenter.goalSurface,
+      toolbar: surfaceParts.toolbarSurface,
+      goal: surfaceParts.goalSurface,
       composer: composerSurface,
     },
     actions: {
@@ -732,31 +771,7 @@ function createThreadActionParts(
 
 function createComposerAndTurnActions(
   host: ChatPanelSessionGraphHost,
-  input: {
-    connection: ConnectionManager;
-    localItemIds: LocalIdSource;
-    ensureConnected: () => Promise<void>;
-    currentClient: CurrentAppServerClient;
-    status: ChatPanelSessionStatus;
-    inboundHandler: ChatInboundHandler;
-    threadLifecycle: ChatPanelThreadLifecycle;
-    threadActions: ChatPanelThreadActions;
-    selection: ChatPanelSelectionActions;
-    composerController: ChatComposerController;
-    runtimeSettings: ChatPanelRuntimeSettingsActions;
-    serverThreads: ChatServerThreadActions;
-    serverDiagnostics: ChatServerDiagnosticsActions;
-    goals: ChatPanelGoalActions;
-    autoTitleCoordinator: AutoTitleCoordinator;
-    invalidateThreadWork: () => void;
-    startNewThread: () => Promise<void>;
-    runtimeProjection: {
-      connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
-      modelStatusLines: () => string[];
-      effortStatusLines: () => string[];
-      statusSummaryLines: () => string[];
-    };
-  },
+  input: ChatPanelComposerAndTurnInput,
 ): ChatPanelComposerAndTurnParts {
   const {
     connection,
@@ -870,21 +885,7 @@ function createComposerAndTurnActions(
 
 function createSurfacesAndPresenter(
   host: ChatPanelSessionGraphHost,
-  input: {
-    connection: ConnectionManager;
-    connectionController: ChatPanelConnectionBundle["connection"]["controller"];
-    goals: ChatPanelGoalActions;
-    rename: ThreadRenameEditorActions;
-    threadActions: ChatPanelThreadActions;
-    toolbarPanels: ToolbarPanelActions;
-    selection: ChatPanelSelectionActions;
-    reconnect: () => Promise<void>;
-    history: HistoryController;
-    pendingRequests: PendingRequestActions;
-    turnActions: ChatPanelConversationTurnActions;
-    messageStreamScrollBridge: MessageStreamScrollBridge;
-    startNewThread: () => Promise<void>;
-  },
+  input: ChatPanelSurfacePresenterInput,
 ): ChatPanelSurfacePresenterParts {
   const {
     connection,
@@ -989,6 +990,15 @@ function createSurfacesAndPresenter(
 
 function collaborationModeLabel(stateStore: ChatStateStore): string {
   return formatCollaborationModeLabel(stateStore.getState().runtime.selectedCollaborationMode);
+}
+
+function createSessionRuntimeProjection(host: ChatPanelSessionGraphHost, connection: ConnectionManager): ChatPanelRuntimeProjection {
+  return {
+    connectionDiagnosticDetails: () => connectionDiagnosticDetails(host, connection),
+    modelStatusLines: () => modelStatusLines(host),
+    effortStatusLines: () => effortStatusLines(host),
+    statusSummaryLines: () => statusSummaryLines(host),
+  };
 }
 
 function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {

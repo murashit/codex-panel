@@ -56,6 +56,8 @@ interface MessageVirtualizerRuntime {
   userScrollIntentUntil: number;
 }
 
+type MessageVirtualizerFrameKey = "viewportRestoreFrame" | "virtualizerChangeFrame" | "settleScrollToEndFrame";
+
 export interface MessageStreamVirtualizerOptions {
   blocks: readonly MessageStreamBlock[];
   consumeScrollIntent: () => MessageStreamScrollIntent;
@@ -352,8 +354,7 @@ function handleMessageVirtualizerViewportRect(runtime: MessageVirtualizerRuntime
 function scheduleViewportRestoreMessageVirtualizerReset(runtime: MessageVirtualizerRuntime): void {
   const container = runtime.container;
   if (!container || runtime.viewportRestoreFrame !== null) return;
-  runtime.viewportRestoreFrame = container.win.requestAnimationFrame(() => {
-    runtime.viewportRestoreFrame = null;
+  scheduleMessageVirtualizerFrame(runtime, "viewportRestoreFrame", container, () => {
     if (runtime.container !== container || !isValidMessageViewportElement(container)) return;
     runtime.viewportMeasurementsInvalid = false;
     resetMessageVirtualizerMeasurements(runtime);
@@ -363,11 +364,7 @@ function scheduleViewportRestoreMessageVirtualizerReset(runtime: MessageVirtuali
 }
 
 function cancelViewportRestoreMessageVirtualizerReset(runtime: MessageVirtualizerRuntime): void {
-  const container = runtime.container;
-  if (container && runtime.viewportRestoreFrame !== null) {
-    container.win.cancelAnimationFrame(runtime.viewportRestoreFrame);
-  }
-  runtime.viewportRestoreFrame = null;
+  cancelMessageVirtualizerFrame(runtime, "viewportRestoreFrame");
 }
 
 function scrollMessageVirtualizerByTextLines(runtime: MessageVirtualizerRuntime, direction: MessageScrollDirection): void {
@@ -524,19 +521,14 @@ function scheduleDeferredMessageVirtualizerChange(runtime: MessageVirtualizerRun
     return;
   }
   if (runtime.virtualizerChangeFrame !== null) return;
-  runtime.virtualizerChangeFrame = container.win.requestAnimationFrame(() => {
-    runtime.virtualizerChangeFrame = null;
+  scheduleMessageVirtualizerFrame(runtime, "virtualizerChangeFrame", container, () => {
     if (runtime.container !== container) return;
     notifyMessageVirtualizerChange(runtime);
   });
 }
 
 function cancelDeferredMessageVirtualizerChange(runtime: MessageVirtualizerRuntime): void {
-  const container = runtime.container;
-  if (container && runtime.virtualizerChangeFrame !== null) {
-    container.win.cancelAnimationFrame(runtime.virtualizerChangeFrame);
-  }
-  runtime.virtualizerChangeFrame = null;
+  cancelMessageVirtualizerFrame(runtime, "virtualizerChangeFrame");
 }
 
 function configureMessageVirtualizerSizeAdjustment(runtime: MessageVirtualizerRuntime): void {
@@ -629,8 +621,7 @@ function scheduleSettledMessageVirtualizerScrollToEndFrame(
   container: HTMLElement,
   delayFrames: number,
 ): void {
-  runtime.settleScrollToEndFrame = container.win.requestAnimationFrame(() => {
-    runtime.settleScrollToEndFrame = null;
+  scheduleMessageVirtualizerFrame(runtime, "settleScrollToEndFrame", container, () => {
     if (runtime.container !== container) {
       runtime.settleScrollToEndAttemptsRemaining = 0;
       return;
@@ -661,12 +652,29 @@ function reconcileMessageVirtualizerDomEnd(runtime: MessageVirtualizerRuntime): 
 }
 
 function cancelSettledMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerRuntime): void {
-  const container = runtime.container;
-  if (container && runtime.settleScrollToEndFrame !== null) {
-    container.win.cancelAnimationFrame(runtime.settleScrollToEndFrame);
-  }
-  runtime.settleScrollToEndFrame = null;
+  cancelMessageVirtualizerFrame(runtime, "settleScrollToEndFrame");
   runtime.settleScrollToEndAttemptsRemaining = 0;
+}
+
+function scheduleMessageVirtualizerFrame(
+  runtime: MessageVirtualizerRuntime,
+  key: MessageVirtualizerFrameKey,
+  container: HTMLElement,
+  callback: () => void,
+): void {
+  runtime[key] = container.win.requestAnimationFrame(() => {
+    runtime[key] = null;
+    callback();
+  });
+}
+
+function cancelMessageVirtualizerFrame(runtime: MessageVirtualizerRuntime, key: MessageVirtualizerFrameKey): void {
+  const container = runtime.container;
+  const frame = runtime[key];
+  if (container && frame !== null) {
+    container.win.cancelAnimationFrame(frame);
+  }
+  runtime[key] = null;
 }
 
 function messageBlockPadding(element: HTMLElement | null): number {
