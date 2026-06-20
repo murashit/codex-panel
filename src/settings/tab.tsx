@@ -10,8 +10,7 @@ import type { CodexPanelSettingTabHost } from "./host";
 import { HookSection } from "./hook-section";
 import type { SettingsSectionsState } from "./section-state";
 
-const SETTINGS_INTRO_TEXT =
-  "Codex Panel stores only panel preferences. Models, sandboxing, approvals, MCP servers, hooks, and network access still come from Codex config.";
+const SETTINGS_INTRO_TEXT = "Codex Panel stores panel preferences only. Runtime settings still come from Codex.";
 const SEND_SHORTCUT_LABELS = {
   enter: "Enter",
   "mod-enter": "Cmd/Ctrl+Enter",
@@ -103,7 +102,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
     new Setting(configItems)
       .setName("Codex executable")
-      .setDesc("Path used to start `codex app-server`. Use an absolute path if Obsidian cannot find `codex`.")
+      .setDesc("Command used to start `codex app-server`; use an absolute path if needed.")
       .addText((text) => {
         text.setPlaceholder(DEFAULT_CODEX_PATH).setValue(this.plugin.settings.codexPath);
         const commitCodexPath = () => {
@@ -119,7 +118,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
     new Setting(configItems)
       .setName("Show chat toolbar")
-      .setDesc("Show the chat panel toolbar. Slash commands, composer status controls, and the threads view remain available when hidden.")
+      .setDesc("Show the toolbar above the chat panel.")
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.showToolbar).onChange(async (value) => {
           this.plugin.settings.showToolbar = value;
@@ -133,9 +132,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     const composerItems = createSettingsItems(composerSection);
     new Setting(composerItems)
       .setName("Send shortcut")
-      .setDesc(
-        "Choose how the composer sends messages. Shift+Enter inserts a newline when Enter sends. Obsidian hotkeys may intercept Cmd/Ctrl+Enter.",
-      )
+      .setDesc("Pick Enter or Cmd/Ctrl+Enter. Shift+Enter adds a newline when Enter sends.")
       .addDropdown((dropdown) => {
         dropdown.addOption("enter", SEND_SHORTCUT_LABELS.enter);
         dropdown.addOption("mod-enter", SEND_SHORTCUT_LABELS["mod-enter"]);
@@ -147,7 +144,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       });
     new Setting(composerItems)
       .setName("Scroll thread from composer edges")
-      .setDesc("When enabled, Up/Ctrl+P on the first composer line and Down/Ctrl+N on the last line scroll the thread.")
+      .setDesc("Use Up/Ctrl+P and Down/Ctrl+N at composer edges to scroll the thread.")
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.scrollThreadFromComposerEdges).onChange(async (value) => {
           this.plugin.settings.scrollThreadFromComposerEdges = value;

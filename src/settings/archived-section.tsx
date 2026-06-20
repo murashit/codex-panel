@@ -19,19 +19,11 @@ export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionS
   return (
     <>
       <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__archived-section">
-        <SettingsHeading
-          dynamic
-          name="Thread archiving"
-          desc="Choose the default archive behavior and configure saved thread notes. Thread lists offer both archive choices; slash commands use the default."
-        />
+        <SettingsHeading dynamic name="Thread archiving" desc="Set the default archive action and saved-note templates." />
         <ArchiveExportSettings state={state} />
       </SettingsGroup>
       <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__archived-threads-section">
-        <SettingsHeading
-          dynamic
-          name="Archived threads"
-          desc="Restore archived threads, or permanently delete archived threads you no longer need."
-        />
+        <SettingsHeading dynamic name="Archived threads" desc="Restore or permanently delete archived Codex threads." />
         {state.contentAvailable ? (
           <ArchivedThreadList state={state} />
         ) : !state.loading && state.status ? (
@@ -45,10 +37,7 @@ export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionS
 function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState }): UiNode {
   return (
     <SettingsItems>
-      <SettingRow
-        name="Save note by default"
-        desc="When on, the default archive action saves a markdown note before archiving. When off, the default archives without saving. If saving fails, the thread stays active. Frontmatter includes title, thread_id, created, and optional tags."
-      >
+      <SettingRow name="Save note by default" desc="Save a Markdown note during the default archive action.">
         <ToggleControl
           checked={state.exportEnabled}
           onChange={(checked) => {
@@ -56,7 +45,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
           }}
         />
       </SettingRow>
-      <SettingRow name="Saved note folder" desc="Vault-relative folder for saved thread notes. The folder is created when needed.">
+      <SettingRow name="Saved note folder" desc="Vault folder for saved thread notes.">
         <TextControl
           placeholder="Codex archives"
           value={state.exportFolderTemplate}
@@ -65,10 +54,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
           }}
         />
       </SettingRow>
-      <SettingRow
-        name="Saved note filename"
-        desc="Filename template. Variables: {{date}}, {{time}}, {{title}}, {{id}}, {{shortId}}. Existing files get a numeric suffix."
-      >
+      <SettingRow name="Saved note filename" desc="Filename template. Supports {{date}}, {{time}}, {{title}}, {{id}}, and {{shortId}}.">
         <TextControl
           placeholder="{{date}} {{time}} {{title}} {{shortId}}.md"
           value={state.exportFilenameTemplate}
@@ -77,7 +63,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
           }}
         />
       </SettingRow>
-      <SettingRow name="Saved note tags" desc="Comma-separated fixed tags for saved notes. Leave empty to omit tags.">
+      <SettingRow name="Saved note tags" desc="Tags added to saved notes, separated by commas.">
         <TextControl
           placeholder="Codex, archive"
           value={state.exportTags}

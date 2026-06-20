@@ -14,7 +14,7 @@ export function HelperSettingsSection({ state }: { state: HelperSettingsState })
       <SettingsItems>
         <ModelEffortSetting
           name="Automatic thread naming"
-          desc="Choose the model and reasoning effort used to suggest thread names."
+          desc="Model and effort for generated thread names."
           modelValue={state.threadNamingModel}
           effortValue={state.threadNamingEffort}
           models={state.models}
@@ -23,7 +23,7 @@ export function HelperSettingsSection({ state }: { state: HelperSettingsState })
         />
         <ModelEffortSetting
           name="Selection rewrite"
-          desc="Choose the model and reasoning effort used by rewrite selection."
+          desc="Model and effort for rewriting selected note text."
           modelValue={state.rewriteSelectionModel}
           effortValue={state.rewriteSelectionEffort}
           models={state.models}

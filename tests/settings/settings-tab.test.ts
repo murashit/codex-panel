@@ -72,7 +72,7 @@ describe("settings tab", () => {
     expect(buttonTexts(tab)).not.toContain("Load archive list");
     expect(
       tab.containerEl.querySelector(".codex-panel-settings__header.setting-item-heading .setting-item-description")?.textContent,
-    ).toContain("Codex Panel stores only panel preferences");
+    ).toContain("Codex Panel stores panel preferences only");
     expect(tab.containerEl.querySelector(".codex-panel-settings__header button")?.getAttribute("data-icon")).toBe("refresh-cw");
     expect(tab.containerEl.querySelector("h2")).toBeNull();
     expect(tab.containerEl.querySelector(".codex-panel-settings__general-section.setting-group > .setting-items")?.children).toHaveLength(
@@ -85,14 +85,14 @@ describe("settings tab", () => {
     expect(
       tab.containerEl.querySelector(".codex-panel-settings__archived-section > .setting-item-heading .setting-item-description")
         ?.textContent,
-    ).toContain("Choose the default archive behavior");
+    ).toContain("Set the default archive action");
     expect(
       tab.containerEl.querySelector(".codex-panel-settings__archived-threads-section > .setting-item-heading .setting-item-description")
         ?.textContent,
-    ).toContain("Restore archived threads");
+    ).toContain("Restore or permanently delete");
     expect(
       tab.containerEl.querySelector(".codex-panel-settings__hook-section > .setting-item-heading .setting-item-description")?.textContent,
-    ).toContain("Review discovered hooks");
+    ).toContain("Trust, enable, or disable");
     expect(
       tab.containerEl.querySelector(
         ".codex-panel-settings__archived-section.setting-group > .setting-items:not(.codex-panel-settings__dynamic-list)",
@@ -117,7 +117,7 @@ describe("settings tab", () => {
     ]);
   });
 
-  it("saves the send shortcut setting and warns about Obsidian hotkeys", async () => {
+  it("saves the send shortcut setting and describes newline behavior", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const tab = newSettingsTab({ saveSettings });
 
@@ -131,8 +131,8 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Send shortcut")).toContain("Obsidian hotkeys");
-    expect(tab.containerEl.querySelector(".codex-panel-settings__section-status")?.textContent ?? "").not.toContain("Obsidian hotkeys");
+    expect(settingDesc(tab, "Send shortcut")).toContain("Shift+Enter adds a newline");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__section-status")?.textContent ?? "").not.toContain("Shift+Enter");
   });
 
   it("saves the toolbar visibility setting and refreshes open panels", async () => {
@@ -150,7 +150,7 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(refreshOpenViews).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Show chat toolbar")).toContain("Slash commands");
+    expect(settingDesc(tab, "Show chat toolbar")).toContain("toolbar above the chat panel");
   });
 
   it("saves the composer edge scroll setting", async () => {
@@ -198,10 +198,9 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledTimes(4);
-    expect(tab.containerEl.textContent).toContain("title, thread_id, created, and optional tags");
     expect(settingDesc(tab, "Save note by default")).toContain("default archive action");
-    expect(settingDesc(tab, "Save note by default")).toContain("If saving fails");
-    expect(settingDesc(tab, "Saved note tags")).toContain("Leave empty to omit tags");
+    expect(settingDesc(tab, "Saved note filename")).toContain("{{shortId}}");
+    expect(settingDesc(tab, "Saved note tags")).toContain("separated by commas");
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
@@ -730,7 +729,7 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.textContent).toContain("Restore archived threads, or permanently delete archived threads you no longer need.");
+    expect(tab.containerEl.textContent).toContain("Restore or permanently delete archived Codex threads.");
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 hook from Codex app server.");
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 archived thread from Codex app server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
