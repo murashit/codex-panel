@@ -1,33 +1,21 @@
 # Codex Panel
 
-Codex Panel brings your existing Codex setup into an Obsidian sidebar. It starts `codex app-server` locally, uses the current vault root as the Codex working directory, and leaves Codex in charge of models, reasoning effort, sandbox modes, approval policies, MCP servers, hooks, skills, providers, network access, and thread history.
+Codex Panel brings your existing Codex setup into an Obsidian sidebar, so you can work with Codex beside your notes without switching to a terminal or separate app window.
 
-The plugin is intentionally thin: it is an Obsidian surface for Codex, not a separate AI client with its own runtime policy. If your Codex CLI or Codex.app environment is already configured, Codex Panel uses that same runtime behavior in a persistent Obsidian pane, with note-aware support for links, threads, archives, and editor selections.
-
-Use it when you want Codex beside your notes, not in a separate terminal or app window.
+If your Codex CLI or Codex.app environment is already configured, Codex Panel gives that setup a persistent Obsidian pane with note-aware links, threads, archives, and editor selections. It stays thin: runtime behavior continues to come from Codex, not from a separate plugin configuration layer.
 
 ## Why use it
 
-- Keep Codex next to the notes, specs, plans, and project context you are editing in Obsidian.
-- Reuse Codex configuration instead of configuring models, sandboxing, approvals, MCP servers, hooks, skills, providers, or credentials again.
-- Work with persistent Codex threads in Obsidian panes, including multiple panels side by side.
-- Navigate threads from an Obsidian sidebar view, with live status for currently open threads.
-- Use vault-aware composing: wikilink suggestions come from Obsidian files, sent wikilinks resolve to Codex file mentions when possible, and rendered vault file links open in Obsidian.
-- Archive Codex threads as Markdown notes in your vault.
-- Rewrite selected note text with Codex, then review a selection-scoped diff before applying the replacement.
+- Reuse your existing Codex configuration and credentials.
+- Work with persistent Codex threads in Obsidian panes, including multiple panels side by side and a sidebar thread list.
+- Compose with Obsidian wikilinks, rendered vault links, and Codex file mentions.
+- Review Codex file changes, rewrite selected note text, and archive useful threads without leaving the vault.
 
 ## How it works
 
 Codex Panel runs `codex app-server` as a local child process and talks to it over stdio. Each open chat panel has its own app-server connection, active thread, pending requests, and composer draft. The vault root is passed to Codex as the working directory.
 
-Codex remains the runtime authority:
-
-- Model and reasoning defaults come from Codex configuration.
-- Sandbox mode, approval policy, approval reviewer, network policy, MCP servers, hooks, skills, provider settings, and thread history are owned by Codex.
-- Codex Panel can display and adjust supported per-thread runtime controls, but it does not replace Codex configuration.
-- Codex Panel stores panel preferences only. It does not store API keys or provider credentials.
-
-That boundary is also the privacy and security boundary. Data sent from the panel is handled by the configured Codex CLI according to your Codex configuration.
+Models, reasoning defaults, sandboxing, approvals, MCP servers, hooks, skills, providers, network access, and thread history continue to come from Codex configuration. Codex Panel stores panel preferences only, not API keys or provider credentials. Data sent from the panel is handled by the configured Codex CLI according to your Codex configuration.
 
 ## Requirements
 
@@ -39,13 +27,7 @@ Codex Panel does not support Obsidian mobile.
 
 ## Installation
 
-Install Codex Panel from Obsidian's Community plugins browser:
-
-1. Open **Settings**.
-2. Go to **Community plugins**.
-3. Select **Browse**.
-4. Search for **Codex Panel**.
-5. Install and enable the plugin.
+Install Codex Panel from Obsidian's Community plugins browser by searching for **Codex Panel**, then install and enable the plugin.
 
 You can also open the plugin page directly: <https://community.obsidian.md/plugins/codex-panel>.
 
@@ -54,119 +36,37 @@ You can also open the plugin page directly: <https://community.obsidian.md/plugi
 1. Open the command palette and run **Codex Panel: Open panel**, or select the ribbon icon.
 2. If Obsidian cannot find `codex`, set **Settings -> Codex Panel -> Codex executable** to an absolute path such as `/opt/homebrew/bin/codex`.
 3. Ask Codex to work on the vault or project from the composer.
-4. Use **Codex Panel: Open thread...** or **Codex Panel: Open threads view** to return to recent non-archived Codex threads.
-5. Select text in a Markdown note and run **Codex Panel: Rewrite selection** when you want a note-local rewrite with a reviewable diff.
+4. Return to earlier work from **Codex Panel: Open thread...** or the Threads sidebar view.
 
-By default, `Enter` sends and `Shift+Enter` inserts a newline. You can switch sending to `Cmd/Ctrl+Enter` in Codex Panel settings.
+## Using Codex Panel
 
-## What you can do
+Each panel keeps its own active thread, so you can keep separate conversations side by side. Start a fresh chat when you need a clean thread, or reopen recent non-archived threads from the thread picker.
 
-### Panels and threads
+The Threads sidebar gives you a vault-local view of Codex work in progress. It shows which threads are open, running, or waiting for input, and lets you resume, rename, auto-name, fork, roll back, compact, or archive threads. Forks open in a new right-sidebar pane so the source thread stays visible; fork-and-archive replaces the source panel with the forked thread.
 
-- Open one Codex panel in the right sidebar, or open multiple panels for multiple threads.
-- Start a fresh thread in the current panel.
-- Resume, rename, auto-name, fork, roll back, compact, and archive Codex threads.
-- Use the left sidebar Threads view to browse non-archived threads and see which ones are open, running, or waiting for input.
-- Forks open in a new right-sidebar pane so the source thread stays visible; fork-and-archive replaces the source panel with the forked thread.
+### Compose with vault context
 
-### Compose and steer turns
+The composer understands Obsidian and Codex context together. Wikilink suggestions come from Obsidian file search and recent notes; sent wikilinks resolve to Codex file mentions when possible; rendered vault file links open back in Obsidian.
 
-- Compose with completions for slash commands, enabled skills (`$skill-name`), recent threads, models, and supported reasoning efforts.
-- Reference another non-archived thread without switching away from the current one.
-- Follow a running turn as Codex streams assistant messages, reasoning, commands, tool calls, hooks, file changes, plan updates, and agent activity.
-- Respond to Codex questions, command approvals, file approvals, MCP requests, and permission requests.
-- Send steering messages while a turn is running, or interrupt when the composer is empty.
-- Show the active Codex goal above the message stream, then edit, pause, resume, or clear it from the panel.
+Completions are also available for slash commands, enabled skills such as `$skill-name`, recent threads, models, and supported reasoning efforts. Use `/help` in the composer for the current slash command list. You can reference another non-archived thread without leaving the active panel, or use `/refer` when you want Codex to include recent turns from another thread in a message.
 
-### Runtime controls and diagnostics
+While a turn is running, the panel streams assistant messages, reasoning, commands, tool calls, hooks, file changes, plan updates, and agent activity. You can answer Codex questions, approve commands, respond to MCP and file requests, send steering messages, or interrupt the turn when the composer is empty. If a thread has an active Codex goal, the panel shows it above the message stream and lets you edit, pause, resume, or clear it.
 
-- Inspect context usage from the composer status row.
-- Toggle Plan mode, fast mode, and approval auto-review for subsequent turns.
-- Set the model and reasoning effort for subsequent turns when supported by Codex.
-- Inspect usage limits, connection diagnostics, and Codex capabilities from the toolbar or slash commands; copy runtime debug details from the status panel; view discovered hooks in settings.
+### Review edits in Obsidian
 
-### Obsidian-native workflows
+Codex file changes can be reviewed in an Obsidian diff view with a changed-files list and copy-diff action.
 
-- Use wikilink suggestions backed by Obsidian file search and recent notes.
-- Send resolved wikilinks as Codex file mentions when the target exists.
-- Open rendered Markdown links to vault files in Obsidian.
-- Review Codex file changes in an Obsidian diff view with changed files and a copy-diff action.
-- Archive threads as Markdown notes with configurable folder, filename template, and tags, archive without saving, then restore or permanently delete archived threads from settings.
-- Rewrite selected note text using the current editor buffer as context, then review the replacement diff before applying it.
+For note-local edits, select Markdown text and run **Codex Panel: Rewrite selection**. Codex Panel sends the current editor buffer as context, receives a replacement, and shows a selection-scoped diff before applying it.
 
-Rollback restores the latest prompt in the Codex thread. It does not undo file edits in your vault.
+### Adjust a thread
 
-## Commands
+Use the toolbar, composer status row, or slash commands to inspect context usage and usage limits, toggle Plan mode, fast mode, and approval auto-review, and set model or reasoning effort for subsequent turns when the connected Codex version supports those controls.
 
-### Obsidian commands
+When troubleshooting, use the toolbar status panel or diagnostic slash commands to inspect the active thread, connection, Codex CLI, app-server capabilities, discovered hooks, and runtime debug details.
 
-The command palette entries are ordered by the workflow they support: opening panels, finding threads, managing the active chat, and editing note text.
+### Keep useful threads as notes
 
-| Command                            | What it does                                                                                                                       |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Codex Panel: Open panel**        | Open or focus a Codex panel.                                                                                                       |
-| **Codex Panel: Open new panel**    | Open another Codex panel.                                                                                                          |
-| **Codex Panel: Open thread...**    | Search non-archived threads from a picker. Press `Enter` to open in the current panel, or `Cmd/Ctrl+Enter` to open in a new panel. |
-| **Codex Panel: Open threads view** | Open the left sidebar thread list.                                                                                                 |
-| **Codex Panel: Start new chat**    | Clear the current panel for a fresh Codex thread.                                                                                  |
-| **Codex Panel: Rewrite selection** | Rewrite selected Markdown note text with Codex and review a selection-scoped diff before applying it.                              |
-
-### Slash commands
-
-Use `/help` in the composer to show the available slash commands. The list below follows the same groups shown in help.
-
-#### Panel actions
-
-| Command                   | What it does                                                  |
-| ------------------------- | ------------------------------------------------------------- |
-| `/clear`                  | Clear the current panel and start a fresh Codex thread.       |
-| `/resume [thread]`        | Resume a recent Codex thread.                                 |
-| `/reconnect`              | Reconnect to `codex app-server` and resume the active thread. |
-| `/fork`                   | Fork the active Codex thread.                                 |
-| `/rollback`               | Roll back the latest turn and restore its prompt.             |
-| `/compact`                | Compact the current thread context.                           |
-| `/archive <thread>`       | Archive the selected Codex thread.                            |
-| `/rename <thread> <name>` | Rename the selected Codex thread.                             |
-
-#### Thread settings
-
-| Command                       | What it does                                       |
-| ----------------------------- | -------------------------------------------------- |
-| `/auto-review`                | Toggle approval auto-review.                       |
-| `/fast`                       | Toggle fast service tier for subsequent turns.     |
-| `/plan [message]`             | Toggle Plan mode, optionally with a message.       |
-| `/goal`                       | Show the current thread goal.                      |
-| `/goal set <objective>`       | Create or update the current thread goal.          |
-| `/goal edit`                  | Load the current thread goal into the composer.    |
-| `/goal pause`                 | Pause the current thread goal.                     |
-| `/goal resume`                | Resume the current thread goal.                    |
-| `/goal clear`                 | Clear the current thread goal.                     |
-| `/model [model\|default]`     | Show or set the model for subsequent turns.        |
-| `/reasoning [level\|default]` | Show or set reasoning effort for subsequent turns. |
-
-#### Diagnostics
-
-| Command   | What it does                                     |
-| --------- | ------------------------------------------------ |
-| `/status` | Show current thread, context, and usage limits.  |
-| `/doctor` | Show Codex CLI and Codex App Server diagnostics. |
-| `/tools`  | Show Codex plugins, tool providers, and skills.  |
-| `/help`   | Show available slash commands.                   |
-
-#### Composition
-
-| Command                     | What it does                                                       |
-| --------------------------- | ------------------------------------------------------------------ |
-| `/refer <thread> <message>` | Send a message with recent turns from another non-archived thread. |
-
-## Privacy and security
-
-Codex Panel acts as a local Obsidian client for Codex App Server:
-
-- It does not make network requests itself. It talks to the configured `codex app-server` process over stdio.
-- User input, approvals, resolved file mentions, and thread/configuration operations are sent to Codex App Server.
-- It stores only panel-specific preferences, not API keys or provider credentials.
-- Network access, sandbox behavior, approval policy, and other runtime policy are controlled by your Codex CLI configuration.
+Threads can be archived as Markdown notes in your vault with a configurable folder, filename template, and tags. You can also archive without saving, then restore or permanently delete archived threads from settings.
 
 ## Compatibility
 
