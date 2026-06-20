@@ -120,7 +120,7 @@ function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedT
       {!deleteConfirming ? (
         <SettingsIconButton
           icon="rotate-ccw"
-          label={`Restore ${title}`}
+          label="Restore thread"
           className="codex-panel-settings__archived-restore"
           onClick={() => {
             state.onRestore(thread.id);
@@ -129,7 +129,7 @@ function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedT
       ) : null}
       <SettingsIconButton
         icon={deleteConfirming ? "check" : "shredder"}
-        label={deleteConfirming ? `Confirm permanent delete ${title}` : `Delete ${title}`}
+        label="Delete thread"
         className={deleteConfirming ? "codex-panel-settings__archived-delete-confirm" : "codex-panel-settings__archived-delete"}
         onClick={() => {
           if (deleteConfirming) {

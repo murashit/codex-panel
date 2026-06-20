@@ -59,16 +59,6 @@
   white-space: nowrap;
 }
 
-.codex-panel-settings__hook-hash {
-  overflow: hidden;
-  padding-top: var(--size-2-1);
-  color: var(--text-faint);
-  font-family: var(--font-monospace);
-  font-size: var(--font-ui-smaller);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .codex-panel-settings__hook-warning {
   color: var(--codex-panel-color-warning);
 }

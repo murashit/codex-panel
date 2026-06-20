@@ -647,8 +647,10 @@ describe("settings tab", () => {
     );
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .codex-panel-settings__hook-row")).toHaveLength(1);
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .codex-panel-settings__archived-row")).toHaveLength(1);
-    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).toContain("abc123");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).not.toContain("abc123");
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")?.textContent).toContain("Archived thread");
+    expect(buttonLabels(tab)).toContain("Restore thread");
+    expect(buttonLabels(tab)).toContain("Delete thread");
   });
 
   it("confirms archived thread deletion inline and cancels from outside clicks", async () => {
@@ -663,13 +665,11 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    clickButtonByLabel(tab, "Delete Archived thread");
+    clickButtonByLabel(tab, "Delete thread");
 
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).not.toBeNull();
     expect(tab.containerEl.textContent).toContain("Permanently delete this archived thread? This cannot be undone.");
-    expect(tab.containerEl.querySelector("[aria-label='Confirm permanent delete Archived thread']")?.getAttribute("data-icon")).toBe(
-      "check",
-    );
+    expect(tab.containerEl.querySelector("[aria-label='Delete thread']")?.getAttribute("data-icon")).toBe("check");
 
     tab.containerEl.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
 
@@ -704,7 +704,7 @@ describe("settings tab", () => {
     expect(inputForSetting(tab, "Codex executable")).toBe(codexInput);
     expect(selectForSetting(tab, "Send shortcut")).toBe(shortcut);
 
-    clickButtonByLabel(tab, "Delete Archived thread");
+    clickButtonByLabel(tab, "Delete thread");
 
     expect(inputForSetting(tab, "Codex executable")).toBe(codexInput);
     expect(selectForSetting(tab, "Send shortcut")).toBe(shortcut);
@@ -739,7 +739,7 @@ describe("settings tab", () => {
     expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
     expect(dynamicSection(tab, "codex-panel-settings__hook-section")).toBe(hookSection);
 
-    clickButtonByLabel(tab, "Delete Archived thread");
+    clickButtonByLabel(tab, "Delete thread");
 
     expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
     expect(dynamicSection(tab, "codex-panel-settings__hook-section")).toBe(hookSection);
@@ -771,9 +771,9 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    clickButtonByLabel(tab, "Delete Archived thread");
-    pointerDownButtonByLabel(tab, "Confirm permanent delete Archived thread");
-    clickButtonByLabel(tab, "Confirm permanent delete Archived thread");
+    clickButtonByLabel(tab, "Delete thread");
+    pointerDownButtonByLabel(tab, "Delete thread");
+    clickButtonByLabel(tab, "Delete thread");
     await flushPromises();
 
     expect(client.deleteThread).toHaveBeenCalledWith("thread-archived");

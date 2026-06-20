@@ -50,7 +50,6 @@ function HookRow({ hook, state }: { hook: HookItem; state: HookSectionState }): 
       className="codex-panel-settings__dynamic-row codex-panel-settings__hook-row"
       name={hookName}
       desc={`${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${hook.enabled ? "enabled" : "disabled"}`}
-      extraInfo={<div className="codex-panel-settings__hook-hash">{hook.currentHash}</div>}
     >
       <ObsidianButton
         text="Trust"

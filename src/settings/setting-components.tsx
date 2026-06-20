@@ -47,13 +47,11 @@ export function SettingRow({
   name,
   desc,
   className = "",
-  extraInfo,
   children,
 }: {
   name: string;
   desc: string;
   className?: string;
-  extraInfo?: UiNode;
   children: UiNode;
 }): UiNode {
   return (
@@ -61,7 +59,6 @@ export function SettingRow({
       <div className="setting-item-info">
         <div className="setting-item-name">{name}</div>
         <div className="setting-item-description">{desc}</div>
-        {extraInfo}
       </div>
       <div className="setting-item-control">{children}</div>
     </div>
