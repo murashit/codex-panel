@@ -86,6 +86,7 @@ if (maybeRun("jj", ["root"])) {
 }
 
 run("npm", ["run", "release:check"]);
+run("npm", ["run", "api:baseline"]);
 run("npm", ["ci", "--dry-run"]);
 run("npm", ["run", "check:ci"]);
 
