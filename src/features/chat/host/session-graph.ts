@@ -1025,6 +1025,7 @@ function dispatch(stateStore: ChatStateStore, action: ChatAction): void {
 function notifyActiveThreadIdentityChanged(host: ChatPanelSessionGraphHost): void {
   refreshTabHeader(host);
   host.environment.obsidian.requestWorkspaceLayoutSave();
+  refreshLiveState(host);
 }
 
 function refreshTabHeader(host: ChatPanelSessionGraphHost): void {

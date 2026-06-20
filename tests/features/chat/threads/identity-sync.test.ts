@@ -36,7 +36,6 @@ function createController() {
     resetThreadTurnPresence: vi.fn(),
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshTabHeader: vi.fn(),
-    refreshLiveState: vi.fn(),
   };
   return { controller: createIdentitySync(host), host, restoredPlaceholder, restoredRename, stateStore };
 }

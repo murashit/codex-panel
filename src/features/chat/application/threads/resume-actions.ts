@@ -91,7 +91,6 @@ function applyResumedThread(host: ResumeActionsHost, response: ChatThreadResumeS
   host.clearDeferredRestoredThreadHydration();
   host.resetThreadTurnPresence(false);
   host.notifyActiveThreadIdentityChanged();
-  host.refreshLiveState();
 }
 
 function recoverResumedThreadTokenUsage(host: ResumeActionsHost, threadId: string, path: string | null, resume: ActiveChatResume): void {

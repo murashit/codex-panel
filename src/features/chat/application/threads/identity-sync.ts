@@ -10,7 +10,6 @@ export interface IdentitySyncHost {
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   notifyActiveThreadIdentityChanged: () => void;
   refreshTabHeader: () => void;
-  refreshLiveState: () => void;
 }
 
 export interface IdentitySync {
@@ -40,7 +39,6 @@ function clearActiveThreadContext(host: IdentitySyncHost): void {
   host.stateStore.dispatch({ type: "active-thread/cleared" });
   host.resetThreadTurnPresence(false);
   host.notifyActiveThreadIdentityChanged();
-  host.refreshLiveState();
 }
 
 function applyThreadArchived(host: IdentitySyncHost, threadId: string): void {

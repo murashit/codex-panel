@@ -89,7 +89,6 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     refreshTabHeader: thread.refreshTabHeader,
-    refreshLiveState: liveState.refresh,
   });
 
   return {
