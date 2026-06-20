@@ -59,25 +59,15 @@ function ModelEffortSetting({
         onChange={(value) => {
           onModelChange(value === CODEX_DEFAULT_VALUE ? null : value);
         }}
-      >
-        {modelSelectOptions(models, modelValue).map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </SelectControl>
+        options={modelSelectOptions(models, modelValue)}
+      />
       <SelectControl
         value={effortValue ?? CODEX_DEFAULT_VALUE}
         onChange={(value) => {
           onEffortChange(value === CODEX_DEFAULT_VALUE ? null : value);
         }}
-      >
-        {reasoningEffortSelectOptions(efforts, effortValue).map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </SelectControl>
+        options={reasoningEffortSelectOptions(efforts, effortValue)}
+      />
     </SettingRow>
   );
 }

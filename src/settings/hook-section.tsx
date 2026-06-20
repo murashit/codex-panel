@@ -1,6 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import type { HookItem } from "../domain/catalog/metadata";
+import { ObsidianButton } from "../shared/ui/components";
 import type { HookSectionState } from "./section-state";
 import { SettingRow, SettingsHeading } from "./setting-components";
 
@@ -53,24 +54,20 @@ function HookRow({ hook, state }: { hook: HookItem; state: HookSectionState }): 
       desc={`${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${hook.enabled ? "enabled" : "disabled"}`}
       extraInfo={<div className="codex-panel-settings__hook-hash">{hook.currentHash}</div>}
     >
-      <button
-        type="button"
+      <ObsidianButton
+        text="Trust"
         disabled={state.loading || !canTrust}
         onClick={() => {
           state.onTrust(hook);
         }}
-      >
-        Trust
-      </button>
-      <button
-        type="button"
+      />
+      <ObsidianButton
+        text={hook.enabled ? "Disable" : "Enable"}
         disabled={state.loading || hook.isManaged}
         onClick={() => {
           state.onToggleEnabled(hook, !hook.enabled);
         }}
-      >
-        {hook.enabled ? "Disable" : "Enable"}
-      </button>
+      />
     </SettingRow>
   );
 }

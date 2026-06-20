@@ -306,7 +306,7 @@ export class Setting {
   }
 }
 
-class ButtonComponent {
+export class ButtonComponent {
   readonly buttonEl: HTMLButtonElement;
 
   constructor(parent: HTMLElement) {
@@ -329,7 +329,7 @@ class ButtonComponent {
   }
 }
 
-class ExtraButtonComponent {
+export class ExtraButtonComponent {
   readonly extraSettingsEl: HTMLButtonElement;
 
   constructor(parent: HTMLElement) {
@@ -357,11 +357,12 @@ class ExtraButtonComponent {
   }
 }
 
-class DropdownComponent {
+export class DropdownComponent {
   readonly selectEl: HTMLSelectElement;
 
   constructor(parent: HTMLElement) {
     this.selectEl = parent.createEl("select");
+    this.selectEl.addClass("dropdown");
   }
 
   addOption(value: string, label: string): this {
@@ -385,7 +386,7 @@ class DropdownComponent {
   }
 }
 
-class TextComponent {
+export class TextComponent {
   readonly inputEl: HTMLInputElement;
 
   constructor(parent: HTMLElement) {
@@ -410,15 +411,18 @@ class TextComponent {
   }
 }
 
-class ToggleComponent {
+export class ToggleComponent {
   readonly toggleEl: HTMLInputElement;
+  private readonly containerEl: HTMLDivElement;
 
   constructor(parent: HTMLElement) {
-    this.toggleEl = parent.createEl("input", { attr: { type: "checkbox" } });
+    this.containerEl = parent.createDiv({ cls: "checkbox-container" });
+    this.toggleEl = this.containerEl.createEl("input", { attr: { type: "checkbox" } });
   }
 
   setValue(value: boolean): this {
     this.toggleEl.checked = value;
+    this.containerEl.classList.toggle("is-enabled", value);
     return this;
   }
 
