@@ -234,10 +234,15 @@ describe("message stream rendering and message action menu", () => {
           text: "Available slash commands",
           noticeSections: [
             {
+              title: "Thread",
               auditFacts: [
                 { key: "/help", value: "Show available Codex slash commands." },
                 { key: "/resume [thread]", value: "Resume a recent Codex thread." },
               ],
+            },
+            {
+              title: "Runtime",
+              auditFacts: [{ key: "/doctor", value: "Show Codex CLI and Codex App Server diagnostics." }],
             },
           ],
         },
@@ -256,8 +261,19 @@ describe("message stream rendering and message action menu", () => {
     expect(renderMarkdown).not.toHaveBeenCalled();
     expect(element.querySelector("details")).toBeNull();
     expect(element.querySelector(".codex-panel__output-title")).toBeNull();
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("/helpShow available Codex slash commands.");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("/resume [thread]Resume a recent Codex thread.");
+    expect(element.querySelector(".codex-panel__meta-grid")).toBeNull();
+    expect(element.querySelectorAll(".codex-panel__system-result-grid")).toHaveLength(1);
+    expect([...element.querySelectorAll(".codex-panel__system-result-heading")].map((heading) => heading.textContent)).toEqual([
+      "Thread",
+      "Runtime",
+    ]);
+    expect(element.querySelector(".codex-panel__system-result-grid")?.textContent).toContain("/helpShow available Codex slash commands.");
+    expect(element.querySelector(".codex-panel__system-result-grid")?.textContent).toContain(
+      "/resume [thread]Resume a recent Codex thread.",
+    );
+    expect(element.querySelector(".codex-panel__system-result-grid")?.textContent).toContain(
+      "/doctorShow Codex CLI and Codex App Server diagnostics.",
+    );
   });
 
   it("renders goal events as collapsed tool-like message stream items", () => {

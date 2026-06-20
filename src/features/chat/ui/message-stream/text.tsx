@@ -265,14 +265,20 @@ function TextDetails({
 
 function SystemDetails({ details }: { details: readonly TextItemDetailSectionView[] }): UiNode {
   return (
-    <>
+    <div className="codex-panel__system-result-grid">
       {details.map((section, index) => (
-        <div key={`${section.title ?? ""}:${String(index)}`} className="codex-panel__output codex-panel__system-result-section">
-          {section.title ? <div className="codex-panel__output-title">{section.title}</div> : null}
-          <DetailSectionBody section={section} />
-        </div>
+        <Fragment key={`${section.title ?? ""}:${String(index)}`}>
+          {section.title ? <div className="codex-panel__system-result-heading">{section.title}</div> : null}
+          {section.facts?.map((row) => (
+            <Fragment key={`${row.key}\n${row.value}`}>
+              <div className="codex-panel__system-result-key">{row.key}</div>
+              <div className="codex-panel__system-result-value">{row.value}</div>
+            </Fragment>
+          ))}
+          {section.body ? <pre className="codex-panel__system-result-body">{section.body}</pre> : null}
+        </Fragment>
       ))}
-    </>
+    </div>
   );
 }
 
