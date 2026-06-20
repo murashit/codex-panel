@@ -25,6 +25,33 @@ describe("renderStreamMarkdown", () => {
     expect(parent.textContent).toBe("Title\nbold text");
   });
 
+  it("escapes raw HTML while streaming", () => {
+    const context = streamMarkdownContext();
+    const parent = document.createElement("div");
+
+    renderStreamMarkdown(parent, '<img src=x onerror="alert(1)">\n\n<script>alert(1)</script>', context);
+
+    expect(parent.querySelector("img")).toBeNull();
+    expect(parent.querySelector("script")).toBeNull();
+    expect(parent.textContent).toContain('<img src=x onerror="alert(1)">');
+    expect(parent.textContent).toContain("<script>alert(1)</script>");
+  });
+
+  it("neutralizes unsafe link protocols while streaming", () => {
+    const openLinkText = vi.fn();
+    const context = streamMarkdownContext({ openLinkText });
+    const parent = document.createElement("div");
+
+    renderStreamMarkdown(parent, "[Run](javascript:alert(1))", context);
+    const link = parent.querySelector<HTMLAnchorElement>("a");
+    link?.click();
+
+    expect(link?.textContent).toBe("Run");
+    expect(link?.getAttribute("href")).toBe("");
+    expect(openLinkText).not.toHaveBeenCalled();
+    expect(notices).toEqual([]);
+  });
+
   it("leaves wikilinks as plain text while streaming", () => {
     const context = streamMarkdownContext();
     const parent = document.createElement("div");
