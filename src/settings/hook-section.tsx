@@ -3,33 +3,31 @@ import type { ComponentChild as UiNode } from "preact";
 import type { HookItem } from "../domain/catalog/metadata";
 import { ObsidianButton } from "../shared/ui/components";
 import type { HookSectionState } from "./section-state";
-import { SettingRow, SettingsHeading } from "./setting-components";
+import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./setting-components";
 
 export function HookSection({ state }: { state: HookSectionState }): UiNode {
   return (
-    <section className="codex-panel-settings__dynamic-section codex-panel-settings__hook-section">
+    <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__hook-section">
       <SettingsHeading dynamic name="Hook status" desc="Review discovered hooks, trust changes, and turn hooks on or off." />
       {state.contentAvailable ? (
         <Hooks state={state} />
       ) : !state.loading && state.status ? (
         <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
       ) : null}
-    </section>
+    </SettingsGroup>
   );
 }
 
 function Hooks({ state }: { state: HookSectionState }): UiNode {
   return (
     <>
-      {state.hooks.length === 0 ? (
-        <p className="setting-item-description">No hooks found for this vault root.</p>
-      ) : (
-        <div className="setting-items codex-panel-settings__dynamic-list codex-panel-settings__hook-list">
-          {state.hooks.map((hook) => (
-            <HookRow key={hook.key} hook={hook} state={state} />
-          ))}
-        </div>
-      )}
+      <SettingsItems className="codex-panel-settings__dynamic-list codex-panel-settings__hook-list">
+        {state.hooks.length === 0 ? (
+          <SettingsStatusRow>No hooks found for this vault root.</SettingsStatusRow>
+        ) : (
+          state.hooks.map((hook) => <HookRow key={hook.key} hook={hook} state={state} />)
+        )}
+      </SettingsItems>
       {state.warnings.map((warning) => (
         <p key={`warning:${warning}`} className="setting-item-description codex-panel-settings__hook-warning">
           {warning}

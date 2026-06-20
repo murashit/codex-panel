@@ -10,6 +10,25 @@ import {
 
 export type SelectControlOption = ObsidianDropdownOption;
 
+export function SettingsGroup({ className, children }: { className: string; children: UiNode }): UiNode {
+  return <section className={`setting-group ${className}`}>{children}</section>;
+}
+
+export function SettingsItems({ className = "", children }: { className?: string; children: UiNode }): UiNode {
+  return <div className={`setting-items ${className}`.trim()}>{children}</div>;
+}
+
+export function SettingsStatusRow({ children }: { children: UiNode }): UiNode {
+  return (
+    <div className="setting-item codex-panel-settings__status-row">
+      <div className="setting-item-info">
+        <div className="setting-item-description">{children}</div>
+      </div>
+      <div className="setting-item-control" />
+    </div>
+  );
+}
+
 export function SettingsHeading({ name, desc, dynamic = false }: { name: string; desc?: string; dynamic?: boolean }): UiNode {
   return (
     <div

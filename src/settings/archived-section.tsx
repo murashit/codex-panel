@@ -4,31 +4,47 @@ import type { Thread } from "../domain/threads/model";
 import { shortThreadId } from "../utils";
 import { archivedThreadDisplayTitle } from "./archived-thread-title";
 import type { ArchivedThreadSectionState } from "./section-state";
-import { SettingRow, SettingsHeading, SettingsIconButton, TextControl, ToggleControl } from "./setting-components";
+import {
+  SettingRow,
+  SettingsGroup,
+  SettingsHeading,
+  SettingsIconButton,
+  SettingsItems,
+  SettingsStatusRow,
+  TextControl,
+  ToggleControl,
+} from "./setting-components";
 
 export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionState }): UiNode {
   return (
-    <section className="codex-panel-settings__dynamic-section codex-panel-settings__archived-section">
-      <SettingsHeading
-        dynamic
-        name="Thread archiving"
-        desc="Choose the default archive behavior and configure saved thread notes. Thread lists offer both archive choices; slash commands use the default."
-      />
-      <ArchiveExportSettings state={state} />
-      {state.contentAvailable && state.threads.length === 0 ? (
-        <p className="setting-item-description codex-panel-settings__dynamic-section-status">No archived threads.</p>
-      ) : state.contentAvailable ? (
-        <ArchivedThreadList state={state} />
-      ) : !state.loading && state.status ? (
-        <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
-      ) : null}
-    </section>
+    <>
+      <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__archived-section">
+        <SettingsHeading
+          dynamic
+          name="Thread archiving"
+          desc="Choose the default archive behavior and configure saved thread notes. Thread lists offer both archive choices; slash commands use the default."
+        />
+        <ArchiveExportSettings state={state} />
+      </SettingsGroup>
+      <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__archived-threads-section">
+        <SettingsHeading
+          dynamic
+          name="Archived threads"
+          desc="Restore archived threads, or permanently delete archived threads you no longer need."
+        />
+        {state.contentAvailable ? (
+          <ArchivedThreadList state={state} />
+        ) : !state.loading && state.status ? (
+          <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
+        ) : null}
+      </SettingsGroup>
+    </>
   );
 }
 
 function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState }): UiNode {
   return (
-    <>
+    <SettingsItems>
       <SettingRow
         name="Save note by default"
         desc="When on, the default archive action saves a markdown note before archiving. When off, the default archives without saving. If saving fails, the thread stays active. Frontmatter includes title, thread_id, created, and optional tags."
@@ -70,22 +86,19 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
           }}
         />
       </SettingRow>
-    </>
+    </SettingsItems>
   );
 }
 
 function ArchivedThreadList({ state }: { state: ArchivedThreadSectionState }): UiNode {
   return (
-    <>
-      <p className="setting-item-description codex-panel-settings__dynamic-list-summary">
-        Restore archived threads, or permanently delete archived threads you no longer need.
-      </p>
-      <div className="setting-items codex-panel-settings__dynamic-list codex-panel-settings__archived-list">
-        {state.threads.map((thread) => (
-          <ArchivedThreadRow key={thread.id} thread={thread} state={state} />
-        ))}
-      </div>
-    </>
+    <SettingsItems className="codex-panel-settings__dynamic-list codex-panel-settings__archived-list">
+      {state.threads.length === 0 ? (
+        <SettingsStatusRow>No archived threads.</SettingsStatusRow>
+      ) : (
+        state.threads.map((thread) => <ArchivedThreadRow key={thread.id} thread={thread} state={state} />)
+      )}
+    </SettingsItems>
   );
 }
 

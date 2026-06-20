@@ -3,34 +3,36 @@ import type { ComponentChild as UiNode } from "preact";
 import type { ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { HelperSettingsState } from "./section-state";
-import { SelectControl, SettingRow, SettingsHeading } from "./setting-components";
+import { SelectControl, SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";
 
 export function HelperSettingsSection({ state }: { state: HelperSettingsState }): UiNode {
   return (
-    <section className="codex-panel-settings__section codex-panel-settings__helper-section">
+    <SettingsGroup className="codex-panel-settings__section codex-panel-settings__helper-section">
       <SettingsHeading name="Codex helpers" />
-      <ModelEffortSetting
-        name="Automatic thread naming"
-        desc="Choose the model and reasoning effort used to suggest thread names."
-        modelValue={state.threadNamingModel}
-        effortValue={state.threadNamingEffort}
-        models={state.models}
-        onModelChange={state.onThreadNamingModelChange}
-        onEffortChange={state.onThreadNamingEffortChange}
-      />
-      <ModelEffortSetting
-        name="Selection rewrite"
-        desc="Choose the model and reasoning effort used by rewrite selection."
-        modelValue={state.rewriteSelectionModel}
-        effortValue={state.rewriteSelectionEffort}
-        models={state.models}
-        onModelChange={state.onRewriteSelectionModelChange}
-        onEffortChange={state.onRewriteSelectionEffortChange}
-      />
+      <SettingsItems>
+        <ModelEffortSetting
+          name="Automatic thread naming"
+          desc="Choose the model and reasoning effort used to suggest thread names."
+          modelValue={state.threadNamingModel}
+          effortValue={state.threadNamingEffort}
+          models={state.models}
+          onModelChange={state.onThreadNamingModelChange}
+          onEffortChange={state.onThreadNamingEffortChange}
+        />
+        <ModelEffortSetting
+          name="Selection rewrite"
+          desc="Choose the model and reasoning effort used by rewrite selection."
+          modelValue={state.rewriteSelectionModel}
+          effortValue={state.rewriteSelectionEffort}
+          models={state.models}
+          onModelChange={state.onRewriteSelectionModelChange}
+          onEffortChange={state.onRewriteSelectionEffortChange}
+        />
+      </SettingsItems>
       {state.modelLoadFailed ? <p className="setting-item-description codex-panel-settings__section-status">{state.modelStatus}</p> : null}
-    </section>
+    </SettingsGroup>
   );
 }
 

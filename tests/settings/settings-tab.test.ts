@@ -70,8 +70,34 @@ describe("settings tab", () => {
     expect(buttonTexts(tab)).not.toContain("Load models");
     expect(buttonTexts(tab)).not.toContain("Load hooks");
     expect(buttonTexts(tab)).not.toContain("Load archive list");
+    expect(
+      tab.containerEl.querySelector(".codex-panel-settings__header.setting-item-heading .setting-item-description")?.textContent,
+    ).toContain("Codex Panel stores only panel preferences");
     expect(tab.containerEl.querySelector(".codex-panel-settings__header button")?.getAttribute("data-icon")).toBe("refresh-cw");
     expect(tab.containerEl.querySelector("h2")).toBeNull();
+    expect(tab.containerEl.querySelector(".codex-panel-settings__general-section.setting-group > .setting-items")?.children).toHaveLength(
+      2,
+    );
+    expect(tab.containerEl.querySelector(".codex-panel-settings__composer-section.setting-group > .setting-items")?.children).toHaveLength(
+      2,
+    );
+    expect(tab.containerEl.querySelector(".codex-panel-settings__helper-section.setting-group > .setting-items")?.children).toHaveLength(2);
+    expect(
+      tab.containerEl.querySelector(".codex-panel-settings__archived-section > .setting-item-heading .setting-item-description")
+        ?.textContent,
+    ).toContain("Choose the default archive behavior");
+    expect(
+      tab.containerEl.querySelector(".codex-panel-settings__archived-threads-section > .setting-item-heading .setting-item-description")
+        ?.textContent,
+    ).toContain("Restore archived threads");
+    expect(
+      tab.containerEl.querySelector(".codex-panel-settings__hook-section > .setting-item-heading .setting-item-description")?.textContent,
+    ).toContain("Review discovered hooks");
+    expect(
+      tab.containerEl.querySelector(
+        ".codex-panel-settings__archived-section.setting-group > .setting-items:not(.codex-panel-settings__dynamic-list)",
+      )?.children,
+    ).toHaveLength(4);
     expect(settingNames(tab)).toEqual([
       "Codex executable",
       "Show chat toolbar",
@@ -82,6 +108,11 @@ describe("settings tab", () => {
       "Automatic thread naming",
       "Selection rewrite",
       "Thread archiving",
+      "Save note by default",
+      "Saved note folder",
+      "Saved note filename",
+      "Saved note tags",
+      "Archived threads",
       "Hook status",
     ]);
   });
@@ -611,8 +642,11 @@ describe("settings tab", () => {
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-section .setting-item-heading")?.textContent).toContain(
       "Thread archiving",
     );
-    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .setting-item")).toHaveLength(1);
-    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(1);
+    expect(tab.containerEl.querySelector(".codex-panel-settings__archived-threads-section .setting-item-heading")?.textContent).toContain(
+      "Archived threads",
+    );
+    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .codex-panel-settings__hook-row")).toHaveLength(1);
+    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .codex-panel-settings__archived-row")).toHaveLength(1);
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).toContain("abc123");
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")?.textContent).toContain("Archived thread");
   });
@@ -749,7 +783,10 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(tab.containerEl.textContent).toContain("No archived threads.");
-    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(0);
+    expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list .codex-panel-settings__status-row")?.textContent).toContain(
+      "No archived threads.",
+    );
+    expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .codex-panel-settings__archived-row")).toHaveLength(0);
   });
 });
 
@@ -942,19 +979,32 @@ async function flushPromises(): Promise<void> {
 
 function settingNames(tab: CodexPanelSettingTab): string[] {
   return Array.from(settingsSectionRoots(tab)).flatMap((element) => {
+    if (element.classList.contains("codex-panel-settings__header")) return [];
     if (element.classList.contains("setting-item")) {
       return [element.querySelector(".setting-item-name")?.textContent ?? ""];
     }
     if (element.classList.contains("codex-panel-settings__section")) {
-      return Array.from(element.querySelectorAll(":scope > .setting-item")).map((setting) => {
-        return setting.querySelector(".setting-item-name")?.textContent ?? "";
-      });
+      return settingsGroupNames(element);
     }
     if (element.classList.contains("codex-panel-settings__dynamic-section")) {
-      return [element.querySelector(":scope > .setting-item-heading .setting-item-name")?.textContent ?? ""];
+      return settingsGroupNames(element);
     }
     return [];
   });
+}
+
+function settingsGroupNames(element: Element): string[] {
+  const names = Array.from(element.querySelectorAll(":scope > .setting-item-heading")).map((setting) => {
+    return setting.querySelector(".setting-item-name")?.textContent ?? "";
+  });
+  names.push(
+    ...Array.from(element.querySelectorAll(":scope > .setting-items:not(.codex-panel-settings__dynamic-list) > .setting-item")).flatMap(
+      (setting) => {
+        return [setting.querySelector(".setting-item-name")?.textContent ?? ""];
+      },
+    ),
+  );
+  return names;
 }
 
 function settingsSectionRoots(tab: CodexPanelSettingTab): Element[] {

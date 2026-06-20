@@ -28,6 +28,14 @@ function renderSettingsHeading(containerEl: HTMLElement, name: string): void {
   new Setting(containerEl).setClass("codex-panel-settings__section-heading").setHeading().setName(name);
 }
 
+function createSettingsGroup(containerEl: HTMLElement, className: string): HTMLElement {
+  return containerEl.createDiv({ cls: `setting-group ${className}` });
+}
+
+function createSettingsItems(containerEl: HTMLElement): HTMLElement {
+  return containerEl.createDiv({ cls: "setting-items" });
+}
+
 export class CodexPanelSettingTab extends PluginSettingTab {
   private readonly dynamicData: SettingsDynamicDataController;
   private archivedDeleteConfirmThreadId: string | null = null;
@@ -90,9 +98,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private renderPanelPreferenceSections(containerEl: HTMLElement): void {
-    const configSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__general-section" });
+    const configSection = createSettingsGroup(containerEl, "codex-panel-settings__section codex-panel-settings__general-section");
+    const configItems = createSettingsItems(configSection);
 
-    new Setting(configSection)
+    new Setting(configItems)
       .setName("Codex executable")
       .setDesc("Path used to start `codex app-server`. Use an absolute path if Obsidian cannot find `codex`.")
       .addText((text) => {
@@ -108,7 +117,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           text.inputEl.blur();
         });
       });
-    new Setting(configSection)
+    new Setting(configItems)
       .setName("Show chat toolbar")
       .setDesc("Show the chat panel toolbar. Slash commands, composer status controls, and the threads view remain available when hidden.")
       .addToggle((toggle) => {
@@ -119,9 +128,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         });
       });
 
-    const composerSection = containerEl.createDiv({ cls: "codex-panel-settings__section codex-panel-settings__composer-section" });
+    const composerSection = createSettingsGroup(containerEl, "codex-panel-settings__section codex-panel-settings__composer-section");
     renderSettingsHeading(composerSection, "Composer");
-    new Setting(composerSection)
+    const composerItems = createSettingsItems(composerSection);
+    new Setting(composerItems)
       .setName("Send shortcut")
       .setDesc(
         "Choose how the composer sends messages. Shift+Enter inserts a newline when Enter sends. Obsidian hotkeys may intercept Cmd/Ctrl+Enter.",
@@ -135,7 +145,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           this.display();
         });
       });
-    new Setting(composerSection)
+    new Setting(composerItems)
       .setName("Scroll thread from composer edges")
       .setDesc("When enabled, Up/Ctrl+P on the first composer line and Down/Ctrl+N on the last line scroll the thread.")
       .addToggle((toggle) => {
@@ -244,12 +254,14 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private renderHeaderActions(containerEl: HTMLElement, introText: string): void {
-    const header = containerEl.createDiv({ cls: "codex-panel-settings__header" });
-    header.createEl("span", {
+    const header = containerEl.createDiv({ cls: "setting-item setting-item-heading codex-panel-settings__header" });
+    const info = header.createDiv({ cls: "setting-item-info" });
+    info.createDiv({
       cls: "setting-item-description codex-panel-settings__section-intro",
       text: introText,
     });
-    const button = header.createEl("button", {
+    const control = header.createDiv({ cls: "setting-item-control" });
+    const button = control.createEl("button", {
       cls: "clickable-icon codex-panel-settings__refresh-button",
     });
     button.type = "button";
