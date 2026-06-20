@@ -17,7 +17,7 @@ describe("ThreadCatalog", () => {
     const listener = vi.fn();
     catalog.observeActive(listener);
 
-    catalog.replaceActiveFromAppServer(threads);
+    catalog.replaceActiveThreadsSnapshot(threads);
 
     expect(catalog.activeSnapshot()).toEqual(threads);
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ data: threads }));
@@ -40,11 +40,11 @@ describe("ThreadCatalog", () => {
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("thread")] }));
   });
 
-  it("applies known rename mutations to cache and surfaces", () => {
+  it("broadcasts rename mutations to open surfaces after updating the catalog cache", () => {
     const { catalog, surfaces } = catalogFixture();
     const listener = vi.fn();
     catalog.observeActive(listener);
-    catalog.replaceActiveFromAppServer([thread("thread"), thread("other")]);
+    catalog.replaceActiveThreadsSnapshot([thread("thread"), thread("other")]);
 
     catalog.recordThreadRenamed("thread", "Renamed");
 
@@ -55,14 +55,14 @@ describe("ThreadCatalog", () => {
     expect(surfaces.applyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed");
   });
 
-  it("applies known archive mutations to cache and surfaces", () => {
+  it("broadcasts archive mutations to open surfaces after updating catalog membership", () => {
     const { catalog, surfaces } = catalogFixture();
     const listener = vi.fn();
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.replaceActiveFromAppServer([thread("thread"), thread("other")]);
-    catalog.replaceArchivedFromAppServer([thread("archived", true)]);
+    catalog.replaceActiveThreadsSnapshot([thread("thread"), thread("other")]);
+    catalog.replaceArchivedThreadsSnapshot([thread("archived", true)]);
 
     catalog.recordThreadArchived("thread", { closeOpenPanels: true });
 
@@ -101,14 +101,14 @@ describe("ThreadCatalog", () => {
     expect(fetchThreads).toHaveBeenCalledTimes(2);
   });
 
-  it("applies known delete mutations to cache without archive surface effects", () => {
+  it("applies known delete mutations to cache without open-surface effects", () => {
     const { catalog, surfaces } = catalogFixture();
     const listener = vi.fn();
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.replaceActiveFromAppServer([thread("thread"), thread("other")]);
-    catalog.replaceArchivedFromAppServer([thread("thread", true), thread("archived", true)]);
+    catalog.replaceActiveThreadsSnapshot([thread("thread"), thread("other")]);
+    catalog.replaceArchivedThreadsSnapshot([thread("thread", true), thread("archived", true)]);
 
     catalog.recordThreadDeleted("thread");
 
@@ -117,18 +117,30 @@ describe("ThreadCatalog", () => {
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("other")] }));
     expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("archived", true)] }));
     expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
+    expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
 
-  it("upserts started, forked, and restored threads without replacing the whole catalog", () => {
-    const { catalog } = catalogFixture();
-    catalog.replaceActiveFromAppServer([thread("existing")]);
-    catalog.replaceArchivedFromAppServer([thread("restored", true), thread("archived", true)]);
+  it("records started, forked, and restored thread membership without open-surface broadcasts", () => {
+    const { catalog, surfaces } = catalogFixture();
+    const listener = vi.fn();
+    const archivedListener = vi.fn();
+    catalog.observeActive(listener);
+    catalog.observeArchived(archivedListener);
+    catalog.replaceActiveThreadsSnapshot([thread("existing")]);
+    catalog.replaceArchivedThreadsSnapshot([thread("restored", true), thread("archived", true)]);
 
-    catalog.upsertActiveFromAppServer(thread("started"));
+    catalog.recordThreadStarted(thread("started"));
+    catalog.recordThreadForked(thread("forked"));
     catalog.recordThreadRestored(thread("restored"));
 
-    expect(catalog.activeSnapshot()?.map((item) => item.id)).toEqual(["restored", "started", "existing"]);
+    expect(catalog.activeSnapshot()?.map((item) => item.id)).toEqual(["restored", "forked", "started", "existing"]);
     expect(catalog.archivedSnapshot()?.map((item) => item.id)).toEqual(["archived"]);
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: [thread("restored"), thread("forked"), thread("started"), thread("existing")] }),
+    );
+    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("archived", true)] }));
+    expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
+    expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
 });
 

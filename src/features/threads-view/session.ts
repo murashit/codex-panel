@@ -6,7 +6,7 @@ import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
-import type { ThreadCatalogActiveReader, ThreadCatalogThreadEvents } from "../../workspace/thread-catalog";
+import type { ThreadCatalogActiveReader, ThreadCatalogThreadManagementEvents } from "../../workspace/thread-catalog";
 import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
@@ -39,7 +39,7 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
 }
 
-type ThreadsThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogThreadEvents;
+type ThreadsThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogThreadManagementEvents;
 
 export interface CodexThreadsSettingsAccess {
   archiveExportEnabled(): boolean;

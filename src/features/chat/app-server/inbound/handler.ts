@@ -57,7 +57,7 @@ export interface ChatInboundHandlerActions {
   refreshSkills: (forceReload?: boolean) => void;
   applyAppServerMetadataSnapshot: () => void;
   maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
-  upsertActiveThread: (thread: Thread) => void;
+  recordThreadStarted: (thread: Thread) => void;
   applyThreadArchived: (threadId: string) => void;
   recordActiveThreadDeleted: (threadId: string) => void;
   applyThreadRenamed: (threadId: string, name: string | null) => void;
@@ -295,8 +295,8 @@ function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatN
     case "maybe-name-thread":
       context.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);
       return;
-    case "upsert-active-thread":
-      context.actions.upsertActiveThread(effect.thread);
+    case "record-thread-started":
+      context.actions.recordThreadStarted(effect.thread);
       return;
     case "apply-thread-archived":
       context.actions.applyThreadArchived(effect.threadId);

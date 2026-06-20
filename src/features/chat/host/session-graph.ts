@@ -748,8 +748,8 @@ function createThreadActionParts(
     refreshAfterThreadMutation: async () => {
       await refreshActiveThreads();
     },
-    recordForkedThread: (thread) => {
-      environment.plugin.threadCatalog.upsertActiveFromAppServer(thread);
+    recordThreadForked: (thread) => {
+      environment.plugin.threadCatalog.recordThreadForked(thread);
     },
   };
   const actions = createThreadManagementActions(threadManagementHost);

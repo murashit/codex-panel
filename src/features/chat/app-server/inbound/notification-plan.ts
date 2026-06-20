@@ -58,7 +58,7 @@ export type ChatNotificationEffect =
   | { type: "refresh-skills"; forceReload: boolean }
   | { type: "apply-app-server-metadata-snapshot" }
   | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ThreadConversationSummary | null }
-  | { type: "upsert-active-thread"; thread: Thread }
+  | { type: "record-thread-started"; thread: Thread }
   | { type: "apply-thread-archived"; threadId: string }
   | { type: "record-active-thread-deleted"; threadId: string }
   | { type: "apply-thread-renamed"; threadId: string; name: string | null }
@@ -256,7 +256,7 @@ const THREAD_LIFECYCLE_PLANNERS = {
   "thread/started": (state, notification) => {
     const effects: ChatNotificationEffect[] = [
       {
-        type: "upsert-active-thread",
+        type: "record-thread-started",
         thread: threadFromAppServerRecord(notification.params.thread),
       },
     ];

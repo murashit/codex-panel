@@ -14,14 +14,14 @@ import type { SharedServerMetadata } from "../../../src/domain/server/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../src/domain/runtime/config";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
-import type { ThreadCatalogSourceReplacement } from "../../../src/workspace/thread-catalog";
+import type { ThreadCatalogSnapshotWriter } from "../../../src/workspace/thread-catalog";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 type TestCodexChatHost = CodexChatHost & {
-  threadCatalog: CodexChatHost["threadCatalog"] & ThreadCatalogSourceReplacement;
+  threadCatalog: CodexChatHost["threadCatalog"] & ThreadCatalogSnapshotWriter;
 };
 
 const connectionMock = vi.hoisted(() => {
@@ -383,14 +383,14 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.setState({ threadId: "thread-named" }, {} as never);
     await view.onOpen();
-    host.threadCatalog.replaceActiveFromAppServer([panelThread({ id: "thread-named", name: "作業メモ" })]);
+    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-named", name: "作業メモ" })]);
     expect(view.getDisplayText()).toBe("Codex: 作業メモ");
 
-    host.threadCatalog.replaceActiveFromAppServer([panelThread({ id: "thread-named", name: null, preview: "初回依頼" })]);
+    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-named", name: null, preview: "初回依頼" })]);
     expect(view.getDisplayText()).toBe("Codex: 初回依頼");
 
     await view.setState({ threadId: "019e061e-0000-7000-8000-000000000001" }, {} as never);
-    host.threadCatalog.replaceActiveFromAppServer([]);
+    host.threadCatalog.replaceActiveThreadsSnapshot([]);
     expect(view.getDisplayText()).toBe("Codex: 019e061e");
   });
 
@@ -747,7 +747,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
 
-    host.threadCatalog.replaceActiveFromAppServer([panelThread({ id: "thread-1", name: "Explicit name" })]);
+    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-1", name: "Explicit name" })]);
     view.surface.applyThreadRenamed("thread-1", "Explicit name");
 
     await waitForAsyncWork(() => {
@@ -790,14 +790,14 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.onOpen();
     await view.surface.openThread("thread-1");
-    host.threadCatalog.replaceActiveFromAppServer([panelThread({ id: "thread-1", name: "Renamed thread" })]);
+    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-1", name: "Renamed thread" })]);
     view.surface.applyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
       expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Renamed thread”...");
     });
 
-    host.threadCatalog.replaceActiveFromAppServer([panelThread({ id: "thread-1", name: null })]);
+    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-1", name: null })]);
     view.surface.applyThreadRenamed("thread-1", null);
 
     await waitForAsyncWork(() => {
@@ -820,7 +820,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     composer.setSelectionRange(5, 9);
 
-    host.threadCatalog.replaceActiveFromAppServer([panelThread({ id: "thread-1", name: "Renamed thread" })]);
+    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-1", name: "Renamed thread" })]);
     view.surface.applyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
@@ -1332,8 +1332,9 @@ interface ChatHostFixtureOverrides {
   recordThreadArchived?: CodexChatHost["threadCatalog"]["recordThreadArchived"];
   recordThreadDeleted?: CodexChatHost["threadCatalog"]["recordThreadDeleted"];
   recordThreadRenamed?: CodexChatHost["threadCatalog"]["recordThreadRenamed"];
-  replaceActiveFromAppServer?: ThreadCatalogSourceReplacement["replaceActiveFromAppServer"];
-  upsertActiveFromAppServer?: CodexChatHost["threadCatalog"]["upsertActiveFromAppServer"];
+  replaceActiveThreadsSnapshot?: ThreadCatalogSnapshotWriter["replaceActiveThreadsSnapshot"];
+  recordThreadStarted?: CodexChatHost["threadCatalog"]["recordThreadStarted"];
+  recordThreadForked?: CodexChatHost["threadCatalog"]["recordThreadForked"];
   updateAppServerMetadata?: CodexChatHost["appServerData"]["updateAppServerMetadata"];
   refreshActive?: CodexChatHost["threadCatalog"]["refreshActive"];
   activeSnapshot?: CodexChatHost["threadCatalog"]["activeSnapshot"];
@@ -1463,19 +1464,25 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
             for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
           }
         }),
-      upsertActiveFromAppServer:
-        overrides.upsertActiveFromAppServer ??
+      recordThreadStarted:
+        overrides.recordThreadStarted ??
         ((thread) => {
           activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
           for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
         }),
-      replaceActiveFromAppServer:
-        overrides.replaceActiveFromAppServer ??
+      recordThreadForked:
+        overrides.recordThreadForked ??
+        ((thread) => {
+          activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
+          for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
+        }),
+      replaceActiveThreadsSnapshot:
+        overrides.replaceActiveThreadsSnapshot ??
         ((threads) => {
           activeThreads = threads;
           for (const listener of activeThreadResultListeners) listener(queryResult(threads));
         }),
-      replaceArchivedFromAppServer: vi.fn(),
+      replaceArchivedThreadsSnapshot: vi.fn(),
       refreshActive:
         overrides.refreshActive ??
         (vi.fn(async () => {

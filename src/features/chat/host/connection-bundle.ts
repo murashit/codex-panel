@@ -118,8 +118,8 @@ export function createConnectionBundle(
     vaultPath: environment.plugin.settingsRef.vaultPath,
     currentClient,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
-    recordStartedThread: (thread) => {
-      environment.plugin.threadCatalog.upsertActiveFromAppServer(thread);
+    recordThreadStarted: (thread) => {
+      environment.plugin.threadCatalog.recordThreadStarted(thread);
     },
     syncThreadGoal: (threadId) => {
       void goalSync.syncThreadGoal(threadId);
@@ -151,8 +151,8 @@ export function createConnectionBundle(
       maybeNameThread: (threadId, turnId, completedSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedSummary);
       },
-      upsertActiveThread: (thread) => {
-        environment.plugin.threadCatalog.upsertActiveFromAppServer(thread);
+      recordThreadStarted: (thread) => {
+        environment.plugin.threadCatalog.recordThreadStarted(thread);
       },
       applyThreadArchived: (threadId) => {
         environment.plugin.threadCatalog.recordThreadArchived(threadId);

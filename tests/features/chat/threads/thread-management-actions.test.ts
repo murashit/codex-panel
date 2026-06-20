@@ -174,7 +174,7 @@ describe("thread management actions", () => {
 
     expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
     expect(client.rollbackThread).toHaveBeenCalledWith("forked", 2);
-    expect(host.recordForkedThread).toHaveBeenCalledWith(expect.objectContaining({ id: "forked" }));
+    expect(host.recordThreadForked).toHaveBeenCalledWith(expect.objectContaining({ id: "forked" }));
     expect(host.openThreadInNewView).toHaveBeenCalledWith("forked");
     expect(client.archiveThread).not.toHaveBeenCalled();
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
@@ -306,7 +306,7 @@ describe("thread management actions", () => {
     fork.resolve({ thread: archivedThread() });
     await pendingFork;
 
-    expect(host.recordForkedThread).not.toHaveBeenCalled();
+    expect(host.recordThreadForked).not.toHaveBeenCalled();
     expect(host.openThreadInNewView).not.toHaveBeenCalled();
     expect(firstClient.archiveThread).not.toHaveBeenCalled();
   });
@@ -568,7 +568,7 @@ function hostMock({
     notifyThreadRenamed,
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshAfterThreadMutation: vi.fn().mockResolvedValue(undefined),
-    recordForkedThread: vi.fn(),
+    recordThreadForked: vi.fn(),
   };
 }
 

@@ -26,7 +26,7 @@ export interface ThreadManagementActionsHost {
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
   refreshAfterThreadMutation: () => Promise<void>;
-  recordForkedThread: (thread: Thread) => void;
+  recordThreadForked: (thread: Thread) => void;
 }
 
 export interface ThreadManagementActions {
@@ -168,7 +168,7 @@ async function forkThreadFromTurn(
       await rollbackThreadOnAppServer(client, forkedThreadId, turnsToDrop);
       if (host.currentClient() !== client) return;
     }
-    host.recordForkedThread(forkedThread);
+    host.recordThreadForked(forkedThread);
     if (!threadManagementStillTargetsOriginalPanel(threadManagementState(host), initialActiveThreadId, threadId)) return;
     if (sourceName) {
       try {

@@ -318,7 +318,8 @@ describe("createChatPanelSessionGraph actions", () => {
       recordThreadArchived: vi.fn(),
       recordThreadDeleted: vi.fn(),
       recordThreadRenamed: vi.fn(),
-      upsertActiveFromAppServer: vi.fn(),
+      recordThreadStarted: vi.fn(),
+      recordThreadForked: vi.fn(),
       ...overrides,
     };
   }

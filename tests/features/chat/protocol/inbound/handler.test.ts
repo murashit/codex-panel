@@ -36,7 +36,7 @@ function handlerForState(
         refreshSkills: vi.fn(),
         applyAppServerMetadataSnapshot: vi.fn(),
         maybeNameThread: vi.fn(),
-        upsertActiveThread: vi.fn(),
+        recordThreadStarted: vi.fn(),
         applyThreadArchived: vi.fn(),
         recordActiveThreadDeleted: vi.fn(),
         applyThreadRenamed: vi.fn(),
@@ -1286,8 +1286,8 @@ describe("ChatInboundHandler", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
-      const upsertActiveThread = vi.fn();
-      const handler = handlerForState(state, { upsertActiveThread });
+      const recordThreadStarted = vi.fn();
+      const handler = handlerForState(state, { recordThreadStarted });
 
       handler.handleNotification({
         method: "thread/started",
@@ -1295,14 +1295,14 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
-      expect(upsertActiveThread).toHaveBeenCalledWith(expect.objectContaining({ id: "thread-other" }));
+      expect(recordThreadStarted).toHaveBeenCalledWith(expect.objectContaining({ id: "thread-other" }));
     });
 
     it("records cwd from active thread-started notifications", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const upsertActiveThread = vi.fn();
-      const handler = handlerForState(state, { upsertActiveThread });
+      const recordThreadStarted = vi.fn();
+      const handler = handlerForState(state, { recordThreadStarted });
 
       handler.handleNotification({
         method: "thread/started",
@@ -1310,7 +1310,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
-      expect(upsertActiveThread).toHaveBeenCalledWith(expect.objectContaining({ id: "thread-active" }));
+      expect(recordThreadStarted).toHaveBeenCalledWith(expect.objectContaining({ id: "thread-active" }));
     });
 
     it("replaces optimistic user echoes when completed turns are reconciled", () => {

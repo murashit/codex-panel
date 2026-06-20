@@ -28,13 +28,17 @@ export interface ThreadCatalogArchivedReader {
   observeArchived(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
 
-export interface ThreadCatalogSourceReplacement {
-  replaceActiveFromAppServer(threads: readonly Thread[]): void;
-  replaceArchivedFromAppServer(threads: readonly Thread[]): void;
+export interface ThreadCatalogSnapshotWriter {
+  replaceActiveThreadsSnapshot(threads: readonly Thread[]): void;
+  replaceArchivedThreadsSnapshot(threads: readonly Thread[]): void;
 }
 
-export interface ThreadCatalogThreadUpserts {
-  upsertActiveFromAppServer(thread: Thread): void;
+interface ThreadCatalogThreadStarts {
+  recordThreadStarted(thread: Thread): void;
+}
+
+interface ThreadCatalogThreadForks {
+  recordThreadForked(thread: Thread): void;
 }
 
 interface ThreadCatalogThreadRenames {
@@ -53,15 +57,22 @@ export interface ThreadCatalogThreadRestores {
   recordThreadRestored(thread: Thread): void;
 }
 
-export interface ThreadCatalogThreadEvents extends ThreadCatalogThreadRenames, ThreadCatalogThreadArchives, ThreadCatalogThreadDeletes {}
+export interface ThreadCatalogChatEvents
+  extends
+    ThreadCatalogThreadStarts,
+    ThreadCatalogThreadForks,
+    ThreadCatalogThreadRenames,
+    ThreadCatalogThreadArchives,
+    ThreadCatalogThreadDeletes {}
+
+export interface ThreadCatalogThreadManagementEvents extends ThreadCatalogThreadRenames, ThreadCatalogThreadArchives {}
 
 export interface ThreadCatalog
   extends
     ThreadCatalogActiveReader,
     ThreadCatalogArchivedReader,
-    ThreadCatalogSourceReplacement,
-    ThreadCatalogThreadUpserts,
-    ThreadCatalogThreadEvents,
+    ThreadCatalogSnapshotWriter,
+    ThreadCatalogChatEvents,
     ThreadCatalogThreadRestores {}
 
 export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalog {
@@ -74,14 +85,17 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
     loadArchived: () => options.queries.fetchArchivedThreads(),
     refreshArchived: () => options.queries.refreshArchivedThreads(),
     observeArchived: (observer, observeOptions) => options.queries.observeArchivedThreadsResult(observer, observeOptions),
-    replaceActiveFromAppServer: (threads) => {
+    replaceActiveThreadsSnapshot: (threads) => {
       options.queries.setActiveThreads(threads);
     },
-    replaceArchivedFromAppServer: (threads) => {
+    replaceArchivedThreadsSnapshot: (threads) => {
       options.queries.setArchivedThreads(threads);
     },
-    upsertActiveFromAppServer: (thread) => {
-      options.queries.updateActiveThreads((current) => upsertThread(current ?? [], thread));
+    recordThreadStarted: (thread) => {
+      recordActiveThread(options.queries, thread);
+    },
+    recordThreadForked: (thread) => {
+      recordActiveThread(options.queries, thread);
     },
     recordThreadRenamed: (threadId, name) => {
       options.queries.updateActiveThreads((current) =>
@@ -106,10 +120,14 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
       options.queries.updateArchivedThreads((current) => (current ? current.filter((thread) => thread.id !== threadId) : null));
     },
     recordThreadRestored: (thread) => {
-      options.queries.updateActiveThreads((current) => upsertThread(current ?? [], thread));
+      recordActiveThread(options.queries, thread);
       options.queries.updateArchivedThreads((current) => (current ? current.filter((item) => item.id !== thread.id) : null));
     },
   };
+}
+
+function recordActiveThread(queries: AppServerSharedQueries, thread: Thread): void {
+  queries.updateActiveThreads((current) => upsertThread(current ?? [], thread));
 }
 
 function upsertThread(threads: readonly Thread[], thread: Thread): readonly Thread[] {
