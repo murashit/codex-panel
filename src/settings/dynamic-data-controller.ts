@@ -23,17 +23,21 @@ function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: stri
 }
 
 interface SettingsDynamicDataControllerCallbacks {
-  display(): void;
+  display(target: SettingsDynamicDataDisplayTarget): void;
   notify(message: string): void;
 }
+
+export type SettingsDynamicDataDisplayTarget = "all" | "helper" | "archived" | "hooks";
 
 export interface SettingsDynamicDataSnapshot {
   archivedThreads: readonly Thread[];
   archivedThreadsLifecycle: SettingsDynamicSectionLifecycleState;
+  archivedThreadsLoaded: boolean;
   hooks: readonly HookItem[];
   hookWarnings: readonly string[];
   hookErrors: readonly string[];
   hooksLifecycle: SettingsDynamicSectionLifecycleState;
+  hooksLoaded: boolean;
   models: readonly ModelMetadata[];
   modelsLifecycle: SettingsDynamicSectionLifecycleState;
 }
@@ -47,10 +51,12 @@ export class SettingsDynamicDataController {
   private settingsDataRefreshLifecycle: SettingsDataRefreshLifecycleState = { kind: "idle" };
 
   private archivedThreads: Thread[] = [];
+  private archivedThreadsLoaded = false;
   private archivedThreadsLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
   private hooks: HookItem[] = [];
   private hookWarnings: string[] = [];
   private hookErrors: string[] = [];
+  private hooksLoaded = false;
   private hooksLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
   private models: ModelMetadata[] = [];
   private modelsLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
@@ -90,8 +96,10 @@ export class SettingsDynamicDataController {
     this.hooks = [];
     this.hookWarnings = [];
     this.hookErrors = [];
+    this.hooksLoaded = false;
     this.hooksLifecycle = createSettingsDynamicSectionLifecycle();
     this.archivedThreads = [];
+    this.archivedThreadsLoaded = false;
     this.archivedThreadsLifecycle = createSettingsDynamicSectionLifecycle();
   }
 
@@ -103,7 +111,7 @@ export class SettingsDynamicDataController {
   private receiveObservedModelsResult(result: AppServerObservedQueryResult<readonly ModelMetadata[]>): void {
     if (!result.data) return;
     this.models = [...result.data];
-    this.callbacks.display();
+    this.callbacks.display("helper");
   }
 
   async refreshSettingsData(options: { forceModels?: boolean } = {}): Promise<void> {
@@ -131,7 +139,7 @@ export class SettingsDynamicDataController {
       status: "Loading hooks...",
       operationToken: hooksOperationToken,
     });
-    this.callbacks.display();
+    this.callbacks.display("all");
 
     let failedCount = 0;
     try {
@@ -175,6 +183,7 @@ export class SettingsDynamicDataController {
         this.hooks = companion.hooks.data.hooks;
         this.hookWarnings = companion.hooks.data.warnings;
         this.hookErrors = companion.hooks.data.errors;
+        this.hooksLoaded = true;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
           status: companion.hooks.status,
@@ -193,6 +202,7 @@ export class SettingsDynamicDataController {
         // A newer archived threads operation owns this section.
       } else if (companion.archivedThreads.ok) {
         this.archivedThreads = companion.archivedThreads.data;
+        this.archivedThreadsLoaded = true;
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: companion.archivedThreads.status,
@@ -242,7 +252,7 @@ export class SettingsDynamicDataController {
         if (failedCount > 0) {
           this.callbacks.notify("Could not refresh all Codex data.");
         }
-        this.callbacks.display();
+        this.callbacks.display("all");
       }
     }
   }
@@ -255,10 +265,12 @@ export class SettingsDynamicDataController {
     return {
       archivedThreads: [...this.archivedThreads],
       archivedThreadsLifecycle: { ...this.archivedThreadsLifecycle },
+      archivedThreadsLoaded: this.archivedThreadsLoaded,
       hooks: [...this.hooks],
       hookWarnings: [...this.hookWarnings],
       hookErrors: [...this.hookErrors],
       hooksLifecycle: { ...this.hooksLifecycle },
+      hooksLoaded: this.hooksLoaded,
       models: [...this.models],
       modelsLifecycle: { ...this.modelsLifecycle },
     };
@@ -374,6 +386,7 @@ export class SettingsDynamicDataController {
         this.hooks = hooks.hooks;
         this.hookWarnings = hooks.warnings;
         this.hookErrors = hooks.errors;
+        this.hooksLoaded = true;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
           status: hooks.status,
@@ -410,7 +423,7 @@ export class SettingsDynamicDataController {
         operationToken,
       }),
     );
-    this.callbacks.display();
+    this.callbacks.display(displayTargetForDynamicOperationSection(options.section));
     try {
       await options.operation(operationToken);
     } catch (error) {
@@ -424,7 +437,7 @@ export class SettingsDynamicDataController {
       );
       this.callbacks.notify(options.failureNotice);
     } finally {
-      if (!stale()) this.callbacks.display();
+      if (!stale()) this.callbacks.display(displayTargetForDynamicOperationSection(options.section));
     }
   }
 
@@ -469,4 +482,8 @@ export class SettingsDynamicDataController {
   private isStaleArchivedThreadsOperation(operationToken: number): boolean {
     return operationToken !== this.archivedThreadsOperationToken;
   }
+}
+
+function displayTargetForDynamicOperationSection(section: "hooks" | "archivedThreads"): SettingsDynamicDataDisplayTarget {
+  return section === "hooks" ? "hooks" : "archived";
 }

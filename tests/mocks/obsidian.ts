@@ -330,14 +330,16 @@ export class ButtonComponent {
 }
 
 export class ExtraButtonComponent {
-  readonly extraSettingsEl: HTMLButtonElement;
+  readonly extraSettingsEl: HTMLElement;
 
   constructor(parent: HTMLElement) {
-    this.extraSettingsEl = parent.createEl("button", { cls: "clickable-icon", attr: { type: "button" } });
+    this.extraSettingsEl = parent.createDiv({ cls: "clickable-icon extra-setting-button" });
+    this.extraSettingsEl.tabIndex = 0;
   }
 
   setDisabled(disabled: boolean): this {
-    this.extraSettingsEl.disabled = disabled;
+    this.extraSettingsEl.classList.toggle("is-disabled", disabled);
+    this.extraSettingsEl.ariaDisabled = String(disabled);
     return this;
   }
 

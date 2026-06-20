@@ -9,7 +9,7 @@ export function HookSection({ state }: { state: HookSectionState }): UiNode {
   return (
     <section className="codex-panel-settings__dynamic-section codex-panel-settings__hook-section">
       <SettingsHeading dynamic name="Hook status" desc="Review discovered hooks, trust changes, and turn hooks on or off." />
-      {state.loaded ? (
+      {state.contentAvailable ? (
         <Hooks state={state} />
       ) : !state.loading && state.status ? (
         <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>

@@ -15,9 +15,9 @@ export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionS
         desc="Choose the default archive behavior and configure saved thread notes. Thread lists offer both archive choices; slash commands use the default."
       />
       <ArchiveExportSettings state={state} />
-      {state.loaded && state.threads.length === 0 ? (
+      {state.contentAvailable && state.threads.length === 0 ? (
         <p className="setting-item-description codex-panel-settings__dynamic-section-status">No archived threads.</p>
-      ) : state.loaded ? (
+      ) : state.contentAvailable ? (
         <ArchivedThreadList state={state} />
       ) : !state.loading && state.status ? (
         <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>

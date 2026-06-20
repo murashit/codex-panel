@@ -21,6 +21,7 @@ export interface ArchivedThreadSectionState {
   exportFilenameTemplate: string;
   exportTags: string;
   threads: readonly Thread[];
+  contentAvailable: boolean;
   loaded: boolean;
   loading: boolean;
   status: string;
@@ -38,6 +39,7 @@ export interface HookSectionState {
   hooks: readonly HookItem[];
   warnings: readonly string[];
   errors: readonly string[];
+  contentAvailable: boolean;
   loaded: boolean;
   loading: boolean;
   status: string;

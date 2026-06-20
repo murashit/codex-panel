@@ -677,6 +677,52 @@ describe("settings tab", () => {
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).not.toBeNull();
   });
 
+  it("rerenders only the changed dynamic section for archive and hook actions", async () => {
+    const client = settingsClient({
+      hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", enabled: true })],
+      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
+    });
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
+    );
+    const hookUpdate = deferred<undefined>();
+    client.setHookEnabled.mockReturnValue(hookUpdate.promise);
+    const tab = newSettingsTab();
+
+    tab.display();
+    await flushPromises();
+
+    const helperSection = dynamicSection(tab, "codex-panel-settings__helper-section");
+    const archivedSection = dynamicSection(tab, "codex-panel-settings__archived-section");
+    const hookSection = dynamicSection(tab, "codex-panel-settings__hook-section");
+    const archiveToggle = inputForSetting(tab, "Save note by default");
+    if (!archiveToggle) throw new Error("Missing archive toggle");
+
+    archiveToggle.checked = true;
+    archiveToggle.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
+    expect(dynamicSection(tab, "codex-panel-settings__hook-section")).toBe(hookSection);
+
+    clickButtonByLabel(tab, "Delete Archived thread");
+
+    expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
+    expect(dynamicSection(tab, "codex-panel-settings__hook-section")).toBe(hookSection);
+
+    clickButtonByText(tab, "Disable");
+    await flushPromises();
+
+    expect(client.setHookEnabled).toHaveBeenCalledOnce();
+    expect(dynamicSection(tab, "codex-panel-settings__hook-section")).not.toBeNull();
+    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")).not.toBeNull();
+    expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
+    expect(dynamicSection(tab, "codex-panel-settings__archived-section")).toBe(archivedSection);
+
+    hookUpdate.resolve(undefined);
+    await flushPromises();
+  });
+
   it("permanently deletes an archived thread from the confirmed settings row", async () => {
     const client = settingsClient({
       threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
@@ -684,6 +730,8 @@ describe("settings tab", () => {
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
+    const deleteThread = deferred<undefined>();
+    client.deleteThread.mockReturnValue(deleteThread.promise);
     const tab = newSettingsTab();
 
     tab.display();
@@ -695,6 +743,11 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(client.deleteThread).toHaveBeenCalledWith("thread-archived");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")).not.toBeNull();
+
+    deleteThread.resolve(undefined);
+    await flushPromises();
+
     expect(tab.containerEl.textContent).toContain("No archived threads.");
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .setting-item")).toHaveLength(0);
   });
@@ -799,6 +852,8 @@ function settingsClient(
       });
     }),
     listThreads: vi.fn().mockResolvedValue({ data: options.threads ?? [appServerThread({ preview: "Archived" })] }),
+    setHookEnabled: vi.fn().mockResolvedValue({}),
+    trustHook: vi.fn().mockResolvedValue({}),
     deleteThread: vi.fn().mockResolvedValue({}),
   };
 }
@@ -904,7 +959,9 @@ function settingNames(tab: CodexPanelSettingTab): string[] {
 
 function settingsSectionRoots(tab: CodexPanelSettingTab): Element[] {
   return Array.from(tab.containerEl.children).flatMap((element) => {
-    if (element.classList.contains("codex-panel-settings__preact-sections")) return Array.from(element.children);
+    if (element.classList.contains("codex-panel-settings__preact-sections")) {
+      return Array.from(element.children).flatMap((root) => Array.from(root.children));
+    }
     return [element];
   });
 }
@@ -921,25 +978,39 @@ function buttonTexts(tab: CodexPanelSettingTab): string[] {
 }
 
 function buttonLabels(tab: CodexPanelSettingTab): string[] {
-  return Array.from(tab.containerEl.querySelectorAll("button")).map((element) => element.ariaLabel ?? "");
+  return Array.from(tab.containerEl.querySelectorAll<HTMLElement>("button, [aria-label]")).map((element) => element.ariaLabel ?? "");
 }
 
 function clickButtonByLabel(tab: CodexPanelSettingTab, label: string): void {
   buttonByLabel(tab, label).click();
 }
 
+function clickButtonByText(tab: CodexPanelSettingTab, text: string): void {
+  const button = Array.from(tab.containerEl.querySelectorAll("button")).find((element) => element.textContent === text);
+  if (!button) throw new Error(`Could not find button text: ${text}`);
+  button.click();
+}
+
 function pointerDownButtonByLabel(tab: CodexPanelSettingTab, label: string): void {
   buttonByLabel(tab, label).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
 }
 
-function buttonByLabel(tab: CodexPanelSettingTab, label: string): HTMLButtonElement {
-  const button = Array.from(tab.containerEl.querySelectorAll("button")).find((element) => element.ariaLabel === label);
+function buttonByLabel(tab: CodexPanelSettingTab, label: string): HTMLElement {
+  const button = Array.from(tab.containerEl.querySelectorAll<HTMLElement>("button, [aria-label]")).find(
+    (element) => element.ariaLabel === label,
+  );
   if (!button) throw new Error(`Could not find button: ${label}`);
   return button;
 }
 
 function inputForSetting(tab: CodexPanelSettingTab, name: string): HTMLInputElement | null {
   return settingElement(tab, name)?.querySelector("input") ?? null;
+}
+
+function dynamicSection(tab: CodexPanelSettingTab, className: string): Element {
+  const section = tab.containerEl.querySelector(`.${className}`);
+  if (!section) throw new Error(`Missing dynamic section: ${className}`);
+  return section;
 }
 
 function settingElement(tab: CodexPanelSettingTab, name: string): Element | null {
