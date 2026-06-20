@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
-import { loadHookData, loadSettingsCompanionData } from "../../src/settings/app-server-data";
+import { loadHookData } from "../../src/settings/app-server-data";
 import {
   createSettingsDynamicSectionLifecycle,
   transitionSettingsDynamicSectionLifecycle,
@@ -81,14 +81,12 @@ describe("settings lifecycle", () => {
       listHooks: vi.fn().mockResolvedValue({
         data: [{ cwd: "/other", hooks: [{ key: "other" }], warnings: ["skip"], errors: [{ message: "skip" }] }],
       }),
-      listThreads: vi.fn().mockResolvedValue({ data: [] }),
     } as unknown as AppServerClient;
 
-    const result = await loadSettingsCompanionData(client, "/vault");
-
-    expect(result.hooks).toMatchObject({
-      ok: true,
-      data: { hooks: [], warnings: [], errors: [] },
+    await expect(loadHookData(client, "/vault")).resolves.toMatchObject({
+      hooks: [],
+      warnings: [],
+      errors: [],
       status: "Loaded 0 hooks.",
     });
   });

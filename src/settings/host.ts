@@ -1,7 +1,7 @@
 import type { AppServerSharedQueries } from "../app-server/query/shared-queries";
 import type { AppServerClientAccess } from "../app-server/connection/client-access";
 import type { CodexPanelSettings } from "./model";
-import type { ActiveThreadCatalogThreadRestores } from "../workspace/active-thread-catalog";
+import type { ThreadCatalogArchivedReader, ThreadCatalogThreadDeletes, ThreadCatalogThreadRestores } from "../workspace/thread-catalog";
 
 export interface SettingsDynamicDataHost {
   settings: CodexPanelSettings;
@@ -11,7 +11,7 @@ export interface SettingsDynamicDataHost {
     AppServerSharedQueries,
     "modelsSnapshot" | "observeModelsResult" | "fetchModels" | "refreshModels" | "notifyContextChanged"
   >;
-  threadCatalog: ActiveThreadCatalogThreadRestores;
+  threadCatalog: ThreadCatalogArchivedReader & ThreadCatalogThreadDeletes & ThreadCatalogThreadRestores;
 }
 
 export interface CodexPanelSettingTabHost extends SettingsDynamicDataHost {

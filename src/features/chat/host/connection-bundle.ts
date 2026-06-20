@@ -119,14 +119,14 @@ export function createConnectionBundle(
     currentClient,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     recordStartedThread: (thread) => {
-      environment.plugin.threadCatalog.upsertFromAppServer(thread);
+      environment.plugin.threadCatalog.upsertActiveFromAppServer(thread);
     },
     syncThreadGoal: (threadId) => {
       void goalSync.syncThreadGoal(threadId);
     },
   });
   const refreshSharedThreads = async (): Promise<void> => {
-    const threads = await environment.plugin.threadCatalog.refresh();
+    const threads = await environment.plugin.threadCatalog.refreshActive();
     serverThreads.applyThreadList(threads);
   };
   const refreshSharedThreadsQuietly = (): void => {
@@ -152,7 +152,7 @@ export function createConnectionBundle(
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedSummary);
       },
       upsertActiveThread: (thread) => {
-        environment.plugin.threadCatalog.upsertFromAppServer(thread);
+        environment.plugin.threadCatalog.upsertActiveFromAppServer(thread);
       },
       applyThreadArchived: (threadId) => {
         environment.plugin.threadCatalog.recordThreadArchived(threadId);

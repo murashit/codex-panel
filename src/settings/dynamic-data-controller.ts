@@ -8,7 +8,7 @@ import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForMo
 import type { Thread } from "../domain/threads/model";
 import { errorMessage } from "../utils";
 import { archivedThreadDisplayTitle } from "./archived-thread-title";
-import { loadHookData, loadSettingsCompanionData } from "./app-server-data";
+import { loadHookData } from "./app-server-data";
 import type { SettingsDynamicDataHost } from "./host";
 import {
   createSettingsDynamicSectionLifecycle,
@@ -61,6 +61,7 @@ export class SettingsDynamicDataController {
   private models: ModelMetadata[] = [];
   private modelsLifecycle: SettingsDynamicSectionLifecycleState = createSettingsDynamicSectionLifecycle();
   private unsubscribeModels: (() => void) | null = null;
+  private unsubscribeArchivedThreads: (() => void) | null = null;
 
   constructor(
     private readonly host: SettingsDynamicDataHost,
@@ -70,9 +71,25 @@ export class SettingsDynamicDataController {
   activate(): void {
     if (this.unsubscribeModels) return;
     this.models = [...(this.host.appServerData.modelsSnapshot() ?? [])];
+    const archivedThreads = this.host.threadCatalog.archivedSnapshot();
+    if (archivedThreads) {
+      this.archivedThreads = [...archivedThreads];
+      this.archivedThreadsLoaded = true;
+      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+        type: "loaded",
+        status: archivedThreadsStatus(archivedThreads.length),
+        operationToken: this.archivedThreadsOperationToken,
+      });
+    }
     this.unsubscribeModels = this.host.appServerData.observeModelsResult(
       (result) => {
         this.receiveObservedModelsResult(result);
+      },
+      { emitCurrent: false },
+    );
+    this.unsubscribeArchivedThreads = this.host.threadCatalog.observeArchived(
+      (result) => {
+        this.receiveObservedArchivedThreadsResult(result);
       },
       { emitCurrent: false },
     );
@@ -106,12 +123,28 @@ export class SettingsDynamicDataController {
   dispose(): void {
     this.unsubscribeModels?.();
     this.unsubscribeModels = null;
+    this.unsubscribeArchivedThreads?.();
+    this.unsubscribeArchivedThreads = null;
   }
 
   private receiveObservedModelsResult(result: AppServerObservedQueryResult<readonly ModelMetadata[]>): void {
     if (!result.data) return;
     this.models = [...result.data];
     this.callbacks.display("helper");
+  }
+
+  private receiveObservedArchivedThreadsResult(result: AppServerObservedQueryResult<readonly Thread[]>): void {
+    if (!result.data) return;
+    this.archivedThreads = [...result.data];
+    this.archivedThreadsLoaded = true;
+    if (this.archivedThreadsLifecycle.kind !== "loading") {
+      this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
+        type: "loaded",
+        status: archivedThreadsStatus(result.data.length),
+        operationToken: this.archivedThreadsOperationToken,
+      });
+    }
+    this.callbacks.display("archived");
   }
 
   async refreshSettingsData(options: { forceModels?: boolean } = {}): Promise<void> {
@@ -143,9 +176,10 @@ export class SettingsDynamicDataController {
 
     let failedCount = 0;
     try {
-      const [modelsResult, companionResult] = await Promise.allSettled([
+      const [modelsResult, hooksResult, archivedThreadsResult] = await Promise.allSettled([
         options.forceModels === false ? this.host.appServerData.fetchModels() : this.host.appServerData.refreshModels(),
-        this.withSettingsConnection((client) => loadSettingsCompanionData(client, this.host.vaultPath)),
+        this.withSettingsConnection((client) => loadHookData(client, this.host.vaultPath)),
+        this.host.threadCatalog.refreshArchived(),
       ] as const);
       if (this.isStaleSettingsRefreshOperation(operationToken)) return;
 
@@ -169,50 +203,44 @@ export class SettingsDynamicDataController {
         });
       }
 
-      const companion =
-        companionResult.status === "fulfilled"
-          ? companionResult.value
-          : {
-              hooks: { ok: false as const, status: `Could not load hooks: ${errorMessage(companionResult.reason)}` },
-              archivedThreads: { ok: false as const, status: `Could not load archived threads: ${errorMessage(companionResult.reason)}` },
-            };
-
       if (this.isStaleHooksOperation(hooksOperationToken)) {
         // A newer hooks operation owns this section.
-      } else if (companion.hooks.ok) {
-        this.hooks = companion.hooks.data.hooks;
-        this.hookWarnings = companion.hooks.data.warnings;
-        this.hookErrors = companion.hooks.data.errors;
+      } else if (hooksResult.status === "fulfilled") {
+        this.hooks = hooksResult.value.hooks;
+        this.hookWarnings = hooksResult.value.warnings;
+        this.hookErrors = hooksResult.value.errors;
         this.hooksLoaded = true;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
-          status: companion.hooks.status,
+          status: hooksResult.value.status,
           operationToken: hooksOperationToken,
         });
       } else {
         failedCount += 1;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "failed",
-          status: companion.hooks.status,
+          status: `Could not load hooks: ${errorMessage(hooksResult.reason)}`,
           operationToken: hooksOperationToken,
         });
       }
 
       if (this.isStaleArchivedThreadsOperation(archivedThreadsOperationToken)) {
         // A newer archived threads operation owns this section.
-      } else if (companion.archivedThreads.ok) {
-        this.archivedThreads = companion.archivedThreads.data;
+      } else if (archivedThreadsResult.status === "fulfilled") {
+        this.archivedThreads = [...archivedThreadsResult.value];
         this.archivedThreadsLoaded = true;
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
-          status: companion.archivedThreads.status,
+          status: archivedThreadsStatus(archivedThreadsResult.value.length),
           operationToken: archivedThreadsOperationToken,
         });
+      } else if (isStaleAppServerSharedQueryContextError(archivedThreadsResult.reason)) {
+        return;
       } else {
         failedCount += 1;
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "failed",
-          status: companion.archivedThreads.status,
+          status: `Could not load archived threads: ${errorMessage(archivedThreadsResult.reason)}`,
           operationToken: archivedThreadsOperationToken,
         });
       }
@@ -324,12 +352,12 @@ export class SettingsDynamicDataController {
         const restoredThread = await this.withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
+        this.host.threadCatalog.recordThreadRestored(restoredThread);
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
           operationToken,
         });
-        this.host.threadCatalog.recordThreadRestored(restoredThread);
       },
     });
   }
@@ -348,6 +376,7 @@ export class SettingsDynamicDataController {
         await this.withSettingsConnection((client) => client.deleteThread(threadId));
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
+        this.host.threadCatalog.recordThreadDeleted(threadId);
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: `Deleted "${title}".`,
@@ -486,4 +515,8 @@ export class SettingsDynamicDataController {
 
 function displayTargetForDynamicOperationSection(section: "hooks" | "archivedThreads"): SettingsDynamicDataDisplayTarget {
   return section === "hooks" ? "hooks" : "archived";
+}
+
+function archivedThreadsStatus(count: number): string {
+  return `Loaded ${String(count)} archived thread${count === 1 ? "" : "s"}.`;
 }

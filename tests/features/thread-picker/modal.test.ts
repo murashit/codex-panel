@@ -108,10 +108,10 @@ function threadPickerHost(threads: readonly Thread[]): TestThreadPickerHost {
     openedCurrent,
     openedAvailable,
     threadCatalog: {
-      snapshot: () => null,
-      load: async () => threads,
-      refresh: async () => threads,
-      observe: () => () => undefined,
+      activeSnapshot: () => null,
+      loadActive: async () => threads,
+      refreshActive: async () => threads,
+      observeActive: () => () => undefined,
     },
     openThreadInCurrentView: async (threadId) => {
       openedCurrent.push(threadId);

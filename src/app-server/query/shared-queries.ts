@@ -34,20 +34,40 @@ export class AppServerSharedQueries {
     return this.options.cache.activeThreadsSnapshot(this.context());
   }
 
+  archivedThreadsSnapshot(): readonly Thread[] | null {
+    return this.options.cache.archivedThreadsSnapshot(this.context());
+  }
+
   fetchActiveThreads(): Promise<readonly Thread[]> {
     return this.runForCurrentContext((context) => this.options.cache.fetchActiveThreads(context));
+  }
+
+  fetchArchivedThreads(): Promise<readonly Thread[]> {
+    return this.runForCurrentContext((context) => this.options.cache.fetchArchivedThreads(context));
   }
 
   refreshActiveThreads(): Promise<readonly Thread[]> {
     return this.runForCurrentContext((context) => this.options.cache.refreshActiveThreads(context));
   }
 
+  refreshArchivedThreads(): Promise<readonly Thread[]> {
+    return this.runForCurrentContext((context) => this.options.cache.refreshArchivedThreads(context));
+  }
+
   setActiveThreads(threads: readonly Thread[]): void {
     this.options.cache.setActiveThreads(this.context(), threads);
   }
 
+  setArchivedThreads(threads: readonly Thread[]): void {
+    this.options.cache.setArchivedThreads(this.context(), threads);
+  }
+
   updateActiveThreads(updater: (threads: readonly Thread[] | null) => readonly Thread[] | null): readonly Thread[] | null {
     return this.options.cache.updateActiveThreads(this.context(), updater);
+  }
+
+  updateArchivedThreads(updater: (threads: readonly Thread[] | null) => readonly Thread[] | null): readonly Thread[] | null {
+    return this.options.cache.updateArchivedThreads(this.context(), updater);
   }
 
   observeActiveThreadsResult(
@@ -56,6 +76,18 @@ export class AppServerSharedQueries {
   ): () => void {
     return this.observeCurrentContext(
       (context, contextListener, observeOptions) => this.options.cache.observeActiveThreadsResult(context, contextListener, observeOptions),
+      listener,
+      options,
+    );
+  }
+
+  observeArchivedThreadsResult(
+    listener: (result: AppServerObservedQueryResult<readonly Thread[]>) => void,
+    options?: { emitCurrent?: boolean },
+  ): () => void {
+    return this.observeCurrentContext(
+      (context, contextListener, observeOptions) =>
+        this.options.cache.observeArchivedThreadsResult(context, contextListener, observeOptions),
       listener,
       options,
     );

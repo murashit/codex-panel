@@ -3,11 +3,7 @@ import type { App, Component, EventRef } from "obsidian";
 import type { AppServerSharedQueries } from "../../../app-server/query/shared-queries";
 import type { ArchiveExportAdapter } from "../../../domain/threads/archive-markdown";
 import type { CodexPanelSettings } from "../../../settings/model";
-import type {
-  ActiveThreadCatalogReader,
-  ActiveThreadCatalogThreadEvents,
-  ActiveThreadCatalogThreadUpserts,
-} from "../../../workspace/active-thread-catalog";
+import type { ThreadCatalogActiveReader, ThreadCatalogThreadEvents, ThreadCatalogThreadUpserts } from "../../../workspace/thread-catalog";
 import type { ChatTurnDiffViewState } from "../domain/turn-diff";
 
 export interface CodexChatHost {
@@ -29,7 +25,7 @@ interface WorkspacePanels {
   refreshThreadsViewLiveState(): void;
 }
 
-type ChatThreadCatalog = ActiveThreadCatalogReader & ActiveThreadCatalogThreadEvents & ActiveThreadCatalogThreadUpserts;
+type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogThreadEvents & ThreadCatalogThreadUpserts;
 
 type ChatAppServerData = Pick<
   AppServerSharedQueries,

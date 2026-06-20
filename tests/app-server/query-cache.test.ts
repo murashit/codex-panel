@@ -123,6 +123,22 @@ describe("AppServerQueryCache", () => {
     expect(fetchThreads).toHaveBeenCalledOnce();
   });
 
+  it("keeps active and archived thread list snapshots separate", async () => {
+    const fetchThreads = vi.fn((_context: AppServerQueryContext, archived: boolean) =>
+      Promise.resolve(archived ? [thread("archived", true)] : [thread("active")]),
+    );
+    const cache = cacheWithThreads(fetchThreads);
+    const context = cacheContext();
+
+    await expect(cache.refreshActiveThreads(context)).resolves.toEqual([thread("active")]);
+    await expect(cache.refreshArchivedThreads(context)).resolves.toEqual([thread("archived", true)]);
+
+    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("active")]);
+    expect(cache.archivedThreadsSnapshot(context)).toEqual([thread("archived", true)]);
+    expect(fetchThreads).toHaveBeenNthCalledWith(1, context, false);
+    expect(fetchThreads).toHaveBeenNthCalledWith(2, context, true);
+  });
+
   it("keys thread list refresh snapshots by app-server query context", async () => {
     const oldContext = cacheContext({ codexPath: "codex-old" });
     const newContext = cacheContext({ codexPath: "codex-new" });
@@ -290,6 +306,22 @@ describe("AppServerQueryCache", () => {
     expect(cache.activeThreadsSnapshot(context)).toEqual([thread("other")]);
   });
 
+  it("keeps archived thread deletes when an older archived refresh resolves later", async () => {
+    const context = cacheContext();
+    const refresh = deferred<readonly ReturnType<typeof thread>[]>();
+    const cache = cacheWithThreads((_context, archived) => (archived ? refresh.promise : Promise.resolve([])));
+
+    cache.setArchivedThreads(context, [thread("thread", true), thread("other", true)]);
+    const promise = cache.refreshArchivedThreads(context);
+    await flushMicrotasks();
+
+    cache.updateArchivedThreads(context, (threads) => threads?.filter((item) => item.id !== "thread") ?? null);
+    refresh.resolve([thread("thread", true), thread("other", true)]);
+
+    await expect(promise).resolves.toEqual([thread("other", true)]);
+    expect(cache.archivedThreadsSnapshot(context)).toEqual([thread("other", true)]);
+  });
+
   it("keeps active thread renames recorded while the cache is empty when an older refresh resolves later", async () => {
     const context = cacheContext();
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
@@ -346,14 +378,14 @@ function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServer
 }
 
 function cacheWithThreads(
-  fetchThreads: (context: AppServerQueryContext) => Promise<readonly ReturnType<typeof thread>[]>,
+  fetchThreads: (context: AppServerQueryContext, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
 ): AppServerQueryCache {
   return new AppServerQueryCache({
     clientRunner: {
       runWithClient: async (context, operation) => {
         return operation({
-          listThreads: async () => ({
-            data: await fetchThreads(context),
+          listThreads: async (_cwd: string, options: { archived?: boolean }) => ({
+            data: await fetchThreads(context, options.archived ?? false),
             nextCursor: null,
           }),
         } as never);
@@ -478,12 +510,12 @@ function appServerRateLimit(usedPercent: number): RateLimitSnapshot {
   };
 }
 
-function thread(id: string) {
+function thread(id: string, archived = false) {
   return {
     id,
     preview: "",
     name: null,
-    archived: false,
+    archived,
     createdAt: 1,
     updatedAt: 1,
   };

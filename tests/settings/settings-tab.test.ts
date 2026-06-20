@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
+import type { AppServerObservedQueryResult } from "../../src/app-server/query/cache";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
@@ -59,7 +60,6 @@ describe("settings tab", () => {
     expect(fetchModels).toHaveBeenCalledTimes(1);
     expect(client.listModels).not.toHaveBeenCalled();
     expect(client.listHooks).toHaveBeenCalledTimes(1);
-    expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: true, cursor: null, limit: 100 });
 
     tab.display();
     await flushPromises();
@@ -205,11 +205,8 @@ describe("settings tab", () => {
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
-    const firstClient = settingsClient({ models: [model("gpt-5.4")], threads: [appServerThread({ id: "thread-old", preview: "Old" })] });
-    const secondClient = settingsClient({
-      models: [model("gpt-5.5")],
-      threads: [appServerThread({ id: "thread-new", preview: "New" })],
-    });
+    const firstClient = settingsClient({ models: [model("gpt-5.4")] });
+    const secondClient = settingsClient({ models: [model("gpt-5.5")] });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(firstClient),
@@ -219,7 +216,11 @@ describe("settings tab", () => {
       );
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.4")]));
     const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
-    const tab = newSettingsTab({ fetchModels, refreshModels });
+    const refreshArchived = vi
+      .fn()
+      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old", archived: true })])
+      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New", archived: true })]);
+    const tab = newSettingsTab({ fetchModels, refreshModels, refreshArchived });
 
     tab.display();
     await flushPromises();
@@ -229,6 +230,7 @@ describe("settings tab", () => {
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
     expect(fetchModels).toHaveBeenCalledOnce();
     expect(refreshModels).toHaveBeenCalledOnce();
+    expect(refreshArchived).toHaveBeenCalledTimes(2);
     expect(tab.containerEl.textContent).toContain("gpt-5.5");
     expect(tab.containerEl.textContent).toContain("New");
     expect(tab.containerEl.textContent).not.toContain("Old");
@@ -241,19 +243,21 @@ describe("settings tab", () => {
     const oldClient = settingsClient({
       models: [model("gpt-old")],
       hooks: [hook({ key: "hook-old", command: "old hook", currentHash: "oldhash" })],
-      threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
     });
     const newClient = settingsClient({
       models: [model("gpt-new")],
       hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
-      threads: [appServerThread({ id: "thread-new", preview: "New archived" })],
     });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(oldClient))
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(newClient));
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-old")]));
     const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-new")]));
-    const tab = newSettingsTab({ saveSettings, notifyContextChanged, refreshOpenViews, fetchModels, refreshModels });
+    const refreshArchived = vi
+      .fn()
+      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
+      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
+    const tab = newSettingsTab({ saveSettings, notifyContextChanged, refreshOpenViews, fetchModels, refreshModels, refreshArchived });
 
     tab.display();
     await flushPromises();
@@ -308,15 +312,35 @@ describe("settings tab", () => {
     expect(unsubscribe).toHaveBeenCalledOnce();
   });
 
+  it("publishes archived thread catalog updates to the archived settings section", () => {
+    let emitArchived = (_threads: readonly Thread[]): void => {
+      throw new Error("Expected archived thread observer");
+    };
+    const display = vi.fn();
+    const controller = new SettingsDynamicDataController(
+      settingsTabHost({
+        observeArchived: (listener) => {
+          emitArchived = (threads) => {
+            listener({ data: threads, error: null } as unknown as AppServerObservedQueryResult<readonly Thread[]>);
+          };
+          return () => undefined;
+        },
+      }),
+      { display, notify: vi.fn() },
+    );
+
+    controller.activate();
+    emitArchived([panelThread({ id: "thread-archived", preview: "Archived elsewhere", archived: true })]);
+
+    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Archived elsewhere"]);
+    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("loaded");
+    expect(display).toHaveBeenCalledWith("archived");
+  });
+
   it("ignores stale settings data refresh results after a newer refresh completes", async () => {
     const firstModels = deferred<ModelMetadata[]>();
-    const firstClient = settingsClient({
-      threads: [appServerThread({ id: "thread-old", preview: "Old" })],
-    });
-    const secondClient = settingsClient({
-      models: [model("gpt-new")],
-      threads: [appServerThread({ id: "thread-new", preview: "New" })],
-    });
+    const firstClient = settingsClient();
+    const secondClient = settingsClient({ models: [model("gpt-new")] });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(firstClient),
@@ -328,7 +352,14 @@ describe("settings tab", () => {
       .fn()
       .mockReturnValueOnce(firstModels.promise)
       .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-new")]));
-    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshModels }), { display: vi.fn(), notify: vi.fn() });
+    const refreshArchived = vi
+      .fn()
+      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old", archived: true })])
+      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New", archived: true })]);
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshModels, refreshArchived }), {
+      display: vi.fn(),
+      notify: vi.fn(),
+    });
 
     const firstRefresh = controller.refreshSettingsData();
     await flushPromises();
@@ -395,7 +426,6 @@ describe("settings tab", () => {
     const models = deferred<readonly ModelMetadata[]>();
     const fullRefreshClient = settingsClient({
       hooks: [hook({ key: "hook-full", command: "full refresh hook", currentHash: "fullhash" })],
-      threads: [appServerThread({ id: "thread-full", preview: "Full archived" })],
     });
     const trustClient = {
       trustHook: vi.fn().mockResolvedValue({}),
@@ -414,7 +444,11 @@ describe("settings tab", () => {
         operation(hookReloadClient),
       );
     const refreshModels = vi.fn().mockReturnValue(models.promise);
-    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshModels }), { display: vi.fn(), notify: vi.fn() });
+    const refreshArchived = vi.fn().mockResolvedValue([panelThread({ id: "thread-full", preview: "Full archived", archived: true })]);
+    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshModels, refreshArchived }), {
+      display: vi.fn(),
+      notify: vi.fn(),
+    });
 
     const fullRefresh = controller.refreshSettingsData();
     await flushPromises();
@@ -434,15 +468,11 @@ describe("settings tab", () => {
   it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
     const recordThreadRestored = vi.fn();
-    const initialClient = settingsClient({
-      threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
-    });
+    const initialClient = settingsClient();
     const restoreClient = {
       unarchiveThread: vi.fn(() => staleRestore.promise),
     };
-    const newerClient = settingsClient({
-      threads: [appServerThread({ id: "thread-new", preview: "New archived" })],
-    });
+    const newerClient = settingsClient();
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(initialClient),
@@ -453,7 +483,11 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(newerClient),
       );
-    const controller = new SettingsDynamicDataController(settingsTabHost({ recordThreadRestored }), {
+    const refreshArchived = vi
+      .fn()
+      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
+      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
+    const controller = new SettingsDynamicDataController(settingsTabHost({ recordThreadRestored, refreshArchived }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
@@ -475,9 +509,7 @@ describe("settings tab", () => {
   it("records restored archived threads in the active catalog", async () => {
     const notify = vi.fn();
     const recordThreadRestored = vi.fn();
-    const initialClient = settingsClient({
-      threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
-    });
+    const initialClient = settingsClient();
     const restoreClient = {
       unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
     };
@@ -488,7 +520,13 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(restoreClient),
       );
-    const controller = new SettingsDynamicDataController(settingsTabHost({ recordThreadRestored }), { display: vi.fn(), notify });
+    const controller = new SettingsDynamicDataController(
+      settingsTabHost({
+        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
+        recordThreadRestored,
+      }),
+      { display: vi.fn(), notify },
+    );
 
     await controller.refreshSettingsData();
     await controller.restoreArchivedThread("thread-old");
@@ -504,9 +542,7 @@ describe("settings tab", () => {
 
   it("displays restored archived thread state after recording the active catalog event", async () => {
     const snapshots: SettingsDynamicDataSnapshot[] = [];
-    const initialClient = settingsClient({
-      threads: [appServerThread({ id: "thread-old", preview: "Old archived" })],
-    });
+    const initialClient = settingsClient();
     const restoreClient = {
       unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
     };
@@ -518,13 +554,28 @@ describe("settings tab", () => {
         operation(restoreClient),
       );
     const controllerRef: { current: SettingsDynamicDataController | null } = { current: null };
-    const controller = new SettingsDynamicDataController(settingsTabHost(), {
-      display: () => {
-        const snapshot = controllerRef.current?.snapshot();
-        if (snapshot) snapshots.push(snapshot);
+    let emitArchived = (_threads: readonly Thread[]): void => undefined;
+    const controller = new SettingsDynamicDataController(
+      settingsTabHost({
+        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
+        observeArchived: (listener) => {
+          emitArchived = (threads) => {
+            listener({ data: threads, error: null } as unknown as AppServerObservedQueryResult<readonly Thread[]>);
+          };
+          return () => undefined;
+        },
+        recordThreadRestored: () => {
+          emitArchived([]);
+        },
+      }),
+      {
+        display: () => {
+          const snapshot = controllerRef.current?.snapshot();
+          if (snapshot) snapshots.push(snapshot);
+        },
+        notify: vi.fn(),
       },
-      notify: vi.fn(),
-    });
+    );
     controllerRef.current = controller;
 
     await controller.refreshSettingsData();
@@ -533,6 +584,54 @@ describe("settings tab", () => {
 
     expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
     expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("loaded");
+    expect(snapshots.at(-1)?.archivedThreadsLifecycle.status).toBe('Restored "Restored old".');
+  });
+
+  it("displays deleted archived thread status after recording the catalog event", async () => {
+    const snapshots: SettingsDynamicDataSnapshot[] = [];
+    const initialClient = settingsClient();
+    const deleteClient = {
+      deleteThread: vi.fn().mockResolvedValue({}),
+    };
+    withShortLivedAppServerClientMock
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(initialClient),
+      )
+      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
+        operation(deleteClient),
+      );
+    const controllerRef: { current: SettingsDynamicDataController | null } = { current: null };
+    let emitArchived = (_threads: readonly Thread[]): void => undefined;
+    const controller = new SettingsDynamicDataController(
+      settingsTabHost({
+        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
+        observeArchived: (listener) => {
+          emitArchived = (threads) => {
+            listener({ data: threads, error: null } as unknown as AppServerObservedQueryResult<readonly Thread[]>);
+          };
+          return () => undefined;
+        },
+        recordThreadDeleted: () => {
+          emitArchived([]);
+        },
+      }),
+      {
+        display: () => {
+          const snapshot = controllerRef.current?.snapshot();
+          if (snapshot) snapshots.push(snapshot);
+        },
+        notify: vi.fn(),
+      },
+    );
+    controllerRef.current = controller;
+
+    await controller.refreshSettingsData();
+    snapshots.length = 0;
+    await controller.deleteArchivedThread("thread-old");
+
+    expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
+    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("loaded");
+    expect(snapshots.at(-1)?.archivedThreadsLifecycle.status).toBe('Deleted "Old archived".');
   });
 
   it("uses cached models initially and publishes refreshed models", async () => {
@@ -603,12 +702,11 @@ describe("settings tab", () => {
     const client = settingsClient({
       models: [model("gpt-5.4")],
       hooksError: new Error("hooks unavailable"),
-      threads: [appServerThread({ preview: "Archived thread" })],
     });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab();
+    const tab = newSettingsTab({ archivedThreads: [panelThread({ preview: "Archived thread", archived: true })] });
 
     tab.display();
     await flushPromises();
@@ -623,12 +721,11 @@ describe("settings tab", () => {
   it("renders archived threads and hooks as dynamic setting rows", async () => {
     const client = settingsClient({
       hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", trustStatus: "untrusted" })],
-      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
     });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab();
+    const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
     await flushPromises();
@@ -654,13 +751,11 @@ describe("settings tab", () => {
   });
 
   it("confirms archived thread deletion inline and cancels from outside clicks", async () => {
-    const client = settingsClient({
-      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
-    });
+    const client = settingsClient();
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab();
+    const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
     await flushPromises();
@@ -680,13 +775,14 @@ describe("settings tab", () => {
 
   it("keeps the settings shell mounted while dynamic sections update", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const client = settingsClient({
-      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
-    });
+    const client = settingsClient();
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const tab = newSettingsTab({ saveSettings });
+    const tab = newSettingsTab({
+      saveSettings,
+      archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })],
+    });
 
     tab.display();
     await flushPromises();
@@ -714,14 +810,13 @@ describe("settings tab", () => {
   it("rerenders only the changed dynamic section for archive and hook actions", async () => {
     const client = settingsClient({
       hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", enabled: true })],
-      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
     });
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
     const hookUpdate = deferred<undefined>();
     client.setHookEnabled.mockReturnValue(hookUpdate.promise);
-    const tab = newSettingsTab();
+    const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
     await flushPromises();
@@ -758,15 +853,13 @@ describe("settings tab", () => {
   });
 
   it("permanently deletes an archived thread from the confirmed settings row", async () => {
-    const client = settingsClient({
-      threads: [appServerThread({ id: "thread-archived", preview: "Archived thread" })],
-    });
+    const client = settingsClient();
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
     const deleteThread = deferred<undefined>();
     client.deleteThread.mockReturnValue(deleteThread.promise);
-    const tab = newSettingsTab();
+    const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
     await flushPromises();
@@ -905,7 +998,12 @@ function newSettingsTab(
     observeModels?: CodexPanelSettingTabHost["appServerData"]["observeModelsResult"];
     notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
+    archivedThreads?: Thread[];
+    archivedSnapshot?: Thread[] | null;
+    refreshArchived?: () => Promise<readonly Thread[]>;
+    observeArchived?: CodexPanelSettingTabHost["threadCatalog"]["observeArchived"];
     recordThreadRestored?: (thread: Thread) => void;
+    recordThreadDeleted?: (threadId: string) => void;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -927,7 +1025,12 @@ function settingsTabHost(
     observeModels?: CodexPanelSettingTabHost["appServerData"]["observeModelsResult"];
     notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
+    archivedThreads?: Thread[];
+    archivedSnapshot?: Thread[] | null;
+    refreshArchived?: () => Promise<readonly Thread[]>;
+    observeArchived?: CodexPanelSettingTabHost["threadCatalog"]["observeArchived"];
     recordThreadRestored?: (thread: Thread) => void;
+    recordThreadDeleted?: (threadId: string) => void;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -936,6 +1039,7 @@ function settingsTabHost(
     }>;
   } = {},
 ): CodexPanelSettingTabHost {
+  const defaultArchivedThreads = [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })];
   const settings = {
     codexPath: "codex",
     threadNamingModel: options.settings?.threadNamingModel ?? null,
@@ -967,6 +1071,11 @@ function settingsTabHost(
       notifyContextChanged: options.notifyContextChanged ?? vi.fn(),
     },
     threadCatalog: {
+      archivedSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
+      loadArchived: vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
+      refreshArchived: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
+      observeArchived: options.observeArchived ?? vi.fn(() => () => undefined),
+      recordThreadDeleted: options.recordThreadDeleted ?? vi.fn(),
       recordThreadRestored: options.recordThreadRestored ?? vi.fn(),
     },
   };

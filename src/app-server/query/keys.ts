@@ -7,6 +7,7 @@ export interface AppServerQueryContext {
 
 type AppServerQueryScope = readonly ["app-server", string, string];
 export type AppServerActiveThreadsQueryKey = readonly [...AppServerQueryScope, "threads", "active"];
+export type AppServerArchivedThreadsQueryKey = readonly [...AppServerQueryScope, "threads", "archived"];
 export type AppServerMetadataQueryKey = readonly [...AppServerQueryScope, "metadata"];
 export type AppServerModelsQueryKey = readonly [...AppServerQueryScope, "models"];
 
@@ -32,6 +33,10 @@ function appServerQueryScope(context: AppServerQueryContext): AppServerQueryScop
 
 export function activeThreadsQueryKey(context: AppServerQueryContext): AppServerActiveThreadsQueryKey {
   return [...appServerQueryScope(context), "threads", "active"];
+}
+
+export function archivedThreadsQueryKey(context: AppServerQueryContext): AppServerArchivedThreadsQueryKey {
+  return [...appServerQueryScope(context), "threads", "archived"];
 }
 
 export function appServerMetadataQueryKey(context: AppServerQueryContext): AppServerMetadataQueryKey {

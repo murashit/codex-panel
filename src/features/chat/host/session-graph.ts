@@ -423,7 +423,7 @@ function createChatPanelSharedStateBinding(
     }
   };
   const applyCached = (): void => {
-    const threads = host.environment.plugin.threadCatalog.snapshot();
+    const threads = host.environment.plugin.threadCatalog.activeSnapshot();
     if (threads) serverActions.threads.applyThreadList(threads);
     const metadata = host.environment.plugin.appServerData.appServerMetadataSnapshot();
     if (metadata) serverActions.metadata.applyAppServerMetadata(metadata);
@@ -437,7 +437,7 @@ function createChatPanelSharedStateBinding(
       unsubscribe();
       applyCached();
       unsubscribers.push(
-        host.environment.plugin.threadCatalog.observe(receiveThreadResult, { emitCurrent: false }),
+        host.environment.plugin.threadCatalog.observeActive(receiveThreadResult, { emitCurrent: false }),
         host.environment.plugin.appServerData.observeAppServerMetadataResult(receiveAppServerMetadataResult, { emitCurrent: false }),
         host.environment.plugin.appServerData.observeModelsResult(receiveModelsResult, { emitCurrent: false }),
       );
@@ -749,7 +749,7 @@ function createThreadActionParts(
       await refreshActiveThreads();
     },
     recordForkedThread: (thread) => {
-      environment.plugin.threadCatalog.upsertFromAppServer(thread);
+      environment.plugin.threadCatalog.upsertActiveFromAppServer(thread);
     },
   };
   const actions = createThreadManagementActions(threadManagementHost);

@@ -22,7 +22,7 @@ import { archiveExportSettings } from "./features/threads/archive-export-setting
 import { CodexThreadsView, type CodexThreadsHost, type CodexThreadsSettingsAccess } from "./features/threads-view/view";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
-import { createActiveThreadCatalog, type ActiveThreadCatalog } from "./workspace/active-thread-catalog";
+import { createThreadCatalog, type ThreadCatalog } from "./workspace/thread-catalog";
 
 export interface CodexPanelRuntimeOptions {
   app: App;
@@ -41,7 +41,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     context: () => this.appServerQueryContext(),
   });
   private readonly panels: WorkspacePanelCoordinator;
-  private readonly threadCatalog: ActiveThreadCatalog;
+  private readonly threadCatalog: ThreadCatalog;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
     this.panels = new WorkspacePanelCoordinator({
@@ -50,7 +50,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
         this.refreshThreadsViewLiveState();
       },
     });
-    this.threadCatalog = createActiveThreadCatalog({
+    this.threadCatalog = createThreadCatalog({
       queries: this.appServerSharedQueries,
       surfaces: {
         applyThreadArchived: (threadId, archiveOptions) => {

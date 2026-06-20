@@ -235,7 +235,7 @@ describe("CodexThreadsView", () => {
     });
     const host = threadsHost({
       threadCatalog: {
-        refresh,
+        refreshActive: refresh,
       },
     });
     const view = await threadsView(host);
@@ -258,7 +258,7 @@ describe("CodexThreadsView", () => {
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
-          snapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
+          activeSnapshot: vi.fn(() => [threadFixture({ id: "cached", preview: "Cached thread" })]),
         },
       }),
     );
@@ -433,8 +433,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       recordThreadArchived: vi.fn(),
       recordThreadDeleted: vi.fn(),
       recordThreadRenamed: vi.fn(),
-      load: vi.fn(async () => []),
-      refresh: vi.fn(async () => {
+      loadActive: vi.fn(async () => []),
+      refreshActive: vi.fn(async () => {
         const client = connectionMock.state.client;
         if (!client) return [];
         const listThreads = client["listThreads"] as (
@@ -446,8 +446,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
         const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
         return response.data.map(threadFromRecord);
       }),
-      snapshot: vi.fn(() => null),
-      observe: vi.fn(() => () => undefined),
+      activeSnapshot: vi.fn(() => null),
+      observeActive: vi.fn(() => () => undefined),
       ...threadCatalogOverrides,
     },
     ...hostOverrides,

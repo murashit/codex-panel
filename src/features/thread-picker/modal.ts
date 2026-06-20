@@ -3,11 +3,11 @@ import { Notice, Platform, SuggestModal, type App } from "obsidian";
 import { getThreadTitle } from "../../domain/threads/model";
 import type { Thread } from "../../domain/threads/model";
 import { shortThreadId } from "../../utils";
-import type { ActiveThreadCatalogReader } from "../../workspace/active-thread-catalog";
+import type { ThreadCatalogActiveReader } from "../../workspace/thread-catalog";
 
 export interface ThreadPickerHost {
   readonly app: App;
-  readonly threadCatalog: ActiveThreadCatalogReader;
+  readonly threadCatalog: ThreadCatalogActiveReader;
   openThreadInCurrentView(threadId: string): Promise<void>;
   openThreadInAvailableView(threadId: string): Promise<void>;
 }
@@ -71,7 +71,7 @@ function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMod
 }
 
 async function loadThreadPickerThreads(host: ThreadPickerHost): Promise<readonly Thread[]> {
-  return host.threadCatalog.load();
+  return host.threadCatalog.loadActive();
 }
 
 class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {

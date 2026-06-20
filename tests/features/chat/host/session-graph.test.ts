@@ -49,7 +49,7 @@ describe("createChatPanelSessionGraph actions", () => {
       environment: {
         plugin: {
           threadCatalog: {
-            refresh,
+            refreshActive: refresh,
           },
         },
       },
@@ -68,7 +68,7 @@ describe("createChatPanelSessionGraph actions", () => {
       environment: {
         plugin: {
           threadCatalog: {
-            refresh,
+            refreshActive: refresh,
           },
         },
       },
@@ -87,7 +87,7 @@ describe("createChatPanelSessionGraph actions", () => {
       environment: {
         plugin: {
           threadCatalog: {
-            snapshot: vi.fn(() => [thread]),
+            activeSnapshot: vi.fn(() => [thread]),
           },
           appServerData: {
             modelsSnapshot: vi.fn(() => [model]),
@@ -113,7 +113,7 @@ describe("createChatPanelSessionGraph actions", () => {
       environment: {
         plugin: {
           threadCatalog: {
-            observe: observeThreads,
+            observeActive: observeThreads,
           },
           appServerData: {
             observeAppServerMetadataResult: observeMetadata,
@@ -311,14 +311,14 @@ describe("createChatPanelSessionGraph actions", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]> = {},
   ): ChatPanelEnvironment["plugin"]["threadCatalog"] {
     return {
-      load: vi.fn().mockResolvedValue([]),
-      refresh: vi.fn().mockResolvedValue([]),
-      snapshot: vi.fn(() => null),
-      observe: vi.fn(() => () => undefined),
+      loadActive: vi.fn().mockResolvedValue([]),
+      refreshActive: vi.fn().mockResolvedValue([]),
+      activeSnapshot: vi.fn(() => null),
+      observeActive: vi.fn(() => () => undefined),
       recordThreadArchived: vi.fn(),
       recordThreadDeleted: vi.fn(),
       recordThreadRenamed: vi.fn(),
-      upsertFromAppServer: vi.fn(),
+      upsertActiveFromAppServer: vi.fn(),
       ...overrides,
     };
   }
