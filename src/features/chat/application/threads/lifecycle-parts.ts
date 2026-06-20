@@ -4,7 +4,7 @@ import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle"
 import type { ChatStateStore } from "../state/store";
 import type { GoalActions } from "./goal-actions";
 import type { HistoryController } from "./history-controller";
-import { createIdentitySync } from "./identity-sync";
+import { createActiveThreadIdentitySync } from "./active-thread-identity-sync";
 import { createResumeActions, type ResumeActions } from "./resume-actions";
 import { RestorationController } from "./restoration-controller";
 
@@ -42,7 +42,7 @@ export interface ThreadLifecycleParts {
   history: HistoryController;
   restoration: RestorationController;
   resume: ResumeActions;
-  identity: ReturnType<typeof createIdentitySync>;
+  identity: ReturnType<typeof createActiveThreadIdentitySync>;
 }
 
 export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext): ThreadLifecycleParts {
@@ -79,7 +79,7 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
         return response?.dataBase64 ?? "";
       }),
   });
-  const identity = createIdentitySync({
+  const identity = createActiveThreadIdentitySync({
     stateStore,
     restoration,
     invalidateThreadWork,

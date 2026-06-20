@@ -24,7 +24,7 @@ import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../applicatio
 import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
 import { createAutoTitleCoordinator, type AutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
 import { HistoryController } from "../application/threads/history-controller";
-import type { IdentitySync } from "../application/threads/identity-sync";
+import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
 import { createThreadLifecycleParts } from "../application/threads/lifecycle-parts";
 import {
   activeThreadRenameTitleContext,
@@ -83,7 +83,7 @@ export interface ChatPanelSessionGraph {
     history: HistoryController;
     resume: ResumeActions;
     restoration: RestorationController;
-    identity: IdentitySync;
+    identity: ActiveThreadIdentitySync;
     rename: ThreadRenameEditorActions;
   };
   toolbar: {
@@ -279,7 +279,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const startNewThread = async (): Promise<void> => {
     if (chatTurnBusy(stateStore.getState())) return;
 
-    identity.clearActiveThreadContext();
+    identity.clearActiveThreadIdentity();
     stateStore.dispatch({ type: "ui/panel-set", panel: null });
     stateStore.dispatch({ type: "connection/status-set", statusText: "New chat." });
     composerController.focus();

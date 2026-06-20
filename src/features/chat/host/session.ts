@@ -127,11 +127,11 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   applyThreadArchived(threadId: string): void {
-    this.graph.thread.identity.applyThreadArchived(threadId);
+    this.graph.thread.identity.applyThreadArchiveToActiveIdentity(threadId);
   }
 
   applyThreadRenamed(threadId: string, name: string | null): void {
-    this.graph.thread.identity.applyThreadRenamed(threadId, name);
+    this.graph.thread.identity.applyThreadRenameToActiveIdentity(threadId, name);
   }
 
   open(): void {

@@ -2,7 +2,7 @@ import type { RestorationController } from "./restoration-controller";
 import { activeThreadId } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 
-export interface IdentitySyncHost {
+export interface ActiveThreadIdentitySyncHost {
   stateStore: ChatStateStore;
   restoration: RestorationController;
   invalidateThreadWork: () => void;
@@ -12,27 +12,27 @@ export interface IdentitySyncHost {
   refreshTabHeader: () => void;
 }
 
-export interface IdentitySync {
-  clearActiveThreadContext: () => void;
-  applyThreadArchived: (threadId: string) => void;
-  applyThreadRenamed: (threadId: string, name: string | null) => void;
+export interface ActiveThreadIdentitySync {
+  clearActiveThreadIdentity: () => void;
+  applyThreadArchiveToActiveIdentity: (threadId: string) => void;
+  applyThreadRenameToActiveIdentity: (threadId: string, name: string | null) => void;
 }
 
-export function createIdentitySync(host: IdentitySyncHost): IdentitySync {
+export function createActiveThreadIdentitySync(host: ActiveThreadIdentitySyncHost): ActiveThreadIdentitySync {
   return {
-    clearActiveThreadContext: () => {
-      clearActiveThreadContext(host);
+    clearActiveThreadIdentity: () => {
+      clearActiveThreadIdentity(host);
     },
-    applyThreadArchived: (threadId) => {
-      applyThreadArchived(host, threadId);
+    applyThreadArchiveToActiveIdentity: (threadId) => {
+      applyThreadArchiveToActiveIdentity(host, threadId);
     },
-    applyThreadRenamed: (threadId, name) => {
-      applyThreadRenamed(host, threadId, name);
+    applyThreadRenameToActiveIdentity: (threadId, name) => {
+      applyThreadRenameToActiveIdentity(host, threadId, name);
     },
   };
 }
 
-function clearActiveThreadContext(host: IdentitySyncHost): void {
+function clearActiveThreadIdentity(host: ActiveThreadIdentitySyncHost): void {
   host.invalidateThreadWork();
   host.restoration.clear();
   host.clearDeferredRestoredThreadHydration();
@@ -41,12 +41,12 @@ function clearActiveThreadContext(host: IdentitySyncHost): void {
   host.notifyActiveThreadIdentityChanged();
 }
 
-function applyThreadArchived(host: IdentitySyncHost, threadId: string): void {
+function applyThreadArchiveToActiveIdentity(host: ActiveThreadIdentitySyncHost, threadId: string): void {
   if (activeThreadId(host.stateStore.getState()) !== threadId) return;
-  clearActiveThreadContext(host);
+  clearActiveThreadIdentity(host);
 }
 
-function applyThreadRenamed(host: IdentitySyncHost, threadId: string, name: string | null): void {
+function applyThreadRenameToActiveIdentity(host: ActiveThreadIdentitySyncHost, threadId: string, name: string | null): void {
   let changed = false;
   const restoredThread = host.restoration.placeholder();
   if (restoredThread?.threadId === threadId && (restoredThread.title !== name || restoredThread.explicitName !== name)) {
