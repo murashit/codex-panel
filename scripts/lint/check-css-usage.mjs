@@ -3,15 +3,9 @@ import path from "node:path";
 
 const root = process.cwd();
 const stylesDir = path.join(root, "src", "styles");
-const args = new Set(process.argv.slice(2));
-const failOnCandidates = args.has("--fail-on-candidates");
-const validArgs = new Set(["--fail-on-candidates"]);
-
-for (const arg of args) {
-  if (!validArgs.has(arg)) {
-    console.error("Usage: node scripts/lint/check-css-usage.mjs [--fail-on-candidates]");
-    process.exit(1);
-  }
+if (process.argv.length > 2) {
+  console.error("Usage: node scripts/lint/check-css-usage.mjs");
+  process.exit(1);
 }
 
 const cssFiles = await orderedCssFiles();
@@ -26,23 +20,15 @@ const testTexts = await readTexts(testFiles);
 const sourceText = sourceTexts.map((item) => item.text).join("\n");
 const dynamicPrefixes = collectDynamicClassPrefixes(sourceText);
 
-const exactSourceUsed = [];
-const dynamicSourceUsed = [];
 const testOnlyCandidates = [];
 const candidates = [];
 
 for (const [className, locations] of cssClasses) {
   const sourceMatches = locationsInTexts(sourceTexts, className);
-  if (sourceMatches.length > 0) {
-    exactSourceUsed.push({ className, locations, sourceMatches });
-    continue;
-  }
+  if (sourceMatches.length > 0) continue;
 
   const matchingPrefix = dynamicPrefixes.find((prefix) => className.startsWith(prefix));
-  if (matchingPrefix) {
-    dynamicSourceUsed.push({ className, locations, matchingPrefix });
-    continue;
-  }
+  if (matchingPrefix) continue;
 
   const testMatches = locationsInTexts(testTexts, className);
   if (testMatches.length > 0) {
@@ -53,16 +39,10 @@ for (const [className, locations] of cssClasses) {
   candidates.push({ className, locations });
 }
 
-printReport({
-  total: cssClasses.size,
-  exactSourceUsed,
-  dynamicSourceUsed,
-  testOnlyCandidates,
-  candidates,
-  dynamicPrefixes,
-});
-
-if (failOnCandidates && candidates.length + testOnlyCandidates.length > 0) process.exit(1);
+if (candidates.length + testOnlyCandidates.length > 0) {
+  printCandidates({ testOnlyCandidates, candidates });
+  process.exit(1);
+}
 
 async function orderedCssFiles() {
   const orderPath = path.join(stylesDir, "order.json");
@@ -142,35 +122,24 @@ async function collectFiles(directory, extensions, excludedPrefixes, result) {
   }
 }
 
-function printReport({ total, exactSourceUsed, dynamicSourceUsed, testOnlyCandidates, candidates, dynamicPrefixes }) {
-  const totalCandidates = candidates.length + testOnlyCandidates.length;
-
-  console.log("CSS usage audit");
-  console.log(`  CSS classes: ${total}`);
-  console.log(`  Source literals: ${exactSourceUsed.length}`);
-  console.log(`  Source dynamic modifiers: ${dynamicSourceUsed.length}`);
-  console.log(`  Test-only candidates: ${testOnlyCandidates.length}`);
-  console.log(`  Unused candidates: ${totalCandidates}`);
-
-  if (dynamicPrefixes.length > 0) {
-    console.log("\nDynamic modifier prefixes:");
-    for (const prefix of dynamicPrefixes) console.log(`  ${prefix}*`);
-  }
-
+function printCandidates({ testOnlyCandidates, candidates }) {
+  console.error("CSS usage check failed.");
   if (testOnlyCandidates.length > 0) {
-    console.log("\nTest-only unused CSS class candidates:");
+    console.error("");
+    console.error("Test-only unused CSS class candidates:");
     for (const item of testOnlyCandidates) {
-      console.log(`  ${item.className}`);
-      console.log(`    css: ${item.locations.join(", ")}`);
-      console.log(`    tests: ${item.testMatches.join(", ")}`);
+      console.error(`  ${item.className}`);
+      console.error(`    css: ${item.locations.join(", ")}`);
+      console.error(`    tests: ${item.testMatches.join(", ")}`);
     }
   }
 
   if (candidates.length > 0) {
-    console.log("\nUnused CSS class candidates:");
+    console.error("");
+    console.error("Unused CSS class candidates:");
     for (const item of candidates) {
-      console.log(`  ${item.className}`);
-      console.log(`    css: ${item.locations.join(", ")}`);
+      console.error(`  ${item.className}`);
+      console.error(`    css: ${item.locations.join(", ")}`);
     }
   }
 }

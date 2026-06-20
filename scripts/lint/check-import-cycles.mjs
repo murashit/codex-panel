@@ -60,7 +60,6 @@ const cycleComponents = stronglyConnectedComponents(graph)
   .sort((left, right) => left[0].localeCompare(right[0]));
 
 if (cycleComponents.length === 0) {
-  console.log("No import cycles found.");
   process.exit(0);
 }
 

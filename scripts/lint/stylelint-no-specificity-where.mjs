@@ -6,7 +6,7 @@ const messages = stylelint.utils.ruleMessages(ruleName, {
   rejected: (selector) => `Do not hide class, id, or attribute selectors inside :where(): "${selector}"`,
 });
 
-function rule(primary) {
+function noSpecificityWhereRule(primary) {
   return (root, result) => {
     if (primary === false) return;
 
@@ -61,7 +61,7 @@ function whereRanges(selector) {
   return ranges;
 }
 
-rule.ruleName = ruleName;
-rule.messages = messages;
+noSpecificityWhereRule.ruleName = ruleName;
+noSpecificityWhereRule.messages = messages;
 
-export default stylelint.createPlugin(ruleName, rule);
+export default stylelint.createPlugin(ruleName, noSpecificityWhereRule);

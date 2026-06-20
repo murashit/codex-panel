@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { compareVersions, isExpectedNextVersion, parseVersion, readJson, writeJson } from "../utils.mjs";
+import { compareVersions, isExpectedNextVersion, parseVersion } from "./versioning.mjs";
 
 function fail(message) {
   console.error(`release prepare failed: ${message}`);
@@ -13,10 +13,10 @@ if (!releaseVersion) fail("usage: npm run release:prepare -- X.Y.Z");
 const currentVersion = parseVersion(releaseVersion);
 if (!currentVersion) fail(`release version must be X.Y.Z, got ${releaseVersion}`);
 
-const packageJson = await readJson("package.json");
-const packageLockJson = await readJson("package-lock.json");
-const manifestJson = await readJson("manifest.json");
-const versionsJson = await readJson("versions.json");
+const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+const packageLockJson = JSON.parse(await readFile("package-lock.json", "utf8"));
+const manifestJson = JSON.parse(await readFile("manifest.json", "utf8"));
+const versionsJson = JSON.parse(await readFile("versions.json", "utf8"));
 const notesDir = path.join(".github", "release-notes");
 const notesPath = path.join(notesDir, `${releaseVersion}.md`);
 
@@ -45,10 +45,10 @@ packageLockJson.packages[""].version = releaseVersion;
 manifestJson.version = releaseVersion;
 versionsJson[releaseVersion] = manifestJson.minAppVersion;
 
-await writeJson("package.json", packageJson);
-await writeJson("package-lock.json", packageLockJson);
-await writeJson("manifest.json", manifestJson);
-await writeJson("versions.json", versionsJson);
+await writeFile("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
+await writeFile("package-lock.json", `${JSON.stringify(packageLockJson, null, 2)}\n`);
+await writeFile("manifest.json", `${JSON.stringify(manifestJson, null, 2)}\n`);
+await writeFile("versions.json", `${JSON.stringify(versionsJson, null, 2)}\n`);
 
 await mkdir(notesDir, { recursive: true });
 await writeFile(notesPath, "## Changes\n\n- \n");

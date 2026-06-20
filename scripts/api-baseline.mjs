@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
-import { readJson } from "./utils.mjs";
 
 const args = new Set(process.argv.slice(2));
 const asJson = args.has("--json");
@@ -114,36 +113,30 @@ function displayValue(value) {
 }
 
 const failures = [];
-const packageJson = await readJson("package.json");
-const packageLockJson = await readJson("package-lock.json");
-const manifestJson = await readJson("manifest.json");
-const versionsJson = await readJson("versions.json");
-const readme = await readFile("README.md", "utf8");
-const clientSource = await readFile("src/app-server/connection/client.ts", "utf8");
-const appServerGenerateSource = await readFile("scripts/generate-app-server-types.mjs", "utf8");
-const readmeBaselines = readCompatibilityBaselines(readme);
+const inputs = await readBaselineInputs();
+const readmeBaselines = readCompatibilityBaselines(inputs.readme);
 
 const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
 const codexLocalVersion = readCodexVersion();
 const codexReadmeSemver = parseSemver(codexReadmeVersion);
 const codexLocalSemver = parseSemver(codexLocalVersion);
 
-const obsidianMinVersion = manifestJson.minAppVersion;
+const obsidianMinVersion = inputs.manifestJson.minAppVersion;
 const obsidianReadmeApiTypesVersion = readmeBaselines.obsidianApiTypesVersion;
 const obsidianReadmeMinVersion = readmeBaselines.obsidianMinAppVersion;
-const obsidianVersionEntry = versionsJson[packageJson.version] ?? null;
-const obsidianSpec = packageJson.devDependencies?.obsidian ?? null;
-const obsidianLockVersion = packageLockJson.packages?.["node_modules/obsidian"]?.version ?? null;
+const obsidianVersionEntry = inputs.versionsJson[inputs.packageJson.version] ?? null;
+const obsidianSpec = inputs.packageJson.devDependencies?.obsidian ?? null;
+const obsidianLockVersion = inputs.packageLockJson.packages?.["node_modules/obsidian"]?.version ?? null;
 const obsidianSpecSemver = parseSemver(obsidianSpec);
 const obsidianLockSemver = parseSemver(obsidianLockVersion);
 const obsidianMinSemver = parseSemver(obsidianMinVersion);
 
 const appServerGenerationExperimental =
-  appServerGenerateSource.includes("app-server") &&
-  appServerGenerateSource.includes("generate-ts") &&
-  appServerGenerateSource.includes("--experimental");
-const initializeExperimentalApi = /experimentalApi:\s*true/.test(clientSource);
-const initializeRequestAttestationDisabled = /requestAttestation:\s*false/.test(clientSource);
+  inputs.appServerGenerateSource.includes("app-server") &&
+  inputs.appServerGenerateSource.includes("generate-ts") &&
+  inputs.appServerGenerateSource.includes("--experimental");
+const initializeExperimentalApi = /experimentalApi:\s*true/.test(inputs.clientSource);
+const initializeRequestAttestationDisabled = /requestAttestation:\s*false/.test(inputs.clientSource);
 
 if (!codexReadmeSemver) {
   fail("README.md Compatibility table must define `codex.testedCliVersion` as X.Y.Z.");
@@ -168,7 +161,7 @@ if (!parseSemver(obsidianReadmeMinVersion)) {
   fail(`README Obsidian baseline ${displayValue(obsidianReadmeMinVersion)} does not match manifest ${obsidianMinVersion}.`);
 }
 if (obsidianVersionEntry !== obsidianMinVersion) {
-  fail(`versions.json must map ${packageJson.version} to manifest minAppVersion ${obsidianMinVersion}.`);
+  fail(`versions.json must map ${inputs.packageJson.version} to manifest minAppVersion ${obsidianMinVersion}.`);
 }
 if (!obsidianSpecSemver) fail("package.json devDependency obsidian must include an X.Y.Z version.");
 if (!obsidianLockSemver) fail("package-lock.json must lock node_modules/obsidian to X.Y.Z.");
@@ -220,6 +213,38 @@ const report = {
 if (asJson) {
   console.log(JSON.stringify(report, null, 2));
 } else {
+  printReport(report);
+}
+
+if (failures.length > 0) process.exit(1);
+
+async function readBaselineInputs() {
+  const [packageJson, packageLockJson, manifestJson, versionsJson, readme, clientSource, appServerGenerateSource] = await Promise.all([
+    readJson("package.json"),
+    readJson("package-lock.json"),
+    readJson("manifest.json"),
+    readJson("versions.json"),
+    readFile("README.md", "utf8"),
+    readFile("src/app-server/connection/client.ts", "utf8"),
+    readFile("scripts/generate-app-server-types.mjs", "utf8"),
+  ]);
+
+  return {
+    appServerGenerateSource,
+    clientSource,
+    manifestJson,
+    packageJson,
+    packageLockJson,
+    readme,
+    versionsJson,
+  };
+}
+
+async function readJson(file) {
+  return JSON.parse(await readFile(file, "utf8"));
+}
+
+function printReport(report) {
   console.log("API baseline");
   console.log("");
   console.log("Codex app-server");
@@ -241,11 +266,9 @@ if (asJson) {
   console.log(`  package obsidian: ${displayValue(report.obsidian.packageDependency)}`);
   console.log(`  package range: ${report.obsidian.packageDependencyRange}`);
   console.log(`  package-lock obsidian: ${displayValue(report.obsidian.lockedPackageVersion)}`);
-  if (failures.length > 0) {
+  if (report.failures.length > 0) {
     console.log("");
     console.log("Failures");
-    for (const message of failures) console.log(`  - ${message}`);
+    for (const message of report.failures) console.log(`  - ${message}`);
   }
 }
-
-if (failures.length > 0) process.exit(1);

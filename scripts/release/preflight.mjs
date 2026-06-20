@@ -6,11 +6,7 @@ function fail(message) {
 }
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    encoding: "utf8",
-    stdio: options.capture ? "pipe" : "inherit",
-    shell: false,
-  });
+  const result = spawn(command, args, options);
   if (result.error) fail(`${command} ${args.join(" ")}: ${result.error.message}`);
   if (result.status !== 0) {
     if (options.capture) {
@@ -23,12 +19,16 @@ function run(command, args, options = {}) {
 }
 
 function maybeRun(command, args) {
-  const result = spawnSync(command, args, {
+  const result = spawn(command, args, { capture: true });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function spawn(command, args, options = {}) {
+  return spawnSync(command, args, {
     encoding: "utf8",
-    stdio: "pipe",
+    stdio: options.capture ? "pipe" : "inherit",
     shell: false,
   });
-  return result.status === 0 ? result.stdout.trim() : null;
 }
 
 function assertGitReleaseState(packageVersion) {
@@ -41,11 +41,7 @@ function assertGitReleaseState(packageVersion) {
   const upstream = maybeRun("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
   if (!upstream) fail("main must have an upstream tracking branch");
 
-  const upstreamAncestor = spawnSync("git", ["merge-base", "--is-ancestor", upstream, "HEAD"], {
-    encoding: "utf8",
-    stdio: "pipe",
-    shell: false,
-  });
+  const upstreamAncestor = spawn("git", ["merge-base", "--is-ancestor", upstream, "HEAD"], { capture: true });
   if (upstreamAncestor.status !== 0) fail(`HEAD must contain ${upstream}; pull or rebase before tagging`);
 
   const existingTag = run("git", ["tag", "--list", packageVersion], { capture: true });

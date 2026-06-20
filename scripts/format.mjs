@@ -7,10 +7,10 @@ const sourceExtensions = new Set([".ts", ".tsx", ".js", ".mjs", ".json", ".css",
 const scriptExtensions = new Set([".js", ".mjs"]);
 const rootExtensions = new Set([".ts", ".json", ".mjs", ".md", ".css"]);
 
-const args = process.argv.slice(2);
-const shouldCheck = args.includes("--check");
-const shouldUseCache = args.includes("--cache");
-const cacheLocation = argumentValue("--cache-location") ?? "node_modules/.cache/prettier/.prettier-cache";
+const args = parseArgs(process.argv.slice(2));
+const shouldCheck = args.check;
+const shouldUseCache = args.cache;
+const cacheLocation = args.cacheLocation ?? "node_modules/.cache/prettier/.prettier-cache";
 const root = process.cwd();
 const files = await formatFiles();
 const cache = shouldCheck && shouldUseCache ? await readCache(cacheLocation) : new Map();
@@ -57,10 +57,35 @@ if (unformattedFiles.length > 0) {
 }
 if (hadError) process.exit(1);
 
-function argumentValue(name) {
-  const index = args.indexOf(name);
-  if (index === -1) return null;
-  return args[index + 1] ?? null;
+function parseArgs(argv) {
+  const parsed = {
+    cache: false,
+    cacheLocation: null,
+    check: false,
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--cache") {
+      parsed.cache = true;
+    } else if (arg === "--check") {
+      parsed.check = true;
+    } else if (arg === "--cache-location") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) usage();
+      parsed.cacheLocation = value;
+      index += 1;
+    } else {
+      usage();
+    }
+  }
+
+  return parsed;
+}
+
+function usage() {
+  console.error("Usage: node scripts/format.mjs [--check] [--cache] [--cache-location PATH]");
+  process.exit(1);
 }
 
 async function readCache(file) {

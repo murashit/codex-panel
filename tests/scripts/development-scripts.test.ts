@@ -134,6 +134,18 @@ describe("development scripts", () => {
     await expect(readFile(sourcePath, "utf8")).resolves.toBe(source);
   });
 
+  it("fails format checks on unknown or incomplete arguments", async () => {
+    const cwd = await tempWorkspace();
+
+    const unknownArg = runNodeScript("scripts/format.mjs", ["--unknown"], cwd);
+    const missingCacheLocation = runNodeScript("scripts/format.mjs", ["--cache-location"], cwd);
+
+    expect(unknownArg.status).toBe(1);
+    expect(unknownArg.stderr).toContain("Usage: node scripts/format.mjs");
+    expect(missingCacheLocation.status).toBe(1);
+    expect(missingCacheLocation.stderr).toContain("Usage: node scripts/format.mjs");
+  });
+
   it("detects runtime import cycles", async () => {
     const cwd = await tempWorkspace();
     await writeImportCycleFixture(cwd, {
@@ -158,7 +170,41 @@ describe("development scripts", () => {
     const result = runNodeScript("scripts/lint/check-import-cycles.mjs", [], cwd);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("No import cycles found.");
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
+  });
+
+  it("keeps CSS usage checks quiet when every class is used", async () => {
+    const cwd = await cssUsageFixture({
+      "src/styles/10-component.css": ".codex-panel__used { display: block; }\n",
+      "src/component.ts": 'export const className = "codex-panel__used";\n',
+    });
+
+    const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
+  });
+
+  it("fails CSS usage checks for unused and test-only class candidates", async () => {
+    const cwd = await cssUsageFixture({
+      "src/styles/10-component.css": [
+        ".codex-panel__used { display: block; }",
+        ".codex-panel__test-only { display: block; }",
+        ".codex-panel__unused { display: block; }",
+      ].join("\n"),
+      "src/component.ts": 'export const className = "codex-panel__used";\n',
+      "tests/component.test.ts": 'expect("codex-panel__test-only").toBeTruthy();\n',
+    });
+
+    const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("CSS usage check failed.");
+    expect(result.stderr).toContain("codex-panel__test-only");
+    expect(result.stderr).toContain("codex-panel__unused");
   });
 
   it("detects import cycles when mixed imports include runtime values", async () => {
@@ -211,6 +257,20 @@ async function styleOrderFixture(): Promise<string> {
   await writeJson(path.join(cwd, "src", "styles", "order.json"), ["00-tokens.css"]);
   await writeFile(path.join(cwd, "src", "styles", "00-tokens.css"), ".codex-panel { color: var(--text-normal); }\n");
   await writeFile(path.join(cwd, "src", "styles", "10-unlisted.css"), ".codex-panel__extra { display: block; }\n");
+  return cwd;
+}
+
+async function cssUsageFixture(files: Record<string, string>): Promise<string> {
+  const cwd = await tempWorkspace();
+  await mkdir(path.join(cwd, "src", "styles"), { recursive: true });
+  await mkdir(path.join(cwd, "tests"), { recursive: true });
+  await writeJson(path.join(cwd, "src", "styles", "order.json"), ["10-component.css"]);
+
+  for (const [file, source] of Object.entries(files)) {
+    await mkdir(path.dirname(path.join(cwd, file)), { recursive: true });
+    await writeFile(path.join(cwd, file), source);
+  }
+
   return cwd;
 }
 

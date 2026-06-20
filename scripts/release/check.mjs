@@ -1,16 +1,16 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { compareVersions, isExpectedNextVersion, parseVersion, readJson } from "../utils.mjs";
+import { compareVersions, isExpectedNextVersion, parseVersion } from "./versioning.mjs";
 
 function fail(message) {
   console.error(`release check failed: ${message}`);
   process.exitCode = 1;
 }
 
-const packageJson = await readJson("package.json");
-const packageLockJson = await readJson("package-lock.json");
-const manifestJson = await readJson("manifest.json");
-const versionsJson = await readJson("versions.json");
+const packageJson = JSON.parse(await readFile("package.json", "utf8"));
+const packageLockJson = JSON.parse(await readFile("package-lock.json", "utf8"));
+const manifestJson = JSON.parse(await readFile("manifest.json", "utf8"));
+const versionsJson = JSON.parse(await readFile("versions.json", "utf8"));
 
 const releaseVersion = process.env.RELEASE_VERSION || packageJson.version;
 const currentVersion = parseVersion(releaseVersion);

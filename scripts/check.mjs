@@ -53,7 +53,7 @@ function lintCommands({ ciMode, namePrefix = "" }) {
       command: `eslint src tests scripts "*.config.ts" "*.config.mjs" --max-warnings=0${eslintCacheArgs}`,
     },
     { name: `${namePrefix}css`, command: 'stylelint "src/**/*.css" --max-warnings=0' },
-    { name: `${namePrefix}css-usage`, command: "node scripts/lint/check-css-usage.mjs --fail-on-candidates" },
+    { name: `${namePrefix}css-usage`, command: "node scripts/lint/check-css-usage.mjs" },
     { name: `${namePrefix}deps`, command: "node scripts/lint/check-import-cycles.mjs" },
     { name: `${namePrefix}unused`, command: "knip --no-progress" },
   ];
