@@ -51,7 +51,7 @@ export interface SlashCommandExecutionPorts {
   };
   statusSummaryLines: () => string[];
   connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
-  mcpStatusLines: () => Promise<string[]>;
+  toolInventoryDetails: () => MessageStreamNoticeSection[];
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
 }
@@ -227,8 +227,8 @@ export async function executeSlashCommand(
     case "doctor":
       context.addStructuredSystemMessage("Connection diagnostics", context.connectionDiagnosticDetails());
       return;
-    case "mcp":
-      context.addStructuredSystemMessage("MCP servers", detailsFromLines(await context.mcpStatusLines()));
+    case "tools":
+      context.addStructuredSystemMessage("Codex capabilities", context.toolInventoryDetails());
       return;
     case "model": {
       const requested = parseModelOverride(args);

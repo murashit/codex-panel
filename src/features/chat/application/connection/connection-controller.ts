@@ -23,7 +23,7 @@ export interface ChatConnectionMetadataActions {
 }
 
 export interface ChatConnectionDiagnosticsActions {
-  refreshDiagnosticProbes: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
+  refreshServerDiagnostics: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
 }
 
 export interface ChatConnectionControllerHost {
@@ -124,7 +124,7 @@ async function refreshDiagnostics(
   if (!host.connection.currentClient()) return;
   host.clearDeferredDiagnostics();
   await host.metadata.refreshAppServerMetadata();
-  await host.diagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
+  await host.diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
 }
 
 async function refreshStatusPanel(

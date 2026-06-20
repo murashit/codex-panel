@@ -43,6 +43,7 @@ export interface ToolbarViewModel {
   threads: ToolbarThreadRow[];
   connectLabel: string;
   diagnostics: ToolbarDiagnosticSection[];
+  toolInventory: ToolbarDiagnosticSection[];
 }
 
 export interface ToolbarActions {
@@ -54,6 +55,7 @@ export interface ToolbarActions {
   toggleStatusPanel: () => void;
   connect: () => void;
   refreshStatus: () => void;
+  copyDebugDetails: (details: string) => void;
   resumeThread: (threadId: string) => void;
   startArchiveThread: (threadId: string) => void;
   archiveThread: (threadId: string, saveMarkdown: boolean) => void;
@@ -161,16 +163,19 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
     <>
       <div className="codex-panel__status-panel-items" role="menu">
         <ToolbarPanelItem label={model.connectLabel} onClick={actions.connect} className="codex-panel__status-panel-item" role="menuitem" />
+        <ToolbarPanelItem label="Refresh" onClick={actions.refreshStatus} className="codex-panel__status-panel-item" role="menuitem" />
         <ToolbarPanelItem
-          label="Refresh status"
-          onClick={actions.refreshStatus}
+          label="Copy debug details"
+          onClick={() => {
+            actions.copyDebugDetails(model.debugDetails);
+          }}
           className="codex-panel__status-panel-item"
           role="menuitem"
         />
       </div>
       <RateLimitPanel rateLimit={model.rateLimit} />
-      <ConnectionDiagnostics sections={model.diagnostics} />
-      <DebugDetails details={model.debugDetails} />
+      <DiagnosticSectionsPanel title="Connection" sections={model.diagnostics} />
+      <DiagnosticSectionsPanel title="Codex capabilities" sections={model.toolInventory} />
     </>
   );
 }
@@ -213,10 +218,10 @@ function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): 
   );
 }
 
-function ConnectionDiagnostics({ sections }: { sections: ToolbarDiagnosticSection[] }): UiNode {
+function DiagnosticSectionsPanel({ title, sections }: { title: string; sections: ToolbarDiagnosticSection[] }): UiNode {
   return (
     <div className="codex-panel__connection-diagnostics">
-      <div className="codex-panel__connection-diagnostics-title">Connection</div>
+      <div className="codex-panel__connection-diagnostics-title">{title}</div>
       {sections.map((section) => (
         <DiagnosticSection key={section.title} section={section} />
       ))}
@@ -224,31 +229,31 @@ function ConnectionDiagnostics({ sections }: { sections: ToolbarDiagnosticSectio
   );
 }
 
+function DiagnosticRows({ rows }: { rows: ToolbarDiagnosticRow[] }): UiNode {
+  return (
+    <dl className="codex-panel__connection-diagnostics-list">
+      {rows.map((row) => (
+        <DiagnosticRow key={`${row.label}:${row.value}:${row.level ?? "normal"}`} row={row} />
+      ))}
+    </dl>
+  );
+}
+
 function DiagnosticSection({ section }: { section: ToolbarDiagnosticSection }): UiNode {
   return (
     <>
       <div className="codex-panel__connection-diagnostics-section">{section.title}</div>
-      <dl className="codex-panel__connection-diagnostics-list">
-        {section.rows.map((row) => (
-          <div
-            key={`${row.label}:${row.value}:${row.level ?? "normal"}`}
-            className={`codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--${row.level ?? "normal"}`}
-          >
-            <dt>{row.label}</dt>
-            <dd>{row.value}</dd>
-          </div>
-        ))}
-      </dl>
+      <DiagnosticRows rows={section.rows} />
     </>
   );
 }
 
-function DebugDetails({ details }: { details: string }): UiNode {
+function DiagnosticRow({ row }: { row: ToolbarDiagnosticRow }): UiNode {
   return (
-    <details className="codex-panel__debug-details">
-      <summary className="codex-panel__debug-details-summary">Debug details</summary>
-      <pre className="codex-panel__debug-details-content">{details}</pre>
-    </details>
+    <div className={`codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--${row.level ?? "normal"}`}>
+      <dt>{row.label}</dt>
+      <dd>{row.value}</dd>
+    </div>
   );
 }
 

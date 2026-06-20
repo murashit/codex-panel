@@ -310,6 +310,7 @@ function toolbarActionsFixture(): ChatPanelShellParts["toolbar"]["actions"] {
     toggleStatusPanel: vi.fn(),
     connect: vi.fn(),
     refreshStatus: vi.fn(),
+    copyDebugDetails: vi.fn(),
     resumeThread: vi.fn(),
     startArchiveThread: vi.fn(),
     archiveThread: vi.fn(),

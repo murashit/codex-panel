@@ -3,6 +3,8 @@ import type { CollaborationMode } from "../../generated/app-server/Collaboration
 import type { RequestId } from "../../generated/app-server/RequestId";
 import type { ReasoningEffort } from "../../generated/app-server/ReasoningEffort";
 import type { ApprovalsReviewer } from "../../generated/app-server/v2/ApprovalsReviewer";
+import type { AppsListParams } from "../../generated/app-server/v2/AppsListParams";
+import type { AppsListResponse } from "../../generated/app-server/v2/AppsListResponse";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { ConfigWriteResponse } from "../../generated/app-server/v2/ConfigWriteResponse";
 import type { FsReadFileResponse } from "../../generated/app-server/v2/FsReadFileResponse";
@@ -13,6 +15,10 @@ import type { ListMcpServerStatusParams } from "../../generated/app-server/v2/Li
 import type { ListMcpServerStatusResponse } from "../../generated/app-server/v2/ListMcpServerStatusResponse";
 import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
 import type { ModelProviderCapabilitiesReadResponse } from "../../generated/app-server/v2/ModelProviderCapabilitiesReadResponse";
+import type { PluginInstalledParams } from "../../generated/app-server/v2/PluginInstalledParams";
+import type { PluginInstalledResponse } from "../../generated/app-server/v2/PluginInstalledResponse";
+import type { PluginReadParams } from "../../generated/app-server/v2/PluginReadParams";
+import type { PluginReadResponse } from "../../generated/app-server/v2/PluginReadResponse";
 import type { SkillsListResponse } from "../../generated/app-server/v2/SkillsListResponse";
 import type { ThreadArchiveResponse } from "../../generated/app-server/v2/ThreadArchiveResponse";
 import type { ThreadDeleteResponse } from "../../generated/app-server/v2/ThreadDeleteResponse";
@@ -131,6 +137,9 @@ interface ClientResponseByMethod {
   "thread/settings/update": ThreadSettingsUpdateResponse;
   "thread/turns/list": ThreadTurnsListResponse;
   "skills/list": SkillsListResponse;
+  "app/list": AppsListResponse;
+  "plugin/installed": PluginInstalledResponse;
+  "plugin/read": PluginReadResponse;
   "model/list": ModelListResponse;
   "account/rateLimits/read": GetAccountRateLimitsResponse;
   "mcpServerStatus/list": ListMcpServerStatusResponse;
@@ -409,6 +418,19 @@ export class AppServerClient {
       cwds: [cwd],
       forceReload,
     });
+  }
+
+  listApps(params: AppsListParams = { limit: 100 }): Promise<AppsListResponse> {
+    return this.request("app/list", params);
+  }
+
+  listInstalledPlugins(cwd: string): Promise<PluginInstalledResponse> {
+    const params: PluginInstalledParams = { cwds: [cwd] };
+    return this.request("plugin/installed", params);
+  }
+
+  readPlugin(params: PluginReadParams): Promise<PluginReadResponse> {
+    return this.request("plugin/read", params);
   }
 
   listModels(includeHidden = false): Promise<ModelListResponse> {

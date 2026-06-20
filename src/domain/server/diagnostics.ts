@@ -1,13 +1,13 @@
 import type { ServerInitialization } from "./initialization";
+import { cloneToolInventorySnapshot, type ToolInventorySnapshot } from "./tool-inventory";
 
 export const DIAGNOSTIC_PROBE_METHODS = [
   "model/list",
   "skills/list",
-  "hooks/list",
+  "app/list",
+  "plugin/installed",
   "account/rateLimits/read",
   "mcpServerStatus/list",
-  "collaborationMode/list",
-  "modelProvider/capabilities/read",
 ] as const;
 
 export type DiagnosticProbeMethod = (typeof DIAGNOSTIC_PROBE_METHODS)[number];
@@ -50,6 +50,7 @@ export interface McpServerStatusSummary {
 export interface Diagnostics {
   readonly probes: Readonly<Record<DiagnosticProbeMethod, DiagnosticProbeResult>>;
   readonly mcpServers: readonly McpServerDiagnostic[];
+  readonly toolInventory: ToolInventorySnapshot | null;
 }
 
 export function createServerDiagnostics(): Diagnostics {
@@ -59,6 +60,7 @@ export function createServerDiagnostics(): Diagnostics {
       DiagnosticProbeResult
     >,
     mcpServers: [],
+    toolInventory: null,
   };
 }
 
@@ -66,6 +68,7 @@ export function cloneServerDiagnostics(diagnostics: Diagnostics): Diagnostics {
   return {
     probes: { ...diagnostics.probes },
     mcpServers: diagnostics.mcpServers.map((server) => ({ ...server })),
+    toolInventory: diagnostics.toolInventory ? cloneToolInventorySnapshot(diagnostics.toolInventory) : null,
   };
 }
 
@@ -76,6 +79,13 @@ export function diagnosticsWithProbe(diagnostics: Diagnostics, probe: Diagnostic
       ...diagnostics.probes,
       [probe.method]: probe,
     },
+  };
+}
+
+export function diagnosticsWithToolInventory(diagnostics: Diagnostics, toolInventory: ToolInventorySnapshot | null): Diagnostics {
+  return {
+    ...diagnostics,
+    toolInventory: toolInventory ? cloneToolInventorySnapshot(toolInventory) : null,
   };
 }
 

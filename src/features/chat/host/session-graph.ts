@@ -60,7 +60,8 @@ import {
   modelStatusLines as buildModelStatusLines,
   statusSummaryLines as buildStatusSummaryLines,
 } from "../presentation/runtime/status";
-import { connectionDiagnosticsModel } from "../application/connection/diagnostics-display";
+import { connectionDiagnosticSectionsModel } from "../application/connection/diagnostics-display";
+import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-display";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
 import type { RuntimeSnapshot } from "../application/runtime/snapshot";
@@ -162,6 +163,7 @@ interface ChatPanelRuntimeProjection {
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
   statusSummaryLines: () => string[];
+  toolInventoryDetails: () => MessageStreamNoticeSection[];
 }
 
 interface ChatPanelComposerAndTurnInput {
@@ -177,7 +179,6 @@ interface ChatPanelComposerAndTurnInput {
   composerController: ChatComposerController;
   runtimeSettings: ChatPanelRuntimeSettingsActions;
   serverThreads: ChatServerThreadActions;
-  serverDiagnostics: ChatServerDiagnosticsActions;
   goals: ChatPanelGoalActions;
   autoTitleCoordinator: AutoTitleCoordinator;
   invalidateThreadWork: () => void;
@@ -253,7 +254,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     inboundHandler,
   } = connectionBundle;
   const connectionController = controller;
-  const { threads: serverThreads, diagnostics: serverDiagnostics } = connectionBundle.serverActions;
+  const { threads: serverThreads } = connectionBundle.serverActions;
   const ensureConnected = () => connectionController.ensureConnected();
   const refreshActiveThreads = () => connectionController.refreshActiveThreads();
   const threadOperations = createSessionThreadOperations(environment, currentClient);
@@ -305,7 +306,6 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     composerController,
     runtimeSettings,
     serverThreads,
-    serverDiagnostics,
     goals,
     autoTitleCoordinator,
     invalidateThreadWork,
@@ -786,7 +786,6 @@ function createComposerAndTurnActions(
     composerController,
     runtimeSettings,
     serverThreads,
-    serverDiagnostics,
     goals,
     autoTitleCoordinator,
     invalidateThreadWork,
@@ -840,7 +839,7 @@ function createComposerAndTurnActions(
         modelStatusLines: runtimeProjection.modelStatusLines,
         effortStatusLines: runtimeProjection.effortStatusLines,
         statusSummaryLines: runtimeProjection.statusSummaryLines,
-        mcpStatusLines: () => serverDiagnostics.mcpStatusLines(),
+        toolInventoryDetails: runtimeProjection.toolInventoryDetails,
       },
       thread: {
         ensureRestoredThreadLoaded: () =>
@@ -998,6 +997,7 @@ function createSessionRuntimeProjection(host: ChatPanelSessionGraphHost, connect
     modelStatusLines: () => modelStatusLines(host),
     effortStatusLines: () => effortStatusLines(host),
     statusSummaryLines: () => statusSummaryLines(host),
+    toolInventoryDetails: () => toolInventoryDetails(host),
   };
 }
 
@@ -1070,11 +1070,20 @@ function effortStatusLines(host: ChatPanelSessionGraphHost): string[] {
 }
 
 function connectionDiagnosticDetails(host: ChatPanelSessionGraphHost, connection: ConnectionManager): MessageStreamNoticeSection[] {
-  return connectionDiagnosticsModel({
+  const sections = connectionDiagnosticSectionsModel({
     state: host.stateStore.getState(),
     connected: connection.isConnected(),
     configuredCommand: host.environment.plugin.settingsRef.settings.codexPath,
-  }).map((section) => ({
+  });
+  return sections.map((section) => ({
+    title: section.title,
+    auditFacts: section.rows.map((row) => ({ key: row.label, value: row.value })),
+  }));
+}
+
+function toolInventoryDetails(host: ChatPanelSessionGraphHost): MessageStreamNoticeSection[] {
+  const sections = toolInventoryDiagnosticSections(host.stateStore.getState().connection.serverDiagnostics);
+  return sections.map((section) => ({
     title: section.title,
     auditFacts: section.rows.map((row) => ({ key: row.label, value: row.value })),
   }));

@@ -161,50 +161,49 @@ describe("Toolbar decisions", () => {
         openPanel: "status",
         diagnostics: [
           { title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/1.2.3" }] },
-          { title: "App Server Checks", rows: [{ label: "diagnostics", value: "model/list failed", level: "error" }] },
+          { title: "Runtime Checks", rows: [{ label: "diagnostics", value: "model/list failed", level: "error" }] },
         ],
       }),
       toolbarActions({ refreshStatus }),
     );
 
     expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection");
+    expect(parent.textContent).toContain("Codex capabilities");
+    expect(parent.textContent).toContain("Tool providers");
     expect(parent.textContent).toContain("Process");
-    expect(parent.textContent).toContain("App Server Checks");
-    expect(parent.textContent).toContain("Debug details");
-    expect(parent.textContent).toContain("Refresh status");
-    expect(parent.textContent).not.toContain("Refresh diagnostics");
-    expect(parent.textContent).not.toContain("Refresh thread list");
+    expect(parent.textContent).toContain("Runtime Checks");
+    expect(parent.textContent).toContain("Copy debug details");
+    expect(parent.textContent).toContain("Refresh");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
     expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")?.textContent).toContain("model/list failed");
     const statusItems = [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")];
-    expect(statusItems.map((item) => item.getAttribute("role"))).toEqual(["menuitem", "menuitem"]);
+    expect(statusItems.map((item) => item.getAttribute("role"))).toEqual(["menuitem", "menuitem", "menuitem"]);
     expect(statusItems.every((item) => item.getAttribute("aria-selected") === null)).toBe(true);
-    statusItems.find((item) => item.textContent.includes("Refresh status"))?.click();
+    statusItems.find((item) => item.textContent.includes("Refresh"))?.click();
     expect(refreshStatus).toHaveBeenCalled();
   });
 
-  it("renders raw debug details inside a collapsed status menu section", () => {
+  it("copies raw debug details from the status menu", () => {
     const parent = document.createElement("div");
+    const copyDebugDetails = vi.fn();
+    const debugDetails = JSON.stringify({ runtimeConfig: { model: "gpt-5.5" } }, null, 2);
 
     mountToolbar(
       parent,
       toolbarModel({
         statusPanelOpen: true,
         openPanel: "status",
-        debugDetails: JSON.stringify({ runtimeConfig: { model: "gpt-5.5" } }, null, 2),
+        debugDetails,
       }),
-      toolbarActions(),
+      toolbarActions({ copyDebugDetails }),
     );
 
     expect(parent.querySelector(".codex-panel__region--config")).toBeNull();
-    const details = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__debug-details"));
-    expect(details.open).toBe(false);
-    expect(details.querySelector("summary")?.textContent).toBe("Debug details");
-    expect(details.querySelector("pre")?.textContent).toContain('"model": "gpt-5.5"');
+    expect(parent.querySelector(".codex-panel__debug-details")).toBeNull();
+    expect(parent.textContent).not.toContain('"model": "gpt-5.5"');
+    parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")[2]?.click();
+    expect(copyDebugDetails).toHaveBeenCalledWith(debugDetails);
     expect(parent.querySelector(".codex-panel__toolbar-panel .codex-panel__config")).toBeNull();
-    expect(parent.textContent).not.toContain("Effective Codex config");
-    expect(parent.textContent).not.toContain("Show effective config");
-    expect(parent.textContent).not.toContain("Hide effective config");
   });
 
   it("renders thread list rename actions and an inline rename editor", () => {
@@ -366,6 +365,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
     connectLabel: "Reconnect",
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
+    toolInventory: [{ title: "Tool providers", rows: [{ label: "Codex capabilities", value: "not loaded", level: "warning" }] }],
     ...overrides,
   };
 }
@@ -380,6 +380,7 @@ function toolbarActions(overrides: Partial<ToolbarActions> = {}): ToolbarActions
     toggleStatusPanel: vi.fn(),
     connect: vi.fn(),
     refreshStatus: vi.fn(),
+    copyDebugDetails: vi.fn(),
     resumeThread: vi.fn(),
     startArchiveThread: vi.fn(),
     archiveThread: vi.fn(),

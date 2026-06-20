@@ -4,7 +4,8 @@ import { h } from "preact";
 import type { Thread } from "../../../../domain/threads/model";
 import { getThreadTitle } from "../../../../domain/threads/model";
 import { rateLimitSummary } from "../../presentation/runtime/status";
-import { connectionDiagnosticsModel } from "../../application/connection/diagnostics-display";
+import { connectionDiagnosticSectionsModel } from "../../application/connection/diagnostics-display";
+import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-display";
 import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../application/state/root-reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../shell-state";
@@ -75,11 +76,12 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
     openPanel: projection.openPanel,
     threads: projection.threads,
     connectLabel: input.connected ? "Reconnect" : "Connect",
-    diagnostics: connectionDiagnosticsModel({
+    diagnostics: connectionDiagnosticSectionsModel({
       state,
       connected: input.connected,
       configuredCommand: input.configuredCommand,
     }),
+    toolInventory: toolInventoryDiagnosticSections(state.connection.serverDiagnostics),
   };
 }
 

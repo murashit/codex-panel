@@ -26,14 +26,14 @@ function createController({ connected = false, client = {} as AppServerClient } 
     isConnected: () => Boolean(currentClient),
   };
   const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
-  const refreshDiagnosticProbes = vi.fn().mockResolvedValue(undefined);
+  const refreshServerDiagnostics = vi.fn().mockResolvedValue(undefined);
   const refreshSkills = vi.fn().mockResolvedValue(undefined);
   const metadata = {
     refreshAppServerMetadata,
     refreshSkills,
   } satisfies ChatConnectionMetadataActions;
   const diagnostics = {
-    refreshDiagnosticProbes,
+    refreshServerDiagnostics,
   } satisfies ChatConnectionDiagnosticsActions;
   const host: ChatConnectionControllerHost = {
     stateStore,
@@ -58,7 +58,7 @@ function createController({ connected = false, client = {} as AppServerClient } 
     controller: createChatConnectionController(host),
     host,
     refreshAppServerMetadata,
-    refreshDiagnosticProbes,
+    refreshServerDiagnostics,
     stateStore,
   };
 }
@@ -82,14 +82,14 @@ describe("ChatConnectionController", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
-  it("refreshes metadata before metadata-backed diagnostics", async () => {
-    const { controller, host, refreshAppServerMetadata, refreshDiagnosticProbes } = createController({ connected: true });
+  it("refreshes metadata before server diagnostics", async () => {
+    const { controller, host, refreshAppServerMetadata, refreshServerDiagnostics } = createController({ connected: true });
 
     await controller.refreshDiagnostics();
 
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
-    expect(refreshDiagnosticProbes).toHaveBeenCalledWith({ appServerMetadataSnapshot: true });
+    expect(refreshServerDiagnostics).toHaveBeenCalledWith({ appServerMetadataSnapshot: true });
   });
 
   it("refreshes active threads without refreshing metadata", async () => {

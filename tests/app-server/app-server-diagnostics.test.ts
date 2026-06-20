@@ -45,14 +45,12 @@ describe("app-server diagnostics", () => {
       summary: "3 skills",
       checkedAt: 123,
     });
-    expect(diagnosticProbeError("hooks/list", new Error("boom"), 456)).toMatchObject({
-      method: "hooks/list",
+    expect(diagnosticProbeError("plugin/installed", new Error("boom"), 456)).toMatchObject({
+      method: "plugin/installed",
       status: "failed",
       message: "boom",
       checkedAt: 456,
     });
-    expect(diagnosticProbeError("modelProvider/capabilities/read", new Error("unknown method"), 790).status).toBe("failed");
-    expect(diagnosticProbeError("modelProvider/capabilities/read", new Error("unsupported RPC method"), 791).status).toBe("failed");
     expect(diagnosticProbeError("model/list", new Error("unknown provider failure"), 792).status).toBe("failed");
   });
 

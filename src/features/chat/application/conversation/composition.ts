@@ -31,7 +31,7 @@ export interface ConversationTurnActionsContext {
     modelStatusLines: () => string[];
     effortStatusLines: () => string[];
     statusSummaryLines: () => string[];
-    mcpStatusLines: () => Promise<string[]>;
+    toolInventoryDetails: () => MessageStreamNoticeSection[];
   };
   thread: {
     ensureRestoredThreadLoaded: () => Promise<boolean>;
@@ -115,7 +115,7 @@ export function createConversationTurnActions(
     setStatus: status.set,
     statusSummaryLines: runtime.statusSummaryLines,
     connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,
-    mcpStatusLines: runtime.mcpStatusLines,
+    toolInventoryDetails: runtime.toolInventoryDetails,
     modelStatusLines: runtime.modelStatusLines,
     effortStatusLines: runtime.effortStatusLines,
   };

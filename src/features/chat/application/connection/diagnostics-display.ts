@@ -1,15 +1,12 @@
-import { DIAGNOSTIC_PROBE_METHODS, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
+import { serverIdentity, serverPlatform, type DiagnosticProbeMethod } from "../../../../domain/server/diagnostics";
 import { CLIENT_VERSION } from "../../../../constants";
 import type { ChatState } from "../state/root-reducer";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type {
-  Diagnostics,
-  DiagnosticProbeResult,
-  McpServerDiagnostic,
-  McpServerStatusSummary,
-} from "../../../../domain/server/diagnostics";
+import type { Diagnostics, DiagnosticProbeResult } from "../../../../domain/server/diagnostics";
 
-interface DiagnosticRow {
+const RUNTIME_CHECK_PROBE_METHODS: readonly DiagnosticProbeMethod[] = ["model/list", "account/rateLimits/read"];
+
+export interface DiagnosticRow {
   label: string;
   value: string;
   level?: "normal" | "warning" | "error";
@@ -33,7 +30,7 @@ export interface ConnectionDiagnosticsModelInput {
   configuredCommand: string;
 }
 
-export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInput): DiagnosticSection[] {
+export function connectionDiagnosticSectionsModel(input: ConnectionDiagnosticsModelInput): DiagnosticSection[] {
   return connectionDiagnosticSections({
     connected: input.connected,
     configuredCommand: input.configuredCommand,
@@ -43,7 +40,6 @@ export function connectionDiagnosticsModel(input: ConnectionDiagnosticsModelInpu
 }
 
 export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput): DiagnosticSection[] {
-  const mcpRows = mcpServerDiagnosticRows(input.diagnostics.mcpServers);
   return [
     {
       title: "Process",
@@ -57,12 +53,8 @@ export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput):
       ],
     },
     {
-      title: "App Server Checks",
-      rows: DIAGNOSTIC_PROBE_METHODS.map((method) => diagnosticProbeRow(input.diagnostics.probes[method])),
-    },
-    {
-      title: "MCP issues",
-      rows: mcpRows.length > 0 ? mcpRows : [{ label: "issues", value: "(none)" }],
+      title: "Runtime Checks",
+      rows: RUNTIME_CHECK_PROBE_METHODS.map((method) => diagnosticProbeRow(input.diagnostics.probes[method])),
     },
   ];
 }
@@ -76,71 +68,8 @@ function diagnosticProbeRow(probe: DiagnosticProbeResult): DiagnosticRow {
   };
 }
 
-function mcpServerDiagnosticRows(servers: readonly McpServerDiagnostic[]): DiagnosticRow[] {
-  return servers.filter(isMcpServerIssue).map((server) => ({
-    label: `mcp ${server.name}`,
-    value: mcpServerDiagnosticValue(server),
-    level: server.startupStatus === "failed" ? "error" : "warning",
-  }));
-}
-
 function diagnosticProbeLevel(status: DiagnosticProbeResult["status"]): NonNullable<DiagnosticRow["level"]> {
   if (status === "failed") return "error";
   if (status === "unknown") return "warning";
   return "normal";
-}
-
-function isMcpServerIssue(server: McpServerDiagnostic): boolean {
-  return server.startupStatus === "failed" || server.authStatus === "notLoggedIn";
-}
-
-function mcpServerDiagnosticValue(server: McpServerDiagnostic): string {
-  const parts: string[] = [server.startupStatus];
-  if (server.authStatus) parts.push(`auth ${server.authStatus}`);
-  if (server.message) parts.push(server.message);
-  return parts.join(" - ");
-}
-
-export function mcpStatusLines(servers: readonly McpServerStatusSummary[], diagnostics: readonly McpServerDiagnostic[] = []): string[] {
-  if (servers.length === 0 && diagnostics.length === 0) {
-    return ["MCP servers", "Codex App Server reports no MCP servers."];
-  }
-
-  const statusByName = new Map(servers.map((server) => [server.name, server]));
-  const diagnosticByName = new Map(diagnostics.map((diagnostic) => [diagnostic.name, diagnostic]));
-  const names = new Set([...statusByName.keys(), ...diagnosticByName.keys()]);
-  const rows = [...names]
-    .sort((a, b) => a.localeCompare(b))
-    .map((name) => {
-      const server = statusByName.get(name);
-      const diagnostic = diagnosticByName.get(name);
-      return server ? mcpServerStatusLine(server, diagnostic) : mcpDiagnosticOnlyLine(name, diagnostic);
-    });
-
-  return ["MCP servers", ...rows];
-}
-
-function mcpServerStatusLine(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): string {
-  const startup = diagnostic?.startupStatus && diagnostic.startupStatus !== "unknown" ? diagnostic.startupStatus : "available";
-  const tools = server.toolCount;
-  const resources = server.resourceCount;
-  const templates = server.resourceTemplateCount;
-  const parts = [startup, `auth ${server.authStatus}`, countLabel(tools, "tool"), countLabel(resources, "resource")];
-  if (templates > 0) parts.push(countLabel(templates, "resource template"));
-  if (diagnostic?.message) parts.push(diagnostic.message);
-  return `${server.name}: ${parts.join(", ")}`;
-}
-
-function mcpDiagnosticOnlyLine(name: string, diagnostic: McpServerDiagnostic | undefined): string {
-  const startup = diagnostic?.startupStatus ?? "unknown";
-  const auth = diagnostic?.authStatus ? `auth ${diagnostic.authStatus}` : "auth unknown";
-  const tools =
-    diagnostic?.toolCount === null || diagnostic?.toolCount === undefined ? "tools unknown" : countLabel(diagnostic.toolCount, "tool");
-  const parts = [startup, auth, tools];
-  if (diagnostic?.message) parts.push(diagnostic.message);
-  return `${name}: ${parts.join(", ")}`;
-}
-
-function countLabel(count: number, singular: string): string {
-  return `${String(count)} ${singular}${count === 1 ? "" : "s"}`;
 }

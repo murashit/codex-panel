@@ -66,7 +66,7 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
     setStatus: vi.fn(),
     statusSummaryLines: () => [],
     connectionDiagnosticDetails: () => [],
-    mcpStatusLines: vi.fn().mockResolvedValue([]),
+    toolInventoryDetails: vi.fn(() => []),
     modelStatusLines: () => [],
     effortStatusLines: () => [],
     ...overrides,

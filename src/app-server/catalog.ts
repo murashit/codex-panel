@@ -28,7 +28,7 @@ export async function listSkillCatalog(
   cwd: string,
   options: { forceReload?: boolean; enabledOnly?: boolean } = {},
 ): Promise<{ skills: SkillMetadata[]; totalCount: number }> {
-  const response = await client.listSkills(cwd, options.forceReload ?? false);
+  const response = options.forceReload === undefined ? await client.listSkills(cwd) : await client.listSkills(cwd, options.forceReload);
   const skills = response.data.flatMap((entry) => entry.skills);
   return {
     skills: skillMetadataFromCatalogSkills(options.enabledOnly === false ? skills : skills.filter((skill) => skill.enabled)),

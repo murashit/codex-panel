@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { h, type ComponentChild } from "preact";
 
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
@@ -67,9 +67,14 @@ describe("chat panel surface projections", () => {
     state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-debug")] } });
     state = chatStateWith(state, { runtime: { requestedModel: { kind: "set", value: "gpt-debug" } } });
 
-    const parent = renderWithShellState(state, h(ChatPanelToolbar, { surface: toolbarSurfaceFixture(), actions: toolbarActionsFixture() }));
+    const copyDebugDetails = vi.fn<(details: string) => void>();
+    const parent = renderWithShellState(
+      state,
+      h(ChatPanelToolbar, { surface: toolbarSurfaceFixture(), actions: toolbarActionsFixture({ copyDebugDetails }) }),
+    );
 
-    const debugContent = parent.querySelector(".codex-panel__debug-details-content")?.textContent;
+    parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")[2]?.click();
+    const debugContent = copyDebugDetails.mock.calls[0]?.[0];
     if (!debugContent) throw new Error("Expected toolbar debug details");
     const debugDetails = JSON.parse(debugContent) as Record<string, unknown>;
 
@@ -419,7 +424,7 @@ function toolbarSurfaceFixture(overrides: { archiveExportEnabled?: boolean } = {
   };
 }
 
-function toolbarActionsFixture(): ToolbarActions {
+function toolbarActionsFixture(overrides: Partial<ToolbarActions> = {}): ToolbarActions {
   return {
     startNewThread: () => undefined,
     toggleChatActions: () => undefined,
@@ -429,6 +434,7 @@ function toolbarActionsFixture(): ToolbarActions {
     toggleStatusPanel: () => undefined,
     connect: () => undefined,
     refreshStatus: () => undefined,
+    copyDebugDetails: () => undefined,
     resumeThread: () => undefined,
     startArchiveThread: () => undefined,
     archiveThread: () => undefined,
@@ -437,6 +443,7 @@ function toolbarActionsFixture(): ToolbarActions {
     saveRenameThread: () => undefined,
     cancelRenameThread: () => undefined,
     autoNameThread: () => undefined,
+    ...overrides,
   };
 }
 

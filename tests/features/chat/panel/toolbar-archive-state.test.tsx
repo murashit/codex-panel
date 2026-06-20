@@ -80,6 +80,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActio
         toggleStatusPanel: vi.fn(),
         connect: vi.fn(),
         refreshStatus: vi.fn(),
+        copyDebugDetails: vi.fn(),
         resumeThread: vi.fn(),
         startArchiveThread: (threadId) => {
           toolbarActions.startArchive(threadId);

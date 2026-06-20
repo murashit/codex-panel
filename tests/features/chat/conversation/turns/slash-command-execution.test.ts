@@ -48,7 +48,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     },
     statusSummaryLines: () => ["status"],
     connectionDiagnosticDetails: () => [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }],
-    mcpStatusLines: vi.fn().mockResolvedValue(["mcp"]),
+    toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "GitHub" }] }]),
     modelStatusLines: () => ["model"],
     effortStatusLines: () => ["effort"],
     ...overrides,
@@ -498,7 +498,7 @@ describe("slash commands", () => {
     expect(slashCommandHelpSections()).toEqual([
       {
         title: "Panel actions",
-        rows: expect.arrayContaining([
+        auditFacts: expect.arrayContaining([
           { key: "/clear", value: "Clear the current panel and start a fresh Codex thread." },
           { key: "/reconnect", value: "Reconnect to Codex app-server and resume the active thread." },
           { key: "/archive <thread>", value: "Archive the selected Codex thread." },
@@ -507,21 +507,23 @@ describe("slash commands", () => {
       },
       {
         title: "Thread settings",
-        rows: expect.arrayContaining([
+        auditFacts: expect.arrayContaining([
           { key: "/plan [message]", value: "Toggle Plan mode, optionally with a message." },
+          { key: "/goal", value: "Show or manage the current thread goal." },
+          { key: "/goal set <objective>", value: "Create or update the thread goal." },
           { key: "/model [model|default]", value: "Show or set the model for subsequent turns." },
         ]),
       },
       {
         title: "Diagnostics",
-        rows: expect.arrayContaining([
+        auditFacts: expect.arrayContaining([
           { key: "/status", value: "Show current thread, context, and usage limits." },
           { key: "/help", value: "Show available Codex slash commands." },
         ]),
       },
       {
         title: "Composition",
-        rows: [{ key: "/refer <thread> <message>", value: "Send a message with recent turns from another non-archived thread." }],
+        auditFacts: [{ key: "/refer <thread> <message>", value: "Send a message with recent turns from another non-archived thread." }],
       },
     ]);
   });
@@ -583,6 +585,13 @@ describe("slash commands", () => {
 
   it("documents that /plan can take a message", () => {
     expect(slashCommandHelpValue("/plan [message]")).toBe("Toggle Plan mode, optionally with a message.");
+  });
+
+  it("expands goal subcommands in help", () => {
+    expect(slashCommandHelpValue("/goal [set <objective>|edit|pause|resume|clear]")).toBeUndefined();
+    expect(slashCommandHelpValue("/goal")).toBe("Show or manage the current thread goal.");
+    expect(slashCommandHelpValue("/goal set <objective>")).toBe("Create or update the thread goal.");
+    expect(slashCommandHelpValue("/goal clear")).toBe("Clear the current thread goal.");
   });
 
   it("documents auto-review", () => {
@@ -683,22 +692,24 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort set to CaseSensitive for subsequent turns.");
   });
 
-  it("shows MCP server status", async () => {
+  it("shows Codex capabilities", async () => {
     const ctx = context();
 
-    await executeSlashCommand("mcp", "", ctx);
+    await executeSlashCommand("tools", "", ctx);
 
-    expect(ctx.mcpStatusLines).toHaveBeenCalledOnce();
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("MCP servers", [{ auditFacts: [] }]);
+    expect(ctx.toolInventoryDetails).toHaveBeenCalledOnce();
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Codex capabilities", [
+      { title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "GitHub" }] },
+    ]);
   });
 
-  it("rejects /mcp arguments", async () => {
+  it("rejects /tools arguments", async () => {
     const ctx = context();
 
-    await executeSlashCommand("mcp", "enable github", ctx);
+    await executeSlashCommand("tools", "install github", ctx);
 
-    expect(ctx.mcpStatusLines).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/mcp does not take arguments. Usage: /mcp");
+    expect(ctx.toolInventoryDetails).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/tools does not take arguments. Usage: /tools");
   });
 
   it("rejects /fast arguments before toggling", async () => {
@@ -710,13 +721,13 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fast does not take arguments. Usage: /fast");
   });
 
-  it("documents MCP status", () => {
-    expect(slashCommandHelpValue("/mcp")).toBe("Show MCP servers reported by Codex App Server.");
+  it("documents Codex capabilities", () => {
+    expect(slashCommandHelpValue("/tools")).toBe("Show Codex plugins, tool providers, and skills reported by App Server.");
   });
 });
 
 function slashCommandHelpValue(key: string): string | undefined {
   return slashCommandHelpSections()
-    .flatMap((section) => section.rows)
+    .flatMap((section) => section.auditFacts)
     .find((row) => row.key === key)?.value;
 }

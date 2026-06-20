@@ -213,13 +213,13 @@ export function createConnectionBundle(
       refreshSkills: (forceReload) => serverMetadata.refreshSkills(forceReload),
     },
     diagnostics: {
-      refreshDiagnosticProbes: (options) => serverDiagnostics.refreshDiagnosticProbes(options),
+      refreshServerDiagnostics: (options) => serverDiagnostics.refreshServerDiagnostics(options),
     },
     refreshSharedThreads,
     scheduleDeferredDiagnostics: () => {
       host.deferredTasks.scheduleDiagnostics(() => {
         if (connection.isConnected()) {
-          void serverDiagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
+          void serverDiagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
         }
       });
     },

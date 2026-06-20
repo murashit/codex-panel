@@ -28,36 +28,6 @@
   display: none;
 }
 
-.codex-panel__debug-details {
-  margin-top: var(--codex-panel-panel-gap);
-  padding: var(--codex-panel-item-gap) 0 0;
-  color: var(--codex-panel-text-muted);
-}
-
-.codex-panel__debug-details-summary {
-  padding: var(--codex-panel-section-label-padding);
-  color: var(--codex-panel-section-label-color);
-  font-size: var(--codex-panel-section-label-size);
-  font-weight: var(--codex-panel-section-label-weight);
-  line-height: var(--codex-panel-section-label-line-height);
-  cursor: default;
-}
-
-.codex-panel__debug-details-summary:hover {
-  color: var(--nav-item-color-hover, var(--text-normal));
-}
-
-.codex-panel__debug-details-content {
-  margin: 0 var(--codex-panel-section-gap) var(--codex-panel-control-gap);
-  overflow: auto;
-  color: var(--codex-panel-text-muted);
-  font-size: var(--font-ui-smaller);
-  line-height: var(--line-height-tight);
-  white-space: pre;
-  cursor: text;
-  user-select: text;
-}
-
 .codex-panel__approval-details summary,
 .codex-panel__output summary,
 .codex-panel-diff-file summary,

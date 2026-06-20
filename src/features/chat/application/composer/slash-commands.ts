@@ -137,11 +137,11 @@ export const SLASH_COMMANDS = [
     detail: "Show Codex CLI and Codex App Server diagnostics.",
   },
   {
-    command: "/mcp",
-    usage: "/mcp",
+    command: "/tools",
+    usage: "/tools",
     argsKind: "none",
     surface: "diagnostic",
-    detail: "Show MCP servers reported by Codex App Server.",
+    detail: "Show Codex plugins, tool providers, and skills reported by App Server.",
   },
   {
     command: "/model",
@@ -172,6 +172,11 @@ export type SlashCommandName = SlashCommand extends `/${infer Name}` ? Name : ne
 
 export type SlashCommandDefinition = (typeof SLASH_COMMANDS)[number];
 
+export interface SlashCommandHelpSection {
+  readonly title: string;
+  readonly auditFacts: readonly { key: string; value: string }[];
+}
+
 export function slashCommandDefinition(command: SlashCommandName): SlashCommandDefinition {
   const definition = SLASH_COMMANDS.find((item) => item.command === `/${command}`);
   if (!definition) throw new Error(`Unknown slash command: ${command}`);
@@ -187,11 +192,23 @@ export function slashCommandSubcommandDefinition(command: SlashCommandName, subc
   return slashCommandSubcommands(command).find((item) => item.subcommand === subcommand) ?? null;
 }
 
-export function slashCommandHelpSections(): { title: string; rows: { key: string; value: string }[] }[] {
+export function slashCommandHelpSections(): SlashCommandHelpSection[] {
   return (Object.keys(SLASH_COMMAND_SURFACE_LABELS) as SlashCommandSurface[])
     .map((surface) => ({
       title: SLASH_COMMAND_SURFACE_LABELS[surface],
-      rows: SLASH_COMMANDS.filter((item) => item.surface === surface).map((item) => ({ key: item.usage, value: item.detail })),
+      auditFacts: SLASH_COMMANDS.filter((item) => item.surface === surface).flatMap(slashCommandHelpRows),
     }))
-    .filter((section) => section.rows.length > 0);
+    .filter((section) => section.auditFacts.length > 0);
+}
+
+function slashCommandHelpRows(command: SlashCommandDefinition): readonly { key: string; value: string }[] {
+  if (!("subcommands" in command)) return [{ key: command.usage, value: command.detail }];
+
+  return [
+    { key: command.command, value: command.detail },
+    ...command.subcommands.map((subcommand) => ({
+      key: subcommand.usage,
+      value: subcommand.detail,
+    })),
+  ];
 }

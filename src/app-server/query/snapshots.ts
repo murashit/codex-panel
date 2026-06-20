@@ -2,6 +2,7 @@ import type { ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata
 import { cloneRuntimeConfigSnapshot } from "../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
+import { cloneToolInventorySnapshot } from "../../domain/server/tool-inventory";
 import type { Thread } from "../../domain/threads/model";
 
 export function cloneThreads(threads: readonly Thread[]): Thread[] {
@@ -28,6 +29,7 @@ export function cloneSharedServerMetadata(metadata: SharedServerMetadata): Share
     serverDiagnostics: {
       probes: { ...metadata.serverDiagnostics.probes },
       mcpServers: metadata.serverDiagnostics.mcpServers.map((server) => ({ ...server })),
+      toolInventory: metadata.serverDiagnostics.toolInventory ? cloneToolInventorySnapshot(metadata.serverDiagnostics.toolInventory) : null,
     },
   };
 }

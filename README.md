@@ -83,7 +83,7 @@ By default, `Enter` sends and `Shift+Enter` inserts a newline. You can switch se
 - Inspect context usage from the composer status row.
 - Toggle Plan mode, fast mode, and approval auto-review for subsequent turns.
 - Set the model and reasoning effort for subsequent turns when supported by Codex.
-- Inspect usage limits, connection diagnostics, MCP servers, enabled skills, runtime debug details, and discovered hooks from the toolbar, settings, or slash commands.
+- Inspect usage limits, connection diagnostics, and Codex capabilities from the toolbar or slash commands; copy runtime debug details from the status panel; view discovered hooks in settings.
 
 ### Obsidian-native workflows
 
@@ -150,7 +150,7 @@ Use `/help` in the composer to show the available slash commands. The list below
 | --------- | ------------------------------------------------ |
 | `/status` | Show current thread, context, and usage limits.  |
 | `/doctor` | Show Codex CLI and Codex App Server diagnostics. |
-| `/mcp`    | Show MCP servers reported by Codex App Server.   |
+| `/tools`  | Show Codex plugins, tool providers, and skills.  |
 | `/help`   | Show available slash commands.                   |
 
 #### Composition

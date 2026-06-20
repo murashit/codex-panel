@@ -16,6 +16,7 @@ import { threadFromThreadRecord } from "../../../../../src/app-server/protocol/t
 import { createChatServerDiagnosticsActions } from "../../../../../src/features/chat/app-server/actions/diagnostics";
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/app-server/actions/metadata";
 import { createChatServerThreadActions } from "../../../../../src/features/chat/app-server/actions/threads";
+import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/application/connection/tool-inventory-display";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
@@ -251,7 +252,7 @@ describe("chat server actions", () => {
     const state = chatStateFixture();
     const stateStore = createChatStateStore(state);
 
-    const listHooks = vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", hooks: [] }] });
+    const listMcpServerStatus = vi.fn().mockResolvedValue({ data: [] });
     const refreshedMetadata = serverMetadataFixture({
       availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-5.1")]),
       availableSkills: [{ name: "writer", description: "", path: "/tmp/writer", enabled: true }],
@@ -266,10 +267,7 @@ describe("chat server actions", () => {
     });
     const refreshAppServerMetadata = vi.fn<() => Promise<SharedServerMetadata | null>>().mockResolvedValue(refreshedMetadata);
     const client = {
-      listHooks,
-      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
-      listCollaborationModes: vi.fn().mockResolvedValue({ data: [] }),
-      readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
+      listMcpServerStatus,
     } as unknown as AppServerClient;
     const metadataCache = metadataCacheHost({ current: null });
 
@@ -293,10 +291,10 @@ describe("chat server actions", () => {
 
     await metadata.refreshAppServerMetadata();
 
-    await diagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
+    await diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
 
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
-    expect(listHooks).toHaveBeenCalledWith("/vault");
+    expect(listMcpServerStatus).toHaveBeenCalledWith({ detail: "toolsAndAuthOnly", limit: 100 });
     expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
       status: "ok",
       summary: "1 models",
@@ -339,15 +337,12 @@ describe("chat server actions", () => {
     const listModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-direct")] });
     const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("direct-skill")] }] });
     const readAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture(), rateLimitsByLimitId: null });
-    const listHooks = vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", hooks: [] }] });
+    const listMcpServerStatus = vi.fn().mockResolvedValue({ data: [] });
     const client = {
       listModels,
       listSkills,
       readAccountRateLimits,
-      listHooks,
-      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
-      listCollaborationModes: vi.fn().mockResolvedValue({ data: [] }),
-      readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
+      listMcpServerStatus,
     } as unknown as AppServerClient;
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
@@ -356,7 +351,7 @@ describe("chat server actions", () => {
       ...metadataCache,
     });
 
-    await diagnostics.refreshDiagnosticProbes();
+    await diagnostics.refreshServerDiagnostics();
 
     expect(listModels).not.toHaveBeenCalled();
     expect(listSkills).not.toHaveBeenCalled();
@@ -365,7 +360,7 @@ describe("chat server actions", () => {
       status: "ok",
       summary: "cached models",
     });
-    expect(listHooks).toHaveBeenCalledWith("/vault");
+    expect(listMcpServerStatus).toHaveBeenCalledWith({ detail: "toolsAndAuthOnly", limit: 100 });
   });
 
   it("can force resource probes for explicit health checks", async () => {
@@ -377,10 +372,7 @@ describe("chat server actions", () => {
       listModels,
       listSkills,
       readAccountRateLimits,
-      listHooks: vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", hooks: [] }] }),
       listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
-      listCollaborationModes: vi.fn().mockResolvedValue({ data: [] }),
-      readModelProviderCapabilities: vi.fn().mockResolvedValue({}),
     } as unknown as AppServerClient;
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
@@ -389,7 +381,7 @@ describe("chat server actions", () => {
       ...metadataCacheHost(),
     });
 
-    await diagnostics.refreshDiagnosticProbes({ forceResourceProbes: true });
+    await diagnostics.refreshServerDiagnostics({ forceResourceProbes: true });
 
     expect(listModels).toHaveBeenCalledWith(false);
     expect(listSkills).toHaveBeenCalledWith("/vault");
@@ -402,13 +394,10 @@ describe("chat server actions", () => {
 
   it("does not apply or publish diagnostic probes after the client changes", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const hooksRefresh = deferred<{ data: { cwd: string; hooks: unknown[] }[] }>();
-    const listHooks = vi.fn().mockReturnValue(hooksRefresh.promise);
+    const mcpStatusRefresh = deferred<{ data: ReturnType<typeof mcpServerStatus>[] }>();
+    const listMcpServerStatus = vi.fn().mockReturnValue(mcpStatusRefresh.promise);
     const firstClient = {
-      listHooks,
-      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [mcpServerStatus()] }),
-      listCollaborationModes: vi.fn().mockResolvedValue({ data: [{ mode: "default" }] }),
-      readModelProviderCapabilities: vi.fn().mockResolvedValue({ namespaceTools: true, imageGeneration: false, webSearch: false }),
+      listMcpServerStatus,
     } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
@@ -421,13 +410,12 @@ describe("chat server actions", () => {
       updateAppServerMetadata,
     });
 
-    const refreshing = diagnostics.refreshDiagnosticProbes({ appServerMetadataSnapshot: true });
+    const refreshing = diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
     currentClient = secondClient;
-    hooksRefresh.resolve({ data: [{ cwd: "/vault", hooks: [{}] }] });
+    mcpStatusRefresh.resolve({ data: [mcpServerStatus()] });
 
     await refreshing;
-    expect(listHooks).toHaveBeenCalledWith("/vault");
-    expect(stateStore.getState().connection.serverDiagnostics.probes["hooks/list"].status).toBe("unknown");
+    expect(listMcpServerStatus).toHaveBeenCalledWith({ detail: "toolsAndAuthOnly", limit: 100 });
     expect(stateStore.getState().connection.serverDiagnostics.probes["mcpServerStatus/list"].status).toBe("unknown");
     expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([]);
     expect(updateAppServerMetadata).not.toHaveBeenCalled();
@@ -600,13 +588,16 @@ describe("chat server actions", () => {
     expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
-  it("loads MCP status lines with cached startup diagnostics", async () => {
+  it("refreshes tool provider snapshots with cached MCP startup diagnostics", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     const stateStore = createChatStateStore(state);
     const listMcpServerStatus = vi.fn().mockResolvedValue({ data: [mcpServerStatus()] });
     const client = {
+      listApps: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      listInstalledPlugins: vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
       listMcpServerStatus,
+      listSkills: vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", skills: [] }] }),
     } as unknown as AppServerClient;
     const metadataCache = metadataCacheHost({ current: serverMetadataFixture() });
     const controller = createChatServerDiagnosticsActions({
@@ -618,7 +609,16 @@ describe("chat server actions", () => {
 
     controller.recordMcpStartupStatus("github", "ready", null);
 
-    await expect(controller.mcpStatusLines()).resolves.toEqual(["MCP servers", "github: ready, auth oAuth, 1 tool, 0 resources"]);
+    await controller.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
+
+    const sections = toolInventoryDiagnosticSections(stateStore.getState().connection.serverDiagnostics);
+    const providerRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
+
+    expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
+    expect(providerRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
+      "codex_apps: (none)",
+      "github: MCP server, ready, auth oAuth, 1 tool, 0 resources",
+    ]);
     expect(listMcpServerStatus).toHaveBeenCalledWith({
       detail: "toolsAndAuthOnly",
       limit: 100,

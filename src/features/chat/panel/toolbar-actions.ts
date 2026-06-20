@@ -6,6 +6,7 @@ import type { GoalActions } from "../application/threads/goal-actions";
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
 import type { SelectionActions } from "../application/threads/selection-actions";
 import type { ToolbarActions } from "../ui/toolbar";
+import { copyTextWithNotice } from "../../../shared/ui/clipboard";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
@@ -148,6 +149,9 @@ export function createChatPanelToolbarActions(host: ChatPanelToolbarActionsHost,
     },
     refreshStatus: () => {
       void deps.connectionController.refreshStatusPanel();
+    },
+    copyDebugDetails: (details) => {
+      void copyTextWithNotice(details, "Copied debug details.", "Could not copy debug details.");
     },
     resumeThread: (threadId) => {
       void deps.selection.selectThreadFromToolbar(threadId);
