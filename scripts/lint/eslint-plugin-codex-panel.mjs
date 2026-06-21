@@ -168,21 +168,9 @@ const codexPanelEslintPlugin = {
           event: "Keep imperative DOM event wiring in an explicit bridge module or Obsidian-owned UI boundary.",
           write: "Keep imperative DOM writes in an explicit bridge module or Obsidian-owned UI boundary.",
         },
-        schema: [
-          {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              allowEvents: { type: "boolean" },
-              allowWrites: { type: "boolean" },
-            },
-          },
-        ],
+        schema: [],
       },
       create(context) {
-        const options = context.options[0] ?? {};
-        const allowEvents = options.allowEvents === true;
-        const allowWrites = options.allowWrites === true;
         let parserServices = null;
         let checker = null;
 
@@ -206,7 +194,7 @@ const codexPanelEslintPlugin = {
 
         return {
           AssignmentExpression(node) {
-            if (allowWrites || !isMemberExpression(node.left)) return;
+            if (!isMemberExpression(node.left)) return;
             const property = staticPropertyName(node.left.property);
             if (!property || !imperativeDomAssignmentProperties.has(property)) return;
             if (isDomTarget(node.left.object)) context.report({ node: node.left, messageId: "write" });
@@ -215,11 +203,11 @@ const codexPanelEslintPlugin = {
             if (!isMemberExpression(node.callee)) return;
             const method = staticPropertyName(node.callee.property);
             if (!method) return;
-            if (!allowWrites && imperativeDomWriteMethods.has(method) && isDomTarget(node.callee.object)) {
+            if (imperativeDomWriteMethods.has(method) && isDomTarget(node.callee.object)) {
               context.report({ node: node.callee, messageId: "write" });
               return;
             }
-            if (!allowEvents && imperativeDomEventMethods.has(method) && isDomTarget(node.callee.object)) {
+            if (imperativeDomEventMethods.has(method) && isDomTarget(node.callee.object)) {
               context.report({ node: node.callee, messageId: "event" });
             }
           },
@@ -332,9 +320,7 @@ function typeCanCarryChatStateMutation(type, seen = new Set()) {
 }
 
 function domTypeName(name) {
-  return /\b(?:AbortSignal|Document|Element|EventTarget|HTML[A-Za-z]*Element|HTMLElement|Node|SVG[A-Za-z]*Element|SVGElement|Window)\b/.test(
-    name,
-  );
+  return /\b(?:Document|Element|HTML[A-Za-z]*Element|HTMLElement|Node|SVG[A-Za-z]*Element|SVGElement|Window)\b/.test(name);
 }
 
 function chatStateTypeName(name) {

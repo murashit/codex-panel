@@ -1,6 +1,7 @@
+import { parseLinktext } from "obsidian";
+
 import { codexTextInputWithMentions, type RequestAdditionalContext, type RequestMention } from "../../../../domain/chat/input";
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import { parseObsidianWikiLink } from "../../../../shared/obsidian/wikilinks";
 
 export interface ParsedWikiLink {
   raw: string;
@@ -88,8 +89,19 @@ function parsedSkillReferences(text: string): string[] {
 }
 
 function parseWikiLink(raw: string): ParsedWikiLink | null {
-  const parsed = parseObsidianWikiLink(raw);
-  return parsed ? { raw, ...parsed } : null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const separator = trimmed.indexOf("|");
+  const linktext = (separator === -1 ? trimmed : trimmed.slice(0, separator)).trim();
+  const display = separator === -1 ? "" : trimmed.slice(separator + 1).trim();
+  if (!linktext) return null;
+
+  const parsed = parseLinktext(linktext);
+  const target = parsed.path.trim();
+  const subpath = parsed.subpath.trim();
+  if (!target) return null;
+  return { raw, target, subpath, display };
 }
 
 function firstEnabledSkillByName(skills: readonly SkillMetadata[]): Map<string, SkillMetadata> {

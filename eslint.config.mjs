@@ -190,7 +190,6 @@ const nonChatImperativeDomBridgeFiles = [
   "src/shared/ui/textarea-caret.ts",
   "src/shared/ui/ui-root.tsx",
 ];
-const nonUiEventListenerFiles = ["src/shared/lifecycle/abortable.ts", "src/shared/ui/dom-events.ts"];
 const appServerProjectionRpcMethodPattern = "^(resumeThread|threadTurnsList|forkThread|rollbackThread)$";
 const appServerProjectionRpcRestrictions = [
   {
@@ -315,7 +314,7 @@ export default defineConfig([
   },
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles, ...nonUiEventListenerFiles],
+    ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles],
     rules: {
       ...restrictedSyntaxRule(sourceSyntaxRestrictions),
       "codex-panel/no-imperative-dom": "error",
@@ -356,13 +355,6 @@ export default defineConfig([
   {
     files: nonChatImperativeDomBridgeFiles,
     rules: restrictedSyntaxRule(nonChatDomBridgeSyntaxRestrictions),
-  },
-  {
-    files: nonUiEventListenerFiles,
-    rules: {
-      ...restrictedSyntaxRule(sourceSyntaxRestrictions),
-      "codex-panel/no-imperative-dom": ["error", { allowEvents: true }],
-    },
   },
   {
     files: uiRootBridgeFiles,

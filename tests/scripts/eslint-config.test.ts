@@ -422,9 +422,22 @@ export const status = signal("idle");
     expect(messages).toContain("no-restricted-syntax");
   });
 
-  it("allows event wiring but not DOM writes in event-only bridge files", async () => {
+  it("does not treat AbortSignal event wiring as imperative DOM", async () => {
     const messages = await lintSource(
-      "src/shared/lifecycle/abortable.ts",
+      "src/app-server/services/abortable-operation.ts",
+      `
+export function attach(signal: AbortSignal): void {
+  signal.addEventListener("abort", () => undefined);
+}
+`,
+    );
+
+    expect(messages).not.toContain("codex-panel/no-imperative-dom");
+  });
+
+  it("still reports DOM writes beside AbortSignal event wiring", async () => {
+    const messages = await lintSource(
+      "src/app-server/services/abortable-operation.ts",
       `
 export function attach(signal: AbortSignal, element: HTMLElement): void {
   signal.addEventListener("abort", () => undefined);
@@ -436,12 +449,12 @@ export function attach(signal: AbortSignal, element: HTMLElement): void {
     expect(messages.filter((message) => message === "codex-panel/no-imperative-dom")).toHaveLength(1);
   });
 
-  it("allows DOM event wiring in the shared UI event bridge", async () => {
+  it("does not treat generic EventTarget helpers as DOM event wiring", async () => {
     const messages = await lintSource(
       "src/shared/ui/dom-events.ts",
       `
-export function attach(element: HTMLElement): void {
-  element.addEventListener("click", () => undefined);
+export function attach(target: EventTarget): void {
+  target.addEventListener("click", () => undefined);
 }
 `,
     );

@@ -4,10 +4,10 @@ import {
   type AppServerStartEphemeralThreadOptions,
   type AppServerStartStructuredTurnOptions,
 } from "../connection/client";
-import { abortablePromise, throwIfAbortSignalAborted } from "../../shared/lifecycle/abortable";
 import type { RequestId, ServerNotification } from "../connection/rpc-messages";
 import type { ModelMetadataClient } from "../catalog";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
+import { abortableOperation, throwIfSignalAborted } from "./abortable-operation";
 
 export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["outputSchema"];
 
@@ -258,11 +258,11 @@ function turnWithCollectedItems(turn: TurnRecord, completedItems: readonly TurnI
 }
 
 function throwIfAborted(signal: AbortSignal | undefined, message: string | undefined): void {
-  throwIfAbortSignalAborted(signal, () => ephemeralStructuredTurnAbortError(message));
+  throwIfSignalAborted(signal, () => ephemeralStructuredTurnAbortError(message));
 }
 
 function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined, abortError: () => Error): Promise<T> {
-  return abortablePromise(promise, signal, abortError);
+  return abortableOperation(promise, signal, abortError);
 }
 
 function ephemeralStructuredTurnAbortError(message: string | undefined): Error {
