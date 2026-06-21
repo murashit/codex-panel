@@ -344,6 +344,45 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("does not clear a newer rename edit when an older save finishes", async () => {
+    const saved = deferred<object>();
+    const setThreadName = vi.fn(() => saved.promise);
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      setThreadName,
+    });
+    const recordThreadRenamed = vi.fn();
+    const host = threadsHost({
+      threadCatalog: { recordThreadRenamed },
+    });
+    const view = await threadsView(host);
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const firstInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    expect(firstInput).not.toBeNull();
+    if (!firstInput) return;
+    changeInputValue(firstInput, "  Saved   title  ");
+    firstInput.dispatchEvent(new FocusEvent("blur"));
+    await waitForAsyncWork(() => {
+      expect(setThreadName).toHaveBeenCalledWith("thread", "Saved title");
+    });
+
+    firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const secondInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    expect(secondInput).not.toBeNull();
+    if (!secondInput) return;
+    changeInputValue(secondInput, "New draft");
+
+    saved.resolve({});
+
+    await waitForAsyncWork(() => {
+      expect(recordThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
+      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("New draft");
+    });
+  });
+
   it("auto-names a thread rename draft from completed history", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [

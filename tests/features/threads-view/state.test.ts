@@ -53,6 +53,7 @@ describe("threads view rename state", () => {
     const editing = editingRenameState("Original draft");
     const generating = generatingRenameState("Original draft", 1);
 
+    expect(transitionThreadsRenameState(undefined, { type: "draft-updated", draft: "Stray" })).toBeUndefined();
     expect(transitionThreadsRenameState(undefined, { type: "auto-name-started", generationToken: 1 })).toBeUndefined();
     expect(transitionThreadsRenameState(editing, { type: "auto-name-generated", generatingState: generating, title: "Late" })).toBe(
       editing,

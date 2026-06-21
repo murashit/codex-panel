@@ -1,6 +1,14 @@
 import type { Thread } from "../../domain/threads/model";
 import { threadRenameDraftTitle, threadUserTitle } from "../../domain/threads/title";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
+import {
+  initialThreadRenameLifecycleState,
+  transitionThreadRenameLifecycleState,
+  type ThreadRenameActiveState,
+  type ThreadRenameGeneratingState,
+  type ThreadRenameLifecycleEvent as SharedThreadRenameLifecycleEvent,
+  type ThreadRenameLifecycleState as SharedThreadRenameLifecycleState,
+} from "../threads/rename-lifecycle";
 
 type ThreadsLiveStatus = "needs-input" | "approval" | "running" | "draft" | "offline" | "open";
 
@@ -20,11 +28,8 @@ export interface ThreadsRowModel {
   archiveConfirm: { active: boolean; defaultSaveMarkdown: boolean };
 }
 
-export type ThreadsRenameState =
-  | { kind: "editing"; draft: string }
-  | { kind: "generating"; draft: string; originalDraft: string; generationToken: number };
-export type ThreadsGeneratingRenameState = Extract<ThreadsRenameState, { kind: "generating" }>;
-type ThreadsRenameLifecycleKind = ThreadsRenameState["kind"] | "idle";
+export type ThreadsRenameState = ThreadRenameActiveState;
+export type ThreadsGeneratingRenameState = ThreadRenameGeneratingState;
 export type ThreadsRenameLifecycleState = ThreadsRenameState | undefined;
 export type ThreadsRenameLifecycleEvent =
   | { type: "started"; draft: string }
@@ -33,15 +38,6 @@ export type ThreadsRenameLifecycleEvent =
   | { type: "auto-name-started"; generationToken: number }
   | { type: "auto-name-generated"; generatingState: ThreadsGeneratingRenameState; title: string }
   | { type: "auto-name-finished"; generatingState: ThreadsGeneratingRenameState };
-type ThreadsRenameLifecycleEventType = ThreadsRenameLifecycleEvent["type"];
-type ThreadsRenameLifecycleTransition = (
-  state: ThreadsRenameLifecycleState,
-  event: ThreadsRenameLifecycleEvent,
-) => ThreadsRenameLifecycleState;
-type ThreadsRenameLifecycleTransitionTable = Record<
-  ThreadsRenameLifecycleKind,
-  Record<ThreadsRenameLifecycleEventType, ThreadsRenameLifecycleTransition>
->;
 
 const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
   "needs-input": 5,
@@ -107,98 +103,30 @@ export function transitionThreadsRenameState(
   state: ThreadsRenameLifecycleState,
   event: ThreadsRenameLifecycleEvent,
 ): ThreadsRenameLifecycleState {
-  return threadsRenameLifecycleTransitions[threadsRenameLifecycleKind(state)][event.type](state, event);
+  return activeThreadsRenameState(
+    transitionThreadRenameLifecycleState(state ?? initialThreadRenameLifecycleState(), sharedThreadsRenameLifecycleEvent(event)),
+  );
 }
 
-const keepThreadsRenameState: ThreadsRenameLifecycleTransition = (state) => state;
-
-const startThreadsRenameTransition: ThreadsRenameLifecycleTransition = (_state, event) =>
-  editingThreadRenameState(requireThreadsRenameDraft(event));
-
-const updateThreadsRenameDraftTransition: ThreadsRenameLifecycleTransition = (state, event) => {
-  const draft = requireThreadsRenameDraft(event);
-  return state?.kind === "generating" ? { ...state, draft } : editingThreadRenameState(draft);
-};
-
-const cancelThreadsRenameTransition: ThreadsRenameLifecycleTransition = () => undefined;
-
-const startThreadsAutoNameTransition: ThreadsRenameLifecycleTransition = (state, event) => {
-  if (!state || state.kind === "generating") return state;
-  return { kind: "generating", draft: state.draft, originalDraft: state.draft, generationToken: requireThreadsGenerationToken(event) };
-};
-
-const generatedThreadsAutoNameTransition: ThreadsRenameLifecycleTransition = (state, event) => {
-  const generatingState = requireThreadsGeneratingState(event);
-  if (!threadsRenameGenerationStillActive(state, generatingState)) return state;
-  if (state.draft !== state.originalDraft) return state;
-  return { ...state, draft: requireGeneratedThreadsTitle(event) };
-};
-
-const finishThreadsAutoNameTransition: ThreadsRenameLifecycleTransition = (state, event) => {
-  if (!threadsRenameGenerationStillActive(state, requireThreadsGeneratingState(event))) return state;
-  return editingThreadRenameState(state.draft);
-};
-
-const threadsRenameLifecycleTransitions: ThreadsRenameLifecycleTransitionTable = {
-  idle: {
-    started: startThreadsRenameTransition,
-    "draft-updated": updateThreadsRenameDraftTransition,
-    cancelled: keepThreadsRenameState,
-    "auto-name-started": keepThreadsRenameState,
-    "auto-name-generated": keepThreadsRenameState,
-    "auto-name-finished": keepThreadsRenameState,
-  },
-  editing: {
-    started: startThreadsRenameTransition,
-    "draft-updated": updateThreadsRenameDraftTransition,
-    cancelled: cancelThreadsRenameTransition,
-    "auto-name-started": startThreadsAutoNameTransition,
-    "auto-name-generated": keepThreadsRenameState,
-    "auto-name-finished": keepThreadsRenameState,
-  },
-  generating: {
-    started: startThreadsRenameTransition,
-    "draft-updated": updateThreadsRenameDraftTransition,
-    cancelled: cancelThreadsRenameTransition,
-    "auto-name-started": keepThreadsRenameState,
-    "auto-name-generated": generatedThreadsAutoNameTransition,
-    "auto-name-finished": finishThreadsAutoNameTransition,
-  },
-};
-
-function threadsRenameLifecycleKind(state: ThreadsRenameLifecycleState): ThreadsRenameLifecycleKind {
-  return state?.kind ?? "idle";
+function sharedThreadsRenameLifecycleEvent(event: ThreadsRenameLifecycleEvent): SharedThreadRenameLifecycleEvent {
+  switch (event.type) {
+    case "started":
+      return { type: "started", draft: event.draft };
+    case "draft-updated":
+      return { type: "draft-updated", draft: event.draft };
+    case "cancelled":
+      return { type: "cancelled" };
+    case "auto-name-started":
+      return { type: "generation-started", generationToken: event.generationToken };
+    case "auto-name-generated":
+      return { type: "generation-succeeded", generatingState: event.generatingState, draft: event.title };
+    case "auto-name-finished":
+      return { type: "generation-finished", generatingState: event.generatingState };
+  }
 }
 
-function editingThreadRenameState(draft: string): ThreadsRenameState {
-  return { kind: "editing", draft };
-}
-
-function threadsRenameGenerationStillActive(
-  state: ThreadsRenameLifecycleState,
-  generatingState: ThreadsGeneratingRenameState,
-): state is ThreadsGeneratingRenameState {
-  return state?.kind === "generating" && state.generationToken === generatingState.generationToken;
-}
-
-function requireThreadsRenameDraft(event: ThreadsRenameLifecycleEvent): string {
-  if ("draft" in event) return event.draft;
-  throw new Error(`Threads rename lifecycle event ${event.type} does not include a draft.`);
-}
-
-function requireThreadsGeneratingState(event: ThreadsRenameLifecycleEvent): ThreadsGeneratingRenameState {
-  if ("generatingState" in event) return event.generatingState;
-  throw new Error(`Threads rename lifecycle event ${event.type} does not include generating state.`);
-}
-
-function requireThreadsGenerationToken(event: ThreadsRenameLifecycleEvent): number {
-  if ("generationToken" in event) return event.generationToken;
-  throw new Error(`Threads rename lifecycle event ${event.type} does not include a generation token.`);
-}
-
-function requireGeneratedThreadsTitle(event: ThreadsRenameLifecycleEvent): string {
-  if ("title" in event) return event.title;
-  throw new Error(`Threads rename lifecycle event ${event.type} does not include a title.`);
+function activeThreadsRenameState(state: SharedThreadRenameLifecycleState): ThreadsRenameLifecycleState {
+  return state.kind === "idle" ? undefined : state;
 }
 
 function snapshotsForThreads(snapshots: OpenCodexPanelSnapshot[]): Map<string, OpenCodexPanelSnapshot[]> {

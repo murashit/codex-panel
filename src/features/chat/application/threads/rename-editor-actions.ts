@@ -98,7 +98,6 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
       dispatch(host, {
         type: "ui/rename-generation-started",
         threadId,
-        originalDraft: editingState.draft,
         generationToken: nextRenameGenerationToken,
       });
       const generatingState: ChatRenameUiState = host.stateStore.getState().ui.rename;

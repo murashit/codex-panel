@@ -273,11 +273,13 @@ export class CodexThreadsSession {
     try {
       if (this.renameStates.get(threadId) !== editingState) return;
       const result = await this.operations.renameThread(threadId, value);
+      if (this.renameStates.get(threadId) !== editingState) return;
       if (!result) {
         this.cancelRename(threadId);
         return;
       }
       this.renameStates.delete(threadId);
+      this.render();
     } catch (error) {
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();

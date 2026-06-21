@@ -1,17 +1,16 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import { pendingRequestDerivedKeyPrefix, type PendingRequestId } from "../../../../domain/pending-requests/model";
+import {
+  threadRenameGenerationStillActive,
+  transitionThreadRenameLifecycleState,
+  type ThreadRenameActiveState,
+  type ThreadRenameGeneratingState,
+  type ThreadRenameLifecycleEvent,
+  type ThreadRenameLifecycleState,
+} from "../../../threads/rename-lifecycle";
 import type { DisclosureSetAction } from "./actions";
 
-export type ChatRenameUiState =
-  | { readonly kind: "idle" }
-  | { readonly kind: "editing"; readonly threadId: string; readonly draft: string }
-  | {
-      readonly kind: "generating";
-      readonly threadId: string;
-      readonly draft: string;
-      readonly originalDraft: string;
-      readonly generationToken: number;
-    };
+export type ChatRenameUiState = { readonly kind: "idle" } | (ThreadRenameActiveState & { readonly threadId: string });
 
 export type ChatRenameGeneratingUiState = Extract<ChatRenameUiState, { kind: "generating" }>;
 type ChatRenameUiAction = Extract<
@@ -28,9 +27,7 @@ type ChatRenameUiAction = Extract<
   }
 >;
 type ChatRenameUiActionType = ChatRenameUiAction["type"];
-type ChatRenameUiKind = ChatRenameUiState["kind"];
 type ChatRenameUiTransition = (state: ChatRenameUiState, action: ChatRenameUiAction) => ChatRenameUiState;
-type ChatRenameUiTransitionTable = Record<ChatRenameUiKind, Record<ChatRenameUiActionType, ChatRenameUiTransition>>;
 
 type ChatGoalEditorUiState =
   | { readonly kind: "closed" }
@@ -77,7 +74,7 @@ export type UiAction =
   | { type: "ui/rename-started"; threadId: string; draft: string }
   | { type: "ui/rename-draft-updated"; threadId: string; draft: string }
   | { type: "ui/rename-cancelled"; threadId: string }
-  | { type: "ui/rename-generation-started"; threadId: string; originalDraft: string; generationToken: number }
+  | { type: "ui/rename-generation-started"; threadId: string; generationToken: number }
   | { type: "ui/rename-generation-succeeded"; generatingState: ChatRenameGeneratingUiState; draft: string }
   | { type: "ui/rename-generation-finished"; threadId: string; generatingState: ChatRenameGeneratingUiState }
   | { type: "ui/rename-cleared" }
@@ -178,10 +175,7 @@ export function renameGenerationStillActive(
   generatingState: ChatRenameGeneratingUiState,
 ): state is ChatRenameGeneratingUiState {
   return (
-    state.kind === "generating" &&
-    state.threadId === generatingState.threadId &&
-    state.originalDraft === generatingState.originalDraft &&
-    state.generationToken === generatingState.generationToken
+    state.kind === "generating" && state.threadId === generatingState.threadId && threadRenameGenerationStillActive(state, generatingState)
   );
 }
 
@@ -264,60 +258,48 @@ function goalEditorDraftUpdated(state: ChatGoalEditorUiState, objective: string)
 }
 
 function transitionChatRenameUiState(state: ChatRenameUiState, action: ChatRenameUiAction): ChatRenameUiState {
-  return chatRenameUiTransitions[state.kind][action.type](state, action);
+  return chatRenameUiTransitions[action.type](state, action);
 }
 
-const keepRenameUiState: ChatRenameUiTransition = (state) => state;
-
 const startRenameUiTransition: ChatRenameUiTransition = (_state, action) => ({
-  kind: "editing",
   threadId: requireRenameThreadId(action),
-  draft: requireRenameDraft(action),
+  ...requireThreadRenameActiveState(
+    transitionThreadRenameLifecycleState(initialRenameUiState(), { type: "started", draft: requireRenameDraft(action) }),
+  ),
 });
 
-const updateRenameUiDraftTransition: ChatRenameUiTransition = (state, action) => {
-  if (state.kind === "idle" || state.threadId !== requireRenameThreadId(action)) return state;
-  return { ...state, draft: requireRenameDraft(action) };
-};
+const updateRenameUiDraftTransition: ChatRenameUiTransition = (state, action) =>
+  transitionScopedChatRenameUiState(state, action, { type: "draft-updated", draft: requireRenameDraft(action) });
 
-const cancelRenameUiTransition: ChatRenameUiTransition = (state, action) => {
-  const threadId = requireRenameThreadId(action);
-  if (state.kind === "idle" || state.threadId !== threadId) return state;
-  return initialRenameUiState();
-};
+const cancelRenameUiTransition: ChatRenameUiTransition = (state, action) =>
+  transitionScopedChatRenameUiState(state, action, { type: "cancelled" });
 
-const startRenameGenerationTransition: ChatRenameUiTransition = (state, action) => {
-  const threadId = requireRenameThreadId(action);
-  if (state.kind !== "editing" || state.threadId !== threadId) return state;
-  return {
-    kind: "generating",
-    threadId,
-    draft: state.draft,
-    originalDraft: requireRenameOriginalDraft(action),
+const startRenameGenerationTransition: ChatRenameUiTransition = (state, action) =>
+  transitionScopedChatRenameUiState(state, action, {
+    type: "generation-started",
     generationToken: requireRenameGenerationToken(action),
-  };
-};
+  });
 
-const succeedRenameGenerationTransition: ChatRenameUiTransition = (state, action) => {
-  const generatingState = requireRenameGeneratingState(action);
-  if (!renameGenerationStillActive(state, generatingState) || state.draft !== generatingState.originalDraft) return state;
-  return { ...state, draft: requireRenameDraft(action) };
-};
+const succeedRenameGenerationTransition: ChatRenameUiTransition = (state, action) =>
+  transitionScopedChatRenameUiState(state, action, {
+    type: "generation-succeeded",
+    generatingState: chatRenameGeneratingStateWithoutThreadId(requireRenameGeneratingState(action)),
+    draft: requireRenameDraft(action),
+  });
 
-const finishRenameGenerationTransition: ChatRenameUiTransition = (state, action) => {
-  const threadId = requireRenameThreadId(action);
-  const generatingState = requireRenameGeneratingState(action);
-  if (!renameGenerationStillActive(state, generatingState) || state.threadId !== threadId) return state;
-  return {
-    kind: "editing",
-    threadId: state.threadId,
-    draft: state.draft,
-  };
-};
+const finishRenameGenerationTransition: ChatRenameUiTransition = (state, action) =>
+  transitionScopedChatRenameUiState(state, action, {
+    type: "generation-finished",
+    generatingState: chatRenameGeneratingStateWithoutThreadId(requireRenameGeneratingState(action)),
+  });
 
-const clearRenameUiTransition: ChatRenameUiTransition = (state) => (state.kind === "idle" ? state : initialRenameUiState());
+const clearRenameUiTransition: ChatRenameUiTransition = (state) =>
+  chatRenameUiStateFromThreadRenameState(
+    state.kind === "idle" ? null : state.threadId,
+    transitionThreadRenameLifecycleState(chatRenameLifecycleStateWithoutThreadId(state), { type: "cleared" }),
+  );
 
-const renameUiStateActiveTransitions = {
+const chatRenameUiTransitions = {
   "ui/rename-started": startRenameUiTransition,
   "ui/rename-draft-updated": updateRenameUiDraftTransition,
   "ui/rename-cancelled": cancelRenameUiTransition,
@@ -327,22 +309,57 @@ const renameUiStateActiveTransitions = {
   "ui/rename-cleared": clearRenameUiTransition,
 } satisfies Record<ChatRenameUiActionType, ChatRenameUiTransition>;
 
-const chatRenameUiTransitions: ChatRenameUiTransitionTable = {
-  idle: {
-    ...renameUiStateActiveTransitions,
-    "ui/rename-draft-updated": keepRenameUiState,
-    "ui/rename-cancelled": keepRenameUiState,
-    "ui/rename-generation-started": keepRenameUiState,
-    "ui/rename-generation-succeeded": keepRenameUiState,
-    "ui/rename-generation-finished": keepRenameUiState,
-    "ui/rename-cleared": clearRenameUiTransition,
-  },
-  editing: renameUiStateActiveTransitions,
-  generating: {
-    ...renameUiStateActiveTransitions,
-    "ui/rename-generation-started": keepRenameUiState,
-  },
-};
+function transitionScopedChatRenameUiState(
+  state: ChatRenameUiState,
+  action: ChatRenameUiAction,
+  event: ThreadRenameLifecycleEvent,
+): ChatRenameUiState {
+  const threadId = requireRenameThreadId(action);
+  if (state.kind === "idle" || state.threadId !== threadId) return state;
+  const lifecycleState = chatRenameLifecycleStateWithoutThreadId(state);
+  const nextLifecycleState = transitionThreadRenameLifecycleState(lifecycleState, event);
+  if (nextLifecycleState === lifecycleState) return state;
+  return chatRenameUiStateFromThreadRenameState(threadId, nextLifecycleState);
+}
+
+function chatRenameLifecycleStateWithoutThreadId(state: ChatRenameUiState): ThreadRenameLifecycleState {
+  if (state.kind === "idle") return state;
+  return chatRenameActiveStateWithoutThreadId(state);
+}
+
+function chatRenameActiveStateWithoutThreadId(state: Exclude<ChatRenameUiState, { kind: "idle" }>): ThreadRenameActiveState {
+  switch (state.kind) {
+    case "editing":
+      return { kind: "editing", draft: state.draft };
+    case "generating":
+      return {
+        kind: "generating",
+        draft: state.draft,
+        originalDraft: state.originalDraft,
+        generationToken: state.generationToken,
+      };
+  }
+}
+
+function chatRenameGeneratingStateWithoutThreadId(state: ChatRenameGeneratingUiState): ThreadRenameGeneratingState {
+  return {
+    kind: "generating",
+    draft: state.draft,
+    originalDraft: state.originalDraft,
+    generationToken: state.generationToken,
+  };
+}
+
+function chatRenameUiStateFromThreadRenameState(threadId: string | null, state: ThreadRenameLifecycleState): ChatRenameUiState {
+  if (state.kind === "idle") return state;
+  if (threadId === null) return initialRenameUiState();
+  return { ...state, threadId };
+}
+
+function requireThreadRenameActiveState(state: ThreadRenameLifecycleState): ThreadRenameActiveState {
+  if (state.kind !== "idle") return state;
+  throw new Error("Expected thread rename lifecycle to start editing.");
+}
 
 function requireRenameThreadId(action: ChatRenameUiAction): string {
   if ("threadId" in action) return action.threadId;
@@ -353,11 +370,6 @@ function requireRenameThreadId(action: ChatRenameUiAction): string {
 function requireRenameDraft(action: ChatRenameUiAction): string {
   if ("draft" in action) return action.draft;
   throw new Error(`Rename UI action ${action.type} does not include a draft.`);
-}
-
-function requireRenameOriginalDraft(action: ChatRenameUiAction): string {
-  if ("originalDraft" in action) return action.originalDraft;
-  throw new Error(`Rename UI action ${action.type} does not include an original draft.`);
 }
 
 function requireRenameGenerationToken(action: ChatRenameUiAction): number {

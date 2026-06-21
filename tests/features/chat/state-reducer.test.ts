@@ -620,7 +620,6 @@ describe("chatReducer", () => {
     state = chatReducer(state, {
       type: "ui/rename-generation-started",
       threadId: "thread",
-      originalDraft: "Original",
       generationToken: 1,
     });
     const generatingState = state.ui.rename;
