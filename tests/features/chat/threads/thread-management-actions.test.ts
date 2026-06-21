@@ -553,6 +553,7 @@ function hostMock({
         const result = await archiveThreadOnAppServer(client as unknown as AppServerClient, threadId, {
           settings: { ...DEFAULT_SETTINGS, ...settings },
           vaultPath: "/vault",
+          vaultConfigDir: "vault-config",
           archiveAdapter: () => archiveAdapter,
           saveMarkdown: options.saveMarkdown ?? settings.archiveExportEnabled ?? DEFAULT_SETTINGS.archiveExportEnabled,
         });

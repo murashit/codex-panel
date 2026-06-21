@@ -112,6 +112,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
       }),
       enabled: () => false,
       vaultPath: "/vault",
+      vaultConfigDir: "vault-config",
     },
     archiveAdapter: () => archiveAdapterMock(),
     catalog,

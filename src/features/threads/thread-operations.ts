@@ -9,6 +9,7 @@ export interface ThreadOperationsHost {
     settings(): ArchiveExportSettings;
     enabled(): boolean;
     vaultPath: string;
+    vaultConfigDir: string;
   };
   archiveAdapter(): ArchiveExportAdapter;
   catalog: {
@@ -65,6 +66,7 @@ async function archiveThread(
     archiveThreadOnAppServer(client, threadId, {
       settings: archiveSettings,
       vaultPath: host.archiveExport.vaultPath,
+      vaultConfigDir: host.archiveExport.vaultConfigDir,
       archiveAdapter: () => host.archiveAdapter(),
       saveMarkdown: options.saveMarkdown ?? host.archiveExport.enabled(),
     }),

@@ -6,6 +6,7 @@ import { readThreadForArchiveExport } from "../threads";
 export interface ArchiveThreadOptions {
   settings: ArchiveExportSettings;
   vaultPath: string;
+  vaultConfigDir: string;
   archiveAdapter: () => ArchiveExportAdapter;
   saveMarkdown: boolean;
 }
@@ -23,7 +24,7 @@ export async function archiveThreadOnAppServer(
   if (options.saveMarkdown) {
     const result = await exportArchivedThreadMarkdown(
       await readThreadForArchiveExport(client, threadId),
-      { ...options.settings, vaultPath: options.vaultPath },
+      { ...options.settings, vaultPath: options.vaultPath, vaultConfigDir: options.vaultConfigDir },
       options.archiveAdapter(),
     );
     exportedPath = result.path;

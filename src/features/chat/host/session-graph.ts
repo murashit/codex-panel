@@ -546,6 +546,7 @@ function createSessionThreadOperations(environment: ChatPanelEnvironment, curren
       settings: () => archiveExportSettings(environment.plugin.settingsRef.settings),
       enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled,
       vaultPath: environment.plugin.settingsRef.vaultPath,
+      vaultConfigDir: environment.obsidian.app.vault.configDir,
     },
     archiveAdapter: environment.obsidian.archiveAdapter,
     catalog: environment.plugin.threadCatalog,

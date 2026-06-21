@@ -148,6 +148,8 @@ describe("thread archive export", () => {
             [
               "[Vault note](</Users/showhey/Vault/topics/My Note.md>)",
               "[Vault note with parens](</Users/showhey/Vault/topics/My (Note).md>)",
+              "[Vault source line](/Users/showhey/Vault/src/main.ts:12:4#L12)",
+              "[Vault config](/Users/showhey/Vault/vault-config/plugins/codex-panel/main.js)",
               "[External file](/Users/showhey/Repos/project/README.md)",
               "[Relative](topics/Other.md)",
               "[Website](https://example.com/docs)",
@@ -162,13 +164,15 @@ describe("thread archive export", () => {
         ],
       }),
       new Date(2026, 4, 18),
-      { vaultPath: "/Users/showhey/Vault" },
+      { vaultPath: "/Users/showhey/Vault", vaultConfigDir: "vault-config" },
     );
 
     expect(output).toContain(
       [
         "[Vault note](<topics/My Note.md>)",
         "[Vault note with parens](<topics/My (Note).md>)",
+        "[Vault source line](src/main.ts#L12)",
+        "Vault config (`/Users/showhey/Vault/vault-config/plugins/codex-panel/main.js`)",
         "External file (`/Users/showhey/Repos/project/README.md`)",
         "[Relative](topics/Other.md)",
         "[Website](https://example.com/docs)",

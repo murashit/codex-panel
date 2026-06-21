@@ -18,6 +18,7 @@ describe("thread archive operation", () => {
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
       },
       vaultPath: "/vault",
+      vaultConfigDir: "vault-config",
       archiveAdapter: () => adapter,
       saveMarkdown: true,
     });
@@ -40,6 +41,7 @@ describe("thread archive operation", () => {
       archiveThreadOnAppServer(client, "thread", {
         settings: DEFAULT_SETTINGS,
         vaultPath: "/vault",
+        vaultConfigDir: "vault-config",
         archiveAdapter: archiveAdapterFactory,
         saveMarkdown: false,
       }),

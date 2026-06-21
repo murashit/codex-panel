@@ -52,6 +52,7 @@ export interface CodexThreadsSessionEnvironment {
   host: CodexThreadsHost;
   registerPointerDown(handler: (event: PointerEvent) => void): void;
   archiveAdapter(): ArchiveExportAdapter;
+  vaultConfigDir(): string;
   viewWindow(): Window | null;
 }
 
@@ -83,6 +84,7 @@ export class CodexThreadsSession {
         settings: () => this.host.settings.archiveExportSettings(),
         enabled: () => this.host.settings.archiveExportEnabled(),
         vaultPath: this.host.vaultPath,
+        vaultConfigDir: this.environment.vaultConfigDir(),
       },
       archiveAdapter: () => this.environment.archiveAdapter(),
       catalog: this.host.threadCatalog,

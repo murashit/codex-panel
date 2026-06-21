@@ -17,6 +17,7 @@ export class CodexThreadsView extends ItemView {
         this.registerDomEvent(this.containerEl.doc, "pointerdown", handler);
       },
       archiveAdapter: () => this.app.vault.adapter,
+      vaultConfigDir: () => this.app.vault.configDir,
       viewWindow: () => this.containerEl.doc.defaultView,
     });
   }

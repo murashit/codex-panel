@@ -2,6 +2,14 @@ import type { Thread } from "./model";
 import { referencedThreadMetadataFromPrompt } from "./reference";
 import { threadArchiveTitle } from "./title";
 import type { ThreadTranscriptEntry } from "./transcript";
+import {
+  isExternalFileHref,
+  isFilesystemAbsolutePath,
+  isVaultConfigPath,
+  normalizeFilePath,
+  parseFileHref,
+  vaultRelativePath,
+} from "../../shared/path/file-paths";
 
 interface ParsedMarkdownLink {
   raw: string;
@@ -15,6 +23,7 @@ export interface ArchiveExportSettings {
   archiveExportFilenameTemplate: string;
   archiveExportTags?: string;
   vaultPath?: string;
+  vaultConfigDir?: string;
 }
 
 export interface ArchiveExportAdapter {
@@ -47,14 +56,14 @@ export function archivedThreadMarkdown(
     ...transcriptMarkdownLines(thread.transcriptEntries),
   ];
   const markdown = `${trimTrailingBlankLines(lines).join("\n")}\n`;
-  return settings?.vaultPath ? normalizeExportedMarkdownLinks(markdown, settings.vaultPath) : markdown;
+  return settings?.vaultPath ? normalizeExportedMarkdownLinks(markdown, settings.vaultPath, settings.vaultConfigDir) : markdown;
 }
 
 export function archivedThreadTitle(thread: ArchiveThreadInput): string {
   return threadArchiveTitle(thread);
 }
 
-function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string): string {
+function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string, vaultConfigDir: string | null | undefined): string {
   const lines = markdown.split("\n");
   let inFence = false;
   return lines
@@ -63,12 +72,12 @@ function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string): st
         inFence = !inFence;
         return line;
       }
-      return inFence ? line : normalizeExportedMarkdownLinksInLine(line, vaultPath);
+      return inFence ? line : normalizeExportedMarkdownLinksInLine(line, vaultPath, vaultConfigDir);
     })
     .join("\n");
 }
 
-function normalizeExportedMarkdownLinksInLine(line: string, vaultPath: string): string {
+function normalizeExportedMarkdownLinksInLine(line: string, vaultPath: string, vaultConfigDir: string | null | undefined): string {
   let output = "";
   let index = 0;
   while (index < line.length) {
@@ -79,7 +88,7 @@ function normalizeExportedMarkdownLinksInLine(line: string, vaultPath: string): 
       continue;
     }
 
-    output += normalizedExportedMarkdownLink(parsed, vaultPath);
+    output += normalizedExportedMarkdownLink(parsed, vaultPath, vaultConfigDir);
     index = parsed.end;
   }
   return output;
@@ -176,14 +185,22 @@ function parseMarkdownLinkAt(line: string, start: number): ParsedMarkdownLink | 
   };
 }
 
-function normalizedExportedMarkdownLink(link: ParsedMarkdownLink, vaultPath: string): string {
+function normalizedExportedMarkdownLink(link: ParsedMarkdownLink, vaultPath: string, vaultConfigDir: string | null | undefined): string {
   const href = unwrappedMarkdownHref(link.href.trim());
-  if (!href || isExternalHref(href)) return link.raw;
+  if (!href || isExternalFileHref(href)) return link.raw;
 
-  const vaultRelative = vaultRelativePath(vaultPath, href);
-  if (vaultRelative) return `[${link.label}](${markdownHref(vaultRelative)})`;
+  const parsed = parseFileHref(href);
+  if (!parsed) return link.raw;
+  const vaultRelative = vaultRelativePath(vaultPath, parsed.path);
+  if (vaultRelative && !archiveExportShouldKeepAbsolute(vaultRelative, vaultConfigDir)) {
+    return `[${link.label}](${markdownHref(`${vaultRelative}${parsed.subpath}`)})`;
+  }
 
-  return isAbsolutePath(normalizeFilePath(href)) ? `${link.label} (\`${href.replace(/`/g, "\\`")}\`)` : link.raw;
+  return isFilesystemAbsolutePath(normalizeFilePath(parsed.path)) ? `${link.label} (\`${href.replace(/`/g, "\\`")}\`)` : link.raw;
+}
+
+function archiveExportShouldKeepAbsolute(vaultRelativePath: string, vaultConfigDir: string | null | undefined): boolean {
+  return typeof vaultConfigDir === "string" && vaultConfigDir.length > 0 && isVaultConfigPath(vaultRelativePath, vaultConfigDir);
 }
 
 function markdownHref(value: string): string {
@@ -196,34 +213,6 @@ function isInsideInlineCode(line: string, offset: number): boolean {
     if (line[index] === "`") inCode = !inCode;
   }
   return inCode;
-}
-
-function vaultRelativePath(vaultPath: string, path: string): string | null {
-  const normalizedPath = normalizeFilePath(path);
-  const normalizedVaultPath = normalizeFilePath(vaultPath);
-  if (!normalizedPath || !normalizedVaultPath) return null;
-  if (!isAbsolutePath(normalizedPath) || normalizedPath === normalizedVaultPath) return null;
-
-  const vaultPrefix = normalizedVaultPath.endsWith("/") ? normalizedVaultPath : `${normalizedVaultPath}/`;
-  return normalizedPath.startsWith(vaultPrefix) ? normalizedPath.slice(vaultPrefix.length) : null;
-}
-
-function normalizeFilePath(path: string): string {
-  const normalized = path.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "");
-  return normalized.replace(/^\.\//, "");
-}
-
-function isExternalHref(href: string): boolean {
-  if (isWindowsAbsolutePath(href)) return false;
-  return /^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith("//");
-}
-
-function isAbsolutePath(path: string): boolean {
-  return path.startsWith("/") || isWindowsAbsolutePath(path);
-}
-
-function isWindowsAbsolutePath(path: string): boolean {
-  return /^[a-z]:[\\/]/i.test(path);
 }
 
 function yamlString(value: string): string {
