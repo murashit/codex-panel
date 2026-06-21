@@ -123,7 +123,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
                 className="codex-panel-threads__row-button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  actions.startRename(row.thread.id, row.thread.name ?? row.title);
+                  actions.startRename(row.thread.id, row.rename.draft);
                 }}
               />
             ) : null}

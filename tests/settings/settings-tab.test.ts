@@ -33,10 +33,8 @@ describe("settings tab", () => {
   });
 
   it("uses a placeholder for threads without a useful title", () => {
-    expect(threadArchiveDisplayTitle(panelThread({ name: null, preview: "" }))).toBe("Untitled archived thread");
-    expect(threadArchiveDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "" }))).toBe(
-      "Untitled archived thread",
-    );
+    expect(threadArchiveDisplayTitle(panelThread({ name: null, preview: "" }))).toBe("Untitled thread");
+    expect(threadArchiveDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "" }))).toBe("Untitled thread");
     expect(threadArchiveDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "Preview title" }))).toBe(
       "Preview title",
     );

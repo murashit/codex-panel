@@ -1,7 +1,7 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
 import type { Thread } from "../../domain/threads/model";
-import { threadUserTitle } from "../../domain/threads/title";
+import { threadDisplayTitle } from "../../domain/threads/title";
 import { shortThreadId } from "../../utils";
 import type { ThreadCatalogActiveReader } from "../../workspace/thread-catalog";
 
@@ -39,7 +39,7 @@ function threadPickerSuggestions(threads: readonly Thread[], queryText: string):
   return [...threads]
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map((thread, index) => {
-      const title = threadUserTitle(thread);
+      const title = threadDisplayTitle(thread);
       const id = thread.id.toLowerCase();
       const normalizedTitle = title.toLowerCase();
       const shortId = shortThreadId(thread.id).toLowerCase();
@@ -106,6 +106,7 @@ class ThreadPickerModal extends SuggestModal<ThreadSuggestion> {
   override renderSuggestion(value: ThreadSuggestion, el: HTMLElement): void {
     const contentEl = el.createDiv({ cls: "suggestion-content" });
     contentEl.createDiv({ cls: "suggestion-title", text: value.title });
+    el.createDiv({ cls: "suggestion-note", text: shortThreadId(value.thread.id) });
   }
 
   override onChooseSuggestion(item: ThreadSuggestion, evt: MouseEvent | KeyboardEvent): void {

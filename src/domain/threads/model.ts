@@ -7,13 +7,6 @@ export interface Thread {
   readonly updatedAt: number;
 }
 
-export function getThreadTitle(thread: Thread): string {
-  return (
-    [thread.name, thread.preview, thread.id].map((value) => (typeof value === "string" ? normalizeTitle(value) : "")).find(Boolean) ??
-    thread.id
-  );
-}
-
 export function explicitThreadName(thread: Thread): string | null {
   return normalizeExplicitThreadName(thread.name);
 }

@@ -1,5 +1,5 @@
 import type { Thread } from "../../domain/threads/model";
-import { threadRenameDraftTitle, threadUserTitle } from "../../domain/threads/title";
+import { threadDisplayTitle, threadRenameDraftTitle } from "../../domain/threads/title";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import {
   initialThreadRenameLifecycleState,
@@ -65,7 +65,7 @@ export function threadRows(
       const rename = renameStates.get(thread.id);
       return {
         thread,
-        title: threadUserTitle(thread),
+        title: threadDisplayTitle(thread),
         live,
         selected,
         rename: {

@@ -1,6 +1,6 @@
 import type { Thread } from "./model";
 import { referencedThreadMetadataFromPrompt } from "./reference";
-import { threadUserTitle } from "./title";
+import { threadArchiveTitle } from "./title";
 import type { ThreadTranscriptEntry } from "./transcript";
 
 interface ParsedMarkdownLink {
@@ -51,7 +51,7 @@ export function archivedThreadMarkdown(
 }
 
 export function archivedThreadTitle(thread: ArchiveThreadInput): string {
-  return threadUserTitle(thread) || "Untitled thread";
+  return threadArchiveTitle(thread);
 }
 
 function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string): string {

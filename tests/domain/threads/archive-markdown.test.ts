@@ -50,6 +50,14 @@ describe("thread archive export", () => {
     expect(output).not.toContain("npm test");
   });
 
+  it("uses the shared archive title placeholder instead of leaking thread ids", () => {
+    const output = exportedMarkdown(thread({ name: null, preview: "" }), new Date(2026, 4, 18));
+
+    expect(output).toContain('title: "Untitled thread"');
+    expect(output).toContain("# Untitled thread");
+    expect(output).not.toContain("# 019e0182-cb70-7a72-ab48-8bc9d0b0d781");
+  });
+
   it("falls back when turn timestamps are missing and uses start time for incomplete agent output", () => {
     const output = exportedMarkdown(
       thread({

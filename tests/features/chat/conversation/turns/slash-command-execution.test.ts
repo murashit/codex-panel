@@ -134,7 +134,7 @@ describe("slash commands", () => {
     await executeSlashCommand("resume", "Draft", ctx);
 
     expect(ctx.resumeThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft (thread-a), Draft notes (thread-b)");
   });
 
   it("returns referenced input for /refer", async () => {
@@ -428,7 +428,7 @@ describe("slash commands", () => {
     await executeSlashCommand("archive", "Draft", ctx);
 
     expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft (thread-a), Draft notes (thread-b)");
   });
 
   it("renames a selected thread by id argument", async () => {
@@ -477,7 +477,7 @@ describe("slash commands", () => {
     await executeSlashCommand("rename", "Draft New name", ctx);
 
     expect(ctx.threadActions.renameThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft, Draft notes");
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft (thread-a), Draft notes (thread-b)");
   });
 
   it("documents archive", () => {

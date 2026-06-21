@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import { appServerQueryContextRawEquals, type AppServerQueryContext } from "../../../app-server/query/keys";
 
-import { threadUserTitle, threadWindowTitle } from "../../../domain/threads/title";
+import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { createChatViewDeferredTasks } from "./lifecycle";
 import { ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../application/lifecycle";
@@ -225,7 +225,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     const threadId = this.state.activeThread.id;
     if (!threadId) return null;
     const thread = this.state.threadList.listedThreads.find((item) => item.id === threadId);
-    return thread ? threadUserTitle(thread) : null;
+    return thread ? threadMeaningfulTitle(thread) : null;
   }
 
   private restoredThreadTitle(): string | null {

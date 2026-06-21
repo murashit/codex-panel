@@ -4,7 +4,7 @@ import { prepareFuzzySearch, sortSearchResults, type SearchResult } from "obsidi
 import { findModelMetadataByIdOrName, sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import { supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
-import { threadUserTitle } from "../../../../domain/threads/title";
+import { threadDisplayTitle } from "../../../../domain/threads/title";
 import { shortThreadId } from "../../../../utils";
 
 export interface ComposerSuggestion {
@@ -277,7 +277,7 @@ function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly 
   if (threads.some((thread) => thread.id.toLowerCase() === query)) return null;
   return threads
     .map((thread, index) => {
-      const title = threadUserTitle(thread);
+      const title = threadDisplayTitle(thread);
       const id = thread.id.toLowerCase();
       const normalizedTitle = title.toLowerCase();
       const score = query.length === 0 ? 2 : id.startsWith(query) ? 0 : normalizedTitle.includes(query) ? 1 : id.includes(query) ? 2 : -1;

@@ -2,27 +2,34 @@ import { describe, expect, it } from "vitest";
 
 import {
   explicitThreadName,
-  getThreadTitle,
   inheritedForkThreadName,
   normalizeExplicitThreadName,
   upsertThread,
   type Thread,
 } from "../../../src/domain/threads/model";
-import { threadArchiveDisplayTitle, threadRenameDraftTitle, threadUserTitle, threadWindowTitle } from "../../../src/domain/threads/title";
+import {
+  threadArchiveDisplayTitle,
+  threadArchiveTitle,
+  threadDisplayTitle,
+  threadMeaningfulTitle,
+  threadRenameDraftTitle,
+  threadWindowTitle,
+} from "../../../src/domain/threads/title";
 
 describe("thread helpers", () => {
-  it("resolves display titles from explicit names, previews, then ids", () => {
-    expect(getThreadTitle(thread({ name: "  Named   thread  ", preview: "Preview" }))).toBe("Named thread");
-    expect(getThreadTitle(thread({ name: "  ", preview: "  Preview   only  " }))).toBe("Preview only");
-    expect(getThreadTitle(thread({ id: "thread-id", name: null, preview: "" }))).toBe("thread-id");
+  it("resolves meaningful titles from explicit names, then previews, without id fallbacks", () => {
+    expect(threadMeaningfulTitle(thread({ name: "  Named   thread  ", preview: "Preview" }))).toBe("Named thread");
+    expect(threadMeaningfulTitle(thread({ name: "  ", preview: "  Preview   only  " }))).toBe("Preview only");
+    expect(threadMeaningfulTitle(thread({ id: "thread-id", name: null, preview: "" }))).toBeNull();
   });
 
-  it("keeps user-facing titles identifiable while keeping rename drafts human-authored", () => {
+  it("keeps user-facing placeholders separate from rename drafts and archive titles", () => {
     const idOnly = thread({ id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", name: null, preview: "" });
 
-    expect(threadUserTitle(idOnly)).toBe("019e0182-cb70-7a72-ab48-8bc9d0b0d781");
+    expect(threadDisplayTitle(idOnly)).toBe("Untitled thread");
     expect(threadRenameDraftTitle(idOnly)).toBe("");
-    expect(threadArchiveDisplayTitle(idOnly)).toBe("Untitled archived thread");
+    expect(threadArchiveTitle(idOnly)).toBe("Untitled thread");
+    expect(threadArchiveDisplayTitle(idOnly)).toBe("Untitled thread");
   });
 
   it("uses useful preview text instead of UUID-like names for draft and archive titles", () => {
@@ -32,8 +39,9 @@ describe("thread helpers", () => {
       preview: "  Useful   preview  ",
     });
 
-    expect(threadUserTitle(uuidNamed)).toBe("Useful preview");
+    expect(threadDisplayTitle(uuidNamed)).toBe("Useful preview");
     expect(threadRenameDraftTitle(uuidNamed)).toBe("Useful preview");
+    expect(threadArchiveTitle(uuidNamed)).toBe("Useful preview");
     expect(threadArchiveDisplayTitle(uuidNamed)).toBe("Useful preview");
   });
 
@@ -43,6 +51,7 @@ describe("thread helpers", () => {
     expect(threadWindowTitle(null, [])).toBe("Codex");
     expect(threadWindowTitle("thread", [thread({ id: "thread", name: "  Named   thread  " })])).toBe("Codex: Named thread");
     expect(threadWindowTitle("thread", [], "  Restored   title  ")).toBe("Codex: Restored title");
+    expect(threadWindowTitle(uuid, [thread({ id: uuid, name: null, preview: "" })])).toBe("Codex: 019e0182");
     expect(threadWindowTitle(uuid, [], null)).toBe("Codex: 019e0182");
   });
 
