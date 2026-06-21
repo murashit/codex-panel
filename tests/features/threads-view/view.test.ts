@@ -349,6 +349,45 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("ignores duplicate auto-name starts while a thread rename is already generating", async () => {
+    const threadTurnsList = vi.fn().mockResolvedValue({
+      data: [
+        turnFixture([
+          {
+            type: "userMessage",
+            id: "u1",
+            clientId: null,
+            content: [{ type: "text", text: "rename stale handling", text_elements: [] }],
+          },
+          { type: "agentMessage", id: "a1", text: "Handled.", phase: "final_answer", memoryCitation: null },
+        ]),
+      ],
+      nextCursor: null,
+    });
+    const generatedTitle = deferred<string | null>();
+    namingMock.generateThreadTitleWithCodex.mockReturnValue(generatedTitle.promise);
+    connectionMock.state.client = clientFixture({
+      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      threadTurnsList,
+    });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const autoName = view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]');
+    autoName?.click();
+    autoName?.click();
+
+    await waitForAsyncWork(() => {
+      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+    });
+
+    generatedTitle.resolve("Generated title");
+    await waitForAsyncWork(() => {
+      expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Generated title");
+    });
+  });
+
   it("keeps a manually edited rename draft when threads view auto-name finishes later", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [

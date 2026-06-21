@@ -12,13 +12,10 @@ import { createThreadOperations, type ThreadOperations } from "../threads/thread
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
-  completedThreadAutoNameState,
-  editingThreadRenameState,
-  generatedThreadAutoNameState,
-  startedThreadAutoNameState,
   threadRows,
-  updatedThreadRenameState,
+  transitionThreadsRenameState,
   type ThreadsGeneratingRenameState,
+  type ThreadsRenameLifecycleEvent,
   type ThreadsRenameState,
 } from "./state";
 import {
@@ -72,6 +69,7 @@ export class CodexThreadsSession {
   private status: ThreadsViewStatus = { kind: "idle" };
   private threads: readonly Thread[] = [];
   private readonly renameStates = new Map<string, ThreadsRenameState>();
+  private nextRenameGenerationToken = 1;
   private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
 
@@ -239,17 +237,17 @@ export class CodexThreadsSession {
 
   private startRename(threadId: string, value: string): void {
     this.archiveConfirmThreadId = null;
-    this.renameStates.set(threadId, editingThreadRenameState(value));
+    this.transitionRenameState(threadId, { type: "started", draft: value });
     this.render();
   }
 
   private updateRename(threadId: string, value: string): void {
-    this.renameStates.set(threadId, updatedThreadRenameState(this.renameStates.get(threadId), value));
+    this.transitionRenameState(threadId, { type: "draft-updated", draft: value });
     this.render();
   }
 
   private cancelRename(threadId: string): void {
-    this.renameStates.delete(threadId);
+    this.transitionRenameState(threadId, { type: "cancelled" });
     this.render();
   }
 
@@ -271,16 +269,19 @@ export class CodexThreadsSession {
   }
 
   private async autoNameThread(threadId: string): Promise<void> {
-    const generatingState = startedThreadAutoNameState(this.renameStates.get(threadId));
-    if (!generatingState) return;
-    this.renameStates.set(threadId, generatingState);
+    const previousState = this.renameStates.get(threadId);
+    const generatingState = this.transitionRenameState(threadId, {
+      type: "auto-name-started",
+      generationToken: this.nextRenameGenerationToken,
+    });
+    if (generatingState === previousState || generatingState?.kind !== "generating") return;
+    this.nextRenameGenerationToken += 1;
     this.render();
 
     try {
       if (this.renameStates.get(threadId) !== generatingState) return;
       const title = await this.titleService.generateTitle(threadId);
-      const renamedState = generatedThreadAutoNameState(this.renameStates.get(threadId), generatingState, title);
-      if (renamedState) this.renameStates.set(threadId, renamedState);
+      this.transitionRenameState(threadId, { type: "auto-name-generated", generatingState, title });
     } catch (error) {
       if (this.renameStates.get(threadId) === generatingState) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
@@ -323,10 +324,19 @@ export class CodexThreadsSession {
   }
 
   private finishAutoNameThread(threadId: string, generatingState: ThreadsGeneratingRenameState): void {
-    const nextState = completedThreadAutoNameState(this.renameStates.get(threadId), generatingState);
-    if (!nextState) return;
-    this.renameStates.set(threadId, nextState);
-    this.render();
+    const previousState = this.renameStates.get(threadId);
+    const nextState = this.transitionRenameState(threadId, { type: "auto-name-finished", generatingState });
+    if (nextState !== previousState) this.render();
+  }
+
+  private transitionRenameState(threadId: string, event: ThreadsRenameLifecycleEvent): ThreadsRenameState | undefined {
+    const nextState = transitionThreadsRenameState(this.renameStates.get(threadId), event);
+    if (nextState) {
+      this.renameStates.set(threadId, nextState);
+    } else {
+      this.renameStates.delete(threadId);
+    }
+    return nextState;
   }
 
   private viewWindow(): Window {

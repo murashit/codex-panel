@@ -614,6 +614,41 @@ describe("chatReducer", () => {
     expect(state.ui.goalEditor.kind).toBe("closed");
   });
 
+  it("keeps rename generation callbacks scoped to the active generation", () => {
+    let state = chatStateFixture();
+    state = chatReducer(state, { type: "ui/rename-started", threadId: "thread", draft: "Original" });
+    state = chatReducer(state, {
+      type: "ui/rename-generation-started",
+      threadId: "thread",
+      originalDraft: "Original",
+      generationToken: 1,
+    });
+    const generatingState = state.ui.rename;
+    if (generatingState.kind !== "generating") throw new Error("Expected generating rename state.");
+
+    const staleSucceeded = chatReducer(state, {
+      type: "ui/rename-generation-succeeded",
+      generatingState: { ...generatingState, generationToken: 2 },
+      draft: "Late title",
+    });
+    expect(staleSucceeded).toBe(state);
+
+    const manuallyEdited = chatReducer(state, { type: "ui/rename-draft-updated", threadId: "thread", draft: "Manual draft" });
+    const generatedAfterManualEdit = chatReducer(manuallyEdited, {
+      type: "ui/rename-generation-succeeded",
+      generatingState,
+      draft: "Generated title",
+    });
+    expect(generatedAfterManualEdit).toBe(manuallyEdited);
+
+    const finished = chatReducer(manuallyEdited, {
+      type: "ui/rename-generation-finished",
+      threadId: "thread",
+      generatingState,
+    });
+    expect(finished.ui.rename).toEqual({ kind: "editing", threadId: "thread", draft: "Manual draft" });
+  });
+
   it("clears expanded goal objective state when the displayed goal identity changes", () => {
     let state = chatStateFixture();
     state = chatReducer(state, { type: "active-thread/goal-set", goal: goal("thread") });
