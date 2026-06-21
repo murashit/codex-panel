@@ -375,6 +375,7 @@ function isIdleEmptyPanelSnapshot(snapshot: ChatPanelSnapshot): boolean {
     snapshot.turnLifecycle.kind === "idle" &&
     snapshot.pendingApprovals === 0 &&
     snapshot.pendingUserInputs === 0 &&
+    snapshot.pendingMcpElicitations === 0 &&
     !snapshot.hasComposerDraft
   );
 }

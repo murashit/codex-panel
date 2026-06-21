@@ -9,6 +9,7 @@ export interface ChatPanelSnapshot {
   turnLifecycle: OpenCodexPanelTurnLifecycle;
   pendingApprovals: number;
   pendingUserInputs: number;
+  pendingMcpElicitations: number;
   hasComposerDraft: boolean;
   connected: boolean;
 }

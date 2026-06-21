@@ -113,6 +113,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
+      pendingMcpElicitations: 0,
       hasComposerDraft: false,
       connected: true,
     });
@@ -140,6 +141,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
+      pendingMcpElicitations: 0,
       hasComposerDraft: false,
       connected: true,
     });
@@ -152,6 +154,7 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       turnLifecycle: { kind: "idle" },
       pendingApprovals: 0,
       pendingUserInputs: 0,
+      pendingMcpElicitations: 0,
       hasComposerDraft: false,
       connected: true,
     });
@@ -160,6 +163,28 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
 
     await panels(plugin).openThreadInAvailableView("thread-1");
 
+    expect(openEmptyThread).toHaveBeenCalledWith("thread-1");
+  });
+
+  it("does not reuse an idle panel with a pending MCP elicitation as empty", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const pendingLeaf = leaf();
+    pendingLeaf.view = chatView(CodexChatView, pendingLeaf);
+    const pendingView = pendingLeaf.view as CodexChatView;
+    vi.spyOn(pendingView.surface, "openPanelSnapshot").mockReturnValue(
+      panelSnapshot({ viewId: "pending-view", threadId: null, pendingMcpElicitations: 1 }),
+    );
+    const openPendingThread = vi.spyOn(pendingView.surface, "openThread").mockResolvedValue(undefined);
+    const emptyLeaf = leaf();
+    emptyLeaf.view = chatView(CodexChatView, emptyLeaf);
+    const emptyView = emptyLeaf.view as CodexChatView;
+    vi.spyOn(emptyView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "empty-view", threadId: null }));
+    const openEmptyThread = vi.spyOn(emptyView.surface, "openThread").mockResolvedValue(undefined);
+    const plugin = await pluginWithLeaves([pendingLeaf, emptyLeaf]);
+
+    await panels(plugin).openThreadInAvailableView("thread-1");
+
+    expect(openPendingThread).not.toHaveBeenCalled();
     expect(openEmptyThread).toHaveBeenCalledWith("thread-1");
   });
 
@@ -740,6 +765,7 @@ function panelSnapshot(
     turnLifecycle: { kind: "idle" },
     pendingApprovals: 0,
     pendingUserInputs: 0,
+    pendingMcpElicitations: 0,
     hasComposerDraft: false,
     connected: true,
     ...overrides,

@@ -22,6 +22,7 @@ function openPanelSnapshot(
     turnLifecycle: OpenCodexPanelSnapshot["turnLifecycle"];
     pendingApprovals: number;
     pendingUserInputs: number;
+    pendingMcpElicitations: number;
     hasComposerDraft: boolean;
     connected: boolean;
     lastFocused: boolean;
@@ -34,6 +35,7 @@ function openPanelSnapshot(
     turnLifecycle: { kind: "idle" },
     pendingApprovals: 0,
     pendingUserInputs: 0,
+    pendingMcpElicitations: 0,
     hasComposerDraft: false,
     connected: true,
     ...overrides,
@@ -91,10 +93,11 @@ describe("threads view renderer decisions", () => {
           openPanelSnapshot({ viewId: "running", threadId: "thread", turnLifecycle: { kind: "running", turnId: "turn" } }),
           openPanelSnapshot({ viewId: "approval", threadId: "thread", pendingApprovals: 1 }),
           openPanelSnapshot({ viewId: "input", threadId: "thread", pendingUserInputs: 1 }),
+          openPanelSnapshot({ viewId: "mcp", threadId: "thread", pendingMcpElicitations: 1 }),
         ],
         new Map(),
       )[0]?.live,
-    ).toMatchObject({ status: "needs-input", label: "Needs input", viewId: "input", openPanels: 4 });
+    ).toMatchObject({ status: "needs-input", label: "Needs input", viewId: "input", openPanels: 5 });
 
     expect(
       threadRows(
