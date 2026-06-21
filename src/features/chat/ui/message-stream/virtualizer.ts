@@ -52,11 +52,12 @@ interface MessageVirtualizerRuntime {
   viewportRestoreFrame: number | null;
   virtualizerChangeFrame: number | null;
   settleScrollToEndFrame: number | null;
+  anchorClampFrame: number | null;
   settleScrollToEndAttemptsRemaining: number;
   userScrollIntentUntil: number;
 }
 
-type MessageVirtualizerFrameKey = "viewportRestoreFrame" | "virtualizerChangeFrame" | "settleScrollToEndFrame";
+type MessageVirtualizerFrameKey = "viewportRestoreFrame" | "virtualizerChangeFrame" | "settleScrollToEndFrame" | "anchorClampFrame";
 
 export interface MessageStreamVirtualizerOptions {
   blocks: readonly MessageStreamBlock[];
@@ -160,6 +161,7 @@ function createMessageVirtualizerRuntime(): MessageVirtualizerRuntime {
     viewportRestoreFrame: null,
     virtualizerChangeFrame: null,
     settleScrollToEndFrame: null,
+    anchorClampFrame: null,
     settleScrollToEndAttemptsRemaining: 0,
     userScrollIntentUntil: 0,
   };
@@ -384,6 +386,7 @@ function scrollMessageVirtualizerByPage(runtime: MessageVirtualizerRuntime, dire
 function disposeMessageVirtualizer(runtime: MessageVirtualizerRuntime): void {
   cancelViewportRestoreMessageVirtualizerReset(runtime);
   cancelDeferredMessageVirtualizerChange(runtime);
+  cancelPreservedMessageVirtualizerEndClamp(runtime);
   cancelPendingMessageVirtualizerBottomFollow(runtime);
   runtime.cleanupVirtualizer?.();
   runtime.cleanupVirtualizer = null;
@@ -406,6 +409,7 @@ function attachMessageVirtualizer(runtime: MessageVirtualizerRuntime, container:
 function detachMessageVirtualizer(runtime: MessageVirtualizerRuntime): void {
   cancelViewportRestoreMessageVirtualizerReset(runtime);
   cancelDeferredMessageVirtualizerChange(runtime);
+  cancelPreservedMessageVirtualizerEndClamp(runtime);
   cancelPendingMessageVirtualizerBottomFollow(runtime);
   runtime.cleanupVirtualizer?.();
   runtime.cleanupVirtualizer = null;
@@ -419,6 +423,7 @@ function detachMessageVirtualizer(runtime: MessageVirtualizerRuntime): void {
 function resetMessageVirtualizer(runtime: MessageVirtualizerRuntime, container: HTMLElement): void {
   cancelViewportRestoreMessageVirtualizerReset(runtime);
   cancelDeferredMessageVirtualizerChange(runtime);
+  cancelPreservedMessageVirtualizerEndClamp(runtime);
   cancelSettledMessageVirtualizerScrollToEnd(runtime);
   runtime.cleanupVirtualizer?.();
   runtime.cleanupVirtualizer = null;
@@ -656,6 +661,31 @@ function cancelSettledMessageVirtualizerScrollToEnd(runtime: MessageVirtualizerR
   runtime.settleScrollToEndAttemptsRemaining = 0;
 }
 
+function schedulePreservedMessageVirtualizerEndClamp(runtime: MessageVirtualizerRuntime): void {
+  const container = runtime.container;
+  if (!container || runtime.anchorClampFrame !== null) return;
+  scheduleMessageVirtualizerFrame(runtime, "anchorClampFrame", container, () => {
+    if (runtime.container !== container || !isMessageVirtualizerPreservingReadingAnchor(runtime)) return;
+    const scrollEnd = Math.max(0, runtime.virtualizer.getTotalSize() - container.clientHeight);
+    if (Math.abs(container.scrollTop - scrollEnd) <= MESSAGE_BOTTOM_THRESHOLD) {
+      updateMessageVirtualizer(runtime.virtualizer);
+      markMessageVirtualizerFollowEndIntent(runtime);
+      notifyMessageVirtualizerChange(runtime);
+      return;
+    }
+    if (container.scrollTop < scrollEnd) return;
+    runtime.virtualizer.scrollToOffset(scrollEnd);
+    syncMessageVirtualizerScrollOffset(runtime);
+    updateMessageVirtualizer(runtime.virtualizer);
+    markMessageVirtualizerFollowEndIntent(runtime);
+    notifyMessageVirtualizerChange(runtime);
+  });
+}
+
+function cancelPreservedMessageVirtualizerEndClamp(runtime: MessageVirtualizerRuntime): void {
+  cancelMessageVirtualizerFrame(runtime, "anchorClampFrame");
+}
+
 function scheduleMessageVirtualizerFrame(
   runtime: MessageVirtualizerRuntime,
   key: MessageVirtualizerFrameKey,
@@ -743,6 +773,9 @@ function measureMessageElement(
 ): number {
   const box = entry?.borderBoxSize[0];
   const size = box ? Math.round(box.blockSize) : element.offsetHeight || instance.options.estimateSize(instance.indexFromElement(element));
+  if (entry && isMessageVirtualizerPreservingReadingAnchor(runtime)) {
+    schedulePreservedMessageVirtualizerEndClamp(runtime);
+  }
   if (entry && hasMessageVirtualizerFollowEndIntent(runtime)) {
     // ResizeObserver measurements can arrive while TanStack and DOM heights are still converging, so keep the bounded settle.
     scheduleMessageVirtualizerBottomReconcileAfterCommit(runtime);

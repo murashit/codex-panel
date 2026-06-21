@@ -463,6 +463,27 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
+  it("clamps stale unpinned offsets when a visible item shrinks near the end", () => {
+    withResizeObserverEntries((resizeElement, flushFrames) => {
+      const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+      const controller = createMessageStreamVirtualizerDriver(container);
+      const details = measuredElement("details", 1, 500);
+
+      renderVirtualItems(controller, container, ["first", "details", "last"], [300, 500, 270], "force-bottom");
+      controller.measureElement(details);
+      userScrollTo(container, 720);
+
+      container.dataset["testTotalSize"] = "590";
+      container.dataset["testScrollHeight"] = "1070";
+      resizeElement(details, 20);
+      flushFrames();
+
+      expect(controller.getTotalSize()).toBe(590);
+      expect(container.scrollTop).toBe(490);
+      controller.dispose();
+    });
+  });
+
   it("keeps the reading position when the message viewport shrinks away from the end", () => {
     withResizeObserver((triggerResize) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 160 });
