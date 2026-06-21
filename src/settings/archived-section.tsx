@@ -1,8 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import type { Thread } from "../domain/threads/model";
+import { threadArchiveDisplayTitle } from "../domain/threads/title";
 import { shortThreadId } from "../utils";
-import { archivedThreadDisplayTitle } from "./archived-thread-title";
 import type { ArchivedThreadSectionState } from "./section-state";
 import {
   SettingRow,
@@ -89,7 +89,7 @@ function ArchivedThreadList({ state }: { state: ArchivedThreadSectionState }): U
 }
 
 function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedThreadSectionState }): UiNode {
-  const title = archivedThreadDisplayTitle(thread);
+  const title = threadArchiveDisplayTitle(thread);
   const deleteConfirming = state.deleteConfirmThreadId === thread.id;
   return (
     <SettingRow

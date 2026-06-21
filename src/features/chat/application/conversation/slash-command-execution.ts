@@ -3,7 +3,7 @@ import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { normalizeReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { Thread } from "../../../../domain/threads/model";
-import { getThreadTitle } from "../../../../domain/threads/model";
+import { threadUserTitle } from "../../../../domain/threads/title";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { GoalActions } from "../threads/goal-actions";
@@ -463,9 +463,9 @@ function resolveThreadArgument(args: string, threads: readonly Thread[]): Thread
   if (idMatches.length > 1) return { ok: false, message: `Multiple matching threads: ${idMatches.map((thread) => thread.id).join(", ")}` };
 
   const titleQuery = query.toLowerCase();
-  const titleMatches = threads.filter((thread) => getThreadTitle(thread).toLowerCase().includes(titleQuery));
+  const titleMatches = threads.filter((thread) => threadUserTitle(thread).toLowerCase().includes(titleQuery));
   if (titleMatches.length === 1 && titleMatches[0]) return { ok: true, thread: titleMatches[0] };
-  if (titleMatches.length > 1) return { ok: false, message: `Multiple matching threads: ${titleMatches.map(getThreadTitle).join(", ")}` };
+  if (titleMatches.length > 1) return { ok: false, message: `Multiple matching threads: ${titleMatches.map(threadUserTitle).join(", ")}` };
 
   return { ok: false, message: `No matching thread: ${query}` };
 }

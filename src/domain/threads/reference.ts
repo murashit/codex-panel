@@ -1,4 +1,5 @@
-import { getThreadTitle, type Thread } from "./model";
+import type { Thread } from "./model";
+import { threadUserTitle } from "./title";
 import type { ThreadConversationSummary } from "./transcript";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
@@ -47,7 +48,7 @@ function referencedThreadPrompt(thread: Thread, turns: readonly ThreadConversati
 function referencedThreadMetadata(thread: Thread, count: number): ReferencedThreadMetadata {
   return {
     threadId: thread.id,
-    title: getThreadTitle(thread),
+    title: threadUserTitle(thread),
     includedTurns: count,
     turnLimit: REFERENCED_THREAD_TURN_LIMIT,
   };

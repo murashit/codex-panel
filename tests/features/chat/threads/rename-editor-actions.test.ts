@@ -21,6 +21,15 @@ describe("ThreadRenameEditorActions", () => {
     expect(actions.editState("thread")).toEqual({ draft: "New name", generating: false });
   });
 
+  it("starts rename drafts from useful titles instead of id fallbacks", () => {
+    const { actions, stateStore } = actionsFixture();
+    stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...threadFixture("thread"), preview: "" }] });
+
+    actions.start("thread");
+
+    expect(actions.editState("thread")).toEqual({ draft: "", generating: false });
+  });
+
   it("clears inline rename state through chat UI state", () => {
     const { actions } = actionsFixture();
 

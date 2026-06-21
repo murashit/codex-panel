@@ -11,7 +11,7 @@ import { SettingsDynamicDataController, type SettingsDynamicDataSnapshot } from 
 import { CodexPanelSettingTab } from "../../src/settings/tab";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import type { Thread } from "../../src/domain/threads/model";
-import { archivedThreadDisplayTitle } from "../../src/settings/archived-thread-title";
+import { threadArchiveDisplayTitle } from "../../src/domain/threads/title";
 import { notices } from "../mocks/obsidian";
 import { deferred } from "../support/async";
 import { installObsidianDomShims } from "../support/dom";
@@ -33,14 +33,19 @@ describe("settings tab", () => {
   });
 
   it("uses a placeholder for threads without a useful title", () => {
-    expect(archivedThreadDisplayTitle(panelThread({ name: null, preview: "" }))).toBe("Untitled archived thread");
-    expect(archivedThreadDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781" }))).toBe("Untitled archived thread");
+    expect(threadArchiveDisplayTitle(panelThread({ name: null, preview: "" }))).toBe("Untitled archived thread");
+    expect(threadArchiveDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "" }))).toBe(
+      "Untitled archived thread",
+    );
+    expect(threadArchiveDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "Preview title" }))).toBe(
+      "Preview title",
+    );
   });
 
   it("normalizes and truncates archived thread titles", () => {
-    expect(archivedThreadDisplayTitle(panelThread({ preview: "A title\nwith   extra\tspace" }))).toBe("A title with extra space");
+    expect(threadArchiveDisplayTitle(panelThread({ preview: "A title\nwith   extra\tspace" }))).toBe("A title with extra space");
 
-    const title = archivedThreadDisplayTitle(panelThread({ preview: "x".repeat(120) }));
+    const title = threadArchiveDisplayTitle(panelThread({ preview: "x".repeat(120) }));
     expect(title).toHaveLength(96);
     expect(title.endsWith("...")).toBe(true);
   });

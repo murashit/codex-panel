@@ -6,8 +6,8 @@ import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../ap
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
+import { threadArchiveDisplayTitle } from "../domain/threads/title";
 import { errorMessage } from "../utils";
-import { archivedThreadDisplayTitle } from "./archived-thread-title";
 import { loadHookData } from "./app-server-data";
 import type { SettingsDynamicDataHost } from "./host";
 import {
@@ -19,7 +19,7 @@ import {
 } from "./lifecycle";
 
 function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: string): string {
-  return thread ? archivedThreadDisplayTitle(thread) : threadId;
+  return thread ? threadArchiveDisplayTitle(thread) : threadId;
 }
 
 interface SettingsDynamicDataControllerCallbacks {
@@ -355,7 +355,7 @@ export class SettingsDynamicDataController {
         this.host.threadCatalog.recordThreadRestored(restoredThread);
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
-          status: `Restored "${archivedThreadDisplayTitle(restoredThread)}".`,
+          status: `Restored "${threadArchiveDisplayTitle(restoredThread)}".`,
           operationToken,
         });
       },

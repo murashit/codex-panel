@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
 
 import type { Thread } from "../../../../domain/threads/model";
-import { getThreadTitle } from "../../../../domain/threads/model";
+import { threadUserTitle } from "../../../../domain/threads/title";
 import { rateLimitSummary } from "../../presentation/runtime/status";
 import { connectionDiagnosticSectionsModel } from "../../application/connection/diagnostics-display";
 import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-display";
@@ -135,7 +135,7 @@ function toolbarThreadRows(input: {
   return input.threads.map((thread) => {
     const threadId = thread.id;
     return {
-      title: getThreadTitle(thread),
+      title: threadUserTitle(thread),
       threadId,
       selected: threadId === input.activeThreadId,
       disabled: input.turnBusy && threadId !== input.activeThreadId,

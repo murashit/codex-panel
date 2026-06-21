@@ -1,6 +1,6 @@
-import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import type { Thread } from "../../domain/threads/model";
-import { explicitThreadName, getThreadTitle } from "../../domain/threads/model";
+import { threadRenameDraftTitle, threadUserTitle } from "../../domain/threads/title";
+import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 
 type ThreadsLiveStatus = "needs-input" | "approval" | "running" | "draft" | "offline" | "open";
 
@@ -69,12 +69,12 @@ export function threadRows(
       const rename = renameStates.get(thread.id);
       return {
         thread,
-        title: getThreadTitle(thread),
+        title: threadUserTitle(thread),
         live,
         selected,
         rename: {
           active: rename !== undefined,
-          draft: rename?.draft ?? explicitThreadName(thread) ?? getThreadTitle(thread),
+          draft: rename?.draft ?? threadRenameDraftTitle(thread),
           generating: rename?.kind === "generating",
         },
         archiveConfirm: {
@@ -213,7 +213,7 @@ function snapshotsForThreads(snapshots: OpenCodexPanelSnapshot[]): Map<string, O
 }
 
 function snapshotStatus(snapshot: OpenCodexPanelSnapshot): ThreadsLiveStatus {
-  if (snapshot.pendingUserInputs > 0) return "needs-input";
+  if (snapshot.pendingUserInputs > 0 || snapshot.pendingMcpElicitations > 0) return "needs-input";
   if (snapshot.pendingApprovals > 0) return "approval";
   if (snapshot.turnLifecycle.kind !== "idle") return "running";
   if (snapshot.hasComposerDraft) return "draft";

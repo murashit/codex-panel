@@ -1,7 +1,7 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
-import { getThreadTitle } from "../../domain/threads/model";
 import type { Thread } from "../../domain/threads/model";
+import { threadUserTitle } from "../../domain/threads/title";
 import { shortThreadId } from "../../utils";
 import type { ThreadCatalogActiveReader } from "../../workspace/thread-catalog";
 
@@ -39,7 +39,7 @@ function threadPickerSuggestions(threads: readonly Thread[], queryText: string):
   return [...threads]
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map((thread, index) => {
-      const title = getThreadTitle(thread);
+      const title = threadUserTitle(thread);
       const id = thread.id.toLowerCase();
       const normalizedTitle = title.toLowerCase();
       const shortId = shortThreadId(thread.id).toLowerCase();

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
 import { threadRows, transitionThreadsRenameState, type ThreadsRenameState } from "../../../src/features/threads-view/state";
+import type { OpenCodexPanelSnapshot } from "../../../src/workspace/panel-coordinator";
 
 describe("threads view rename state", () => {
   it("keeps a late auto-name result from reviving a cancelled rename", () => {
@@ -74,6 +75,13 @@ describe("threads view rename state", () => {
   it("initializes rename drafts from normalized explicit thread names", () => {
     expect(threadRows([thread({ name: "  Saved   name  ", preview: "Preview" })], [], new Map())[0]?.rename.draft).toBe("Saved name");
     expect(threadRows([thread({ name: "  ", preview: "Preview title" })], [], new Map())[0]?.rename.draft).toBe("Preview title");
+    expect(threadRows([thread({ name: null, preview: "" })], [], new Map())[0]?.rename.draft).toBe("");
+  });
+
+  it("treats pending MCP elicitations as user input live state", () => {
+    const rows = threadRows([thread()], [openPanelSnapshot({ pendingMcpElicitations: 1 })], new Map());
+
+    expect(rows[0]?.live).toMatchObject({ status: "needs-input", label: "Needs input" });
   });
 });
 
@@ -101,6 +109,21 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     archived: false,
     createdAt: 1,
     updatedAt: 1,
+    ...overrides,
+  };
+}
+
+function openPanelSnapshot(overrides: Partial<OpenCodexPanelSnapshot> = {}): OpenCodexPanelSnapshot {
+  return {
+    viewId: "view",
+    threadId: "thread",
+    turnLifecycle: { kind: "idle" },
+    pendingApprovals: 0,
+    pendingUserInputs: 0,
+    pendingMcpElicitations: 0,
+    hasComposerDraft: false,
+    connected: true,
+    lastFocused: false,
     ...overrides,
   };
 }

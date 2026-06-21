@@ -1,5 +1,5 @@
-import { getThreadTitle } from "../../../../domain/threads/model";
 import type { Thread } from "../../../../domain/threads/model";
+import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import type { ThreadTitleService } from "../../../threads/thread-title-service";
@@ -57,7 +57,7 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
     start(threadId: string): void {
       const thread = threadById(host, threadId);
       if (!thread) return;
-      dispatch(host, { type: "ui/rename-started", threadId, draft: getThreadTitle(thread) });
+      dispatch(host, { type: "ui/rename-started", threadId, draft: threadRenameDraftTitle(thread) });
     },
 
     updateDraft(threadId: string, value: string): void {

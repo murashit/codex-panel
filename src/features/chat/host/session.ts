@@ -1,10 +1,8 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import { appServerQueryContextRawEquals, type AppServerQueryContext } from "../../../app-server/query/keys";
 
-import type { Thread } from "../../../domain/threads/model";
-import { getThreadTitle } from "../../../domain/threads/model";
+import { threadUserTitle, threadWindowTitle } from "../../../domain/threads/title";
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
-import { shortThreadId } from "../../../utils";
 import { createChatViewDeferredTasks } from "./lifecycle";
 import { ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../application/lifecycle";
 import { openPanelTurnLifecycle, parseRestoredThreadState, type ChatPanelSnapshot } from "../panel/snapshot";
@@ -15,14 +13,6 @@ import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState }
 import type { ChatSurfaceHandle } from "./surface-handle";
 import type { ChatPanelEnvironment } from "./runtime";
 import { createChatPanelSessionGraph, type ChatPanelSessionGraph } from "./session-graph";
-
-function codexPanelDisplayTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {
-  if (!activeThreadId) return "Codex";
-
-  const thread = threads.find((item) => item.id === activeThreadId);
-  const title = thread ? getThreadTitle(thread).replace(/\s+/g, " ").trim() : (fallbackTitle ?? shortThreadId(activeThreadId));
-  return title ? `Codex: ${title}` : "Codex";
-}
 
 export class ChatPanelSession implements ChatSurfaceHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();
@@ -43,7 +33,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   displayTitle(): string {
-    return codexPanelDisplayTitle(this.state.activeThread.id, this.state.threadList.listedThreads, this.restoredThreadTitle());
+    return threadWindowTitle(this.state.activeThread.id, this.state.threadList.listedThreads, this.restoredThreadTitle());
   }
 
   persistedState(): Record<string, unknown> {
@@ -105,6 +95,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       turnLifecycle: openPanelTurnLifecycle(this.state.turn.lifecycle),
       pendingApprovals: this.state.requests.approvals.length,
       pendingUserInputs: this.state.requests.pendingUserInputs.length,
+      pendingMcpElicitations: this.state.requests.pendingMcpElicitations.length,
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
       connected: this.graph.connection.manager.isConnected(),
     };
@@ -234,7 +225,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     const threadId = this.state.activeThread.id;
     if (!threadId) return null;
     const thread = this.state.threadList.listedThreads.find((item) => item.id === threadId);
-    return thread ? getThreadTitle(thread) : null;
+    return thread ? threadUserTitle(thread) : null;
   }
 
   private restoredThreadTitle(): string | null {
