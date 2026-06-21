@@ -13,19 +13,19 @@ import type { CollaborationModeSelection } from "../../domain/runtime/pending-se
 import {
   commitPendingRuntimeSettingsPatchState,
   clearRequestedApprovalsReviewerRuntimeState,
-  clearRequestedServiceTierRuntimeState,
+  clearRequestedFastModeRuntimeState,
   initialActiveChatRuntimeState,
   initialChatRuntimeState,
   requestApprovalsReviewerRuntimeState,
   requestModelRuntimeState,
   requestReasoningEffortRuntimeState,
-  requestServiceTierRuntimeState,
+  requestFastModeRuntimeState,
   resetModelToConfigRuntimeState,
   resetReasoningEffortToConfigRuntimeState,
   setSelectedCollaborationModeRuntimeState,
   type ChatRuntimeState,
 } from "../../domain/runtime/state";
-import type { RequestedServiceTier } from "../../domain/runtime/pending-settings";
+import type { RequestedFastMode } from "../../domain/runtime/pending-settings";
 import type { PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { ComposerSuggestion } from "../composer/suggestions";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
@@ -165,8 +165,8 @@ type RuntimeAction =
   | { type: "runtime/model-reset-to-config" }
   | { type: "runtime/reasoning-effort-requested"; effort: ReasoningEffort }
   | { type: "runtime/reasoning-effort-reset-to-config" }
-  | { type: "runtime/service-tier-requested"; serviceTier: RequestedServiceTier }
-  | { type: "runtime/service-tier-request-cleared" }
+  | { type: "runtime/fast-mode-requested"; fastMode: RequestedFastMode }
+  | { type: "runtime/fast-mode-request-cleared" }
   | { type: "runtime/approvals-reviewer-requested"; approvalsReviewer: ApprovalsReviewer }
   | { type: "runtime/approvals-reviewer-request-cleared" }
   | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: CollaborationModeSelection }
@@ -579,10 +579,10 @@ function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): C
       return patchObject(state, requestReasoningEffortRuntimeState(state, action.effort));
     case "runtime/reasoning-effort-reset-to-config":
       return patchObject(state, resetReasoningEffortToConfigRuntimeState(state));
-    case "runtime/service-tier-requested":
-      return patchObject(state, requestServiceTierRuntimeState(state, action.serviceTier));
-    case "runtime/service-tier-request-cleared":
-      return patchObject(state, clearRequestedServiceTierRuntimeState(state));
+    case "runtime/fast-mode-requested":
+      return patchObject(state, requestFastModeRuntimeState(state, action.fastMode));
+    case "runtime/fast-mode-request-cleared":
+      return patchObject(state, clearRequestedFastModeRuntimeState(state));
     case "runtime/approvals-reviewer-requested":
       return patchObject(state, requestApprovalsReviewerRuntimeState(state, action.approvalsReviewer));
     case "runtime/approvals-reviewer-request-cleared":

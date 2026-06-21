@@ -14,7 +14,7 @@ import {
   type ActiveCollaborationMode,
   type CollaborationModeSelection,
   type PendingRuntimeSetting,
-  type RequestedServiceTier,
+  type RequestedFastMode,
 } from "./pending-settings";
 
 export interface ChatRuntimeState {
@@ -29,7 +29,7 @@ export interface ChatRuntimeState {
   readonly requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
   readonly requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
   readonly selectedCollaborationMode: CollaborationModeSelection;
-  readonly requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
+  readonly requestedFastMode: PendingRuntimeSetting<RequestedFastMode>;
 }
 
 export function initialActiveChatRuntimeState(): Pick<
@@ -60,7 +60,7 @@ export function initialChatRuntimeState(): ChatRuntimeState {
     requestedReasoningEffort: unchangedRuntimeSetting(),
     requestedApprovalsReviewer: unchangedRuntimeSetting(),
     selectedCollaborationMode: "default",
-    requestedServiceTier: unchangedRuntimeSetting(),
+    requestedFastMode: unchangedRuntimeSetting(),
   };
 }
 
@@ -92,17 +92,17 @@ export function resetReasoningEffortToConfigRuntimeState(state: ChatRuntimeState
   };
 }
 
-export function requestServiceTierRuntimeState(state: ChatRuntimeState, serviceTier: RequestedServiceTier): ChatRuntimeState {
+export function requestFastModeRuntimeState(state: ChatRuntimeState, fastMode: RequestedFastMode): ChatRuntimeState {
   return {
     ...state,
-    requestedServiceTier: setPendingRuntimeSetting(serviceTier),
+    requestedFastMode: setPendingRuntimeSetting(fastMode),
   };
 }
 
-export function clearRequestedServiceTierRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
+export function clearRequestedFastModeRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedServiceTier: unchangedRuntimeSetting(),
+    requestedFastMode: unchangedRuntimeSetting(),
   };
 }
 
@@ -141,7 +141,7 @@ export function commitPendingRuntimeSettingsPatchState(state: ChatRuntimeState, 
         }
       : {}),
     ...("serviceTier" in update
-      ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedServiceTier: unchangedRuntimeSetting<RequestedServiceTier>() }
+      ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedFastMode: unchangedRuntimeSetting<RequestedFastMode>() }
       : {}),
     ...("approvalsReviewer" in update
       ? {

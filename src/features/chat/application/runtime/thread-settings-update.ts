@@ -21,19 +21,18 @@ type TurnCollaborationModeSettings =
       warning: TurnCollaborationModeWarning;
     };
 
+type RuntimeServiceTierTransportIntent =
+  | { readonly kind: "omit" }
+  | { readonly kind: "clear" }
+  | { readonly kind: "set"; readonly value: string };
+
 export interface PendingRuntimeSettingsPatch {
   update: RuntimeSettingsPatch;
   collaborationModeWarning: TurnCollaborationModeWarning | null;
 }
 
 export function serviceTierRequestForThreadStart(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimeServiceTierRequest {
-  if (snapshot.requestedServiceTier.kind === "set") {
-    return snapshot.requestedServiceTier.value === "fast" ? fastRuntimeServiceTierRequestValue(snapshot, config) : null;
-  }
-  if (snapshot.requestedServiceTier.kind === "resetToConfig") {
-    return null;
-  }
-  return config.serviceTier ?? undefined;
+  return serviceTierRequestValue(serviceTierTransportIntent(snapshot, config, "thread-start"));
 }
 
 function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): TurnCollaborationModeSettings {
@@ -56,15 +55,11 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
   if (snapshot.requestedReasoningEffort.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(update, "effort", runtimeSettingsPatchValueFromPendingSetting(snapshot.requestedReasoningEffort));
   }
-  if (snapshot.requestedServiceTier.kind === "set") {
-    applyRuntimeSettingsPatchValue(
-      update,
-      "serviceTier",
-      snapshot.requestedServiceTier.value === "fast" ? fastRuntimeServiceTierRequestValue(snapshot, config) : null,
-    );
-  } else if (snapshot.requestedServiceTier.kind === "resetToConfig") {
-    applyRuntimeSettingsPatchValue(update, "serviceTier", null);
-  }
+  applyRuntimeSettingsPatchValue(
+    update,
+    "serviceTier",
+    serviceTierRequestValue(serviceTierTransportIntent(snapshot, config, "thread-update")),
+  );
   if (snapshot.requestedApprovalsReviewer.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(
       update,
@@ -84,5 +79,28 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
 function runtimeSettingsPatchValueFromPendingSetting<T>(setting: PendingRuntimeSetting<T>): T | null | undefined {
   if (setting.kind === "set") return setting.value;
   if (setting.kind === "resetToConfig") return null;
+  return undefined;
+}
+
+function serviceTierTransportIntent(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigSnapshot,
+  target: "thread-start" | "thread-update",
+): RuntimeServiceTierTransportIntent {
+  // app-server has no separate "reset to config" token for service tiers.
+  // At the transport boundary, null is the explicit clear/off request; undefined omits the field.
+  if (snapshot.requestedFastMode.kind === "set") {
+    return snapshot.requestedFastMode.value === "enabled"
+      ? { kind: "set", value: fastRuntimeServiceTierRequestValue(snapshot, config) }
+      : { kind: "clear" };
+  }
+  if (snapshot.requestedFastMode.kind === "resetToConfig") return { kind: "clear" };
+  if (target === "thread-start" && config.serviceTier) return { kind: "set", value: config.serviceTier };
+  return { kind: "omit" };
+}
+
+function serviceTierRequestValue(intent: RuntimeServiceTierTransportIntent): RuntimeServiceTierRequest {
+  if (intent.kind === "set") return intent.value;
+  if (intent.kind === "clear") return null;
   return undefined;
 }

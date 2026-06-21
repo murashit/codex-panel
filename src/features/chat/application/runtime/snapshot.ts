@@ -27,7 +27,7 @@ export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): Runti
     requestedReasoningEffort: input.runtime.requestedReasoningEffort,
     requestedApprovalsReviewer: input.runtime.requestedApprovalsReviewer,
     selectedCollaborationMode: input.runtime.selectedCollaborationMode,
-    requestedServiceTier: input.runtime.requestedServiceTier,
+    requestedFastMode: input.runtime.requestedFastMode,
     tokenUsage: input.activeThread.tokenUsage,
     rateLimit: input.rateLimit,
     hasThreadTurns: input.items.some((item) => item.turnId),

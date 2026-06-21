@@ -48,7 +48,7 @@ describe("chatReducer", () => {
     });
     let pendingState = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.2" });
     pendingState = chatReducer(pendingState, { type: "runtime/reasoning-effort-requested", effort: "medium" });
-    pendingState = chatReducer(pendingState, { type: "runtime/service-tier-requested", serviceTier: "off" });
+    pendingState = chatReducer(pendingState, { type: "runtime/fast-mode-requested", fastMode: "disabled" });
     pendingState = chatReducer(pendingState, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "user" });
 
     const next = chatReducer(pendingState, { type: "active-thread/cleared" });
@@ -63,7 +63,7 @@ describe("chatReducer", () => {
     expect(next.runtime.activeCollaborationMode).toBeNull();
     expect(next.runtime.requestedModel).toEqual({ kind: "unchanged" });
     expect(next.runtime.requestedReasoningEffort).toEqual({ kind: "unchanged" });
-    expect(next.runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
+    expect(next.runtime.requestedFastMode).toEqual({ kind: "unchanged" });
     expect(next.runtime.requestedApprovalsReviewer).toEqual({ kind: "unchanged" });
     expect(next.runtime.selectedCollaborationMode).toBe("default");
     expect(activeTurnId(next)).toBeNull();
@@ -147,7 +147,7 @@ describe("chatReducer", () => {
     let state = chatStateFixture();
     state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.5" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
-    state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/fast-mode-requested", fastMode: "enabled" });
     state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
     state = chatReducer(state, { type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
 
@@ -171,7 +171,7 @@ describe("chatReducer", () => {
     expect(next.runtime.activeApprovalsReviewer).toBe("user");
     expect(next.runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(next.runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "high" });
-    expect(next.runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(next.runtime.requestedFastMode).toEqual({ kind: "set", value: "enabled" });
     expect(next.runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(next.runtime.selectedCollaborationMode).toBe("plan");
     expect(next.runtime.activeCollaborationMode).toBeNull();
@@ -670,7 +670,7 @@ describe("chatReducer", () => {
     let state = chatStateFixture();
     state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.1" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
-    state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/fast-mode-requested", fastMode: "enabled" });
     state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
 
     const next = chatReducer(state, {
@@ -689,7 +689,7 @@ describe("chatReducer", () => {
     expect(next.runtime.activeReasoningEffort).toBe("high");
     expect(next.runtime.requestedReasoningEffort).toEqual({ kind: "unchanged" });
     expect(next.runtime.activeServiceTier).toBe("fast");
-    expect(next.runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
+    expect(next.runtime.requestedFastMode).toEqual({ kind: "unchanged" });
     expect(next.runtime.activeApprovalsReviewer).toBe("auto_review");
     expect(next.runtime.requestedApprovalsReviewer).toEqual({ kind: "unchanged" });
     expect(next.runtime.activeCollaborationMode).toBe("plan");
@@ -700,10 +700,10 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { runtime: { activeServiceTier: "flex" } });
     state = chatStateWith(state, { runtime: { activeApprovalsReviewer: "user" } });
 
-    state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/fast-mode-requested", fastMode: "enabled" });
     state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
 
-    expect(state.runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(state.runtime.requestedFastMode).toEqual({ kind: "set", value: "enabled" });
     expect(state.runtime.activeServiceTier).toBe("flex");
     expect(state.runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(state.runtime.activeApprovalsReviewer).toBe("user");
@@ -713,17 +713,17 @@ describe("chatReducer", () => {
     let state = chatStateFixture();
     state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.1" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
-    state = chatReducer(state, { type: "runtime/service-tier-requested", serviceTier: "fast" });
+    state = chatReducer(state, { type: "runtime/fast-mode-requested", fastMode: "enabled" });
     state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
 
     state = chatReducer(state, { type: "runtime/model-reset-to-config" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-reset-to-config" });
-    state = chatReducer(state, { type: "runtime/service-tier-request-cleared" });
+    state = chatReducer(state, { type: "runtime/fast-mode-request-cleared" });
     state = chatReducer(state, { type: "runtime/approvals-reviewer-request-cleared" });
 
     expect(state.runtime.requestedModel).toEqual({ kind: "resetToConfig" });
     expect(state.runtime.requestedReasoningEffort).toEqual({ kind: "resetToConfig" });
-    expect(state.runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
+    expect(state.runtime.requestedFastMode).toEqual({ kind: "unchanged" });
     expect(state.runtime.requestedApprovalsReviewer).toEqual({ kind: "unchanged" });
   });
 

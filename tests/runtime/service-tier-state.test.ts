@@ -42,7 +42,7 @@ function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["servi
       requestedReasoningEffort: { kind: "unchanged" },
       requestedApprovalsReviewer: { kind: "unchanged" },
       selectedCollaborationMode: "default",
-      requestedServiceTier: { kind: "unchanged" },
+      requestedFastMode: { kind: "unchanged" },
       tokenUsage: null,
       rateLimit: null,
       hasThreadTurns: false,

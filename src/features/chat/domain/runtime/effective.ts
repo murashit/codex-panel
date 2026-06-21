@@ -9,9 +9,9 @@ export function runtimeConfigOrDefault(runtimeConfig: RuntimeConfigSnapshot | nu
 }
 
 export function currentServiceTier(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string | null {
-  if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "fast") return "fast";
-  if (snapshot.requestedServiceTier.kind === "set" && snapshot.requestedServiceTier.value === "off") return null;
-  if (snapshot.requestedServiceTier.kind === "resetToConfig") return config.serviceTier;
+  if (snapshot.requestedFastMode.kind === "set" && snapshot.requestedFastMode.value === "enabled") return "fast";
+  if (snapshot.requestedFastMode.kind === "set" && snapshot.requestedFastMode.value === "disabled") return null;
+  if (snapshot.requestedFastMode.kind === "resetToConfig") return config.serviceTier;
   return snapshot.activeServiceTier ?? config.serviceTier;
 }
 

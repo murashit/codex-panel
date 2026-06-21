@@ -6,7 +6,7 @@ export type PendingRuntimeSetting<T> =
   | { readonly kind: "unchanged" }
   | { readonly kind: "set"; readonly value: T }
   | { readonly kind: "resetToConfig" };
-export type RequestedServiceTier = "fast" | "off";
+export type RequestedFastMode = "enabled" | "disabled";
 
 export function unchangedRuntimeSetting<T>(): PendingRuntimeSetting<T> {
   return { kind: "unchanged" };

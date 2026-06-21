@@ -9,7 +9,7 @@ import {
   type PendingRuntimeSettingsPatch,
 } from "./thread-settings-update";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { nextCollaborationMode, type CollaborationModeSelection, type RequestedServiceTier } from "../../domain/runtime/pending-settings";
+import { nextCollaborationMode, type CollaborationModeSelection, type RequestedFastMode } from "../../domain/runtime/pending-settings";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
@@ -145,8 +145,8 @@ async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {
 }
 
 async function setFastMode(host: RuntimeSettingsActionsHost, mode: FastModeState): Promise<void> {
-  const serviceTier: RequestedServiceTier = mode === "enabled" ? "fast" : "off";
-  dispatch(host, { type: "runtime/service-tier-requested", serviceTier });
+  const fastMode: RequestedFastMode = mode;
+  dispatch(host, { type: "runtime/fast-mode-requested", fastMode });
   if (!(await applyPendingThreadSettings(host))) return;
   dispatch(host, { type: "ui/panel-set", panel: null });
   host.addSystemMessage(fastModeToggleMessage(mode));

@@ -2,7 +2,7 @@ import type { ModelMetadata, ReasoningEffort } from "../../../../domain/catalog/
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
-import type { ActiveCollaborationMode, CollaborationModeSelection, PendingRuntimeSetting, RequestedServiceTier } from "./pending-settings";
+import type { ActiveCollaborationMode, CollaborationModeSelection, PendingRuntimeSetting, RequestedFastMode } from "./pending-settings";
 
 export interface RuntimeSnapshot {
   runtimeConfig: RuntimeConfigSnapshot | null;
@@ -18,7 +18,7 @@ export interface RuntimeSnapshot {
   requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
   requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
   selectedCollaborationMode: CollaborationModeSelection;
-  requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
+  requestedFastMode: PendingRuntimeSetting<RequestedFastMode>;
   tokenUsage: ThreadTokenUsage | null;
   rateLimit: RateLimitSnapshot | null;
   hasThreadTurns: boolean;

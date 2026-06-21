@@ -306,9 +306,9 @@ describe("runtime settings", () => {
     expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(false);
   });
 
-  it("uses requested service tier above active and configured service tiers", () => {
+  it("uses requested Fast mode above active and configured service tiers", () => {
     const snapshot = runtimeSnapshot({
-      requestedServiceTier: setPendingRuntimeSetting("off"),
+      requestedFastMode: setPendingRuntimeSetting("disabled"),
       activeServiceTier: "flex",
       runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
     });
@@ -354,7 +354,7 @@ describe("runtime settings", () => {
   });
 
   it("summarizes service tier and context meter state from one runtime snapshot", () => {
-    const snapshot = runtimeSnapshot({ requestedServiceTier: setPendingRuntimeSetting("fast"), activeThreadId: "thread" });
+    const snapshot = runtimeSnapshot({ requestedFastMode: setPendingRuntimeSetting("enabled"), activeThreadId: "thread" });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
     expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
@@ -391,10 +391,10 @@ describe("runtime settings", () => {
     });
   });
 
-  it("serializes explicit fast off as a null service tier request", () => {
+  it("serializes disabled Fast mode as a null service tier request", () => {
     const snapshot = runtimeSnapshot({
       runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
-      requestedServiceTier: setPendingRuntimeSetting("off"),
+      requestedFastMode: setPendingRuntimeSetting("disabled"),
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBeNull();
@@ -405,7 +405,7 @@ describe("runtime settings", () => {
   it("serializes service tier reset for thread start as an explicit null request", () => {
     const snapshot = runtimeSnapshot({
       runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
-      requestedServiceTier: resetRuntimeSettingToConfig(),
+      requestedFastMode: resetRuntimeSettingToConfig(),
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
@@ -419,7 +419,7 @@ describe("runtime settings", () => {
       serviceTiers: [{ id: "priority", name: "Fast" }],
     };
     const snapshot = runtimeSnapshot({
-      requestedServiceTier: setPendingRuntimeSetting("fast"),
+      requestedFastMode: setPendingRuntimeSetting("enabled"),
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
@@ -562,7 +562,7 @@ function runtimeSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnaps
     requestedReasoningEffort: { kind: "unchanged" },
     requestedApprovalsReviewer: { kind: "unchanged" },
     selectedCollaborationMode: "default",
-    requestedServiceTier: { kind: "unchanged" },
+    requestedFastMode: { kind: "unchanged" },
     tokenUsage: null,
     rateLimit: null,
     hasThreadTurns: false,

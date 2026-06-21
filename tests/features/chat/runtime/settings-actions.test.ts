@@ -52,7 +52,7 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(client.updateThreadSettings).not.toHaveBeenCalled();
     expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(store.getState().runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "high" });
-    expect(store.getState().runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(store.getState().runtime.requestedFastMode).toEqual({ kind: "set", value: "enabled" });
     expect(store.getState().runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(store.getState().runtime.selectedCollaborationMode).toBe("default");
     expect(messages).toEqual([
@@ -74,7 +74,7 @@ describe("createChatRuntimeSettingsActions", () => {
     await controller.toggleFastMode();
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { serviceTier: "fast" });
-    expect(store.getState().runtime.requestedServiceTier).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.requestedFastMode).toEqual({ kind: "unchanged" });
     expect(store.getState().runtime.activeServiceTier).toBe("fast");
     expect(store.getState().ui.toolbarPanel).toBeNull();
     expect(messages).toEqual(["Fast mode on for subsequent turns."]);
@@ -219,7 +219,7 @@ describe("createChatRuntimeSettingsActions", () => {
 
     await controller.enableFastMode();
 
-    expect(store.getState().runtime.requestedServiceTier).toEqual({ kind: "set", value: "fast" });
+    expect(store.getState().runtime.requestedFastMode).toEqual({ kind: "set", value: "enabled" });
     expect(store.getState().ui.toolbarPanel).toBe("status-panel");
     expect(messages).toEqual(["nope"]);
   });
