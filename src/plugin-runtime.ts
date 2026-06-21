@@ -4,7 +4,7 @@ import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants"
 import { AppServerQueryCache } from "./app-server/query/cache";
 import { AppServerSharedQueries } from "./app-server/query/shared-queries";
 import type { AppServerClient } from "./app-server/connection/client";
-import type { AppServerClientAccess } from "./app-server/connection/client-access";
+import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
 import { appServerQueryContextIsComplete, type AppServerQueryContext } from "./app-server/query/keys";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
@@ -169,7 +169,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     };
   }
 
-  withClient<T>(operation: (client: AppServerClient) => Promise<T>, options: { unhandledServerRequestMessage?: string } = {}): Promise<T> {
+  withClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {
     return this.runWithAppServerClient(this.appServerQueryContext(), operation, options);
   }
 
@@ -224,12 +224,12 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   private async runWithAppServerClient<T>(
     context: AppServerQueryContext,
     operation: (client: AppServerClient) => Promise<T>,
-    options: { unhandledServerRequestMessage?: string } = {},
+    options: AppServerClientAccessOptions = {},
   ): Promise<T> {
     if (!appServerQueryContextIsComplete(context)) {
       throw new Error("Codex app-server query context is incomplete.");
     }
-    if (options.unhandledServerRequestMessage !== undefined) {
+    if (options.serverRequests?.kind === "reject") {
       return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
     }
     const chatSurface = this.connectedClientSurface();

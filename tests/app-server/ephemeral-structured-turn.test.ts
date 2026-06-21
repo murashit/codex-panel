@@ -226,7 +226,7 @@ function runOptions(clientFactory: EphemeralStructuredTurnClientFactory): Parame
     prompt: "Run.",
     outputSchema: { type: "object" },
     timeoutMs: 10_000,
-    unhandledServerRequestMessage: "Structured test does not handle server requests.",
+    serverRequests: { kind: "reject", message: "Structured test does not handle server requests." },
     exitedMessage: "Structured test app-server exited.",
     timedOutMessage: "Structured test timed out.",
     clientFactory,

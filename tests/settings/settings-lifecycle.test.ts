@@ -2,30 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
 import { loadHookData } from "../../src/settings/app-server-data";
-import {
-  createSettingsDynamicSectionLifecycle,
-  transitionSettingsDynamicSectionLifecycle,
-  transitionSettingsDataRefreshLifecycle,
-} from "../../src/settings/lifecycle";
+import { createSettingsDynamicSectionLifecycle, transitionSettingsDynamicSectionLifecycle } from "../../src/settings/lifecycle";
 
 describe("settings lifecycle", () => {
-  it("tracks settings data refresh lifecycle", () => {
-    const idle = { kind: "idle" } as const;
-
-    const loading = transitionSettingsDataRefreshLifecycle(idle, { type: "started", operationToken: 1 });
-    expect(loading).toEqual({ kind: "loading", operationToken: 1 });
-    expect(transitionSettingsDataRefreshLifecycle(loading, { type: "started", operationToken: 0 })).toBe(loading);
-
-    const newerLoading = transitionSettingsDataRefreshLifecycle(loading, { type: "started", operationToken: 2 });
-    expect(newerLoading).toEqual({ kind: "loading", operationToken: 2 });
-    expect(transitionSettingsDataRefreshLifecycle(newerLoading, { type: "completed", failedCount: 2, operationToken: 1 })).toBe(
-      newerLoading,
-    );
-
-    const completed = transitionSettingsDataRefreshLifecycle(newerLoading, { type: "completed", failedCount: 2, operationToken: 2 });
-    expect(completed).toEqual({ kind: "completed", failedCount: 2, operationToken: 2 });
-  });
-
   it("tracks dynamic section lifecycle", () => {
     const idle = createSettingsDynamicSectionLifecycle();
     expect(idle).toEqual({ kind: "idle", status: "" });

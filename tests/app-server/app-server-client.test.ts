@@ -285,6 +285,114 @@ describe("AppServerClient", () => {
     expect(onExit).toHaveBeenCalledOnce();
   });
 
+  it("cleans up the active transport when initialize fails", async () => {
+    const transports: FakeTransport[] = [];
+    const onExit = vi.fn();
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit,
+      },
+      500,
+      (handlers) => {
+        const transport = new FakeTransport(handlers);
+        transports.push(transport);
+        return transport;
+      },
+    );
+
+    const connecting = client.connect();
+    const firstTransport = expectTransport(transports[0]);
+    const initialize = latestSent(firstTransport);
+    if (!("id" in initialize) || typeof initialize.id !== "number") throw new Error("Expected initialize request.");
+
+    const rejection = expect(connecting).rejects.toThrow("initialize failed");
+    firstTransport.emitLine({ id: initialize.id, error: { code: -32000, message: "initialize failed" } });
+
+    await rejection;
+    expect(client.isConnected()).toBe(false);
+    expect(firstTransport.isRunning()).toBe(false);
+
+    firstTransport.emitExit(1);
+    expect(onExit).not.toHaveBeenCalled();
+
+    const reconnecting = client.connect();
+    const secondTransport = expectTransport(transports[1]);
+    const secondInitialize = latestSent(secondTransport);
+    if (!("id" in secondInitialize) || typeof secondInitialize.id !== "number") throw new Error("Expected initialize request.");
+    secondTransport.emitLine({ id: secondInitialize.id, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+
+    await expect(reconnecting).resolves.toMatchObject({ codexHome: "/tmp/codex" });
+  });
+
+  it("cleans up the active transport when initialize times out", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      setTimeout,
+    });
+    let transport!: FakeTransport;
+    const onExit = vi.fn();
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit,
+      },
+      500,
+      (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    );
+
+    const connecting = client.connect();
+    const rejection = expect(connecting).rejects.toThrow("Codex app-server request timed out: initialize");
+    await vi.advanceTimersByTimeAsync(500);
+
+    await rejection;
+    expect(client.isConnected()).toBe(false);
+    expect(transport.isRunning()).toBe(false);
+
+    transport.emitExit(1);
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
+  it("rejects connect without notifying external exit handlers when transport exits during initialize", async () => {
+    let transport!: FakeTransport;
+    const onExit = vi.fn();
+    const client = new AppServerClient(
+      "/bin/codex",
+      "/vault",
+      {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit,
+      },
+      500,
+      (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    );
+
+    const connecting = client.connect();
+    const rejection = expect(connecting).rejects.toThrow("Codex app-server exited: 1");
+    transport.emitExit(1);
+
+    await rejection;
+    expect(client.isConnected()).toBe(false);
+    expect(onExit).not.toHaveBeenCalled();
+  });
+
   it("ignores stale transport events after reconnecting", async () => {
     const transports: FakeTransport[] = [];
     const onExit = vi.fn();

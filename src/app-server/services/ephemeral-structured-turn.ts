@@ -4,6 +4,7 @@ import {
   type AppServerStartEphemeralThreadOptions,
   type AppServerStartStructuredTurnOptions,
 } from "../connection/client";
+import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import type { RequestId, ServerNotification } from "../connection/rpc-messages";
 import type { ModelMetadataClient } from "../catalog";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
@@ -51,7 +52,7 @@ export interface RunEphemeralStructuredTurnOptions {
   prompt: string;
   outputSchema: StructuredTurnOutputSchema;
   timeoutMs: number;
-  unhandledServerRequestMessage: string;
+  serverRequests: Extract<AppServerClientRequestPolicy, { kind: "reject" }>;
   exitedMessage: string;
   timedOutMessage: string;
   abortMessage?: string;
@@ -105,7 +106,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
       handleNotification(notification);
     },
     onServerRequest: (request) => {
-      client.rejectServerRequest(request.id, -32601, options.unhandledServerRequestMessage);
+      client.rejectServerRequest(request.id, -32601, options.serverRequests.message);
     },
     onLog: () => undefined,
     onExit: () => {

@@ -2,8 +2,9 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
+import { ObsidianDropdown } from "../shared/ui/components";
 import type { HelperSettingsState } from "./section-state";
-import { SelectControl, SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
+import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
 
 const CODEX_DEFAULT_VALUE = "__codex-default__";
 
@@ -56,14 +57,14 @@ function ModelEffortSetting({
   const efforts = reasoningEffortsForSelectedModel(models, modelValue);
   return (
     <SettingRow name={name} desc={desc}>
-      <SelectControl
+      <ObsidianDropdown
         value={modelValue ?? CODEX_DEFAULT_VALUE}
         onChange={(value) => {
           onModelChange(value === CODEX_DEFAULT_VALUE ? null : value);
         }}
         options={modelSelectOptions(models, modelValue)}
       />
-      <SelectControl
+      <ObsidianDropdown
         value={effortValue ?? CODEX_DEFAULT_VALUE}
         onChange={(value) => {
           onEffortChange(value === CODEX_DEFAULT_VALUE ? null : value);

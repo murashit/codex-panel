@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import type { AppServerObservedQueryResult } from "../../src/app-server/query/cache";
+import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
@@ -1060,7 +1061,7 @@ function settingsTabHost(
     settings,
     vaultPath: "/vault",
     clientAccess: {
-      withClient: <T>(operation: (client: never) => Promise<T>, clientOptions?: { unhandledServerRequestMessage?: string }) =>
+      withClient: <T>(operation: (client: never) => Promise<T>, clientOptions?: AppServerClientAccessOptions) =>
         withShortLivedAppServerClientMock(settings.codexPath, "/vault", operation, clientOptions) as Promise<T>,
     },
     saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),

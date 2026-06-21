@@ -572,13 +572,13 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     plugin.settings.codexPath = "codex";
 
     const result = await plugin.runtime.withClient((client) => client.readEffectiveConfig("/vault") as Promise<unknown>, {
-      unhandledServerRequestMessage: "Settings refresh does not handle server requests.",
+      serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
     });
 
     expect(result).toEqual({});
     expect(runWithAppServerClient).not.toHaveBeenCalled();
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith("codex", "/vault", expect.any(Function), {
-      unhandledServerRequestMessage: "Settings refresh does not handle server requests.",
+      serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
     });
     expect(shortLivedClient.readEffectiveConfig).toHaveBeenCalledWith("/vault");
   });

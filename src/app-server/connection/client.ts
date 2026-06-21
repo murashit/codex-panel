@@ -203,8 +203,8 @@ export class AppServerClient {
   }
 
   async connect(): Promise<InitializeResponse> {
-    if (this.activeTransport()?.isRunning()) {
-      throw new Error("Codex app-server is already running.");
+    if (this.lifecycle.kind !== "disconnected") {
+      throw new Error("Codex app-server client is already connecting or connected.");
     }
 
     const transportRef: { current: AppServerTransport | null } = { current: null };
@@ -232,9 +232,10 @@ export class AppServerClient {
         if (!transport) return;
         if (!this.isActiveTransport(transport)) return;
         const intentional = this.intentionallyStoppedTransports.has(transport);
+        const wasInitialized = this.lifecycle.kind === "initialized";
         this.lifecycle = { kind: "disconnected" };
         this.rpc.rejectAll(new Error(`Codex app-server exited: ${String(code ?? signal ?? "unknown")}`));
-        if (intentional) return;
+        if (intentional || !wasInitialized) return;
         this.handlers.onExit(code, signal);
       },
     };
@@ -243,22 +244,32 @@ export class AppServerClient {
       : new StdioAppServerTransport(this.codexPath, this.cwd, transportHandlers);
     transportRef.current = transport;
     this.lifecycle = { kind: "starting", transport };
-    transport.start();
-
-    const init = await this.request("initialize", {
-      clientInfo: {
-        name: "obsidian_codex_panel",
-        title: "Codex Panel",
-        version: CLIENT_VERSION,
-      },
-      capabilities: {
-        experimentalApi: true,
-        requestAttestation: false,
-      },
-    });
-    this.notify({ method: "initialized" });
-    this.lifecycle = { kind: "initialized", transport, initializeResponse: init };
-    return init;
+    try {
+      transport.start();
+      const init = await this.request("initialize", {
+        clientInfo: {
+          name: "obsidian_codex_panel",
+          title: "Codex Panel",
+          version: CLIENT_VERSION,
+        },
+        capabilities: {
+          experimentalApi: true,
+          requestAttestation: false,
+        },
+      });
+      this.notify({ method: "initialized" });
+      this.lifecycle = { kind: "initialized", transport, initializeResponse: init };
+      return init;
+    } catch (error) {
+      if (this.isActiveTransport(transport)) {
+        const normalized = error instanceof Error ? error : new Error(String(error));
+        this.lifecycle = { kind: "disconnected" };
+        this.rpc.rejectAll(normalized);
+        this.intentionallyStoppedTransports.add(transport);
+        transport.stop();
+      }
+      throw error;
+    }
   }
 
   disconnect(): void {

@@ -120,7 +120,7 @@ describe("ConnectionManager", () => {
     expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
   });
 
-  it("reports app-server exit during initialization", async () => {
+  it("rejects app-server exit during initialization without reporting a connected-client exit", async () => {
     let transport!: SilentTransport;
     const onExit = vi.fn();
     const manager = new ConnectionManager(
@@ -137,7 +137,7 @@ describe("ConnectionManager", () => {
     transport.emitExit();
 
     await expect(connecting).rejects.toThrow("Codex app-server exited: unknown");
-    expect(onExit).toHaveBeenCalledOnce();
+    expect(onExit).not.toHaveBeenCalled();
     expect(manager.currentClient()).toBeNull();
   });
 

@@ -19,6 +19,7 @@ import { toolInventoryAppsFromAppInfos, toolInventoryPluginsFromInstalledRespons
 
 const APP_PAGE_LIMIT = 100;
 const APP_PAGE_LOOP_LIMIT = 20;
+const PLUGIN_DETAILS_CONCURRENCY = 4;
 
 export interface ReadToolInventoryOptions {
   readonly threadId?: string | null;
@@ -101,6 +102,7 @@ async function listAllApps(
   threadId: string | null,
 ): Promise<Awaited<ReturnType<AppServerClient["listApps"]>>["data"]> {
   let cursor: string | null = null;
+  const seenCursors = new Set<string>();
   const apps: Awaited<ReturnType<AppServerClient["listApps"]>>["data"] = [];
   for (let page = 0; page < APP_PAGE_LOOP_LIMIT; page += 1) {
     const response = await client.listApps({
@@ -111,8 +113,12 @@ async function listAllApps(
     apps.push(...response.data);
     cursor = response.nextCursor;
     if (!cursor) return apps;
+    if (seenCursors.has(cursor)) {
+      throw new Error("Codex app-server returned a repeated app list cursor.");
+    }
+    seenCursors.add(cursor);
   }
-  return apps;
+  throw new Error("Codex app-server returned too many app list pages.");
 }
 
 async function readPlugins(
@@ -128,7 +134,7 @@ async function readPlugins(
   try {
     const response = await client.listInstalledPlugins(cwd);
     const { plugins, marketplaceErrors } = toolInventoryPluginsFromInstalledResponse(response);
-    const pluginsWithDetails = await Promise.all(plugins.map((plugin) => readPluginDetails(client, plugin)));
+    const pluginsWithDetails = await mapLimit(plugins, PLUGIN_DETAILS_CONCURRENCY, (plugin) => readPluginDetails(client, plugin));
     return {
       data: pluginsWithDetails,
       marketplaceErrors,
@@ -143,6 +149,24 @@ async function readPlugins(
       probe: diagnosticProbeError("plugin/installed", error, checkedAt),
     };
   }
+}
+
+async function mapLimit<T, R>(items: readonly T[], concurrency: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    for (;;) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index] as T, index);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(Math.max(concurrency, 1), items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
 }
 
 async function readPluginDetails(client: AppServerClient, plugin: ToolInventoryPlugin): Promise<ToolInventoryPlugin> {

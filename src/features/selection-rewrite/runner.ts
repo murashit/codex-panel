@@ -50,7 +50,7 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     prompt: options.prompt,
     outputSchema: SELECTION_REWRITE_OUTPUT_SCHEMA,
     timeoutMs: SELECTION_REWRITE_TIMEOUT_MS,
-    unhandledServerRequestMessage: "Selection rewrite does not handle server requests.",
+    serverRequests: { kind: "reject", message: "Selection rewrite does not handle server requests." },
     exitedMessage: "Selection rewrite app-server exited.",
     timedOutMessage: "Timed out while rewriting the selection.",
     abortMessage: "Selection rewrite cancelled.",

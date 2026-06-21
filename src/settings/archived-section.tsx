@@ -2,18 +2,10 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
+import { ObsidianExtraButton, ObsidianTextInput, ObsidianToggle } from "../shared/ui/components";
 import { shortThreadId } from "../utils";
 import type { ArchivedThreadSectionState } from "./section-state";
-import {
-  SettingRow,
-  SettingsGroup,
-  SettingsHeading,
-  SettingsIconButton,
-  SettingsItems,
-  SettingsStatusRow,
-  TextControl,
-  ToggleControl,
-} from "./setting-components";
+import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./setting-components";
 
 export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionState }): UiNode {
   return (
@@ -38,7 +30,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
   return (
     <SettingsItems>
       <SettingRow name="Save note by default" desc="Save a Markdown note during the default archive action.">
-        <ToggleControl
+        <ObsidianToggle
           checked={state.exportEnabled}
           onChange={(checked) => {
             state.onExportEnabledChange(checked);
@@ -46,7 +38,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
         />
       </SettingRow>
       <SettingRow name="Saved note folder" desc="Vault folder for saved thread notes.">
-        <TextControl
+        <ObsidianTextInput
           placeholder="Codex archives"
           value={state.exportFolderTemplate}
           onChange={(value) => {
@@ -55,7 +47,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
         />
       </SettingRow>
       <SettingRow name="Saved note filename" desc="Filename template. Supports {{date}}, {{time}}, {{title}}, {{id}}, and {{shortId}}.">
-        <TextControl
+        <ObsidianTextInput
           placeholder="{{date}} {{time}} {{title}} {{shortId}}.md"
           value={state.exportFilenameTemplate}
           onChange={(value) => {
@@ -64,7 +56,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
         />
       </SettingRow>
       <SettingRow name="Saved note tags" desc="Tags added to saved notes, separated by commas.">
-        <TextControl
+        <ObsidianTextInput
           placeholder="Codex, archive"
           value={state.exportTags}
           onChange={(value) => {
@@ -104,7 +96,7 @@ function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedT
       }
     >
       {!deleteConfirming ? (
-        <SettingsIconButton
+        <ObsidianExtraButton
           icon="rotate-ccw"
           label="Restore thread"
           className="codex-panel-settings__archived-restore"
@@ -113,7 +105,7 @@ function ArchivedThreadRow({ thread, state }: { thread: Thread; state: ArchivedT
           }}
         />
       ) : null}
-      <SettingsIconButton
+      <ObsidianExtraButton
         icon={deleteConfirming ? "check" : "shredder"}
         label="Delete thread"
         className={deleteConfirming ? "codex-panel-settings__archived-delete-confirm" : "codex-panel-settings__archived-delete"}

@@ -1,6 +1,7 @@
 import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
 
 import type { AppServerClient } from "../connection/client";
+import type { AppServerClientAccessOptions } from "../connection/client-access";
 import { listModelMetadata } from "../catalog";
 import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
@@ -29,7 +30,7 @@ export interface AppServerQueryClientRunner {
   runWithClient<T>(
     context: AppServerQueryContext,
     operation: (client: AppServerClient) => Promise<T>,
-    options?: { unhandledServerRequestMessage?: string },
+    options?: AppServerClientAccessOptions,
   ): Promise<T>;
 }
 
@@ -386,7 +387,7 @@ export class AppServerQueryCache {
       queryFn: async (): Promise<readonly ModelMetadata[]> => {
         return cloneModelMetadata(
           await this.runWithClient(refreshContext, (client) => listModelMetadata(client), {
-            unhandledServerRequestMessage: "Codex model list refresh does not handle server requests.",
+            serverRequests: { kind: "reject", message: "Codex model list refresh does not handle server requests." },
           }),
         );
       },
@@ -452,7 +453,7 @@ export class AppServerQueryCache {
   private runWithClient<T>(
     context: AppServerQueryContext,
     operation: (client: AppServerClient) => Promise<T>,
-    options: { unhandledServerRequestMessage?: string } = {},
+    options: AppServerClientAccessOptions = {},
   ): Promise<T> {
     if (!this.clientRunner) {
       throw new Error("Codex app-server query client runner is not configured.");

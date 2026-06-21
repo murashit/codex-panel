@@ -13,9 +13,7 @@ import { loadHookData } from "./app-server-data";
 import type { SettingsDynamicDataHost } from "./host";
 import {
   createSettingsDynamicSectionLifecycle,
-  transitionSettingsDataRefreshLifecycle,
   transitionSettingsDynamicSectionLifecycle,
-  type SettingsDataRefreshLifecycleState,
   type SettingsDynamicSectionLifecycleState,
 } from "./lifecycle";
 
@@ -49,7 +47,6 @@ export class SettingsDynamicDataController {
   private modelsOperationToken = 0;
   private hooksOperationToken = 0;
   private archivedThreadsOperationToken = 0;
-  private settingsDataRefreshLifecycle: SettingsDataRefreshLifecycleState = { kind: "idle" };
 
   private archivedThreads: Thread[] = [];
   private archivedThreadsLoaded = false;
@@ -108,7 +105,6 @@ export class SettingsDynamicDataController {
     this.modelsOperationToken += 1;
     this.hooksOperationToken += 1;
     this.archivedThreadsOperationToken += 1;
-    this.settingsDataRefreshLifecycle = { kind: "idle" };
     this.models = [...(this.host.appServerData.modelsSnapshot() ?? [])];
     this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
     this.hooks = [];
@@ -156,10 +152,6 @@ export class SettingsDynamicDataController {
     const modelsOperationToken = this.nextModelsOperationToken();
     const hooksOperationToken = this.nextHooksOperationToken();
     const archivedThreadsOperationToken = this.nextArchivedThreadsOperationToken();
-    this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, {
-      type: "started",
-      operationToken,
-    });
     this.modelsLifecycle = transitionSettingsDynamicSectionLifecycle(this.modelsLifecycle, {
       type: "started",
       status: "Loading models...",
@@ -274,11 +266,6 @@ export class SettingsDynamicDataController {
       }
     } finally {
       const staleRefresh = this.isStaleSettingsRefreshOperation(operationToken);
-      this.settingsDataRefreshLifecycle = transitionSettingsDataRefreshLifecycle(this.settingsDataRefreshLifecycle, {
-        type: "completed",
-        failedCount,
-        operationToken,
-      });
       if (!staleRefresh) {
         if (failedCount > 0) {
           this.callbacks.notify("Could not refresh all Codex data.");
@@ -289,7 +276,9 @@ export class SettingsDynamicDataController {
   }
 
   settingsDataLoading(): boolean {
-    return this.settingsDataRefreshLifecycle.kind === "loading";
+    return (
+      this.modelsLifecycle.kind === "loading" || this.hooksLifecycle.kind === "loading" || this.archivedThreadsLifecycle.kind === "loading"
+    );
   }
 
   snapshot(): SettingsDynamicDataSnapshot {
@@ -475,7 +464,7 @@ export class SettingsDynamicDataController {
 
   private async withSettingsConnection<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
     return this.host.clientAccess.withClient(operation, {
-      unhandledServerRequestMessage: "Codex Panel settings does not handle server requests.",
+      serverRequests: { kind: "reject", message: "Codex Panel settings does not handle server requests." },
     });
   }
 

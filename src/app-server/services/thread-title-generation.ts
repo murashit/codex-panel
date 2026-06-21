@@ -57,7 +57,7 @@ export async function generateThreadTitleWithCodex(
     prompt: threadTitlePrompt(context),
     outputSchema: TITLE_OUTPUT_SCHEMA,
     timeoutMs: THREAD_TITLE_TIMEOUT_MS,
-    unhandledServerRequestMessage: "Thread title generation does not handle server requests.",
+    serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
     exitedMessage: "Codex title generation app-server exited.",
     timedOutMessage: "Timed out while generating a Codex thread title.",
     resolveRuntime: (client) => threadTitleRuntimeOverrideForClient(client, runtimeSettings),

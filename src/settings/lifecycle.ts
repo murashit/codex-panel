@@ -1,12 +1,3 @@
-export type SettingsDataRefreshLifecycleState =
-  | { kind: "idle" }
-  | { kind: "loading"; operationToken: number }
-  | { kind: "completed"; failedCount: number; operationToken: number };
-
-export type SettingsDataRefreshLifecycleEvent =
-  | { type: "started"; operationToken: number }
-  | { type: "completed"; failedCount: number; operationToken: number };
-
 export type SettingsDynamicSectionLifecycleState =
   | { kind: "idle"; status: "" }
   | { kind: "loading"; status: string; operationToken: number }
@@ -18,20 +9,6 @@ export type SettingsDynamicSectionLifecycleEvent =
   | { type: "loaded"; status: string; operationToken: number }
   | { type: "failed"; status: string; operationToken: number }
   | { type: "reset" };
-
-export function transitionSettingsDataRefreshLifecycle(
-  state: SettingsDataRefreshLifecycleState,
-  event: SettingsDataRefreshLifecycleEvent,
-): SettingsDataRefreshLifecycleState {
-  switch (event.type) {
-    case "started":
-      if (isStaleSettingsDataRefreshEvent(state, event.operationToken)) return state;
-      return { kind: "loading", operationToken: event.operationToken };
-    case "completed":
-      if (isStaleSettingsDataRefreshEvent(state, event.operationToken)) return state;
-      return { kind: "completed", failedCount: event.failedCount, operationToken: event.operationToken };
-  }
-}
 
 export function createSettingsDynamicSectionLifecycle(): SettingsDynamicSectionLifecycleState {
   return { kind: "idle", status: "" };
@@ -57,9 +34,5 @@ export function transitionSettingsDynamicSectionLifecycle(
 }
 
 function isStaleSettingsDynamicSectionEvent(state: SettingsDynamicSectionLifecycleState, operationToken: number): boolean {
-  return "operationToken" in state && state.operationToken > operationToken;
-}
-
-function isStaleSettingsDataRefreshEvent(state: SettingsDataRefreshLifecycleState, operationToken: number): boolean {
   return "operationToken" in state && state.operationToken > operationToken;
 }
