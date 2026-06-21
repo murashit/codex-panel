@@ -59,6 +59,7 @@ function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
   const title = overrides.title ?? thread.name ?? thread.preview;
   return {
     thread,
+    threadId: thread.id,
     title,
     live: null,
     selected: false,
@@ -138,8 +139,8 @@ describe("threads view renderer decisions", () => {
       new Map(),
     );
 
-    expect(rows.find((row) => row.thread.id === "focused")?.selected).toBe(true);
-    expect(rows.find((row) => row.thread.id === "closed")?.selected).toBe(false);
+    expect(rows.find((row) => row.threadId === "focused")?.selected).toBe(true);
+    expect(rows.find((row) => row.threadId === "closed")?.selected).toBe(false);
   });
 
   it("renders thread rows with live state and routes open actions", () => {

@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
 
 import type { Thread } from "../../../../domain/threads/model";
-import { threadDisplayTitle } from "../../../../domain/threads/title";
+import { threadRowCoreProjection } from "../../../threads/row-projection";
 import { rateLimitSummary } from "../../presentation/runtime/status";
 import { connectionDiagnosticSectionsModel } from "../../application/connection/diagnostics-display";
 import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-display";
@@ -134,25 +134,26 @@ function toolbarThreadRows(input: {
 }): ToolbarThreadRow[] {
   return input.threads.map((thread) => {
     const threadId = thread.id;
-    return {
-      title: threadDisplayTitle(thread),
-      threadId,
+    const core = threadRowCoreProjection({
+      thread,
       selected: threadId === input.activeThreadId,
+      renameState: toolbarActiveRenameState(input.renameState, threadId),
+      archiveConfirmActive: input.archiveConfirmThreadId === threadId,
+      defaultArchiveSaveMarkdown: input.archiveExportEnabled,
+    });
+    return {
+      title: core.title,
+      threadId: core.threadId,
+      selected: core.selected,
       disabled: input.turnBusy && threadId !== input.activeThreadId,
       canArchive: true,
-      archiveConfirm: {
-        active: input.archiveConfirmThreadId === threadId,
-        defaultSaveMarkdown: input.archiveExportEnabled,
-      },
-      rename: toolbarRenameState(input.renameState, threadId),
+      archiveConfirm: core.archiveConfirm,
+      rename: core.rename.active ? { draft: core.rename.draft, generating: core.rename.generating } : null,
     };
   });
 }
 
-function toolbarRenameState(renameState: ChatState["ui"]["rename"], threadId: string): ToolbarThreadRow["rename"] {
-  if (renameState.kind === "idle" || renameState.threadId !== threadId) return null;
-  return {
-    draft: renameState.draft,
-    generating: renameState.kind === "generating",
-  };
+function toolbarActiveRenameState(renameState: ChatState["ui"]["rename"], threadId: string) {
+  if (renameState.kind === "idle" || renameState.threadId !== threadId) return undefined;
+  return renameState;
 }

@@ -54,7 +54,7 @@ function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: Thr
           <>
             {model.status ? <div className="codex-panel-threads__status">{model.status}</div> : null}
             {model.rows.map((row) => (
-              <ThreadRow key={row.thread.id} row={row} actions={actions} />
+              <ThreadRow key={row.threadId} row={row} actions={actions} />
             ))}
           </>
         )}
@@ -86,13 +86,13 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
 
   const open = () => {
     if (row.rename.active || archiveConfirm.active) return;
-    actions.openThread(row.thread.id);
+    actions.openThread(row.threadId);
   };
   const openFromKeyboard = (event: TargetedKeyboardEvent<HTMLDivElement>) => {
     if (row.rename.active || archiveConfirm.active) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    actions.openThread(row.thread.id);
+    actions.openThread(row.threadId);
   };
 
   return (
@@ -123,7 +123,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
                 className="codex-panel-threads__row-button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  actions.startRename(row.thread.id, row.rename.draft);
+                  actions.startRename(row.threadId, row.rename.draft);
                 }}
               />
             ) : null}
@@ -152,7 +152,7 @@ function ArchiveActions({
         className="codex-panel-threads__row-button"
         onClick={(event) => {
           event.stopPropagation();
-          actions.startArchive(row.thread.id);
+          actions.startArchive(row.threadId);
         }}
       />
     );
@@ -186,7 +186,7 @@ function ArchiveModeButton({
       className={primary ? "codex-panel-threads__archive-default" : "codex-panel-threads__archive-alternate"}
       onClick={(event) => {
         event.stopPropagation();
-        actions.archiveThread(row.thread.id, saveMarkdown);
+        actions.archiveThread(row.threadId, saveMarkdown);
       }}
     />
   );
@@ -218,21 +218,21 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
             type="text"
             value={row.rename.draft}
             onInput={(event) => {
-              actions.updateRename(row.thread.id, event.currentTarget.value);
+              actions.updateRename(row.threadId, event.currentTarget.value);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                if (!event.isComposing && !row.rename.generating) actions.saveRename(row.thread.id, event.currentTarget.value);
+                if (!event.isComposing && !row.rename.generating) actions.saveRename(row.threadId, event.currentTarget.value);
                 return;
               }
               if (event.key === "Escape") {
                 event.preventDefault();
-                actions.cancelRename(row.thread.id);
+                actions.cancelRename(row.threadId);
               }
             }}
             onBlur={(event) => {
-              if (!row.rename.generating) actions.saveRename(row.thread.id, event.currentTarget.value);
+              if (!row.rename.generating) actions.saveRename(row.threadId, event.currentTarget.value);
             }}
           />
         </div>
@@ -249,7 +249,7 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
           }}
           onClick={(event) => {
             event.stopPropagation();
-            actions.autoNameThread(row.thread.id);
+            actions.autoNameThread(row.threadId);
           }}
         />
       </div>

@@ -1,6 +1,6 @@
 import type { Thread } from "../../domain/threads/model";
-import { threadDisplayTitle, threadRenameDraftTitle } from "../../domain/threads/title";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
+import { threadRowCoreProjection, type ThreadRowCoreProjection } from "../threads/row-projection";
 import {
   initialThreadRenameLifecycleState,
   transitionThreadRenameLifecycleState,
@@ -19,13 +19,8 @@ interface ThreadsLiveState {
   openPanels: number;
 }
 
-export interface ThreadsRowModel {
-  thread: Thread;
-  title: string;
+export interface ThreadsRowModel extends ThreadRowCoreProjection {
   live: ThreadsLiveState | null;
-  selected: boolean;
-  rename: { active: boolean; draft: string; generating: boolean };
-  archiveConfirm: { active: boolean; defaultSaveMarkdown: boolean };
 }
 
 export type ThreadsRenameState = ThreadRenameActiveState;
@@ -62,21 +57,16 @@ export function threadRows(
       const threadSnapshots = snapshotsByThread.get(thread.id) ?? [];
       const live = liveStateForSnapshots(threadSnapshots);
       const selected = selectedStateForSnapshots(threadSnapshots);
-      const rename = renameStates.get(thread.id);
-      return {
+      const core = threadRowCoreProjection({
         thread,
-        title: threadDisplayTitle(thread),
-        live,
         selected,
-        rename: {
-          active: rename !== undefined,
-          draft: rename?.draft ?? threadRenameDraftTitle(thread),
-          generating: rename?.kind === "generating",
-        },
-        archiveConfirm: {
-          active: archiveConfirmThreadId === thread.id,
-          defaultSaveMarkdown: defaultArchiveSaveMarkdown,
-        },
+        renameState: renameStates.get(thread.id),
+        archiveConfirmActive: archiveConfirmThreadId === thread.id,
+        defaultArchiveSaveMarkdown,
+      });
+      return {
+        ...core,
+        live,
       };
     });
 }
