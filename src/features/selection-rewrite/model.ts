@@ -2,7 +2,6 @@ import type { EditorPosition } from "obsidian";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 
 type SelectionRewriteStatus = SelectionRewriteState["status"];
-const TERMINAL_SELECTION_REWRITE_STATUSES = new Set<SelectionRewriteStatus>(["applied", "cancelled"]);
 const APPLY_CONTEXT_RADIUS = 1_000;
 
 interface SelectionRewriteTextRange {
@@ -74,6 +73,13 @@ export type SelectionRewriteLifecycleEvent =
   | { type: "cancelled" }
   | { type: "applied" };
 
+type SelectionRewriteLifecycleEventType = SelectionRewriteLifecycleEvent["type"];
+type SelectionRewriteLifecycleTransition = (state: SelectionRewriteState, event: SelectionRewriteLifecycleEvent) => SelectionRewriteState;
+type SelectionRewriteLifecycleTransitionTable = Record<
+  SelectionRewriteStatus,
+  Record<SelectionRewriteLifecycleEventType, SelectionRewriteLifecycleTransition>
+>;
+
 export interface SelectionRewriteApplyContext {
   currentText: string;
   currentNoteText: string;
@@ -115,47 +121,121 @@ export function transitionSelectionRewriteState(
   state: SelectionRewriteState,
   event: SelectionRewriteLifecycleEvent,
 ): SelectionRewriteState {
-  switch (event.type) {
-    case "generation-started":
-      if (TERMINAL_SELECTION_REWRITE_STATUSES.has(state.status)) return state;
-      return {
-        ...state,
-        instruction: event.instruction,
-        status: "generating",
-        streamText: "",
-        replacementText: null,
-        debugText: null,
-      };
-    case "preview-updated":
-      if (state.status !== "generating") return state;
-      return { ...state, streamText: event.text };
-    case "generation-succeeded":
-      if (state.status !== "generating") return state;
-      return {
-        ...state,
-        status: "preview",
-        streamText: "",
-        replacementText: event.replacementText,
-      };
-    case "generation-failed":
-      if (state.status !== "generating") return state;
-      return {
-        ...state,
-        status: "failed",
-        streamText: "",
-        debugText: event.debugText,
-      };
-    case "cancelled":
-      return {
-        ...state,
-        status: "cancelled",
-      };
-    case "applied":
-      return {
-        ...state,
-        status: "applied",
-      };
-  }
+  return selectionRewriteLifecycleTransitions[state.status][event.type](state, event);
+}
+
+const keepSelectionRewriteState: SelectionRewriteLifecycleTransition = (state) => state;
+
+const generationStartedTransition: SelectionRewriteLifecycleTransition = (state, event) => ({
+  ...selectionRewriteBaseState(state),
+  instruction: requireGenerationInstruction(event),
+  status: "generating",
+  streamText: "",
+  replacementText: null,
+  debugText: null,
+});
+
+const previewUpdatedTransition: SelectionRewriteLifecycleTransition = (state, event) => ({
+  ...selectionRewriteBaseState(state),
+  status: "generating",
+  streamText: requirePreviewText(event),
+  replacementText: null,
+  debugText: null,
+});
+
+const generationSucceededTransition: SelectionRewriteLifecycleTransition = (state, event) => ({
+  ...selectionRewriteBaseState(state),
+  status: "preview",
+  streamText: "",
+  replacementText: requireReplacementText(event),
+  debugText: null,
+});
+
+const generationFailedTransition: SelectionRewriteLifecycleTransition = (state, event) => ({
+  ...selectionRewriteBaseState(state),
+  status: "failed",
+  streamText: "",
+  replacementText: null,
+  debugText: optionalDebugText(event),
+});
+
+const cancelledTransition: SelectionRewriteLifecycleTransition = (state) => ({
+  ...selectionRewriteBaseState(state),
+  status: "cancelled",
+  streamText: state.streamText,
+  replacementText: state.replacementText,
+  debugText: state.debugText,
+});
+
+const appliedTransition: SelectionRewriteLifecycleTransition = (state) => ({
+  ...selectionRewriteBaseState(state),
+  status: "applied",
+  streamText: state.streamText,
+  replacementText: state.replacementText,
+  debugText: state.debugText,
+});
+
+const editableSelectionRewriteTransitions = {
+  "generation-started": generationStartedTransition,
+  "preview-updated": keepSelectionRewriteState,
+  "generation-succeeded": keepSelectionRewriteState,
+  "generation-failed": keepSelectionRewriteState,
+  cancelled: cancelledTransition,
+  applied: appliedTransition,
+} satisfies Record<SelectionRewriteLifecycleEventType, SelectionRewriteLifecycleTransition>;
+
+const terminalSelectionRewriteTransitions = {
+  "generation-started": keepSelectionRewriteState,
+  "preview-updated": keepSelectionRewriteState,
+  "generation-succeeded": keepSelectionRewriteState,
+  "generation-failed": keepSelectionRewriteState,
+  cancelled: cancelledTransition,
+  applied: appliedTransition,
+} satisfies Record<SelectionRewriteLifecycleEventType, SelectionRewriteLifecycleTransition>;
+
+const selectionRewriteLifecycleTransitions: SelectionRewriteLifecycleTransitionTable = {
+  "editing-prompt": editableSelectionRewriteTransitions,
+  generating: {
+    "generation-started": generationStartedTransition,
+    "preview-updated": previewUpdatedTransition,
+    "generation-succeeded": generationSucceededTransition,
+    "generation-failed": generationFailedTransition,
+    cancelled: cancelledTransition,
+    applied: appliedTransition,
+  },
+  preview: editableSelectionRewriteTransitions,
+  failed: editableSelectionRewriteTransitions,
+  cancelled: terminalSelectionRewriteTransitions,
+  applied: terminalSelectionRewriteTransitions,
+};
+
+function requireGenerationInstruction(event: SelectionRewriteLifecycleEvent): string {
+  if ("instruction" in event) return event.instruction;
+  throw new Error(`Selection rewrite lifecycle event ${event.type} does not include an instruction.`);
+}
+
+function requirePreviewText(event: SelectionRewriteLifecycleEvent): string {
+  if ("text" in event) return event.text;
+  throw new Error(`Selection rewrite lifecycle event ${event.type} does not include preview text.`);
+}
+
+function requireReplacementText(event: SelectionRewriteLifecycleEvent): string {
+  if ("replacementText" in event) return event.replacementText;
+  throw new Error(`Selection rewrite lifecycle event ${event.type} does not include replacement text.`);
+}
+
+function optionalDebugText(event: SelectionRewriteLifecycleEvent): string | null {
+  return "debugText" in event ? event.debugText : null;
+}
+
+function selectionRewriteBaseState(state: SelectionRewriteState): SelectionRewriteBaseState {
+  return {
+    filePath: state.filePath,
+    targetRange: state.targetRange,
+    originalText: state.originalText,
+    noteText: state.noteText,
+    instruction: state.instruction,
+  };
 }
 
 function selectionRewriteRangeContextFingerprint(text: string, offsets: SelectionRewriteTextRangeOffsets): string {
