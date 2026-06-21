@@ -3,6 +3,7 @@ import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
 import { submissionStateSnapshot } from "../state/selectors";
+import { STATUS_TURN_RUNNING } from "../state/status-text";
 import type { ChatStateStore } from "../state/store";
 import {
   acknowledgeOptimisticTurnStart,
@@ -12,7 +13,6 @@ import {
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
 
-const STATUS_TURN_RUNNING = "Turn running...";
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 
 export interface TurnSubmissionActionsHost {

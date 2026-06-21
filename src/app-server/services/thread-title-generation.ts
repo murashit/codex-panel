@@ -7,11 +7,15 @@ import type { ModelMetadataClient } from "../catalog";
 import { resolvedRuntimeOverrideForClient } from "./runtime-overrides";
 import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../protocol/turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import { threadTitleFromGeneratedText, threadTitlePrompt, type ThreadTitleContext } from "../../domain/threads/title-generation-model";
+import {
+  THREAD_TITLE_MAX_CHARS,
+  threadTitleFromGeneratedText,
+  threadTitlePrompt,
+  type ThreadTitleContext,
+} from "../../domain/threads/title-generation-model";
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
 const THREAD_TITLE_TIMEOUT_MS = 60_000;
-const MAX_TITLE_CHARS = 40;
 
 const TITLE_OUTPUT_SCHEMA: StructuredTurnOutputSchema = {
   type: "object",
@@ -19,7 +23,7 @@ const TITLE_OUTPUT_SCHEMA: StructuredTurnOutputSchema = {
     title: {
       type: "string",
       minLength: 1,
-      maxLength: MAX_TITLE_CHARS,
+      maxLength: THREAD_TITLE_MAX_CHARS,
     },
   },
   required: ["title"],

@@ -1,9 +1,6 @@
-import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
-import { truncate } from "../../../../utils";
+import { threadTitleContextPromptText, type ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import { isCompletedTurnOutcomeMessage } from "../../domain/message-stream/selectors";
 import type { MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
-
-const MAX_CONTEXT_CHARS = 4_000;
 
 export function threadTitleContextFromMessageStreamItems(turnId: string, items: readonly MessageStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
@@ -11,8 +8,8 @@ export function threadTitleContextFromMessageStreamItems(turnId: string, items: 
   const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeMessageItem)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
   return {
-    userRequest: truncateForPrompt(userRequest),
-    assistantResponse: truncateForPrompt(assistantResponse),
+    userRequest: threadTitleContextPromptText(userRequest),
+    assistantResponse: threadTitleContextPromptText(assistantResponse),
   };
 }
 
@@ -45,8 +42,4 @@ function precedingUnscopedTitleSeed(turnId: string, items: readonly MessageStrea
     if (item.kind === "goal" && item.objective) return item.objective.trim();
   }
   return null;
-}
-
-function truncateForPrompt(text: string): string {
-  return truncate(text.replace(/\s+/g, " ").trim(), MAX_CONTEXT_CHARS);
 }

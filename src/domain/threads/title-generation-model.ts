@@ -1,11 +1,11 @@
 import type { ThreadConversationSummary } from "./transcript";
 import { truncate } from "../../utils";
 
-const MAX_CONTEXT_CHARS = 4_000;
-const MAX_TITLE_CHARS = 40;
+const THREAD_TITLE_CONTEXT_MAX_CHARS = 4_000;
 const DEFAULT_CONTEXT_PAGE_LIMIT = 20;
 const DEFAULT_CONTEXT_MAX_PAGES = 5;
 
+export const THREAD_TITLE_MAX_CHARS = 40;
 export const THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE =
   "Auto-name needs completed history or visible resumed history with both user and assistant text.";
 
@@ -30,8 +30,8 @@ export function threadTitleContextFromConversationSummary(summary: ThreadConvers
   if (!summary.userText || !summary.assistantText) return null;
 
   return {
-    userRequest: truncateForPrompt(summary.userText),
-    assistantResponse: truncateForPrompt(summary.assistantText),
+    userRequest: threadTitleContextPromptText(summary.userText),
+    assistantResponse: threadTitleContextPromptText(summary.assistantText),
   };
 }
 
@@ -70,7 +70,7 @@ function normalizeGeneratedThreadTitle(value: unknown): string | null {
     .replace(/["'`」』]+$/, "")
     .trim();
   if (!title) return null;
-  return title.length > MAX_TITLE_CHARS ? title.slice(0, MAX_TITLE_CHARS).trimEnd() : title;
+  return title.length > THREAD_TITLE_MAX_CHARS ? title.slice(0, THREAD_TITLE_MAX_CHARS).trimEnd() : title;
 }
 
 export function threadTitleFromGeneratedText(text: string): string | null {
@@ -85,7 +85,7 @@ export function threadTitlePrompt(context: ThreadTitleContext): string {
     "- First infer the main language of the user's initial request. This does not need to be strict; use the dominant language if mixed.",
     "- Write the title in the inferred language. If the language is unclear, use the language used most in the user's initial request.",
     "- Use a short noun phrase or short sentence.",
-    "- Keep it compact: roughly 3-7 words for languages that use spaces, or 12-28 characters for languages that usually do not. Never exceed 40 characters.",
+    `- Keep it compact: roughly 3-7 words for languages that use spaces, or 12-28 characters for languages that usually do not. Never exceed ${String(THREAD_TITLE_MAX_CHARS)} characters.`,
     "- Make the request target and purpose clear.",
     "- Avoid vague titles such as only 'about this', 'general question', or 'please implement'.",
     "- Do not use Markdown, quotation marks, trailing punctuation, explanations, or alternatives.",
@@ -126,6 +126,6 @@ function extractJsonObject(text: string): string | null {
   return text.slice(start, end + 1);
 }
 
-function truncateForPrompt(text: string): string {
-  return truncate(text.replace(/\s+/g, " ").trim(), MAX_CONTEXT_CHARS);
+export function threadTitleContextPromptText(text: string): string {
+  return truncate(text.replace(/\s+/g, " ").trim(), THREAD_TITLE_CONTEXT_MAX_CHARS);
 }

@@ -12,6 +12,7 @@ import type {
   EphemeralStructuredTurnClientFactory,
 } from "../../src/app-server/services/ephemeral-structured-turn";
 import {
+  THREAD_TITLE_MAX_CHARS,
   findThreadTitleContext,
   threadTitleContextFromConversationSummary,
   threadTitleFromGeneratedText,
@@ -98,7 +99,7 @@ describe("thread title", () => {
   it("normalizes generated titles", () => {
     expect(threadTitleFromGeneratedText('  ## "Codex Panelの自動命名"\n')).toBe("Codex Panelの自動命名");
     expect(threadTitleFromGeneratedText("")).toBeNull();
-    expect(threadTitleFromGeneratedText("x".repeat(80))).toHaveLength(40);
+    expect(threadTitleFromGeneratedText("x".repeat(80))).toHaveLength(THREAD_TITLE_MAX_CHARS);
   });
 
   it("parses generated title text", () => {
@@ -115,6 +116,7 @@ describe("thread title", () => {
     expect(prompt).toContain("Write the title in the inferred language");
     expect(prompt).toContain("3-7 words for languages that use spaces");
     expect(prompt).toContain("12-28 characters for languages that usually do not");
+    expect(prompt).toContain(`Never exceed ${String(THREAD_TITLE_MAX_CHARS)} characters`);
     expect(prompt).not.toContain("日本語の短い名詞句");
     expect(prompt).not.toContain("Japanese characters");
     expect(prompt).not.toContain("English words");

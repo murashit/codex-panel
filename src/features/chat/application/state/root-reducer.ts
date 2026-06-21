@@ -79,6 +79,7 @@ import {
   type ChatUiState,
   type UiAction,
 } from "./ui-state";
+import { STATUS_TURN_RUNNING } from "./status-text";
 
 export { activeTurnId, chatTurnBusy, pendingTurnStart, type ChatTurnState, type PendingTurnStart } from "../conversation/turn-state";
 export type { ChatMessageStreamState } from "./message-stream";
@@ -91,8 +92,6 @@ export type ChatConnectionPhase =
   | { kind: "connected" }
   | { kind: "failed"; message: string }
   | { kind: "disconnected"; message: string };
-
-const STATUS_TURN_RUNNING = "Turn running...";
 
 function turnCompletedStatus(status: string): string {
   return `Turn ${status}.`;
