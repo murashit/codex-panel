@@ -4,28 +4,10 @@ import {
   appServerMcpElicitationResponse,
   type AppServerMcpElicitationResponse,
 } from "../../../../app-server/protocol/server-requests";
-import type { McpElicitationAction, McpElicitationContentValue, PendingMcpElicitation } from "../../domain/pending-requests/model";
+import type { McpElicitationAction, McpElicitationContentValue, PendingMcpElicitation } from "../../../../domain/pending-requests/model";
 
 export function toPendingMcpElicitation(request: ServerRequest): PendingMcpElicitation | null {
-  const elicitation = appServerMcpElicitationRequest(request);
-  if (!elicitation) return null;
-  if (elicitation.params.mode === "url") {
-    return {
-      requestId: elicitation.requestId,
-      method: elicitation.method,
-      params: {
-        ...elicitation.params,
-      },
-    };
-  }
-  return {
-    requestId: elicitation.requestId,
-    method: elicitation.method,
-    params: {
-      ...elicitation.params,
-      fields: elicitation.params.fields,
-    },
-  };
+  return appServerMcpElicitationRequest(request);
 }
 
 export function mcpElicitationResponse(

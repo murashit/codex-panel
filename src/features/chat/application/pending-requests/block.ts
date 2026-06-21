@@ -5,9 +5,9 @@ import type {
   PendingMcpElicitation,
   PendingRequestId,
   PendingUserInput,
-} from "../../domain/pending-requests/model";
+} from "../../../../domain/pending-requests/model";
 
-export type { PendingRequestId } from "../../domain/pending-requests/model";
+export type { PendingRequestId } from "../../../../domain/pending-requests/model";
 
 export interface PendingRequestBlockState {
   approvals: readonly PendingApproval[];

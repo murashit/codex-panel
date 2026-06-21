@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { approvalResponse, toPendingApproval } from "../../../../../src/features/chat/app-server/requests/approval";
 import { approvalDetails, approvalSummary, approvalTitle } from "../../../../../src/features/chat/domain/pending-requests/approval";
-import type { CommandApprovalDecision } from "../../../../../src/features/chat/domain/pending-requests/model";
+import type { CommandApprovalDecision } from "../../../../../src/domain/pending-requests/model";
 import { approvalActionOptions } from "../../../../../src/features/chat/presentation/pending-requests/approval-view";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 

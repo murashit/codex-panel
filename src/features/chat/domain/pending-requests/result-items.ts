@@ -6,7 +6,7 @@ import {
   type PendingApproval,
   type PendingMcpElicitation,
   type PendingUserInput,
-} from "./model";
+} from "../../../../domain/pending-requests/model";
 import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval";
 import type { MessageStreamItem, MessageStreamUserInputQuestionResult } from "../message-stream/items";
 import { definedProp } from "../../../../utils";

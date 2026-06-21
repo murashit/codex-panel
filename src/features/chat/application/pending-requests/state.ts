@@ -6,7 +6,7 @@ import {
   type PendingMcpElicitation,
   type PendingRequestId,
   type PendingUserInput,
-} from "../../domain/pending-requests/model";
+} from "../../../../domain/pending-requests/model";
 
 export interface ChatRequestState {
   readonly approvals: readonly PendingApproval[];

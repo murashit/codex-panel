@@ -16,7 +16,7 @@ import {
   type PendingMcpElicitation,
   type PendingRequestId,
   type PendingUserInput,
-} from "../../domain/pending-requests/model";
+} from "../../../../domain/pending-requests/model";
 import { approvalResponse } from "../requests/approval";
 import { mcpElicitationResponse } from "../requests/mcp-elicitation";
 import { userInputResponse } from "../requests/user-input";

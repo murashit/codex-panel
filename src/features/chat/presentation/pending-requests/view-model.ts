@@ -11,7 +11,7 @@ import {
   questionDefaultAnswer,
   userInputDraftKey,
   userInputOtherDraftKey,
-} from "../../domain/pending-requests/model";
+} from "../../../../domain/pending-requests/model";
 
 type PendingRequestId = DomainPendingRequestId;
 

@@ -7,11 +7,7 @@ import {
   pendingApprovalViewModel,
   pendingMcpElicitationViewModel,
 } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
-import type {
-  PendingApproval,
-  PendingMcpElicitation,
-  PendingUserInput,
-} from "../../../../../src/features/chat/domain/pending-requests/model";
+import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../../src/domain/pending-requests/model";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { changeInputValue } from "../../../../support/dom";

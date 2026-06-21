@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import type { ApprovalAction, McpElicitationAction, PendingRequestId } from "../../domain/pending-requests/model";
+import type { ApprovalAction, McpElicitationAction, PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
 import type { MessageStreamForkTarget } from "../../presentation/message-stream/text-view";
 import type { PlanImplementationTarget } from "../../domain/message-stream/selectors";

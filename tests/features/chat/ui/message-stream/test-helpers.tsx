@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 
-import type { PendingApproval, PendingUserInput } from "../../../../../src/features/chat/domain/pending-requests/model";
+import type { PendingApproval, PendingUserInput } from "../../../../../src/domain/pending-requests/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
 import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";

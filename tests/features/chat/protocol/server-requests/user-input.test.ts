@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { answersForPendingUserInput, questionDefaultAnswer } from "../../../../../src/features/chat/domain/pending-requests/model";
+import { answersForPendingUserInput, questionDefaultAnswer } from "../../../../../src/domain/pending-requests/model";
 import { toPendingUserInput, userInputResponse } from "../../../../../src/features/chat/app-server/requests/user-input";
 import {
   pendingRequestFocusSignature,

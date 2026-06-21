@@ -1,4 +1,4 @@
-import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../domain/pending-requests/model";
+import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../domain/pending-requests/model";
 import {
   pendingApprovalViewModel,
   pendingMcpElicitationViewModel,

@@ -1,5 +1,5 @@
 import type { ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../domain/pending-requests/model";
+import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../domain/pending-requests/model";
 import { toPendingApproval } from "../requests/approval";
 import { toPendingMcpElicitation } from "../requests/mcp-elicitation";
 import { toPendingUserInput } from "../requests/user-input";

@@ -8,7 +8,7 @@ import {
   type PendingApproval,
   type PendingMcpElicitation,
   type PendingUserInput,
-} from "../../domain/pending-requests/model";
+} from "../../../../domain/pending-requests/model";
 import type { PendingRequestBlockActions, PendingRequestBlockState, PendingRequestId } from "./block";
 import type { ChatState } from "../state/root-reducer";
 

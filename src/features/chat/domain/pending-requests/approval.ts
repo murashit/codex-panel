@@ -1,7 +1,7 @@
 import { jsonPreview } from "../../../../utils";
 import { pathRelativeToRoot } from "../message-stream/format/path-labels";
 import { permissionRows, type MessageStreamPermissionProfile } from "../message-stream/format/permission-rows";
-import type { PendingApproval } from "./model";
+import type { PendingApproval } from "../../../../domain/pending-requests/model";
 
 interface ApprovalSummaryParts {
   reason: string | null;

@@ -1,4 +1,4 @@
-import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "./model";
+import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../domain/pending-requests/model";
 
 export function pendingRequestsSignature(
   approvals: readonly PendingApproval[],

@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { approvalDetailsDisclosureId } from "../../domain/pending-requests/model";
+import { approvalDetailsDisclosureId } from "../../../../domain/pending-requests/model";
 import {
   type PendingApprovalViewModel,
   type PendingMcpElicitationFieldViewModel,

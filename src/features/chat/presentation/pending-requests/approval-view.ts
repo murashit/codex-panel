@@ -3,7 +3,7 @@ import {
   type ApprovalAction,
   type CommandApprovalDecision,
   type PendingApproval,
-} from "../../domain/pending-requests/model";
+} from "../../../../domain/pending-requests/model";
 
 export interface ApprovalActionOption {
   id: string;
