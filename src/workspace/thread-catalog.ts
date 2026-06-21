@@ -109,7 +109,7 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
         return current ? current.filter((thread) => thread.id !== threadId) : null;
       });
       if (archivedThread) {
-        options.queries.updateArchivedThreads((current) => upsertThread(current ?? [], { ...archivedThread, archived: true }));
+        options.queries.updateArchivedThreads((current) => promoteThreadInList(current ?? [], { ...archivedThread, archived: true }));
       } else {
         refreshArchivedThreadsAfterUnknownArchive(options.queries);
       }
@@ -127,10 +127,10 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
 }
 
 function recordActiveThread(queries: AppServerSharedQueries, thread: Thread): void {
-  queries.updateActiveThreads((current) => upsertThread(current ?? [], thread));
+  queries.updateActiveThreads((current) => promoteThreadInList(current ?? [], thread));
 }
 
-function upsertThread(threads: readonly Thread[], thread: Thread): readonly Thread[] {
+function promoteThreadInList(threads: readonly Thread[], thread: Thread): readonly Thread[] {
   const withoutThread = threads.filter((item) => item.id !== thread.id);
   return [thread, ...withoutThread];
 }
