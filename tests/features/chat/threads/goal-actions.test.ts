@@ -20,7 +20,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
@@ -43,7 +43,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -76,7 +76,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
@@ -109,7 +109,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -137,7 +137,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -166,7 +166,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
@@ -218,7 +218,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread,
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
@@ -240,14 +240,14 @@ describe("createGoalActions", () => {
 
   it("rejects empty goal objective saves before connecting or starting a thread", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const ensureConnected = vi.fn().mockResolvedValue(undefined);
+    const connectedClient = vi.fn().mockResolvedValue({ setThreadGoal: vi.fn() } as unknown as AppServerClient);
     const startThread = vi.fn().mockResolvedValue({ threadId: "thread" });
     const addSystemMessage = vi.fn();
     const controller = createGoalActions({
       stateStore,
       currentClient: () => ({ setThreadGoal: vi.fn() }) as unknown as AppServerClient,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected,
+      connectedClient,
       startThread,
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -257,7 +257,7 @@ describe("createGoalActions", () => {
     await expect(controller.saveObjective("   ", null)).resolves.toBe(false);
 
     expect(addSystemMessage).toHaveBeenCalledWith("Goal objective cannot be empty.");
-    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(connectedClient).not.toHaveBeenCalled();
     expect(startThread).not.toHaveBeenCalled();
   });
 
@@ -273,7 +273,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -300,7 +300,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -325,7 +325,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent,
@@ -351,7 +351,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
@@ -375,7 +375,7 @@ describe("createGoalActions", () => {
       stateStore,
       currentClient: () => client,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
+      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),

@@ -22,7 +22,7 @@ export interface ComposerSubmitActionsHost {
     sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadMetadata): Promise<void>;
   };
   connection: {
-    ensureConnected: () => Promise<void>;
+    connectedClient: () => Promise<AppServerClient | null>;
     currentClient: () => AppServerClient | null;
   };
   status: {
@@ -52,11 +52,9 @@ async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
   const text = host.composer.trimmedDraft;
   if (!text) return;
 
-  await host.connection.ensureConnected();
-  if (!host.connection.currentClient()) return;
-
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
+    if (!(await host.connection.connectedClient())) return;
     host.composer.setDraft("", { clearSuggestions: true });
     const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args);
     if (result?.composerDraft !== undefined) {

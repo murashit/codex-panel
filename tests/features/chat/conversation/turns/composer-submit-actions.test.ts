@@ -25,6 +25,7 @@ function createHost(draft: string) {
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const execute = vi.fn().mockResolvedValue(undefined);
   const followBottom = vi.fn();
+  const connectedClient = vi.fn().mockResolvedValue(client);
   const host = {
     stateStore,
     composer: {
@@ -36,8 +37,8 @@ function createHost(draft: string) {
     slashCommandExecutor: { execute },
     turnSubmission: { sendTurnText },
     connection: {
+      connectedClient,
       currentClient: () => client,
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
     },
     status: {
       setStatus: vi.fn(),
@@ -45,16 +46,17 @@ function createHost(draft: string) {
     },
     scroll: { followBottom },
   };
-  return { host, execute, followBottom, interruptTurn, sendTurnText, setDraft, stateStore };
+  return { host, connectedClient, execute, followBottom, interruptTurn, sendTurnText, setDraft, stateStore };
 }
 
 describe("submitComposer", () => {
   it("sends plain drafts as turn text", async () => {
-    const { host, followBottom, sendTurnText } = createHost("hello");
+    const { host, connectedClient, followBottom, sendTurnText } = createHost("hello");
 
     await submitComposer(host);
 
     expect(followBottom).toHaveBeenCalledOnce();
+    expect(connectedClient).not.toHaveBeenCalled();
     expect(sendTurnText).toHaveBeenCalledWith("hello");
     const [followBottomOrder] = followBottom.mock.invocationCallOrder;
     const [sendTurnTextOrder] = sendTurnText.mock.invocationCallOrder;
@@ -65,24 +67,26 @@ describe("submitComposer", () => {
   });
 
   it("executes slash commands and forwards command send results", async () => {
-    const { host, execute, followBottom, sendTurnText, setDraft } = createHost("/clear hello");
+    const { host, connectedClient, execute, followBottom, sendTurnText, setDraft } = createHost("/clear hello");
     execute.mockResolvedValue({ sendText: "hello" });
 
     await submitComposer(host);
 
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(connectedClient).toHaveBeenCalledOnce();
     expect(execute).toHaveBeenCalledWith("clear", "hello");
     expect(followBottom).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
   });
 
   it("restores slash command composer drafts from command results", async () => {
-    const { host, execute, followBottom, sendTurnText, setDraft } = createHost("/goal edit");
+    const { host, connectedClient, execute, followBottom, sendTurnText, setDraft } = createHost("/goal edit");
     execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });
 
     await submitComposer(host);
 
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(connectedClient).toHaveBeenCalledOnce();
     expect(setDraft).toHaveBeenCalledWith("/goal set Current objective", { focus: true, clearSuggestions: true });
     expect(followBottom).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();

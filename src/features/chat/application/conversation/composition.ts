@@ -19,7 +19,7 @@ export interface ConversationTurnActionsContext {
   localItemIds: LocalIdSource;
   client: {
     currentClient: () => AppServerClient | null;
-    ensureConnected: () => Promise<void>;
+    connectedClient: () => Promise<AppServerClient | null>;
   };
   status: {
     set: (status: string) => void;
@@ -64,8 +64,7 @@ interface ConversationThreadStarter {
 
 export interface PlanImplementationHost {
   stateStore: ChatStateStore;
-  currentClient(): AppServerClient | null;
-  ensureConnected(): Promise<void>;
+  connectedClient(): Promise<AppServerClient | null>;
   sendTurnText(text: string): Promise<void>;
   requestDefaultCollaborationModeForNextTurn(): void;
 }
@@ -88,7 +87,7 @@ export function createConversationTurnActions(
     stateStore,
     vaultPath,
     localItemIds,
-    currentClient: client.currentClient,
+    connectedClient: client.connectedClient,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     startThread: (preview) => refs.threadStarter.startThread(preview),
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
@@ -121,8 +120,7 @@ export function createConversationTurnActions(
   };
   const planImplementationHost: PlanImplementationHost = {
     stateStore,
-    currentClient: client.currentClient,
-    ensureConnected: client.ensureConnected,
+    connectedClient: client.connectedClient,
     sendTurnText: (text) => turnSubmission.sendTurnText(text),
     requestDefaultCollaborationModeForNextTurn: () => {
       refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
@@ -141,8 +139,8 @@ export function createConversationTurnActions(
     },
     turnSubmission,
     connection: {
+      connectedClient: client.connectedClient,
       currentClient: client.currentClient,
-      ensureConnected: client.ensureConnected,
     },
     status: {
       setStatus: status.set,
@@ -168,8 +166,7 @@ async function startThreadForGoal(starter: ConversationThreadStarter, objective:
 
 export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
   if (!canImplementPlanItemId(host.stateStore.getState(), itemId)) return;
-  await host.ensureConnected();
-  if (!host.currentClient() || !activeThreadId(host.stateStore.getState())) return;
+  if (!(await host.connectedClient()) || !activeThreadId(host.stateStore.getState())) return;
 
   host.requestDefaultCollaborationModeForNextTurn();
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });

@@ -170,6 +170,7 @@ interface ChatPanelComposerAndTurnInput {
   connection: ConnectionManager;
   localItemIds: LocalIdSource;
   ensureConnected: () => Promise<void>;
+  connectedClient: () => Promise<ReturnType<CurrentAppServerClient>>;
   currentClient: CurrentAppServerClient;
   status: ChatPanelSessionStatus;
   inboundHandler: ChatInboundHandler;
@@ -256,10 +257,14 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const connectionController = controller;
   const { threads: serverThreads } = connectionBundle.serverActions;
   const ensureConnected = () => connectionController.ensureConnected();
+  const connectedClient = async () => {
+    await ensureConnected();
+    return currentClient();
+  };
   const refreshActiveThreads = () => connectionController.refreshActiveThreads();
   const threadOperations = createSessionThreadOperations(environment, currentClient);
   const runtimeSettings = createSessionRuntimeSettingsActions(host, currentClient, status);
-  const goals = createSessionGoalActions(host, currentClient, localItemIds, ensureConnected, status, serverThreads);
+  const goals = createSessionGoalActions(host, currentClient, localItemIds, connectedClient, status, serverThreads);
   const rename = createSessionThreadRenameEditorActions(stateStore, threadOperations, titleService, ensureConnected, status);
   const threadLifecycle = createSessionThreadLifecycle(
     host,
@@ -286,7 +291,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   };
   const threadActionParts = createThreadActionParts(host, {
     operations: threadOperations,
-    ensureConnected,
+    connectedClient,
     currentClient,
     status,
     composerController,
@@ -297,6 +302,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     connection,
     localItemIds,
     ensureConnected,
+    connectedClient,
     currentClient,
     status,
     inboundHandler,
@@ -579,7 +585,7 @@ function createSessionGoalActions(
   host: ChatPanelSessionGraphHost,
   currentClient: CurrentAppServerClient,
   localItemIds: LocalIdSource,
-  ensureConnected: () => Promise<void>,
+  connectedClient: () => Promise<ReturnType<CurrentAppServerClient>>,
   status: ChatPanelSessionStatus,
   serverThreads: ChatServerThreadActions,
 ): ChatPanelGoalActions {
@@ -587,7 +593,7 @@ function createSessionGoalActions(
     stateStore: host.stateStore,
     currentClient,
     localItemIds,
-    ensureConnected,
+    connectedClient,
     startThread: (preview, options) => serverThreads.startThread(preview, options),
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
@@ -719,7 +725,7 @@ function createThreadActionParts(
   host: ChatPanelSessionGraphHost,
   input: {
     operations: ThreadOperations;
-    ensureConnected: () => Promise<void>;
+    connectedClient: () => Promise<ReturnType<CurrentAppServerClient>>;
     currentClient: CurrentAppServerClient;
     status: ChatPanelSessionStatus;
     composerController: ChatComposerController;
@@ -727,13 +733,13 @@ function createThreadActionParts(
     refreshActiveThreads: () => Promise<void>;
   },
 ): ChatPanelThreadActionParts {
-  const { operations, ensureConnected, currentClient, status, composerController, resume, refreshActiveThreads } = input;
+  const { operations, connectedClient, currentClient, status, composerController, resume, refreshActiveThreads } = input;
   const { environment, stateStore } = host;
   const threadManagementHost: ThreadManagementActionsHost = {
     stateStore,
     vaultPath: environment.plugin.settingsRef.vaultPath,
     operations,
-    ensureConnected,
+    connectedClient,
     currentClient,
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
@@ -777,6 +783,7 @@ function createComposerAndTurnActions(
     connection,
     localItemIds,
     ensureConnected,
+    connectedClient,
     currentClient,
     status,
     inboundHandler,
@@ -831,7 +838,7 @@ function createComposerAndTurnActions(
       localItemIds,
       client: {
         currentClient,
-        ensureConnected,
+        connectedClient,
       },
       status,
       runtime: {

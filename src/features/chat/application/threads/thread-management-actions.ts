@@ -17,7 +17,7 @@ export interface ThreadManagementActionsHost {
   stateStore: ChatStateStore;
   vaultPath: string;
   operations: ThreadOperations;
-  ensureConnected: () => Promise<void>;
+  connectedClient: () => Promise<AppServerClient | null>;
   currentClient: () => AppServerClient | null;
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
@@ -101,8 +101,7 @@ async function compactActiveThread(host: ThreadManagementActionsHost): Promise<v
 }
 
 async function compactThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
-  await host.ensureConnected();
-  const client = host.currentClient();
+  const client = await host.connectedClient();
   if (!client) return;
   const initialActiveThreadId = threadManagementState(host).activeThread.id;
   try {
@@ -148,8 +147,7 @@ async function forkThreadFromTurn(
     host.addSystemMessage(finishBeforeForkingThreadsMessage());
     return;
   }
-  await host.ensureConnected();
-  const client = host.currentClient();
+  const client = await host.connectedClient();
   if (!client) return;
 
   const initialActiveThreadId = threadManagementState(host).activeThread.id;
@@ -215,8 +213,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     host.addSystemMessage(interruptBeforeRollbackMessage());
     return;
   }
-  await host.ensureConnected();
-  const client = host.currentClient();
+  const client = await host.connectedClient();
   if (!client) return;
 
   const candidate = messageStreamRollbackCandidate(threadManagementState(host).messageStream);

@@ -31,6 +31,7 @@ describe("thread management actions", () => {
 
     await controller.compactThread("source");
 
+    expect(host.connectedClient).toHaveBeenCalledOnce();
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(client.compactThread).toHaveBeenCalledWith("source");
     expect(host.addSystemMessage).toHaveBeenCalledWith("Compaction requested.");
@@ -531,10 +532,15 @@ function hostMock({
   const notifyThreadRenamed = vi.fn();
   const showNotice = vi.fn();
   const ensureConnected = vi.fn().mockResolvedValue(undefined);
+  const connectedClient = vi.fn(async () => {
+    await ensureConnected();
+    return (currentClient ?? (() => client as unknown as AppServerClient))();
+  });
   return {
     stateStore,
     vaultPath: "/vault",
     ensureConnected,
+    connectedClient,
     currentClient: currentClient ?? (() => client as unknown as AppServerClient),
     addSystemMessage: vi.fn(),
     setStatus: vi.fn(),

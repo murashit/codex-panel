@@ -39,7 +39,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const host: TurnSubmissionActionsHost = {
     stateStore,
     vaultPath: "/vault",
-    currentClient: () => client,
+    connectedClient: vi.fn().mockResolvedValue(client),
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
     startThread: vi.fn().mockImplementation(async () => {
       stateStore.dispatch({

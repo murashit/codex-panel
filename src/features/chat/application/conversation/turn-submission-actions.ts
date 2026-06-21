@@ -19,7 +19,7 @@ export interface TurnSubmissionActionsHost {
   stateStore: ChatStateStore;
   vaultPath: string;
   localItemIds: LocalIdSource;
-  currentClient: () => AppServerClient | null;
+  connectedClient: () => Promise<AppServerClient | null>;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startThread: (preview?: string) => Promise<unknown>;
   notifyActiveThreadIdentityChanged: () => void;
@@ -61,9 +61,9 @@ async function sendTurnText(
   codexInputOverride?: CodexInput,
   referencedThread?: ReferencedThreadMetadata,
 ): Promise<void> {
-  if (!(await host.ensureRestoredThreadLoaded())) return;
-  const client = host.currentClient();
+  const client = await host.connectedClient();
   if (!client) return;
+  if (!(await host.ensureRestoredThreadLoaded())) return;
 
   const initialState = submissionStateSnapshot(host.stateStore.getState());
   const plan = planTurnSubmission(initialState);

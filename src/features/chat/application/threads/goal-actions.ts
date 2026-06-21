@@ -16,7 +16,7 @@ export interface ThreadGoalSyncHost {
 }
 
 export interface GoalActionsHost extends ThreadGoalSyncHost {
-  ensureConnected: () => Promise<void>;
+  connectedClient: () => Promise<AppServerClient | null>;
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
 }
 
@@ -125,8 +125,7 @@ function setGoalStatus(host: GoalActionsHost, threadId: string, status: ThreadGo
 }
 
 async function clearGoal(host: GoalActionsHost, threadId: string): Promise<boolean> {
-  await host.ensureConnected();
-  const client = host.currentClient();
+  const client = await host.connectedClient();
   if (!client) return false;
   try {
     await client.clearThreadGoal(threadId);
@@ -139,8 +138,7 @@ async function clearGoal(host: GoalActionsHost, threadId: string): Promise<boole
 }
 
 async function setGoal(host: GoalActionsHost, threadId: string, params: ThreadGoalUpdate): Promise<boolean> {
-  await host.ensureConnected();
-  const client = host.currentClient();
+  const client = await host.connectedClient();
   if (!client) return false;
   try {
     return applyGoalIfActive(host, threadId, await setThreadGoal(client, threadId, params), { reportChange: true });
@@ -193,7 +191,8 @@ async function startThreadAndSaveObjective(
   plan: Extract<GoalObjectiveSavePlan, { kind: "start-thread-and-save" }>,
 ): Promise<boolean> {
   try {
-    await host.ensureConnected();
+    const client = await host.connectedClient();
+    if (!client) return false;
     const response = await host.startThread(plan.objective, { syncGoal: false });
     const threadId = response?.threadId ?? null;
     return threadId ? await setObjective(host, threadId, plan.objective, plan.tokenBudget) : false;
