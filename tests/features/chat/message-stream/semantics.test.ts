@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { streamingFileChangeMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/file-changes";
 import { messageStreamItemFromTurnItem } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
 import { messageStreamReasoningIsActive } from "../../../../src/features/chat/domain/message-stream/semantics/active-turn";
 import { messageStreamSemanticClassifications } from "../../../../src/features/chat/domain/message-stream/semantics/classify";
@@ -89,6 +90,22 @@ describe("message stream semantic classification", () => {
       { plane: "execution", event: "progress" },
       { plane: "execution", event: "progress" },
     ]);
+  });
+
+  it("classifies streaming file change patch status as lifecycle state", () => {
+    const [semantic] = messageStreamSemanticClassifications([
+      streamingFileChangeMessageStreamItem(
+        "patch",
+        "turn",
+        [{ kind: "update", path: "src/main.ts", diff: "@@\n-old\n+new" }],
+        "inProgress",
+      ),
+    ]);
+
+    expect(semantic).toMatchObject({
+      meaning: { plane: "workspace", event: "result" },
+      lifecycle: { state: "running" },
+    });
   });
 
   it("classifies thread and interaction events by meaning", () => {

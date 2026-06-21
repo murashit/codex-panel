@@ -1,4 +1,5 @@
 import type { MessageStreamFileChange, MessageStreamItem } from "../../../domain/message-stream/items";
+import { patchApplyExecutionState } from "../../../domain/message-stream/execution-state";
 
 export interface AppServerFileChange {
   readonly path: string;
@@ -30,6 +31,7 @@ export function streamingFileChangeMessageStreamItem(
     sourceItemId: itemId,
     provenance: { source: "appServer", channel: "notification", event: "streamingDelta", sourceItemId: itemId },
     status,
+    executionState: patchApplyExecutionState(status),
     changes,
   };
 }
