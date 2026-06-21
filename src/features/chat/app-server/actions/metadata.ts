@@ -6,7 +6,7 @@ import {
 import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import { cloneServerDiagnostics, diagnosticsWithProbe } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
-import type { ChatServerActionHost } from "./host";
+import { captureChatServerActionClientScope, type ChatServerActionHost } from "./host";
 
 export interface ChatServerMetadataActionsHost extends ChatServerActionHost {
   updateAppServerMetadata: (updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null) => SharedServerMetadata | null;
@@ -68,9 +68,9 @@ function applyAppServerMetadataSnapshot(host: ChatServerMetadataActionsHost): vo
 }
 
 async function refreshSkills(host: ChatServerMetadataActionsHost, forceReload = false): Promise<SharedServerMetadata | null> {
-  const client = host.currentClient();
-  const skills = await readSkillMetadataProbe(client, host.vaultPath, forceReload);
-  if (client && host.currentClient() !== client) return null;
+  const scope = captureChatServerActionClientScope(host);
+  const skills = await readSkillMetadataProbe(scope.client, host.vaultPath, forceReload);
+  if (scope.isStale()) return null;
   const next = host.updateAppServerMetadata((metadata) => {
     if (!metadata) return null;
     return {
@@ -96,9 +96,9 @@ async function refreshRateLimits(
   host: ChatServerMetadataActionsHost,
   options: { preserveExistingOnFailure?: boolean } = {},
 ): Promise<void> {
-  const client = host.currentClient();
-  const rateLimit = await readRateLimitMetadataProbe(client);
-  if (client && host.currentClient() !== client) return;
+  const scope = captureChatServerActionClientScope(host);
+  const rateLimit = await readRateLimitMetadataProbe(scope.client);
+  if (scope.isStale()) return;
   const preserveExistingOnFailure = options.preserveExistingOnFailure === true;
   const next = updateRateLimitMetadata(host, rateLimit, { preserveRateLimitOnFailure: preserveExistingOnFailure });
   if (next) {

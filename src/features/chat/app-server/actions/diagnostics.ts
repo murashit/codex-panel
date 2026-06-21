@@ -14,7 +14,7 @@ import {
 import { readToolInventory } from "../../../../app-server/tool-inventory";
 import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
-import type { ChatServerActionHost } from "./host";
+import { captureChatServerActionClientScope, type ChatServerActionHost } from "./host";
 
 interface RefreshServerDiagnosticsOptions {
   appServerMetadataSnapshot?: boolean;
@@ -50,8 +50,9 @@ async function refreshServerDiagnostics(
   host: ChatServerDiagnosticsActionsHost,
   options: RefreshServerDiagnosticsOptions = {},
 ): Promise<boolean> {
-  const client = host.currentClient();
-  if (!client) return false;
+  const scope = captureChatServerActionClientScope(host);
+  if (!scope.client) return false;
+  const client = scope.client;
 
   const initialDiagnostics = currentMetadataDiagnostics(host);
   const state = host.stateStore.getState();
@@ -82,7 +83,7 @@ async function refreshServerDiagnostics(
   }
 
   const [results, toolInventoryResult] = await Promise.all([Promise.all(probes), toolInventory]);
-  if (host.currentClient() !== client) return false;
+  if (scope.isStale()) return false;
 
   let diagnostics = currentMetadataDiagnostics(host);
   for (const result of results) {

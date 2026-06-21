@@ -759,7 +759,7 @@ describe("ChatInboundHandler", () => {
       });
 
       expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
-      handler.resolveUserInput(expectPresent(handler.currentState().requests.pendingUserInputs[0]), { scope: "Narrow" });
+      handler.resolveUserInput(42, { scope: "Narrow" });
       expect(respondToServerRequest).toHaveBeenCalledWith(42, { answers: { scope: { answers: ["Narrow"] } } });
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
@@ -788,7 +788,7 @@ describe("ChatInboundHandler", () => {
         },
       });
 
-      handler.cancelUserInput(expectPresent(handler.currentState().requests.pendingUserInputs[0]));
+      handler.cancelUserInput(43);
       expect(rejectServerRequest).toHaveBeenCalledWith(43, -32000, "User cancelled input request.");
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
       expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
@@ -834,7 +834,7 @@ describe("ChatInboundHandler", () => {
       });
 
       expect(handler.currentState().requests.pendingMcpElicitations).toHaveLength(1);
-      handler.resolveMcpElicitation(expectPresent(handler.currentState().requests.pendingMcpElicitations[0]), "accept");
+      handler.resolveMcpElicitation(45, "accept");
 
       expect(respondToServerRequest).toHaveBeenCalledWith(45, {
         action: "accept",
@@ -873,7 +873,7 @@ describe("ChatInboundHandler", () => {
         },
       });
 
-      handler.resolveMcpElicitation(expectPresent(handler.currentState().requests.pendingMcpElicitations[0]), "decline");
+      handler.resolveMcpElicitation(46, "decline");
 
       expect(respondToServerRequest).toHaveBeenCalledWith(46, { action: "decline", content: null, _meta: null });
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
@@ -884,7 +884,7 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("ignores stale requestUserInput objects with a reused request id", () => {
+    it("ignores missing requestUserInput ids", () => {
       const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
       const rejectServerRequest = vi.fn(() => true);
@@ -892,10 +892,9 @@ describe("ChatInboundHandler", () => {
 
       handler.handleServerRequest(userInputRequest(44));
       const current = expectPresent(handler.currentState().requests.pendingUserInputs[0]);
-      const stale = { ...current };
 
-      handler.resolveUserInput(stale, { note: "stale" });
-      handler.cancelUserInput(stale);
+      handler.resolveUserInput(45, { note: "stale" });
+      handler.cancelUserInput(45);
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(rejectServerRequest).not.toHaveBeenCalled();
@@ -903,16 +902,15 @@ describe("ChatInboundHandler", () => {
       expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
     });
 
-    it("ignores stale MCP elicitation objects with a reused request id", () => {
+    it("ignores missing MCP elicitation ids", () => {
       const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
       handler.handleServerRequest(mcpElicitationRequest(47));
       const current = expectPresent(handler.currentState().requests.pendingMcpElicitations[0]);
-      const stale = { ...current };
 
-      handler.resolveMcpElicitation(stale, "accept");
+      handler.resolveMcpElicitation(48, "accept");
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([current]);
@@ -925,7 +923,7 @@ describe("ChatInboundHandler", () => {
       const handler = handlerForState(state, { respondToServerRequest });
 
       handler.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
-      handler.resolveApproval(expectPresent(handler.currentState().requests.approvals[0]), "accept-session");
+      handler.resolveApproval(12, "accept-session");
 
       expect(respondToServerRequest).toHaveBeenCalledWith(12, {
         scope: "session",
@@ -948,16 +946,15 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("ignores stale approval objects with a reused request id", () => {
+    it("ignores missing approval ids", () => {
       const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { respondToServerRequest });
 
       handler.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
       const current = expectPresent(handler.currentState().requests.approvals[0]);
-      const stale = { ...current };
 
-      handler.resolveApproval(stale, "accept-session");
+      handler.resolveApproval(13, "accept-session");
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().requests.approvals).toEqual([current]);
@@ -1090,7 +1087,7 @@ describe("ChatInboundHandler", () => {
       const handler = handlerForState(state, { respondToServerRequest });
 
       handler.handleServerRequest(userInputRequest(55));
-      handler.resolveUserInput(expectPresent(handler.currentState().requests.pendingUserInputs[0]), { note: "Later" });
+      handler.resolveUserInput(55, { note: "Later" });
 
       expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
       expect(chatStateMessageStreamItems(handler.currentState())).toEqual([

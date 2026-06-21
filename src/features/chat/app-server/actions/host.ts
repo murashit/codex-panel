@@ -6,3 +6,16 @@ export interface ChatServerActionHost {
   vaultPath: string;
   currentClient: () => AppServerClient | null;
 }
+
+export interface ChatServerActionClientScope {
+  client: AppServerClient | null;
+  isStale: () => boolean;
+}
+
+export function captureChatServerActionClientScope(host: ChatServerActionHost): ChatServerActionClientScope {
+  const client = host.currentClient();
+  return {
+    client,
+    isStale: () => client !== null && host.currentClient() !== client,
+  };
+}

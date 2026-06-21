@@ -33,7 +33,7 @@ describe("PendingRequestActions", () => {
 
     pendingRequests.resolveUserInput(input.requestId);
 
-    expect(resolveUserInput).toHaveBeenCalledWith(input, { direction: "Left" });
+    expect(resolveUserInput).toHaveBeenCalledWith(input.requestId, { direction: "Left" });
     expect(refreshLiveState).toHaveBeenCalledOnce();
   });
 });

@@ -4,7 +4,7 @@ import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { serviceTierRequestForThreadStart } from "../../application/runtime/thread-settings-update";
 import { resumedThreadAction } from "../../application/state/actions";
-import type { ChatServerActionHost } from "./host";
+import { captureChatServerActionClientScope, type ChatServerActionHost } from "./host";
 import type { ChatState } from "../../application/state/root-reducer";
 
 interface StartedThreadSummary {
@@ -40,15 +40,15 @@ async function startThread(
   preview?: string,
   options: { syncGoal?: boolean } = {},
 ): Promise<StartedThreadSummary | null> {
-  const client = host.currentClient();
-  if (!client) return null;
+  const scope = captureChatServerActionClientScope(host);
+  if (!scope.client) return null;
   const requestState = host.stateStore.getState();
   const serviceTier = serviceTierRequestForThreadStart(
     host.runtimeSnapshotForState(requestState),
     runtimeConfigOrDefault(requestState.connection.runtimeConfig),
   );
-  const response = await client.startThread({ cwd: host.vaultPath, serviceTier });
-  if (host.currentClient() !== client) return null;
+  const response = await scope.client.startThread({ cwd: host.vaultPath, serviceTier });
+  if (scope.isStale()) return null;
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();
   const activationResponse =

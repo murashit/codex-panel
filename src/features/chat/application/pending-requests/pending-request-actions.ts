@@ -13,10 +13,10 @@ import type { PendingRequestBlockActions, PendingRequestBlockState, PendingReque
 import type { ChatState } from "../state/root-reducer";
 
 interface PendingRequestResponder {
-  resolveApproval: (approval: PendingApproval, action: ApprovalAction) => void;
-  resolveUserInput: (input: PendingUserInput, answers: Record<string, string>) => void;
-  cancelUserInput: (input: PendingUserInput) => void;
-  resolveMcpElicitation: (elicitation: PendingMcpElicitation, action: McpElicitationAction) => void;
+  resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
+  resolveUserInput: (requestId: PendingRequestId, answers: Record<string, string>) => void;
+  cancelUserInput: (requestId: PendingRequestId) => void;
+  resolveMcpElicitation: (requestId: PendingRequestId, action: McpElicitationAction) => void;
 }
 
 export interface PendingRequestActionsHost {
@@ -42,7 +42,7 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
   const resolveApproval = (requestId: PendingRequestId, approvalAction: ApprovalAction): void => {
     const approval = pendingApproval(host, requestId);
     if (!approval) return;
-    host.responder.resolveApproval(approval, approvalAction);
+    host.responder.resolveApproval(requestId, approvalAction);
     commitRequestAction(host);
   };
 
@@ -50,7 +50,7 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
     const input = pendingUserInput(host, requestId);
     if (!input) return;
     host.responder.resolveUserInput(
-      input,
+      requestId,
       answersForPendingUserInput(input, pendingRequestBlockState(host.stateStore.getState()).userInputDrafts),
     );
     commitRequestAction(host);
@@ -59,14 +59,14 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
   const cancelUserInput = (requestId: PendingRequestId): void => {
     const input = pendingUserInput(host, requestId);
     if (!input) return;
-    host.responder.cancelUserInput(input);
+    host.responder.cancelUserInput(requestId);
     commitRequestAction(host);
   };
 
   const resolveMcpElicitation = (requestId: PendingRequestId, action: McpElicitationAction): void => {
     const elicitation = pendingMcpElicitation(host, requestId);
     if (!elicitation) return;
-    host.responder.resolveMcpElicitation(elicitation, action);
+    host.responder.resolveMcpElicitation(requestId, action);
     commitRequestAction(host);
   };
 

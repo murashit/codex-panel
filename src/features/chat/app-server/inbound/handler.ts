@@ -14,6 +14,7 @@ import {
   type McpElicitationAction,
   type PendingApproval,
   type PendingMcpElicitation,
+  type PendingRequestId,
   type PendingUserInput,
 } from "../../domain/pending-requests/model";
 import { approvalResponse } from "../requests/approval";
@@ -70,10 +71,10 @@ export interface ChatInboundHandler {
   handleNotification(notification: ServerNotification): void;
   handleServerRequest(request: ServerRequest): void;
   handleAppServerLog(message: string): void;
-  resolveApproval(approval: PendingApproval, action: ApprovalAction): void;
-  resolveUserInput(input: PendingUserInput, answers: Record<string, string>): void;
-  cancelUserInput(input: PendingUserInput): void;
-  resolveMcpElicitation(elicitation: PendingMcpElicitation, action: McpElicitationAction): void;
+  resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void;
+  resolveUserInput(requestId: PendingRequestId, answers: Record<string, string>): void;
+  cancelUserInput(requestId: PendingRequestId): void;
+  resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): void;
   addSystemMessage(text: string): void;
   addStructuredSystemMessage(text: string, details: MessageStreamNoticeSection[]): void;
   addDedupedSystemMessage(text: string): void;
@@ -101,17 +102,17 @@ export function createChatInboundHandler(
     handleAppServerLog: (message) => {
       handleAppServerLog(context, message);
     },
-    resolveApproval: (approval, action) => {
-      resolveApproval(context, approval, action);
+    resolveApproval: (requestId, action) => {
+      resolveApproval(context, requestId, action);
     },
-    resolveUserInput: (input, answers) => {
-      resolveUserInput(context, input, answers);
+    resolveUserInput: (requestId, answers) => {
+      resolveUserInput(context, requestId, answers);
     },
-    cancelUserInput: (input) => {
-      cancelUserInput(context, input);
+    cancelUserInput: (requestId) => {
+      cancelUserInput(context, requestId);
     },
-    resolveMcpElicitation: (elicitation, action) => {
-      resolveMcpElicitation(context, elicitation, action);
+    resolveMcpElicitation: (requestId, action) => {
+      resolveMcpElicitation(context, requestId, action);
     },
     addSystemMessage: (text) => {
       addSystemMessage(context, text);
@@ -173,8 +174,9 @@ function handleAppServerLog(context: ChatInboundHandlerContext, message: string)
   }
 }
 
-function resolveApproval(context: ChatInboundHandlerContext, approval: PendingApproval, action: ApprovalAction): void {
-  if (!state(context).requests.approvals.includes(approval)) return;
+function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: ApprovalAction): void {
+  const approval = pendingApproval(context, requestId);
+  if (!approval) return;
   if (!context.actions.respondToServerRequest(approval.requestId, approvalResponse(approval, action))) {
     addSystemMessage(context, cannotSendApprovalResponseMessage());
     return;
@@ -182,8 +184,9 @@ function resolveApproval(context: ChatInboundHandlerContext, approval: PendingAp
   dispatch(context, { type: "request/resolved", requestId: approval.requestId, resultItem: createApprovalResultItem(approval, action) });
 }
 
-function resolveUserInput(context: ChatInboundHandlerContext, input: PendingUserInput, answers: Record<string, string>): void {
-  if (!state(context).requests.pendingUserInputs.includes(input)) return;
+function resolveUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId, answers: Record<string, string>): void {
+  const input = pendingUserInput(context, requestId);
+  if (!input) return;
   if (!context.actions.respondToServerRequest(input.requestId, userInputResponse(input, answers))) {
     addSystemMessage(context, cannotSendUserInputMessage());
     return;
@@ -195,8 +198,9 @@ function resolveUserInput(context: ChatInboundHandlerContext, input: PendingUser
   });
 }
 
-function cancelUserInput(context: ChatInboundHandlerContext, input: PendingUserInput): void {
-  if (!state(context).requests.pendingUserInputs.includes(input)) return;
+function cancelUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
+  const input = pendingUserInput(context, requestId);
+  if (!input) return;
   if (!context.actions.rejectServerRequest(input.requestId, -32000, userCancelledInputRequestMessage())) {
     addSystemMessage(context, cannotCancelUserInputMessage());
     return;
@@ -208,8 +212,9 @@ function cancelUserInput(context: ChatInboundHandlerContext, input: PendingUserI
   });
 }
 
-function resolveMcpElicitation(context: ChatInboundHandlerContext, elicitation: PendingMcpElicitation, action: McpElicitationAction): void {
-  if (!state(context).requests.pendingMcpElicitations.includes(elicitation)) return;
+function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: McpElicitationAction): void {
+  const elicitation = pendingMcpElicitation(context, requestId);
+  if (!elicitation) return;
   const content = action === "accept" ? contentForPendingMcpElicitation(elicitation, state(context).requests.mcpElicitationDrafts) : null;
   if (!context.actions.respondToServerRequest(elicitation.requestId, mcpElicitationResponse(action, content))) {
     addSystemMessage(context, cannotSendMcpElicitationMessage());
@@ -220,6 +225,18 @@ function resolveMcpElicitation(context: ChatInboundHandlerContext, elicitation: 
     requestId: elicitation.requestId,
     resultItem: createMcpElicitationResultItem(elicitation, action, content),
   });
+}
+
+function pendingApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingApproval | null {
+  return state(context).requests.approvals.find((approval) => approval.requestId === requestId) ?? null;
+}
+
+function pendingUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingUserInput | null {
+  return state(context).requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
+}
+
+function pendingMcpElicitation(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingMcpElicitation | null {
+  return state(context).requests.pendingMcpElicitations.find((elicitation) => elicitation.requestId === requestId) ?? null;
 }
 
 function addSystemMessage(context: ChatInboundHandlerContext, text: string): void {
