@@ -1,4 +1,5 @@
 import type { MessageStreamItem, MessageStreamItemKind } from "../items";
+import { RUNNING_EXECUTION_STATE } from "../execution-state";
 
 export const STREAMED_COMMAND_RUNNING_TEXT = "Command running";
 export const STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT = "File change inProgress";
@@ -60,7 +61,7 @@ export function streamedItemOutputMessageStreamItem(params: {
       ? {
           status: "inProgress",
           changes: [],
-          executionState: "running",
+          executionState: RUNNING_EXECUTION_STATE,
         }
       : {
           commandAction: "command",
@@ -68,7 +69,7 @@ export function streamedItemOutputMessageStreamItem(params: {
           command: params.fallbackText,
           cwd: UNKNOWN_STREAMED_COMMAND_CWD,
           status: "running",
-          executionState: "running",
+          executionState: RUNNING_EXECUTION_STATE,
         }),
   } as MessageStreamItem;
 }

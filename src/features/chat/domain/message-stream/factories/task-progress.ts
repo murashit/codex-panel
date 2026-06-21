@@ -1,11 +1,9 @@
 import type { ExecutionState, MessageStreamItem } from "../items";
-
-type MessageStreamExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
+import { executionStateFromStatus, RUNNING_EXECUTION_STATE, type ExecutionStateByStatus } from "../execution-state";
 
 const TASK_STATES = {
-  pending: "running",
-  inProgress: "running",
+  pending: RUNNING_EXECUTION_STATE,
+  inProgress: RUNNING_EXECUTION_STATE,
   completed: "completed",
 } as const satisfies ExecutionStateByStatus;
 
@@ -39,8 +37,4 @@ export function taskProgressMessageStreamItem(
     status,
     executionState: taskProgressExecutionState(status),
   };
-}
-
-function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
-  return states[status] ?? null;
 }

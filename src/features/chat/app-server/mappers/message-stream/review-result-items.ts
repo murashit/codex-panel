@@ -1,12 +1,14 @@
 import type { ExecutionState, MessageStreamAuditFact, MessageStreamItem } from "../../../domain/message-stream/items";
+import {
+  executionStateFromStatus,
+  RUNNING_EXECUTION_STATE,
+  type ExecutionStateByStatus,
+} from "../../../domain/message-stream/execution-state";
 import { pathsRelativeToRoot } from "../../../domain/message-stream/format/path-labels";
 import { permissionRows } from "../../../domain/message-stream/format/permission-rows";
 
-type MessageStreamExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
-
 const AUTO_REVIEW_STATES: ExecutionStateByStatus = {
-  inProgress: "running",
+  inProgress: RUNNING_EXECUTION_STATE,
   approved: "completed",
   denied: "failed",
   timedOut: "failed",
@@ -95,7 +97,7 @@ export function createAutoReviewResultItem(params: AutoReviewNotification): Mess
     text,
     turnId: params.turnId,
     provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: params.reviewId },
-    executionState: completed ? autoReviewExecutionState(status) : "running",
+    executionState: completed ? autoReviewExecutionState(status) : RUNNING_EXECUTION_STATE,
     review: { auditFacts: rows },
   };
 }
@@ -187,5 +189,5 @@ function autoReviewActionLabel(action: AutoReviewAction): string {
 }
 
 function autoReviewExecutionState(status: string): ExecutionState {
-  return AUTO_REVIEW_STATES[status] ?? null;
+  return executionStateFromStatus(status, AUTO_REVIEW_STATES);
 }

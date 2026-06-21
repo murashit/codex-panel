@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { messageStreamItemFromTurnItem } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
+import { messageStreamReasoningIsActive } from "../../../../src/features/chat/domain/message-stream/semantics/active-turn";
 import { messageStreamSemanticClassifications } from "../../../../src/features/chat/domain/message-stream/semantics/classify";
 import { messageStreamIsAutoReviewDecision } from "../../../../src/features/chat/domain/message-stream/semantics/predicates";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
@@ -194,6 +195,19 @@ describe("message stream semantic classification", () => {
       placement: { scope: "turn", turnId: "turn", turnRole: "detail" },
       meaning: { plane: "coordination", event: "progress" },
     });
+  });
+
+  it("marks only the latest unfinished active-turn reasoning item as active", () => {
+    const firstReasoning: MessageStreamItem = { id: "r1", kind: "reasoning", role: "tool", text: "first", turnId: "turn" };
+    const latestReasoning: MessageStreamItem = { id: "r2", kind: "reasoning", role: "tool", text: "latest", turnId: "turn" };
+    const otherTurnReasoning: MessageStreamItem = { id: "r3", kind: "reasoning", role: "tool", text: "other", turnId: "other" };
+
+    const context = { activeTurnId: "turn", items: [firstReasoning, latestReasoning, otherTurnReasoning] };
+
+    expect(messageStreamReasoningIsActive(firstReasoning, context)).toBe(false);
+    expect(messageStreamReasoningIsActive(latestReasoning, context)).toBe(true);
+    expect(messageStreamReasoningIsActive(otherTurnReasoning, context)).toBe(false);
+    expect(messageStreamReasoningIsActive({ ...latestReasoning, executionState: "completed" }, context)).toBe(false);
   });
 });
 

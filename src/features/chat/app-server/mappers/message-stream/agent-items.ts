@@ -1,12 +1,14 @@
 import { definedProp } from "../../../../../utils";
 import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "../../../domain/message-stream/items";
 import { collabAgentStateExecutionState } from "../../../domain/message-stream/agent-state";
-
-type MessageStreamExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
+import {
+  executionStateFromStatus,
+  RUNNING_EXECUTION_STATE,
+  type ExecutionStateByStatus,
+} from "../../../domain/message-stream/execution-state";
 
 const STANDARD_TOOL_STATES: ExecutionStateByStatus = {
-  inProgress: "running",
+  inProgress: RUNNING_EXECUTION_STATE,
   completed: "completed",
   failed: "failed",
 };
@@ -72,5 +74,5 @@ function collabAgentExecutionState(tool: string, status: string, receiverThreadI
 }
 
 function collabAgentToolCallExecutionState(status: string): ExecutionState {
-  return STANDARD_TOOL_STATES[status] ?? null;
+  return executionStateFromStatus(status, STANDARD_TOOL_STATES);
 }

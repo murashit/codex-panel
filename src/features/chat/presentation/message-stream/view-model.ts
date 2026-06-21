@@ -1,17 +1,10 @@
-import { messageStreamSemanticClassifications } from "../../domain/message-stream/semantics/classify";
-import { messageStreamIsCoordinationProgress } from "../../domain/message-stream/semantics/predicates";
 import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics/types";
 import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../../domain/message-stream/items";
+import { activeTurnLiveItems, messageStreamItemsWithoutActiveTaskProgress } from "../../domain/message-stream/semantics/active-turn";
 import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type MessageStreamLayoutBlock } from "./layout";
 import { detailView, type DetailView } from "./detail-view";
 import { messageStreamTextView, type MessageStreamTextActionTargets, type MessageStreamTextView } from "./text-view";
-import {
-  activeAgentRunSummary,
-  agentRunSummaryView,
-  messageStreamStatusView,
-  type AgentRunSummaryView,
-  type MessageStreamStatusView,
-} from "./status-view";
+import { agentRunSummaryView, messageStreamStatusView, type AgentRunSummaryView, type MessageStreamStatusView } from "./status-view";
 import type { PendingRequestBlockSnapshot } from "../pending-requests/snapshot";
 
 interface PendingRequestMessageStreamBlockInput {
@@ -195,12 +188,12 @@ function messageStreamBlockItemsEmpty(input: MessageStreamPresentationBlockInput
 function layoutBlocksForInput(input: MessageStreamPresentationBlockInput): MessageStreamLayoutBlock[] {
   const { activeTurnId } = input;
   if (!activeTurnId || !input.stableItems || !input.activeItems) {
-    const streamItems = activeTurnId ? withoutActiveTaskProgress(input.items, activeTurnId) : input.items;
+    const streamItems = activeTurnId ? messageStreamItemsWithoutActiveTaskProgress(input.items, activeTurnId) : input.items;
     return messageStreamLayoutBlocks(streamItems, activeTurnId, input.workspaceRoot, input.turnDiffs);
   }
   const stableBlocks = messageStreamLayoutBlocks(input.stableItems, activeTurnId, input.workspaceRoot, input.turnDiffs);
   const activeBlocks = messageStreamLayoutBlocks(
-    withoutActiveTaskProgress(input.activeItems, activeTurnId),
+    messageStreamItemsWithoutActiveTaskProgress(input.activeItems, activeTurnId),
     activeTurnId,
     input.workspaceRoot,
     input.turnDiffs,
@@ -212,47 +205,16 @@ function activeTurnLiveBlocks(
   input: Pick<MessageStreamPresentationBlockInput, "items" | "activeItems">,
   activeTurnId: string,
 ): MessageStreamPresentationBlock[] {
-  const items = input.activeItems ?? input.items;
-  const semanticItems = messageStreamSemanticClassifications(items);
-  const agentSummaryAnchorId = activeAgentRunSummaryAnchorId(semanticItems, activeTurnId);
-  const agentSummary = agentSummaryAnchorId ? activeAgentRunSummary(items, activeTurnId) : null;
-
-  return semanticItems.flatMap((classification): MessageStreamPresentationBlock[] => {
-    const { item } = classification;
-    if (isLiveTaskProgressItem(item, activeTurnId)) {
-      return [
-        {
-          kind: "liveTask",
-          key: `live-task:${item.id}`,
-          item: taskProgressStreamItem(item),
-        },
-      ];
+  return activeTurnLiveItems(input, activeTurnId).map((item): MessageStreamPresentationBlock => {
+    if (item.kind === "taskProgress") {
+      return {
+        kind: "liveTask",
+        key: `live-task:${item.item.id}`,
+        item: item.item,
+      };
     }
-    if (item.id === agentSummaryAnchorId) {
-      return agentSummary ? [{ kind: "liveAgentSummary", key: `live-agents:${activeTurnId}`, summary: agentSummary }] : [];
-    }
-    return [];
+    return { kind: "liveAgentSummary", key: `live-agents:${activeTurnId}`, summary: item.summary };
   });
-}
-
-function isLiveTaskProgressItem(item: MessageStreamItem, activeTurnId: string): boolean {
-  return item.kind === "taskProgress" && item.turnId === activeTurnId;
-}
-
-function activeAgentRunSummaryAnchorId(items: readonly MessageStreamSemanticClassification[], activeTurnId: string): string | null {
-  const firstActiveAgent = items.find(
-    (classification) => messageStreamIsCoordinationProgress(classification) && classification.item.turnId === activeTurnId,
-  );
-  return firstActiveAgent?.item.id ?? null;
-}
-
-function taskProgressStreamItem(item: MessageStreamItem): TaskProgressMessageStreamItem {
-  if (item.kind !== "taskProgress") throw new Error(`Expected task progress presentation item for ${item.id}`);
-  return item;
-}
-
-function withoutActiveTaskProgress(items: readonly MessageStreamItem[], activeTurnId: string): MessageStreamItem[] {
-  return items.filter((item) => item.kind !== "taskProgress" || item.turnId !== activeTurnId);
 }
 
 function messageStreamViewBlockFromPresentationBlock(

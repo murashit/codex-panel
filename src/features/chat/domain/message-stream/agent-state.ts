@@ -1,12 +1,10 @@
 import type { ExecutionState } from "./items";
-
-type MessageStreamExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
+import { executionStateFromStatus, RUNNING_EXECUTION_STATE, type ExecutionStateByStatus } from "./execution-state";
 
 const AGENT_STATES: ExecutionStateByStatus = {
-  pendingInit: "running",
-  running: "running",
-  inProgress: "running",
+  pendingInit: RUNNING_EXECUTION_STATE,
+  running: RUNNING_EXECUTION_STATE,
+  inProgress: RUNNING_EXECUTION_STATE,
   completed: "completed",
   shutdown: "completed",
   interrupted: "failed",
@@ -16,5 +14,5 @@ const AGENT_STATES: ExecutionStateByStatus = {
 };
 
 export function collabAgentStateExecutionState(status: string): ExecutionState {
-  return AGENT_STATES[status] ?? null;
+  return executionStateFromStatus(status, AGENT_STATES);
 }

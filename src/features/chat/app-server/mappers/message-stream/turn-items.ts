@@ -1,4 +1,4 @@
-import type { CommandMessageStreamTarget, ExecutionState, MessageStreamItem } from "../../../domain/message-stream/items";
+import type { CommandMessageStreamTarget, MessageStreamItem } from "../../../domain/message-stream/items";
 import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { TurnItem } from "../../../../../app-server/protocol/turn";
@@ -9,6 +9,14 @@ import { agentMessageStreamItem } from "./agent-items";
 import { fileMentionsFromInput } from "../../../domain/message-stream/format/file-mentions";
 import { normalizeProposedPlanMarkdown } from "../../../domain/message-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/message-stream/format/user-message-text";
+import {
+  commandExecutionState,
+  dynamicToolCallExecutionState,
+  failedStatusLabel,
+  imageGenerationExecutionState,
+  mcpToolCallExecutionState,
+  patchApplyExecutionState,
+} from "../../../domain/message-stream/execution-state";
 import { normalizeFileChanges } from "./file-changes";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
@@ -27,33 +35,11 @@ type SleepItem = Extract<TurnItem, { type: "sleep" }>;
 type ImageGenerationItem = Extract<TurnItem, { type: "imageGeneration" }>;
 type ReviewModeItem = Extract<TurnItem, { type: "enteredReviewMode" }> | Extract<TurnItem, { type: "exitedReviewMode" }>;
 type ContextCompactionItem = Extract<TurnItem, { type: "contextCompaction" }>;
-type MessageStreamExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
 interface TurnItemSourceFields {
   id: string;
   turnId?: string;
   sourceItemId: string;
 }
-
-const COMMAND_STATES = {
-  inProgress: "running",
-  completed: "completed",
-  failed: "failed",
-  declined: "failed",
-} as const satisfies ExecutionStateByStatus;
-
-const PATCH_STATES = {
-  inProgress: "running",
-  completed: "completed",
-  failed: "failed",
-  declined: "failed",
-} as const satisfies ExecutionStateByStatus;
-
-const STANDARD_TOOL_STATES = {
-  inProgress: "running",
-  completed: "completed",
-  failed: "failed",
-} as const satisfies ExecutionStateByStatus;
 
 export function messageStreamItemsFromTurns(turns: readonly HistoricalTurn[]): MessageStreamItem[] {
   const sortedTurns = [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
@@ -483,43 +469,6 @@ function ignoredUnsupportedTurnItem(_item: never): null {
   return null;
 }
 
-function commandExecutionState(status: string, exitCode?: number): ExecutionState {
-  if (typeof exitCode === "number" && exitCode !== 0) return "failed";
-  const state = executionStateFromStatus(status, COMMAND_STATES);
-  if (state) return state;
-  if (typeof exitCode === "number") return "completed";
-  return null;
-}
-
-function patchApplyExecutionState(status: string): ExecutionState {
-  return executionStateFromStatus(status, PATCH_STATES);
-}
-
-function mcpToolCallExecutionState(status: string): ExecutionState {
-  return standardToolCallExecutionState(status);
-}
-
-function dynamicToolCallExecutionState(status: string, success?: boolean | null): ExecutionState {
-  if (success === false) return "failed";
-  const state = standardToolCallExecutionState(status);
-  if (state) return state;
-  return success === true ? "completed" : null;
-}
-
-function imageGenerationExecutionState(status: string): ExecutionState {
-  return standardToolCallExecutionState(status);
-}
-
-function standardToolCallExecutionState(status: string): ExecutionState {
-  return executionStateFromStatus(status, STANDARD_TOOL_STATES);
-}
-
-function failedStatusLabel(status: unknown): string | null {
-  if (status === "failed") return "failed";
-  if (status === "declined") return "declined";
-  return null;
-}
-
 function jsonTargetLabel(value: unknown): string | null {
   const direct = jsonTargetPrimitive(value);
   if (direct) return direct;
@@ -562,10 +511,6 @@ function jsonTargetPrimitive(value: unknown): string | null {
     if (target) return target;
   }
   return null;
-}
-
-function executionStateFromStatus(status: string, states: ExecutionStateByStatus): ExecutionState {
-  return states[status] ?? null;
 }
 
 function durationLabel(durationMs: number): string {

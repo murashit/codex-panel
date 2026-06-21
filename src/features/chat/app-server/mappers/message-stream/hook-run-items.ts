@@ -1,5 +1,10 @@
 import { definedProp } from "../../../../../utils";
 import type { ExecutionState, HookMessageStreamItem } from "../../../domain/message-stream/items";
+import {
+  executionStateFromStatus,
+  RUNNING_EXECUTION_STATE,
+  type ExecutionStateByStatus,
+} from "../../../domain/message-stream/execution-state";
 
 interface MessageStreamHookRun {
   id: string;
@@ -10,11 +15,8 @@ interface MessageStreamHookRun {
   entries: readonly { kind: string; text: string }[];
 }
 
-type MessageStreamExecutionState = Exclude<ExecutionState, null>;
-type ExecutionStateByStatus = Readonly<Record<string, MessageStreamExecutionState>>;
-
 const HOOK_RUN_STATES: ExecutionStateByStatus = {
-  running: "running",
+  running: RUNNING_EXECUTION_STATE,
   completed: "completed",
   failed: "failed",
   blocked: "failed",
@@ -48,7 +50,7 @@ export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: stri
 }
 
 function hookRunExecutionState(status: string): ExecutionState {
-  return HOOK_RUN_STATES[status] ?? null;
+  return executionStateFromStatus(status, HOOK_RUN_STATES);
 }
 
 function hookRunDisplayId(run: MessageStreamHookRun): string {

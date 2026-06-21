@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { collabAgentStateExecutionState } from "../../../../src/features/chat/domain/message-stream/agent-state";
-import { activeAgentRunSummary } from "../../../../src/features/chat/presentation/message-stream/status-view";
+import { activeAgentRunSummary } from "../../../../src/features/chat/domain/message-stream/semantics/active-turn";
 import { messageStreamLayoutBlocks } from "../../../../src/features/chat/presentation/message-stream/layout";
 import { upsertMessageStreamItemById } from "../../../../src/features/chat/domain/message-stream/updates";
 import { taskProgressMessageStreamItem } from "../../../../src/features/chat/domain/message-stream/factories/task-progress";

@@ -1,4 +1,5 @@
 import { jsonPreview, shortThreadId, truncate } from "../../../../utils";
+import { failedStatusLabel } from "../../domain/message-stream/execution-state";
 import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
 import type {
   AgentMessageStreamItem,
@@ -364,12 +365,6 @@ function compactSummary(label: string | null, target?: string | null, qualifier?
 function statusQualifier(status: unknown, failure?: string | null): string | null {
   if (status === "declined") return "declined";
   if (status === "failed") return failure && failure.length > 0 ? failure : "failed";
-  return null;
-}
-
-function failedStatusLabel(status: unknown): string | null {
-  if (status === "failed") return "failed";
-  if (status === "declined") return "declined";
   return null;
 }
 
