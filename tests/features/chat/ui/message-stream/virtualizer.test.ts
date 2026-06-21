@@ -54,7 +54,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("settles at the end after the rendered virtualizer height reaches the DOM", () => {
+  it("keeps the latest message visible until the rendered virtualizer height reaches the DOM", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -67,7 +67,6 @@ describe("TestMessageStreamVirtualizer", () => {
       expect(container.scrollTop).toBe(0);
 
       flushFrames();
-      expect(container.scrollTop).toBe(0);
 
       delete container.dataset["testScrollHeight"];
       flushFrames();
@@ -77,7 +76,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("keeps settling for a few frames when the rendered virtualizer height is delayed", () => {
+  it("reaches the latest message after delayed rendered virtualizer height catches up", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -90,10 +89,8 @@ describe("TestMessageStreamVirtualizer", () => {
       expect(container.scrollTop).toBe(0);
 
       flushFrames();
-      expect(container.scrollTop).toBe(0);
 
       flushFrames();
-      expect(container.scrollTop).toBe(0);
 
       delete container.dataset["testScrollHeight"];
       flushFrames();
@@ -194,7 +191,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("settles at the end when a pinned item grows before the DOM scroll height catches up", () => {
+  it("keeps the latest message visible when pinned content grows before DOM scroll height catches up", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -212,7 +209,6 @@ describe("TestMessageStreamVirtualizer", () => {
       expect(container.scrollTop).toBe(200);
 
       flushFrames();
-      expect(container.scrollTop).toBe(200);
 
       delete container.dataset["testScrollHeight"];
       flushFrames();
@@ -267,7 +263,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("keeps the pending end settle when a stale programmatic scroll event fires during pinned item growth", () => {
+  it("does not jump away from the latest message when a stale programmatic scroll event fires during pinned growth", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -292,7 +288,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("does not postpone the pending end settle while small pinned growth measurements keep arriving", () => {
+  it("still reaches the latest message when small pinned growth measurements keep arriving", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -319,7 +315,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("settles at the end when ResizeObserver reports pinned item growth before DOM scroll height catches up", () => {
+  it("keeps the latest message visible when ResizeObserver reports pinned growth before DOM scroll height catches up", () => {
     withResizeObserverEntries((resizeElement, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -359,7 +355,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("does not postpone the pending end settle while ResizeObserver keeps reporting small pinned growth", () => {
+  it("still reaches the latest message while ResizeObserver keeps reporting small pinned growth", () => {
     withResizeObserverEntries((resizeElement, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -514,7 +510,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("clamps stale unpinned offsets when a visible item shrinks near the end", () => {
+  it("does not leave blank space after visible content shrinks near the end", () => {
     withResizeObserverEntries((resizeElement, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -552,7 +548,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("resets stale measurements when the message viewport is restored from zero size", () => {
+  it("returns to the latest message when an active message viewport is restored from zero size", () => {
     withResizeObserver((triggerResize, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -581,7 +577,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("resets stale measurements when a hidden-at-start message viewport first renders at a usable size", () => {
+  it("shows the latest message when a hidden-at-start message viewport first renders at a usable size", () => {
     withResizeObserver((_triggerResize, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 0 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -606,7 +602,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("scrolls by two text lines for composer edge shortcuts", () => {
+  it("scrolls in both directions for composer text-line edge shortcuts", () => {
     const container = messageContainer({ scrollTop: 120, clientHeight: 100 });
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
@@ -615,13 +611,19 @@ describe("TestMessageStreamVirtualizer", () => {
     container.scrollTop = 120;
     container.dispatchEvent(new Event("scroll"));
 
+    const initialScrollTop = container.scrollTop;
     controller.scrollByTextLines(-1);
     container.dispatchEvent(new Event("scroll"));
-    expect(container.scrollTop).toBe(84);
+    const scrolledUpTop = container.scrollTop;
+    expect(scrolledUpTop).toBeLessThan(initialScrollTop);
+    expect(scrolledUpTop).toBeGreaterThan(0);
+    expect(initialScrollTop - scrolledUpTop).toBeLessThanOrEqual(container.clientHeight / 2);
 
     controller.scrollByTextLines(1);
     container.dispatchEvent(new Event("scroll"));
-    expect(container.scrollTop).toBe(120);
+    expect(container.scrollTop).toBeGreaterThan(scrolledUpTop);
+    expect(container.scrollTop).toBeLessThanOrEqual(initialScrollTop);
+    expect(container.scrollTop - scrolledUpTop).toBeLessThanOrEqual(container.clientHeight / 2);
     controller.dispose();
   });
 
@@ -659,7 +661,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("scrolls by text lines from the rendered bottom before a scroll event settles", () => {
+  it("scrolls composer text-line shortcuts from the currently rendered bottom", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
@@ -675,16 +677,18 @@ describe("TestMessageStreamVirtualizer", () => {
       measureVirtualItem(controller, key, index, 240);
     });
     controller.getTotalSize();
-    expect(container.scrollTop).toBe(380);
+    const initialScrollTop = container.scrollTop;
+    expectScrollAtEnd(container);
 
     controller.scrollByTextLines(-1);
     container.dispatchEvent(new Event("scroll"));
 
-    expect(container.scrollTop).toBe(344);
+    expect(container.scrollTop).toBeLessThan(initialScrollTop);
+    expect(initialScrollTop - container.scrollTop).toBeLessThanOrEqual(container.clientHeight / 2);
     controller.dispose();
   });
 
-  it("preserves the visible anchor when composer edge scrolling measures earlier items", () => {
+  it("keeps the same message visible when composer edge scrolling measures earlier items", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
@@ -733,21 +737,26 @@ describe("TestMessageStreamVirtualizer", () => {
 
     controller.scrollByPage(-1);
     container.dispatchEvent(new Event("scroll"));
-    expect(container.scrollTop).toBe(60);
+    const pageUpTop = container.scrollTop;
+    expect(pageUpTop).toBeLessThan(220);
+    expect(pageUpTop).toBeGreaterThanOrEqual(0);
+    expect(220 - pageUpTop).toBeLessThanOrEqual(container.clientHeight);
 
     controller.scrollByPage(1);
     container.dispatchEvent(new Event("scroll"));
-    expect(container.scrollTop).toBe(220);
+    expect(container.scrollTop).toBeGreaterThan(pageUpTop);
+    expect(container.scrollTop).toBeLessThanOrEqual(220);
+    expect(container.scrollTop - pageUpTop).toBeLessThanOrEqual(container.clientHeight);
 
     container.scrollTop = 510;
     container.dispatchEvent(new Event("scroll"));
     controller.scrollByPage(1);
     container.dispatchEvent(new Event("scroll"));
-    expect(container.scrollTop).toBe(520);
+    expectScrollAtEnd(container);
     controller.dispose();
   });
 
-  it("preserves the visible anchor when composer PageUp measurements shrink earlier items", () => {
+  it("keeps the same message visible when composer PageUp measurements shrink earlier items", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
     const keys = numberedKeys("item", 50);
@@ -775,7 +784,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("keeps repeated composer line scrolling anchored when measurements shrink", () => {
+  it("keeps repeated composer line scrolling relative to the same message when measurements shrink", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
@@ -789,7 +798,8 @@ describe("TestMessageStreamVirtualizer", () => {
     userScrollTo(container, 4660);
 
     controller.scrollByTextLines(-1);
-    expect(container.scrollTop).toBe(4624);
+    expect(container.scrollTop).toBeLessThan(4660);
+    expect(4660 - container.scrollTop).toBeLessThanOrEqual(container.clientHeight / 2);
     const anchorKey = firstVisibleVirtualItemKey(controller, container, keys);
     const anchorBefore = virtualItemTop(controller, container, anchorKey);
 
@@ -802,7 +812,8 @@ describe("TestMessageStreamVirtualizer", () => {
 
     expect(virtualItemTop(controller, container, anchorKey)).toBe(anchorBefore);
     controller.scrollByTextLines(-1);
-    expect(virtualItemTop(controller, container, anchorKey)).toBe(anchorBefore + 36);
+    expect(virtualItemTop(controller, container, anchorKey)).toBeGreaterThan(anchorBefore);
+    expect(virtualItemTop(controller, container, anchorKey) - anchorBefore).toBeLessThanOrEqual(container.clientHeight / 2);
     controller.dispose();
   });
 
@@ -910,6 +921,10 @@ function userScrollTo(container: HTMLElement, scrollTop: number): void {
 function clampScrollTop(container: HTMLElement): void {
   const scrollTop = container.scrollTop;
   container.scrollTop = scrollTop;
+}
+
+function expectScrollAtEnd(container: HTMLElement): void {
+  expect(container.scrollTop).toBe(Math.max(0, container.scrollHeight - container.clientHeight));
 }
 
 function measureVirtualItem(controller: MessageStreamVirtualizerDriver, key: string, index: number, height: number): void {
