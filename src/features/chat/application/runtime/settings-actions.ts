@@ -9,7 +9,7 @@ import {
   type PendingRuntimeSettingsPatch,
 } from "./thread-settings-update";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { nextCollaborationMode, type CollaborationMode, type RequestedServiceTier } from "../../domain/runtime/pending-settings";
+import { nextCollaborationMode, type CollaborationModeSelection, type RequestedServiceTier } from "../../domain/runtime/pending-settings";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
@@ -42,7 +42,7 @@ export interface ChatRuntimeSettingsActions {
   disableFastMode: () => Promise<void>;
   toggleFastMode: () => Promise<void>;
   toggleCollaborationMode: () => Promise<void>;
-  setCollaborationMode: (collaborationMode: CollaborationMode) => Promise<boolean>;
+  setCollaborationMode: (collaborationMode: CollaborationModeSelection) => Promise<boolean>;
   requestDefaultCollaborationModeForNextTurn: () => void;
   enableAutoReview: () => Promise<void>;
   disableAutoReview: () => Promise<void>;
@@ -158,7 +158,7 @@ async function toggleCollaborationMode(host: RuntimeSettingsActionsHost): Promis
   await setCollaborationMode(host, next);
 }
 
-async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborationMode: CollaborationMode): Promise<boolean> {
+async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborationMode: CollaborationModeSelection): Promise<boolean> {
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode });
   const result = await applyPendingThreadSettingsResult(host);
   if (result.ok) dispatch(host, { type: "ui/panel-set", panel: null });
@@ -197,7 +197,7 @@ function fastModeToggleMessage(state: FastModeState): string {
   return state === "enabled" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.";
 }
 
-function collaborationModeToggleMessage(mode: CollaborationMode): string {
+function collaborationModeToggleMessage(mode: CollaborationModeSelection): string {
   return mode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.";
 }
 

@@ -51,10 +51,10 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
   const runtimeCollaborationModeSettings = requestedTurnCollaborationModeSettings(snapshot, config);
 
   if (snapshot.requestedModel.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(update, "model", runtimeSettingsPatchValue(snapshot.requestedModel));
+    applyRuntimeSettingsPatchValue(update, "model", runtimeSettingsPatchValueFromPendingSetting(snapshot.requestedModel));
   }
   if (snapshot.requestedReasoningEffort.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(update, "effort", runtimeSettingsPatchValue(snapshot.requestedReasoningEffort));
+    applyRuntimeSettingsPatchValue(update, "effort", runtimeSettingsPatchValueFromPendingSetting(snapshot.requestedReasoningEffort));
   }
   if (snapshot.requestedServiceTier.kind === "set") {
     applyRuntimeSettingsPatchValue(
@@ -66,7 +66,11 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
     applyRuntimeSettingsPatchValue(update, "serviceTier", null);
   }
   if (snapshot.requestedApprovalsReviewer.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(update, "approvalsReviewer", runtimeSettingsPatchValue(snapshot.requestedApprovalsReviewer));
+    applyRuntimeSettingsPatchValue(
+      update,
+      "approvalsReviewer",
+      runtimeSettingsPatchValueFromPendingSetting(snapshot.requestedApprovalsReviewer),
+    );
   }
   if (snapshot.selectedCollaborationMode !== effectiveCollaborationMode(snapshot.activeCollaborationMode)) {
     if (runtimeCollaborationModeSettings.warning) {
@@ -77,7 +81,7 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
   return { update, collaborationModeWarning: null };
 }
 
-function runtimeSettingsPatchValue<T>(setting: PendingRuntimeSetting<T>): T | null | undefined {
+function runtimeSettingsPatchValueFromPendingSetting<T>(setting: PendingRuntimeSetting<T>): T | null | undefined {
   if (setting.kind === "set") return setting.value;
   if (setting.kind === "resetToConfig") return null;
   return undefined;

@@ -1,5 +1,5 @@
 import type { ThreadGoal } from "../../../../domain/threads/goal";
-import { pendingRequestDerivedKeyPrefix, type PendingRequestId } from "../../domain/pending-requests/model";
+import { pendingRequestDerivedKeyPrefix, type PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { DisclosureSetAction } from "./actions";
 
 export type ChatRenameUiState =

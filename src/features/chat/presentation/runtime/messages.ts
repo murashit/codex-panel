@@ -1,5 +1,5 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { CollaborationMode } from "../../domain/runtime/pending-settings";
+import type { CollaborationModeSelection } from "../../domain/runtime/pending-settings";
 
 export function compactReasoningEffortLabel(effort: ReasoningEffort | null): string {
   if (!effort) return "default";
@@ -7,7 +7,7 @@ export function compactReasoningEffortLabel(effort: ReasoningEffort | null): str
   return effort;
 }
 
-export function collaborationModeLabel(mode: CollaborationMode): string {
+export function collaborationModeLabel(mode: CollaborationModeSelection): string {
   return mode === "plan" ? "Plan" : "Default";
 }
 

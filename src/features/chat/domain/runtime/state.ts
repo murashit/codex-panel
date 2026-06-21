@@ -12,7 +12,7 @@ import {
   setPendingRuntimeSetting,
   unchangedRuntimeSetting,
   type ActiveCollaborationMode,
-  type CollaborationMode,
+  type CollaborationModeSelection,
   type PendingRuntimeSetting,
   type RequestedServiceTier,
 } from "./pending-settings";
@@ -28,7 +28,7 @@ export interface ChatRuntimeState {
   readonly requestedModel: PendingRuntimeSetting<string>;
   readonly requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
   readonly requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
-  readonly selectedCollaborationMode: CollaborationMode;
+  readonly selectedCollaborationMode: CollaborationModeSelection;
   readonly requestedServiceTier: PendingRuntimeSetting<RequestedServiceTier>;
 }
 
@@ -120,7 +120,10 @@ export function clearRequestedApprovalsReviewerRuntimeState(state: ChatRuntimeSt
   };
 }
 
-export function setSelectedCollaborationModeRuntimeState(state: ChatRuntimeState, collaborationMode: CollaborationMode): ChatRuntimeState {
+export function setSelectedCollaborationModeRuntimeState(
+  state: ChatRuntimeState,
+  collaborationMode: CollaborationModeSelection,
+): ChatRuntimeState {
   return {
     ...state,
     selectedCollaborationMode: collaborationMode,

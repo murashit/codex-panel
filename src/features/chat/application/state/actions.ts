@@ -4,7 +4,7 @@ import { upsertThread, type Thread } from "../../../../domain/threads/model";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
-import type { CollaborationMode } from "../../domain/runtime/pending-settings";
+import type { CollaborationModeSelection } from "../../domain/runtime/pending-settings";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { PendingTurnStart } from "../conversation/turn-state";
 
@@ -52,7 +52,7 @@ export interface ActiveThreadSettingsAppliedAction {
   cwd: string;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
-  collaborationMode: CollaborationMode;
+  collaborationMode: CollaborationModeSelection;
   serviceTier: ServiceTier | null;
   approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
@@ -63,7 +63,7 @@ export interface ActiveThreadSettingsAppliedActionSettings {
   cwd: string;
   model: string | null;
   effort: string | null;
-  collaborationMode: { mode: CollaborationMode };
+  collaborationMode: { mode: CollaborationModeSelection };
   serviceTier: string | null;
   approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];

@@ -9,7 +9,7 @@ import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import type { CollaborationMode } from "../../domain/runtime/pending-settings";
+import type { CollaborationModeSelection } from "../../domain/runtime/pending-settings";
 import {
   commitPendingRuntimeSettingsPatchState,
   clearRequestedApprovalsReviewerRuntimeState,
@@ -26,7 +26,7 @@ import {
   type ChatRuntimeState,
 } from "../../domain/runtime/state";
 import type { RequestedServiceTier } from "../../domain/runtime/pending-settings";
-import type { PendingRequestId } from "../../domain/pending-requests/model";
+import type { PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { ComposerSuggestion } from "../composer/suggestions";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type {
@@ -169,7 +169,7 @@ type RuntimeAction =
   | { type: "runtime/service-tier-request-cleared" }
   | { type: "runtime/approvals-reviewer-requested"; approvalsReviewer: ApprovalsReviewer }
   | { type: "runtime/approvals-reviewer-request-cleared" }
-  | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: CollaborationMode }
+  | { type: "runtime/requested-collaboration-mode-set"; collaborationMode: CollaborationModeSelection }
   | { type: "runtime/pending-thread-settings-committed"; update: RuntimeSettingsPatch };
 
 interface TurnStartedAction {
