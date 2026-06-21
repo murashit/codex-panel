@@ -55,11 +55,10 @@ function threadFixture(overrides: Partial<Thread> = {}): Thread {
 }
 
 function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
-  const thread = overrides.thread ?? threadFixture({ id: "thread", name: "Thread" });
-  const title = overrides.title ?? thread.name ?? thread.preview;
+  const threadId = overrides.threadId ?? "thread";
+  const title = overrides.title ?? "Thread";
   return {
-    thread,
-    threadId: thread.id,
+    threadId,
     title,
     live: null,
     selected: false,
@@ -92,13 +91,11 @@ describe("threads view renderer decisions", () => {
         [
           openPanelSnapshot({ viewId: "open", threadId: "thread" }),
           openPanelSnapshot({ viewId: "running", threadId: "thread", turnLifecycle: { kind: "running", turnId: "turn" } }),
-          openPanelSnapshot({ viewId: "approval", threadId: "thread", pendingApprovals: 1 }),
-          openPanelSnapshot({ viewId: "input", threadId: "thread", pendingUserInputs: 1 }),
-          openPanelSnapshot({ viewId: "mcp", threadId: "thread", pendingMcpElicitations: 1 }),
+          openPanelSnapshot({ viewId: "pending", threadId: "thread", pendingApprovals: 1 }),
         ],
         new Map(),
       )[0]?.live,
-    ).toMatchObject({ status: "needs-input", label: "Needs input", viewId: "input", openPanels: 5 });
+    ).toMatchObject({ status: "pending" });
 
     expect(
       threadRows(
@@ -108,7 +105,6 @@ describe("threads view renderer decisions", () => {
       )[0]?.live,
     ).toMatchObject({
       status: "draft",
-      label: "Draft",
     });
     expect(
       threadRows(
@@ -118,7 +114,6 @@ describe("threads view renderer decisions", () => {
       )[0]?.live,
     ).toMatchObject({
       status: "offline",
-      label: "Offline",
     });
     expect(
       threadRows(
@@ -155,7 +150,7 @@ describe("threads view renderer decisions", () => {
     renderThreadsView(parent, { status: "2 threads", loading: false, rows }, actions);
 
     expect(parent.querySelector(".codex-panel-threads__badge")).toBeNull();
-    const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--approval"));
+    const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--pending"));
     const row = expectPresent(main.closest<HTMLElement>(".codex-panel-threads__row"));
     expect(row.classList.contains("codex-panel-ui__nav-row")).toBe(true);
     expect(main.classList.contains("codex-panel-ui__nav-item")).toBe(true);
@@ -229,7 +224,6 @@ describe("threads view renderer decisions", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
     const row = rowFixture({
-      thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
       rename: { active: true, draft: "Old name", generating: false },
     });
@@ -256,7 +250,6 @@ describe("threads view renderer decisions", () => {
     const parent = document.createElement("div");
     const actions = threadsViewActions();
     const row = rowFixture({
-      thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
       rename: { active: true, draft: "Old name", generating: false },
     });
@@ -276,7 +269,6 @@ describe("threads view renderer decisions", () => {
   it("renders threads view rename auto-name loading state", () => {
     const parent = document.createElement("div");
     const row = rowFixture({
-      thread: threadFixture({ id: "thread", name: "Old name" }),
       title: "Old name",
       rename: { active: true, draft: "Old name", generating: true },
     });

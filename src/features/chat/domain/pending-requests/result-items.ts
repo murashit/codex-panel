@@ -12,9 +12,7 @@ import type { MessageStreamItem, MessageStreamUserInputQuestionResult } from "..
 import { definedProp } from "../../../../utils";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): MessageStreamItem {
-  const status = approvalResultStatus(action);
   const kind = approvalActionKind(action);
-  const scope = kind === "accept-session" ? "session" : "turn";
   return {
     id: `approval-${String(approval.requestId)}`,
     kind: "approvalResult",
@@ -24,8 +22,8 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     provenance: { source: "localUser", channel: "response", interaction: "approvalResponse", sourceId: String(approval.requestId) },
     executionState: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
     approval: {
-      status,
-      scope,
+      status: approvalResultStatus(kind),
+      scope: kind === "accept-session" ? "session" : "turn",
       request: approvalTitle(approval),
       auditFacts: approvalDetails(approval),
     },
@@ -76,19 +74,17 @@ export function createMcpElicitationResultItem(
 }
 
 function approvalResultText(approval: PendingApproval, action: ApprovalAction): string {
-  return `${approvalResultPrefix(action)}: ${approvalResultSummary(approval)}`;
+  return `${approvalResultPrefix(approvalActionKind(action))}: ${approvalResultSummary(approval)}`;
 }
 
-function approvalResultPrefix(action: ApprovalAction): string {
-  const kind = approvalActionKind(action);
+function approvalResultPrefix(kind: ReturnType<typeof approvalActionKind>): string {
   if (kind === "accept") return "Allowed";
   if (kind === "accept-session") return "Allowed for this session";
   if (kind === "cancel") return "Cancelled";
   return "Denied";
 }
 
-function approvalResultStatus(action: ApprovalAction): string {
-  const kind = approvalActionKind(action);
+function approvalResultStatus(kind: ReturnType<typeof approvalActionKind>): string {
   if (kind === "accept") return "allowed";
   if (kind === "accept-session") return "allowed for session";
   if (kind === "cancel") return "cancelled";

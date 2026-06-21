@@ -4,6 +4,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { CodexChatView } from "../features/chat/host/view";
 import type { ChatWorkspacePanelSurface } from "../features/chat/host/surface-handle";
 import type { ChatPanelSnapshot } from "../features/chat/panel/snapshot";
+import { hasPendingRequests, pendingRequestCounts } from "../domain/pending-requests/aggregate";
 
 const BOOT_RESTORED_PANEL_LOAD_DELAY_MS = 1_000;
 const BOOT_RESTORED_PANEL_LOAD_STAGGER_MS = 250;
@@ -373,9 +374,7 @@ function isIdleEmptyPanelSnapshot(snapshot: ChatPanelSnapshot): boolean {
   return (
     snapshot.threadId === null &&
     snapshot.turnLifecycle.kind === "idle" &&
-    snapshot.pendingApprovals === 0 &&
-    snapshot.pendingUserInputs === 0 &&
-    snapshot.pendingMcpElicitations === 0 &&
+    !hasPendingRequests(pendingRequestCounts(snapshot)) &&
     !snapshot.hasComposerDraft
   );
 }

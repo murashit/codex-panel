@@ -70,8 +70,7 @@
   font-weight: var(--nav-item-weight-active, var(--font-medium));
 }
 
-.codex-panel-threads__row--needs-input,
-.codex-panel-threads__row--approval {
+.codex-panel-threads__row--pending {
   --codex-panel-threads-gutter-color: color-mix(in srgb, var(--codex-panel-color-warning) 72%, transparent);
 }
 
@@ -91,8 +90,7 @@
   --codex-panel-threads-gutter-color: var(--codex-panel-border-muted-color);
 }
 
-.codex-panel-threads__row--needs-input::before,
-.codex-panel-threads__row--approval::before,
+.codex-panel-threads__row--pending::before,
 .codex-panel-threads__row--running::before,
 .codex-panel-threads__row--draft::before,
 .codex-panel-threads__row--offline::before,

@@ -218,10 +218,6 @@ export function mcpElicitationDraftKey(requestId: PendingRequestId, fieldId: str
   return pendingRequestDerivedKey(requestId, `mcp:${fieldId}`);
 }
 
-export function approvalDetailsDisclosureId(requestId: PendingRequestId): string {
-  return pendingRequestDerivedKey(requestId, "details");
-}
-
 export function pendingRequestDerivedKeyPrefix(requestId: PendingRequestId): string {
   return `${String(requestId)}:`;
 }

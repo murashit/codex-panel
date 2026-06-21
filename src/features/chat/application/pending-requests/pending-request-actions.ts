@@ -1,7 +1,6 @@
 import type { ChatStateStore } from "../state/store";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import {
-  approvalDetailsDisclosureId,
   answersForPendingUserInput,
   type ApprovalAction,
   type McpElicitationAction,
@@ -9,6 +8,7 @@ import {
   type PendingMcpElicitation,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
+import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
 import type { PendingRequestBlockActions, PendingRequestBlockState, PendingRequestId } from "./block";
 import type { ChatState } from "../state/root-reducer";
 

@@ -1,5 +1,6 @@
 import type { Thread } from "../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
+import { hasPendingRequests, pendingRequestCounts } from "../../domain/pending-requests/aggregate";
 import { threadRowCoreProjection, type ThreadRowCoreProjection } from "../threads/row-projection";
 import {
   initialThreadRenameLifecycleState,
@@ -10,13 +11,10 @@ import {
   type ThreadRenameLifecycleState as SharedThreadRenameLifecycleState,
 } from "../threads/rename-lifecycle";
 
-type ThreadsLiveStatus = "needs-input" | "approval" | "running" | "draft" | "offline" | "open";
+type ThreadsLiveStatus = "pending" | "running" | "draft" | "offline" | "open";
 
 interface ThreadsLiveState {
   status: ThreadsLiveStatus;
-  label: string;
-  viewId: string;
-  openPanels: number;
 }
 
 export interface ThreadsRowModel extends ThreadRowCoreProjection {
@@ -35,8 +33,7 @@ export type ThreadsRenameLifecycleEvent =
   | { type: "auto-name-finished"; generatingState: ThreadsGeneratingRenameState };
 
 const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
-  "needs-input": 5,
-  approval: 4,
+  pending: 4,
   running: 3,
   draft: 2,
   offline: 1,
@@ -79,9 +76,6 @@ function liveStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): ThreadsLive
   const status = snapshotStatus(winner);
   return {
     status,
-    label: statusLabel(status),
-    viewId: winner.viewId,
-    openPanels: liveSnapshots.length,
   };
 }
 
@@ -131,27 +125,9 @@ function snapshotsForThreads(snapshots: OpenCodexPanelSnapshot[]): Map<string, O
 }
 
 function snapshotStatus(snapshot: OpenCodexPanelSnapshot): ThreadsLiveStatus {
-  if (snapshot.pendingUserInputs > 0 || snapshot.pendingMcpElicitations > 0) return "needs-input";
-  if (snapshot.pendingApprovals > 0) return "approval";
+  if (hasPendingRequests(pendingRequestCounts(snapshot))) return "pending";
   if (snapshot.turnLifecycle.kind !== "idle") return "running";
   if (snapshot.hasComposerDraft) return "draft";
   if (!snapshot.connected) return "offline";
   return "open";
-}
-
-function statusLabel(status: ThreadsLiveStatus): string {
-  switch (status) {
-    case "needs-input":
-      return "Needs input";
-    case "approval":
-      return "Approval";
-    case "running":
-      return "Running";
-    case "draft":
-      return "Draft";
-    case "offline":
-      return "Offline";
-    case "open":
-      return "Open";
-  }
 }

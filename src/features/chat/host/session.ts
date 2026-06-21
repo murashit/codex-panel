@@ -7,6 +7,7 @@ import { createChatViewDeferredTasks } from "./lifecycle";
 import { ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../application/lifecycle";
 import { openPanelTurnLifecycle, parseRestoredThreadState, type ChatPanelSnapshot } from "../panel/snapshot";
 import type { ChatState } from "../application/state/root-reducer";
+import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell";
 import { createChatStateStore, type ChatStateStore } from "../application/state/store";
 import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll";
@@ -89,13 +90,14 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   openPanelSnapshot(): ChatPanelSnapshot {
+    const pendingRequests = pendingRequestCountsFromQueues(this.state.requests);
     return {
       viewId: this.environment.obsidian.viewId,
       threadId: this.closing ? null : this.state.activeThread.id,
       turnLifecycle: openPanelTurnLifecycle(this.state.turn.lifecycle),
-      pendingApprovals: this.state.requests.approvals.length,
-      pendingUserInputs: this.state.requests.pendingUserInputs.length,
-      pendingMcpElicitations: this.state.requests.pendingMcpElicitations.length,
+      pendingApprovals: pendingRequests.approvals,
+      pendingUserInputs: pendingRequests.userInputs,
+      pendingMcpElicitations: pendingRequests.mcpElicitations,
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
       connected: this.graph.connection.manager.isConnected(),
     };

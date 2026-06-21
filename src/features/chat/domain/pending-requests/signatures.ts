@@ -1,4 +1,5 @@
 import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../domain/pending-requests/model";
+import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../../domain/pending-requests/aggregate";
 
 export function pendingRequestsSignature(
   approvals: readonly PendingApproval[],
@@ -7,7 +8,11 @@ export function pendingRequestsSignature(
   drafts: ReadonlyMap<string, string>,
   mcpDrafts: ReadonlyMap<string, string>,
 ): string {
-  if (approvals.length === 0 && inputs.length === 0 && mcpElicitations.length === 0) return "";
+  if (
+    !hasPendingRequests(pendingRequestCountsFromQueues({ approvals, pendingUserInputs: inputs, pendingMcpElicitations: mcpElicitations }))
+  ) {
+    return "";
+  }
   return JSON.stringify({
     approvals: approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),
     inputs: inputs.map((input) => ({
@@ -44,7 +49,11 @@ export function pendingRequestFocusSignature(
   inputs: readonly PendingUserInput[],
   mcpElicitations: readonly PendingMcpElicitation[],
 ): string {
-  if (approvals.length === 0 && inputs.length === 0 && mcpElicitations.length === 0) return "";
+  if (
+    !hasPendingRequests(pendingRequestCountsFromQueues({ approvals, pendingUserInputs: inputs, pendingMcpElicitations: mcpElicitations }))
+  ) {
+    return "";
+  }
   return JSON.stringify({
     approvals: approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),
     inputs: inputs.map((input) => ({ id: input.requestId, method: input.method })),

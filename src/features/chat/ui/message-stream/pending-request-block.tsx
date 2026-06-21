@@ -1,7 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { approvalDetailsDisclosureId } from "../../../../domain/pending-requests/model";
+import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../../domain/pending-requests/aggregate";
+import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
 import {
   type PendingApprovalViewModel,
   type PendingMcpElicitationFieldViewModel,
@@ -70,7 +71,7 @@ function PendingRequestBlock({
     if (!shouldFocus) return;
     focusPendingRequestControl(requestRef.current);
   }, [autoFocusRequested, consumeAutoFocus, autoFocusSignature]);
-  if (approvals.length === 0 && pendingUserInputs.length === 0 && pendingMcpElicitations.length === 0) return null;
+  if (!hasPendingRequests(pendingRequestCountsFromQueues({ approvals, pendingUserInputs, pendingMcpElicitations }))) return null;
   return (
     <div ref={requestRef} className={createStatusMessageClassName("codex-panel__pending-request-block", "warning")}>
       <div className="codex-panel__message-role">Request</div>

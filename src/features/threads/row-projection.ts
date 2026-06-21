@@ -14,7 +14,6 @@ interface ThreadRowCoreArchiveConfirmProjection {
 }
 
 export interface ThreadRowCoreProjection {
-  readonly thread: Thread;
   readonly threadId: string;
   readonly title: string;
   readonly selected: boolean;
@@ -31,7 +30,6 @@ export function threadRowCoreProjection(input: {
 }): ThreadRowCoreProjection {
   const rename = input.renameState;
   return {
-    thread: input.thread,
     threadId: input.thread.id,
     title: threadDisplayTitle(input.thread),
     selected: input.selected,

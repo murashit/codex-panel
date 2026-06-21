@@ -79,10 +79,10 @@ describe("threads view rename state", () => {
     expect(threadRows([thread({ name: null, preview: "" })], [], new Map())[0]?.rename.draft).toBe("");
   });
 
-  it("treats pending MCP elicitations as user input live state", () => {
+  it("treats pending MCP elicitations as pending live state", () => {
     const rows = threadRows([thread()], [openPanelSnapshot({ pendingMcpElicitations: 1 })], new Map());
 
-    expect(rows[0]?.live).toMatchObject({ status: "needs-input", label: "Needs input" });
+    expect(rows[0]?.live).toMatchObject({ status: "pending" });
   });
 });
 
