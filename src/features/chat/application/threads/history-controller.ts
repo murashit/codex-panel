@@ -8,7 +8,6 @@ export interface HistoryControllerHost {
   stateStore: ChatStateStore;
   currentClient: () => AppServerClient | null;
   addSystemMessage: (text: string) => void;
-  keepCurrentScrollPosition: () => void;
   showLatestPageAtBottom: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
   readHistoryPage?: (client: AppServerClient, threadId: string, cursor: string | null, limit: number) => Promise<ChatThreadHistoryPage>;
@@ -81,7 +80,6 @@ export class HistoryController {
       const currentItems = messageStreamItems(current.messageStream);
       const olderItems = response.items;
       const existingIds = new Set(currentItems.map((item) => item.id));
-      this.host.keepCurrentScrollPosition();
       this.dispatch({
         type: "message-stream/items-replaced",
         items: [...olderItems.filter((item) => !existingIds.has(item.id)), ...currentItems],

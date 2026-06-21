@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
-import { type MessageStreamScrollIntent, type MessageStreamVirtualizerHandle, useMessageStreamVirtualizer } from "./virtualizer";
+import { type MessageStreamScrollControllerBinding, useMessageStreamVirtualizer } from "./virtualizer";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { MessageStreamBlock } from "./context";
 
@@ -10,8 +10,7 @@ const MESSAGE_STREAM_INITIAL_RENDER_LIMIT = 32;
 
 export interface MessageStreamViewportState {
   blocks: MessageStreamBlock[];
-  consumeScrollIntent: () => MessageStreamScrollIntent;
-  registerVirtualizer?: (virtualizer: MessageStreamVirtualizerHandle) => () => void;
+  scrollController: MessageStreamScrollControllerBinding;
 }
 
 export interface MessageStreamViewportProps {
@@ -20,9 +19,9 @@ export interface MessageStreamViewportProps {
 }
 
 export function MessageStreamViewport({ state, rootAttributes }: MessageStreamViewportProps): UiNode {
-  const { blocks, consumeScrollIntent, registerVirtualizer } = state;
+  const { blocks, scrollController } = state;
   const scrollElementRef = useRef<HTMLDivElement | null>(null);
-  const virtualizer = useMessageStreamVirtualizer({ blocks, consumeScrollIntent, registerVirtualizer, scrollElementRef });
+  const virtualizer = useMessageStreamVirtualizer({ blocks, scrollController, scrollElementRef });
   const virtualItems = messageStreamVirtualItems(virtualizer.getVirtualItems(), blocks, scrollElementRef.current?.scrollTop ?? 0);
   const measureBlock = useCallback(
     (element: HTMLElement | null) => {

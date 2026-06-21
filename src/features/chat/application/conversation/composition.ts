@@ -46,7 +46,7 @@ export interface ConversationTurnActionsContext {
     setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
   };
   scroll: {
-    followBottom: () => void;
+    showLatest: () => void;
   };
 }
 

@@ -11,6 +11,7 @@ import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/s
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
+import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/virtualizer";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -97,7 +98,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActio
     messageStream: {
       renderState: () => ({
         blocks: [],
-        consumeScrollIntent: () => "auto",
+        scrollController: noOpMessageStreamScrollController,
       }),
     },
     composer: {
@@ -182,6 +183,10 @@ function surfaceFixture(
     },
   };
 }
+
+const noOpMessageStreamScrollController: MessageStreamScrollControllerBinding = {
+  mountScrollPort: () => () => undefined,
+};
 
 function threadFixture(id: string, name: string): Thread {
   return {

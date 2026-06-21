@@ -4,7 +4,7 @@ import type { App, Component } from "obsidian";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
-import type { MessageStreamScrollIntent, MessageStreamVirtualizerHandle } from "../../ui/message-stream/virtualizer";
+import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/virtualizer";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
 import { renderStreamMarkdown } from "../../ui/message-stream/stream-markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
@@ -58,8 +58,7 @@ interface MessageStreamPresenterWorkspaceContext {
 }
 
 interface MessageStreamPresenterScrollContext {
-  consumeIntent: () => MessageStreamScrollIntent;
-  registerVirtualizer: (virtualizer: MessageStreamVirtualizerHandle) => () => void;
+  controller: MessageStreamScrollControllerBinding;
   dispose: () => void;
 }
 
@@ -101,8 +100,7 @@ export class MessageStreamPresenter {
 
     return {
       blocks: messageStreamBlocks(projection.blocks, projection.context),
-      consumeScrollIntent: this.options.scroll.consumeIntent,
-      registerVirtualizer: this.options.scroll.registerVirtualizer,
+      scrollController: this.options.scroll.controller,
     };
   }
 

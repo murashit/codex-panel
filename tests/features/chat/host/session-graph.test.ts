@@ -8,7 +8,7 @@ import { ChatResumeWorkTracker } from "../../../../src/features/chat/application
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
-import { createChatMessageScrollIntentState } from "../../../../src/features/chat/panel/surface/message-stream-scroll";
+import { createChatMessageScrollController } from "../../../../src/features/chat/panel/surface/message-stream-scroll";
 import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
@@ -222,7 +222,7 @@ describe("createChatPanelSessionGraph actions", () => {
       deferredTasks: createChatViewDeferredTasks(() => window),
       resumeWork,
       connectionWork: new ConnectionWorkTracker(),
-      messageScrollIntent: createChatMessageScrollIntentState(),
+      messageScrollController: createChatMessageScrollController(),
       getOpened: () => true,
       getClosing: () => false,
       viewWindow: () => window,

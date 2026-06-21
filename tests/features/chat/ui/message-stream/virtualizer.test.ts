@@ -6,7 +6,9 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 import { act } from "preact/test-utils";
 
 import {
-  type MessageStreamVirtualizerHandle,
+  type MessageStreamScrollCommand,
+  type MessageStreamScrollControllerBinding,
+  type MessageStreamScrollPort,
   type MessageStreamVirtualizerView,
   useMessageStreamVirtualizer,
 } from "../../../../../src/features/chat/ui/message-stream/virtualizer";
@@ -15,6 +17,8 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-roo
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();
+
+type TestMessageStreamScrollRequest = "auto" | "show-latest";
 
 describe("TestMessageStreamVirtualizer", () => {
   afterEach(() => {
@@ -25,7 +29,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first"], [180], "follow-bottom");
+    renderVirtualItems(controller, container, ["first"], [180], "show-latest");
     expect(container.scrollTop).toBe(80);
 
     renderVirtualItems(controller, container, ["first", "second"], [180, 220], "auto");
@@ -40,7 +44,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const blocks = [{ key: "first", node: null }];
     container.dataset["testTotalSize"] = "180";
 
-    controller.render(blocks, "follow-bottom");
+    controller.render(blocks, "show-latest");
     expect(container.scrollTop).toBe(80);
 
     measureVirtualItem(controller, "first", 0, 180);
@@ -59,7 +63,7 @@ describe("TestMessageStreamVirtualizer", () => {
       container.dataset["testScrollHeight"] = "100";
       container.dataset["testClampToScrollHeight"] = "true";
 
-      controller.render(blocks, "follow-bottom");
+      controller.render(blocks, "show-latest");
       expect(container.scrollTop).toBe(0);
 
       flushFrames();
@@ -82,7 +86,7 @@ describe("TestMessageStreamVirtualizer", () => {
       container.dataset["testScrollHeight"] = "100";
       container.dataset["testClampToScrollHeight"] = "true";
 
-      controller.render(blocks, "follow-bottom");
+      controller.render(blocks, "show-latest");
       expect(container.scrollTop).toBe(0);
 
       flushFrames();
@@ -104,7 +108,7 @@ describe("TestMessageStreamVirtualizer", () => {
     container.style.paddingLeft = "12px";
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first"], [180], "force-bottom");
+    renderVirtualItems(controller, container, ["first"], [180], "show-latest");
 
     expect(controller.getTotalSize()).toBe(204);
     expect(container.scrollTop).toBe(104);
@@ -115,7 +119,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first"], [300], "force-bottom");
+    renderVirtualItems(controller, container, ["first"], [300], "show-latest");
     expect(container.scrollTop).toBe(200);
 
     userScrollTo(container, 80);
@@ -130,7 +134,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "second"], [300, 180], "force-bottom");
+    renderVirtualItems(controller, container, ["first", "second"], [300, 180], "show-latest");
     expect(container.scrollTop).toBe(380);
 
     userScrollTo(container, 80);
@@ -147,7 +151,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "submitted"], [300, 100], "follow-bottom");
+    renderVirtualItems(controller, container, ["first", "submitted"], [300, 100], "show-latest");
     expect(container.scrollTop).toBe(300);
 
     container.dataset["testScrollHeight"] = "420";
@@ -164,7 +168,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first"], [300], "follow-bottom");
+    renderVirtualItems(controller, container, ["first"], [300], "show-latest");
     expect(container.scrollTop).toBe(200);
 
     container.dataset["testTotalSize"] = "450";
@@ -180,7 +184,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "command"], [200, 100], "follow-bottom");
+    renderVirtualItems(controller, container, ["first", "command"], [200, 100], "show-latest");
     expect(container.scrollTop).toBe(200);
 
     container.dataset["testTotalSize"] = "450";
@@ -195,7 +199,7 @@ describe("TestMessageStreamVirtualizer", () => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
 
-      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "follow-bottom");
+      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "show-latest");
       flushFrames();
       flushFrames();
       expect(container.scrollTop).toBe(200);
@@ -223,7 +227,7 @@ describe("TestMessageStreamVirtualizer", () => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
 
-      renderVirtualItems(controller, container, ["first", "markdown"], [200, 100], "follow-bottom");
+      renderVirtualItems(controller, container, ["first", "markdown"], [200, 100], "show-latest");
       flushFrames();
       flushFrames();
       expect(container.scrollTop).toBe(200);
@@ -248,7 +252,7 @@ describe("TestMessageStreamVirtualizer", () => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
 
-      renderVirtualItems(controller, container, ["first", "markdown", "live"], [160, 100, 80], "follow-bottom");
+      renderVirtualItems(controller, container, ["first", "markdown", "live"], [160, 100, 80], "show-latest");
       flushFrames();
       flushFrames();
       expect(container.scrollTop).toBe(240);
@@ -268,7 +272,7 @@ describe("TestMessageStreamVirtualizer", () => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
 
-      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "follow-bottom");
+      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "show-latest");
       flushFrames();
       flushFrames();
       expect(container.scrollTop).toBe(200);
@@ -293,7 +297,7 @@ describe("TestMessageStreamVirtualizer", () => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
 
-      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "follow-bottom");
+      renderVirtualItems(controller, container, ["first", "command"], [200, 100], "show-latest");
       flushFrames();
       flushFrames();
       expect(container.scrollTop).toBe(200);
@@ -327,7 +331,7 @@ describe("TestMessageStreamVirtualizer", () => {
           { key: "first", node: null },
           { key: "command", node: null },
         ],
-        "follow-bottom",
+        "show-latest",
       );
       controller.getTotalSize();
       measureVirtualItem(controller, "first", 0, 200);
@@ -367,7 +371,7 @@ describe("TestMessageStreamVirtualizer", () => {
           { key: "first", node: null },
           { key: "command", node: null },
         ],
-        "follow-bottom",
+        "show-latest",
       );
       controller.getTotalSize();
       measureVirtualItem(controller, "first", 0, 200);
@@ -398,7 +402,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 160 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "second"], [200, 200], "follow-bottom");
+    renderVirtualItems(controller, container, ["first", "second"], [200, 200], "show-latest");
     expect(container.scrollTop).toBe(240);
 
     container.dataset["testTotalSize"] = "480";
@@ -414,7 +418,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "streaming"], [300, 100], "preserve");
+    renderVirtualItems(controller, container, ["first", "streaming"], [300, 100], "auto");
     container.scrollTop = 100;
     container.dispatchEvent(new Event("scroll"));
 
@@ -425,13 +429,41 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
+  it("preserves the visible anchor when older history is prepended", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["first", "second", "third"], [240, 240, 240], "show-latest");
+    userScrollTo(container, 260);
+    const anchorKey = firstVisibleVirtualItemKey(controller, container, ["first", "second", "third"]);
+    const anchorBefore = virtualItemTop(controller, container, anchorKey);
+
+    renderVirtualItems(controller, container, ["older", "first", "second", "third"], [180, 240, 240, 240], "auto");
+
+    expect(virtualItemTop(controller, container, anchorKey)).toBe(anchorBefore);
+    controller.dispose();
+  });
+
+  it("preserves the visible anchor when older history is inserted after the history bar", () => {
+    const container = messageContainer({ scrollTop: 80, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["history-bar", "current", "next"], [40, 300, 300], "auto");
+    const anchorBefore = virtualItemTop(controller, container, "current");
+
+    renderVirtualItems(controller, container, ["history-bar", "older", "current", "next"], [40, 180, 300, 300], "auto");
+
+    expect(virtualItemTop(controller, container, "current")).toBe(anchorBefore);
+    controller.dispose();
+  });
+
   it("keeps the visible reading anchor when an earlier item resizes while unpinned", () => {
     withResizeObserverEntries((resizeElement, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
       const first = measuredElement("first", 0, 300);
 
-      renderVirtualItems(controller, container, ["first", "second", "third"], [300, 300, 300], "preserve");
+      renderVirtualItems(controller, container, ["first", "second", "third"], [300, 300, 300], "auto");
       controller.measureElement(first);
       userScrollTo(container, 360);
 
@@ -450,7 +482,7 @@ describe("TestMessageStreamVirtualizer", () => {
       const controller = createMessageStreamVirtualizerDriver(container);
       const second = measuredElement("second", 1, 300);
 
-      renderVirtualItems(controller, container, ["first", "second", "third"], [300, 300, 300], "preserve");
+      renderVirtualItems(controller, container, ["first", "second", "third"], [300, 300, 300], "auto");
       controller.measureElement(second);
       userScrollTo(container, 360);
 
@@ -463,13 +495,32 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
+  it("keeps refreshing the reading anchor during continuous user scrolling", () => {
+    const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
+    const controller = createMessageStreamVirtualizerDriver(container);
+
+    renderVirtualItems(controller, container, ["first", "second", "third"], [300, 300, 300], "auto");
+    container.dispatchEvent(new Event("wheel"));
+    container.scrollTop = 320;
+    container.dispatchEvent(new Event("scroll"));
+    container.scrollTop = 380;
+    container.dispatchEvent(new Event("scroll"));
+    const anchorBefore = virtualItemTop(controller, container, "second");
+
+    container.dataset["testTotalSize"] = "1000";
+    measureVirtualItem(controller, "first", 0, 400);
+
+    expect(virtualItemTop(controller, container, "second")).toBe(anchorBefore);
+    controller.dispose();
+  });
+
   it("clamps stale unpinned offsets when a visible item shrinks near the end", () => {
     withResizeObserverEntries((resizeElement, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
       const details = measuredElement("details", 1, 500);
 
-      renderVirtualItems(controller, container, ["first", "details", "last"], [300, 500, 270], "force-bottom");
+      renderVirtualItems(controller, container, ["first", "details", "last"], [300, 500, 270], "show-latest");
       controller.measureElement(details);
       userScrollTo(container, 720);
 
@@ -489,7 +540,7 @@ describe("TestMessageStreamVirtualizer", () => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 160 });
       const controller = createMessageStreamVirtualizerDriver(container);
 
-      renderVirtualItems(controller, container, ["first", "second"], [240, 260], "force-bottom");
+      renderVirtualItems(controller, container, ["first", "second"], [240, 260], "show-latest");
       expect(container.scrollTop).toBe(340);
 
       userScrollTo(container, 120);
@@ -514,7 +565,7 @@ describe("TestMessageStreamVirtualizer", () => {
         renderedMeasuredElement("stale-sibling", 1, 900),
       );
 
-      renderVirtualItems(controller, container, ["first", "second"], [300, 100], "follow-bottom");
+      renderVirtualItems(controller, container, ["first", "second"], [300, 100], "show-latest");
       expect(container.scrollTop).toBe(300);
 
       userScrollTo(container, 120);
@@ -537,7 +588,7 @@ describe("TestMessageStreamVirtualizer", () => {
       appendRenderedVirtualizer(container, renderedMeasuredElement("first", 0, 300), renderedMeasuredElement("second", 1, 100));
       setContainerClientSize(container, { width: 0, height: 0 });
 
-      renderVirtualItems(controller, container, ["first", "second"], [300, 100], "preserve");
+      renderVirtualItems(controller, container, ["first", "second"], [300, 100], "auto");
 
       setContainerClientSize(container, { width: 240, height: 100 });
       controller.render(
@@ -545,7 +596,7 @@ describe("TestMessageStreamVirtualizer", () => {
           { key: "first", node: null },
           { key: "second", node: null },
         ],
-        "preserve",
+        "auto",
       );
       flushFrames();
 
@@ -560,7 +611,7 @@ describe("TestMessageStreamVirtualizer", () => {
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "second"], [240, 240], "preserve");
+    renderVirtualItems(controller, container, ["first", "second"], [240, 240], "auto");
     container.scrollTop = 120;
     container.dispatchEvent(new Event("scroll"));
 
@@ -579,7 +630,7 @@ describe("TestMessageStreamVirtualizer", () => {
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first"], [300], "force-bottom");
+    renderVirtualItems(controller, container, ["first"], [300], "show-latest");
     expect(container.scrollTop).toBe(200);
 
     controller.scrollByTextLines(1);
@@ -595,7 +646,7 @@ describe("TestMessageStreamVirtualizer", () => {
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first"], [300], "force-bottom");
+    renderVirtualItems(controller, container, ["first"], [300], "show-latest");
     userScrollTo(container, 180);
 
     controller.scrollByTextLines(1);
@@ -603,6 +654,7 @@ describe("TestMessageStreamVirtualizer", () => {
 
     container.dataset["testTotalSize"] = "340";
     controller.repinToBottomIfPinned();
+    flushVirtualizerEffects();
     expect(container.scrollTop).toBe(240);
     controller.dispose();
   });
@@ -616,7 +668,7 @@ describe("TestMessageStreamVirtualizer", () => {
     container.dataset["testTotalSize"] = "480";
     controller.render(
       keys.map((key) => ({ key, node: null })),
-      "force-bottom",
+      "show-latest",
     );
     controller.getTotalSize();
     keys.forEach((key, index) => {
@@ -637,7 +689,7 @@ describe("TestMessageStreamVirtualizer", () => {
     container.style.lineHeight = "18px";
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "second", "third"], [240, 240, 240], "force-bottom");
+    renderVirtualItems(controller, container, ["first", "second", "third"], [240, 240, 240], "show-latest");
     expect(container.scrollTop).toBe(620);
 
     controller.scrollByTextLines(-1);
@@ -657,7 +709,7 @@ describe("TestMessageStreamVirtualizer", () => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
 
-      renderVirtualItems(controller, container, ["first", "second"], [300, 200], "force-bottom");
+      renderVirtualItems(controller, container, ["first", "second"], [300, 200], "show-latest");
       expect(container.scrollTop).toBe(400);
 
       document.body.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowUp" }));
@@ -675,7 +727,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 220, clientHeight: 200 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first", "second", "third"], [240, 240, 240], "preserve");
+    renderVirtualItems(controller, container, ["first", "second", "third"], [240, 240, 240], "auto");
     container.scrollTop = 220;
     container.dispatchEvent(new Event("scroll"));
 
@@ -703,7 +755,7 @@ describe("TestMessageStreamVirtualizer", () => {
 
     controller.render(
       keys.map((key) => ({ key, node: null })),
-      "force-bottom",
+      "show-latest",
     );
     expect(container.scrollTop).toBe(4700);
 
@@ -732,7 +784,7 @@ describe("TestMessageStreamVirtualizer", () => {
 
     controller.render(
       keys.map((key) => ({ key, node: null })),
-      "force-bottom",
+      "show-latest",
     );
     userScrollTo(container, 4660);
 
@@ -754,15 +806,15 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("drops stale same-key measurements when force-bottom replaces the message stream", () => {
+  it("drops stale same-key measurements when show-latest replaces the message stream", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["same-key"], [360], "force-bottom");
+    renderVirtualItems(controller, container, ["same-key"], [360], "show-latest");
     expect(controller.getTotalSize()).toBe(360);
     expect(container.scrollTop).toBe(260);
 
-    renderVirtualItems(controller, container, ["same-key"], [120], "force-bottom");
+    renderVirtualItems(controller, container, ["same-key"], [120], "show-latest");
 
     expect(controller.getTotalSize()).toBe(120);
     expect(container.scrollTop).toBe(20);
@@ -773,10 +825,10 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["same-key"], [360], "force-bottom");
+    renderVirtualItems(controller, container, ["same-key"], [360], "show-latest");
     userScrollTo(container, 140);
 
-    renderVirtualItems(controller, container, ["same-key"], [360], "preserve");
+    renderVirtualItems(controller, container, ["same-key"], [360], "auto");
 
     expect(controller.getTotalSize()).toBe(360);
     expect(container.scrollTop).toBe(140);
@@ -787,7 +839,7 @@ describe("TestMessageStreamVirtualizer", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
-    renderVirtualItems(controller, container, ["first"], [240], "follow-bottom");
+    renderVirtualItems(controller, container, ["first"], [240], "show-latest");
 
     renderVirtualItems(controller, container, ["first", "second"], [240, 160], "auto");
 
@@ -796,7 +848,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("renders the new message stream from the end after force-bottom replaces a long reading position", () => {
+  it("renders the new message stream from the end after show-latest replaces a long reading position", () => {
     const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
     const controller = createMessageStreamVirtualizerDriver(container);
 
@@ -805,13 +857,13 @@ describe("TestMessageStreamVirtualizer", () => {
       container,
       numberedKeys("old", 80),
       Array.from({ length: 80 }, () => 40),
-      "force-bottom",
+      "show-latest",
     );
     userScrollTo(container, 2400);
 
     controller.render(
       numberedKeys("new", 8).map((key) => ({ key, node: null })),
-      "force-bottom",
+      "show-latest",
     );
 
     expect(controller.getVirtualItems().map((item) => item.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
@@ -824,7 +876,7 @@ function renderVirtualItems(
   container: HTMLElement,
   keys: string[],
   heights: number[],
-  intent: "auto" | "force-bottom" | "follow-bottom" | "preserve",
+  intent: TestMessageStreamScrollRequest,
 ): void {
   const blocks = keys.map((key) => ({ key, node: null }));
   container.dataset["testTotalSize"] = String(heights.reduce((total, height) => total + height, 0) + messageBlockPadding(container) * 2);
@@ -886,11 +938,15 @@ function appendRenderedVirtualizer(container: HTMLElement, ...blocks: HTMLElemen
   container.append(virtualizer);
 }
 
-interface MessageStreamVirtualizerDriver extends MessageStreamVirtualizerHandle {
-  render(blocks: readonly MessageStreamBlock[], intent: "auto" | "force-bottom" | "follow-bottom" | "preserve"): void;
+interface MessageStreamVirtualizerDriver {
+  render(blocks: readonly MessageStreamBlock[], intent: TestMessageStreamScrollRequest): void;
   getTotalSize(): number;
   getVirtualItems(): ReturnType<MessageStreamVirtualizerView["getVirtualItems"]>;
   measureElement(element: HTMLElement | null): void;
+  scrollByTextLines(direction: -1 | 1): void;
+  scrollByPage(direction: -1 | 1): void;
+  pinToBottom(): void;
+  repinToBottomIfPinned(): void;
   dispose(): void;
 }
 
@@ -898,9 +954,12 @@ function createMessageStreamVirtualizerDriver(container: HTMLElement): MessageSt
   const host = document.createElement("div");
   document.body.appendChild(host);
   let view: MessageStreamVirtualizerView | null = null;
-  let handle: MessageStreamVirtualizerHandle | null = null;
+  let mounted = false;
+  const scrollController = createTestMessageStreamScrollController();
   return {
     render(blocks, intent) {
+      const dispatchBeforeRender = mounted;
+      if (dispatchBeforeRender) dispatchRenderIntent(scrollController, intent);
       const renderBlocks = [...blocks];
       void act(() => {
         renderUiRoot(
@@ -908,12 +967,19 @@ function createMessageStreamVirtualizerDriver(container: HTMLElement): MessageSt
           h(VirtualizerHarness, {
             blocks: renderBlocks,
             container,
-            intent,
-            onHandle: (next) => (handle = next),
+            scrollController,
             onView: (next) => (view = next),
           }),
         );
       });
+      flushVirtualizerEffects();
+      mounted = true;
+      if (!dispatchBeforeRender) {
+        void act(() => {
+          if (intent === "show-latest") dispatchRenderIntent(scrollController, intent);
+        });
+        flushVirtualizerEffects();
+      }
     },
     getTotalSize() {
       return view?.getTotalSize() ?? 0;
@@ -922,19 +988,22 @@ function createMessageStreamVirtualizerDriver(container: HTMLElement): MessageSt
       return view?.getVirtualItems() ?? [];
     },
     measureElement(element) {
-      view?.measureElement(element);
+      void act(() => {
+        view?.measureElement(element);
+      });
+      flushVirtualizerEffects();
     },
     scrollByTextLines(direction) {
-      handle?.scrollByTextLines(direction);
+      dispatchVirtualizerScrollCommand(scrollController, { kind: "scroll-by", amount: "text-lines", direction });
     },
     scrollByPage(direction) {
-      handle?.scrollByPage(direction);
+      dispatchVirtualizerScrollCommand(scrollController, { kind: "scroll-by", amount: "page", direction });
     },
     pinToBottom() {
-      handle?.pinToBottom();
+      dispatchVirtualizerScrollCommand(scrollController, { kind: "show-latest" });
     },
     repinToBottomIfPinned() {
-      handle?.repinToBottomIfPinned();
+      dispatchVirtualizerScrollCommand(scrollController, { kind: "show-latest" });
     },
     dispose() {
       unmountUiRoot(host);
@@ -943,32 +1012,56 @@ function createMessageStreamVirtualizerDriver(container: HTMLElement): MessageSt
   };
 }
 
+function flushVirtualizerEffects(): void {
+  void act(() => undefined);
+}
+
+function dispatchVirtualizerScrollCommand(scrollController: TestMessageStreamScrollController, command: MessageStreamScrollCommand): void {
+  void act(() => {
+    scrollController.dispatch(command);
+  });
+  flushVirtualizerEffects();
+}
+
+function dispatchRenderIntent(scrollController: TestMessageStreamScrollController, intent: TestMessageStreamScrollRequest): void {
+  if (intent === "show-latest") scrollController.dispatch({ kind: "show-latest" });
+}
+
+interface TestMessageStreamScrollController extends MessageStreamScrollControllerBinding {
+  dispatch(command: MessageStreamScrollCommand): void;
+}
+
+function createTestMessageStreamScrollController(): TestMessageStreamScrollController {
+  let port: MessageStreamScrollPort | null = null;
+  return {
+    mountScrollPort(nextPort) {
+      port = nextPort;
+      return () => {
+        if (port === nextPort) port = null;
+      };
+    },
+    dispatch(command) {
+      port?.dispatchScrollCommand(command);
+    },
+  };
+}
+
 function VirtualizerHarness({
   blocks,
   container,
-  intent,
-  onHandle,
+  scrollController,
   onView,
 }: {
   blocks: readonly MessageStreamBlock[];
   container: HTMLElement;
-  intent: "auto" | "force-bottom" | "follow-bottom" | "preserve";
-  onHandle: (handle: MessageStreamVirtualizerHandle | null) => void;
+  scrollController: MessageStreamScrollControllerBinding;
   onView: (view: MessageStreamVirtualizerView) => void;
 }) {
   const scrollElementRef = useRef<HTMLElement | null>(container);
-  const intentRef = useRef(intent);
-  intentRef.current = intent;
   const view = useMessageStreamVirtualizer({
     blocks,
     scrollElementRef,
-    consumeScrollIntent: () => intentRef.current,
-    registerVirtualizer: (handle) => {
-      onHandle(handle);
-      return () => {
-        onHandle(null);
-      };
-    },
+    scrollController,
   });
   useLayoutEffect(() => {
     onView(view);
@@ -1089,9 +1182,15 @@ function withResizeObserver(run: (triggerResize: () => void, flushFrames: () => 
   window.cancelAnimationFrame = (() => undefined) as typeof window.cancelAnimationFrame;
   try {
     const flushFrames = () => {
-      for (const callback of callbacks) callback([], {} as ResizeObserver);
+      void act(() => {
+        for (const callback of callbacks) callback([], {} as ResizeObserver);
+      });
+      flushVirtualizerEffects();
       const pending = frames.splice(0);
-      for (const frame of pending) frame(0);
+      void act(() => {
+        for (const frame of pending) frame(0);
+      });
+      flushVirtualizerEffects();
     };
     run(
       () => {
@@ -1100,7 +1199,10 @@ function withResizeObserver(run: (triggerResize: () => void, flushFrames: () => 
       },
       () => {
         const pending = frames.splice(0);
-        for (const frame of pending) frame(0);
+        void act(() => {
+          for (const frame of pending) frame(0);
+        });
+        flushVirtualizerEffects();
       },
     );
   } finally {
@@ -1127,7 +1229,10 @@ function withAnimationFrame(run: (flushFrames: () => void) => void): void {
   try {
     run(() => {
       const pending = frames.splice(0);
-      for (const frame of pending) frame.callback(0);
+      void act(() => {
+        for (const frame of pending) frame.callback(0);
+      });
+      flushVirtualizerEffects();
     });
   } finally {
     window.requestAnimationFrame = previousRequestAnimationFrame;
@@ -1182,11 +1287,17 @@ function withResizeObserverEntries(
           contentRect: element.getBoundingClientRect(),
           devicePixelContentBoxSize: [],
         } as unknown as ResizeObserverEntry;
-        for (const callback of callbacks) callback([entry], {} as ResizeObserver);
+        void act(() => {
+          for (const callback of callbacks) callback([entry], {} as ResizeObserver);
+        });
+        flushVirtualizerEffects();
       },
       () => {
         const pending = frames.splice(0);
-        for (const frame of pending) frame.callback(0);
+        void act(() => {
+          for (const frame of pending) frame.callback(0);
+        });
+        flushVirtualizerEffects();
       },
     );
   } finally {

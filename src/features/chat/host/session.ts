@@ -10,7 +10,7 @@ import type { ChatState } from "../application/state/root-reducer";
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell";
 import { createChatStateStore, type ChatStateStore } from "../application/state/store";
-import { createChatMessageScrollIntentState, type ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll";
+import { createChatMessageScrollController, type ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatSurfaceHandle } from "./surface-handle";
 import type { ChatPanelEnvironment } from "./runtime";
 import { createChatPanelSessionGraph, type ChatPanelSessionGraph } from "./session-graph";
@@ -22,7 +22,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly connectionWork = new ConnectionWorkTracker();
   private readonly resumeWork = new ChatResumeWorkTracker();
-  private readonly messageScrollIntent: ChatMessageScrollIntentState = createChatMessageScrollIntentState();
+  private readonly messageScrollController: ChatMessageScrollController = createChatMessageScrollController();
   private observedAppServerContext: AppServerQueryContext;
   private opened = false;
   private closing = false;
@@ -249,7 +249,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       deferredTasks: this.deferredTasks,
       resumeWork: this.resumeWork,
       connectionWork: this.connectionWork,
-      messageScrollIntent: this.messageScrollIntent,
+      messageScrollController: this.messageScrollController,
       getOpened: () => this.opened,
       getClosing: () => this.closing,
       viewWindow: () => this.viewWindow(),

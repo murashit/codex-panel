@@ -44,7 +44,7 @@ import { ChatComposerController } from "../panel/composer-controller";
 import { chatPanelComposerProjection, type ChatPanelComposerSurface } from "../panel/surface/composer-projection";
 import { createChatPanelGoalSurface, type ChatPanelGoalSurface } from "../panel/surface/goal-projection";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
-import { MessageStreamScrollBridge, type ChatMessageScrollIntentState } from "../panel/surface/message-stream-scroll";
+import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
 import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import type { ToolbarActions } from "../ui/toolbar";
@@ -134,7 +134,7 @@ interface ChatPanelSessionGraphHost {
   deferredTasks: ChatViewDeferredTasks;
   resumeWork: ChatResumeWorkTracker;
   connectionWork: ConnectionWorkTracker;
-  messageScrollIntent: ChatMessageScrollIntentState;
+  messageScrollController: ChatMessageScrollController;
   getOpened: () => boolean;
   getClosing: () => boolean;
   viewWindow: () => Window;
@@ -200,7 +200,6 @@ interface ChatPanelSurfacePresenterInput {
   history: HistoryController;
   pendingRequests: PendingRequestActions;
   turnActions: ChatPanelConversationTurnActions;
-  messageStreamScrollBridge: MessageStreamScrollBridge;
   startNewThread: () => Promise<void>;
 }
 
@@ -280,8 +279,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const { identity, restoration, resume } = threadLifecycle;
 
   const composerSurface = createSessionComposerSurface(threadLifecycle, runtimeSettings);
-  const messageStreamScrollBridge = new MessageStreamScrollBridge();
-  const composerController = createSessionComposerController(host, composerSurface, runtimeSettings, messageStreamScrollBridge);
+  const composerController = createSessionComposerController(host, composerSurface, runtimeSettings);
   const startNewThread = async (): Promise<void> => {
     if (chatTurnBusy(stateStore.getState())) return;
 
@@ -331,7 +329,6 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     history,
     pendingRequests: composerAndTurn.pendingRequests,
     turnActions: composerAndTurn.turnActions,
-    messageStreamScrollBridge,
     startNewThread,
   });
   const refreshSharedThreads = async (): Promise<void> => {
@@ -505,11 +502,8 @@ function createSessionHistoryController(
     stateStore: host.stateStore,
     currentClient,
     addSystemMessage: status.addSystemMessage,
-    keepCurrentScrollPosition: () => {
-      host.messageScrollIntent.preservePosition();
-    },
     showLatestPageAtBottom: () => {
-      host.messageScrollIntent.forceBottom();
+      host.messageScrollController.showLatest();
     },
     setThreadTurnPresence: (hadTurns) => {
       autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
@@ -693,7 +687,6 @@ function createSessionComposerController(
   host: ChatPanelSessionGraphHost,
   composerSurface: ChatPanelComposerSurface,
   runtimeSettings: ChatPanelRuntimeSettingsActions,
-  messageStreamScrollBridge: MessageStreamScrollBridge,
 ): ChatComposerController {
   const { environment, stateStore } = host;
   return new ChatComposerController({
@@ -712,7 +705,7 @@ function createSessionComposerController(
       return currentModel(runtimeSnapshotForChatState(current), runtimeConfigOrDefault(current.connection.runtimeConfig));
     },
     threadScrollFromComposer: (action) => {
-      messageStreamScrollBridge.scrollFromComposer(action);
+      host.messageScrollController.scrollFromComposer(action);
     },
     togglePlan: () => void runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void runtimeSettings.toggleAutoReview(),
@@ -720,9 +713,7 @@ function createSessionComposerController(
     onDraftChange: () => {
       refreshLiveState(host);
     },
-    onHeightChange: () => {
-      messageStreamScrollBridge.repinMessageStreamToBottomIfPinned();
-    },
+    onHeightChange: () => undefined,
   });
 }
 
@@ -873,8 +864,8 @@ function createComposerAndTurnActions(
         },
       },
       scroll: {
-        followBottom: () => {
-          host.messageScrollIntent.followBottom();
+        showLatest: () => {
+          host.messageScrollController.showLatest();
         },
       },
     },
@@ -910,7 +901,6 @@ function createSurfacesAndPresenter(
     history,
     pendingRequests,
     turnActions,
-    messageStreamScrollBridge,
     startNewThread,
   } = input;
   const { environment, stateStore } = host;
@@ -959,10 +949,9 @@ function createSurfacesAndPresenter(
       vaultPath: environment.plugin.settingsRef.vaultPath,
     },
     scroll: {
-      consumeIntent: () => host.messageScrollIntent.consumeIntent(),
-      registerVirtualizer: messageStreamScrollBridge.registerVirtualizer,
+      controller: host.messageScrollController,
       dispose: () => {
-        messageStreamScrollBridge.dispose();
+        host.messageScrollController.dispose();
       },
     },
     history: {

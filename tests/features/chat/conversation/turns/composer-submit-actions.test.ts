@@ -24,7 +24,7 @@ function createHost(draft: string) {
   const setDraft = vi.fn();
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const execute = vi.fn().mockResolvedValue(undefined);
-  const followBottom = vi.fn();
+  const showLatest = vi.fn();
   const connectedClient = vi.fn().mockResolvedValue(client);
   const host = {
     stateStore,
@@ -44,30 +44,30 @@ function createHost(draft: string) {
       setStatus: vi.fn(),
       addSystemMessage: vi.fn(),
     },
-    scroll: { followBottom },
+    scroll: { showLatest },
   };
-  return { host, connectedClient, execute, followBottom, interruptTurn, sendTurnText, setDraft, stateStore };
+  return { host, connectedClient, execute, interruptTurn, sendTurnText, setDraft, showLatest, stateStore };
 }
 
 describe("submitComposer", () => {
   it("sends plain drafts as turn text", async () => {
-    const { host, connectedClient, followBottom, sendTurnText } = createHost("hello");
+    const { host, connectedClient, sendTurnText, showLatest } = createHost("hello");
 
     await submitComposer(host);
 
-    expect(followBottom).toHaveBeenCalledOnce();
+    expect(showLatest).toHaveBeenCalledOnce();
     expect(connectedClient).not.toHaveBeenCalled();
     expect(sendTurnText).toHaveBeenCalledWith("hello");
-    const [followBottomOrder] = followBottom.mock.invocationCallOrder;
+    const [showLatestOrder] = showLatest.mock.invocationCallOrder;
     const [sendTurnTextOrder] = sendTurnText.mock.invocationCallOrder;
-    if (followBottomOrder === undefined || sendTurnTextOrder === undefined) {
-      throw new Error("Expected followBottom and sendTurnText to be called");
+    if (showLatestOrder === undefined || sendTurnTextOrder === undefined) {
+      throw new Error("Expected showLatest and sendTurnText to be called");
     }
-    expect(followBottomOrder).toBeLessThan(sendTurnTextOrder);
+    expect(showLatestOrder).toBeLessThan(sendTurnTextOrder);
   });
 
   it("executes slash commands and forwards command send results", async () => {
-    const { host, connectedClient, execute, followBottom, sendTurnText, setDraft } = createHost("/clear hello");
+    const { host, connectedClient, execute, sendTurnText, setDraft, showLatest } = createHost("/clear hello");
     execute.mockResolvedValue({ sendText: "hello" });
 
     await submitComposer(host);
@@ -75,12 +75,12 @@ describe("submitComposer", () => {
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(connectedClient).toHaveBeenCalledOnce();
     expect(execute).toHaveBeenCalledWith("clear", "hello");
-    expect(followBottom).toHaveBeenCalledOnce();
+    expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
   });
 
   it("restores slash command composer drafts from command results", async () => {
-    const { host, connectedClient, execute, followBottom, sendTurnText, setDraft } = createHost("/goal edit");
+    const { host, connectedClient, execute, sendTurnText, setDraft, showLatest } = createHost("/goal edit");
     execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });
 
     await submitComposer(host);
@@ -88,12 +88,12 @@ describe("submitComposer", () => {
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(connectedClient).toHaveBeenCalledOnce();
     expect(setDraft).toHaveBeenCalledWith("/goal set Current objective", { focus: true, clearSuggestions: true });
-    expect(followBottom).not.toHaveBeenCalled();
+    expect(showLatest).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
   });
 
   it("interrupts a running turn when submitting an empty draft", async () => {
-    const { host, followBottom, interruptTurn, stateStore } = createHost("");
+    const { host, interruptTurn, showLatest, stateStore } = createHost("");
     stateStore.dispatch({
       type: "active-thread/resumed",
       thread: thread("thread"),
@@ -109,7 +109,7 @@ describe("submitComposer", () => {
 
     await submitComposer(host);
 
-    expect(followBottom).not.toHaveBeenCalled();
+    expect(showLatest).not.toHaveBeenCalled();
     expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
   });
 });

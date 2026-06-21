@@ -17,6 +17,7 @@ import type { MessageStreamItem } from "../../../../../src/features/chat/domain/
 import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import type { MessageStreamTextActionTargets } from "../../../../../src/features/chat/presentation/message-stream/text-view";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
+import type { MessageStreamScrollControllerBinding } from "../../../../../src/features/chat/ui/message-stream/virtualizer";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(
@@ -153,12 +154,16 @@ export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: Mess
       <MessageStreamViewport
         state={{
           blocks,
-          consumeScrollIntent: () => "auto",
+          scrollController: noOpMessageStreamScrollController,
         }}
       />,
     );
   });
 }
+
+const noOpMessageStreamScrollController: MessageStreamScrollControllerBinding = {
+  mountScrollPort: () => () => undefined,
+};
 
 export function installMessageViewportMetrics(
   element: HTMLElement,

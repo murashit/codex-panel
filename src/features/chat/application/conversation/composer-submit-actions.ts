@@ -30,7 +30,7 @@ export interface ComposerSubmitActionsHost {
     addSystemMessage: (text: string) => void;
   };
   scroll: {
-    followBottom: () => void;
+    showLatest: () => void;
   };
 }
 
@@ -61,13 +61,13 @@ async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
       host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
     }
     if (result?.sendText) {
-      host.scroll.followBottom();
+      host.scroll.showLatest();
       await host.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
     }
     return;
   }
 
-  host.scroll.followBottom();
+  host.scroll.showLatest();
   await host.turnSubmission.sendTurnText(text);
 }
 

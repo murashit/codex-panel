@@ -75,7 +75,7 @@ describe("HistoryController", () => {
 
   it("loads older history without coupling message stream replacement to bottom pin state", async () => {
     const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older")], "next"));
-    const { loader, stateStore, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
+    const { loader, stateStore, dispatch, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
     stateStore.dispatch({ type: "message-stream/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
 
     await loader.loadOlder();
@@ -83,7 +83,6 @@ describe("HistoryController", () => {
     expect(readHistoryPage).toHaveBeenCalledWith(expect.anything(), "thread", "cursor", 20);
     expect(chatStateMessageStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "current"]);
     expect(stateStore.getState().messageStream.historyCursor).toBe("next");
-    expect(keepCurrentScrollPosition).toHaveBeenCalledOnce();
     expect(showLatestPageAtBottom).not.toHaveBeenCalled();
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "message-stream/items-replaced" }));
   });
@@ -97,18 +96,16 @@ function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<Hist
   const stateStore = createChatStateStore(state);
   const dispatch = vi.spyOn(stateStore, "dispatch");
   const addSystemMessage = vi.fn();
-  const keepCurrentScrollPosition = vi.fn();
   const showLatestPageAtBottom = vi.fn();
   const loader = new HistoryController({
     stateStore,
     currentClient: () => ({}) as AppServerClient,
     addSystemMessage,
-    keepCurrentScrollPosition,
     showLatestPageAtBottom,
     setThreadTurnPresence: vi.fn(),
     readHistoryPage: options.readHistoryPage,
   });
-  return { loader, stateStore, addSystemMessage, dispatch, keepCurrentScrollPosition, showLatestPageAtBottom };
+  return { loader, stateStore, addSystemMessage, dispatch, showLatestPageAtBottom };
 }
 
 function historyPage(items: MessageStreamItem[], nextCursor: string | null): ChatThreadHistoryPage {

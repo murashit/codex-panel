@@ -9,6 +9,7 @@ import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts }
 import type { ChatPanelComposerSurface } from "../../../../src/features/chat/panel/surface/composer-projection";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
+import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/virtualizer";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -207,7 +208,7 @@ function shellParts(): ChatPanelShellParts {
             node: <div className="test-message-count">{String(messageStreamItems(state.messageStream).length)}</div>,
           },
         ],
-        consumeScrollIntent: () => "auto" as const,
+        scrollController: noOpMessageStreamScrollController,
       }),
     },
     composer: {
@@ -299,6 +300,10 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): {
     },
   };
 }
+
+const noOpMessageStreamScrollController: MessageStreamScrollControllerBinding = {
+  mountScrollPort: () => () => undefined,
+};
 
 function toolbarActionsFixture(): ChatPanelShellParts["toolbar"]["actions"] {
   return {

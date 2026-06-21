@@ -15,7 +15,6 @@ describe("ThreadLifecycleParts", () => {
       stateStore,
       currentClient: () => null as AppServerClient | null,
       addSystemMessage: vi.fn(),
-      keepCurrentScrollPosition: vi.fn(),
       showLatestPageAtBottom: vi.fn(),
       setThreadTurnPresence: vi.fn(),
     });
