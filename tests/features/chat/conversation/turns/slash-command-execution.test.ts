@@ -11,7 +11,6 @@ import {
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {
     activeThreadId: "thread-1",
-    busy: false,
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
@@ -208,13 +207,13 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread to roll back.");
   });
 
-  it("rejects /rollback while a turn is running", async () => {
-    const ctx = context({ busy: true });
+  it("delegates rollback running-turn checks to thread actions", async () => {
+    const ctx = context();
 
     await executeSlashCommand("rollback", "", ctx);
 
-    expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Interrupt the current turn before rolling back.");
+    expect(ctx.threadActions.rollbackThread).toHaveBeenCalledWith("thread-1");
+    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Interrupt the current turn before rolling back.");
   });
 
   it("rejects /rollback arguments", async () => {
@@ -412,13 +411,13 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/archive requires a thread. Usage: /archive <thread>");
   });
 
-  it("rejects /archive while a turn is running", async () => {
-    const ctx = context({ busy: true });
+  it("delegates archive running-turn checks to thread actions", async () => {
+    const ctx = context();
 
     await executeSlashCommand("archive", "thread-1", ctx);
 
-    expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the current turn before archiving threads.");
+    expect(ctx.threadActions.archiveThread).toHaveBeenCalledWith("thread-1");
+    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Finish or interrupt the current turn before archiving threads.");
   });
 
   it("reports ambiguous archive matches", async () => {

@@ -45,7 +45,6 @@ export async function executeSlashCommandWithState(
     ...host,
     activeThreadId: state.activeThreadId,
     listedThreads: state.listedThreads,
-    busy: state.busy,
     referThread: (thread, message) => {
       if (!client) return Promise.resolve(null);
       return referencedThreadInput(host, client, thread, message);

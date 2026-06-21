@@ -58,7 +58,6 @@ export interface SlashCommandExecutionPorts {
 
 export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts {
   activeThreadId: string | null;
-  busy: boolean;
   listedThreads: readonly Thread[];
   referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
@@ -88,16 +87,8 @@ function noActiveThreadToRollbackMessage(): string {
   return "No active thread to roll back.";
 }
 
-function interruptBeforeRollbackMessage(): string {
-  return "Interrupt the current turn before rolling back.";
-}
-
 function noActiveThreadToCompactMessage(): string {
   return "No active thread to compact.";
-}
-
-function finishBeforeArchivingThreadsMessage(): string {
-  return "Finish or interrupt the current turn before archiving threads.";
 }
 
 function modelOverrideMessage(model: string | null): string {
@@ -168,10 +159,6 @@ export async function executeSlashCommand(
         context.addSystemMessage(noActiveThreadToRollbackMessage());
         return;
       }
-      if (context.busy) {
-        context.addSystemMessage(interruptBeforeRollbackMessage());
-        return;
-      }
       await context.threadActions.rollbackThread(context.activeThreadId);
       return;
     case "compact":
@@ -182,11 +169,6 @@ export async function executeSlashCommand(
       await context.threadActions.compactThread(context.activeThreadId);
       return;
     case "archive": {
-      if (context.busy) {
-        context.addSystemMessage(finishBeforeArchivingThreadsMessage());
-        return;
-      }
-
       const thread = resolveThreadArgument(args, context.listedThreads);
       if (!thread.ok) {
         context.addSystemMessage(thread.message);

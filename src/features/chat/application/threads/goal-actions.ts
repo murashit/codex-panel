@@ -39,8 +39,10 @@ export interface GoalActions extends ThreadGoalSyncActions {
 
 type GoalObjectiveSavePlan =
   | { kind: "reject"; message: string }
-  | { kind: "save-existing"; threadId: string; objective: string; tokenBudget: number | null }
-  | { kind: "start-thread-and-save"; objective: string; tokenBudget: number | null };
+  | { kind: "save-existing"; threadId: string; objective: NormalizedGoalObjective; tokenBudget: number | null }
+  | { kind: "start-thread-and-save"; objective: NormalizedGoalObjective; tokenBudget: number | null };
+
+type NormalizedGoalObjective = string & { readonly __brand: "NormalizedGoalObjective" };
 
 function emptyGoalObjectiveMessage(): string {
   return "Goal objective cannot be empty.";
@@ -94,15 +96,24 @@ async function setObjective(host: GoalActionsHost, threadId: string, objective: 
     host.addSystemMessage(emptyGoalObjectiveMessage());
     return false;
   }
+  return setNormalizedObjective(host, threadId, normalized, tokenBudget);
+}
+
+async function setNormalizedObjective(
+  host: GoalActionsHost,
+  threadId: string,
+  objective: NormalizedGoalObjective,
+  tokenBudget: number | null,
+): Promise<boolean> {
   const current = host.stateStore.getState().activeThread.goal;
   const isNewGoal = current === null;
   const applied = await setGoal(host, threadId, {
-    objective: normalized,
+    objective,
     status: current?.status ?? "active",
     tokenBudget,
   });
   if (applied && isNewGoal) {
-    await recordGoalUserMessage(host, threadId, normalized);
+    await recordGoalUserMessage(host, threadId, objective);
   }
   return applied;
 }
@@ -114,7 +125,7 @@ async function saveObjective(host: GoalActionsHost, objective: string, tokenBudg
       host.addSystemMessage(plan.message);
       return false;
     case "save-existing":
-      return setObjective(host, plan.threadId, plan.objective, plan.tokenBudget);
+      return setNormalizedObjective(host, plan.threadId, plan.objective, plan.tokenBudget);
     case "start-thread-and-save":
       return startThreadAndSaveObjective(host, plan);
   }
@@ -181,9 +192,9 @@ function planGoalObjectiveSave(activeThreadId: string | null, objective: string,
     : { kind: "start-thread-and-save", objective: normalized, tokenBudget };
 }
 
-function normalizedGoalObjective(objective: string): string | null {
+function normalizedGoalObjective(objective: string): NormalizedGoalObjective | null {
   const trimmed = objective.trim();
-  return trimmed || null;
+  return trimmed ? (trimmed as NormalizedGoalObjective) : null;
 }
 
 async function startThreadAndSaveObjective(
@@ -195,7 +206,7 @@ async function startThreadAndSaveObjective(
     if (!client) return false;
     const response = await host.startThread(plan.objective, { syncGoal: false });
     const threadId = response?.threadId ?? null;
-    return threadId ? await setObjective(host, threadId, plan.objective, plan.tokenBudget) : false;
+    return threadId ? await setNormalizedObjective(host, threadId, plan.objective, plan.tokenBudget) : false;
   } catch (error) {
     host.addSystemMessage(errorMessage(error));
     return false;
