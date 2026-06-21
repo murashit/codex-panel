@@ -9,7 +9,7 @@ import {
   type PendingRuntimeSettingsPatch,
 } from "./thread-settings-update";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { nextCollaborationMode, type CollaborationModeSelection, type RequestedFastMode } from "../../domain/runtime/pending-settings";
+import { nextCollaborationMode, type CollaborationModeSelection, type RequestedFastMode } from "../../domain/runtime/intent";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 

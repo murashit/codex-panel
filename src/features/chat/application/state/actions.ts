@@ -4,7 +4,7 @@ import { upsertThread, type Thread } from "../../../../domain/threads/model";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
-import type { CollaborationModeSelection } from "../../domain/runtime/pending-settings";
+import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { PendingTurnStart } from "../conversation/turn-state";
 

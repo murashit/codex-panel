@@ -7,7 +7,7 @@ import {
 import { currentModel, currentReasoningEffort, fastRuntimeServiceTierRequestValue } from "../../domain/runtime/effective";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { effectiveCollaborationMode, type PendingRuntimeSetting } from "../../domain/runtime/pending-settings";
+import { effectiveCollaborationMode, type PendingRuntimeIntent } from "../../domain/runtime/intent";
 
 type TurnCollaborationModeWarning = "missing-model";
 
@@ -21,10 +21,9 @@ type TurnCollaborationModeSettings =
       warning: TurnCollaborationModeWarning;
     };
 
-type RuntimeServiceTierTransportIntent =
-  | { readonly kind: "omit" }
-  | { readonly kind: "clear" }
-  | { readonly kind: "set"; readonly value: string };
+// Transport intent is the app-server boundary vocabulary:
+// omit -> leave the field out, clear -> send null, set -> send a concrete value.
+type RuntimeTransportIntent<T> = { readonly kind: "omit" } | { readonly kind: "clear" } | { readonly kind: "set"; readonly value: T };
 
 export interface PendingRuntimeSettingsPatch {
   update: RuntimeSettingsPatch;
@@ -32,7 +31,7 @@ export interface PendingRuntimeSettingsPatch {
 }
 
 export function serviceTierRequestForThreadStart(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimeServiceTierRequest {
-  return serviceTierRequestValue(serviceTierTransportIntent(snapshot, config, "thread-start"));
+  return runtimeSettingsPatchValue(serviceTierTransportIntent(snapshot, config, "thread-start"));
 }
 
 function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): TurnCollaborationModeSettings {
@@ -50,21 +49,25 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
   const runtimeCollaborationModeSettings = requestedTurnCollaborationModeSettings(snapshot, config);
 
   if (snapshot.requestedModel.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(update, "model", runtimeSettingsPatchValueFromPendingSetting(snapshot.requestedModel));
+    applyRuntimeSettingsPatchValue(update, "model", runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.requestedModel)));
   }
   if (snapshot.requestedReasoningEffort.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(update, "effort", runtimeSettingsPatchValueFromPendingSetting(snapshot.requestedReasoningEffort));
+    applyRuntimeSettingsPatchValue(
+      update,
+      "effort",
+      runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.requestedReasoningEffort)),
+    );
   }
   applyRuntimeSettingsPatchValue(
     update,
     "serviceTier",
-    serviceTierRequestValue(serviceTierTransportIntent(snapshot, config, "thread-update")),
+    runtimeSettingsPatchValue(serviceTierTransportIntent(snapshot, config, "thread-update")),
   );
   if (snapshot.requestedApprovalsReviewer.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(
       update,
       "approvalsReviewer",
-      runtimeSettingsPatchValueFromPendingSetting(snapshot.requestedApprovalsReviewer),
+      runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.requestedApprovalsReviewer)),
     );
   }
   if (snapshot.selectedCollaborationMode !== effectiveCollaborationMode(snapshot.activeCollaborationMode)) {
@@ -76,17 +79,17 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
   return { update, collaborationModeWarning: null };
 }
 
-function runtimeSettingsPatchValueFromPendingSetting<T>(setting: PendingRuntimeSetting<T>): T | null | undefined {
-  if (setting.kind === "set") return setting.value;
-  if (setting.kind === "resetToConfig") return null;
-  return undefined;
+function runtimeTransportIntentFromPending<T>(intent: PendingRuntimeIntent<T>): RuntimeTransportIntent<T> {
+  if (intent.kind === "set") return { kind: "set", value: intent.value };
+  if (intent.kind === "resetToConfig") return { kind: "clear" };
+  return { kind: "omit" };
 }
 
 function serviceTierTransportIntent(
   snapshot: RuntimeSnapshot,
   config: RuntimeConfigSnapshot,
   target: "thread-start" | "thread-update",
-): RuntimeServiceTierTransportIntent {
+): RuntimeTransportIntent<string> {
   // app-server has no separate "reset to config" token for service tiers.
   // At the transport boundary, null is the explicit clear/off request; undefined omits the field.
   if (snapshot.requestedFastMode.kind === "set") {
@@ -99,7 +102,7 @@ function serviceTierTransportIntent(
   return { kind: "omit" };
 }
 
-function serviceTierRequestValue(intent: RuntimeServiceTierTransportIntent): RuntimeServiceTierRequest {
+function runtimeSettingsPatchValue<T>(intent: RuntimeTransportIntent<T>): T | null | undefined {
   if (intent.kind === "set") return intent.value;
   if (intent.kind === "clear") return null;
   return undefined;

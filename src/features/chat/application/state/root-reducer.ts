@@ -9,9 +9,9 @@ import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import type { CollaborationModeSelection } from "../../domain/runtime/pending-settings";
+import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import {
-  commitPendingRuntimeSettingsPatchState,
+  commitAppliedRuntimeSettingsPatchState,
   clearRequestedApprovalsReviewerRuntimeState,
   clearRequestedFastModeRuntimeState,
   initialActiveChatRuntimeState,
@@ -25,7 +25,7 @@ import {
   setSelectedCollaborationModeRuntimeState,
   type ChatRuntimeState,
 } from "../../domain/runtime/state";
-import type { RequestedFastMode } from "../../domain/runtime/pending-settings";
+import type { RequestedFastMode } from "../../domain/runtime/intent";
 import type { PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { ComposerSuggestion } from "../composer/suggestions";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
@@ -590,7 +590,7 @@ function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): C
     case "runtime/requested-collaboration-mode-set":
       return patchObject(state, setSelectedCollaborationModeRuntimeState(state, action.collaborationMode));
     case "runtime/pending-thread-settings-committed":
-      return patchObject(state, commitPendingRuntimeSettingsPatchState(state, action.update));
+      return patchObject(state, commitAppliedRuntimeSettingsPatchState(state, action.update));
     default:
       return state;
   }

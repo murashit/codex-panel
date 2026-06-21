@@ -14,7 +14,7 @@ import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { chatStateFixture, chatStateWith } from "../support/state";
 
 describe("createChatRuntimeSettingsActions", () => {
-  it("applies pending runtime overrides through thread settings and commits them", async () => {
+  it("applies pending runtime intents through thread settings and commits them", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
@@ -193,7 +193,7 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual(["Plan mode on for subsequent turns."]);
   });
 
-  it("leaves pending override in place when the app-server update fails", async () => {
+  it("leaves pending runtime intent in place when the app-server update fails", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);
@@ -267,7 +267,7 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual([]);
   });
 
-  it("does not commit stale runtime updates after a newer pending override replaces them", async () => {
+  it("does not commit stale runtime updates after a newer pending intent replaces them", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const store = createChatStateStore(state);

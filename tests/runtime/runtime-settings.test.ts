@@ -16,7 +16,7 @@ import {
   supportedReasoningEfforts,
 } from "../../src/features/chat/domain/runtime/effective";
 import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
-import { resetRuntimeSettingToConfig, setPendingRuntimeSetting } from "../../src/features/chat/domain/runtime/pending-settings";
+import { resetRuntimeIntentToConfig, setRuntimeIntentValue } from "../../src/features/chat/domain/runtime/intent";
 import {
   pendingRuntimeSettingsPatch,
   serviceTierRequestForThreadStart,
@@ -39,8 +39,8 @@ describe("runtime settings", () => {
 
   it("keeps runtime defaults, resets, and collaboration mode semantics distinct", () => {
     const snapshot = runtimeSnapshot({
-      requestedModel: resetRuntimeSettingToConfig(),
-      requestedReasoningEffort: resetRuntimeSettingToConfig(),
+      requestedModel: resetRuntimeIntentToConfig(),
+      requestedReasoningEffort: resetRuntimeIntentToConfig(),
     });
 
     expect(currentModel(snapshot, snapshotConfig(snapshot))).toBe("gpt-5.5");
@@ -51,10 +51,10 @@ describe("runtime settings", () => {
     });
   });
 
-  it("uses explicit runtime overrides as current values and settings payload values", () => {
+  it("projects explicit runtime intents into current values and settings payload values", () => {
     const snapshot = runtimeSnapshot({
-      requestedModel: setPendingRuntimeSetting("gpt-5.4"),
-      requestedReasoningEffort: setPendingRuntimeSetting("low"),
+      requestedModel: setRuntimeIntentValue("gpt-5.4"),
+      requestedReasoningEffort: setRuntimeIntentValue("low"),
     });
 
     expect(currentModel(snapshot, snapshotConfig(snapshot))).toBe("gpt-5.4");
@@ -80,7 +80,7 @@ describe("runtime settings", () => {
   it("keeps model reset tied to config when active thread model differs", () => {
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5-active",
-      requestedModel: resetRuntimeSettingToConfig(),
+      requestedModel: resetRuntimeIntentToConfig(),
       runtimeConfig: runtimeConfigFixture({
         model_reasoning_effort: "high",
         service_tier: "flex",
@@ -98,8 +98,8 @@ describe("runtime settings", () => {
   it("builds the Plan collaboration mode payload from selected runtime settings", () => {
     const snapshot = runtimeSnapshot({
       selectedCollaborationMode: "plan",
-      requestedModel: setPendingRuntimeSetting("gpt-5.5"),
-      requestedReasoningEffort: setPendingRuntimeSetting("high"),
+      requestedModel: setRuntimeIntentValue("gpt-5.5"),
+      requestedReasoningEffort: setRuntimeIntentValue("high"),
     });
 
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
@@ -145,10 +145,10 @@ describe("runtime settings", () => {
     });
   });
 
-  it("keeps collaboration mode settings separate from reviewer and direct runtime overrides", () => {
+  it("keeps collaboration mode settings separate from reviewer and direct runtime intents", () => {
     const reviewerSnapshot = runtimeSnapshot({
       selectedCollaborationMode: "plan",
-      requestedApprovalsReviewer: setPendingRuntimeSetting("auto_review"),
+      requestedApprovalsReviewer: setRuntimeIntentValue("auto_review"),
     });
     const activeRuntimeSnapshot = runtimeSnapshot({
       selectedCollaborationMode: "plan",
@@ -183,7 +183,7 @@ describe("runtime settings", () => {
 
   it("resolves auto-review mode from requested, active, then effective config", () => {
     const requested = runtimeSnapshot({
-      requestedApprovalsReviewer: setPendingRuntimeSetting("user"),
+      requestedApprovalsReviewer: setRuntimeIntentValue("user"),
       activeApprovalsReviewer: "auto_review",
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
     });
@@ -219,7 +219,7 @@ describe("runtime settings", () => {
 
   it("uses requested reviewer above active and configured reviewers", () => {
     const snapshot = runtimeSnapshot({
-      requestedApprovalsReviewer: setPendingRuntimeSetting("user"),
+      requestedApprovalsReviewer: setRuntimeIntentValue("user"),
       activeApprovalsReviewer: "user",
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
     });
@@ -308,7 +308,7 @@ describe("runtime settings", () => {
 
   it("uses requested Fast mode above active and configured service tiers", () => {
     const snapshot = runtimeSnapshot({
-      requestedFastMode: setPendingRuntimeSetting("disabled"),
+      requestedFastMode: setRuntimeIntentValue("disabled"),
       activeServiceTier: "flex",
       runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
     });
@@ -318,7 +318,7 @@ describe("runtime settings", () => {
   });
 
   it("resolves requested approval reviewer without adding it to turn runtime settings", () => {
-    const snapshot = runtimeSnapshot({ requestedApprovalsReviewer: setPendingRuntimeSetting("auto_review") });
+    const snapshot = runtimeSnapshot({ requestedApprovalsReviewer: setRuntimeIntentValue("auto_review") });
 
     expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
@@ -326,7 +326,7 @@ describe("runtime settings", () => {
     });
   });
 
-  it("treats active thread runtime as display state without persisting it into turn overrides", () => {
+  it("treats active thread runtime as display state without persisting it into runtime intent patches", () => {
     const snapshot = runtimeSnapshot({
       activeModel: "gpt-5-active",
       activeServiceTier: "fast",
@@ -341,7 +341,7 @@ describe("runtime settings", () => {
 
   it("uses the explicit config when finding supported reasoning efforts", () => {
     const snapshot = runtimeSnapshot({
-      requestedModel: resetRuntimeSettingToConfig(),
+      requestedModel: resetRuntimeIntentToConfig(),
       runtimeConfig: runtimeConfigFixture({ model: "snapshot-model" }),
       availableModels: [
         { ...modelFixture("snapshot-model"), supportedReasoningEfforts: ["low"] },
@@ -354,7 +354,7 @@ describe("runtime settings", () => {
   });
 
   it("summarizes service tier and context meter state from one runtime snapshot", () => {
-    const snapshot = runtimeSnapshot({ requestedFastMode: setPendingRuntimeSetting("enabled"), activeThreadId: "thread" });
+    const snapshot = runtimeSnapshot({ requestedFastMode: setRuntimeIntentValue("enabled"), activeThreadId: "thread" });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
     expect(fastModeActive(snapshot, snapshotConfig(snapshot))).toBe(true);
@@ -394,7 +394,7 @@ describe("runtime settings", () => {
   it("serializes disabled Fast mode as a null service tier request", () => {
     const snapshot = runtimeSnapshot({
       runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
-      requestedFastMode: setPendingRuntimeSetting("disabled"),
+      requestedFastMode: setRuntimeIntentValue("disabled"),
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBeNull();
@@ -405,7 +405,7 @@ describe("runtime settings", () => {
   it("serializes service tier reset for thread start as an explicit null request", () => {
     const snapshot = runtimeSnapshot({
       runtimeConfig: runtimeConfigFixture({ service_tier: "fast" }),
-      requestedFastMode: resetRuntimeSettingToConfig(),
+      requestedFastMode: resetRuntimeIntentToConfig(),
     });
 
     expect(currentServiceTier(snapshot, snapshotConfig(snapshot))).toBe("fast");
@@ -419,7 +419,7 @@ describe("runtime settings", () => {
       serviceTiers: [{ id: "priority", name: "Fast" }],
     };
     const snapshot = runtimeSnapshot({
-      requestedFastMode: setPendingRuntimeSetting("enabled"),
+      requestedFastMode: setRuntimeIntentValue("enabled"),
       runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }),
       availableModels: [model],
     });
@@ -428,7 +428,7 @@ describe("runtime settings", () => {
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBe("priority");
   });
 
-  it("omits service tier when neither config nor override selects one", () => {
+  it("omits service tier when neither config nor pending intent selects one", () => {
     const snapshot = runtimeSnapshot({ runtimeConfig: runtimeConfigFixture({}) });
 
     expect(serviceTierRequestForThreadStart(snapshot, snapshotConfig(snapshot))).toBeUndefined();

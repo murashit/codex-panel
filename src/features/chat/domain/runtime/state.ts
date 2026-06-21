@@ -8,14 +8,14 @@ import {
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
 import {
-  resetRuntimeSettingToConfig,
-  setPendingRuntimeSetting,
-  unchangedRuntimeSetting,
+  resetRuntimeIntentToConfig,
+  setRuntimeIntentValue,
+  unchangedRuntimeIntent,
   type ActiveCollaborationMode,
   type CollaborationModeSelection,
-  type PendingRuntimeSetting,
+  type PendingRuntimeIntent,
   type RequestedFastMode,
-} from "./pending-settings";
+} from "./intent";
 
 export interface ChatRuntimeState {
   readonly activeModel: string | null;
@@ -25,11 +25,11 @@ export interface ChatRuntimeState {
   readonly activeApprovalPolicy: ApprovalPolicy | null;
   readonly activeApprovalsReviewer: ApprovalsReviewer | null;
   readonly activePermissionProfile: ActivePermissionProfile | null;
-  readonly requestedModel: PendingRuntimeSetting<string>;
-  readonly requestedReasoningEffort: PendingRuntimeSetting<ReasoningEffort>;
-  readonly requestedApprovalsReviewer: PendingRuntimeSetting<ApprovalsReviewer>;
+  readonly requestedModel: PendingRuntimeIntent<string>;
+  readonly requestedReasoningEffort: PendingRuntimeIntent<ReasoningEffort>;
+  readonly requestedApprovalsReviewer: PendingRuntimeIntent<ApprovalsReviewer>;
   readonly selectedCollaborationMode: CollaborationModeSelection;
-  readonly requestedFastMode: PendingRuntimeSetting<RequestedFastMode>;
+  readonly requestedFastMode: PendingRuntimeIntent<RequestedFastMode>;
 }
 
 export function initialActiveChatRuntimeState(): Pick<
@@ -56,67 +56,67 @@ export function initialActiveChatRuntimeState(): Pick<
 export function initialChatRuntimeState(): ChatRuntimeState {
   return {
     ...initialActiveChatRuntimeState(),
-    requestedModel: unchangedRuntimeSetting(),
-    requestedReasoningEffort: unchangedRuntimeSetting(),
-    requestedApprovalsReviewer: unchangedRuntimeSetting(),
+    requestedModel: unchangedRuntimeIntent(),
+    requestedReasoningEffort: unchangedRuntimeIntent(),
+    requestedApprovalsReviewer: unchangedRuntimeIntent(),
     selectedCollaborationMode: "default",
-    requestedFastMode: unchangedRuntimeSetting(),
+    requestedFastMode: unchangedRuntimeIntent(),
   };
 }
 
 export function requestModelRuntimeState(state: ChatRuntimeState, model: string): ChatRuntimeState {
   return {
     ...state,
-    requestedModel: setPendingRuntimeSetting(model),
+    requestedModel: setRuntimeIntentValue(model),
   };
 }
 
 export function resetModelToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedModel: resetRuntimeSettingToConfig(),
+    requestedModel: resetRuntimeIntentToConfig(),
   };
 }
 
 export function requestReasoningEffortRuntimeState(state: ChatRuntimeState, effort: ReasoningEffort): ChatRuntimeState {
   return {
     ...state,
-    requestedReasoningEffort: setPendingRuntimeSetting(effort),
+    requestedReasoningEffort: setRuntimeIntentValue(effort),
   };
 }
 
 export function resetReasoningEffortToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedReasoningEffort: resetRuntimeSettingToConfig(),
+    requestedReasoningEffort: resetRuntimeIntentToConfig(),
   };
 }
 
 export function requestFastModeRuntimeState(state: ChatRuntimeState, fastMode: RequestedFastMode): ChatRuntimeState {
   return {
     ...state,
-    requestedFastMode: setPendingRuntimeSetting(fastMode),
+    requestedFastMode: setRuntimeIntentValue(fastMode),
   };
 }
 
 export function clearRequestedFastModeRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedFastMode: unchangedRuntimeSetting(),
+    requestedFastMode: unchangedRuntimeIntent(),
   };
 }
 
 export function requestApprovalsReviewerRuntimeState(state: ChatRuntimeState, approvalsReviewer: ApprovalsReviewer): ChatRuntimeState {
   return {
     ...state,
-    requestedApprovalsReviewer: setPendingRuntimeSetting(approvalsReviewer),
+    requestedApprovalsReviewer: setRuntimeIntentValue(approvalsReviewer),
   };
 }
 
 export function clearRequestedApprovalsReviewerRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedApprovalsReviewer: unchangedRuntimeSetting(),
+    requestedApprovalsReviewer: unchangedRuntimeIntent(),
   };
 }
 
@@ -130,23 +130,23 @@ export function setSelectedCollaborationModeRuntimeState(
   };
 }
 
-export function commitPendingRuntimeSettingsPatchState(state: ChatRuntimeState, update: RuntimeSettingsPatch): ChatRuntimeState {
+export function commitAppliedRuntimeSettingsPatchState(state: ChatRuntimeState, update: RuntimeSettingsPatch): ChatRuntimeState {
   return {
     ...state,
-    ...("model" in update ? { activeModel: update.model ?? null, requestedModel: unchangedRuntimeSetting<string>() } : {}),
+    ...("model" in update ? { activeModel: update.model ?? null, requestedModel: unchangedRuntimeIntent<string>() } : {}),
     ...("effort" in update
       ? {
           activeReasoningEffort: normalizeReasoningEffort(update.effort),
-          requestedReasoningEffort: unchangedRuntimeSetting<ReasoningEffort>(),
+          requestedReasoningEffort: unchangedRuntimeIntent<ReasoningEffort>(),
         }
       : {}),
     ...("serviceTier" in update
-      ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedFastMode: unchangedRuntimeSetting<RequestedFastMode>() }
+      ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedFastMode: unchangedRuntimeIntent<RequestedFastMode>() }
       : {}),
     ...("approvalsReviewer" in update
       ? {
           activeApprovalsReviewer: update.approvalsReviewer ?? null,
-          requestedApprovalsReviewer: unchangedRuntimeSetting<ApprovalsReviewer>(),
+          requestedApprovalsReviewer: unchangedRuntimeIntent<ApprovalsReviewer>(),
         }
       : {}),
     ...(update.collaborationMode ? { activeCollaborationMode: update.collaborationMode.mode } : {}),

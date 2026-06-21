@@ -666,7 +666,7 @@ describe("chatReducer", () => {
     expect(objectiveChanged.ui.disclosures.goalObjectiveExpanded.size).toBe(0);
   });
 
-  it("commits pending runtime settings and resets applied overrides", () => {
+  it("commits applied runtime settings and clears applied intents", () => {
     let state = chatStateFixture();
     state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.1" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });

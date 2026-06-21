@@ -20,6 +20,10 @@ The repository checkout is the source of truth for implementation, version contr
 
 The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility. Current optional and nullable fields are still part of the contract and must be normalized before display.
 
+Runtime settings move through three panel-owned layers before they reach Codex. Chat state stores active runtime values reported by app-server plus pending runtime intents requested by the user; those intents are not app-server payload values. Effective runtime projections combine pending intent, active thread state, and runtime config for display and UI decisions. Only the app-server boundary converts intent into transport values: `undefined` omits a field, `null` explicitly clears or resets it, and concrete values set it. Config values are inputs to effective projection and selected start-thread defaults; they should not be treated as synonymous with transport `null`.
+
+Fast mode is a panel runtime intent, not an arbitrary service tier override. The app-server still owns service tier ids and defaults, so the panel converts Fast mode enablement to the model catalog's Fast tier id when available, and converts Fast mode disablement or service-tier reset to an explicit clear request at the transport boundary.
+
 ## Code Boundaries
 
 Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before data reaches features, workspace coordination, settings, or UI. Feature-local app-server integration modules may route and apply those projections, but they should not hand-copy generated request or response shapes when a shared app-server protocol adapter can own that mapping.
