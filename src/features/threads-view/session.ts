@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import type { AppServerObservedQueryResult } from "../../app-server/query/cache";
+import { observedQueryData, observedQueryInitialError, observedQueryInitialLoading } from "../../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { Thread } from "../../domain/threads/model";
@@ -68,6 +69,7 @@ export class CodexThreadsSession {
   private refreshLifecycle: ThreadsViewRefreshLifecycleState = { kind: "idle" };
   private status: ThreadsViewStatus = { kind: "idle" };
   private threads: readonly Thread[] = [];
+  private threadsLoaded = false;
   private readonly renameStates = new Map<string, ThreadsRenameState>();
   private nextRenameGenerationToken = 1;
   private unsubscribeThreads: (() => void) | null = null;
@@ -104,6 +106,7 @@ export class CodexThreadsSession {
     const activeThreadsSnapshot = this.host.threadCatalog.activeSnapshot();
     if (activeThreadsSnapshot) {
       this.threads = activeThreadsSnapshot;
+      this.threadsLoaded = true;
     }
     this.unsubscribeThreads = this.host.threadCatalog.observeActive((result) => {
       this.receiveObservedThreadsResult(result);
@@ -122,16 +125,21 @@ export class CodexThreadsSession {
 
   async refresh(): Promise<void> {
     const refresh = this.startRefresh();
-    this.status = this.threads.length === 0 ? { kind: "loading", message: "Loading threads..." } : { kind: "idle" };
+    if (!this.currentThreadsData()) {
+      this.status = { kind: "loading", message: "Loading threads..." };
+    }
     this.render();
     try {
       const threads = await this.host.threadCatalog.refreshActive();
       if (this.isStaleRefresh(refresh)) return;
       this.threads = threads;
+      this.threadsLoaded = true;
       this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     } catch (error) {
       if (isStaleAppServerSharedQueryContextError(error)) return;
-      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
+      if (!this.currentThreadsData()) {
+        this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
+      }
     } finally {
       this.finishRefresh(refresh);
     }
@@ -143,24 +151,32 @@ export class CodexThreadsSession {
 
   private receiveObservedThreads(threads: readonly Thread[]): void {
     this.threads = threads;
+    this.threadsLoaded = true;
     this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     this.render();
   }
 
   private receiveObservedThreadsResult(result: AppServerObservedQueryResult<readonly Thread[]>): void {
-    if (result.data) {
-      this.receiveObservedThreads(result.data);
+    const data = observedQueryData(result);
+    if (data) {
+      this.receiveObservedThreads(data);
       return;
     }
-    if (result.isFetching && this.threads.length === 0) {
+    const currentData = this.currentThreadsData();
+    if (observedQueryInitialLoading(result, currentData)) {
       this.status = { kind: "loading", message: "Loading threads..." };
       this.render();
       return;
     }
-    if (result.error && this.threads.length === 0) {
-      this.status = { kind: "error", message: result.error.message };
+    const initialError = observedQueryInitialError(result, currentData);
+    if (initialError) {
+      this.status = { kind: "error", message: initialError.message };
       this.render();
     }
+  }
+
+  private currentThreadsData(): readonly Thread[] | null {
+    return this.threadsLoaded ? this.threads : null;
   }
 
   private get host(): CodexThreadsHost {

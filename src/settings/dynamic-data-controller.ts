@@ -1,5 +1,6 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerObservedQueryResult } from "../app-server/query/cache";
+import { observedQueryData } from "../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
 import { setHookItemEnabled, trustHookItem } from "../app-server/catalog";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads";
@@ -128,19 +129,21 @@ export class SettingsDynamicDataController {
   }
 
   private receiveObservedModelsResult(result: AppServerObservedQueryResult<readonly ModelMetadata[]>): void {
-    if (!result.data) return;
-    this.models = [...result.data];
+    const data = observedQueryData(result);
+    if (!data) return;
+    this.models = [...data];
     this.callbacks.display("helper");
   }
 
   private receiveObservedArchivedThreadsResult(result: AppServerObservedQueryResult<readonly Thread[]>): void {
-    if (!result.data) return;
-    this.archivedThreads = [...result.data];
+    const data = observedQueryData(result);
+    if (!data) return;
+    this.archivedThreads = [...data];
     this.archivedThreadsLoaded = true;
     if (this.archivedThreadsLifecycle.kind !== "loading") {
       this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
         type: "loaded",
-        status: archivedThreadsStatus(result.data.length),
+        status: archivedThreadsStatus(data.length),
         operationToken: this.archivedThreadsOperationToken,
       });
     }

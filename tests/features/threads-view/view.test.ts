@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
+import type { AppServerObservedQueryResult } from "../../../src/app-server/query/cache";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { Thread } from "../../../src/domain/threads/model";
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
@@ -268,6 +269,33 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).toContain("Cached thread");
   });
 
+  it("keeps successful empty thread lists as last-known-good observed data", async () => {
+    let observedThreads!: (result: AppServerObservedQueryResult<readonly Thread[]>) => void;
+    const view = await threadsView(
+      threadsHost({
+        threadCatalog: {
+          refreshActive: vi.fn(
+            () =>
+              new Promise(() => {
+                // Keep the initial refresh pending; this test drives observed query results directly.
+              }),
+          ),
+          observeActive: vi.fn((listener: (result: AppServerObservedQueryResult<readonly Thread[]>) => void) => {
+            observedThreads = listener;
+            return () => undefined;
+          }),
+        },
+      }),
+    );
+
+    await view.onOpen();
+    observedThreads(queryResult([]));
+    observedThreads(queryResult<readonly Thread[]>(null, new Error("boom")));
+
+    expect(view.containerEl.textContent).toContain("No threads");
+    expect(view.containerEl.textContent).not.toContain("boom");
+  });
+
   it("notifies open panels after archiving a thread", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
@@ -518,6 +546,14 @@ function threadFromRecord(record: Record<string, unknown>): Thread {
     createdAt: Number(record["createdAt"] ?? 0),
     updatedAt: Number(record["updatedAt"] ?? 0),
   };
+}
+
+function queryResult<T>(data: T | null, error: Error | null = null): AppServerObservedQueryResult<T> {
+  return {
+    data,
+    error,
+    isFetching: false,
+  } as AppServerObservedQueryResult<T>;
 }
 
 function threadFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
