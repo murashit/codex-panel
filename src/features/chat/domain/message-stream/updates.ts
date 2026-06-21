@@ -1,4 +1,5 @@
-import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "./semantics";
+import { messageStreamSemanticClassifications } from "./semantics/classify";
+import { messageStreamIsTurnInitiator } from "./semantics/predicates";
 import type { MessageStreamFileChange, MessageStreamItem } from "./items";
 
 export function upsertMessageStreamItemById(items: readonly MessageStreamItem[], next: MessageStreamItem): MessageStreamItem[] {

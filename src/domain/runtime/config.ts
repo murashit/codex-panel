@@ -1,4 +1,4 @@
-import { normalizeReasoningEffort, type ReasoningEffort } from "../catalog/metadata";
+import type { ReasoningEffort } from "../catalog/metadata";
 import { cloneApprovalPolicy, type ApprovalPolicy, type ApprovalsReviewer, type ServiceTier } from "./policy";
 
 export type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
@@ -58,10 +58,6 @@ export function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): Runti
     rawToolWebSearch: cloneJsonLike(config.rawToolWebSearch),
     rawApps: cloneJsonLike(config.rawApps),
   };
-}
-
-export function normalizedRuntimeReasoningEffort(value: unknown): ReasoningEffort | null {
-  return normalizeReasoningEffort(value);
 }
 
 function cloneJsonLike(value: unknown): unknown {

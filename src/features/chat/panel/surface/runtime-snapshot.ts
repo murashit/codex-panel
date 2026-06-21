@@ -1,5 +1,5 @@
 import { messageStreamItems } from "../../application/state/message-stream";
-import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
 import type { ChatPanelComposerShellState, ChatPanelToolbarShellState } from "../shell-state";
 

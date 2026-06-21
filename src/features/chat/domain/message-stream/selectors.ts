@@ -1,5 +1,5 @@
 import type { MessageStreamItem } from "./items";
-import { messageStreamSemanticClassifications } from "./semantics";
+import { messageStreamSemanticClassifications } from "./semantics/classify";
 
 export interface ForkCandidate {
   itemId: string;

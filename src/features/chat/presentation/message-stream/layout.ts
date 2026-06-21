@@ -1,13 +1,13 @@
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
+import { messageStreamSemanticClassifications } from "../../domain/message-stream/semantics/classify";
 import {
   messageStreamIsAutoReviewDecision,
   messageStreamIsTurnInitiator,
   messageStreamIsTurnSteer,
   messageStreamIsWorkspaceResult,
-  messageStreamSemanticClassifications,
-} from "../../domain/message-stream/semantics";
-import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics";
+} from "../../domain/message-stream/semantics/predicates";
+import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics/types";
 
 const STEERING_ACTIVITY_LABEL = "steer";
 

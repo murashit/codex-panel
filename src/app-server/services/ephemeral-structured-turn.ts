@@ -35,9 +35,7 @@ export interface EphemeralStructuredTurnClient {
   startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<{ turn: TurnRecord }>;
 }
 
-export type EphemeralStructuredTurnRuntimeClient = ModelMetadataClient;
-
-type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient & EphemeralStructuredTurnRuntimeClient;
+type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient & ModelMetadataClient;
 
 export type EphemeralStructuredTurnClientFactory = (
   codexPath: string,
@@ -58,7 +56,7 @@ export interface RunEphemeralStructuredTurnOptions {
   timedOutMessage: string;
   abortMessage?: string;
   runtime?: StructuredTurnRuntimeOverride | undefined;
-  resolveRuntime?: ((client: EphemeralStructuredTurnRuntimeClient) => Promise<StructuredTurnRuntimeOverride>) | undefined;
+  resolveRuntime?: ((client: ModelMetadataClient) => Promise<StructuredTurnRuntimeOverride>) | undefined;
   signal?: AbortSignal | undefined;
   onProgress?: (event: StructuredTurnProgressEvent) => void;
   clientFactory?: EphemeralStructuredTurnClientFactory | undefined;

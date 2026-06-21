@@ -1,6 +1,6 @@
 import { AppServerClient } from "./client";
 
-export interface ShortLivedAppServerClientOptions {
+interface ShortLivedAppServerClientOptions {
   unhandledServerRequestMessage?: string;
 }
 

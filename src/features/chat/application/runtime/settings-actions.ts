@@ -8,7 +8,7 @@ import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
 } from "./thread-settings-update";
-import type { RuntimeSnapshot } from "./snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { nextCollaborationMode, type CollaborationMode, type RequestedServiceTier } from "../../domain/runtime/pending-settings";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";

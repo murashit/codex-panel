@@ -1,12 +1,9 @@
-import {
-  messageStreamIsCoordinationProgress,
-  messageStreamSemanticClassifications,
-  type MessageStreamSemanticClassification,
-} from "../../domain/message-stream/semantics";
+import { messageStreamSemanticClassifications } from "../../domain/message-stream/semantics/classify";
+import { messageStreamIsCoordinationProgress } from "../../domain/message-stream/semantics/predicates";
+import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics/types";
 import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type MessageStreamLayoutBlock } from "./layout";
 import { detailView, type DetailView } from "./detail-view";
-import { messageStreamRenderFamily } from "./render-family";
 import { messageStreamTextView, type MessageStreamTextActionTargets, type MessageStreamTextView } from "./text-view";
 import {
   activeAgentRunSummary,
@@ -74,6 +71,7 @@ type MessageStreamPresentationBlock =
     };
 
 type MessageStreamPresentationBlockSource = (input: MessageStreamPresentationBlockInput) => readonly MessageStreamPresentationBlock[];
+type MessageStreamRenderFamily = "text" | "detail" | "status";
 
 export type MessageStreamRenderedItemView =
   | {
@@ -308,6 +306,30 @@ function messageStreamRenderedItemView(
     case "status":
       return { kind: "status", view: messageStreamStatusView(classification.item, statusViewContext(input)) };
   }
+}
+
+function messageStreamRenderFamily(classification: MessageStreamSemanticClassification): MessageStreamRenderFamily {
+  switch (classification.item.kind) {
+    case "message":
+    case "system":
+    case "userInputResult":
+      return "text";
+    case "command":
+    case "fileChange":
+    case "tool":
+    case "hook":
+    case "goal":
+    case "approvalResult":
+    case "reviewResult":
+    case "agent":
+      return "detail";
+    case "taskProgress":
+    case "reasoning":
+    case "wait":
+    case "contextCompaction":
+      return "status";
+  }
+  return "status";
 }
 
 function statusViewContext(input: MessageStreamPresentationBlockInput): Parameters<typeof messageStreamStatusView>[1] {

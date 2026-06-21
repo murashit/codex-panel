@@ -64,7 +64,7 @@ import { connectionDiagnosticSectionsModel } from "../application/connection/dia
 import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-display";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
-import type { RuntimeSnapshot } from "../application/runtime/snapshot";
+import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import type { ChatPanelEnvironment } from "./runtime";
 import { createConnectionBundle, type ChatPanelConnectionBundle, type CurrentAppServerClient } from "./connection-bundle";
 import { VaultNoteCandidateProvider } from "../panel/vault-note-candidate-provider";

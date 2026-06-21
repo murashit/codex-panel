@@ -2,7 +2,8 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ApprovalAction, McpElicitationAction, PendingRequestId } from "../../domain/pending-requests/model";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
-import type { MessageStreamForkTarget, MessageStreamPlanImplementationTarget } from "../../presentation/message-stream/text-view";
+import type { MessageStreamForkTarget } from "../../presentation/message-stream/text-view";
+import type { PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 
 export interface MessageStreamBlock {
@@ -51,7 +52,7 @@ export interface TextItemActionContext extends TextItemDetailStateContext {
   forkMenuItemId: string | null;
   onForkMenuToggle?: (itemId: string | null) => void;
   copyText?: (text: string) => void;
-  onImplementPlan?: (target: MessageStreamPlanImplementationTarget) => void;
+  onImplementPlan?: (target: PlanImplementationTarget) => void;
   onRollback?: () => void;
   onFork?: (target: MessageStreamForkTarget, archiveSource: boolean) => void;
 }

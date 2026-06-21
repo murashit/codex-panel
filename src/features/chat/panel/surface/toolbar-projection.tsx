@@ -6,7 +6,7 @@ import { getThreadTitle } from "../../../../domain/threads/model";
 import { rateLimitSummary } from "../../presentation/runtime/status";
 import { connectionDiagnosticSectionsModel } from "../../application/connection/diagnostics-display";
 import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-display";
-import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { chatTurnBusy, type ChatState } from "../../application/state/root-reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../shell-state";
 import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";

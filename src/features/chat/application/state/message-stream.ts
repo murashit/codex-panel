@@ -1,7 +1,8 @@
 import { upsertMessageStreamItemById } from "../../domain/message-stream/updates";
 import type { MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
 import { normalizeProposedPlanMarkdown } from "../../domain/message-stream/format/proposed-plan";
-import { messageStreamIsTurnInitiator, messageStreamSemanticClassifications } from "../../domain/message-stream/semantics";
+import { messageStreamSemanticClassifications } from "../../domain/message-stream/semantics/classify";
+import { messageStreamIsTurnInitiator } from "../../domain/message-stream/semantics/predicates";
 import {
   streamedItemOutputMessageStreamItem,
   streamedTextMessageStreamItem,

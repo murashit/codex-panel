@@ -8,8 +8,6 @@ import {
   ObsidianToggle,
 } from "../shared/ui/components";
 
-export type SelectControlOption = ObsidianDropdownOption;
-
 export function SettingsGroup({ className, children }: { className: string; children: UiNode }): UiNode {
   return <section className={`setting-group ${className}`}>{children}</section>;
 }
@@ -86,7 +84,7 @@ export function SelectControl({
 }: {
   value: string;
   onChange: (value: string) => void;
-  options: readonly SelectControlOption[];
+  options: readonly ObsidianDropdownOption[];
 }): UiNode {
   return <ObsidianDropdown value={value} options={options} onChange={onChange} />;
 }

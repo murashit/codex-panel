@@ -1,9 +1,9 @@
 import {
   type EphemeralStructuredTurnClient,
-  type EphemeralStructuredTurnRuntimeClient,
   runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
+import type { ModelMetadataClient } from "../../app-server/catalog";
 import type { AppServerClientHandlers } from "../../app-server/connection/client";
 import { resolvedRuntimeOverrideForClient } from "../../app-server/services/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
@@ -36,7 +36,7 @@ export interface RunSelectionRewriteOptions {
 
 export type SelectionRewriteActivity = "reasoning" | "writing";
 
-type SelectionRewriteClient = EphemeralStructuredTurnClient & EphemeralStructuredTurnRuntimeClient;
+type SelectionRewriteClient = EphemeralStructuredTurnClient & ModelMetadataClient;
 type SelectionRewriteClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => SelectionRewriteClient;
 
 export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
@@ -72,9 +72,6 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
   return output;
 }
 
-async function selectionRewriteRuntimeOverrideForClient(
-  client: EphemeralStructuredTurnRuntimeClient,
-  settings: SelectionRewriteRuntimeSettings,
-) {
+async function selectionRewriteRuntimeOverrideForClient(client: ModelMetadataClient, settings: SelectionRewriteRuntimeSettings) {
   return resolvedRuntimeOverrideForClient(client, { model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
 }

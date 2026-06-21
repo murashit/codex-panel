@@ -12,12 +12,10 @@ export interface MessageStreamForkTarget {
   turnId: string;
 }
 
-export type MessageStreamPlanImplementationTarget = PlanImplementationTarget;
-
 export interface MessageStreamTextActionTargets {
   fork?: MessageStreamForkTarget;
   rollback?: true;
-  implementPlan?: MessageStreamPlanImplementationTarget;
+  implementPlan?: PlanImplementationTarget;
 }
 
 export interface ReferencedThreadTextView {

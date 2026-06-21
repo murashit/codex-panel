@@ -1,10 +1,9 @@
 import {
   runEphemeralStructuredTurn,
-  type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnClientFactory,
-  type EphemeralStructuredTurnRuntimeClient,
   type StructuredTurnOutputSchema,
 } from "./ephemeral-structured-turn";
+import type { ModelMetadataClient } from "../catalog";
 import { resolvedRuntimeOverrideForClient } from "./runtime-overrides";
 import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../protocol/turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
@@ -39,15 +38,12 @@ export interface ThreadTitleRuntimeSettings {
   threadNamingEffort: ReasoningEffort | null;
 }
 
-export type ThreadTitleClient = EphemeralStructuredTurnClient;
-export type ThreadTitleClientFactory = EphemeralStructuredTurnClientFactory;
-
 export async function generateThreadTitleWithCodex(
   codexPath: string,
   cwd: string,
   context: ThreadTitleContext,
   runtimeSettings: ThreadTitleRuntimeSettings,
-  clientFactory?: ThreadTitleClientFactory,
+  clientFactory?: EphemeralStructuredTurnClientFactory,
 ): Promise<string | null> {
   const turn = await runEphemeralStructuredTurn({
     codexPath,
@@ -71,6 +67,6 @@ function threadTitleFromGenerationTurn(turn: TurnRecord): string | null {
   return response ? threadTitleFromGeneratedText(response) : null;
 }
 
-async function threadTitleRuntimeOverrideForClient(client: EphemeralStructuredTurnRuntimeClient, settings: ThreadTitleRuntimeSettings) {
+async function threadTitleRuntimeOverrideForClient(client: ModelMetadataClient, settings: ThreadTitleRuntimeSettings) {
   return resolvedRuntimeOverrideForClient(client, { model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }

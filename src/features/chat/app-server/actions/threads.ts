@@ -1,6 +1,6 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads";
-import type { RuntimeSnapshot } from "../../application/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { serviceTierRequestForThreadStart } from "../../application/runtime/thread-settings-update";
 import { resumedThreadAction } from "../../application/state/actions";

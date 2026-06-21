@@ -17,7 +17,7 @@ export interface PendingRequestBlockSnapshot {
   approvalDetails: ReadonlySet<string>;
 }
 
-export interface PendingRequestBlockSnapshotSource {
+interface PendingRequestBlockSnapshotSource {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];
   pendingMcpElicitations: readonly PendingMcpElicitation[];

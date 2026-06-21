@@ -15,7 +15,7 @@ import {
   runtimeConfigOrDefault,
   supportedReasoningEfforts,
 } from "../../src/features/chat/domain/runtime/effective";
-import type { RuntimeSnapshot } from "../../src/features/chat/application/runtime/snapshot";
+import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
 import { resetRuntimeSettingToConfig, setPendingRuntimeSetting } from "../../src/features/chat/domain/runtime/pending-settings";
 import {
   pendingRuntimeSettingsPatch,

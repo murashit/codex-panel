@@ -6,11 +6,11 @@ import type { AppServerClient, AppServerClientHandlers, AppServerStartStructured
 import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
 import type { RequestId, ServerNotification } from "../../src/app-server/connection/rpc-messages";
 import type { ServerInitialization } from "../../src/domain/server/initialization";
-import {
-  generateThreadTitleWithCodex,
-  type ThreadTitleClient,
-  type ThreadTitleClientFactory,
-} from "../../src/app-server/services/thread-title-generation";
+import { generateThreadTitleWithCodex } from "../../src/app-server/services/thread-title-generation";
+import type {
+  EphemeralStructuredTurnClient,
+  EphemeralStructuredTurnClientFactory,
+} from "../../src/app-server/services/ephemeral-structured-turn";
 import {
   findThreadTitleContext,
   threadTitleContextFromConversationSummary,
@@ -213,7 +213,7 @@ function runtimeSettings() {
 }
 
 function fakeThreadTitleClientFactory(configure?: (client: FakeThreadTitleClient) => void): {
-  clientFactory: ThreadTitleClientFactory;
+  clientFactory: EphemeralStructuredTurnClientFactory;
   client: { current: FakeThreadTitleClient | null };
 } {
   const client: { current: FakeThreadTitleClient | null } = { current: null };
@@ -227,7 +227,7 @@ function fakeThreadTitleClientFactory(configure?: (client: FakeThreadTitleClient
   };
 }
 
-class FakeThreadTitleClient implements ThreadTitleClient {
+class FakeThreadTitleClient implements EphemeralStructuredTurnClient {
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
   startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
   modelList: ModelListResponse["data"] = [];

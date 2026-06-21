@@ -1,5 +1,5 @@
+import { normalizeReasoningEffort } from "../../domain/catalog/metadata";
 import { approvalPolicyOrNull, approvalsReviewerOrNull, parseServiceTier } from "../../domain/runtime/policy";
-import { normalizedRuntimeReasoningEffort } from "../../domain/runtime/config";
 import type { ReasoningSummary, SandboxMode, RuntimeConfigSnapshot, Verbosity, WebSearchMode } from "../../domain/runtime/config";
 
 interface ConfigLayerRecord {
@@ -24,7 +24,7 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadRes
     profile: selectedConfigProfile(response.layers),
     model: nonEmptyStringOrNull(config["model"]),
     modelProvider: nonEmptyStringOrNull(config["model_provider"]),
-    reasoningEffort: normalizedRuntimeReasoningEffort(effort),
+    reasoningEffort: normalizeReasoningEffort(effort),
     rawReasoningEffort: nonEmptyStringOrNull(effort),
     reasoningSummary: reasoningSummaryOrNull(config["model_reasoning_summary"]),
     verbosity: verbosityOrNull(config["model_verbosity"]),

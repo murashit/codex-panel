@@ -3,8 +3,6 @@ import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { messageStreamItems } from "../state/message-stream";
 
-export type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-
 interface RuntimeSnapshotInput {
   runtimeConfig: ChatState["connection"]["runtimeConfig"];
   activeThread: Pick<ChatState["activeThread"], "id" | "tokenUsage">;

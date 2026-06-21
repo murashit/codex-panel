@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { messageStreamItemFromTurnItem } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
-import {
-  messageStreamIsAutoReviewDecision,
-  messageStreamSemanticClassifications,
-} from "../../../../src/features/chat/domain/message-stream/semantics";
+import { messageStreamSemanticClassifications } from "../../../../src/features/chat/domain/message-stream/semantics/classify";
+import { messageStreamIsAutoReviewDecision } from "../../../../src/features/chat/domain/message-stream/semantics/predicates";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import type { TurnItem } from "../../../../src/app-server/protocol/turn";
 

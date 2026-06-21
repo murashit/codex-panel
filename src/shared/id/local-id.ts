@@ -2,7 +2,7 @@ export interface LocalIdSource {
   next(prefix: string): string;
 }
 
-export interface LocalIdSourceOptions {
+interface LocalIdSourceOptions {
   nowMs?: () => number;
   seed?: string;
 }
