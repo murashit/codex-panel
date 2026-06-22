@@ -10,6 +10,8 @@ import type { ChatPanelComposerSurface } from "../../../../src/features/chat/pan
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/flow-scroll";
+import type { MessageStreamContext } from "../../../../src/features/chat/ui/message-stream/context";
+import { messageStreamViewBlocks } from "../../../../src/features/chat/presentation/message-stream/view-model";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -32,7 +34,7 @@ describe("ChatPanelShell", () => {
       container.querySelector(".codex-panel__body > .codex-panel__messages"),
     );
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("");
-    expect(container.querySelector(".codex-panel__message-block .test-message-count")?.textContent).toBe("0");
+    expect(container.querySelector(".codex-panel__message-block")?.textContent).toContain("Send a message");
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -59,7 +61,7 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("ready");
-    expect(container.querySelector(".codex-panel__message-block .test-message-count")?.textContent).toBe("1");
+    expect(container.querySelector(".codex-panel__message-block")?.textContent).toContain("Model set.");
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -202,12 +204,14 @@ function shellParts(): ChatPanelShellParts {
     goal: surface.goal,
     messageStream: {
       renderState: (state) => ({
-        blocks: [
-          {
-            key: "count",
-            node: <div className="test-message-count">{String(messageStreamItems(state.messageStream).length)}</div>,
-          },
-        ],
+        blocks: messageStreamViewBlocks({
+          activeThreadId: state.activeThread.id,
+          activeTurnId: null,
+          historyCursor: state.messageStream.historyCursor,
+          loadingHistory: state.messageStream.loadingHistory,
+          items: messageStreamItems(state.messageStream),
+        }),
+        context: testMessageStreamContext,
         scrollController: noOpMessageStreamScrollController,
       }),
     },
@@ -259,6 +263,23 @@ function shellParts(): ChatPanelShellParts {
     },
   };
 }
+
+const testMessageStreamContext: MessageStreamContext = {
+  activeThreadId: "thread",
+  workspaceRoot: "/vault",
+  loadOlderTurns: () => undefined,
+  disclosures: {
+    details: new Set(),
+    activityGroups: new Set(),
+    textDetails: new Set(),
+    userMessageExpanded: new Set(),
+    goalObjectiveExpanded: new Set(),
+    approvalDetails: new Set(),
+  },
+  forkMenuItemId: null,
+  renderObsidianMarkdown: () => undefined,
+  renderStreamMarkdown: () => undefined,
+};
 
 function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): {
   toolbar: ChatPanelToolbarSurface;

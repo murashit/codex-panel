@@ -8,7 +8,6 @@ import type { MessageStreamScrollControllerBinding } from "../../ui/message-stre
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
 import { renderStreamMarkdown } from "../../ui/message-stream/stream-markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
-import { messageStreamBlocks } from "../../ui/message-stream/stream-blocks";
 import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../shell-state";
 import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
@@ -99,7 +98,8 @@ export class MessageStreamPresenter {
     const projection = messageStreamSurfaceProjectionFromState(state, this.messageStreamSurfaceContext());
 
     return {
-      blocks: messageStreamBlocks(projection.blocks, projection.context),
+      blocks: projection.blocks,
+      context: projection.context,
       scrollController: this.options.scroll.controller,
     };
   }

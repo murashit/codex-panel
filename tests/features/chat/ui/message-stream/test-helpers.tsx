@@ -5,26 +5,25 @@ import { act } from "preact/test-utils";
 import type { PendingApproval, PendingUserInput } from "../../../../../src/domain/pending-requests/model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
-import { messageStreamBlocks as rawMessageStreamBlocks } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type {
-  MessageStreamBlock,
   MessageStreamContext,
   MessageStreamDisclosureState,
   PendingRequestBlockActions,
   PendingRequestBlockContext,
 } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
-import { messageStreamViewBlocks } from "../../../../../src/features/chat/presentation/message-stream/view-model";
+import {
+  messageStreamViewBlocks,
+  type MessageStreamViewBlock,
+} from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import type { MessageStreamTextActionTargets } from "../../../../../src/features/chat/presentation/message-stream/text-view";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import type { MessageStreamScrollControllerBinding } from "../../../../../src/features/chat/ui/message-stream/flow-scroll";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
-export function messageStreamBlocks(
-  context: TestMessageStreamContext,
-): [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>] {
+export function messageStreamBlocks(context: TestMessageStreamContext): [MessageStreamViewBlock, ...MessageStreamViewBlock[]] {
   const normalized = normalizeMessageStreamContext(context);
-  const viewBlocks = messageStreamViewBlocks({
+  const blocks = messageStreamViewBlocks({
     activeThreadId: normalized.activeThreadId,
     activeTurnId: activeTurnIdForMessageStream(context.turnLifecycle),
     historyCursor: context.historyCursor,
@@ -37,10 +36,12 @@ export function messageStreamBlocks(
     textActionTargetsByItemId: context.textActionTargetsByItemId,
     pendingRequests: pendingRequestBlockInput(context),
   });
-  const blocks = rawMessageStreamBlocks(viewBlocks, normalized);
   if (blocks.length === 0) throw new Error("Expected at least one message stream block.");
-  return blocks as [ReturnType<typeof rawMessageStreamBlocks>[number], ...ReturnType<typeof rawMessageStreamBlocks>];
+  for (const block of blocks) messageStreamContextByBlock.set(block, normalized);
+  return blocks as [MessageStreamViewBlock, ...MessageStreamViewBlock[]];
 }
+
+const messageStreamContextByBlock = new WeakMap<MessageStreamViewBlock, MessageStreamContext>();
 
 function pendingRequestBlockInput(
   context: TestMessageStreamContext,
@@ -133,7 +134,7 @@ export function dispatchComposingInputValue(input: HTMLInputElement, value: stri
   input.dispatchEvent(event);
 }
 
-export function renderMessageBlockElement(block: ReturnType<typeof rawMessageStreamBlocks>[number]): HTMLElement {
+export function renderMessageBlockElement(block: MessageStreamViewBlock): HTMLElement {
   const parent = document.createElement("div");
   renderMessageStreamBlocksInAct(parent, [block]);
   const host = expectPresent(parent.querySelector<HTMLElement>(`[data-codex-panel-block-key="${block.key}"]`));
@@ -144,16 +145,18 @@ export function actEvent(action: () => void): void {
   void act(action);
 }
 
-export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: MessageStreamBlock[]): void {
+export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: MessageStreamViewBlock[]): void {
   parent.addClass("codex-panel__messages");
   installMessageViewportMetrics(parent);
   if (!parent.isConnected) document.body.appendChild(parent);
+  const context = messageStreamContextForBlocks(blocks);
   void act(() => {
     renderUiRoot(
       parent,
       <MessageStreamViewport
         state={{
           blocks,
+          context,
           scrollController: noOpMessageStreamScrollController,
         }}
       />,
@@ -164,6 +167,12 @@ export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: Mess
 const noOpMessageStreamScrollController: MessageStreamScrollControllerBinding = {
   mountScrollPort: () => () => undefined,
 };
+
+function messageStreamContextForBlocks(blocks: readonly MessageStreamViewBlock[]): MessageStreamContext {
+  const context = blocks.map((block) => messageStreamContextByBlock.get(block)).find((candidate) => candidate !== undefined);
+  if (!context) throw new Error("Expected message stream blocks created by messageStreamBlocks().");
+  return context;
+}
 
 export function installMessageViewportMetrics(
   element: HTMLElement,

@@ -8,7 +8,7 @@ import {
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { detailNode } from "./detail";
 import { agentRunSummaryNode, statusNode } from "./status";
-import type { MessageStreamBlock, MessageStreamContext, PendingRequestBlockContext } from "./context";
+import type { MessageStreamContext, PendingRequestBlockContext } from "./context";
 import { textNode } from "./text";
 
 function streamItemNode(item: MessageStreamRenderedItemView, context: MessageStreamContext): UiNode {
@@ -17,51 +17,39 @@ function streamItemNode(item: MessageStreamRenderedItemView, context: MessageStr
   return statusNode(item.view);
 }
 
-export function messageStreamBlocks(viewBlocks: readonly MessageStreamViewBlock[], context: MessageStreamContext): MessageStreamBlock[] {
-  return viewBlocks.map((block) => presentationBlockNode(block, context));
+export function MessageStreamBlockContent({ block, context }: { block: MessageStreamViewBlock; context: MessageStreamContext }): UiNode {
+  return presentationBlockNode(block, context);
 }
 
-function presentationBlockNode(block: MessageStreamViewBlock, context: MessageStreamContext): MessageStreamBlock {
+function presentationBlockNode(block: MessageStreamViewBlock, context: MessageStreamContext): UiNode {
   if (block.kind === "historyBar") {
-    return {
-      key: block.key,
-      node: <HistoryBar loadingHistory={block.loadingHistory} loadOlderTurns={context.loadOlderTurns} />,
-    };
+    return <HistoryBar loadingHistory={block.loadingHistory} loadOlderTurns={context.loadOlderTurns} />;
   }
   if (block.kind === "empty") {
-    return {
-      key: block.key,
-      node: <EmptyMessage />,
-    };
+    return <EmptyMessage />;
   }
   if (block.kind === "activityGroup") {
-    return {
-      key: block.key,
-      node: <ActivityGroup group={block} context={context} />,
-    };
+    return <ActivityGroup group={block} context={context} />;
   }
   if (block.kind === "liveAgentSummary") {
-    return { key: block.key, node: agentRunSummaryNode(block.view) };
+    return agentRunSummaryNode(block.view);
   }
   if (block.kind === "pendingRequests") {
     const pendingRequests = pendingRequestContext(context);
-    return {
-      key: block.key,
-      node: pendingRequestBlockNode(
-        block.snapshot.approvals,
-        block.snapshot.pendingUserInputs,
-        block.snapshot.pendingMcpElicitations,
-        block.snapshot.userInputDrafts,
-        block.snapshot.mcpElicitationDrafts,
-        block.snapshot.approvalDetails,
-        pendingRequests.actions(),
-        false,
-        pendingRequests.consumeAutoFocus,
-        block.signature,
-      ),
-    };
+    return pendingRequestBlockNode(
+      block.snapshot.approvals,
+      block.snapshot.pendingUserInputs,
+      block.snapshot.pendingMcpElicitations,
+      block.snapshot.userInputDrafts,
+      block.snapshot.mcpElicitationDrafts,
+      block.snapshot.approvalDetails,
+      pendingRequests.actions(),
+      false,
+      pendingRequests.consumeAutoFocus,
+      block.signature,
+    );
   }
-  return { key: block.key, node: streamItemNode(block, context) };
+  return streamItemNode(block, context);
 }
 
 function pendingRequestContext(context: MessageStreamContext): PendingRequestBlockContext {

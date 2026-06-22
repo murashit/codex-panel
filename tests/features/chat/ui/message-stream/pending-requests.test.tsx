@@ -497,7 +497,7 @@ describe("pending request renderer decisions", () => {
     });
 
     expect(blocks.map((block) => block.key)).toEqual(["item:a1", "pending-requests"]);
-    expect(expectPresent(blocks[1]).node).not.toBeUndefined();
+    expect(expectPresent(blocks[1]).kind).toBe("pendingRequests");
   });
 
   it("renders MCP elicitation fields and resolves them separately from Plan mode input", () => {

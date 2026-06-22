@@ -159,7 +159,18 @@ describe("message stream rendering and message action menu", () => {
 
   it("keeps blocks in the flow after their rendered content shrinks on rerender", () => {
     const parent = document.createElement("div");
-    const block = { key: "item:u1", node: <div>expanded</div> };
+    const baseContext = {
+      activeThreadId: "thread",
+      turnLifecycle: idleTurnLifecycle(),
+      historyCursor: null,
+      loadingHistory: false,
+      loadOlderTurns: vi.fn(),
+      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
+    };
+    const block = messageStreamBlocks({
+      ...baseContext,
+      items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "expanded", turnId: "t1" }],
+    })[0];
 
     renderMessageStreamBlocksInAct(parent, [block]);
 
@@ -174,7 +185,12 @@ describe("message stream rendering and message action menu", () => {
     expect(host.style.transform).toBe("");
 
     Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
-    renderMessageStreamBlocksInAct(parent, [{ ...block, node: <div>collapsed</div> }]);
+    renderMessageStreamBlocksInAct(parent, [
+      messageStreamBlocks({
+        ...baseContext,
+        items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "collapsed", turnId: "t1" }],
+      })[0],
+    ]);
 
     expect(messageFlow.style.height).toBe("");
     expect(host.style.transform).toBe("");

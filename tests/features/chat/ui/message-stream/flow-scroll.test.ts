@@ -1,16 +1,15 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { h } from "preact";
+import { h, type ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 
 import {
+  MessageStreamFlowFrame,
   type MessageStreamScrollCommand,
   type MessageStreamScrollControllerBinding,
   type MessageStreamScrollPort,
 } from "../../../../../src/features/chat/ui/message-stream/flow-scroll";
-import type { MessageStreamBlock } from "../../../../../src/features/chat/ui/message-stream/context";
-import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../../support/dom";
@@ -208,7 +207,7 @@ function renderFlowMessageStream(
   keys: readonly string[],
   heights: Record<string, number>,
   options: {
-    blockNode?: (key: string) => MessageStreamBlock["node"];
+    blockNode?: (key: string) => UiNode;
     viewport?: { width: number; height: number };
   } = {},
 ): {
@@ -232,7 +231,11 @@ function renderFlowMessageStream(
     void act(() => {
       renderUiRoot(
         parent,
-        h(MessageStreamViewport, { state: { blocks: blockList(nextKeys, options.blockNode), scrollController: controller } }),
+        h(MessageStreamFlowFrame, {
+          blocks: nextKeys.map((key) => ({ key })),
+          scrollController: controller,
+          renderBlockContent: (block) => options.blockNode?.(block.key) ?? h("div", null, block.key),
+        }),
       );
     });
   };
@@ -262,10 +265,6 @@ function renderFlowMessageStream(
       return element;
     },
   };
-}
-
-function blockList(keys: readonly string[], blockNode: ((key: string) => MessageStreamBlock["node"]) | undefined): MessageStreamBlock[] {
-  return keys.map((key) => ({ key, node: blockNode?.(key) ?? h("div", null, key) }));
 }
 
 function messageViewport(parent: HTMLElement): HTMLElement {

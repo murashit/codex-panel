@@ -12,6 +12,7 @@ import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/pane
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
 import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/flow-scroll";
+import type { MessageStreamContext } from "../../../../src/features/chat/ui/message-stream/context";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -98,6 +99,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActio
     messageStream: {
       renderState: () => ({
         blocks: [],
+        context: testMessageStreamContext,
         scrollController: noOpMessageStreamScrollController,
       }),
     },
@@ -186,6 +188,23 @@ function surfaceFixture(
 
 const noOpMessageStreamScrollController: MessageStreamScrollControllerBinding = {
   mountScrollPort: () => () => undefined,
+};
+
+const testMessageStreamContext: MessageStreamContext = {
+  activeThreadId: "thread",
+  workspaceRoot: "/vault",
+  loadOlderTurns: () => undefined,
+  disclosures: {
+    details: new Set(),
+    activityGroups: new Set(),
+    textDetails: new Set(),
+    userMessageExpanded: new Set(),
+    goalObjectiveExpanded: new Set(),
+    approvalDetails: new Set(),
+  },
+  forkMenuItemId: null,
+  renderObsidianMarkdown: () => undefined,
+  renderStreamMarkdown: () => undefined,
 };
 
 function threadFixture(id: string, name: string): Thread {
