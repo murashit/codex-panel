@@ -418,7 +418,7 @@ export function mutateState(store: ChatStateStore): void {
     expect(messages).not.toContain("codex-panel/no-chat-state-direct-mutation");
   });
 
-  it("allows signals in the chat shell-state adapter", async () => {
+  it("allows signals only in the chat shell-state adapter", async () => {
     const messages = await lintSource(
       "src/features/chat/panel/shell-state.tsx",
       `
@@ -434,6 +434,19 @@ export const status = signal("idle");
   it("reports signals outside the chat shell-state adapter", async () => {
     const messages = await lintSource(
       "src/shared/ui/components.tsx",
+      `
+import { signal } from "@preact/signals";
+
+export const status = signal("idle");
+`,
+    );
+
+    expect(messages).toContain("no-restricted-syntax");
+  });
+
+  it("reports direct signals usage in tests", async () => {
+    const messages = await lintSource(
+      "tests/features/chat/panel/shell.test.tsx",
       `
 import { signal } from "@preact/signals";
 

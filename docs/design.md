@@ -44,6 +44,8 @@ Obsidian and app-server boundaries stay outside Preact components. `ItemView` cl
 
 Chat-visible state belongs in `ChatStateStore` and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth for turns, pending requests, runtime settings, history cursors, or open details.
 
+Preact Signals are a shell-local projection adapter, not a second state system. The chat panel may use signals to mirror reducer slices and derive UI-facing facts such as busy state, active turn id, message stream item groups, action targets, pending request blocks, and composer runtime snapshots. Those derived facts should be read by surface projections through small shell-state contracts instead of making components or presenters depend on broad reducer slices. Domain, application, host, presentation, and component modules should keep using pure selectors, reducer actions, and explicit props rather than importing signals directly.
+
 Imperative DOM bridges are allowed when an external API or measurement problem requires an `HTMLElement`, such as Obsidian markdown rendering, rendered link binding, diff rendering, icon rendering, textarea measurement, and message stream scroll anchoring. They should not become a second UI composition system inside Preact-owned surfaces.
 
 ## Interaction Principles
