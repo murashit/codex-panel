@@ -68,8 +68,8 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     this.appServerQueries.clear();
   }
 
-  recordLastFocusedPanel(leaf: Parameters<WorkspacePanelCoordinator["recordLastFocusedPanel"]>[0]): void {
-    this.panels.recordLastFocusedPanel(leaf);
+  reconcileWorkspacePanels(leaf: Parameters<WorkspacePanelCoordinator["reconcileWorkspacePanels"]>[0]): void {
+    this.panels.reconcileWorkspacePanels(leaf);
   }
 
   activatePanel(): Promise<unknown> {
@@ -100,12 +100,12 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     return view;
   }
 
-  scheduleBootRestoredPanelLoads(): void {
-    this.panels.scheduleBootRestoredPanelLoads();
+  scheduleWorkspacePanelReconcile(): void {
+    this.panels.scheduleWorkspacePanelReconcile();
   }
 
-  cancelBootRestoredPanelLoads(): void {
-    this.panels.cancelBootRestoredPanelLoads();
+  cancelWorkspacePanelReconcile(): void {
+    this.panels.cancelWorkspacePanelReconcile();
   }
 
   chatHost(): CodexChatHost {

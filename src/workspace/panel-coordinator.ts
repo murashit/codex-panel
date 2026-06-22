@@ -6,9 +6,6 @@ import type { ChatWorkspacePanelSurface } from "../features/chat/host/surface-ha
 import type { ChatPanelSnapshot } from "../features/chat/panel/snapshot";
 import { hasPendingRequests, pendingRequestCounts } from "../domain/pending-requests/aggregate";
 
-const BOOT_RESTORED_PANEL_LOAD_DELAY_MS = 1_000;
-const BOOT_RESTORED_PANEL_LOAD_STAGGER_MS = 250;
-
 type ThreadPanelTarget =
   | {
       kind: "open";
@@ -37,7 +34,11 @@ type ThreadPanelTarget =
       kind: "new";
     };
 
-type BootRestoredPanelLoadLifecycleState = { kind: "idle" } | { kind: "scheduled"; timers: Set<number> } | { kind: "cancelled" };
+type WorkspacePanelReconcileScheduleState = { kind: "idle" } | { kind: "scheduled"; timers: Set<number> } | { kind: "cancelled" };
+
+interface WorkspacePanelReconcileOptions {
+  loadRestoredLeaves?: boolean;
+}
 
 export interface OpenCodexPanelSnapshot extends ChatPanelSnapshot {
   lastFocused: boolean;
@@ -49,14 +50,14 @@ export interface WorkspacePanelCoordinatorOptions {
 }
 
 export class WorkspacePanelCoordinator {
-  private bootRestoredPanelLoadLifecycle: BootRestoredPanelLoadLifecycleState = { kind: "idle" };
+  private workspacePanelReconcileSchedule: WorkspacePanelReconcileScheduleState = { kind: "idle" };
   private lastFocusedPanelViewId: string | null = null;
 
   constructor(private readonly options: WorkspacePanelCoordinatorOptions) {}
 
   reset(): void {
-    this.clearBootRestoredPanelLoadTimers();
-    this.bootRestoredPanelLoadLifecycle = { kind: "idle" };
+    this.clearWorkspacePanelReconcileTimers();
+    this.workspacePanelReconcileSchedule = { kind: "idle" };
     this.lastFocusedPanelViewId = null;
   }
 
@@ -144,14 +145,6 @@ export class WorkspacePanelCoordinator {
     return false;
   }
 
-  recordLastFocusedPanel(leaf: WorkspaceLeaf | null): void {
-    const viewId = focusedPanelViewId(leaf);
-    if (!viewId) return;
-    if (this.lastFocusedPanelViewId === viewId) return;
-    this.lastFocusedPanelViewId = viewId;
-    this.options.refreshThreadsViewLiveState();
-  }
-
   panelLeavesForThread(threadId: string): WorkspaceLeaf[] {
     return this.panelLeaves().filter((leaf) => {
       if (leaf.view instanceof CodexChatView) return workspacePanelSurface(leaf.view).openPanelSnapshot().threadId === threadId;
@@ -163,28 +156,49 @@ export class WorkspacePanelCoordinator {
     return this.panelLeaves().flatMap((leaf) => (leaf.view instanceof CodexChatView ? [leaf.view] : []));
   }
 
-  scheduleBootRestoredPanelLoads(): void {
-    this.scheduleBootRestoredPanelLoadTimer(() => {
-      const leaves = this.panelLeaves();
-      leaves.forEach((leaf, index) => {
-        this.scheduleBootRestoredPanelLoadTimer(() => {
-          void this.loadRestoredPanelLeaf(leaf);
-        }, index * BOOT_RESTORED_PANEL_LOAD_STAGGER_MS);
+  reconcileWorkspacePanels(hintLeaf: WorkspaceLeaf | null = null, options: WorkspacePanelReconcileOptions = {}): void {
+    const leaves = this.panelLeaves();
+    const foregroundLeaf = this.foregroundPanelLeaf(leaves, hintLeaf);
+    if (foregroundLeaf) {
+      void this.hydratePanelLeaf(foregroundLeaf).catch((error: unknown) => {
+        console.warn("Codex Panel could not hydrate a foreground panel leaf.", error);
       });
-    }, BOOT_RESTORED_PANEL_LOAD_DELAY_MS);
+    }
+
+    if (options.loadRestoredLeaves) {
+      for (const leaf of leaves) {
+        if (leaf === foregroundLeaf) continue;
+        void this.loadRestoredPanelLeaf(leaf);
+      }
+      this.options.refreshThreadsViewLiveState();
+    }
   }
 
-  cancelBootRestoredPanelLoads(): void {
-    this.clearBootRestoredPanelLoadTimers();
-    this.bootRestoredPanelLoadLifecycle = { kind: "cancelled" };
+  scheduleWorkspacePanelReconcile(): void {
+    this.scheduleWorkspacePanelReconcileTimer(() => {
+      this.reconcileWorkspacePanels(null, { loadRestoredLeaves: true });
+    }, 0);
   }
 
-  private clearBootRestoredPanelLoadTimers(): void {
-    if (this.bootRestoredPanelLoadLifecycle.kind === "scheduled") {
-      for (const timer of this.bootRestoredPanelLoadLifecycle.timers) {
+  cancelWorkspacePanelReconcile(): void {
+    this.clearWorkspacePanelReconcileTimers();
+    this.workspacePanelReconcileSchedule = { kind: "cancelled" };
+  }
+
+  private recordLastFocusedPanel(leaf: WorkspaceLeaf | null): void {
+    const viewId = focusedPanelViewId(leaf);
+    if (!viewId) return;
+    if (this.lastFocusedPanelViewId === viewId) return;
+    this.lastFocusedPanelViewId = viewId;
+    this.options.refreshThreadsViewLiveState();
+  }
+
+  private clearWorkspacePanelReconcileTimers(): void {
+    if (this.workspacePanelReconcileSchedule.kind === "scheduled") {
+      for (const timer of this.workspacePanelReconcileSchedule.timers) {
         window.clearTimeout(timer);
       }
-      this.bootRestoredPanelLoadLifecycle.timers.clear();
+      this.workspacePanelReconcileSchedule.timers.clear();
     }
   }
 
@@ -265,6 +279,26 @@ export class WorkspacePanelCoordinator {
     return null;
   }
 
+  private foregroundPanelLeaf(leaves: readonly WorkspaceLeaf[], hintLeaf: WorkspaceLeaf | null): WorkspaceLeaf | null {
+    return (
+      this.panelLeafFromLeaf(leaves, hintLeaf) ??
+      this.activePanelLeaf(leaves) ??
+      this.panelLeafFromLeaf(leaves, this.options.app.workspace.getMostRecentLeaf(this.options.app.workspace.rightSplit))
+    );
+  }
+
+  private activePanelLeaf(leaves: readonly WorkspaceLeaf[]): WorkspaceLeaf | null {
+    const activeView = this.options.app.workspace.getActiveViewOfType(CodexChatView);
+    if (!activeView) return null;
+    return leaves.find((leaf) => leaf.view === activeView) ?? null;
+  }
+
+  private panelLeafFromLeaf(leaves: readonly WorkspaceLeaf[], leaf: WorkspaceLeaf | null): WorkspaceLeaf | null {
+    if (!leaf || !leaves.includes(leaf)) return null;
+    if (leaf.view instanceof CodexChatView) return leaf;
+    return leaf.getViewState().type === VIEW_TYPE_CODEX_PANEL ? leaf : null;
+  }
+
   private threadPanelTargetFromLeaf(leaf: WorkspaceLeaf): ThreadPanelTarget | null {
     if (leaf.view instanceof CodexChatView) return { kind: "reuse", leaf, view: leaf.view };
     if (leaf.getViewState().type === VIEW_TYPE_CODEX_PANEL) return { kind: "restored-reuse", leaf };
@@ -338,34 +372,45 @@ export class WorkspacePanelCoordinator {
     return { ...snapshot, lastFocused: snapshot.viewId === this.lastFocusedPanelViewId };
   }
 
-  private scheduleBootRestoredPanelLoadTimer(callback: () => void, delay: number): void {
-    const lifecycle = this.ensureBootRestoredPanelLoadScheduled();
+  private scheduleWorkspacePanelReconcileTimer(callback: () => void, delay: number): void {
+    const lifecycle = this.ensureWorkspacePanelReconcileScheduled();
     if (!lifecycle) return;
     const timer = window.setTimeout(() => {
-      if (this.bootRestoredPanelLoadLifecycle !== lifecycle) return;
+      if (this.workspacePanelReconcileSchedule !== lifecycle) return;
       lifecycle.timers.delete(timer);
       callback();
-      if (this.bootRestoredPanelLoadLifecycle === lifecycle && lifecycle.timers.size === 0) {
-        this.bootRestoredPanelLoadLifecycle = { kind: "idle" };
+      if (this.workspacePanelReconcileSchedule === lifecycle && lifecycle.timers.size === 0) {
+        this.workspacePanelReconcileSchedule = { kind: "idle" };
       }
     }, delay);
     lifecycle.timers.add(timer);
   }
 
   private async loadRestoredPanelLeaf(leaf: WorkspaceLeaf): Promise<void> {
-    if (this.bootRestoredPanelLoadLifecycle.kind === "cancelled") return;
+    if (this.workspacePanelReconcileSchedule.kind === "cancelled") return;
     try {
       await leaf.loadIfDeferred();
     } catch (error) {
-      console.warn("Codex Panel could not hydrate a restored panel leaf.", error);
+      console.warn("Codex Panel could not load a restored panel leaf.", error);
     }
   }
 
-  private ensureBootRestoredPanelLoadScheduled(): Extract<BootRestoredPanelLoadLifecycleState, { kind: "scheduled" }> | null {
-    if (this.bootRestoredPanelLoadLifecycle.kind === "cancelled") return null;
-    if (this.bootRestoredPanelLoadLifecycle.kind === "scheduled") return this.bootRestoredPanelLoadLifecycle;
-    const lifecycle: Extract<BootRestoredPanelLoadLifecycleState, { kind: "scheduled" }> = { kind: "scheduled", timers: new Set() };
-    this.bootRestoredPanelLoadLifecycle = lifecycle;
+  private async hydratePanelLeaf(leaf: WorkspaceLeaf): Promise<void> {
+    if (!(leaf.view instanceof CodexChatView)) {
+      if (leaf.getViewState().type !== VIEW_TYPE_CODEX_PANEL) return;
+      await leaf.loadIfDeferred();
+    }
+    if (leaf.view instanceof CodexChatView) {
+      this.recordLastFocusedPanel(leaf);
+      await workspacePanelSurface(leaf.view).hydrateRestoredThread();
+    }
+  }
+
+  private ensureWorkspacePanelReconcileScheduled(): Extract<WorkspacePanelReconcileScheduleState, { kind: "scheduled" }> | null {
+    if (this.workspacePanelReconcileSchedule.kind === "cancelled") return null;
+    if (this.workspacePanelReconcileSchedule.kind === "scheduled") return this.workspacePanelReconcileSchedule;
+    const lifecycle: Extract<WorkspacePanelReconcileScheduleState, { kind: "scheduled" }> = { kind: "scheduled", timers: new Set() };
+    this.workspacePanelReconcileSchedule = lifecycle;
     return lifecycle;
   }
 }

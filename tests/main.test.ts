@@ -11,6 +11,7 @@ import type { CodexChatHost } from "../src/features/chat/host/runtime";
 import type { Thread } from "../src/domain/threads/model";
 import { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
 import { installObsidianDomShims } from "./support/dom";
+import { waitForAsyncWork } from "./support/async";
 
 installObsidianDomShims();
 
@@ -33,7 +34,7 @@ function threadCatalog(plugin: CodexPanelPlugin) {
   return plugin.runtime.chatHost().threadCatalog;
 }
 
-describe("CodexPanelPlugin boot restored panel loading", () => {
+describe("CodexPanelPlugin workspace panel reconciliation", () => {
   beforeEach(() => {
     vi.useRealTimers();
     withShortLivedAppServerClientMock.mockReset();
@@ -50,40 +51,36 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
     expect(firstLeaf.loadIfDeferred).not.toHaveBeenCalled();
     expect(secondLeaf.loadIfDeferred).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(1_000);
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(0);
     expect(firstLeaf.loadIfDeferred).toHaveBeenCalledTimes(1);
-    expect(secondLeaf.loadIfDeferred).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(249);
     expect(secondLeaf.loadIfDeferred).toHaveBeenCalledTimes(1);
   });
 
-  it("cancels pending boot panel loads on unload", async () => {
+  it("cancels pending workspace panel reconciliation on unload", async () => {
     vi.useFakeTimers();
     const firstLeaf = leaf();
     const plugin = await pluginWithLeaves([firstLeaf]);
 
     await plugin.onload();
     plugin.onunload();
-    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(firstLeaf.loadIfDeferred).not.toHaveBeenCalled();
   });
 
-  it("clears pending boot panel load timers on reset without cancelling future schedules", async () => {
+  it("clears pending workspace panel reconciliation timers on reset without cancelling future schedules", async () => {
     vi.useFakeTimers();
     const firstLeaf = leaf();
     const coordinator = panels(await pluginWithLeaves([firstLeaf]));
 
-    coordinator.scheduleBootRestoredPanelLoads();
+    coordinator.scheduleWorkspacePanelReconcile();
     coordinator.reset();
-    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(firstLeaf.loadIfDeferred).not.toHaveBeenCalled();
 
-    coordinator.scheduleBootRestoredPanelLoads();
-    await vi.advanceTimersByTimeAsync(1_001);
+    coordinator.scheduleWorkspacePanelReconcile();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(firstLeaf.loadIfDeferred).toHaveBeenCalledOnce();
   });
@@ -349,6 +346,73 @@ describe("CodexPanelPlugin boot restored panel loading", () => {
       { viewId: "first", lastFocused: false },
       { viewId: "second", lastFocused: true },
     ]);
+  });
+
+  it("hydrates restored panels when Obsidian activates an open Codex tab", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const panelLeaf = leaf();
+    panelLeaf.view = chatView(CodexChatView, panelLeaf);
+    const hydrateRestoredThread = vi.spyOn((panelLeaf.view as CodexChatView).surface, "hydrateRestoredThread").mockResolvedValue(undefined);
+    const activeLeafHandlers: ((leaf: TestLeaf | null) => void)[] = [];
+    const plugin = await pluginWithLeaves([panelLeaf]);
+    (plugin.app.workspace.on as ReturnType<typeof vi.fn>).mockImplementation((name: string, handler: (leaf: TestLeaf | null) => void) => {
+      if (name === "active-leaf-change") activeLeafHandlers.push(handler);
+      return {};
+    });
+
+    await plugin.onload();
+    const activeLeafHandler = activeLeafHandlers.at(0);
+    if (!activeLeafHandler) throw new Error("Expected active leaf handler to be registered.");
+    activeLeafHandler(panelLeaf);
+
+    await waitForAsyncWork(() => {
+      expect(hydrateRestoredThread).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("loads and hydrates the startup foreground Codex panel through workspace reconciliation", async () => {
+    vi.useFakeTimers();
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const activeLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
+    const view = chatView(CodexChatView, activeLeaf);
+    const hydrateRestoredThread = vi.spyOn(view.surface, "hydrateRestoredThread").mockResolvedValue(undefined);
+    activeLeaf.loadIfDeferred.mockImplementation(async () => {
+      activeLeaf.view = view;
+    });
+    const plugin = await pluginWithLeaves([activeLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(activeLeaf);
+
+    await plugin.onload();
+    await vi.advanceTimersByTimeAsync(0);
+
+    await waitForAsyncWork(() => {
+      expect(activeLeaf.loadIfDeferred).toHaveBeenCalledOnce();
+      expect(hydrateRestoredThread).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("hydrates the right sidebar Codex panel on startup when the active leaf is a note", async () => {
+    vi.useFakeTimers();
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const restoredLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
+    const noteLeaf = nonPanelLeaf();
+    const view = chatView(CodexChatView, restoredLeaf);
+    const hydrateRestoredThread = vi.spyOn(view.surface, "hydrateRestoredThread").mockResolvedValue(undefined);
+    restoredLeaf.loadIfDeferred.mockImplementation(async () => {
+      restoredLeaf.view = view;
+    });
+    const plugin = await pluginWithLeaves([restoredLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockImplementation((root?: unknown) =>
+      root === plugin.app.workspace.rightSplit ? restoredLeaf : noteLeaf,
+    );
+
+    await plugin.onload();
+    await vi.advanceTimersByTimeAsync(0);
+
+    await waitForAsyncWork(() => {
+      expect(restoredLeaf.loadIfDeferred).toHaveBeenCalledOnce();
+      expect(hydrateRestoredThread).toHaveBeenCalledOnce();
+    });
   });
 
   it("initially marks the active Codex panel before focus events arrive", async () => {
@@ -657,6 +721,13 @@ function leaf(options: { state?: Record<string, unknown> } = {}) {
     setViewState: vi.fn().mockResolvedValue(undefined),
     loadIfDeferred: vi.fn().mockResolvedValue(undefined),
     detach: vi.fn(),
+  };
+}
+
+function nonPanelLeaf() {
+  return {
+    view: null as unknown,
+    getViewState: vi.fn(() => ({ type: "markdown", state: {} })),
   };
 }
 

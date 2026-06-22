@@ -28,7 +28,7 @@ export default class CodexPanelPlugin extends Plugin {
     this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this.runtime.threadsHost()));
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
-        this.runtime.recordLastFocusedPanel(leaf);
+        this.runtime.reconcileWorkspacePanels(leaf);
       }),
     );
 
@@ -72,11 +72,11 @@ export default class CodexPanelPlugin extends Plugin {
 
     this.addSettingTab(new CodexPanelSettingTab(this.app, this, this.runtime.settingTabHost()));
 
-    this.runtime.scheduleBootRestoredPanelLoads();
+    this.runtime.scheduleWorkspacePanelReconcile();
   }
 
   override onunload(): void {
-    this.runtime.cancelBootRestoredPanelLoads();
+    this.runtime.cancelWorkspacePanelReconcile();
   }
 
   async loadSettings(): Promise<void> {

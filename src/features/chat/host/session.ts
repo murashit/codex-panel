@@ -114,6 +114,10 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.focusComposer();
   }
 
+  async hydrateRestoredThread(): Promise<void> {
+    await this.ensureRestoredThreadLoaded();
+  }
+
   focusComposer(): void {
     this.graph.composer.controller.focus();
   }

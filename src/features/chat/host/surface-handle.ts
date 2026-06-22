@@ -14,6 +14,7 @@ export interface ChatWorkspacePanelSurface {
   openPanelSnapshot(): ChatPanelSnapshot;
   openThread(threadId: string): Promise<void>;
   focusThread(threadId?: string | null): Promise<void>;
+  hydrateRestoredThread(): Promise<void>;
   focusComposer(): void;
   connect(): Promise<void>;
   startNewThread(): Promise<void>;
