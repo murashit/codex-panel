@@ -20,17 +20,19 @@ The repository checkout is the source of truth for implementation, version contr
 
 The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility. Current optional and nullable fields are still part of the contract and must be normalized before display.
 
-Runtime settings move through three panel-owned layers before they reach Codex. Chat state stores active runtime values reported by app-server plus pending runtime intents requested by the user; those intents are not app-server payload values. Effective runtime projections combine pending intent, active thread state, and runtime config for display and UI decisions. Only the app-server boundary converts intent into transport values: `undefined` omits a field, `null` explicitly clears or resets it, and concrete values set it. Config values are inputs to effective projection and selected start-thread defaults; they should not be treated as synonymous with transport `null`.
+Runtime settings should be panel-owned projections of user-visible controls and pending user intent, not mirrors of Codex runtime configuration. Codex-owned policy structures should stay at the app-server boundary unless the panel owns a concrete workflow for them. Diagnostics should include only actionable troubleshooting facts, not broad raw config snapshots kept because they are available. Transport semantics belong at the app-server boundary; config values should not be treated as synonymous with transport payload values.
 
-Fast mode is a panel runtime intent, not an arbitrary service tier override. The app-server still owns service tier ids and defaults, so the panel converts Fast mode enablement to the model catalog's Fast tier id when available, and converts Fast mode disablement or service-tier reset to an explicit clear request at the transport boundary.
+Fast mode is a panel runtime intent, not an arbitrary service tier override. The app-server still owns service tier ids and defaults, so the panel should express Fast mode through the app-server's supported runtime setting rather than redefining tier semantics itself.
 
 ## Code Boundaries
 
-Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before data reaches features, workspace coordination, settings, or UI. Feature-local app-server integration modules may route and apply those projections, but they should not hand-copy generated request or response shapes when a shared app-server protocol adapter can own that mapping.
+Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before data reaches features, workspace coordination, settings, or UI.
 
-Turn stream conversion is the main exception: raw app-server stream payloads may be consumed at the conversion boundary because the event set is broad and changes with Codex. The rest of chat state and UI should still use panel-owned display models.
+Turn stream conversion is the main exception: raw app-server stream payloads may be consumed at the conversion boundary because the event set is broad and changes with Codex. The converter should still reduce them into panel-owned display and diagnostic models before they reach chat state or UI.
 
-Source modules should be organized by reason to change, not by the single Obsidian plugin entrypoint. Obsidian lifecycle, app-server transport, chat state, runtime display, thread management, selection rewrite, settings, and workspace coordination should each stay close to the state or API they own.
+Server request adapters should normalize method-specific app-server requests into coarse panel models before they reach pending request state. The UI should handle user-facing intent; app-server-specific decisions and response payloads should remain boundary-owned.
+
+Source modules should be organized by reason to change, not by the single Obsidian plugin entrypoint. Boundaries should stay close to the state, lifecycle, or external API they own.
 
 Feature-to-feature imports are acceptable when the imported feature owns a real capability. Generic helpers belong in `src/shared/`, generated-independent meaning belongs in `src/domain/`, and protocol adaptation belongs in `src/app-server/`.
 
@@ -44,9 +46,9 @@ Obsidian and app-server boundaries stay outside Preact components. `ItemView` cl
 
 Chat-visible state belongs in `ChatStateStore` and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth for turns, pending requests, runtime settings, history cursors, or open details.
 
-Preact Signals are a shell-local projection adapter, not a second state system. The chat panel may use signals to mirror reducer slices and derive UI-facing facts such as busy state, active turn id, message stream item groups, action targets, pending request blocks, and composer runtime snapshots. Those derived facts should be read by surface projections through small shell-state contracts instead of making components or presenters depend on broad reducer slices. Domain, application, host, presentation, and component modules should keep using pure selectors, reducer actions, and explicit props rather than importing signals directly.
+Preact Signals are a shell-local projection adapter, not a second state system. Surface projections should read narrow shell-state contracts instead of making components or presenters depend on broad reducer slices. Domain, application, host, presentation, and component modules should keep using pure selectors, reducer actions, and explicit props rather than importing signals directly.
 
-Imperative DOM bridges are allowed when an external API or measurement problem requires an `HTMLElement`, such as Obsidian markdown rendering, rendered link binding, diff rendering, icon rendering, textarea measurement, and message stream scroll anchoring. They should not become a second UI composition system inside Preact-owned surfaces.
+Imperative DOM bridges are allowed when an external API or measurement problem requires an `HTMLElement`. They should not become a second UI composition system inside Preact-owned surfaces.
 
 ## Interaction Principles
 
@@ -54,11 +56,11 @@ Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex 
 
 Thread history, archived state, forks, and catalog data should follow app-server semantics. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
 
-Selection rewrite is intentionally scoped: use the live editor buffer, ask Codex for a replacement candidate, show a focused diff, and apply only after user confirmation. Avoid expanding it into a broader writing assistant without a separate design decision.
+Selection rewrite is intentionally scoped to a focused edit-and-review workflow. Avoid expanding it into a broader writing assistant without a separate design decision.
 
 Server requests should become panel UI only when the user can naturally answer them in context. Unknown or unsupported requests should stay diagnostic instead of pretending to be normal conversation text.
 
-Message stream display should separate primary conversation from diagnostic detail and progress/status. Preserve stable item identity across history reads, streaming updates, delayed rendering, and scroll anchoring.
+Message stream display should separate primary conversation from diagnostic detail and progress/status. Preserve stable item identity across history, streaming, and rendering updates.
 
 Codex Panel UI should feel native inside Obsidian. Prefer Obsidian variables, standard classes, and side-panel patterns. Add custom visual treatment only when Codex-specific state would otherwise be hard to read.
 
