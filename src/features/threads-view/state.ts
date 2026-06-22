@@ -11,7 +11,7 @@ import {
   type ThreadRenameLifecycleState as SharedThreadRenameLifecycleState,
 } from "../threads/rename-lifecycle";
 
-type ThreadsLiveStatus = "pending" | "running" | "draft" | "offline" | "open";
+type ThreadsLiveStatus = "pending" | "running" | "open";
 
 interface ThreadsLiveState {
   status: ThreadsLiveStatus;
@@ -33,10 +33,8 @@ export type ThreadsRenameLifecycleEvent =
   | { type: "auto-name-finished"; generatingState: ThreadsGeneratingRenameState };
 
 const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
-  pending: 4,
-  running: 3,
-  draft: 2,
-  offline: 1,
+  pending: 2,
+  running: 1,
   open: 0,
 };
 
@@ -127,7 +125,5 @@ function snapshotsForThreads(snapshots: OpenCodexPanelSnapshot[]): Map<string, O
 function snapshotStatus(snapshot: OpenCodexPanelSnapshot): ThreadsLiveStatus {
   if (hasPendingRequests(pendingRequestCounts(snapshot))) return "pending";
   if (snapshot.turnLifecycle.kind !== "idle") return "running";
-  if (snapshot.hasComposerDraft) return "draft";
-  if (!snapshot.connected) return "offline";
   return "open";
 }

@@ -129,9 +129,12 @@ export class WorkspacePanelCoordinator {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[] {
     const leaves = this.panelLeaves();
     this.ensureInitialFocusedPanel(leaves);
-    return leaves.flatMap((leaf) =>
-      leaf.view instanceof CodexChatView ? [this.openPanelSnapshotWithFocus(workspacePanelSurface(leaf.view).openPanelSnapshot())] : [],
-    );
+    return leaves.flatMap((leaf, index) => {
+      if (leaf.view instanceof CodexChatView)
+        return [this.openPanelSnapshotWithFocus(workspacePanelSurface(leaf.view).openPanelSnapshot())];
+      const restoredSnapshot = restoredPanelSnapshot(leaf, index);
+      return restoredSnapshot ? [restoredSnapshot] : [];
+    });
   }
 
   async focusOpenPanel(viewId: string, threadId: string | null = null): Promise<boolean> {
@@ -437,4 +440,20 @@ function restoredThreadId(leaf: WorkspaceLeaf): string | null {
   if (!state || typeof state !== "object") return null;
   const threadId = (state as { threadId?: unknown }).threadId;
   return typeof threadId === "string" && threadId.length > 0 ? threadId : null;
+}
+
+function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): OpenCodexPanelSnapshot | null {
+  const threadId = restoredThreadId(leaf);
+  if (!threadId) return null;
+  return {
+    viewId: `restored:${String(index)}:${threadId}`,
+    threadId,
+    turnLifecycle: { kind: "idle" },
+    pendingApprovals: 0,
+    pendingUserInputs: 0,
+    pendingMcpElicitations: 0,
+    hasComposerDraft: false,
+    connected: false,
+    lastFocused: false,
+  };
 }

@@ -99,6 +99,24 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(restoredLeaf.view).toBeInstanceOf(CodexChatView);
   });
 
+  it("includes deferred restored panels in open panel snapshots", async () => {
+    const restoredLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
+    const plugin = await pluginWithLeaves([restoredLeaf]);
+
+    expect(panels(plugin).getOpenPanelSnapshots()).toMatchObject([
+      {
+        threadId: "thread-1",
+        turnLifecycle: { kind: "idle" },
+        pendingApprovals: 0,
+        pendingUserInputs: 0,
+        pendingMcpElicitations: 0,
+        hasComposerDraft: false,
+        connected: false,
+        lastFocused: false,
+      },
+    ]);
+  });
+
   it("focuses an already open thread before reusing an empty panel", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view");
     const openLeaf = leaf();

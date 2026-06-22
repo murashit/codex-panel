@@ -104,7 +104,7 @@ describe("threads view renderer decisions", () => {
         new Map(),
       )[0]?.live,
     ).toMatchObject({
-      status: "draft",
+      status: "open",
     });
     expect(
       threadRows(
@@ -113,7 +113,7 @@ describe("threads view renderer decisions", () => {
         new Map(),
       )[0]?.live,
     ).toMatchObject({
-      status: "offline",
+      status: "open",
     });
     expect(
       threadRows(
