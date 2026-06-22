@@ -22,7 +22,7 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-roo
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { installMessageViewportMetrics } from "../../ui/message-stream/test-helpers";
-import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
+import { withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
@@ -296,7 +296,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     expect(messages.scrollTop).toBe(0);
   });
 
-  it("accepts scroll commands when no message stream virtualizer is mounted", () => {
+  it("accepts scroll commands when no message stream viewport is mounted", () => {
     const { presenter, scrollController } = messageStreamPresenter();
 
     expect(() => {
@@ -308,7 +308,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     }).not.toThrow();
   });
 
-  it("detaches the active virtualizer when the message stream unmounts", async () => {
+  it("detaches the active scroll port when the message stream unmounts", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = withChatStateMessageStreamItems(state, [
@@ -544,7 +544,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     expect(parent.querySelector(".codex-panel__messages")).not.toBeNull();
   });
 
-  it("does not mount every block before the virtualizer attaches", async () => {
+  it("renders large message streams through the flow viewport", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = withChatStateMessageStreamItems(
@@ -567,7 +567,8 @@ describe("MessageStreamPresenter scroll pinning", () => {
     installMessageViewportMetrics(messages, { clientHeight: 320, scrollHeight: 19_200 });
     await settleMessageRender(messages);
 
-    expect(parent.querySelectorAll("[data-codex-panel-block-key]").length).toBeLessThan(chatStateMessageStreamItems(state).length);
+    expect(parent.querySelector(".codex-panel__message-flow")).not.toBeNull();
+    expect(parent.querySelectorAll("[data-codex-panel-block-key]").length).toBeGreaterThan(0);
   });
 });
 

@@ -44,7 +44,7 @@ Obsidian and app-server boundaries stay outside Preact components. `ItemView` cl
 
 Chat-visible state belongs in `ChatStateStore` and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth for turns, pending requests, runtime settings, history cursors, or open details.
 
-Imperative DOM bridges are allowed when an external API or measurement problem requires an `HTMLElement`, such as Obsidian markdown rendering, rendered link binding, diff rendering, icon rendering, textarea measurement, and virtualized list measurement. They should not become a second UI composition system inside Preact-owned surfaces.
+Imperative DOM bridges are allowed when an external API or measurement problem requires an `HTMLElement`, such as Obsidian markdown rendering, rendered link binding, diff rendering, icon rendering, textarea measurement, and message stream scroll anchoring. They should not become a second UI composition system inside Preact-owned surfaces.
 
 ## Interaction Principles
 
@@ -56,7 +56,7 @@ Selection rewrite is intentionally scoped: use the live editor buffer, ask Codex
 
 Server requests should become panel UI only when the user can naturally answer them in context. Unknown or unsupported requests should stay diagnostic instead of pretending to be normal conversation text.
 
-Message stream display should separate primary conversation from diagnostic detail and progress/status. Preserve stable item identity across history reads, streaming updates, virtualization, delayed rendering, and scroll anchoring.
+Message stream display should separate primary conversation from diagnostic detail and progress/status. Preserve stable item identity across history reads, streaming updates, delayed rendering, and scroll anchoring.
 
 Codex Panel UI should feel native inside Obsidian. Prefer Obsidian variables, standard classes, and side-panel patterns. Add custom visual treatment only when Codex-specific state would otherwise be hard to read.
 

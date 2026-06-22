@@ -9,7 +9,7 @@ import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts }
 import type { ChatPanelComposerSurface } from "../../../../src/features/chat/panel/surface/composer-projection";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
-import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/virtualizer";
+import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/flow-scroll";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();

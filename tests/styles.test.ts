@@ -24,6 +24,7 @@ describe("chat toolbar CSS", () => {
     const messages = /\.codex-panel__messages \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
 
     expect(messages).toContain("overflow-y: auto");
+    expect(messages).not.toContain("overflow-anchor: none");
     expect(messages).not.toMatch(/^\s+height:/m);
   });
 

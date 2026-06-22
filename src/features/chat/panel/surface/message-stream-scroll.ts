@@ -3,7 +3,7 @@ import type {
   MessageStreamScrollCommand,
   MessageStreamScrollControllerBinding,
   MessageStreamScrollPort,
-} from "../../ui/message-stream/virtualizer";
+} from "../../ui/message-stream/flow-scroll";
 
 export interface ChatMessageScrollController extends MessageStreamScrollControllerBinding {
   showLatest(): void;

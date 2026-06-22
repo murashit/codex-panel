@@ -2,8 +2,7 @@
   box-sizing: border-box;
   min-height: 0;
   overflow-y: auto;
-  overflow-anchor: none;
-  padding: 0 var(--codex-panel-edge-padding-x);
+  padding: var(--codex-panel-edge-padding-x) var(--codex-panel-edge-padding-x) 0;
   user-select: text;
 }
 
@@ -13,16 +12,11 @@
   margin-bottom: var(--codex-panel-section-gap);
 }
 
-.codex-panel__message-virtualizer {
-  position: relative;
+.codex-panel__message-flow {
   width: 100%;
 }
 
 .codex-panel__message-block {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
   display: flow-root;
   min-width: 0;
 }

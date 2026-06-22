@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createChatMessageScrollController } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
-import type { MessageStreamScrollPort } from "../../../../../src/features/chat/ui/message-stream/virtualizer";
+import type { MessageStreamScrollPort } from "../../../../../src/features/chat/ui/message-stream/flow-scroll";
 
 describe("createChatMessageScrollController", () => {
   it("ignores scroll commands while no message viewport is mounted", () => {

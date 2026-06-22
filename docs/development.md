@@ -64,7 +64,7 @@ Prefer functions and factory-created objects over classes. Use a class only when
 - Preserve last-known-good app-server state on refresh failure. Do not turn disconnected reads into authoritative empty thread lists, settings snapshots, hook inventories, or diagnostics.
 - Normalize optional and nullable app-server values before display. Users should not see raw `undefined`, `null`, protocol enum gaps, or fallback labels that imply Panel owns a Codex runtime setting.
 - Route chat-visible state through `ChatStateStore` when it must synchronize with app-server notifications, turns, pending requests, runtime settings, history cursors, or open details.
-- Do not use DOM order as message history state. Message stream virtualization means offscreen items may not exist in the DOM, and delayed Markdown rendering can change heights after initial render.
+- Do not use DOM order as message history state. Message stream DOM is a presentation surface, and delayed Markdown rendering can change heights after initial render.
 
 ## API Baselines
 

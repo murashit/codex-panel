@@ -4,7 +4,7 @@ import type { App, Component } from "obsidian";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
-import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/virtualizer";
+import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/flow-scroll";
 import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-renderer";
 import { renderStreamMarkdown } from "../../ui/message-stream/stream-markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";

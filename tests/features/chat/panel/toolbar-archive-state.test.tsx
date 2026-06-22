@@ -11,7 +11,7 @@ import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/s
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 import { renderChatPanelShell, unmountChatPanelShell, type ChatPanelShellParts } from "../../../../src/features/chat/panel/shell";
-import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/virtualizer";
+import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/flow-scroll";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();

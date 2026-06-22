@@ -96,7 +96,7 @@ describe("message stream rendering and message action menu", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("remeasures Work details when the activity group is collapsed", async () => {
+  it("keeps Work details in the flow when the activity group is collapsed", async () => {
     const parent = document.createElement("div");
     const blocks = messageStreamBlocks({
       activeThreadId: "thread",
@@ -134,7 +134,7 @@ describe("message stream rendering and message action menu", () => {
     renderMessageStreamBlocksInAct(parent, [activityBlock]);
 
     const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-block"));
-    const virtualizer = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-virtualizer"));
+    const messageFlow = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-flow"));
     const activityGroup = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__activity-group"));
 
     Object.defineProperty(host, "offsetHeight", { value: 520, configurable: true });
@@ -142,7 +142,8 @@ describe("message stream rendering and message action menu", () => {
       activityGroup.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
       await Promise.resolve();
     });
-    expect(virtualizer.style.height).toBe("520px");
+    expect(messageFlow.style.height).toBe("");
+    expect(host.style.transform).toBe("");
 
     Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
     await act(async () => {
@@ -151,29 +152,32 @@ describe("message stream rendering and message action menu", () => {
       await Promise.resolve();
     });
 
-    expect(virtualizer.style.height).toBe("120px");
+    expect(messageFlow.style.height).toBe("");
+    expect(host.style.transform).toBe("");
     unmountUiRootInAct(parent);
   });
 
-  it("remeasures blocks after their rendered content shrinks on rerender", () => {
+  it("keeps blocks in the flow after their rendered content shrinks on rerender", () => {
     const parent = document.createElement("div");
     const block = { key: "item:u1", node: <div>expanded</div> };
 
     renderMessageStreamBlocksInAct(parent, [block]);
 
     const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-block"));
-    const virtualizer = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-virtualizer"));
+    const messageFlow = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-flow"));
 
     Object.defineProperty(host, "offsetHeight", { value: 520, configurable: true });
     void act(() => {
       host.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
     });
-    expect(virtualizer.style.height).toBe("520px");
+    expect(messageFlow.style.height).toBe("");
+    expect(host.style.transform).toBe("");
 
     Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
     renderMessageStreamBlocksInAct(parent, [{ ...block, node: <div>collapsed</div> }]);
 
-    expect(virtualizer.style.height).toBe("120px");
+    expect(messageFlow.style.height).toBe("");
+    expect(host.style.transform).toBe("");
     unmountUiRootInAct(parent);
   });
 

@@ -1,16 +1,9 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
-import {
-  type MessageStreamScrollControllerBinding,
-  type MessageStreamVirtualizerMeasureOptions,
-  useMessageStreamVirtualizer,
-} from "./virtualizer";
+import { type MessageStreamScrollControllerBinding, useMessageStreamFlowScroll } from "./flow-scroll";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { MessageStreamBlock } from "./context";
-
-const MESSAGE_BLOCK_ESTIMATE_SIZE = 96;
-const MESSAGE_STREAM_INITIAL_RENDER_LIMIT = 32;
 
 export interface MessageStreamViewportState {
   blocks: MessageStreamBlock[];
@@ -25,13 +18,12 @@ export interface MessageStreamViewportProps {
 export function MessageStreamViewport({ state, rootAttributes }: MessageStreamViewportProps): UiNode {
   const { blocks, scrollController } = state;
   const scrollElementRef = useRef<HTMLDivElement | null>(null);
-  const virtualizer = useMessageStreamVirtualizer({ blocks, scrollController, scrollElementRef });
-  const virtualItems = messageStreamVirtualItems(virtualizer.getVirtualItems(), blocks, scrollElementRef.current?.scrollTop ?? 0);
-  const measureBlock = useCallback(
-    (element: HTMLElement | null, options?: MessageStreamVirtualizerMeasureOptions) => {
-      virtualizer.measureElement(element, options);
+  const flowScroll = useMessageStreamFlowScroll({ blocks, scrollController, scrollElementRef });
+  const notifyBlockLayout = useCallback(
+    (element: HTMLElement | null) => {
+      flowScroll.notifyBlockLayout(element);
     },
-    [virtualizer],
+    [flowScroll],
   );
 
   return (
@@ -40,96 +32,50 @@ export function MessageStreamViewport({ state, rootAttributes }: MessageStreamVi
       ref={scrollElementRef}
       className="codex-panel__region codex-panel__region--message-stream codex-panel__messages"
     >
-      <div className="codex-panel__message-virtualizer" style={{ height: `${String(virtualizer.getTotalSize())}px` }}>
-        {virtualItems.map((virtualItem) => (
-          <MessageStreamBlockHost
-            key={String(virtualItem.key)}
-            block={blocks[virtualItem.index]}
-            measureBlock={measureBlock}
-            virtualItem={virtualItem}
-          />
+      <div className="codex-panel__message-flow">
+        {blocks.map((block, index) => (
+          <MessageStreamBlockHost key={block.key} block={block} notifyBlockLayout={notifyBlockLayout} index={index} />
         ))}
       </div>
     </div>
   );
 }
 
-function messageStreamVirtualItems(
-  virtualItems: { index: number; key: unknown; start: number }[],
-  blocks: readonly MessageStreamBlock[],
-  scrollOffset = 0,
-) {
-  if (virtualItems.length > 0 || blocks.length === 0) return virtualItems;
-  const startIndex = messageStreamFallbackStartIndex(blocks.length, scrollOffset);
-  return blocks.slice(startIndex, startIndex + MESSAGE_STREAM_INITIAL_RENDER_LIMIT).map((block, offset) => {
-    const index = startIndex + offset;
-    return {
-      index,
-      key: block.key,
-      start: index * MESSAGE_BLOCK_ESTIMATE_SIZE,
-    };
-  });
-}
-
-function messageStreamFallbackStartIndex(blockCount: number, scrollOffset: number): number {
-  const maxStartIndex = Math.max(0, blockCount - MESSAGE_STREAM_INITIAL_RENDER_LIMIT);
-  const estimatedFirstVisibleIndex = Math.max(0, Math.floor(scrollOffset / MESSAGE_BLOCK_ESTIMATE_SIZE));
-  const centeredStartIndex = Math.max(0, estimatedFirstVisibleIndex - Math.floor(MESSAGE_STREAM_INITIAL_RENDER_LIMIT / 2));
-  return Math.min(centeredStartIndex, maxStartIndex);
-}
-
 function MessageStreamBlockHost({
   block,
-  measureBlock,
-  virtualItem,
+  index,
+  notifyBlockLayout,
 }: {
-  block: MessageStreamBlock | undefined;
-  measureBlock: (element: HTMLElement | null, options?: MessageStreamVirtualizerMeasureOptions) => void;
-  virtualItem: { index: number; start: number };
+  block: MessageStreamBlock;
+  index: number;
+  notifyBlockLayout: (element: HTMLElement | null) => void;
 }): UiNode {
   const blockRef = useRef<HTMLDivElement | null>(null);
-  const lastMeasuredBlockHeight = useRef<number | null>(null);
   const cleanupBlockListeners = useRef<(() => void) | null>(null);
-  const measureCurrentBlock = useCallback(
-    (element: HTMLElement | null) => {
-      if (!element) {
-        lastMeasuredBlockHeight.current = null;
-        measureBlock(element);
-        return;
-      }
-      const previousHeight = lastMeasuredBlockHeight.current;
-      const nextHeight = element.offsetHeight;
-      lastMeasuredBlockHeight.current = nextHeight;
-      measureBlock(element, {
-        clampReadingAnchorToEnd: previousHeight !== null && nextHeight < previousHeight - 1,
-      });
-    },
-    [measureBlock],
-  );
   const setBlock = useCallback(
     (element: HTMLDivElement | null) => {
       cleanupBlockListeners.current?.();
       cleanupBlockListeners.current = null;
       blockRef.current = element;
-      measureCurrentBlock(element);
+      notifyBlockLayout(element);
       if (!element) return;
-      const remeasure = () => {
-        if (blockRef.current === element && element.isConnected) measureCurrentBlock(element);
+      const notifyLayoutChange = () => {
+        if (blockRef.current === element && element.isConnected) notifyBlockLayout(element);
       };
-      element.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, remeasure);
-      element.addEventListener("toggle", remeasure, true);
+      element.addEventListener("toggle", notifyLayoutChange, true);
+      element.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, notifyLayoutChange, true);
       cleanupBlockListeners.current = () => {
-        element.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, remeasure);
-        element.removeEventListener("toggle", remeasure, true);
+        element.removeEventListener("toggle", notifyLayoutChange, true);
+        element.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, notifyLayoutChange, true);
       };
     },
-    [measureCurrentBlock],
+    [notifyBlockLayout],
   );
 
   useLayoutEffect(() => {
     const element = blockRef.current;
-    if (element?.isConnected) measureCurrentBlock(element);
-  }, [block, measureCurrentBlock]);
+    if (element?.isConnected) notifyBlockLayout(element);
+  }, [block, notifyBlockLayout]);
 
   useLayoutEffect(() => {
     return () => {
@@ -138,16 +84,8 @@ function MessageStreamBlockHost({
     };
   }, []);
 
-  if (!block) return null;
-
   return (
-    <div
-      ref={setBlock}
-      className="codex-panel__message-block"
-      data-codex-panel-block-key={block.key}
-      data-index={String(virtualItem.index)}
-      style={{ transform: `translateY(${String(virtualItem.start)}px)` }}
-    >
+    <div ref={setBlock} className="codex-panel__message-block" data-codex-panel-block-key={block.key} data-index={String(index)}>
       {block.node}
     </div>
   );

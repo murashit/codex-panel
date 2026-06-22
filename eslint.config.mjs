@@ -160,7 +160,7 @@ const pureChatStateRestrictions = [
 const chatExternalDomBridgeFiles = [
   "src/features/chat/ui/message-stream/markdown-renderer.ts",
   "src/features/chat/ui/message-stream/stream-markdown-renderer.ts",
-  "src/features/chat/ui/message-stream/virtualizer.ts",
+  "src/features/chat/ui/message-stream/flow-scroll.ts",
 ];
 const chatPreactDomBridgeFiles = [
   "src/features/chat/ui/message-stream/text-content.tsx",
