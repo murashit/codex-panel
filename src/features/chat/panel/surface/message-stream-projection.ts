@@ -136,7 +136,7 @@ function messageStreamStateProjection(
   state: ChatPanelMessageStreamShellState,
   context: ChatMessageStreamSurfaceContext,
 ): MessageStreamStateProjection {
-  const workspaceRoot = state.activeThread.cwd ?? context.vaultPath;
+  const workspaceRoot = state.activeThreadCwd ?? context.vaultPath;
   const textActionTargetsByItemId = textActionTargetsForMessageStreamItems(
     state.rollbackCandidate,
     state.forkCandidates,
@@ -145,13 +145,13 @@ function messageStreamStateProjection(
   const pendingRequests = messageStreamBlockItemsEmpty(state.stableItems, state.activeItems) ? null : pendingRequestBlockFromState(state);
 
   return {
-    activeThreadId: state.activeThread.id,
+    activeThreadId: state.activeThreadId,
     workspaceRoot,
     disclosures: state.ui.disclosures,
     forkMenuItemId: state.ui.messageActionMenu.forkMenuItemId,
     pendingRequests,
     viewBlocks: messageStreamViewBlocks({
-      activeThreadId: state.activeThread.id,
+      activeThreadId: state.activeThreadId,
       activeTurnId: state.activeTurnId,
       historyCursor: state.messageStream.historyCursor,
       loadingHistory: state.messageStream.loadingHistory,

@@ -16,9 +16,9 @@ export function composerShellStateFromChatState(state: ChatState): ChatPanelComp
   return {
     connection: state.connection,
     threadList: state.threadList,
-    activeThread: state.activeThread,
     runtime: state.runtime,
     composer: state.composer,
+    activeThreadId: state.activeThread.id,
     turnBusy: chatTurnBusy(state),
     activeTurnId: activeTurnId(state),
     runtimeSnapshot: runtimeSnapshotForChatState(state),
@@ -29,10 +29,11 @@ export function messageStreamShellStateFromChatState(state: ChatState): ChatPane
   const turnBusy = chatTurnBusy(state);
   const items = messageStreamItems(state.messageStream);
   return {
-    activeThread: state.activeThread,
     messageStream: state.messageStream,
     requests: state.requests,
     ui: state.ui,
+    activeThreadId: state.activeThread.id,
+    activeThreadCwd: state.activeThread.cwd,
     activeTurnId: activeTurnId(state),
     items,
     stableItems: messageStreamStableItems(state.messageStream),

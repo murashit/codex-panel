@@ -32,6 +32,9 @@ export interface ChatPanelShellState {
   ui: Signal<ChatState["ui"]>;
   turnBusy: ReadonlySignal<boolean>;
   activeTurnId: ReadonlySignal<string | null>;
+  activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
+  activeThreadCwd: ReadonlySignal<ChatState["activeThread"]["cwd"]>;
+  activeThreadGoal: ReadonlySignal<ChatState["activeThread"]["goal"]>;
   messageStreamItems: ReadonlySignal<readonly MessageStreamItem[]>;
   messageStreamStableItems: ReadonlySignal<readonly MessageStreamItem[]>;
   messageStreamActiveItems: ReadonlySignal<readonly MessageStreamItem[]>;
@@ -39,14 +42,27 @@ export interface ChatPanelShellState {
   messageStreamForkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
   messageStreamImplementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
   hasThreadTurns: ReadonlySignal<boolean>;
+  goalEditor: ReadonlySignal<ChatState["ui"]["goalEditor"]>;
+  goalObjectiveExpanded: ReadonlySignal<ChatState["ui"]["disclosures"]["goalObjectiveExpanded"]>;
+  toolbarRuntimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
   composerRuntimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
 }
 
-export type ChatPanelToolbarShellState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "runtime" | "turn" | "ui">;
+export interface ChatPanelToolbarShellState extends Pick<ChatState, "connection" | "threadList" | "runtime" | "ui"> {
+  readonly activeThreadId: ChatState["activeThread"]["id"];
+  readonly turnBusy: boolean;
+  readonly runtimeSnapshot: RuntimeSnapshot;
+}
 
-export type ChatPanelGoalShellState = Pick<ChatState, "activeThread" | "ui">;
+export interface ChatPanelGoalShellState {
+  readonly goal: ChatState["activeThread"]["goal"];
+  readonly goalEditor: ChatState["ui"]["goalEditor"];
+  readonly goalObjectiveExpanded: ChatState["ui"]["disclosures"]["goalObjectiveExpanded"];
+}
 
-export interface ChatPanelMessageStreamShellState extends Pick<ChatState, "activeThread" | "messageStream" | "requests" | "ui"> {
+export interface ChatPanelMessageStreamShellState extends Pick<ChatState, "messageStream" | "requests" | "ui"> {
+  readonly activeThreadId: ChatState["activeThread"]["id"];
+  readonly activeThreadCwd: ChatState["activeThread"]["cwd"];
   readonly activeTurnId: string | null;
   readonly items: readonly MessageStreamItem[];
   readonly stableItems: readonly MessageStreamItem[];
@@ -56,10 +72,8 @@ export interface ChatPanelMessageStreamShellState extends Pick<ChatState, "activ
   readonly implementPlanTarget: PlanImplementationTarget | null;
 }
 
-export interface ChatPanelComposerShellState extends Pick<
-  ChatState,
-  "connection" | "threadList" | "activeThread" | "runtime" | "composer"
-> {
+export interface ChatPanelComposerShellState extends Pick<ChatState, "connection" | "threadList" | "runtime" | "composer"> {
+  readonly activeThreadId: ChatState["activeThread"]["id"];
   readonly turnBusy: boolean;
   readonly activeTurnId: string | null;
   readonly runtimeSnapshot: RuntimeSnapshot;
@@ -80,6 +94,10 @@ export function createChatPanelShellState(initialState: ChatState): ChatPanelShe
   const turnBusy = computed(() => chatTurnBusy({ turn: turn.value }));
   const messageItems = computed(() => messageStreamItems(messageStream.value));
   const hasThreadTurns = computed(() => messageItemsHaveThreadTurns(messageItems.value));
+  const activeThreadIdSignal = computed(() => activeThread.value.id);
+  const activeThreadCwd = computed(() => activeThread.value.cwd);
+  const activeThreadTokenUsage = computed(() => activeThread.value.tokenUsage);
+  const activeThreadGoal = computed(() => activeThread.value.goal);
   return {
     connection,
     threadList,
@@ -92,20 +110,35 @@ export function createChatPanelShellState(initialState: ChatState): ChatPanelShe
     ui,
     turnBusy,
     activeTurnId: computed(() => activeTurnId({ turn: turn.value })),
+    activeThreadId: activeThreadIdSignal,
+    activeThreadCwd,
+    activeThreadGoal,
     messageStreamItems: messageItems,
     messageStreamStableItems: computed(() => messageStreamStableItems(messageStream.value)),
     messageStreamActiveItems: computed(() => messageStreamActiveItems(messageStream.value)),
     messageStreamRollbackCandidate: computed(() => (turnBusy.value ? null : messageStreamRollbackCandidateFromItems(messageItems.value))),
     messageStreamForkCandidates: computed(() => (turnBusy.value ? [] : forkCandidatesFromItems(messageItems.value))),
     messageStreamImplementPlanTarget: computed(() => {
-      if (!activeThread.value.id || turnBusy.value || runtime.value.selectedCollaborationMode !== "plan") return null;
+      if (!activeThreadIdSignal.value || turnBusy.value || runtime.value.selectedCollaborationMode !== "plan") return null;
       return latestImplementablePlanTargetFromItems(messageItems.value);
     }),
     hasThreadTurns,
+    goalEditor: computed(() => ui.value.goalEditor),
+    goalObjectiveExpanded: computed(() => ui.value.disclosures.goalObjectiveExpanded),
+    toolbarRuntimeSnapshot: computed(() =>
+      runtimeSnapshotForChatSlices({
+        runtimeConfig: connection.value.runtimeConfig,
+        activeThread: { id: activeThreadIdSignal.value, tokenUsage: activeThreadTokenUsage.value },
+        runtime: runtime.value,
+        rateLimit: connection.value.rateLimit,
+        hasThreadTurns: false,
+        availableModels: connection.value.availableModels,
+      }),
+    ),
     composerRuntimeSnapshot: computed(() =>
       runtimeSnapshotForChatSlices({
         runtimeConfig: connection.value.runtimeConfig,
-        activeThread: activeThread.value,
+        activeThread: { id: activeThreadIdSignal.value, tokenUsage: activeThreadTokenUsage.value },
         runtime: runtime.value,
         rateLimit: connection.value.rateLimit,
         hasThreadTurns: hasThreadTurns.value,
@@ -133,26 +166,29 @@ export function toolbarStateFromShellState(shellState: ChatPanelShellState): Cha
   return {
     connection: shellState.connection.value,
     threadList: shellState.threadList.value,
-    activeThread: shellState.activeThread.value,
     runtime: shellState.runtime.value,
-    turn: shellState.turn.value,
     ui: shellState.ui.value,
+    activeThreadId: shellState.activeThreadId.value,
+    turnBusy: shellState.turnBusy.value,
+    runtimeSnapshot: shellState.toolbarRuntimeSnapshot.value,
   };
 }
 
 export function goalStateFromShellState(shellState: ChatPanelShellState): ChatPanelGoalShellState {
   return {
-    activeThread: shellState.activeThread.value,
-    ui: shellState.ui.value,
+    goal: shellState.activeThreadGoal.value,
+    goalEditor: shellState.goalEditor.value,
+    goalObjectiveExpanded: shellState.goalObjectiveExpanded.value,
   };
 }
 
 export function messageStreamStateFromShellState(shellState: ChatPanelShellState): ChatPanelMessageStreamShellState {
   return {
-    activeThread: shellState.activeThread.value,
     messageStream: shellState.messageStream.value,
     requests: shellState.requests.value,
     ui: shellState.ui.value,
+    activeThreadId: shellState.activeThreadId.value,
+    activeThreadCwd: shellState.activeThreadCwd.value,
     activeTurnId: shellState.activeTurnId.value,
     items: shellState.messageStreamItems.value,
     stableItems: shellState.messageStreamStableItems.value,
@@ -167,9 +203,9 @@ export function composerStateFromShellState(shellState: ChatPanelShellState): Ch
   return {
     connection: shellState.connection.value,
     threadList: shellState.threadList.value,
-    activeThread: shellState.activeThread.value,
     runtime: shellState.runtime.value,
     composer: shellState.composer.value,
+    activeThreadId: shellState.activeThreadId.value,
     turnBusy: shellState.turnBusy.value,
     activeTurnId: shellState.activeTurnId.value,
     runtimeSnapshot: shellState.composerRuntimeSnapshot.value,

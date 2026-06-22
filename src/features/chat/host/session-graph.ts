@@ -693,7 +693,7 @@ function createSessionComposerController(
     sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
     scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges,
     canInterrupt: (state) => {
-      return state.turnBusy && Boolean(state.activeThread.id && state.activeTurnId);
+      return state.turnBusy && Boolean(state.activeThreadId && state.activeTurnId);
     },
     composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
     currentModelForSuggestions: () => {

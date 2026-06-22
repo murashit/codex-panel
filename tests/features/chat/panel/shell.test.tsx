@@ -113,6 +113,104 @@ describe("ChatPanelShell", () => {
     });
   });
 
+  it("keeps toolbar rendering off turn updates until busy state changes", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const toolbarConnected = vi.fn(() => false);
+
+    await act(async () => {
+      renderChatPanelShell(container, { ...shellProps(store), parts: shellParts({ toolbarConnected }) });
+      await settleShellEffects();
+    });
+    toolbarConnected.mockClear();
+
+    await act(async () => {
+      store.dispatch({
+        type: "turn/optimistic-started",
+        item: { id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello" },
+        pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
+      });
+      await settleShellEffects();
+    });
+    expect(toolbarConnected).toHaveBeenCalledTimes(1);
+    toolbarConnected.mockClear();
+
+    await act(async () => {
+      store.dispatch({
+        type: "turn/start-acknowledged",
+        turnId: "turn-1",
+        items: [{ id: "local-user", turnId: "turn-1", kind: "message", messageKind: "user", role: "user", text: "hello" }],
+      });
+      await settleShellEffects();
+    });
+    expect(toolbarConnected).not.toHaveBeenCalled();
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
+  it("keeps goal rendering off active thread updates until goal state changes", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const goalSendShortcut = vi.fn(() => "enter" as const);
+
+    await act(async () => {
+      renderChatPanelShell(container, { ...shellProps(store), parts: shellParts({ goalSendShortcut }) });
+      await settleShellEffects();
+    });
+    goalSendShortcut.mockClear();
+
+    await act(async () => {
+      store.dispatch({
+        type: "active-thread/token-usage-set",
+        tokenUsage: tokenUsageFixture(),
+      });
+      await settleShellEffects();
+    });
+    expect(goalSendShortcut).not.toHaveBeenCalled();
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
+  it("keeps message stream rendering off active thread updates until stream thread fields change", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const parts = shellParts();
+    const renderMessageStreamState = vi.fn(parts.messageStream.renderState.bind(parts.messageStream));
+    parts.messageStream.renderState = renderMessageStreamState;
+
+    await act(async () => {
+      renderChatPanelShell(container, { ...shellProps(store), parts });
+      await settleShellEffects();
+    });
+    renderMessageStreamState.mockClear();
+
+    await act(async () => {
+      store.dispatch({
+        type: "active-thread/token-usage-set",
+        tokenUsage: tokenUsageFixture(),
+      });
+      await settleShellEffects();
+    });
+    expect(renderMessageStreamState).not.toHaveBeenCalled();
+
+    await act(async () => {
+      store.dispatch({ type: "active-thread/cwd-set", cwd: "/workspace" });
+      await settleShellEffects();
+    });
+    expect(renderMessageStreamState).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
   it("removes and restores the toolbar from shell props without replacing the body regions", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
@@ -239,8 +337,10 @@ function shellProps(store: ReturnType<typeof createChatStateStore>) {
   };
 }
 
-function shellParts(): ChatPanelShellParts {
-  const surface = surfaceFixture();
+function shellParts(
+  options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter" } = {},
+): ChatPanelShellParts {
+  const surface = surfaceFixture(options);
   return {
     toolbar: {
       surface: surface.toolbar,
@@ -250,7 +350,7 @@ function shellParts(): ChatPanelShellParts {
     messageStream: {
       renderState: (state) => ({
         blocks: messageStreamViewBlocks({
-          activeThreadId: state.activeThread.id,
+          activeThreadId: state.activeThreadId,
           activeTurnId: null,
           historyCursor: state.messageStream.historyCursor,
           loadingHistory: state.messageStream.loadingHistory,
@@ -326,7 +426,7 @@ const testMessageStreamContext: MessageStreamContext = {
   renderStreamMarkdown: () => undefined,
 };
 
-function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): {
+function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter" } = {}): {
   toolbar: ChatPanelToolbarSurface;
   goal: ChatPanelGoalSurface;
   composer: ChatPanelComposerSurface;
@@ -344,7 +444,7 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean } = {}): {
       },
     },
     goal: {
-      settings: { sendShortcut: () => "enter" },
+      settings: { sendShortcut: options.goalSendShortcut ?? (() => "enter") },
       actions: {
         goal: {
           saveObjective: async () => true,
@@ -390,6 +490,14 @@ function toolbarActionsFixture(): ChatPanelShellParts["toolbar"]["actions"] {
     saveRenameThread: vi.fn(),
     cancelRenameThread: vi.fn(),
     autoNameThread: vi.fn(),
+  };
+}
+
+function tokenUsageFixture() {
+  return {
+    total: { totalTokens: 10, inputTokens: 7, cachedInputTokens: 0, outputTokens: 3, reasoningOutputTokens: 0 },
+    last: { totalTokens: 10, inputTokens: 7, cachedInputTokens: 0, outputTokens: 3, reasoningOutputTokens: 0 },
+    modelContextWindow: 100,
   };
 }
 

@@ -7,10 +7,8 @@ import { rateLimitSummary } from "../../presentation/runtime/status";
 import { connectionDiagnosticSectionsModel } from "../../application/connection/diagnostics-display";
 import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-display";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { chatTurnBusy, type ChatState } from "../../application/state/root-reducer";
 import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../shell-state";
 import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
-import { runtimeSnapshotForToolbarShellState } from "./runtime-snapshot";
 
 export interface ChatPanelToolbarSurface {
   state: {
@@ -47,10 +45,10 @@ interface ToolbarStateProjection {
 function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, state: ChatPanelToolbarShellState) {
   return chatPanelToolbarProjection({
     state,
-    snapshot: runtimeSnapshotForToolbarShellState(state),
+    snapshot: state.runtimeSnapshot,
     connected: surface.state.connected(),
     nowMs: surface.state.nowMs(),
-    turnBusy: chatTurnBusy(state),
+    turnBusy: state.turnBusy,
     vaultPath: surface.settings.vaultPath(),
     configuredCommand: surface.settings.configuredCommand(),
     archiveExportEnabled: surface.settings.archiveExportEnabled(),
@@ -115,7 +113,7 @@ function toolbarStateProjection(input: {
     openPanel: historyOpen ? "history" : chatActionsOpen ? "chat-actions" : statusPanelOpen ? "status" : null,
     threads: toolbarThreadRows({
       threads: input.state.threadList.listedThreads,
-      activeThreadId: input.state.activeThread.id,
+      activeThreadId: input.state.activeThreadId,
       turnBusy: input.turnBusy,
       archiveConfirmThreadId: input.state.ui.archiveConfirmThreadId,
       archiveExportEnabled: input.archiveExportEnabled,
@@ -130,7 +128,7 @@ function toolbarThreadRows(input: {
   turnBusy: boolean;
   archiveConfirmThreadId: string | null;
   archiveExportEnabled: boolean;
-  renameState: ChatState["ui"]["rename"];
+  renameState: ChatPanelToolbarShellState["ui"]["rename"];
 }): ToolbarThreadRow[] {
   return input.threads.map((thread) => {
     const threadId = thread.id;
@@ -153,7 +151,7 @@ function toolbarThreadRows(input: {
   });
 }
 
-function toolbarActiveRenameState(renameState: ChatState["ui"]["rename"], threadId: string) {
+function toolbarActiveRenameState(renameState: ChatPanelToolbarShellState["ui"]["rename"], threadId: string) {
   if (renameState.kind === "idle" || renameState.threadId !== threadId) return undefined;
   return renameState;
 }

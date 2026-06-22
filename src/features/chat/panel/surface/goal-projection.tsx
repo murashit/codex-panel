@@ -34,7 +34,7 @@ export interface ChatPanelGoalSurfaceDependencies {
 }
 
 interface ChatPanelGoalProjection {
-  goal: ChatPanelGoalShellState["activeThread"]["goal"];
+  goal: ChatPanelGoalShellState["goal"];
   goalThreadId: string | null;
   editor: GoalPanelEditorState;
   display: GoalPanelDisplayState;
@@ -73,9 +73,9 @@ export function ChatPanelGoal({ surface }: { surface: ChatPanelGoalSurface }): U
 }
 
 function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPanelGoalProjection {
-  const goal = state.activeThread.goal;
+  const goal = state.goal;
   const goalThreadId = goal?.threadId ?? null;
-  const goalEditor = state.ui.goalEditor;
+  const goalEditor = state.goalEditor;
   const editor =
     goalEditor.kind === "editing"
       ? { editing: true, objectiveDraft: goalEditor.objectiveDraft, tokenBudgetDraft: goalEditor.tokenBudgetDraft }
@@ -85,7 +85,7 @@ function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPanelGoalP
     goalThreadId,
     editor,
     display: {
-      objectiveExpanded: goalThreadId ? state.ui.disclosures.goalObjectiveExpanded.has(goalThreadId) : false,
+      objectiveExpanded: goalThreadId ? state.goalObjectiveExpanded.has(goalThreadId) : false,
     },
   };
 }
@@ -94,7 +94,7 @@ function chatPanelGoalViewModel(
   surface: ChatPanelGoalSurface,
   state: ChatPanelGoalShellState,
 ): {
-  goal: ChatPanelGoalShellState["activeThread"]["goal"];
+  goal: ChatPanelGoalShellState["goal"];
   actions: GoalPanelActions;
   options: GoalPanelOptions;
   editor: GoalPanelEditorState;
