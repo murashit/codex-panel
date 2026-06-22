@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { CodexChatHost } from "../../../src/features/chat/host/runtime";
-import type { AppServerObservedQueryResult } from "../../../src/app-server/query/cache";
 import { StaleAppServerSharedQueryContextError } from "../../../src/app-server/query/shared-queries";
 import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
+import type { ObservedDataResult } from "../../../src/domain/observed-data";
 import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
 import type { Thread } from "../../../src/domain/threads/model";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
@@ -1358,9 +1358,9 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   let activeThreads = overrides.activeSnapshot?.() ?? null;
   let metadata = overrides.appServerMetadataSnapshot?.() ?? null;
   const models = overrides.modelsSnapshot?.() ?? null;
-  const activeThreadResultListeners = new Set<(result: AppServerObservedQueryResult<readonly Thread[]>) => void>();
-  const metadataResultListeners = new Set<(result: AppServerObservedQueryResult<SharedServerMetadata>) => void>();
-  const modelResultListeners = new Set<(result: AppServerObservedQueryResult<readonly ModelMetadata[]>) => void>();
+  const activeThreadResultListeners = new Set<(result: ObservedDataResult<readonly Thread[]>) => void>();
+  const metadataResultListeners = new Set<(result: ObservedDataResult<SharedServerMetadata>) => void>();
+  const modelResultListeners = new Set<(result: ObservedDataResult<readonly ModelMetadata[]>) => void>();
   const settings = {
     ...DEFAULT_SETTINGS,
     codexPath: "codex",
@@ -1516,19 +1516,12 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   };
 }
 
-function queryResult<T>(data: T | null): AppServerObservedQueryResult<T> {
+function queryResult<T>(data: T | null): ObservedDataResult<T> {
   return {
     data,
     error: null,
     isFetching: false,
-    isLoading: false,
-    isPending: data === null,
-    isSuccess: data !== null,
-    isError: false,
-    isStale: false,
-    status: data === null ? "pending" : "success",
-    fetchStatus: "idle",
-  } as AppServerObservedQueryResult<T>;
+  };
 }
 
 async function chatView(

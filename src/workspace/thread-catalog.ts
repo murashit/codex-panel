@@ -1,8 +1,22 @@
-import type { AppServerObservedQueryResult } from "../app-server/query/cache";
-import type { AppServerSharedQueries } from "../app-server/query/shared-queries";
+import type { ObservedDataListener } from "../domain/observed-data";
 import type { Thread } from "../domain/threads/model";
 
-type ThreadListObserver = (result: AppServerObservedQueryResult<readonly Thread[]>) => void;
+type ThreadListObserver = ObservedDataListener<readonly Thread[]>;
+
+interface ThreadCatalogQuerySource {
+  activeThreadsSnapshot(): readonly Thread[] | null;
+  archivedThreadsSnapshot(): readonly Thread[] | null;
+  fetchActiveThreads(): Promise<readonly Thread[]>;
+  fetchArchivedThreads(): Promise<readonly Thread[]>;
+  refreshActiveThreads(): Promise<readonly Thread[]>;
+  refreshArchivedThreads(): Promise<readonly Thread[]>;
+  observeActiveThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
+  observeArchivedThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
+  setActiveThreads(threads: readonly Thread[]): void;
+  setArchivedThreads(threads: readonly Thread[]): void;
+  updateActiveThreads(updater: (threads: readonly Thread[] | null) => readonly Thread[] | null): readonly Thread[] | null;
+  updateArchivedThreads(updater: (threads: readonly Thread[] | null) => readonly Thread[] | null): readonly Thread[] | null;
+}
 
 interface ThreadSurfaceActions {
   applyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
@@ -10,7 +24,7 @@ interface ThreadSurfaceActions {
 }
 
 export interface ThreadCatalogOptions {
-  queries: AppServerSharedQueries;
+  queries: ThreadCatalogQuerySource;
   surfaces: ThreadSurfaceActions;
 }
 
@@ -126,7 +140,7 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
   };
 }
 
-function recordActiveThread(queries: AppServerSharedQueries, thread: Thread): void {
+function recordActiveThread(queries: ThreadCatalogQuerySource, thread: Thread): void {
   queries.updateActiveThreads((current) => promoteThreadInList(current ?? [], thread));
 }
 
@@ -135,7 +149,7 @@ function promoteThreadInList(threads: readonly Thread[], thread: Thread): readon
   return [thread, ...withoutThread];
 }
 
-function refreshArchivedThreadsAfterUnknownArchive(queries: AppServerSharedQueries): void {
+function refreshArchivedThreadsAfterUnknownArchive(queries: ThreadCatalogQuerySource): void {
   // A force refresh can join an older in-flight archived request. Run one more
   // refresh afterward so an archive recorded during that request is not lost.
   void queries

@@ -2,8 +2,8 @@ import { Notice } from "obsidian";
 
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import type { AppServerObservedQueryResult } from "../../../app-server/query/cache";
-import { observedQueryData } from "../../../app-server/query/observed-result";
+import type { ObservedDataResult } from "../../../domain/observed-data";
+import { observedData } from "../../../domain/observed-data";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
@@ -404,22 +404,22 @@ function createChatPanelSharedStateBinding(
     serverActions.threads.applyThreadList(threads);
     refreshTabHeader(host);
   };
-  const receiveThreadResult = (result: AppServerObservedQueryResult<readonly Thread[]>): void => {
-    const data = observedQueryData(result);
+  const receiveThreadResult = (result: ObservedDataResult<readonly Thread[]>): void => {
+    const data = observedData(result);
     if (data) receiveThreads(data);
   };
   const receiveAppServerMetadata = (metadata: SharedServerMetadata): void => {
     serverActions.metadata.applyAppServerMetadata(metadata);
   };
-  const receiveAppServerMetadataResult = (result: AppServerObservedQueryResult<SharedServerMetadata>): void => {
-    const data = observedQueryData(result);
+  const receiveAppServerMetadataResult = (result: ObservedDataResult<SharedServerMetadata>): void => {
+    const data = observedData(result);
     if (data) receiveAppServerMetadata(data);
   };
   const receiveModels = (models: readonly ModelMetadata[]): void => {
     dispatch(host.stateStore, { type: "connection/metadata-applied", availableModels: models });
   };
-  const receiveModelsResult = (result: AppServerObservedQueryResult<readonly ModelMetadata[]>): void => {
-    const data = observedQueryData(result);
+  const receiveModelsResult = (result: ObservedDataResult<readonly ModelMetadata[]>): void => {
+    const data = observedData(result);
     if (data) receiveModels(data);
   };
   const unsubscribe = (): void => {

@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
-import type { AppServerObservedQueryResult } from "../../src/app-server/query/cache";
+import type { ObservedDataResult } from "../../src/domain/observed-data";
 import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
@@ -324,7 +324,7 @@ describe("settings tab", () => {
       settingsTabHost({
         observeArchived: (listener) => {
           emitArchived = (threads) => {
-            listener({ data: threads, error: null } as unknown as AppServerObservedQueryResult<readonly Thread[]>);
+            listener({ data: threads, error: null, isFetching: false } satisfies ObservedDataResult<readonly Thread[]>);
           };
           return () => undefined;
         },
@@ -563,7 +563,7 @@ describe("settings tab", () => {
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
         observeArchived: (listener) => {
           emitArchived = (threads) => {
-            listener({ data: threads, error: null } as unknown as AppServerObservedQueryResult<readonly Thread[]>);
+            listener({ data: threads, error: null, isFetching: false } satisfies ObservedDataResult<readonly Thread[]>);
           };
           return () => undefined;
         },
@@ -610,7 +610,7 @@ describe("settings tab", () => {
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
         observeArchived: (listener) => {
           emitArchived = (threads) => {
-            listener({ data: threads, error: null } as unknown as AppServerObservedQueryResult<readonly Thread[]>);
+            listener({ data: threads, error: null, isFetching: false } satisfies ObservedDataResult<readonly Thread[]>);
           };
           return () => undefined;
         },

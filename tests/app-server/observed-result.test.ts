@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { AppServerObservedQueryResult } from "../../src/app-server/query/cache";
-import { observedQueryData, observedQueryInitialError, observedQueryInitialLoading } from "../../src/app-server/query/observed-result";
+import type { ObservedDataResult } from "../../src/domain/observed-data";
+import { observedData, observedInitialError, observedInitialLoading } from "../../src/domain/observed-data";
 
 describe("observed query result helpers", () => {
   it("treats successful empty arrays as current data", () => {
@@ -9,29 +9,27 @@ describe("observed query result helpers", () => {
     const error = new Error("boom");
     const failed = observedResult<readonly string[]>({ data: null, error });
 
-    expect(observedQueryInitialLoading(loading, [])).toBe(false);
-    expect(observedQueryInitialError(failed, [])).toBeNull();
+    expect(observedInitialLoading(loading, [])).toBe(false);
+    expect(observedInitialError(failed, [])).toBeNull();
   });
 
   it("returns initial loading and error only before current data exists", () => {
     const error = new Error("boom");
 
-    expect(observedQueryInitialLoading(observedResult({ data: null, isFetching: true }), null)).toBe(true);
-    expect(observedQueryInitialError(observedResult({ data: null, error }), null)).toBe(error);
+    expect(observedInitialLoading(observedResult({ data: null, isFetching: true }), null)).toBe(true);
+    expect(observedInitialError(observedResult({ data: null, error }), null)).toBe(error);
   });
 
   it("projects nullable observed data without reinterpreting empty values", () => {
-    expect(observedQueryData(observedResult({ data: [] as readonly string[] }))).toEqual([]);
-    expect(observedQueryData(observedResult({ data: null }))).toBeNull();
+    expect(observedData(observedResult({ data: [] as readonly string[] }))).toEqual([]);
+    expect(observedData(observedResult({ data: null }))).toBeNull();
   });
 });
 
-function observedResult<T>(
-  overrides: Partial<AppServerObservedQueryResult<T>> & Pick<AppServerObservedQueryResult<T>, "data">,
-): AppServerObservedQueryResult<T> {
+function observedResult<T>(overrides: Partial<ObservedDataResult<T>> & Pick<ObservedDataResult<T>, "data">): ObservedDataResult<T> {
   return {
     error: null,
     isFetching: false,
     ...overrides,
-  } as AppServerObservedQueryResult<T>;
+  };
 }

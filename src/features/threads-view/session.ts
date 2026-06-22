@@ -1,10 +1,10 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
-import type { AppServerObservedQueryResult } from "../../app-server/query/cache";
-import { observedQueryData, observedQueryInitialError, observedQueryInitialLoading } from "../../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
+import type { ObservedDataResult } from "../../domain/observed-data";
+import { observedData, observedInitialError, observedInitialLoading } from "../../domain/observed-data";
 import type { Thread } from "../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import type { ThreadCatalogActiveReader, ThreadCatalogThreadManagementEvents } from "../../workspace/thread-catalog";
@@ -158,19 +158,19 @@ export class CodexThreadsSession {
     this.render();
   }
 
-  private receiveObservedThreadsResult(result: AppServerObservedQueryResult<readonly Thread[]>): void {
-    const data = observedQueryData(result);
+  private receiveObservedThreadsResult(result: ObservedDataResult<readonly Thread[]>): void {
+    const data = observedData(result);
     if (data) {
       this.receiveObservedThreads(data);
       return;
     }
     const currentData = this.currentThreadsData();
-    if (observedQueryInitialLoading(result, currentData)) {
+    if (observedInitialLoading(result, currentData)) {
       this.status = { kind: "loading", message: "Loading threads..." };
       this.render();
       return;
     }
-    const initialError = observedQueryInitialError(result, currentData);
+    const initialError = observedInitialError(result, currentData);
     if (initialError) {
       this.status = { kind: "error", message: initialError.message };
       this.render();

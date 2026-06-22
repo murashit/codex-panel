@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerObservedQueryResult, AppServerQueryCache } from "../../src/app-server/query/cache";
+import type { AppServerQueryCache } from "../../src/app-server/query/cache";
 import { AppServerSharedQueries, StaleAppServerSharedQueryContextError } from "../../src/app-server/query/shared-queries";
+import type { ObservedDataResult } from "../../src/domain/observed-data";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
@@ -72,7 +73,7 @@ describe("AppServerSharedQueries", () => {
       }),
       context: () => context,
     });
-    let observedThreadListener!: (result: AppServerObservedQueryResult<readonly Thread[]>) => void;
+    let observedThreadListener!: (result: ObservedDataResult<readonly Thread[]>) => void;
 
     queries.observeActiveThreadsResult(listener);
     context.codexPath = "codex-b";
@@ -83,7 +84,7 @@ describe("AppServerSharedQueries", () => {
 
   it("resubscribes observers when the app-server query context changes", () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const listeners = new Map<string, (result: AppServerObservedQueryResult<readonly Thread[]>) => void>();
+    const listeners = new Map<string, (result: ObservedDataResult<readonly Thread[]>) => void>();
     const queries = new AppServerSharedQueries({
       cache: cacheWith({
         observeActiveThreadsResult: (queryContext, listener) => {
@@ -124,8 +125,8 @@ describe("AppServerSharedQueries", () => {
       }),
       context: () => ({ codexPath: "codex", vaultPath: "/vault" }),
     });
-    let metadataObserver!: (result: AppServerObservedQueryResult<SharedServerMetadata>) => void;
-    let modelObserver!: (result: AppServerObservedQueryResult<readonly ModelMetadata[]>) => void;
+    let metadataObserver!: (result: ObservedDataResult<SharedServerMetadata>) => void;
+    let modelObserver!: (result: ObservedDataResult<readonly ModelMetadata[]>) => void;
 
     queries.observeAppServerMetadataResult(metadataListener);
     queries.observeModelsResult(modelListener);
@@ -160,8 +161,8 @@ function cacheWith(overrides: Partial<AppServerQueryCache>): AppServerQueryCache
   } as unknown as AppServerQueryCache;
 }
 
-function observedResult<T>(data: T): AppServerObservedQueryResult<T> {
-  return { data, error: null } as AppServerObservedQueryResult<T>;
+function observedResult<T>(data: T): ObservedDataResult<T> {
+  return { data, error: null, isFetching: false };
 }
 
 function thread(id: string): Thread {

@@ -1,6 +1,8 @@
 import type { App, Component, EventRef } from "obsidian";
 
-import type { AppServerSharedQueries } from "../../../app-server/query/shared-queries";
+import type { ModelMetadata } from "../../../domain/catalog/metadata";
+import type { ObservedDataListener } from "../../../domain/observed-data";
+import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ArchiveExportAdapter } from "../../../domain/threads/archive-markdown";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ThreadCatalogActiveReader, ThreadCatalogChatEvents } from "../../../workspace/thread-catalog";
@@ -27,17 +29,16 @@ interface WorkspacePanels {
 
 type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogChatEvents;
 
-type ChatAppServerData = Pick<
-  AppServerSharedQueries,
-  | "updateAppServerMetadata"
-  | "appServerMetadataSnapshot"
-  | "refreshAppServerMetadata"
-  | "modelsSnapshot"
-  | "fetchModels"
-  | "refreshModels"
-  | "observeAppServerMetadataResult"
-  | "observeModelsResult"
->;
+interface ChatAppServerData {
+  updateAppServerMetadata(updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null): SharedServerMetadata | null;
+  appServerMetadataSnapshot(): SharedServerMetadata | null;
+  refreshAppServerMetadata(options?: { forceSkills?: boolean }): Promise<SharedServerMetadata | null>;
+  observeAppServerMetadataResult(listener: ObservedDataListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void;
+  modelsSnapshot(): readonly ModelMetadata[] | null;
+  fetchModels(): Promise<readonly ModelMetadata[]>;
+  refreshModels(): Promise<readonly ModelMetadata[]>;
+  observeModelsResult(listener: ObservedDataListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
+}
 
 export interface ChatPanelEnvironment {
   obsidian: {

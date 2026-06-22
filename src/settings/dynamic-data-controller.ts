@@ -1,11 +1,11 @@
 import type { AppServerClient } from "../app-server/connection/client";
-import type { AppServerObservedQueryResult } from "../app-server/query/cache";
-import { observedQueryData } from "../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
 import { setHookItemEnabled, trustHookItem } from "../app-server/catalog";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
+import type { ObservedDataResult } from "../domain/observed-data";
+import { observedData } from "../domain/observed-data";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
 import { errorMessage } from "../utils";
@@ -124,15 +124,15 @@ export class SettingsDynamicDataController {
     this.unsubscribeArchivedThreads = null;
   }
 
-  private receiveObservedModelsResult(result: AppServerObservedQueryResult<readonly ModelMetadata[]>): void {
-    const data = observedQueryData(result);
+  private receiveObservedModelsResult(result: ObservedDataResult<readonly ModelMetadata[]>): void {
+    const data = observedData(result);
     if (!data) return;
     this.models = [...data];
     this.callbacks.display("helper");
   }
 
-  private receiveObservedArchivedThreadsResult(result: AppServerObservedQueryResult<readonly Thread[]>): void {
-    const data = observedQueryData(result);
+  private receiveObservedArchivedThreadsResult(result: ObservedDataResult<readonly Thread[]>): void {
+    const data = observedData(result);
     if (!data) return;
     this.archivedThreads = [...data];
     this.archivedThreadsLoaded = true;

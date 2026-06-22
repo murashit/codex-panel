@@ -7,6 +7,7 @@ import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-p
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listThreads } from "../threads";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
+import type { ObservedDataListener, ObservedDataResult } from "../../domain/observed-data";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
@@ -33,11 +34,6 @@ export interface AppServerQueryClientRunner {
     options?: AppServerClientAccessOptions,
   ): Promise<T>;
 }
-
-export type AppServerObservedQueryResult<T> = Omit<QueryObserverResult<T>, "data" | "error"> & {
-  readonly data: T | null;
-  readonly error: Error | null;
-};
 
 interface AppServerQueryOptions<T> {
   readonly queryKey: readonly unknown[];
@@ -94,7 +90,7 @@ export class AppServerQueryCache {
 
   observeActiveThreadsResult(
     context: AppServerQueryContext,
-    listener: (result: AppServerObservedQueryResult<readonly Thread[]>) => void,
+    listener: ObservedDataListener<readonly Thread[]>,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     return this.observeQueryResult(this.threadListQueryOptions(context, "active"), cloneThreads, listener, options);
@@ -102,7 +98,7 @@ export class AppServerQueryCache {
 
   observeArchivedThreadsResult(
     context: AppServerQueryContext,
-    listener: (result: AppServerObservedQueryResult<readonly Thread[]>) => void,
+    listener: ObservedDataListener<readonly Thread[]>,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     return this.observeQueryResult(this.threadListQueryOptions(context, "archived"), cloneThreads, listener, options);
@@ -187,7 +183,7 @@ export class AppServerQueryCache {
 
   observeAppServerMetadataResult(
     context: AppServerQueryContext,
-    listener: (result: AppServerObservedQueryResult<SharedServerMetadata>) => void,
+    listener: ObservedDataListener<SharedServerMetadata>,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     return this.observeQueryResult(this.appServerMetadataQueryOptions(context), cloneSharedServerMetadata, listener, options);
@@ -241,7 +237,7 @@ export class AppServerQueryCache {
 
   observeModelsResult(
     context: AppServerQueryContext,
-    listener: (result: AppServerObservedQueryResult<readonly ModelMetadata[]>) => void,
+    listener: ObservedDataListener<readonly ModelMetadata[]>,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     return this.observeQueryResult(this.modelsQueryOptions(context), cloneModelMetadata, listener, options);
@@ -427,7 +423,7 @@ export class AppServerQueryCache {
   private observeQueryResult<T>(
     queryOptions: AppServerQueryOptions<T>,
     clone: (value: T) => T,
-    listener: (result: AppServerObservedQueryResult<T>) => void,
+    listener: ObservedDataListener<T>,
     options: { emitCurrent?: boolean },
   ): () => void {
     const observer = new QueryObserver<T>(this.client, {
@@ -442,11 +438,11 @@ export class AppServerQueryCache {
     return unsubscribe;
   }
 
-  private cloneObservedResult<T>(result: QueryObserverResult<T>, clone: (value: T) => T): AppServerObservedQueryResult<T> {
+  private cloneObservedResult<T>(result: QueryObserverResult<T>, clone: (value: T) => T): ObservedDataResult<T> {
     return {
-      ...result,
       data: result.data === undefined ? null : clone(result.data),
       error: result.error instanceof Error ? result.error : null,
+      isFetching: result.isFetching,
     };
   }
 
