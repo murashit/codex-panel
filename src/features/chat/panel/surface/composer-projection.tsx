@@ -223,7 +223,7 @@ function onOffLabel(active: boolean): string {
 }
 
 function activeComposerThreadName(state: ChatPanelComposerShellState, restoredThread: RestoredThreadTitleSnapshot | null): string | null {
-  const threadId = state.activeThread.id;
+  const threadId = restoredThread?.threadId ?? state.activeThread.id ?? null;
   if (!threadId) return null;
   const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
   const listedName = thread ? explicitThreadName(thread) : null;

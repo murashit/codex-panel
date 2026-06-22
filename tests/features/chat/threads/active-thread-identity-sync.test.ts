@@ -33,7 +33,6 @@ function createController(options: { restoredThreadPending?: boolean } = {}) {
     stateStore,
     restoration,
     invalidateThreadWork: vi.fn(),
-    clearDeferredRestoredThreadHydration: vi.fn(),
     resetThreadTurnPresence: vi.fn(),
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshTabHeader: vi.fn(),
@@ -61,7 +60,6 @@ describe("createActiveThreadIdentitySync", () => {
     expect(stateStore.getState().activeThread.id).toBeNull();
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
     expect(restoredClear).toHaveBeenCalledOnce();
-    expect(host.clearDeferredRestoredThreadHydration).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.refreshTabHeader).not.toHaveBeenCalled();
@@ -86,9 +84,21 @@ describe("createActiveThreadIdentitySync", () => {
     expect(stateStore.getState().activeThread.id).toBe("active");
     expect(host.invalidateThreadWork).not.toHaveBeenCalled();
     expect(restoredClear).not.toHaveBeenCalled();
-    expect(host.clearDeferredRestoredThreadHydration).not.toHaveBeenCalled();
     expect(host.resetThreadTurnPresence).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
+    expect(host.refreshTabHeader).not.toHaveBeenCalled();
+  });
+
+  it("clears pending restored thread identity when that thread is archived", () => {
+    const { controller, host, restoredClear, stateStore } = createController({ restoredThreadPending: true });
+
+    controller.applyThreadArchiveToActiveIdentity("thread");
+
+    expect(stateStore.getState().activeThread.id).toBeNull();
+    expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
+    expect(restoredClear).toHaveBeenCalledOnce();
+    expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
+    expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.refreshTabHeader).not.toHaveBeenCalled();
   });
 

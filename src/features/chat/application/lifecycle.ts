@@ -22,8 +22,6 @@ export type RestoredThreadLifecycleEvent =
 export interface ChatViewDeferredTasks {
   scheduleDiagnostics(callback: () => void): void;
   clearDiagnostics(): void;
-  scheduleRestoredThreadHydration(callback: () => void): void;
-  clearRestoredThreadHydration(): void;
   scheduleAppServerWarmup(callback: () => void): void;
   clearAppServerWarmup(): void;
   clearAll(): void;

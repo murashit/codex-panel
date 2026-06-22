@@ -4,7 +4,7 @@ import { appServerQueryContextRawEquals, type AppServerQueryContext } from "../.
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { createChatViewDeferredTasks } from "./lifecycle";
-import { ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../application/lifecycle";
+import { ChatResumeWorkTracker, type ChatViewDeferredTasks, type RestoredThreadPlaceholderState } from "../application/lifecycle";
 import { openPanelTurnLifecycle, parseRestoredThreadState, type ChatPanelSnapshot } from "../panel/snapshot";
 import type { ChatState } from "../application/state/root-reducer";
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
@@ -34,11 +34,11 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   displayTitle(): string {
-    return threadWindowTitle(this.state.activeThread.id, this.state.threadList.listedThreads, this.restoredThreadTitle());
+    return threadWindowTitle(this.panelThreadId(), this.state.threadList.listedThreads, this.restoredThreadTitle());
   }
 
   persistedState(): Record<string, unknown> {
-    const threadId = this.state.activeThread.id;
+    const threadId = this.panelThreadId();
     if (!threadId) return { version: 1 };
 
     const threadTitle = this.restoredThreadTitle() ?? this.activeThreadTitle();
@@ -53,13 +53,11 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     const restoredThread = parseRestoredThreadState(state);
     if (restoredThread) {
       this.graph.thread.restoration.restore(restoredThread);
-      this.scheduleRestoredThreadHydration();
       return;
     }
 
     this.graph.actions.invalidateThreadWork();
     this.graph.thread.restoration.clear();
-    this.graph.thread.restoration.clearHydration();
     this.scheduleWarmup();
   }
 
@@ -93,7 +91,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     const pendingRequests = pendingRequestCountsFromQueues(this.state.requests);
     return {
       viewId: this.environment.obsidian.viewId,
-      threadId: this.closing ? null : this.state.activeThread.id,
+      threadId: this.closing ? null : this.panelThreadId(),
       turnLifecycle: openPanelTurnLifecycle(this.state.turn.lifecycle),
       pendingApprovals: pendingRequests.approvals,
       pendingUserInputs: pendingRequests.userInputs,
@@ -109,7 +107,8 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   async focusThread(threadId: string | null = null): Promise<void> {
-    if (threadId && this.graph.thread.restoration.isPending(threadId)) {
+    const restoredThreadId = this.restoredThread()?.threadId ?? null;
+    if ((threadId && this.graph.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
       await this.ensureRestoredThreadLoaded();
     }
     this.focusComposer();
@@ -136,7 +135,6 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     this.graph.runtime.sharedState.subscribe();
     this.mountOrRepairShell();
     this.scheduleWarmup();
-    this.scheduleRestoredThreadHydration();
   }
 
   close(): void {
@@ -231,15 +229,19 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private restoredThreadTitle(): string | null {
-    return this.graph.thread.restoration.title();
+    return this.restoredThread()?.title ?? null;
+  }
+
+  private restoredThread(): RestoredThreadPlaceholderState | null {
+    return this.graph.thread.restoration.placeholder();
+  }
+
+  private panelThreadId(): string | null {
+    return this.restoredThread()?.threadId ?? this.state.activeThread.id;
   }
 
   private ensureRestoredThreadLoaded(): Promise<boolean> {
     return this.graph.thread.restoration.ensureLoaded((threadId) => this.graph.thread.resume.resumeThread(threadId));
-  }
-
-  private scheduleRestoredThreadHydration(): void {
-    this.graph.thread.restoration.scheduleHydration((threadId) => this.graph.thread.resume.resumeThread(threadId));
   }
 
   private createSessionGraph(): ChatPanelSessionGraph {
@@ -250,7 +252,6 @@ export class ChatPanelSession implements ChatSurfaceHandle {
       resumeWork: this.resumeWork,
       connectionWork: this.connectionWork,
       messageScrollController: this.messageScrollController,
-      getOpened: () => this.opened,
       getClosing: () => this.closing,
       viewWindow: () => this.viewWindow(),
     });

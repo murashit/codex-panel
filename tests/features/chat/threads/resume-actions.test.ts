@@ -50,7 +50,6 @@ function createActions(response: ChatThreadResumeSnapshot = activation("thread")
     closing: () => false,
     systemItem: (text: string) => ({ id: "system", kind: "system" as const, role: "system" as const, text }),
     resetThreadTurnPresence: vi.fn(),
-    clearDeferredRestoredThreadHydration: vi.fn(),
     notifyActiveThreadIdentityChanged: vi.fn(),
     addSystemMessage: vi.fn(),
     refreshLiveState: vi.fn(),

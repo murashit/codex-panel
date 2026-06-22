@@ -347,7 +347,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
   });
 
-  it("restores the active thread from workspace state and hydrates it after a delay", async () => {
+  it("restores workspace thread state without hydrating it automatically", async () => {
     vi.useFakeTimers();
     const client = connectedClient({
       resumeThread: vi.fn().mockResolvedValue(resumedThread("thread-1")),
@@ -360,6 +360,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(view.getDisplayText()).toBe("Codex: Restored thread");
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
     expect(connectionMock.state.connectCalls).toBe(0);
     expect(client.resumeThread).not.toHaveBeenCalled();
     expect(view.containerEl.textContent).not.toContain("Thread restored. Send a message to resume it.");
@@ -373,8 +374,8 @@ describe("CodexChatView connection lifecycle", () => {
 
     await vi.advanceTimersByTimeAsync(1_500);
 
-    expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-    expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
+    expect(client.resumeThread).not.toHaveBeenCalled();
+    expect(client.threadTurnsList).not.toHaveBeenCalled();
   });
 
   it("formats the panel title from listed thread metadata", async () => {
@@ -394,7 +395,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.getDisplayText()).toBe("Codex: 019e061e");
   });
 
-  it("hydrates a restored thread when workspace state arrives after open", async () => {
+  it("keeps late workspace thread state restored until explicit focus", async () => {
     vi.useFakeTimers();
     const client = connectedClient();
     connectionMock.state.client = client;
@@ -409,6 +410,14 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await vi.advanceTimersByTimeAsync(1_500);
+
+    expect(view.getDisplayText()).toBe("Codex: Restored thread");
+    expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
+    expect(client.resumeThread).not.toHaveBeenCalled();
+    expect(client.threadTurnsList).not.toHaveBeenCalled();
+
+    await view.surface.focusThread("thread-1");
 
     expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
     expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);

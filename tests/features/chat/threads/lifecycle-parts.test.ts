@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import { ChatResumeWorkTracker, type ChatViewDeferredTasks } from "../../../../src/features/chat/application/lifecycle";
+import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import type { GoalActions } from "../../../../src/features/chat/application/threads/goal-actions";
 import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
@@ -27,11 +27,9 @@ describe("ThreadLifecycleParts", () => {
         ensureConnected: vi.fn().mockResolvedValue(undefined),
       },
       lifecycle: {
-        deferredTasks: deferredTasks(),
         resumeWork,
         history,
         invalidateThreadWork,
-        getOpened: () => true,
         getClosing: () => false,
       },
       thread: {
@@ -61,15 +59,3 @@ describe("ThreadLifecycleParts", () => {
     expect(invalidateThreadWork).toHaveBeenCalledOnce();
   });
 });
-
-function deferredTasks(): ChatViewDeferredTasks {
-  return {
-    scheduleDiagnostics: vi.fn(),
-    clearDiagnostics: vi.fn(),
-    scheduleRestoredThreadHydration: vi.fn(),
-    clearRestoredThreadHydration: vi.fn(),
-    scheduleAppServerWarmup: vi.fn(),
-    clearAppServerWarmup: vi.fn(),
-    clearAll: vi.fn(),
-  };
-}

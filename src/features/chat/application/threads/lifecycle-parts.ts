@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
-import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../lifecycle";
+import type { ChatResumeWorkTracker } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
 import type { GoalActions } from "./goal-actions";
 import type { HistoryController } from "./history-controller";
@@ -16,11 +16,9 @@ export interface ThreadLifecyclePartsContext {
     ensureConnected: () => Promise<void>;
   };
   lifecycle: {
-    deferredTasks: ChatViewDeferredTasks;
     resumeWork: ChatResumeWorkTracker;
     history: HistoryController;
     invalidateThreadWork: () => void;
-    getOpened: () => boolean;
     getClosing: () => boolean;
   };
   thread: {
@@ -47,12 +45,9 @@ export interface ThreadLifecycleParts {
 
 export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext): ThreadLifecycleParts {
   const { settingsRef, stateStore, client, lifecycle, thread, status, liveState, goals, resetThreadTurnPresence } = context;
-  const { deferredTasks, resumeWork, history, invalidateThreadWork } = lifecycle;
+  const { resumeWork, history, invalidateThreadWork } = lifecycle;
   const restoration = new RestorationController({
-    deferredTasks,
-    opened: lifecycle.getOpened,
     invalidateThreadWork,
-    stateStore,
     setStatus: status.set,
     refreshTabHeader: thread.refreshTabHeader,
   });
@@ -66,9 +61,6 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     ensureConnected: client.ensureConnected,
     closing: lifecycle.getClosing,
     resetThreadTurnPresence,
-    clearDeferredRestoredThreadHydration: () => {
-      restoration.clearHydration();
-    },
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     addSystemMessage: status.addSystemMessage,
     refreshLiveState: liveState.refresh,
@@ -83,9 +75,6 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     stateStore,
     restoration,
     invalidateThreadWork,
-    clearDeferredRestoredThreadHydration: () => {
-      restoration.clearHydration();
-    },
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     refreshTabHeader: thread.refreshTabHeader,

@@ -135,7 +135,6 @@ interface ChatPanelSessionGraphHost {
   resumeWork: ChatResumeWorkTracker;
   connectionWork: ConnectionWorkTracker;
   messageScrollController: ChatMessageScrollController;
-  getOpened: () => boolean;
   getClosing: () => boolean;
   viewWindow: () => Window;
 }
@@ -640,11 +639,9 @@ function createSessionThreadLifecycle(
       ensureConnected,
     },
     lifecycle: {
-      deferredTasks: host.deferredTasks,
       resumeWork: host.resumeWork,
       history,
       invalidateThreadWork,
-      getOpened: host.getOpened,
       getClosing: host.getClosing,
     },
     thread: {

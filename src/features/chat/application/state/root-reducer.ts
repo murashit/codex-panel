@@ -31,7 +31,6 @@ import type { ComposerSuggestion } from "../composer/suggestions";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type {
   ActiveThreadResumedAction,
-  ActiveThreadRestoredPlaceholderAction,
   ActiveThreadSettingsAppliedAction,
   ClearActiveThreadAction,
   ClearDisconnectedConnectionStateAction,
@@ -233,7 +232,6 @@ type ChatTransitionAction =
   | ClearActiveThreadAction
   | ActiveThreadResumedAction
   | ActiveThreadSettingsAppliedAction
-  | ActiveThreadRestoredPlaceholderAction
   | { type: "active-thread/goal-set"; goal: ThreadGoal | null }
   | TurnAction
   | RequestResolvedAction
@@ -269,7 +267,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "active-thread/cleared":
     case "active-thread/resumed":
     case "active-thread/settings-applied":
-    case "active-thread/restored-placeholder":
     case "active-thread/goal-set":
     case "turn/started":
     case "turn/completed":
@@ -295,8 +292,6 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
       return reduceActiveThreadResumedTransition(state, action);
     case "active-thread/settings-applied":
       return reduceActiveThreadSettingsAppliedTransition(state, action);
-    case "active-thread/restored-placeholder":
-      return reduceActiveThreadRestoredPlaceholderTransition(state, action);
     case "active-thread/goal-set":
       return reduceActiveThreadGoalSetTransition(state, action.goal);
     case "turn/started":
@@ -372,22 +367,6 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
       activePermissionProfile: action.activePermissionProfile,
     },
   });
-}
-
-function reduceActiveThreadRestoredPlaceholderTransition(state: ChatState, action: ActiveThreadRestoredPlaceholderAction): ChatState {
-  return clearTurnScopedState(
-    patchChatState(state, {
-      activeThread: {
-        id: action.threadId,
-        cwd: null,
-        goal: null,
-        tokenUsage: null,
-      },
-      runtime: initialChatRuntimeState(),
-      messageStream: initialMessageStreamState(),
-      ui: initialUiState(),
-    }),
-  );
 }
 
 function reduceActiveThreadGoalSetTransition(state: ChatState, goal: ThreadGoal | null): ChatState {

@@ -223,7 +223,6 @@ describe("createChatPanelSessionGraph actions", () => {
       resumeWork,
       connectionWork: new ConnectionWorkTracker(),
       messageScrollController: createChatMessageScrollController(),
-      getOpened: () => true,
       getClosing: () => false,
       viewWindow: () => window,
     });

@@ -196,46 +196,6 @@ describe("chatReducer", () => {
     expect(chatStateMessageStreamItems(next)).toEqual([]);
   });
 
-  it("keeps composer state when restoring a thread placeholder", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "previous-thread" } });
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "previous-turn" } } });
-    state = chatStateWith(state, { runtime: { activeModel: "gpt-5.1" } });
-    state = chatStateWith(state, { activeThread: { goal: goal("previous-thread") } });
-    state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
-    state = chatStateWith(state, { messageStream: { loadingHistory: true } });
-    state = chatStateWith(state, { composer: { draft: "draft in this panel" } });
-    state = chatStateWith(state, { composer: { suggestSelected: 1 } });
-    state = chatStateWith(state, { composer: { suggestions: [suggestion("/resume")] } });
-    state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
-    state = withChatStateMessageStreamItems(state, [message("previous-message")]);
-    state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["previous-turn", "@@"]]) } });
-    state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
-    state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
-    state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "answer"]]) } });
-
-    const next = chatReducer(state, {
-      type: "active-thread/restored-placeholder",
-      threadId: "restored-thread",
-    });
-
-    expect(next.activeThread.id).toBe("restored-thread");
-    expect(activeTurnId(next)).toBeNull();
-    expect(next.runtime.activeModel).toBeNull();
-    expect(next.activeThread.goal).toBeNull();
-    expect(next.messageStream.historyCursor).toBeNull();
-    expect(next.messageStream.loadingHistory).toBe(false);
-    expect(chatStateMessageStreamItems(next)).toEqual([]);
-    expect(next.messageStream.turnDiffs.size).toBe(0);
-    expect(next.requests.approvals).toEqual([]);
-    expect(next.requests.pendingUserInputs).toEqual([]);
-    expect(next.requests.userInputDrafts.size).toBe(0);
-    expect(next.composer.draft).toBe("draft in this panel");
-    expect(next.composer.suggestSelected).toBe(1);
-    expect(next.composer.suggestions).toEqual([suggestion("/resume")]);
-    expect(next.composer.suggestionsDismissedSignature).toBe("dismissed");
-  });
-
   it("updates map-backed turn diffs and toolbar panel state", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["turn", "old"]]) } });

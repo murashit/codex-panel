@@ -6,7 +6,6 @@ export interface ActiveThreadIdentitySyncHost {
   stateStore: ChatStateStore;
   restoration: RestorationController;
   invalidateThreadWork: () => void;
-  clearDeferredRestoredThreadHydration: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   notifyActiveThreadIdentityChanged: () => void;
   refreshTabHeader: () => void;
@@ -35,14 +34,13 @@ export function createActiveThreadIdentitySync(host: ActiveThreadIdentitySyncHos
 function clearActiveThreadIdentity(host: ActiveThreadIdentitySyncHost): void {
   host.invalidateThreadWork();
   host.restoration.clear();
-  host.clearDeferredRestoredThreadHydration();
   host.stateStore.dispatch({ type: "active-thread/cleared" });
   host.resetThreadTurnPresence(false);
   host.notifyActiveThreadIdentityChanged();
 }
 
 function applyThreadArchiveToActiveIdentity(host: ActiveThreadIdentitySyncHost, threadId: string): void {
-  if (activeThreadId(host.stateStore.getState()) !== threadId) return;
+  if (activeThreadId(host.stateStore.getState()) !== threadId && !host.restoration.isPending(threadId)) return;
   clearActiveThreadIdentity(host);
 }
 

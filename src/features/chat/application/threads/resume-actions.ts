@@ -18,7 +18,6 @@ export interface ResumeActionsHost {
   ensureConnected: () => Promise<void>;
   closing: () => boolean;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
-  clearDeferredRestoredThreadHydration: () => void;
   notifyActiveThreadIdentityChanged: () => void;
   addSystemMessage: (text: string) => void;
   refreshLiveState: () => void;
@@ -88,7 +87,6 @@ function applyResumedThread(host: ResumeActionsHost, response: ChatThreadResumeS
     }),
   );
   host.restoration.clear();
-  host.clearDeferredRestoredThreadHydration();
   host.resetThreadTurnPresence(false);
   host.notifyActiveThreadIdentityChanged();
 }

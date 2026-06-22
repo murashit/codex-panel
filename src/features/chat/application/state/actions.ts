@@ -93,11 +93,6 @@ export interface ThreadListAppliedAction {
   threadsLoaded?: boolean;
 }
 
-export interface ActiveThreadRestoredPlaceholderAction {
-  type: "active-thread/restored-placeholder";
-  threadId: string;
-}
-
 export interface DisclosureSetAction {
   type: "ui/disclosure-set";
   bucket: "details" | "activityGroups" | "textDetails" | "userMessageExpanded" | "goalObjectiveExpanded" | "approvalDetails";

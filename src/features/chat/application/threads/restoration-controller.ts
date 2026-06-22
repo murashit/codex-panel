@@ -1,19 +1,14 @@
-import type { ChatStateStore } from "../state/store";
 import {
   transitionRestoredThreadLifecycle,
   type RestoredThreadLifecycleState,
   type RestoredThreadPlaceholderState,
   type RestoredThreadState,
-  type ChatViewDeferredTasks,
 } from "../lifecycle";
 
 const STATUS_THREAD_READY_TO_RESUME = "Thread ready to resume.";
 
 export interface RestorationControllerHost {
-  deferredTasks: ChatViewDeferredTasks;
-  opened: () => boolean;
   invalidateThreadWork: () => void;
-  stateStore: ChatStateStore;
   setStatus: (status: string) => void;
   refreshTabHeader: () => void;
 }
@@ -49,7 +44,6 @@ export class RestorationController {
       type: "placeholder-restored",
       restoredThread,
     });
-    this.host.stateStore.dispatch({ type: "active-thread/restored-placeholder", threadId: restoredThread.threadId });
     this.host.setStatus(STATUS_THREAD_READY_TO_RESUME);
     this.host.refreshTabHeader();
   }
@@ -57,7 +51,6 @@ export class RestorationController {
   async ensureLoaded(loadThread: RestoredThreadLoader): Promise<boolean> {
     const restoredThread = this.placeholder();
     if (!restoredThread) return true;
-    this.clearHydration();
     if (restoredThread.loading) {
       const threadId = restoredThread.threadId;
       await restoredThread.loading;
@@ -77,19 +70,5 @@ export class RestorationController {
 
   isPending(threadId: string): boolean {
     return this.placeholder()?.threadId === threadId;
-  }
-
-  scheduleHydration(loadThread: RestoredThreadLoader): void {
-    const restoredThread = this.placeholder();
-    if (!this.host.opened() || !restoredThread) return;
-    const threadId = restoredThread.threadId;
-    this.host.deferredTasks.scheduleRestoredThreadHydration(() => {
-      if (!this.isPending(threadId)) return;
-      void this.ensureLoaded(loadThread);
-    });
-  }
-
-  clearHydration(): void {
-    this.host.deferredTasks.clearRestoredThreadHydration();
   }
 }

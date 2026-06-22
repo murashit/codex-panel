@@ -2,34 +2,22 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
-import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { RestorationController } from "../../../../src/features/chat/application/threads/restoration-controller";
-import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
 import { deferred } from "../../../support/async";
 
 describe("RestorationController", () => {
-  it("restores a placeholder and schedules deferred hydration", () => {
-    vi.useFakeTimers();
-    const stateStore = createChatStateStore(createChatState());
+  it("restores a placeholder for explicit hydration", async () => {
     const resumeThread = vi.fn().mockResolvedValue(undefined);
-    const controller = new RestorationController({
-      deferredTasks: createChatViewDeferredTasks(() => window),
-      opened: () => true,
-      invalidateThreadWork: vi.fn(),
-      stateStore,
-      setStatus: vi.fn(),
-      refreshTabHeader: vi.fn(),
-    });
+    const controller = restoredThreadControllerFixture();
 
     controller.restore({ threadId: "thread", title: "Title", explicitName: null });
-    controller.scheduleHydration(resumeThread);
 
     expect(controller.placeholder()).toMatchObject({ threadId: "thread", title: "Title" });
-    expect(stateStore.getState().activeThread.id).toBe("thread");
-    vi.advanceTimersByTime(1_500);
+    expect(resumeThread).not.toHaveBeenCalled();
+
+    await controller.ensureLoaded(resumeThread);
+
     expect(resumeThread).toHaveBeenCalledWith("thread");
-    vi.useRealTimers();
   });
 
   it("shares an in-flight restore load", async () => {
@@ -61,10 +49,7 @@ describe("RestorationController", () => {
 
 function restoredThreadControllerFixture(overrides: Partial<ConstructorParameters<typeof RestorationController>[0]> = {}) {
   return new RestorationController({
-    deferredTasks: createChatViewDeferredTasks(() => window),
-    opened: () => false,
     invalidateThreadWork: vi.fn(),
-    stateStore: createChatStateStore(createChatState()),
     setStatus: vi.fn(),
     refreshTabHeader: vi.fn(),
     ...overrides,
