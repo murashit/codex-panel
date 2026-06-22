@@ -1,6 +1,6 @@
-import { activeThreadId } from "../state/selectors";
 import type { ChatConnectionPhase } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import { activeThreadId } from "../threads/state-selectors";
 
 const STATUS_RECONNECTING = "Reconnecting...";
 

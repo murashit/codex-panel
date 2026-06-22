@@ -3,11 +3,12 @@ import type { CodexInput } from "../../../../domain/chat/input";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import { activeThreadId, canImplementPlanItemId } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { GoalActions } from "../threads/goal-actions";
+import { activeThreadId } from "../threads/state-selectors";
 import { submitComposer, type ComposerSubmitActions, type ComposerSubmitActionsHost } from "./composer-submit-actions";
+import { canImplementPlanItemId } from "./plan-implementation-target";
 import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
 import { createTurnSubmissionActions } from "./turn-submission-actions";
 

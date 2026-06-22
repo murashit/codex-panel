@@ -13,10 +13,10 @@ import {
 import type { SlashCommandName } from "../composer/slash-commands";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
-import { submissionStateSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import { currentModel, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
+import { submissionStateSnapshot } from "./submission-state";
 
 export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;

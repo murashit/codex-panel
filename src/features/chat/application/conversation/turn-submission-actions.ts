@@ -2,7 +2,6 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
-import { submissionStateSnapshot } from "../state/selectors";
 import { STATUS_TURN_RUNNING } from "../state/status-text";
 import type { ChatStateStore } from "../state/store";
 import {
@@ -12,6 +11,7 @@ import {
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
+import { submissionStateSnapshot } from "./submission-state";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 

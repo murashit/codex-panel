@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/state/selectors";
 import { implementPlan, type PlanImplementationHost } from "../../../../../src/features/chat/application/conversation/composition";
+import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/conversation/plan-implementation-target";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 const planItem = (id: string): MessageStreamItem => ({
