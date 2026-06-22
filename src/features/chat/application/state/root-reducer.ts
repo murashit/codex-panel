@@ -49,7 +49,6 @@ import {
   messageStreamWithActiveTurnItems,
   messageStreamWithItems,
   reduceMessageStreamSlice,
-  type ChatMessageStreamActiveSegment,
   type ChatMessageStreamState,
   type MessageStreamAction,
 } from "./message-stream";
@@ -70,7 +69,6 @@ import {
 import {
   clearAllRequestDisclosures,
   clearResolvedRequestDisclosures,
-  cloneDisclosureUiState,
   initialUiState,
   isUiAction,
   maybeClearGoalObjectiveExpansion,
@@ -79,6 +77,7 @@ import {
   type UiAction,
 } from "./ui-state";
 import { STATUS_TURN_RUNNING } from "./status-text";
+import { definedPatch, patchObject } from "./patch";
 
 export { activeTurnId, chatTurnBusy, pendingTurnStart, type ChatTurnState, type PendingTurnStart } from "../conversation/turn-state";
 export type { ChatMessageStreamState } from "./message-stream";
@@ -658,64 +657,6 @@ function initialComposerState(): ChatComposerState {
   };
 }
 
-export function cloneChatState(state: ChatState): ChatState {
-  return {
-    connection: {
-      ...state.connection,
-      availableModels: [...state.connection.availableModels],
-      availableSkills: [...state.connection.availableSkills],
-    },
-    threadList: {
-      listedThreads: [...state.threadList.listedThreads],
-      threadsLoaded: state.threadList.threadsLoaded,
-    },
-    activeThread: { ...state.activeThread },
-    runtime: { ...state.runtime },
-    turn: { lifecycle: state.turn.lifecycle },
-    messageStream: cloneMessageStreamState(state.messageStream),
-    requests: {
-      approvals: [...state.requests.approvals],
-      pendingUserInputs: [...state.requests.pendingUserInputs],
-      pendingMcpElicitations: [...state.requests.pendingMcpElicitations],
-      userInputDrafts: new Map(state.requests.userInputDrafts),
-      mcpElicitationDrafts: new Map(state.requests.mcpElicitationDrafts),
-    },
-    composer: {
-      ...state.composer,
-      suggestions: [...state.composer.suggestions],
-    },
-    ui: {
-      toolbarPanel: state.ui.toolbarPanel,
-      archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
-      rename: { ...state.ui.rename },
-      goalEditor: { ...state.ui.goalEditor },
-      messageActionMenu: { ...state.ui.messageActionMenu },
-      disclosures: cloneDisclosureUiState(state.ui.disclosures),
-    },
-  };
-}
-
-function cloneMessageStreamState(state: ChatMessageStreamState): ChatMessageStreamState {
-  return {
-    stableItems: [...state.stableItems],
-    activeSegment: cloneActiveSegment(state.activeSegment),
-    turnDiffs: new Map(state.turnDiffs),
-    historyCursor: state.historyCursor,
-    loadingHistory: state.loadingHistory,
-    reportedLogs: new Set(state.reportedLogs),
-  };
-}
-
-function cloneActiveSegment(segment: ChatMessageStreamActiveSegment | null): ChatMessageStreamActiveSegment | null {
-  if (!segment) return null;
-  return {
-    turnId: segment.turnId,
-    items: [...segment.items],
-    indexById: new Map(segment.indexById),
-    indexBySourceItemId: new Map(segment.indexBySourceItemId),
-  };
-}
-
 function setComposerSuggestionsSlice(
   state: ChatComposerState,
   suggestions: readonly ComposerSuggestion[],
@@ -751,16 +692,6 @@ function composerSuggestionsEqual(left: readonly ComposerSuggestion[], right: re
   });
 }
 
-function patchObject<T extends object>(current: T, patch: Partial<T>): T {
-  if (Object.entries(patch).every(([key, value]) => Object.is(current[key as keyof T], value))) return current;
-  return { ...current, ...patch };
-}
-
 function patchChatState(state: ChatState, patch: Partial<ChatState>): ChatState {
-  if (Object.entries(patch).every(([key, value]) => Object.is(state[key as keyof ChatState], value))) return state;
-  return { ...state, ...patch };
-}
-
-function definedPatch<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
-  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
+  return patchObject(state, patch);
 }

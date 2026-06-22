@@ -7,6 +7,7 @@ import {
   type PendingRequestId,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
+import { patchObject } from "../state/patch";
 
 export interface ChatRequestState {
   readonly approvals: readonly PendingApproval[];
@@ -106,9 +107,4 @@ function setUserInputDraftSlice(state: ChatRequestState, key: string, value: str
 function setMcpElicitationDraftSlice(state: ChatRequestState, key: string, value: string): ChatRequestState {
   if (state.mcpElicitationDrafts.get(key) === value) return state;
   return patchObject(state, { mcpElicitationDrafts: new Map([...state.mcpElicitationDrafts, [key, value]]) });
-}
-
-function patchObject<T extends object>(current: T, patch: Partial<T>): T {
-  if (Object.entries(patch).every(([key, value]) => Object.is(current[key as keyof T], value))) return current;
-  return { ...current, ...patch };
 }

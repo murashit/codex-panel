@@ -1,4 +1,5 @@
-import { chatReducer, cloneChatState, createChatState, type ChatAction, type ChatState } from "./root-reducer";
+import { cloneChatState } from "./clone";
+import { chatReducer, createChatState, type ChatAction, type ChatState } from "./root-reducer";
 
 export interface ChatStateStore {
   getState(): ChatState;

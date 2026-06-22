@@ -9,6 +9,7 @@ import {
   type ThreadRenameLifecycleState,
 } from "../../../threads/rename-lifecycle";
 import type { DisclosureSetAction } from "./actions";
+import { patchObject } from "./patch";
 
 export type ChatRenameUiState = { readonly kind: "idle" } | (ThreadRenameActiveState & { readonly threadId: string });
 
@@ -396,9 +397,4 @@ function filterStringSet(values: ReadonlySet<string>, keep: (value: string) => b
     }
   }
   return next ?? values;
-}
-
-function patchObject<T extends object>(current: T, patch: Partial<T>): T {
-  if (Object.entries(patch).every(([key, value]) => Object.is(current[key as keyof T], value))) return current;
-  return { ...current, ...patch };
 }

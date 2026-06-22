@@ -8,6 +8,7 @@ import {
   streamedTextMessageStreamItem,
   streamedToolOutputMessageStreamItem,
 } from "../../domain/message-stream/factories/streaming-items";
+import { definedPatch, patchObject } from "./patch";
 
 export interface ChatMessageStreamActiveSegment {
   readonly turnId: string | null;
@@ -544,13 +545,4 @@ function promptMessageForTurn(items: readonly MessageStreamItem[], turnId: strin
   );
   const item = classification?.item;
   return item?.kind === "message" ? item : null;
-}
-
-function patchObject<T extends object>(current: T, patch: Partial<T>): T {
-  if (Object.entries(patch).every(([key, value]) => Object.is(current[key as keyof T], value))) return current;
-  return { ...current, ...patch };
-}
-
-function definedPatch<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {
-  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
 }
