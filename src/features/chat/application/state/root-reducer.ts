@@ -61,6 +61,7 @@ import {
   type RequestAction,
 } from "../pending-requests/state";
 import {
+  STATUS_TURN_RUNNING,
   initialChatTurnState,
   transitionChatTurnLifecycleState,
   type ChatTurnState,
@@ -76,7 +77,6 @@ import {
   type ChatUiState,
   type UiAction,
 } from "./ui-state";
-import { STATUS_TURN_RUNNING } from "./status-text";
 import { definedPatch, patchObject } from "./patch";
 
 export { activeTurnId, chatTurnBusy, pendingTurnStart, type ChatTurnState, type PendingTurnStart } from "../conversation/turn-state";

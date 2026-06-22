@@ -2,8 +2,8 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
-import { STATUS_TURN_RUNNING } from "../state/status-text";
 import type { ChatStateStore } from "../state/store";
+import { STATUS_TURN_RUNNING } from "./turn-state";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,

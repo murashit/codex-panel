@@ -4,6 +4,7 @@ import { batch, computed, signal, type ReadonlySignal, type Signal } from "@prea
 
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { messageItemsHaveThreadTurns, runtimeSnapshotForChatSlices } from "../application/runtime/snapshot";
+import { implementPlanTargetFromState } from "../application/conversation/plan-implementation";
 import { activeTurnId, chatTurnBusy, type ChatState } from "../application/state/root-reducer";
 import {
   messageStreamActiveItems,
@@ -13,12 +14,7 @@ import {
   type MessageStreamRollbackCandidate,
 } from "../application/state/message-stream";
 import type { MessageStreamItem } from "../domain/message-stream/items";
-import {
-  forkCandidatesFromItems,
-  latestImplementablePlanTargetFromItems,
-  type ForkCandidate,
-  type PlanImplementationTarget,
-} from "../domain/message-stream/selectors";
+import { forkCandidatesFromItems, type ForkCandidate, type PlanImplementationTarget } from "../domain/message-stream/selectors";
 
 export interface ChatPanelShellState {
   connection: Signal<ChatState["connection"]>;
@@ -118,10 +114,14 @@ export function createChatPanelShellState(initialState: ChatState): ChatPanelShe
     messageStreamActiveItems: computed(() => messageStreamActiveItems(messageStream.value)),
     messageStreamRollbackCandidate: computed(() => (turnBusy.value ? null : messageStreamRollbackCandidateFromItems(messageItems.value))),
     messageStreamForkCandidates: computed(() => (turnBusy.value ? [] : forkCandidatesFromItems(messageItems.value))),
-    messageStreamImplementPlanTarget: computed(() => {
-      if (!activeThreadIdSignal.value || turnBusy.value || runtime.value.selectedCollaborationMode !== "plan") return null;
-      return latestImplementablePlanTargetFromItems(messageItems.value);
-    }),
+    messageStreamImplementPlanTarget: computed(() =>
+      implementPlanTargetFromState({
+        activeThread: { id: activeThreadIdSignal.value },
+        turn: turn.value,
+        runtime: { selectedCollaborationMode: runtime.value.selectedCollaborationMode },
+        messageStream: messageStream.value,
+      }),
+    ),
     hasThreadTurns,
     goalEditor: computed(() => ui.value.goalEditor),
     goalObjectiveExpanded: computed(() => ui.value.disclosures.goalObjectiveExpanded),

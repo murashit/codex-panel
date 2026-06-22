@@ -3,6 +3,8 @@ export interface PendingTurnStart {
   readonly promptSubmitHookItemIds: readonly string[];
 }
 
+export const STATUS_TURN_RUNNING = "Turn running...";
+
 export type ChatTurnLifecycleState =
   | { readonly kind: "idle" }
   | { readonly kind: "starting"; readonly pendingTurnStart: PendingTurnStart }

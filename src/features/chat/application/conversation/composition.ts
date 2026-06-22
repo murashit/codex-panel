@@ -6,13 +6,10 @@ import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import type { GoalActions } from "../threads/goal-actions";
-import { activeThreadId } from "../threads/state-selectors";
 import { submitComposer, type ComposerSubmitActions, type ComposerSubmitActionsHost } from "./composer-submit-actions";
-import { canImplementPlanItemId } from "./plan-implementation-target";
 import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
 import { createTurnSubmissionActions } from "./turn-submission-actions";
-
-const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
+import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
 
 export interface ConversationTurnActionsContext {
   vaultPath: string;
@@ -61,13 +58,6 @@ export interface ConversationTurnActionsRefs {
 
 interface ConversationThreadStarter {
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
-}
-
-export interface PlanImplementationHost {
-  stateStore: ChatStateStore;
-  connectedClient(): Promise<AppServerClient | null>;
-  sendTurnText(text: string): Promise<void>;
-  requestDefaultCollaborationModeForNextTurn(): void;
 }
 
 interface PlanImplementation {
@@ -163,13 +153,4 @@ export function createConversationTurnActions(
 async function startThreadForGoal(starter: ConversationThreadStarter, objective: string): Promise<string | null> {
   const response = await starter.startThread(objective, { syncGoal: false });
   return response?.threadId ?? null;
-}
-
-export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
-  if (!canImplementPlanItemId(host.stateStore.getState(), itemId)) return;
-  if (!(await host.connectedClient()) || !activeThreadId(host.stateStore.getState())) return;
-
-  host.requestDefaultCollaborationModeForNextTurn();
-  host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
-  await host.sendTurnText(IMPLEMENT_PLAN_PROMPT);
 }

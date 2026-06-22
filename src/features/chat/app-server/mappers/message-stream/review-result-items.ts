@@ -4,8 +4,8 @@ import {
   RUNNING_EXECUTION_STATE,
   type ExecutionStateByStatus,
 } from "../../../domain/message-stream/execution-state";
-import { pathsRelativeToRoot } from "../../../domain/message-stream/format/path-labels";
 import { permissionRows } from "../../../domain/message-stream/format/permission-rows";
+import { pathRelativeToRoot } from "../../../../../shared/path/file-paths";
 
 const AUTO_REVIEW_STATES: ExecutionStateByStatus = {
   inProgress: RUNNING_EXECUTION_STATE,
@@ -150,7 +150,10 @@ function autoReviewActionRows(action: AutoReviewAction): MessageStreamAuditFact[
     return [
       { key: "action", value: "apply patch" },
       { key: "cwd", value: action.cwd },
-      { key: "files", value: action.files.length > 0 ? pathsRelativeToRoot([...action.files], action.cwd).join("\n") : "(none)" },
+      {
+        key: "files",
+        value: action.files.length > 0 ? action.files.map((file) => pathRelativeToRoot(file, action.cwd)).join("\n") : "(none)",
+      },
     ];
   }
   if (action.type === "networkAccess") {

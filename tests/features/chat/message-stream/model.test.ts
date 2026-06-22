@@ -6,7 +6,7 @@ import { messageStreamLayoutBlocks } from "../../../../src/features/chat/present
 import { upsertMessageStreamItemById } from "../../../../src/features/chat/domain/message-stream/updates";
 import { taskProgressMessageStreamItem } from "../../../../src/features/chat/domain/message-stream/factories/task-progress";
 import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/domain/message-stream/format/proposed-plan";
-import { pathRelativeToRoot } from "../../../../src/features/chat/domain/message-stream/format/path-labels";
+import { pathRelativeToRoot } from "../../../../src/shared/path/file-paths";
 import { permissionRows } from "../../../../src/features/chat/domain/message-stream/format/permission-rows";
 import {
   createAutoReviewResultItem,

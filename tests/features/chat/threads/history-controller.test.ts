@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { HistoryController, type HistoryControllerHost } from "../../../../src/features/chat/application/threads/history-controller";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import type { ChatThreadHistoryPage } from "../../../../src/features/chat/app-server/threads/history";
+import type { ChatThreadHistoryPage } from "../../../../src/features/chat/app-server/threads/projection";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import { deferred } from "../../../support/async";
 import { chatStateMessageStreamItems } from "../support/message-stream";

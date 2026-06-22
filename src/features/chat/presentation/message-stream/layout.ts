@@ -1,5 +1,5 @@
 import type { MessageStreamItem } from "../../domain/message-stream/items";
-import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
+import { pathRelativeToRoot } from "../../../../shared/path/file-paths";
 import { messageStreamSemanticClassifications } from "../../domain/message-stream/semantics/classify";
 import {
   messageStreamIsAutoReviewDecision,

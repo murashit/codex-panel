@@ -9,8 +9,7 @@ import type { HistoryController } from "../../../../src/features/chat/applicatio
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 import type { Thread as PanelThread } from "../../../../src/domain/threads/model";
 import type { ThreadTokenUsage } from "../../../../src/domain/runtime/metrics";
-import type { ChatThreadHistoryPage } from "../../../../src/features/chat/app-server/threads/history";
-import type { ChatThreadResumeSnapshot } from "../../../../src/features/chat/app-server/threads/resume";
+import type { ChatThreadHistoryPage, ChatThreadResumeSnapshot } from "../../../../src/features/chat/app-server/threads/projection";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 
 function activation(threadId: string, overrides: Partial<ChatThreadResumeSnapshot> = {}): ChatThreadResumeSnapshot {

@@ -4,7 +4,6 @@ import {
   appServerApprovalRequest as toPendingApproval,
   appServerApprovalResponse as approvalResponse,
 } from "../../../../../src/app-server/protocol/server-requests";
-import { approvalDetails, approvalSummary, approvalTitle } from "../../../../../src/features/chat/domain/pending-requests/approval";
 import { createApprovalResultItem } from "../../../../../src/features/chat/domain/pending-requests/result-items";
 import { approvalActionOptions } from "../../../../../src/features/chat/presentation/pending-requests/approval-view";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
@@ -35,8 +34,8 @@ describe("approval model", () => {
     };
     const approval = expectPresent(toPendingApproval(request));
 
-    expect(approvalTitle(approval)).toBe("Command approval");
-    expect(approvalSummary(approval)).toBe("npm run build");
+    expect(approval.title).toBe("Command approval");
+    expect(approval.summary).toBe("npm run build");
     expect(approvalActionOptions(approval).map((option) => option.label)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
     expect(approvalResponse(approval, expectPresent(approvalActionOptions(approval)[1]).action)).toEqual({ decision: "acceptForSession" });
   });
@@ -80,8 +79,8 @@ describe("approval model", () => {
     );
 
     expect(approval).toMatchObject({ kind: "fileChange", title: "File change approval" });
-    expect(approvalSummary(approval)).toBe("Allow file changes?");
-    expect(approvalDetails(approval)).toEqual([]);
+    expect(approval.summary).toBe("Allow file changes?");
+    expect(approval.details).toEqual([]);
   });
 
   it("uses command approval decisions supplied by app-server", () => {
@@ -233,9 +232,9 @@ describe("approval model", () => {
       }),
     );
 
-    expect(approvalSummary(command)).toBe("Needs unsandboxed access\nnpm run build");
-    expect(approvalSummary(fileChange)).toBe("Write outside workspace\ngrant root: /tmp/project");
-    expect(approvalSummary(permissions).startsWith("Need network\ncwd: /tmp/project")).toBe(true);
+    expect(command.summary).toBe("Needs unsandboxed access\nnpm run build");
+    expect(fileChange.summary).toBe("Write outside workspace\ngrant root: /tmp/project");
+    expect(permissions.summary.startsWith("Need network\ncwd: /tmp/project")).toBe(true);
   });
 
   it("keeps approval details semantic and omits raw payloads", () => {
@@ -256,7 +255,7 @@ describe("approval model", () => {
       }),
     );
 
-    expect(approvalDetails(approval)).toEqual([
+    expect(approval.details).toEqual([
       { key: "reason", value: "Need network" },
       { key: "cwd", value: "/tmp/project" },
       { key: "network", value: "enabled" },
@@ -299,7 +298,7 @@ describe("approval model", () => {
       }),
     );
 
-    expect(approvalDetails(approval)).toEqual([
+    expect(approval.details).toEqual([
       { key: "reason", value: "Needs network access" },
       { key: "command", value: "rg TODO src && sed -n '1,20p' src/main.ts" },
       { key: "cwd", value: "/tmp/project" },
@@ -332,7 +331,7 @@ describe("approval model", () => {
       } as unknown as ServerRequest),
     );
 
-    expect(approvalDetails(approval)).toEqual([
+    expect(approval.details).toEqual([
       { key: "cwd", value: "/tmp/project" },
       { key: "actions", value: '{\n  "path": "/tmp/project/src/main.ts"\n}\nlegacy action' },
       { key: "future network rules", value: "rule api.github.com\nallow (unknown host)\nlegacy rule" },
@@ -359,7 +358,7 @@ describe("approval model", () => {
       }),
     );
 
-    expect(approvalDetails(approval)).toEqual([
+    expect(approval.details).toEqual([
       { key: "command", value: "npm test" },
       { key: "cwd", value: "/tmp/project" },
     ]);

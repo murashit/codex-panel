@@ -7,7 +7,6 @@ import {
   type PendingMcpElicitation,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
-import { approvalDetails, approvalResultSummary, approvalTitle } from "./approval";
 import type { MessageStreamItem, MessageStreamUserInputQuestionResult } from "../message-stream/items";
 import { definedProp } from "../../../../utils";
 
@@ -24,8 +23,8 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     approval: {
       status: approvalResultStatus(kind),
       scope: kind === "accept-session" ? "session" : "turn",
-      request: approvalTitle(approval),
-      auditFacts: approvalDetails(approval),
+      request: approval.title,
+      auditFacts: [...approval.details],
     },
   };
 }
@@ -74,7 +73,7 @@ export function createMcpElicitationResultItem(
 }
 
 function approvalResultText(approval: PendingApproval, action: ApprovalAction): string {
-  return `${approvalResultPrefix(approvalActionKind(action))}: ${approvalResultSummary(approval)}`;
+  return `${approvalResultPrefix(approvalActionKind(action))}: ${approval.resultSummary}`;
 }
 
 function approvalResultPrefix(kind: ReturnType<typeof approvalActionKind>): string {

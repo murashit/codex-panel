@@ -1,4 +1,3 @@
-import { approvalDetails, approvalSummary, approvalTitle } from "../../domain/pending-requests/approval";
 import { approvalActionOptions, type ApprovalActionOption } from "./approval-view";
 import {
   type PendingApproval,
@@ -91,9 +90,9 @@ export interface PendingMcpElicitationViewModel {
 export function pendingApprovalViewModel(approval: PendingApproval): PendingApprovalViewModel {
   return {
     requestId: approval.requestId,
-    title: approvalTitle(approval),
-    summary: approvalSummary(approval),
-    details: approvalDetails(approval),
+    title: approval.title,
+    summary: approval.summary,
+    details: [...approval.details],
     actions: approvalActionOptions(approval),
   };
 }

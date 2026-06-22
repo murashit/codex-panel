@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import { resumeChatThread, type ChatThreadResumeSnapshot } from "../../app-server/threads/resume";
+import { resumeChatThread, type ChatThreadResumeSnapshot } from "../../app-server/threads/projection";
 import { resumedThreadAction } from "../state/actions";
 import type { ChatStateStore } from "../state/store";
 import type { RestorationController } from "./restoration-controller";
