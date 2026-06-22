@@ -68,6 +68,51 @@ describe("ChatPanelShell", () => {
     });
   });
 
+  it("keeps composer rendering off message stream updates until turn presence changes", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const parts = shellParts();
+    const renderComposerState = vi.fn(parts.composer.renderer.renderState.bind(parts.composer.renderer));
+    parts.composer.renderer.renderState = renderComposerState;
+
+    await act(async () => {
+      renderChatPanelShell(container, { ...shellProps(store), parts });
+      await settleShellEffects();
+    });
+    renderComposerState.mockClear();
+
+    await act(async () => {
+      store.dispatch({
+        type: "message-stream/system-item-added",
+        item: { id: "system-1", kind: "system", role: "system", text: "Status only." },
+      });
+      await settleShellEffects();
+    });
+    expect(renderComposerState).not.toHaveBeenCalled();
+
+    await act(async () => {
+      store.dispatch({
+        type: "message-stream/item-added",
+        item: {
+          id: "assistant-1",
+          turnId: "turn-1",
+          kind: "message",
+          messageKind: "assistantResponse",
+          messageState: "completed",
+          role: "assistant",
+          text: "Turn response.",
+        },
+      });
+      await settleShellEffects();
+    });
+    expect(renderComposerState).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
   it("removes and restores the toolbar from shell props without replacing the body regions", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");

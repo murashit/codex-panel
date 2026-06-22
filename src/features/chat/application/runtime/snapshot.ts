@@ -8,8 +8,12 @@ interface RuntimeSnapshotInput {
   activeThread: Pick<ChatState["activeThread"], "id" | "tokenUsage">;
   runtime: ChatState["runtime"];
   rateLimit: ChatState["connection"]["rateLimit"];
-  items: readonly MessageStreamItem[];
+  hasThreadTurns: boolean;
   availableModels: ChatState["connection"]["availableModels"];
+}
+
+export function messageItemsHaveThreadTurns(items: readonly MessageStreamItem[]): boolean {
+  return items.some((item) => item.turnId);
 }
 
 export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): RuntimeSnapshot {
@@ -30,7 +34,7 @@ export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): Runti
     requestedFastMode: input.runtime.requestedFastMode,
     tokenUsage: input.activeThread.tokenUsage,
     rateLimit: input.rateLimit,
-    hasThreadTurns: input.items.some((item) => item.turnId),
+    hasThreadTurns: input.hasThreadTurns,
     availableModels: input.availableModels,
   };
 }
@@ -41,7 +45,7 @@ export function runtimeSnapshotForChatState(state: ChatState): RuntimeSnapshot {
     activeThread: state.activeThread,
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,
-    items: messageStreamItems(state.messageStream),
+    hasThreadTurns: messageItemsHaveThreadTurns(messageStreamItems(state.messageStream)),
     availableModels: state.connection.availableModels,
   });
 }

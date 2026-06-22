@@ -1,8 +1,11 @@
 import { createContext } from "preact";
 import { useContext } from "preact/hooks";
-import { batch, signal, type Signal } from "@preact/signals";
+import { batch, computed, signal, type ReadonlySignal, type Signal } from "@preact/signals";
 
-import type { ChatState } from "../application/state/root-reducer";
+import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
+import { messageItemsHaveThreadTurns, runtimeSnapshotForChatSlices } from "../application/runtime/snapshot";
+import { activeTurnId, chatTurnBusy, type ChatState } from "../application/state/root-reducer";
+import { messageStreamItems } from "../application/state/message-stream";
 
 export interface ChatPanelShellState {
   connection: Signal<ChatState["connection"]>;
@@ -14,6 +17,10 @@ export interface ChatPanelShellState {
   requests: Signal<ChatState["requests"]>;
   composer: Signal<ChatState["composer"]>;
   ui: Signal<ChatState["ui"]>;
+  turnBusy: ReadonlySignal<boolean>;
+  activeTurnId: ReadonlySignal<string | null>;
+  hasThreadTurns: ReadonlySignal<boolean>;
+  composerRuntimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
 }
 
 export type ChatPanelToolbarShellState = Pick<ChatState, "connection" | "threadList" | "activeThread" | "runtime" | "turn" | "ui">;
@@ -22,24 +29,51 @@ export type ChatPanelGoalShellState = Pick<ChatState, "activeThread" | "ui">;
 
 export type ChatPanelMessageStreamShellState = Pick<ChatState, "activeThread" | "runtime" | "turn" | "messageStream" | "requests" | "ui">;
 
-export type ChatPanelComposerShellState = Pick<
+export interface ChatPanelComposerShellState extends Pick<
   ChatState,
-  "connection" | "threadList" | "activeThread" | "runtime" | "turn" | "messageStream" | "composer"
->;
+  "connection" | "threadList" | "activeThread" | "runtime" | "composer"
+> {
+  readonly turnBusy: boolean;
+  readonly activeTurnId: string | null;
+  readonly runtimeSnapshot: RuntimeSnapshot;
+}
 
 export const ChatPanelShellStateContext = createContext<ChatPanelShellState | null>(null);
 
 export function createChatPanelShellState(initialState: ChatState): ChatPanelShellState {
+  const connection = signal(initialState.connection);
+  const threadList = signal(initialState.threadList);
+  const activeThread = signal(initialState.activeThread);
+  const runtime = signal(initialState.runtime);
+  const turn = signal(initialState.turn);
+  const messageStream = signal(initialState.messageStream);
+  const requests = signal(initialState.requests);
+  const composer = signal(initialState.composer);
+  const ui = signal(initialState.ui);
+  const hasThreadTurns = computed(() => messageItemsHaveThreadTurns(messageStreamItems(messageStream.value)));
   return {
-    connection: signal(initialState.connection),
-    threadList: signal(initialState.threadList),
-    activeThread: signal(initialState.activeThread),
-    runtime: signal(initialState.runtime),
-    turn: signal(initialState.turn),
-    messageStream: signal(initialState.messageStream),
-    requests: signal(initialState.requests),
-    composer: signal(initialState.composer),
-    ui: signal(initialState.ui),
+    connection,
+    threadList,
+    activeThread,
+    runtime,
+    turn,
+    messageStream,
+    requests,
+    composer,
+    ui,
+    turnBusy: computed(() => chatTurnBusy({ turn: turn.value })),
+    activeTurnId: computed(() => activeTurnId({ turn: turn.value })),
+    hasThreadTurns,
+    composerRuntimeSnapshot: computed(() =>
+      runtimeSnapshotForChatSlices({
+        runtimeConfig: connection.value.runtimeConfig,
+        activeThread: activeThread.value,
+        runtime: runtime.value,
+        rateLimit: connection.value.rateLimit,
+        hasThreadTurns: hasThreadTurns.value,
+        availableModels: connection.value.availableModels,
+      }),
+    ),
   };
 }
 
@@ -92,9 +126,10 @@ export function composerStateFromShellState(shellState: ChatPanelShellState): Ch
     threadList: shellState.threadList.value,
     activeThread: shellState.activeThread.value,
     runtime: shellState.runtime.value,
-    turn: shellState.turn.value,
-    messageStream: shellState.messageStream.value,
     composer: shellState.composer.value,
+    turnBusy: shellState.turnBusy.value,
+    activeTurnId: shellState.activeTurnId.value,
+    runtimeSnapshot: shellState.composerRuntimeSnapshot.value,
   };
 }
 

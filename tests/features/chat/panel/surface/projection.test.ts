@@ -22,6 +22,7 @@ import { ChatPanelShellStateContext, createChatPanelShellState } from "../../../
 import type { ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { composerShellStateFromChatState } from "../../support/shell-state";
 
 installObsidianDomShims();
 
@@ -110,7 +111,7 @@ describe("chat panel surface projections", () => {
       },
     });
 
-    expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
+    expect(composerProjectionFromState(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: null,
       context: {
         cells: [
@@ -145,7 +146,7 @@ describe("chat panel surface projections", () => {
     ]);
     state = chatStateWith(state, { connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }) } });
 
-    expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
+    expect(composerProjectionFromState(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: null,
       context: {
         cells: [
@@ -175,7 +176,7 @@ describe("chat panel surface projections", () => {
       },
     });
 
-    expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
+    expect(composerProjectionFromState(composerSurfaceFixture(), state).meta).toMatchObject({
       context: {
         cells: [
           { text: "⣀", placeholder: true },
@@ -193,7 +194,7 @@ describe("chat panel surface projections", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { connection: { phase: { kind: "failed", message: "Connection failed." } } });
 
-    expect(chatPanelComposerProjection(composerSurfaceFixture(), state).meta).toMatchObject({
+    expect(composerProjectionFromState(composerSurfaceFixture(), state).meta).toMatchObject({
       fatal: "Codex app-server disconnected",
       context: {
         cells: [
@@ -263,7 +264,7 @@ describe("chat panel surface projections", () => {
     const selectedModels: string[] = [];
     const selectedEfforts: string[] = [];
 
-    const choices = chatPanelComposerProjection(
+    const choices = composerProjectionFromState(
       composerSurfaceFixture({
         runtime: {
           requestModel: async (model) => {
@@ -344,7 +345,7 @@ describe("chat panel surface projections", () => {
     });
     state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5")] } });
 
-    const projection = chatPanelComposerProjection(composerSurfaceFixture(), state);
+    const projection = composerProjectionFromState(composerSurfaceFixture(), state);
 
     expect(projection).toMatchObject({
       placeholder: "Ask Codex to work on this task...",
@@ -362,8 +363,8 @@ describe("chat panel surface projections", () => {
     activeState = chatStateWith(activeState, { activeThread: { id: "thread-1" } });
     activeState = chatStateWith(activeState, { threadList: { listedThreads: [threadFixture("thread-1", "Active")] } });
 
-    expect(chatPanelComposerProjection(composerSurfaceFixture(), activeState).placeholder).toBe("Ask Codex to work on “Active”...");
-    expect(chatPanelComposerProjection(composerSurfaceFixture(), chatStateFixture()).placeholder).toBe("Ask Codex to work on this task...");
+    expect(composerProjectionFromState(composerSurfaceFixture(), activeState).placeholder).toBe("Ask Codex to work on “Active”...");
+    expect(composerProjectionFromState(composerSurfaceFixture(), chatStateFixture()).placeholder).toBe("Ask Codex to work on this task...");
   });
 
   it("uses restored thread names in the composer projection", () => {
@@ -372,7 +373,7 @@ describe("chat panel surface projections", () => {
     state = chatStateWith(state, { threadList: { listedThreads: [threadFixture("thread-1", null)] } });
 
     expect(
-      chatPanelComposerProjection(
+      composerProjectionFromState(
         composerSurfaceFixture({
           thread: {
             restoredPlaceholder: () => ({ threadId: "thread-1", title: "Restored", explicitName: "Restored" }),
@@ -402,6 +403,10 @@ function renderWithShellState(state: ChatState, node: ComponentChild): HTMLEleme
   const parent = document.createElement("div");
   renderUiRoot(parent, h(ChatPanelShellStateContext.Provider, { value: createChatPanelShellState(state) }, node));
   return parent;
+}
+
+function composerProjectionFromState(surface: ChatPanelComposerSurface, state: ChatState) {
+  return chatPanelComposerProjection(surface, composerShellStateFromChatState(state));
 }
 
 function clickLabeledButton(parent: HTMLElement, label: string): void {

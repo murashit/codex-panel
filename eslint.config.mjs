@@ -49,7 +49,7 @@ const removedChatStateEscapeHatchRestrictions = [
 const chatSignalAdapterRestrictions = [
   {
     selector: "ImportDeclaration[source.value='@preact/signals']",
-    message: "Keep chat signals in panel/shell-state.tsx as a reducer-to-Preact notification adapter.",
+    message: "Keep chat signals in panel/shell-state.tsx as a reducer-to-Preact notification and derived projection adapter.",
   },
 ];
 const chatDomainLayerRestrictions = [

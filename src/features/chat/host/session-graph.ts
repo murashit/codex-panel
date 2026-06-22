@@ -18,7 +18,7 @@ import type { ComposerSubmitActions } from "../application/conversation/composer
 import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
-import { activeTurnId, chatTurnBusy, type ChatAction, type ChatConnectionPhase } from "../application/state/root-reducer";
+import { chatTurnBusy, type ChatAction, type ChatConnectionPhase } from "../application/state/root-reducer";
 import { messageStreamItems } from "../application/state/message-stream";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
@@ -694,7 +694,7 @@ function createSessionComposerController(
     sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
     scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges,
     canInterrupt: (state) => {
-      return state.turn.lifecycle.kind !== "idle" && Boolean(state.activeThread.id && activeTurnId(state));
+      return state.turnBusy && Boolean(state.activeThread.id && state.activeTurnId);
     },
     composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
     currentModelForSuggestions: () => {

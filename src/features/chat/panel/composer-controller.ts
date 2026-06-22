@@ -1,7 +1,7 @@
 import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret";
-import { chatTurnBusy, type ChatAction, type ChatState } from "../application/state/root-reducer";
+import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ComposerShellProps } from "../ui/composer";
 import { syncComposerHeight, type ComposerCallbacks } from "../ui/composer";
@@ -64,7 +64,7 @@ export class ChatComposerController {
     return {
       viewId: this.options.viewId,
       draft: state.composer.draft,
-      busy: chatTurnBusy(state),
+      busy: state.turnBusy,
       canInterrupt: this.options.canInterrupt(state),
       normalPlaceholder: projection.placeholder,
       suggestions: state.composer.suggestions,

@@ -12,6 +12,7 @@ import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { installObsidianDomShims } from "../../../../support/dom";
 import type { ChatPanelComposerShellState } from "../../../../../src/features/chat/panel/shell-state";
 import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
+import { composerShellStateFromChatState } from "../../support/shell-state";
 
 installObsidianDomShims();
 
@@ -21,7 +22,7 @@ function renderComposerController(
   stateStore: ChatStateStore,
   actions: ChatComposerRenderActions = { submit: vi.fn() },
 ): void {
-  renderUiRoot(parent, h(ComposerShell, controller.renderState(stateStore.getState(), actions)));
+  renderUiRoot(parent, h(ComposerShell, controller.renderState(composerShellStateFromChatState(stateStore.getState()), actions)));
 }
 
 describe("ChatComposerController", () => {
@@ -49,7 +50,7 @@ describe("ChatComposerController", () => {
       onHeightChange: vi.fn(),
     });
 
-    const props = controller.renderState(stateStore.getState(), { submit: vi.fn() });
+    const props = controller.renderState(composerShellStateFromChatState(stateStore.getState()), { submit: vi.fn() });
 
     expect(props.normalPlaceholder).toBe("Projected empty");
     expect(props.meta.statusSummary).toBe(

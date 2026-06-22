@@ -17,7 +17,6 @@ import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
 import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../shell-state";
 import { explicitThreadName } from "../../../../domain/threads/model";
-import { runtimeSnapshotForShellState } from "./runtime-snapshot";
 
 interface RestoredThreadTitleSnapshot {
   threadId: string;
@@ -105,7 +104,7 @@ export function chatPanelComposerProjection(
   surface: ChatPanelComposerSurface,
   state: ChatPanelComposerShellState,
 ): ChatPanelComposerProjection {
-  const snapshot = runtimeSnapshotForShellState(state);
+  const snapshot = state.runtimeSnapshot;
   return {
     placeholder: composerPlaceholder(activeComposerThreadName(state, surface.thread.restoredPlaceholder())),
     meta: {
