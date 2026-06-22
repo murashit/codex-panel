@@ -762,15 +762,24 @@ function suggestion(display: string): ChatState["composer"]["suggestions"][numbe
 function approval(requestId: number): ChatState["requests"]["approvals"][number] {
   return {
     requestId,
-    method: "item/commandExecution/requestApproval",
-    params: { threadId: "thread", turnId: "turn", itemId: "item", command: "pwd", cwd: "/tmp", reason: "Need access", startedAtMs: 1 },
+    kind: "command",
+    turnId: "turn",
+    title: "Command approval",
+    summary: "Need access\npwd",
+    resultSummary: "Need access",
+    details: [
+      { key: "reason", value: "Need access" },
+      { key: "command", value: "pwd" },
+      { key: "cwd", value: "/tmp" },
+    ],
+    responses: { accept: {}, acceptSession: {}, decline: {}, cancel: {} },
+    actionOptions: null,
   };
 }
 
 function userInput(requestId: number): ChatState["requests"]["pendingUserInputs"][number] {
   return {
     requestId,
-    method: "item/tool/requestUserInput",
     params: {
       threadId: "thread",
       turnId: "turn",

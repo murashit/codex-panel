@@ -14,6 +14,7 @@ import {
 } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import { appServerApprovalRequest, appServerUserInputRequest } from "../../../../../src/app-server/protocol/server-requests";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
@@ -68,6 +69,14 @@ function testStoreForState(state: ChatState): ChatStateStore {
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
+}
+
+function pendingApprovalFromRequest(request: ServerRequest) {
+  return expectPresent(appServerApprovalRequest(request));
+}
+
+function pendingUserInputFromRequest(request: ServerRequest) {
+  return expectPresent(appServerUserInputRequest(request));
 }
 
 describe("ChatInboundHandler", () => {
@@ -1101,22 +1110,22 @@ describe("ChatInboundHandler", () => {
       state = chatStateWith(state, {
         requests: {
           approvals: [
-            {
-              requestId: 50,
+            pendingApprovalFromRequest({
+              id: 50,
               method: "item/commandExecution/requestApproval",
               params: {
                 ...expectPresent(supportedApprovalRequests()[0]).params,
                 threadId: "thread-active",
               } as Extract<ServerRequest, { method: "item/commandExecution/requestApproval" }>["params"],
-            },
+            }),
           ],
         },
       });
       state = chatStateWith(state, {
         requests: {
           pendingUserInputs: [
-            {
-              requestId: 50,
+            pendingUserInputFromRequest({
+              id: 50,
               method: "item/tool/requestUserInput",
               params: {
                 threadId: "thread-active",
@@ -1125,7 +1134,7 @@ describe("ChatInboundHandler", () => {
                 questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
                 autoResolutionMs: null,
               },
-            },
+            }),
           ],
         },
       });
@@ -1134,7 +1143,6 @@ describe("ChatInboundHandler", () => {
           pendingMcpElicitations: [
             {
               requestId: 50,
-              method: "mcpServer/elicitation/request",
               params: {
                 threadId: "thread-active",
                 turnId: null,
@@ -1224,22 +1232,22 @@ describe("ChatInboundHandler", () => {
       state = chatStateWith(state, {
         requests: {
           approvals: [
-            {
-              requestId: 10,
+            pendingApprovalFromRequest({
+              id: 10,
               method: "item/commandExecution/requestApproval",
               params: expectPresent(supportedApprovalRequests()[0]).params as Extract<
                 ServerRequest,
                 { method: "item/commandExecution/requestApproval" }
               >["params"],
-            },
+            }),
           ],
         },
       });
       state = chatStateWith(state, {
         requests: {
           pendingUserInputs: [
-            {
-              requestId: 20,
+            pendingUserInputFromRequest({
+              id: 20,
               method: "item/tool/requestUserInput",
               params: {
                 threadId: "thread-active",
@@ -1248,7 +1256,7 @@ describe("ChatInboundHandler", () => {
                 questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
                 autoResolutionMs: null,
               },
-            },
+            }),
           ],
         },
       });

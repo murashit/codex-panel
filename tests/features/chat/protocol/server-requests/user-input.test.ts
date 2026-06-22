@@ -40,7 +40,7 @@ describe("user input model", () => {
     };
 
     const input = expectPresent(toPendingUserInput(request));
-    expect(input).toMatchObject({ requestId: 7, method: "item/tool/requestUserInput" });
+    expect(input).toMatchObject({ requestId: 7 });
     expect(questionDefaultAnswer(expectPresent(request.params.questions[0]))).toBe("Recommended");
     expect(answersForPendingUserInput(input, new Map())).toEqual({ direction: "Recommended" });
     expect(answersForPendingUserInput(input, new Map([["7:direction", "Left"]]))).toEqual({ direction: "Left" });
@@ -82,7 +82,7 @@ describe("user input model", () => {
     expect(pendingRequestFocusSignature([], [input], [])).toBe(
       JSON.stringify({
         approvals: [],
-        inputs: [{ id: 7, method: "item/tool/requestUserInput" }],
+        inputs: [{ id: 7 }],
         mcpElicitations: [],
       }),
     );

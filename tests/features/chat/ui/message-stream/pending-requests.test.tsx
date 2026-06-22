@@ -308,26 +308,36 @@ describe("pending request renderer decisions", () => {
 
   it("renders command approval buttons from app-server available decisions", () => {
     const parent = document.createElement("div");
+    const allowResponse = {
+      decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },
+    };
+    const denyResponse = { decision: "decline" };
     const approval: PendingApproval = {
       requestId: 43,
-      method: "item/commandExecution/requestApproval",
-      params: {
-        threadId: "thread",
-        turnId: "turn",
-        itemId: "command",
-        startedAtMs: 1,
-        reason: "Needs network",
-        networkApprovalContext: { host: "registry.npmjs.org", protocol: "https" },
-        command: null,
-        cwd: "/vault",
-        commandActions: [],
-        proposedExecpolicyAmendment: null,
-        proposedNetworkPolicyAmendments: [],
-        availableDecisions: [
-          { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },
-          "decline",
-        ],
-      },
+      kind: "command",
+      turnId: "turn",
+      title: "Command approval",
+      summary: "Needs network",
+      resultSummary: "Needs network",
+      details: [
+        { key: "reason", value: "Needs network" },
+        { key: "network", value: "https://registry.npmjs.org" },
+      ],
+      responses: { accept: {}, acceptSession: {}, decline: denyResponse, cancel: {} },
+      actionOptions: [
+        {
+          id: "approval-option:0:network-allow",
+          label: "Allow network rule",
+          intent: "accept-session",
+          action: { kind: "approval-option", intent: "accept-session", response: allowResponse },
+        },
+        {
+          id: "approval-option:1:decline",
+          label: "Deny",
+          intent: "decline",
+          action: { kind: "approval-option", intent: "decline", response: denyResponse },
+        },
+      ],
     };
     const resolveApproval = vi.fn();
 
@@ -352,8 +362,9 @@ describe("pending request renderer decisions", () => {
       allowButton.click();
     });
     expect(resolveApproval).toHaveBeenCalledWith(approval.requestId, {
-      kind: "command-decision",
-      decision: { applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } } },
+      kind: "approval-option",
+      intent: "accept-session",
+      response: allowResponse,
     });
   });
 
@@ -776,7 +787,6 @@ function pendingMcpElicitation({
 } = {}): PendingMcpElicitation {
   return {
     requestId,
-    method: "mcpServer/elicitation/request",
     params: {
       threadId: "thread",
       turnId: null,
@@ -804,7 +814,6 @@ function pendingMcpElicitation({
 function pendingMcpMultiSelectElicitation(): ReturnType<typeof pendingMcpElicitationViewModel> {
   return pendingMcpElicitationViewModel({
     requestId: 53,
-    method: "mcpServer/elicitation/request",
     params: {
       threadId: "thread",
       turnId: null,

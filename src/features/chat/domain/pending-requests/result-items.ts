@@ -18,7 +18,7 @@ export function createApprovalResultItem(approval: PendingApproval, action: Appr
     kind: "approvalResult",
     role: "tool",
     text: approvalResultText(approval, action),
-    ...definedProp("turnId", approvalTurnId(approval)),
+    ...definedProp("turnId", approval.turnId ?? undefined),
     provenance: { source: "localUser", channel: "response", interaction: "approvalResponse", sourceId: String(approval.requestId) },
     executionState: kind === "accept" || kind === "accept-session" ? "completed" : "failed",
     approval: {
@@ -89,11 +89,6 @@ function approvalResultStatus(kind: ReturnType<typeof approvalActionKind>): stri
   if (kind === "accept-session") return "allowed for session";
   if (kind === "cancel") return "cancelled";
   return "denied";
-}
-
-function approvalTurnId(approval: PendingApproval): string | undefined {
-  const params = approval.params as { turnId?: unknown };
-  return typeof params.turnId === "string" ? params.turnId : undefined;
 }
 
 function mcpElicitationResultText(elicitation: PendingMcpElicitation, action: McpElicitationAction): string {

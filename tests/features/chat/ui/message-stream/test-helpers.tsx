@@ -294,7 +294,6 @@ export function withMessageContentScrollHeight<T>(scrollHeight: number, fn: () =
 export function pendingUserInput(): PendingUserInput {
   return {
     requestId: 99,
-    method: "item/tool/requestUserInput",
     params: {
       threadId: "thread",
       turnId: "turn",
@@ -350,16 +349,22 @@ export function pendingFreeformUserInput(): PendingUserInput {
 export function pendingApproval(): PendingApproval {
   return {
     requestId: 42,
-    method: "item/permissions/requestApproval",
-    params: {
-      threadId: "thread",
-      turnId: "turn",
-      itemId: "permission",
-      environmentId: null,
-      startedAtMs: 1,
-      cwd: "/vault",
-      reason: "Need network",
-      permissions: { network: { enabled: true }, fileSystem: null },
+    kind: "permission",
+    turnId: "turn",
+    title: "Permission approval",
+    summary: "Need network\ncwd: /vault",
+    resultSummary: "Need network",
+    details: [
+      { key: "reason", value: "Need network" },
+      { key: "cwd", value: "/vault" },
+      { key: "network", value: "enabled" },
+    ],
+    responses: {
+      accept: { permissions: { network: { enabled: true } }, scope: "turn" },
+      acceptSession: { permissions: { network: { enabled: true } }, scope: "session" },
+      decline: { permissions: {}, scope: "turn" },
+      cancel: { permissions: {}, scope: "turn" },
     },
+    actionOptions: null,
   };
 }

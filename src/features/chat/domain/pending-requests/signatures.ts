@@ -14,7 +14,7 @@ export function pendingRequestsSignature(
     return "";
   }
   return JSON.stringify({
-    approvals: approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),
+    approvals: approvals.map((approval) => ({ id: approval.requestId, kind: approval.kind })),
     inputs: inputs.map((input) => ({
       id: input.requestId,
       questions: input.params.questions.map((question) => ({
@@ -55,8 +55,8 @@ export function pendingRequestFocusSignature(
     return "";
   }
   return JSON.stringify({
-    approvals: approvals.map((approval) => ({ id: approval.requestId, method: approval.method })),
-    inputs: inputs.map((input) => ({ id: input.requestId, method: input.method })),
-    mcpElicitations: mcpElicitations.map((elicitation) => ({ id: elicitation.requestId, method: elicitation.method })),
+    approvals: approvals.map((approval) => ({ id: approval.requestId, kind: approval.kind })),
+    inputs: inputs.map((input) => ({ id: input.requestId })),
+    mcpElicitations: mcpElicitations.map((elicitation) => ({ id: elicitation.requestId, mode: elicitation.params.mode })),
   });
 }

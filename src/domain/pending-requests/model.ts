@@ -1,82 +1,47 @@
 export type PendingRequestId = string | number;
 
-type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
+export type ApprovalActionIntent = "accept" | "accept-session" | "decline" | "cancel";
 
-export type CommandApprovalDecision =
-  | SimpleApprovalDecision
-  | { acceptWithExecpolicyAmendment: unknown }
-  | { applyNetworkPolicyAmendment: { network_policy_amendment: { action: "allow" | "deny"; [key: string]: unknown } } };
+type ApprovalKind = "command" | "fileChange" | "permission";
 
-interface CommandApprovalParams {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  startedAtMs: number;
-  approvalId?: string | null;
-  reason?: string | null;
-  networkApprovalContext?: unknown;
-  command?: string | null;
-  cwd?: string | null;
-  commandActions?: unknown[] | null;
-  additionalPermissions?: unknown;
-  proposedExecpolicyAmendment?: unknown;
-  proposedNetworkPolicyAmendments?: unknown[] | null;
-  availableDecisions?: CommandApprovalDecision[] | null;
+export interface ApprovalDetailRow {
+  key: string;
+  value: string;
 }
 
-interface FileChangeApprovalParams {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  startedAtMs: number;
-  reason: string | null;
-  grantRoot: string | null;
+interface ApprovalResponseOptions {
+  accept: unknown;
+  acceptSession: unknown;
+  decline: unknown;
+  cancel: unknown;
 }
 
-interface PermissionProfile {
-  network?: { enabled?: boolean | null } | null;
-  fileSystem?: {
-    entries?: readonly { path: unknown; access?: unknown }[] | null;
-    read?: unknown;
-    write?: unknown;
-    globScanMaxDepth?: unknown;
-  } | null;
+interface ApprovalOptionAction {
+  kind: "approval-option";
+  intent: ApprovalActionIntent;
+  response: unknown;
 }
 
-interface PermissionsApprovalParams {
-  threadId: string;
-  turnId: string;
-  itemId: string;
-  startedAtMs: number;
-  reason: string | null;
-  cwd: string;
-  environmentId: string | null;
-  permissions: PermissionProfile;
+export type ApprovalAction = ApprovalActionIntent | ApprovalOptionAction;
+
+export interface PendingApprovalOption {
+  id: string;
+  label: string;
+  action: ApprovalAction;
+  intent: ApprovalActionIntent;
 }
 
-export type ApprovalAction = "accept" | "accept-session" | "decline" | "cancel" | CommandApprovalDecisionAction;
-
-interface CommandApprovalDecisionAction {
-  kind: "command-decision";
-  decision: CommandApprovalDecision;
+export interface PendingApproval {
+  requestId: PendingRequestId;
+  kind: ApprovalKind;
+  turnId: string | null;
+  title: string;
+  summary: string;
+  resultSummary: string;
+  details: readonly ApprovalDetailRow[];
+  responses: ApprovalResponseOptions;
+  actionOptions: readonly PendingApprovalOption[] | null;
 }
-
-export type PendingApproval =
-  | {
-      requestId: PendingRequestId;
-      method: "item/commandExecution/requestApproval";
-      params: CommandApprovalParams;
-    }
-  | {
-      requestId: PendingRequestId;
-      method: "item/fileChange/requestApproval";
-      params: FileChangeApprovalParams;
-    }
-  | {
-      requestId: PendingRequestId;
-      method: "item/permissions/requestApproval";
-      params: PermissionsApprovalParams;
-    };
 
 interface PendingUserInputOption {
   label: string;
@@ -102,7 +67,6 @@ interface PendingUserInputParams {
 
 export interface PendingUserInput {
   requestId: PendingRequestId;
-  method: "item/tool/requestUserInput";
   params: PendingUserInputParams;
 }
 
@@ -176,30 +140,11 @@ interface PendingMcpElicitationUrlParams {
 
 export interface PendingMcpElicitation {
   requestId: PendingRequestId;
-  method: "mcpServer/elicitation/request";
   params: PendingMcpElicitationFormParams | PendingMcpElicitationUrlParams;
 }
 
 export function approvalActionKind(action: ApprovalAction): "accept" | "accept-session" | "decline" | "cancel" {
-  if (!isCommandDecisionAction(action)) return action;
-  const decision = action.decision;
-  if (typeof decision === "string") return simpleApprovalActionKind(decision);
-  if ("acceptWithExecpolicyAmendment" in decision) return "accept-session";
-  if ("applyNetworkPolicyAmendment" in decision) {
-    return decision.applyNetworkPolicyAmendment.network_policy_amendment.action === "allow" ? "accept-session" : "decline";
-  }
-  return "decline";
-}
-
-function simpleApprovalActionKind(decision: string): "accept" | "accept-session" | "decline" | "cancel" {
-  if (decision === "accept") return "accept";
-  if (decision === "acceptForSession") return "accept-session";
-  if (decision === "cancel") return "cancel";
-  return "decline";
-}
-
-function isCommandDecisionAction(action: ApprovalAction): action is CommandApprovalDecisionAction {
-  return typeof action === "object";
+  return typeof action === "object" ? action.intent : action;
 }
 
 export function questionDefaultAnswer(question: PendingUserInputQuestion): string {

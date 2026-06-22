@@ -6,7 +6,6 @@ import {
 } from "../../../../../src/app-server/protocol/server-requests";
 import { approvalDetails, approvalSummary, approvalTitle } from "../../../../../src/features/chat/domain/pending-requests/approval";
 import { createApprovalResultItem } from "../../../../../src/features/chat/domain/pending-requests/result-items";
-import type { CommandApprovalDecision } from "../../../../../src/domain/pending-requests/model";
 import { approvalActionOptions } from "../../../../../src/features/chat/presentation/pending-requests/approval-view";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
@@ -80,13 +79,7 @@ describe("approval model", () => {
       } as unknown as ServerRequest),
     );
 
-    expect(approval).toMatchObject({
-      method: "item/fileChange/requestApproval",
-      params: {
-        reason: null,
-        grantRoot: null,
-      },
-    });
+    expect(approval).toMatchObject({ kind: "fileChange", title: "File change approval" });
     expect(approvalSummary(approval)).toBe("Allow file changes?");
     expect(approvalDetails(approval)).toEqual([]);
   });
@@ -94,10 +87,10 @@ describe("approval model", () => {
   it("uses command approval decisions supplied by app-server", () => {
     const allowRegistryDecision = {
       applyNetworkPolicyAmendment: { network_policy_amendment: { host: "registry.npmjs.org", action: "allow" } },
-    } satisfies CommandApprovalDecision;
+    } as const;
     const allowApiDecision = {
       applyNetworkPolicyAmendment: { network_policy_amendment: { host: "api.github.com", action: "allow" } },
-    } satisfies CommandApprovalDecision;
+    } as const;
     const request: ServerRequest = {
       id: 30,
       method: "item/commandExecution/requestApproval",
@@ -134,7 +127,7 @@ describe("approval model", () => {
   });
 
   it("keeps future simple command decisions renderable", () => {
-    const futureDecision = "restartWithNetwork" as CommandApprovalDecision;
+    const futureDecision = "restartWithNetwork";
     const request = {
       id: 32,
       method: "item/commandExecution/requestApproval",
@@ -157,9 +150,9 @@ describe("approval model", () => {
 
     expect(options).toEqual([
       {
-        id: "command-decision:0:restartWithNetwork",
+        id: "approval-option:0:restartWithNetwork",
         label: "Choose",
-        action: { kind: "command-decision", decision: futureDecision },
+        action: { kind: "approval-option", intent: "decline", response: { decision: futureDecision } },
         className: "mod-warning",
       },
     ]);
@@ -415,7 +408,7 @@ describe("approval model", () => {
 
     for (const { request, acceptSession, cancel } of requests) {
       const approval = expectPresent(toPendingApproval(request));
-      if (approval.method === "item/commandExecution/requestApproval") {
+      if (approval.kind === "command") {
         const options = approvalActionOptions(approval);
         expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual(acceptSession);
         expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual(cancel);

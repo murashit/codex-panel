@@ -34,7 +34,7 @@ describe("app-server server request protocol adapters", () => {
 
     const approval = expectPresent(appServerApprovalRequest(request));
 
-    expect(approval.method).toBe("item/permissions/requestApproval");
+    expect(approval.kind).toBe("permission");
     expect(appServerApprovalResponse(approval, "decline")).toEqual({ permissions: {}, scope: "turn" });
     expect(appServerApprovalResponse(approval, "accept")).toEqual({
       permissions: { network: { enabled: true } },
@@ -77,7 +77,6 @@ describe("app-server server request protocol adapters", () => {
 
     expect(input).toMatchObject({
       requestId: 42,
-      method: "mcpServer/elicitation/request",
       params: {
         mode: "form",
         threadId: "thread",

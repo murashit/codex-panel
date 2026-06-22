@@ -18,7 +18,6 @@ describe("MCP elicitation request model", () => {
 
     expect(input).toMatchObject({
       requestId: 42,
-      method: "mcpServer/elicitation/request",
       params: {
         mode: "form",
         threadId: "thread",
