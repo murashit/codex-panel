@@ -55,7 +55,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("keeps the latest message visible until the rendered virtualizer height reaches the DOM", () => {
+  it("keeps the latest item end visible after the rendered virtualizer height reaches the DOM", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -77,7 +77,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("reaches the latest message after delayed rendered virtualizer height catches up", () => {
+  it("reaches the latest item end after delayed rendered virtualizer height catches up", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -192,7 +192,7 @@ describe("TestMessageStreamVirtualizer", () => {
     controller.dispose();
   });
 
-  it("keeps the latest message visible when pinned content grows before DOM scroll height catches up", () => {
+  it("keeps the latest item end visible when pinned content grows before DOM scroll height catches up", () => {
     withAnimationFrame((flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
@@ -316,7 +316,7 @@ describe("TestMessageStreamVirtualizer", () => {
     });
   });
 
-  it("keeps the latest message visible when ResizeObserver reports pinned growth before DOM scroll height catches up", () => {
+  it("keeps the latest item end visible when ResizeObserver reports pinned growth before DOM scroll height catches up", () => {
     withResizeObserverEntries((resizeElement, flushFrames) => {
       const container = messageContainer({ scrollTop: 0, clientHeight: 100 });
       const controller = createMessageStreamVirtualizerDriver(container);
