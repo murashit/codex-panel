@@ -1,27 +1,15 @@
-import {
-  activeTurnId,
-  chatTurnBusy,
-  type ChatAction,
-  type ChatDisclosureBucket,
-  type ChatDisclosureUiState,
-} from "../../application/state/root-reducer";
+import type { ChatAction, ChatDisclosureBucket, ChatDisclosureUiState } from "../../application/state/root-reducer";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
-import { implementPlanTargetFromState } from "../../application/state/selectors";
-import { type ForkCandidate, forkCandidatesFromItems, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
-import {
-  messageStreamActiveItems,
-  messageStreamItems,
-  messageStreamRollbackCandidate,
-  messageStreamStableItems,
-  type MessageStreamRollbackCandidate,
-} from "../../application/state/message-stream";
+import { type ForkCandidate, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
+import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
 import type { ChatPanelMessageStreamShellState } from "../shell-state";
-import { pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/snapshot";
-import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
+import { pendingRequestBlockSnapshotFromState, type PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
+import { pendingRequestBlockStateFromChatState, type PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import type { MessageStreamTextActionTargets } from "../../presentation/message-stream/text-view";
+import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
 
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
@@ -31,8 +19,6 @@ interface ChatMessageStreamActions {
 }
 
 interface ChatMessageStreamRequests {
-  pendingSignature: () => string;
-  pendingSnapshot: () => PendingRequestBlockState;
   pendingActions: () => PendingRequestBlockActions;
   consumePendingAutoFocus: () => boolean;
 }
@@ -65,6 +51,7 @@ interface MessageStreamStateProjection {
   workspaceRoot: string;
   disclosures: ChatDisclosureUiState;
   forkMenuItemId: string | null;
+  pendingRequests: { signature: string; snapshot: PendingRequestBlockSnapshot } | null;
   viewBlocks: readonly MessageStreamViewBlock[];
 }
 
@@ -106,6 +93,7 @@ function messageStreamContextFromProjection(
   projection: MessageStreamStateProjection,
   context: ChatMessageStreamSurfaceContext,
 ): MessageStreamContext {
+  const pendingRequests = projection.pendingRequests;
   return {
     activeThreadId: projection.activeThreadId,
     workspaceRoot: projection.workspaceRoot,
@@ -131,12 +119,16 @@ function messageStreamContextFromProjection(
     openTurnDiff: (turnDiffState) => {
       context.actions.openTurnDiff(turnDiffState);
     },
-    pendingRequests: {
-      signature: context.requests.pendingSignature(),
-      snapshot: () => pendingRequestBlockSnapshotFromState(context.requests.pendingSnapshot()),
-      actions: context.requests.pendingActions,
-      consumeAutoFocus: context.requests.consumePendingAutoFocus,
-    },
+    ...(pendingRequests
+      ? {
+          pendingRequests: {
+            signature: pendingRequests.signature,
+            snapshot: () => pendingRequests.snapshot,
+            actions: context.requests.pendingActions,
+            consumeAutoFocus: context.requests.consumePendingAutoFocus,
+          },
+        }
+      : {}),
   };
 }
 
@@ -144,34 +136,32 @@ function messageStreamStateProjection(
   state: ChatPanelMessageStreamShellState,
   context: ChatMessageStreamSurfaceContext,
 ): MessageStreamStateProjection {
-  const busy = chatTurnBusy(state);
-  const items = messageStreamItems(state.messageStream);
-  const stableItems = messageStreamStableItems(state.messageStream);
-  const activeItems = messageStreamActiveItems(state.messageStream);
   const workspaceRoot = state.activeThread.cwd ?? context.vaultPath;
-  const rollbackCandidate = busy ? null : messageStreamRollbackCandidate(state.messageStream);
-  const forkCandidates = busy ? [] : forkCandidatesFromItems(items);
-  const implementPlanTarget = implementPlanTargetFromState(state);
-  const textActionTargetsByItemId = textActionTargetsForMessageStreamItems(rollbackCandidate, forkCandidates, implementPlanTarget);
-  const activeTurn = activeTurnId({ lifecycle: state.turn.lifecycle });
+  const textActionTargetsByItemId = textActionTargetsForMessageStreamItems(
+    state.rollbackCandidate,
+    state.forkCandidates,
+    state.implementPlanTarget,
+  );
+  const pendingRequests = messageStreamBlockItemsEmpty(state.stableItems, state.activeItems) ? null : pendingRequestBlockFromState(state);
 
   return {
     activeThreadId: state.activeThread.id,
     workspaceRoot,
     disclosures: state.ui.disclosures,
     forkMenuItemId: state.ui.messageActionMenu.forkMenuItemId,
+    pendingRequests,
     viewBlocks: messageStreamViewBlocks({
       activeThreadId: state.activeThread.id,
-      activeTurnId: activeTurn,
+      activeTurnId: state.activeTurnId,
       historyCursor: state.messageStream.historyCursor,
       loadingHistory: state.messageStream.loadingHistory,
-      items,
-      stableItems,
-      activeItems,
+      items: state.items,
+      stableItems: state.stableItems,
+      activeItems: state.activeItems,
       workspaceRoot,
       turnDiffs: state.messageStream.turnDiffs,
       textActionTargetsByItemId,
-      pendingRequests: messageStreamBlockItemsEmpty(stableItems, activeItems) ? null : pendingRequestBlockFromContext(context),
+      pendingRequests,
     }),
   };
 }
@@ -202,14 +192,20 @@ function patchTextActionTargets(
   byItemId.set(itemId, { ...byItemId.get(itemId), ...patch });
 }
 
-function pendingRequestBlockFromContext(
-  context: ChatMessageStreamSurfaceContext,
+function pendingRequestBlockFromState(
+  state: ChatPanelMessageStreamShellState,
 ): { signature: string; snapshot: ReturnType<typeof pendingRequestBlockSnapshotFromState> } | null {
-  const signature = context.requests.pendingSignature();
+  const signature = pendingRequestsSignature(
+    state.requests.approvals,
+    state.requests.pendingUserInputs,
+    state.requests.pendingMcpElicitations,
+    state.requests.userInputDrafts,
+    state.requests.mcpElicitationDrafts,
+  );
   if (!signature) return null;
   return {
     signature,
-    snapshot: pendingRequestBlockSnapshotFromState(context.requests.pendingSnapshot()),
+    snapshot: pendingRequestBlockSnapshotFromState(pendingRequestBlockStateFromChatState(state)),
   };
 }
 

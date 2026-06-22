@@ -5,7 +5,20 @@ import { batch, computed, signal, type ReadonlySignal, type Signal } from "@prea
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { messageItemsHaveThreadTurns, runtimeSnapshotForChatSlices } from "../application/runtime/snapshot";
 import { activeTurnId, chatTurnBusy, type ChatState } from "../application/state/root-reducer";
-import { messageStreamItems } from "../application/state/message-stream";
+import {
+  messageStreamActiveItems,
+  messageStreamItems,
+  messageStreamRollbackCandidateFromItems,
+  messageStreamStableItems,
+  type MessageStreamRollbackCandidate,
+} from "../application/state/message-stream";
+import type { MessageStreamItem } from "../domain/message-stream/items";
+import {
+  forkCandidatesFromItems,
+  latestImplementablePlanTargetFromItems,
+  type ForkCandidate,
+  type PlanImplementationTarget,
+} from "../domain/message-stream/selectors";
 
 export interface ChatPanelShellState {
   connection: Signal<ChatState["connection"]>;
@@ -19,6 +32,12 @@ export interface ChatPanelShellState {
   ui: Signal<ChatState["ui"]>;
   turnBusy: ReadonlySignal<boolean>;
   activeTurnId: ReadonlySignal<string | null>;
+  messageStreamItems: ReadonlySignal<readonly MessageStreamItem[]>;
+  messageStreamStableItems: ReadonlySignal<readonly MessageStreamItem[]>;
+  messageStreamActiveItems: ReadonlySignal<readonly MessageStreamItem[]>;
+  messageStreamRollbackCandidate: ReadonlySignal<MessageStreamRollbackCandidate | null>;
+  messageStreamForkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
+  messageStreamImplementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
   hasThreadTurns: ReadonlySignal<boolean>;
   composerRuntimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
 }
@@ -27,7 +46,15 @@ export type ChatPanelToolbarShellState = Pick<ChatState, "connection" | "threadL
 
 export type ChatPanelGoalShellState = Pick<ChatState, "activeThread" | "ui">;
 
-export type ChatPanelMessageStreamShellState = Pick<ChatState, "activeThread" | "runtime" | "turn" | "messageStream" | "requests" | "ui">;
+export interface ChatPanelMessageStreamShellState extends Pick<ChatState, "activeThread" | "messageStream" | "requests" | "ui"> {
+  readonly activeTurnId: string | null;
+  readonly items: readonly MessageStreamItem[];
+  readonly stableItems: readonly MessageStreamItem[];
+  readonly activeItems: readonly MessageStreamItem[];
+  readonly rollbackCandidate: MessageStreamRollbackCandidate | null;
+  readonly forkCandidates: readonly ForkCandidate[];
+  readonly implementPlanTarget: PlanImplementationTarget | null;
+}
 
 export interface ChatPanelComposerShellState extends Pick<
   ChatState,
@@ -50,7 +77,9 @@ export function createChatPanelShellState(initialState: ChatState): ChatPanelShe
   const requests = signal(initialState.requests);
   const composer = signal(initialState.composer);
   const ui = signal(initialState.ui);
-  const hasThreadTurns = computed(() => messageItemsHaveThreadTurns(messageStreamItems(messageStream.value)));
+  const turnBusy = computed(() => chatTurnBusy({ turn: turn.value }));
+  const messageItems = computed(() => messageStreamItems(messageStream.value));
+  const hasThreadTurns = computed(() => messageItemsHaveThreadTurns(messageItems.value));
   return {
     connection,
     threadList,
@@ -61,8 +90,17 @@ export function createChatPanelShellState(initialState: ChatState): ChatPanelShe
     requests,
     composer,
     ui,
-    turnBusy: computed(() => chatTurnBusy({ turn: turn.value })),
+    turnBusy,
     activeTurnId: computed(() => activeTurnId({ turn: turn.value })),
+    messageStreamItems: messageItems,
+    messageStreamStableItems: computed(() => messageStreamStableItems(messageStream.value)),
+    messageStreamActiveItems: computed(() => messageStreamActiveItems(messageStream.value)),
+    messageStreamRollbackCandidate: computed(() => (turnBusy.value ? null : messageStreamRollbackCandidateFromItems(messageItems.value))),
+    messageStreamForkCandidates: computed(() => (turnBusy.value ? [] : forkCandidatesFromItems(messageItems.value))),
+    messageStreamImplementPlanTarget: computed(() => {
+      if (!activeThread.value.id || turnBusy.value || runtime.value.selectedCollaborationMode !== "plan") return null;
+      return latestImplementablePlanTargetFromItems(messageItems.value);
+    }),
     hasThreadTurns,
     composerRuntimeSnapshot: computed(() =>
       runtimeSnapshotForChatSlices({
@@ -112,11 +150,16 @@ export function goalStateFromShellState(shellState: ChatPanelShellState): ChatPa
 export function messageStreamStateFromShellState(shellState: ChatPanelShellState): ChatPanelMessageStreamShellState {
   return {
     activeThread: shellState.activeThread.value,
-    runtime: shellState.runtime.value,
-    turn: shellState.turn.value,
     messageStream: shellState.messageStream.value,
     requests: shellState.requests.value,
     ui: shellState.ui.value,
+    activeTurnId: shellState.activeTurnId.value,
+    items: shellState.messageStreamItems.value,
+    stableItems: shellState.messageStreamStableItems.value,
+    activeItems: shellState.messageStreamActiveItems.value,
+    rollbackCandidate: shellState.messageStreamRollbackCandidate.value,
+    forkCandidates: shellState.messageStreamForkCandidates.value,
+    implementPlanTarget: shellState.messageStreamImplementPlanTarget.value,
   };
 }
 

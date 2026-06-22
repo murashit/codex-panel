@@ -136,7 +136,10 @@ export function messageStreamTurnsAfterTurnId(
 export function messageStreamRollbackCandidate(
   state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">,
 ): MessageStreamRollbackCandidate | null {
-  const items = messageStreamItems(state);
+  return messageStreamRollbackCandidateFromItems(messageStreamItems(state));
+}
+
+export function messageStreamRollbackCandidateFromItems(items: readonly MessageStreamItem[]): MessageStreamRollbackCandidate | null {
   const lastTurnId = latestTurnId(items);
   if (!lastTurnId) return null;
 

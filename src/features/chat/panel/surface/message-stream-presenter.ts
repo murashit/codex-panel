@@ -9,7 +9,7 @@ import { MarkdownMessageRenderer } from "../../ui/message-stream/markdown-render
 import { renderStreamMarkdown } from "../../ui/message-stream/stream-markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/viewport";
 import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../shell-state";
-import type { PendingRequestBlockActions, PendingRequestBlockState } from "../../application/pending-requests/block";
+import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import {
   createMessageStreamSurfaceContext,
@@ -37,8 +37,6 @@ interface ChatMessageStreamActions {
 }
 
 interface ChatMessageStreamRequests {
-  pendingSignature: () => string;
-  pendingSnapshot: () => PendingRequestBlockState;
   pendingActions: () => PendingRequestBlockActions;
   consumePendingAutoFocus: () => boolean;
 }

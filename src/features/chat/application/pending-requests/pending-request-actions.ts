@@ -9,8 +9,12 @@ import {
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
-import type { PendingRequestBlockActions, PendingRequestBlockState, PendingRequestId } from "./block";
-import type { ChatState } from "../state/root-reducer";
+import {
+  pendingRequestBlockStateFromChatState,
+  type PendingRequestBlockActions,
+  type PendingRequestBlockState,
+  type PendingRequestId,
+} from "./block";
 
 interface PendingRequestResponder {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
@@ -51,7 +55,7 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
     if (!input) return;
     host.responder.resolveUserInput(
       requestId,
-      answersForPendingUserInput(input, pendingRequestBlockState(host.stateStore.getState()).userInputDrafts),
+      answersForPendingUserInput(input, pendingRequestBlockStateFromChatState(host.stateStore.getState()).userInputDrafts),
     );
     commitRequestAction(host);
   };
@@ -100,8 +104,8 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
   };
 
   return {
-    snapshot(): PendingRequestBlockState {
-      return pendingRequestBlockState(host.stateStore.getState());
+    snapshot() {
+      return pendingRequestBlockStateFromChatState(host.stateStore.getState());
     },
 
     actions(): PendingRequestBlockActions {
@@ -128,17 +132,6 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
       lastFocusSignature = signature;
       return host.composerHasFocus();
     },
-  };
-}
-
-function pendingRequestBlockState(state: ChatState): PendingRequestBlockState {
-  return {
-    approvals: state.requests.approvals,
-    pendingUserInputs: state.requests.pendingUserInputs,
-    pendingMcpElicitations: state.requests.pendingMcpElicitations,
-    userInputDrafts: state.requests.userInputDrafts,
-    mcpElicitationDrafts: state.requests.mcpElicitationDrafts,
-    approvalDetails: state.ui.disclosures.approvalDetails,
   };
 }
 

@@ -21,16 +21,17 @@ import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
-import { installMessageViewportMetrics } from "../../ui/message-stream/test-helpers";
+import { installMessageViewportMetrics, pendingApproval } from "../../ui/message-stream/test-helpers";
 import { withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
+import { messageStreamShellStateFromChatState } from "../../support/shell-state";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 
 installObsidianDomShims();
 
 function renderMessageStreamPresenter(parent: HTMLElement, presenter: MessageStreamPresenter, state: ChatState): void {
-  renderUiRoot(parent, h(MessageStreamViewport, { state: presenter.renderState(state) }));
+  renderUiRoot(parent, h(MessageStreamViewport, { state: presenter.renderState(messageStreamShellStateFromChatState(state)) }));
 }
 
 describe("MessageStreamPresenter scroll pinning", () => {
@@ -53,7 +54,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     });
 
     const projection = messageStreamSurfaceProjectionFromState(
-      store.getState(),
+      messageStreamShellStateFromChatState(store.getState()),
       messageStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: (action) => {
@@ -78,11 +79,28 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    const context = messageStreamSurfaceProjectionFromState(store.getState(), surfaceContext).context;
+    const context = messageStreamSurfaceProjectionFromState(messageStreamShellStateFromChatState(store.getState()), surfaceContext).context;
     if (!context.onDisclosureToggle) throw new Error("Expected message stream disclosure action");
     context.onDisclosureToggle("textDetails", "message:details", true);
 
     expect(store.getState().ui.disclosures.textDetails.has("message:details")).toBe(true);
+  });
+
+  it("projects pending requests from the captured message stream state", () => {
+    let state = chatStateFixture();
+    state = withChatStateMessageStreamItems(state, [{ id: "system", kind: "system", role: "system", text: "Waiting for approval." }]);
+    state = chatStateWith(state, { requests: { approvals: [pendingApproval()] } });
+    const projection = messageStreamSurfaceProjectionFromState(
+      messageStreamShellStateFromChatState(state),
+      messageStreamSurfaceContext({
+        vaultPath: "/vault",
+        dispatch: () => undefined,
+      }),
+    );
+
+    const pendingBlock = projection.blocks.find((block) => block.kind === "pendingRequests");
+    expect(pendingBlock).toMatchObject({ kind: "pendingRequests", key: "pending-requests" });
+    expect(projection.context.pendingRequests?.snapshot().approvals).toHaveLength(1);
   });
 
   it("normalizes rendered internal links that point at absolute vault paths", async () => {
@@ -595,15 +613,6 @@ function messageStreamSurfaceContext(options: {
       openTurnDiff: vi.fn(),
     },
     requests: {
-      pendingSignature: () => "",
-      pendingSnapshot: () => ({
-        approvals: [],
-        pendingUserInputs: [],
-        pendingMcpElicitations: [],
-        userInputDrafts: new Map(),
-        mcpElicitationDrafts: new Map(),
-        approvalDetails: new Set(),
-      }),
       pendingActions: () => ({
         resolveApproval: vi.fn(),
         resolveUserInput: vi.fn(),
@@ -714,15 +723,6 @@ function messageStreamPresenter(
       openTurnDiff: vi.fn(),
     },
     requests: {
-      pendingSignature: () => "",
-      pendingSnapshot: () => ({
-        approvals: [],
-        pendingUserInputs: [],
-        pendingMcpElicitations: [],
-        userInputDrafts: new Map(),
-        mcpElicitationDrafts: new Map(),
-        approvalDetails: new Set(),
-      }),
       pendingActions: () => ({
         resolveApproval: vi.fn(),
         resolveUserInput: vi.fn(),

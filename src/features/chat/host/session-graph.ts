@@ -48,7 +48,6 @@ import type { ChatMessageScrollController } from "../panel/surface/message-strea
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
 import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import type { ToolbarActions } from "../ui/toolbar";
-import { pendingRequestsSignature } from "../domain/pending-requests/signatures";
 import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effective";
 import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
@@ -961,17 +960,6 @@ function createSurfacesAndPresenter(
       openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
     },
     requests: {
-      pendingSignature: () => {
-        const state = stateStore.getState();
-        return pendingRequestsSignature(
-          state.requests.approvals,
-          state.requests.pendingUserInputs,
-          state.requests.pendingMcpElicitations,
-          state.requests.userInputDrafts,
-          state.requests.mcpElicitationDrafts,
-        );
-      },
-      pendingSnapshot: () => pendingRequests.snapshot(),
       pendingActions: () => pendingRequests.actions(),
       consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
     },
