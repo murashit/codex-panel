@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  appServerUserInputRequest as toPendingUserInput,
+  appServerUserInputResponse,
+} from "../../../../../src/app-server/protocol/server-requests";
 import { answersForPendingUserInput, questionDefaultAnswer } from "../../../../../src/domain/pending-requests/model";
-import { toPendingUserInput, userInputResponse } from "../../../../../src/features/chat/app-server/requests/user-input";
 import {
   pendingRequestFocusSignature,
   pendingRequestsSignature,
@@ -41,7 +44,7 @@ describe("user input model", () => {
     expect(questionDefaultAnswer(expectPresent(request.params.questions[0]))).toBe("Recommended");
     expect(answersForPendingUserInput(input, new Map())).toEqual({ direction: "Recommended" });
     expect(answersForPendingUserInput(input, new Map([["7:direction", "Left"]]))).toEqual({ direction: "Left" });
-    expect(userInputResponse(input, { direction: "Recommended" })).toEqual({
+    expect(appServerUserInputResponse(input.params.questions, { direction: "Recommended" })).toEqual({
       answers: { direction: { answers: ["Recommended"] } },
     });
   });

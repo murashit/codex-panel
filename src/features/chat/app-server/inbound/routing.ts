@@ -1,8 +1,10 @@
 import type { ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import {
+  appServerApprovalRequest,
+  appServerMcpElicitationRequest,
+  appServerUserInputRequest,
+} from "../../../../app-server/protocol/server-requests";
 import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../domain/pending-requests/model";
-import { toPendingApproval } from "../requests/approval";
-import { toPendingMcpElicitation } from "../requests/mcp-elicitation";
-import { toPendingUserInput } from "../requests/user-input";
 
 export interface ActiveRouteScope {
   activeThreadId: string | null;
@@ -234,17 +236,17 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
 
   switch (SERVER_REQUEST_ROUTE_KIND_BY_METHOD[request.method]) {
     case "approval": {
-      const approval = toPendingApproval(request);
+      const approval = appServerApprovalRequest(request);
       if (approval) return { kind: "approval", request, approval };
       return { kind: "unsupported", request };
     }
     case "userInput": {
-      const input = toPendingUserInput(request);
+      const input = appServerUserInputRequest(request);
       if (input) return { kind: "userInput", request, input };
       return { kind: "unsupported", request };
     }
     case "mcpElicitation": {
-      const elicitation = toPendingMcpElicitation(request);
+      const elicitation = appServerMcpElicitationRequest(request);
       if (elicitation) return { kind: "mcpElicitation", request, elicitation };
       return { kind: "unsupported", request };
     }

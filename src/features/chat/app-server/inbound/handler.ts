@@ -1,4 +1,9 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import {
+  appServerApprovalResponse,
+  appServerMcpElicitationResponse,
+  appServerUserInputResponse,
+} from "../../../../app-server/protocol/server-requests";
 import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
@@ -17,9 +22,6 @@ import {
   type PendingRequestId,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
-import { approvalResponse } from "../requests/approval";
-import { mcpElicitationResponse } from "../requests/mcp-elicitation";
-import { userInputResponse } from "../requests/user-input";
 import {
   createApprovalResultItem,
   createMcpElicitationResultItem,
@@ -177,7 +179,7 @@ function handleAppServerLog(context: ChatInboundHandlerContext, message: string)
 function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: ApprovalAction): void {
   const approval = pendingApproval(context, requestId);
   if (!approval) return;
-  if (!context.actions.respondToServerRequest(approval.requestId, approvalResponse(approval, action))) {
+  if (!context.actions.respondToServerRequest(approval.requestId, appServerApprovalResponse(approval, action))) {
     addSystemMessage(context, cannotSendApprovalResponseMessage());
     return;
   }
@@ -187,7 +189,7 @@ function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingR
 function resolveUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId, answers: Record<string, string>): void {
   const input = pendingUserInput(context, requestId);
   if (!input) return;
-  if (!context.actions.respondToServerRequest(input.requestId, userInputResponse(input, answers))) {
+  if (!context.actions.respondToServerRequest(input.requestId, appServerUserInputResponse(input.params.questions, answers))) {
     addSystemMessage(context, cannotSendUserInputMessage());
     return;
   }
@@ -216,7 +218,7 @@ function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: Pe
   const elicitation = pendingMcpElicitation(context, requestId);
   if (!elicitation) return;
   const content = action === "accept" ? contentForPendingMcpElicitation(elicitation, state(context).requests.mcpElicitationDrafts) : null;
-  if (!context.actions.respondToServerRequest(elicitation.requestId, mcpElicitationResponse(action, content))) {
+  if (!context.actions.respondToServerRequest(elicitation.requestId, appServerMcpElicitationResponse(action, content))) {
     addSystemMessage(context, cannotSendMcpElicitationMessage());
     return;
   }

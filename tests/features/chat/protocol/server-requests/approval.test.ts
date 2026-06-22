@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { approvalResponse, toPendingApproval } from "../../../../../src/features/chat/app-server/requests/approval";
+import {
+  appServerApprovalRequest as toPendingApproval,
+  appServerApprovalResponse as approvalResponse,
+} from "../../../../../src/app-server/protocol/server-requests";
 import { approvalDetails, approvalSummary, approvalTitle } from "../../../../../src/features/chat/domain/pending-requests/approval";
 import { createApprovalResultItem } from "../../../../../src/features/chat/domain/pending-requests/result-items";
 import type { CommandApprovalDecision } from "../../../../../src/domain/pending-requests/model";

@@ -94,10 +94,10 @@ const chatAppServerProtocolBoundaryBannedModules = nonAppServerBannedAppServerPr
 const chatAppServerProtocolBoundaryBannedImportPatterns = chatAppServerProtocolBoundaryBannedModules.flatMap((moduleName) =>
   importBoundaryPatterns(`app-server/protocol/${moduleName}`, `src/app-server/protocol/${moduleName}`, 6),
 );
-const chatAppServerRequestBridgeBannedModules = nonAppServerBannedAppServerProtocolModules.filter(
+const chatAppServerRequestBoundaryBannedModules = nonAppServerBannedAppServerProtocolModules.filter(
   (moduleName) => moduleName !== "server-requests",
 );
-const chatAppServerRequestBridgeBannedImportPatterns = chatAppServerRequestBridgeBannedModules.flatMap((moduleName) =>
+const chatAppServerRequestBoundaryBannedImportPatterns = chatAppServerRequestBoundaryBannedModules.flatMap((moduleName) =>
   importBoundaryPatterns(`app-server/protocol/${moduleName}`, `src/app-server/protocol/${moduleName}`, 6),
 );
 const generatedAppServerThreadImportRestrictions = [
@@ -124,7 +124,10 @@ const chatAppServerProtocolBoundaryFiles = [
   "src/features/chat/app-server/inbound/notification-plan.ts",
   "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
 ];
-const chatAppServerRequestBridgeFiles = ["src/features/chat/app-server/requests/**/*.{ts,tsx}"];
+const chatAppServerRequestBoundaryFiles = [
+  "src/features/chat/app-server/inbound/handler.ts",
+  "src/features/chat/app-server/inbound/routing.ts",
+];
 const unsafeIteratorRestrictions = [
   {
     selector: "MemberExpression[property.name='value'][object.type='CallExpression'][object.callee.property.name='next']",
@@ -501,16 +504,16 @@ export default defineConfig([
     },
   },
   {
-    files: chatAppServerRequestBridgeFiles,
+    files: chatAppServerRequestBoundaryFiles,
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
             {
-              group: chatAppServerRequestBridgeBannedImportPatterns,
+              group: chatAppServerRequestBoundaryBannedImportPatterns,
               message:
-                "Chat request bridges may consume server request protocol projections only. Convert app-server payloads to chat pending request domain models at this boundary.",
+                "Chat app-server request handling may consume server request protocol projections only. Convert app-server payloads to chat pending request domain models at this boundary.",
             },
             {
               group: generatedAppServerSourceImportPatterns,

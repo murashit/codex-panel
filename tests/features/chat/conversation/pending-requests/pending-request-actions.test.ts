@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { appServerUserInputRequest as toPendingUserInput } from "../../../../../src/app-server/protocol/server-requests";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createPendingRequestActions } from "../../../../../src/features/chat/application/pending-requests/pending-request-actions";
-import { toPendingUserInput } from "../../../../../src/features/chat/app-server/requests/user-input";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {

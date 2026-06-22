@@ -162,7 +162,7 @@ export type Change = FileUpdateChange;
     expect(messages).toContain("no-restricted-imports");
   });
 
-  it("reports server request protocol imports outside app-server and chat request bridges", async () => {
+  it("reports server request protocol imports outside app-server and chat request boundaries", async () => {
     const messages = await lintSource(
       "src/features/chat/panel/surface/message-stream-presenter.ts",
       `
@@ -175,9 +175,17 @@ export const response = appServerUserInputResponse;
     expect(messages).toContain("no-restricted-imports");
   });
 
-  it("allows server request protocol imports in chat request bridges", async () => {
-    const messages = await lintSource(
-      "src/features/chat/app-server/requests/user-input.ts",
+  it("allows server request protocol imports in chat inbound request boundaries", async () => {
+    const routingMessages = await lintSource(
+      "src/features/chat/app-server/inbound/routing.ts",
+      `
+import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`,
+    );
+    const handlerMessages = await lintSource(
+      "src/features/chat/app-server/inbound/handler.ts",
       `
 import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
 
@@ -185,7 +193,21 @@ export const response = appServerUserInputResponse;
 `,
     );
 
-    expect(messages).not.toContain("no-restricted-imports");
+    expect(routingMessages).not.toContain("no-restricted-imports");
+    expect(handlerMessages).not.toContain("no-restricted-imports");
+  });
+
+  it("reports server request protocol imports in non-boundary chat app-server modules", async () => {
+    const messages = await lintSource(
+      "src/features/chat/app-server/inbound/app-server-logs.ts",
+      `
+import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`,
+    );
+
+    expect(messages).toContain("no-restricted-imports");
   });
 
   it("keeps generated app-server bindings out of non-exception protocol modules", async () => {
