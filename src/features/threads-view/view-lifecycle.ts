@@ -9,26 +9,19 @@ export type ThreadsViewRefreshLifecycleEvent =
 
 export interface ThreadsViewDeferredTasks {
   scheduleRender(callback: () => void): void;
-  scheduleRefresh(callback: () => void): void;
   clearAll(): void;
 }
 
 export function createThreadsViewDeferredTasks(getWindow: () => DeferredTaskWindow): ThreadsViewDeferredTasks {
   const renderTask = new DeferredTask(getWindow, 0);
-  const refreshTask = new DeferredTask(getWindow, 250);
 
   return {
     scheduleRender(callback): void {
       renderTask.schedule(callback);
     },
 
-    scheduleRefresh(callback): void {
-      refreshTask.schedule(callback);
-    },
-
     clearAll(): void {
       renderTask.clear();
-      refreshTask.clear();
     },
   };
 }

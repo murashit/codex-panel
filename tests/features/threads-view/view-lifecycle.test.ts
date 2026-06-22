@@ -9,24 +9,17 @@ import {
 } from "../../../src/features/threads-view/view-lifecycle";
 
 describe("createThreadsViewDeferredTasks", () => {
-  it("coalesces render and refresh callbacks", () => {
+  it("coalesces render callbacks", () => {
     vi.useFakeTimers();
     try {
       const tasks = createThreadsViewDeferredTasks(() => window);
       const render = vi.fn();
-      const refresh = vi.fn();
 
       tasks.scheduleRender(render);
       tasks.scheduleRender(render);
-      tasks.scheduleRefresh(refresh);
-      tasks.scheduleRefresh(refresh);
 
       vi.advanceTimersByTime(0);
       expect(render).toHaveBeenCalledTimes(1);
-      expect(refresh).not.toHaveBeenCalled();
-
-      vi.advanceTimersByTime(250);
-      expect(refresh).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
@@ -37,15 +30,12 @@ describe("createThreadsViewDeferredTasks", () => {
     try {
       const tasks = createThreadsViewDeferredTasks(() => window);
       const render = vi.fn();
-      const refresh = vi.fn();
 
       tasks.scheduleRender(render);
-      tasks.scheduleRefresh(refresh);
       tasks.clearAll();
       vi.runAllTimers();
 
       expect(render).not.toHaveBeenCalled();
-      expect(refresh).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
