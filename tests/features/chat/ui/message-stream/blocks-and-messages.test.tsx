@@ -155,6 +155,28 @@ describe("message stream rendering and message action menu", () => {
     unmountUiRootInAct(parent);
   });
 
+  it("remeasures blocks after their rendered content shrinks on rerender", () => {
+    const parent = document.createElement("div");
+    const block = { key: "item:u1", node: <div>expanded</div> };
+
+    renderMessageStreamBlocksInAct(parent, [block]);
+
+    const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-block"));
+    const virtualizer = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-virtualizer"));
+
+    Object.defineProperty(host, "offsetHeight", { value: 520, configurable: true });
+    void act(() => {
+      host.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
+    });
+    expect(virtualizer.style.height).toBe("520px");
+
+    Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
+    renderMessageStreamBlocksInAct(parent, [{ ...block, node: <div>collapsed</div> }]);
+
+    expect(virtualizer.style.height).toBe("120px");
+    unmountUiRootInAct(parent);
+  });
+
   it("renders review result items as compact auto-review tool rows", () => {
     const block = messageStreamBlocks({
       activeThreadId: "thread",
@@ -996,32 +1018,30 @@ describe("message stream rendering and message action menu", () => {
         }
       });
       const render = () => {
-        renderMessageStreamBlocksInAct(
-          parent,
-          messageStreamBlocks({
-            activeThreadId: "thread",
-            turnLifecycle: idleTurnLifecycle(),
-            historyCursor: null,
-            loadingHistory: false,
-            items: [
-              {
-                id: "u1",
-                kind: "message",
-                messageKind: "user",
-                role: "user",
-                text: "visible text",
-                copyText: "full copied text",
-                turnId: "turn-1",
-              },
-            ],
-            disclosures: testDisclosures({ userMessageExpanded: [...expandedMessages] }),
-            forkMenuItemId: null,
-            onDisclosureToggle,
-            loadOlderTurns: vi.fn(),
-            renderMarkdown: (parent, text) => parent.createDiv({ text }),
-            copyText,
-          }),
-        );
+        const blocks = messageStreamBlocks({
+          activeThreadId: "thread",
+          turnLifecycle: idleTurnLifecycle(),
+          historyCursor: null,
+          loadingHistory: false,
+          items: [
+            {
+              id: "u1",
+              kind: "message",
+              messageKind: "user",
+              role: "user",
+              text: "visible text",
+              copyText: "full copied text",
+              turnId: "turn-1",
+            },
+          ],
+          disclosures: testDisclosures({ userMessageExpanded: [...expandedMessages] }),
+          forkMenuItemId: null,
+          onDisclosureToggle,
+          loadOlderTurns: vi.fn(),
+          renderMarkdown: (parent, text) => parent.createDiv({ text }),
+          copyText,
+        });
+        renderMessageStreamBlocksInAct(parent, blocks);
       };
       render();
 

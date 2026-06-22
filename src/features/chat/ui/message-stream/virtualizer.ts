@@ -47,7 +47,11 @@ const MESSAGE_FOLLOW_END_SETTLE_ATTEMPTS = 4;
 export interface MessageStreamVirtualizerView {
   getTotalSize(): number;
   getVirtualItems(): VirtualItem[];
-  measureElement(element: HTMLElement | null): void;
+  measureElement(element: HTMLElement | null, options?: MessageStreamVirtualizerMeasureOptions): void;
+}
+
+export interface MessageStreamVirtualizerMeasureOptions {
+  clampReadingAnchorToEnd?: boolean;
 }
 
 interface MessageVirtualizerRuntime {
@@ -137,8 +141,8 @@ export function useMessageStreamVirtualizer({
       getVirtualItems() {
         return getMessageVirtualizerItems(runtime);
       },
-      measureElement(element) {
-        measureMessageVirtualizerElement(runtime, element);
+      measureElement(element, options) {
+        measureMessageVirtualizerElement(runtime, element, options);
       },
     }),
     [runtime],
@@ -197,9 +201,10 @@ function applyMessageVirtualizerScrollCommand(runtime: MessageVirtualizerRuntime
 }
 
 function getMessageVirtualizerTotalSize(runtime: MessageVirtualizerRuntime): number {
-  const totalSize = runtime.virtualizer.getTotalSize();
+  const totalSize = getRenderedMessageVirtualizerTotalSize(runtime, runtime.virtualizer.getTotalSize());
   const container = runtime.container;
   if (!container || !isMessageVirtualizerReadingAnchorActive(runtime)) return totalSize;
+  if (isScrollOffsetAtEnd(container.scrollTop, container.clientHeight, totalSize, MESSAGE_BOTTOM_THRESHOLD)) return totalSize;
   return Math.max(totalSize, container.scrollTop + container.clientHeight + MESSAGE_BOTTOM_THRESHOLD + 1);
 }
 
@@ -207,11 +212,39 @@ function getMessageVirtualizerItems(runtime: MessageVirtualizerRuntime): Virtual
   return runtime.virtualizer.getVirtualItems();
 }
 
-function measureMessageVirtualizerElement(runtime: MessageVirtualizerRuntime, element: HTMLElement | null): void {
+function getRenderedMessageVirtualizerTotalSize(runtime: MessageVirtualizerRuntime, totalSize: number): number {
+  const container = runtime.container;
+  if (!container || runtime.blocks.length === 0) return totalSize;
+  const elementsByKey = new Map<string, HTMLElement>();
+  for (const element of renderedMessageBlockElements(container)) {
+    const key = element.dataset["codexPanelBlockKey"];
+    if (key !== undefined) elementsByKey.set(key, element);
+  }
+  if (elementsByKey.size < runtime.blocks.length) return totalSize;
+
+  const itemsByKey = new Map<unknown, VirtualItem>();
+  for (const item of runtime.virtualizer.getVirtualItems()) itemsByKey.set(item.key, item);
+
+  let renderedEnd = 0;
+  for (const block of runtime.blocks) {
+    const element = elementsByKey.get(block.key);
+    const item = itemsByKey.get(block.key);
+    if (!element || !item) return totalSize;
+    renderedEnd = Math.max(renderedEnd, item.start + element.offsetHeight);
+  }
+  return Math.min(totalSize, renderedEnd + messageBlockPadding(container));
+}
+
+function measureMessageVirtualizerElement(
+  runtime: MessageVirtualizerRuntime,
+  element: HTMLElement | null,
+  options: MessageStreamVirtualizerMeasureOptions = {},
+): void {
   prepareMessageVirtualizerScrollPolicyForMeasurement(runtime);
   runtime.virtualizer.measureElement(element);
   if (element) {
     requestMessageVirtualizerScrollPolicyReconcile(runtime, {
+      clampReadingAnchorToEnd: options.clampReadingAnchorToEnd === true && isMessageVirtualizerReadingAnchorActive(runtime),
       notify: true,
       requireFollowEndSettleFrame: true,
     });
@@ -823,17 +856,18 @@ function reconcileMessageVirtualizerReadingAnchor(runtime: MessageVirtualizerRun
   const container = runtime.container;
   const state = runtime.readingAnchor;
   const anchor = state.kind === "active" ? state.anchor : null;
-  if (!container || !anchor) return;
+  if (!container || state.kind !== "active") return;
 
-  const item = runtime.virtualizer.getVirtualItems().find((candidate) => Object.is(candidate.key, anchor.key));
-  if (!item) return;
+  const item = anchor ? runtime.virtualizer.getVirtualItems().find((candidate) => Object.is(candidate.key, anchor.key)) : null;
 
-  const targetOffset = item.start - anchor.top;
-  if (Math.abs(container.scrollTop - targetOffset) > 1) {
-    runtime.virtualizer.scrollToOffset(targetOffset);
-    syncMessageVirtualizerDomScrollOffset(runtime);
-    updateMessageVirtualizer(runtime.virtualizer);
-    notifyMessageVirtualizerChange(runtime);
+  if (anchor && item) {
+    const targetOffset = item.start - anchor.top;
+    if (Math.abs(container.scrollTop - targetOffset) > 1) {
+      runtime.virtualizer.scrollToOffset(targetOffset);
+      syncMessageVirtualizerDomScrollOffset(runtime);
+      updateMessageVirtualizer(runtime.virtualizer);
+      notifyMessageVirtualizerChange(runtime);
+    }
   }
   if (options.clampToEnd) clampMessageVirtualizerReadingAnchorOffsetToEnd(runtime);
 }
@@ -844,7 +878,7 @@ function clampMessageVirtualizerReadingAnchorOffsetToEnd(runtime: MessageVirtual
   const rawTotalSize = runtime.virtualizer.getTotalSize();
   if (container.scrollHeight <= getMessageVirtualizerTotalSize(runtime) + MESSAGE_BOTTOM_THRESHOLD) return;
   const rawScrollEnd = Math.max(0, rawTotalSize - container.clientHeight);
-  if (container.scrollTop <= rawScrollEnd) return;
+  if (!isScrollOffsetAtEnd(container.scrollTop, container.clientHeight, rawTotalSize, MESSAGE_BOTTOM_THRESHOLD)) return;
   runtime.virtualizer.scrollToOffset(rawScrollEnd);
   syncMessageVirtualizerDomScrollOffset(runtime);
   updateMessageVirtualizer(runtime.virtualizer);

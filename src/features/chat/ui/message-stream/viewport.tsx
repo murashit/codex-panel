@@ -1,7 +1,11 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useCallback, useLayoutEffect, useRef } from "preact/hooks";
 
-import { type MessageStreamScrollControllerBinding, useMessageStreamVirtualizer } from "./virtualizer";
+import {
+  type MessageStreamScrollControllerBinding,
+  type MessageStreamVirtualizerMeasureOptions,
+  useMessageStreamVirtualizer,
+} from "./virtualizer";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { MessageStreamBlock } from "./context";
 
@@ -24,8 +28,8 @@ export function MessageStreamViewport({ state, rootAttributes }: MessageStreamVi
   const virtualizer = useMessageStreamVirtualizer({ blocks, scrollController, scrollElementRef });
   const virtualItems = messageStreamVirtualItems(virtualizer.getVirtualItems(), blocks, scrollElementRef.current?.scrollTop ?? 0);
   const measureBlock = useCallback(
-    (element: HTMLElement | null) => {
-      virtualizer.measureElement(element);
+    (element: HTMLElement | null, options?: MessageStreamVirtualizerMeasureOptions) => {
+      virtualizer.measureElement(element, options);
     },
     [virtualizer],
   );
@@ -80,20 +84,37 @@ function MessageStreamBlockHost({
   virtualItem,
 }: {
   block: MessageStreamBlock | undefined;
-  measureBlock: (element: HTMLElement | null) => void;
+  measureBlock: (element: HTMLElement | null, options?: MessageStreamVirtualizerMeasureOptions) => void;
   virtualItem: { index: number; start: number };
 }): UiNode {
   const blockRef = useRef<HTMLDivElement | null>(null);
+  const lastMeasuredBlockHeight = useRef<number | null>(null);
   const cleanupBlockListeners = useRef<(() => void) | null>(null);
+  const measureCurrentBlock = useCallback(
+    (element: HTMLElement | null) => {
+      if (!element) {
+        lastMeasuredBlockHeight.current = null;
+        measureBlock(element);
+        return;
+      }
+      const previousHeight = lastMeasuredBlockHeight.current;
+      const nextHeight = element.offsetHeight;
+      lastMeasuredBlockHeight.current = nextHeight;
+      measureBlock(element, {
+        clampReadingAnchorToEnd: previousHeight !== null && nextHeight < previousHeight - 1,
+      });
+    },
+    [measureBlock],
+  );
   const setBlock = useCallback(
     (element: HTMLDivElement | null) => {
       cleanupBlockListeners.current?.();
       cleanupBlockListeners.current = null;
       blockRef.current = element;
-      measureBlock(element);
+      measureCurrentBlock(element);
       if (!element) return;
       const remeasure = () => {
-        if (blockRef.current === element && element.isConnected) measureBlock(element);
+        if (blockRef.current === element && element.isConnected) measureCurrentBlock(element);
       };
       element.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, remeasure);
       element.addEventListener("toggle", remeasure, true);
@@ -102,8 +123,13 @@ function MessageStreamBlockHost({
         element.removeEventListener("toggle", remeasure, true);
       };
     },
-    [measureBlock],
+    [measureCurrentBlock],
   );
+
+  useLayoutEffect(() => {
+    const element = blockRef.current;
+    if (element?.isConnected) measureCurrentBlock(element);
+  }, [block, measureCurrentBlock]);
 
   useLayoutEffect(() => {
     return () => {
