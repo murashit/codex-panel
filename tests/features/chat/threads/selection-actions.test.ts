@@ -12,9 +12,7 @@ function resumeThreadState(stateStore: ChatStateStore, threadId: string): void {
     model: null,
     reasoningEffort: null,
     serviceTier: null,
-    approvalPolicy: null,
     approvalsReviewer: null,
-    activePermissionProfile: null,
   });
 }
 

@@ -49,9 +49,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
         model: null,
         reasoningEffort: null,
         serviceTier: null,
-        approvalPolicy: null,
         approvalsReviewer: null,
-        activePermissionProfile: null,
       });
       return {};
     }),
@@ -116,9 +114,7 @@ describe("TurnSubmissionActions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     startTurn.mockImplementation(async () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
@@ -142,9 +138,7 @@ describe("TurnSubmissionActions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     const actions = createTurnSubmissionActions(host);
@@ -176,9 +170,7 @@ describe("TurnSubmissionActions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     const optimistic = optimisticTurnStart({ id: "local-user", text: "pending", codexInput: textInput("pending") });
     stateStore.dispatch({
@@ -208,9 +200,7 @@ describe("TurnSubmissionActions", () => {
           model: null,
           reasoningEffort: null,
           serviceTier: null,
-          approvalPolicy: null,
           approvalsReviewer: null,
-          activePermissionProfile: null,
         });
       }
 
@@ -236,9 +226,7 @@ describe("TurnSubmissionActions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     steerTurn.mockImplementation(async () => {
@@ -264,9 +252,7 @@ describe("TurnSubmissionActions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     steerTurn.mockImplementation(async () => {

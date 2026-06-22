@@ -30,7 +30,6 @@ describe("settings", () => {
       archiveExportTags: "codex, archive",
       model: "gpt-5.5",
       sandboxMode: "workspace-write",
-      approvalPolicy: "on-request",
       hooks: [{ event: "postToolUse" }],
       extraPanelState: { threadId: "thread-1" },
     };

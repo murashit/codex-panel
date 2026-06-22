@@ -45,9 +45,7 @@ describe("chat server actions", () => {
         cwd: "/vault",
         model: "gpt-5",
         serviceTier: null,
-        approvalPolicy: null,
         approvalsReviewer: null,
-        activePermissionProfile: null,
         reasoningEffort: null,
       }),
     } as unknown as AppServerClient;
@@ -81,9 +79,7 @@ describe("chat server actions", () => {
       cwd: "/vault",
       model: "gpt-5",
       serviceTier: "fast",
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
       reasoningEffort: null,
     });
     const client = {
@@ -120,9 +116,7 @@ describe("chat server actions", () => {
         cwd: "/vault",
         model: "gpt-5",
         serviceTier: null,
-        approvalPolicy: null,
         approvalsReviewer: null,
-        activePermissionProfile: null,
         reasoningEffort: null,
       }),
     } as unknown as AppServerClient;
@@ -151,9 +145,7 @@ describe("chat server actions", () => {
       cwd: "/vault",
       model: "gpt-5",
       serviceTier: "flex",
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
       reasoningEffort: null,
     });
     const client = {
@@ -184,9 +176,7 @@ describe("chat server actions", () => {
         cwd: "/vault",
         model: "gpt-5",
         serviceTier: null,
-        approvalPolicy: null,
         approvalsReviewer: null,
-        activePermissionProfile: null,
         reasoningEffort: null,
       }),
     } as unknown as AppServerClient;
@@ -232,12 +222,12 @@ describe("chat server actions", () => {
       model: "gpt-5",
       modelProvider: "openai",
       serviceTier: null,
+      approvalPolicy: "on-request",
       runtimeWorkspaceRoots: [],
       instructionSources: [],
-      approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      sandbox: { type: "readOnly", networkAccess: false },
       activePermissionProfile: null,
+      sandbox: { type: "readOnly", networkAccess: false },
       reasoningEffort: null,
     });
 

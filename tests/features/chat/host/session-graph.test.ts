@@ -161,9 +161,7 @@ describe("createChatPanelSessionGraph actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: "on-request",
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
 

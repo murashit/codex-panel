@@ -33,9 +33,7 @@ function resumeThread(stateStore: ChatStateStore, items: readonly MessageStreamI
     model: null,
     reasoningEffort: null,
     serviceTier: null,
-    approvalPolicy: null,
     approvalsReviewer: null,
-    activePermissionProfile: null,
     items,
   });
   stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });

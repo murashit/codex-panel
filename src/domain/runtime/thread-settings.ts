@@ -1,23 +1,8 @@
 import type { ReasoningEffort } from "../catalog/metadata";
-import type { ApprovalPolicy, ApprovalsReviewer } from "./policy";
-import type { ReasoningSummary } from "./config";
+import type { ApprovalsReviewer } from "./policy";
 
 export type RuntimeServiceTierRequest = string | null | undefined;
 export type ModeKind = "plan" | "default";
-type Personality = "none" | "friendly" | "pragmatic";
-type NetworkAccess = "restricted" | "enabled";
-
-type SandboxPolicy =
-  | { type: "dangerFullAccess" }
-  | { type: "readOnly"; networkAccess: boolean }
-  | { type: "externalSandbox"; networkAccess: NetworkAccess }
-  | {
-      type: "workspaceWrite";
-      writableRoots: string[];
-      networkAccess: boolean;
-      excludeTmpdirEnvVar: boolean;
-      excludeSlashTmp: boolean;
-    };
 
 export interface CollaborationMode {
   mode: ModeKind;
@@ -30,16 +15,11 @@ export interface CollaborationMode {
 
 export interface RuntimeSettingsPatch {
   cwd?: string | null;
-  approvalPolicy?: ApprovalPolicy | null;
   approvalsReviewer?: ApprovalsReviewer | null;
-  sandboxPolicy?: SandboxPolicy | null;
-  permissions?: string | null;
   model?: string | null;
   serviceTier?: string | null;
   effort?: ReasoningEffort | null;
-  summary?: ReasoningSummary | null;
   collaborationMode?: CollaborationMode | null;
-  personality?: Personality | null;
 }
 
 export function applyRuntimeSettingsPatchValue<K extends keyof RuntimeSettingsPatch>(

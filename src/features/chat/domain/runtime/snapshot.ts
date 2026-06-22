@@ -1,7 +1,7 @@
 import type { ModelMetadata, ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
+import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
 import type { ActiveCollaborationMode, CollaborationModeSelection, PendingRuntimeIntent, RequestedFastMode } from "./intent";
 
 export interface RuntimeSnapshot {
@@ -11,9 +11,7 @@ export interface RuntimeSnapshot {
   activeReasoningEffort: ReasoningEffort | null;
   activeCollaborationMode: ActiveCollaborationMode;
   activeServiceTier: ServiceTier | null;
-  activeApprovalPolicy: ApprovalPolicy | null;
   activeApprovalsReviewer: ApprovalsReviewer | null;
-  activePermissionProfile: ActivePermissionProfile | null;
   requestedModel: PendingRuntimeIntent<string>;
   requestedReasoningEffort: PendingRuntimeIntent<ReasoningEffort>;
   requestedApprovalsReviewer: PendingRuntimeIntent<ApprovalsReviewer>;

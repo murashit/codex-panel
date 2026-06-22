@@ -388,9 +388,7 @@ function threadSettings(
     reasoningEffort: "high",
     collaborationMode: "default",
     serviceTier,
-    approvalPolicy: "on-request",
     approvalsReviewer,
-    activePermissionProfile: null,
   };
 }
 

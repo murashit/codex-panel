@@ -48,9 +48,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
 
     const projection = messageStreamSurfaceProjectionFromState(

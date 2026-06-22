@@ -81,7 +81,7 @@ describe("chat panel surface projections", () => {
 
     expect(debugDetails["vaultPath"]).toBe("/vault");
     expect(debugDetails["configuredCommand"]).toBe("codex");
-    expect(debugDetails["runtimeConfig"]).toMatchObject({ model: "gpt-debug", approvalPolicy: "on-request" });
+    expect(debugDetails["runtimeConfig"]).toMatchObject({ model: "gpt-debug" });
     expect(debugDetails["runtime"]).toMatchObject({ requestedModel: { kind: "set", value: "gpt-debug" } });
     expect(debugDetails["availableModels"]).toMatchObject([{ model: "gpt-debug" }]);
     unmountUiRoot(parent);

@@ -839,13 +839,13 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
     model: "gpt-5.1",
     modelProvider: "openai",
     serviceTier: null,
+    approvalPolicy: "never",
     cwd: "/vault",
     runtimeWorkspaceRoots: [],
     instructionSources: [],
-    approvalPolicy: "never",
     approvalsReviewer: "auto_review",
-    sandbox: { type: "readOnly", networkAccess: false },
     activePermissionProfile: null,
+    sandbox: { type: "readOnly", networkAccess: false },
     reasoningEffort: null,
   };
 }

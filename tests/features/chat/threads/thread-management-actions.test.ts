@@ -61,9 +61,7 @@ describe("thread management actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     const controller = threadManagementActions(host);
 
@@ -78,9 +76,7 @@ describe("thread management actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     compact.resolve(undefined);
     await pendingCompact;
@@ -250,9 +246,7 @@ describe("thread management actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     host.stateStore.dispatch({
       type: "thread-list/applied",
@@ -272,9 +266,7 @@ describe("thread management actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     fork.resolve({ thread: { ...archivedThread(), id: "forked", sessionId: "forked", name: null } });
     await pendingFork;
@@ -348,9 +340,7 @@ describe("thread management actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     host.stateStore.dispatch({
       type: "message-stream/items-replaced",
@@ -383,9 +373,7 @@ describe("thread management actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     host.stateStore.dispatch({
       type: "message-stream/items-replaced",
@@ -406,9 +394,7 @@ describe("thread management actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     rollback.resolve({ thread: rollbackThread() });
     await pendingRollback;
@@ -437,9 +423,7 @@ describe("thread management actions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     host.stateStore.dispatch({
       type: "message-stream/items-replaced",

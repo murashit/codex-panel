@@ -50,9 +50,7 @@ describe("createActiveThreadIdentitySync", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
 
     controller.applyThreadArchiveToActiveIdentity("thread");
@@ -74,9 +72,7 @@ describe("createActiveThreadIdentitySync", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
 
     controller.applyThreadArchiveToActiveIdentity("other");
@@ -111,9 +107,7 @@ describe("createActiveThreadIdentitySync", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
 
     controller.applyThreadRenameToActiveIdentity("thread", "New");

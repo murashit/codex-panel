@@ -14,9 +14,7 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
     model: null,
     reasoningEffort: null,
     serviceTier: null,
-    approvalPolicy: null,
     approvalsReviewer: null,
-    activePermissionProfile: null,
   });
   const host: ChatReconnectActionsHost = {
     stateStore,

@@ -24,7 +24,6 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { runtime: { activeModel: "gpt-5.1" } });
     state = chatStateWith(state, { runtime: { activeReasoningEffort: "high" } });
     state = chatStateWith(state, { runtime: { activeServiceTier: "fast" } });
-    state = chatStateWith(state, { runtime: { activeApprovalPolicy: "on-request" } });
     state = chatStateWith(state, { runtime: { activeApprovalsReviewer: "auto_review" } });
     state = chatStateWith(state, { runtime: { activeCollaborationMode: "plan" } });
     state = chatStateWith(state, { runtime: { selectedCollaborationMode: "plan" } });
@@ -58,7 +57,6 @@ describe("chatReducer", () => {
     expect(next.runtime.activeModel).toBeNull();
     expect(next.runtime.activeReasoningEffort).toBeNull();
     expect(next.runtime.activeServiceTier).toBeNull();
-    expect(next.runtime.activeApprovalPolicy).toBeNull();
     expect(next.runtime.activeApprovalsReviewer).toBeNull();
     expect(next.runtime.activeCollaborationMode).toBeNull();
     expect(next.runtime.requestedModel).toEqual({ kind: "unchanged" });
@@ -116,9 +114,7 @@ describe("chatReducer", () => {
       model: "gpt-5.1",
       reasoningEffort: "high",
       serviceTier: "fast",
-      approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      activePermissionProfile: null,
       items: resumedItems,
     });
 
@@ -158,9 +154,7 @@ describe("chatReducer", () => {
       model: "gpt-5",
       reasoningEffort: "medium",
       serviceTier: "fast",
-      approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      activePermissionProfile: null,
       preserveRequestedRuntimeSettings: true,
     });
 
@@ -188,9 +182,7 @@ describe("chatReducer", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
 
     expect(chatStateMessageStreamItems(next)).toEqual([]);
@@ -709,9 +701,7 @@ describe("chatReducer", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     panelA.dispatch({ type: "composer/draft-set", draft: "panel A draft" });
     panelA.dispatch({ type: "request/user-input-queued", input: userInput(1) });
@@ -724,9 +714,7 @@ describe("chatReducer", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     panelB.dispatch({ type: "composer/draft-set", draft: "panel B draft" });
     panelB.dispatch({ type: "request/user-input-queued", input: userInput(2) });

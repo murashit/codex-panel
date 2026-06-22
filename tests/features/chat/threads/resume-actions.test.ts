@@ -20,9 +20,7 @@ function activation(threadId: string, overrides: Partial<ChatThreadResumeSnapsho
       cwd: "/vault",
       model: "gpt-test",
       serviceTier: null,
-      approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      activePermissionProfile: null,
       reasoningEffort: null,
     },
     rolloutPath: null,
@@ -114,9 +112,7 @@ describe("ResumeActions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
@@ -158,9 +154,7 @@ describe("ResumeActions", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));

@@ -1091,9 +1091,7 @@ function startedThread(threadId: string) {
     model: null,
     reasoningEffort: null,
     serviceTier: null,
-    approvalPolicy: "on-request",
     approvalsReviewer: null,
-    activePermissionProfile: null,
   };
 }
 
@@ -1110,9 +1108,7 @@ function resumedThread(threadId: string) {
     model: null,
     reasoningEffort: null,
     serviceTier: null,
-    approvalPolicy: "on-request",
     approvalsReviewer: null,
-    activePermissionProfile: null,
   };
 }
 

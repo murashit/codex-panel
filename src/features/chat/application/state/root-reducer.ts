@@ -336,9 +336,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       activeReasoningEffort: action.reasoningEffort,
       activeCollaborationMode: initialActiveChatRuntimeState().activeCollaborationMode,
       activeServiceTier: action.serviceTier,
-      activeApprovalPolicy: action.approvalPolicy,
       activeApprovalsReviewer: action.approvalsReviewer,
-      activePermissionProfile: action.activePermissionProfile,
     },
     turn: initialTurnState(),
     messageStream: initialMessageStreamState(action.items ?? []),
@@ -361,9 +359,7 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
       activeCollaborationMode: action.collaborationMode,
       selectedCollaborationMode: action.collaborationMode,
       activeServiceTier: action.serviceTier,
-      activeApprovalPolicy: action.approvalPolicy,
       activeApprovalsReviewer: action.approvalsReviewer,
-      activePermissionProfile: action.activePermissionProfile,
     },
   });
 }

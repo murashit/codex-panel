@@ -208,9 +208,7 @@ describe("createGoalActions", () => {
         model: null,
         reasoningEffort: null,
         serviceTier: null,
-        approvalPolicy: null,
         approvalsReviewer: null,
-        activePermissionProfile: null,
       });
       return { threadId: "thread-new" };
     });

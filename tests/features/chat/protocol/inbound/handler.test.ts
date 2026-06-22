@@ -1584,19 +1584,19 @@ describe("ChatInboundHandler", () => {
           threadId: "thread-active",
           threadSettings: {
             cwd: "/workspace/active",
-            approvalPolicy: "on-request",
             approvalsReviewer: "auto_review",
             sandboxPolicy: { type: "readOnly", networkAccess: false },
-            activePermissionProfile: null,
             model: "gpt-5.5",
             modelProvider: "openai",
             serviceTier: "fast",
+            approvalPolicy: "on-request",
             effort: "high",
             summary: null,
             collaborationMode: {
               mode: "default",
               settings: { model: "gpt-5.5", reasoning_effort: "high", developer_instructions: null },
             },
+            activePermissionProfile: null,
             personality: null,
           },
         },
@@ -1605,9 +1605,7 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
       expect(handler.currentState().runtime.activeModel).toBe("gpt-5.5");
       expect(handler.currentState().runtime.activeServiceTier).toBe("fast");
-      expect(handler.currentState().runtime.activeApprovalPolicy).toBe("on-request");
       expect(handler.currentState().runtime.activeApprovalsReviewer).toBe("auto_review");
-      expect(handler.currentState().runtime.activePermissionProfile).toBeNull();
       expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
     });
 
@@ -1617,9 +1615,7 @@ describe("ChatInboundHandler", () => {
       state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
       state = chatStateWith(state, { runtime: { activeModel: "gpt-active" } });
       state = chatStateWith(state, { runtime: { activeServiceTier: "flex" } });
-      state = chatStateWith(state, { runtime: { activeApprovalPolicy: "on-request" } });
       state = chatStateWith(state, { runtime: { activeApprovalsReviewer: "user" } });
-      state = chatStateWith(state, { runtime: { activePermissionProfile: { id: ":workspace", extends: null } } });
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -1628,19 +1624,19 @@ describe("ChatInboundHandler", () => {
           threadId: "thread-other",
           threadSettings: {
             cwd: "/workspace/other",
-            approvalPolicy: "never",
             approvalsReviewer: "auto_review",
             sandboxPolicy: { type: "readOnly", networkAccess: false },
-            activePermissionProfile: { id: ":read-only", extends: null },
             model: "gpt-other",
             modelProvider: "openai",
             serviceTier: "fast",
+            approvalPolicy: "never",
             effort: "high",
             summary: null,
             collaborationMode: {
               mode: "plan",
               settings: { model: "gpt-other", reasoning_effort: "high", developer_instructions: null },
             },
+            activePermissionProfile: { id: ":read-only", extends: null },
             personality: null,
           },
         },
@@ -1649,9 +1645,7 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
       expect(handler.currentState().runtime.activeModel).toBe("gpt-active");
       expect(handler.currentState().runtime.activeServiceTier).toBe("flex");
-      expect(handler.currentState().runtime.activeApprovalPolicy).toBe("on-request");
       expect(handler.currentState().runtime.activeApprovalsReviewer).toBe("user");
-      expect(handler.currentState().runtime.activePermissionProfile).toEqual({ id: ":workspace", extends: null });
     });
 
     it("syncs null service tier from settings notifications", () => {
@@ -1666,19 +1660,19 @@ describe("ChatInboundHandler", () => {
           threadId: "thread-active",
           threadSettings: {
             cwd: "/workspace/active",
-            approvalPolicy: "on-request",
             approvalsReviewer: "user",
             sandboxPolicy: { type: "readOnly", networkAccess: false },
-            activePermissionProfile: null,
             model: "gpt-5.5",
             modelProvider: "openai",
             serviceTier: null,
+            approvalPolicy: "on-request",
             effort: "high",
             summary: null,
             collaborationMode: {
               mode: "default",
               settings: { model: "gpt-5.5", reasoning_effort: "high", developer_instructions: null },
             },
+            activePermissionProfile: null,
             personality: null,
           },
         },

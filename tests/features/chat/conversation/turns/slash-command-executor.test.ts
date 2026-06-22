@@ -97,9 +97,7 @@ describe("executeSlashCommandWithState", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
 
     await executeSlashCommandWithState(host, "compact", "");
@@ -116,9 +114,7 @@ describe("executeSlashCommandWithState", () => {
       model: null,
       reasoningEffort: null,
       serviceTier: null,
-      approvalPolicy: null,
       approvalsReviewer: null,
-      activePermissionProfile: null,
     });
 
     await executeSlashCommandWithState(host, "compact", "");

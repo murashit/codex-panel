@@ -1,10 +1,4 @@
-import {
-  parseServiceTier,
-  type ActivePermissionProfile,
-  type ApprovalPolicy,
-  type ApprovalsReviewer,
-  type ServiceTier,
-} from "../../../../domain/runtime/policy";
+import { parseServiceTier, type ApprovalsReviewer, type ServiceTier } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
 import {
@@ -22,9 +16,7 @@ export interface ChatRuntimeState {
   readonly activeReasoningEffort: ReasoningEffort | null;
   readonly activeCollaborationMode: ActiveCollaborationMode;
   readonly activeServiceTier: ServiceTier | null;
-  readonly activeApprovalPolicy: ApprovalPolicy | null;
   readonly activeApprovalsReviewer: ApprovalsReviewer | null;
-  readonly activePermissionProfile: ActivePermissionProfile | null;
   readonly requestedModel: PendingRuntimeIntent<string>;
   readonly requestedReasoningEffort: PendingRuntimeIntent<ReasoningEffort>;
   readonly requestedApprovalsReviewer: PendingRuntimeIntent<ApprovalsReviewer>;
@@ -34,22 +26,14 @@ export interface ChatRuntimeState {
 
 export function initialActiveChatRuntimeState(): Pick<
   ChatRuntimeState,
-  | "activeModel"
-  | "activeReasoningEffort"
-  | "activeCollaborationMode"
-  | "activeServiceTier"
-  | "activeApprovalPolicy"
-  | "activeApprovalsReviewer"
-  | "activePermissionProfile"
+  "activeModel" | "activeReasoningEffort" | "activeCollaborationMode" | "activeServiceTier" | "activeApprovalsReviewer"
 > {
   return {
     activeModel: null,
     activeReasoningEffort: null,
     activeCollaborationMode: null,
     activeServiceTier: null,
-    activeApprovalPolicy: null,
     activeApprovalsReviewer: null,
-    activePermissionProfile: null,
   };
 }
 

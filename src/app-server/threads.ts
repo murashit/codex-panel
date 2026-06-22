@@ -7,7 +7,7 @@ import {
   transcriptEntriesFromTurnRecords,
 } from "./protocol/turn";
 import { normalizeReasoningEffort } from "../domain/catalog/metadata";
-import type { ActivePermissionProfile, ApprovalPolicy, ApprovalsReviewer, ServiceTier } from "../domain/runtime/policy";
+import type { ApprovalsReviewer, ServiceTier } from "../domain/runtime/policy";
 import { parseServiceTier } from "../domain/runtime/policy";
 import type { ArchiveThreadInput } from "../domain/threads/archive-markdown";
 import type { ThreadActivationSnapshot } from "../domain/threads/activation";
@@ -31,9 +31,7 @@ interface ThreadActivationResponse {
   cwd: string;
   model: string | null;
   serviceTier: ServiceTier | null;
-  approvalPolicy: ApprovalPolicy | null;
   approvalsReviewer: ApprovalsReviewer | null;
-  activePermissionProfile: ActivePermissionProfile | null;
   reasoningEffort: string | null;
 }
 
@@ -140,9 +138,7 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
     model: response.model,
     reasoningEffort: normalizeReasoningEffort(response.reasoningEffort),
     serviceTier: parseServiceTier(response.serviceTier),
-    approvalPolicy: response.approvalPolicy,
     approvalsReviewer: response.approvalsReviewer,
-    activePermissionProfile: response.activePermissionProfile,
   };
 }
 

@@ -15,9 +15,7 @@ describe("app-server thread activation", () => {
       cwd: "/vault",
       model: "gpt-5.5",
       serviceTier: "fast",
-      approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      activePermissionProfile: null,
       reasoningEffort: "high",
     });
   });
@@ -29,13 +27,13 @@ function responseFixture(thread: ThreadRecord): ThreadResumeResponse {
     model: "gpt-5.5",
     modelProvider: "openai",
     serviceTier: "fast",
+    approvalPolicy: "on-request",
     cwd: "/vault",
     runtimeWorkspaceRoots: [],
     instructionSources: [],
-    approvalPolicy: "on-request",
     approvalsReviewer: "user",
-    sandbox: { type: "readOnly", networkAccess: false },
     activePermissionProfile: null,
+    sandbox: { type: "readOnly", networkAccess: false },
     reasoningEffort: "high",
     initialTurnsPage: null,
   };

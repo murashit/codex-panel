@@ -18,15 +18,7 @@ interface ResumedThreadActionParams {
 interface ResumedThreadFromActiveRuntimeParams {
   thread: Thread;
   cwd: string;
-  runtime: Pick<
-    ChatRuntimeState,
-    | "activeModel"
-    | "activeReasoningEffort"
-    | "activeServiceTier"
-    | "activeApprovalPolicy"
-    | "activeApprovalsReviewer"
-    | "activePermissionProfile"
-  >;
+  runtime: Pick<ChatRuntimeState, "activeModel" | "activeReasoningEffort" | "activeServiceTier" | "activeApprovalsReviewer">;
   listedThreads?: readonly Thread[];
   items?: readonly MessageStreamItem[];
 }
@@ -38,9 +30,7 @@ export interface ActiveThreadResumedAction {
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
   serviceTier: ServiceTier | null;
-  approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
-  activePermissionProfile: ChatRuntimeState["activePermissionProfile"];
   items?: readonly MessageStreamItem[];
   status?: string;
   listedThreads?: readonly Thread[];
@@ -54,9 +44,7 @@ export interface ActiveThreadSettingsAppliedAction {
   reasoningEffort: ReasoningEffort | null;
   collaborationMode: CollaborationModeSelection;
   serviceTier: ServiceTier | null;
-  approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
-  activePermissionProfile: ChatRuntimeState["activePermissionProfile"];
 }
 
 export interface ActiveThreadSettingsAppliedActionSettings {
@@ -65,9 +53,7 @@ export interface ActiveThreadSettingsAppliedActionSettings {
   effort: string | null;
   collaborationMode: { mode: CollaborationModeSelection };
   serviceTier: string | null;
-  approvalPolicy: ChatRuntimeState["activeApprovalPolicy"];
   approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
-  activePermissionProfile: ChatRuntimeState["activePermissionProfile"];
 }
 
 export interface ConnectionInitializedAction {
@@ -125,9 +111,7 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
       model: params.runtime.activeModel,
       reasoningEffort: params.runtime.activeReasoningEffort,
       serviceTier: params.runtime.activeServiceTier,
-      approvalPolicy: params.runtime.activeApprovalPolicy,
       approvalsReviewer: params.runtime.activeApprovalsReviewer,
-      activePermissionProfile: params.runtime.activePermissionProfile,
     },
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
     ...(params.items ? { items: params.items } : {}),
@@ -143,9 +127,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     model: response.model,
     reasoningEffort: response.reasoningEffort,
     serviceTier: response.serviceTier,
-    approvalPolicy: response.approvalPolicy,
     approvalsReviewer: response.approvalsReviewer,
-    activePermissionProfile: response.activePermissionProfile,
     ...(params.items ? { items: params.items } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
@@ -160,8 +142,6 @@ export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettings
     reasoningEffort: normalizeReasoningEffort(settings.effort),
     collaborationMode: settings.collaborationMode.mode,
     serviceTier: parseServiceTier(settings.serviceTier),
-    approvalPolicy: settings.approvalPolicy,
     approvalsReviewer: settings.approvalsReviewer,
-    activePermissionProfile: settings.activePermissionProfile,
   };
 }

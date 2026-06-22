@@ -17,9 +17,7 @@ describe("chat thread resume helpers", () => {
         activeModel: "gpt-5.5",
         activeReasoningEffort: "high",
         activeServiceTier: "fast",
-        activeApprovalPolicy: "on-request",
         activeApprovalsReviewer: "user",
-        activePermissionProfile: null,
       },
       listedThreads: [existing],
       items: [loading],
@@ -32,9 +30,7 @@ describe("chat thread resume helpers", () => {
       model: "gpt-5.5",
       reasoningEffort: "high",
       serviceTier: "fast",
-      approvalPolicy: "on-request",
       approvalsReviewer: "user",
-      activePermissionProfile: null,
       items: [loading],
     });
     expect(action.listedThreads?.map((thread) => thread.id)).toEqual(["thread", "existing"]);
@@ -63,9 +59,7 @@ function responseFixture(thread: Thread): ThreadActivationSnapshot {
     model: "gpt-5.5",
     serviceTier: "fast",
     cwd: "/vault",
-    approvalPolicy: "on-request",
     approvalsReviewer: "user",
-    activePermissionProfile: null,
     reasoningEffort: "high",
   };
 }
