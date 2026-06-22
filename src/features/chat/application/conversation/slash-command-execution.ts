@@ -18,6 +18,7 @@ import {
   type SlashCommandSubcommandDefinition,
 } from "../composer/slash-commands";
 import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../presentation/runtime/messages";
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 
@@ -90,16 +91,6 @@ function noActiveThreadToRollbackMessage(): string {
 
 function noActiveThreadToCompactMessage(): string {
   return "No active thread to compact.";
-}
-
-function modelOverrideMessage(model: string | null): string {
-  return model === null ? "Model reset to default for subsequent turns." : `Model set to ${model} for subsequent turns.`;
-}
-
-function reasoningEffortOverrideMessage(effort: ReasoningEffort | null): string {
-  return effort === null
-    ? "Reasoning effort reset to default for subsequent turns."
-    : `Reasoning effort set to ${effort} for subsequent turns.`;
 }
 
 export async function executeSlashCommand(

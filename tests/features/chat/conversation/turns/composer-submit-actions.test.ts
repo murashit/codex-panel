@@ -79,6 +79,37 @@ describe("submitComposer", () => {
     expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
   });
 
+  it("does not execute connection-dependent slash commands when connection fails", async () => {
+    const { host, connectedClient, execute, setDraft } = createHost("/clear");
+    connectedClient.mockResolvedValue(null);
+
+    await submitComposer(host);
+
+    expect(connectedClient).toHaveBeenCalledOnce();
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("executes reconnect without a connected client preflight", async () => {
+    const { host, connectedClient, execute, setDraft } = createHost("/reconnect");
+
+    await submitComposer(host);
+
+    expect(connectedClient).not.toHaveBeenCalled();
+    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(execute).toHaveBeenCalledWith("reconnect", "");
+  });
+
+  it("executes compact without a connected client preflight", async () => {
+    const { host, connectedClient, execute, setDraft } = createHost("/compact");
+
+    await submitComposer(host);
+
+    expect(connectedClient).not.toHaveBeenCalled();
+    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(execute).toHaveBeenCalledWith("compact", "");
+  });
+
   it("restores slash command composer drafts from command results", async () => {
     const { host, connectedClient, execute, sendTurnText, setDraft, showLatest } = createHost("/goal edit");
     execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });

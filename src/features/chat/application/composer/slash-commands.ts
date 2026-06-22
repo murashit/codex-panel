@@ -172,9 +172,15 @@ export type SlashCommandName = SlashCommand extends `/${infer Name}` ? Name : ne
 
 export type SlashCommandDefinition = (typeof SLASH_COMMANDS)[number];
 
+const CONNECTION_INDEPENDENT_SLASH_COMMANDS = new Set<SlashCommandName>(["compact", "reconnect"]);
+
 export interface SlashCommandHelpSection {
   readonly title: string;
   readonly auditFacts: readonly { key: string; value: string }[];
+}
+
+export function slashCommandRequiresConnection(command: SlashCommandName): boolean {
+  return !CONNECTION_INDEPENDENT_SLASH_COMMANDS.has(command);
 }
 
 export function slashCommandDefinition(command: SlashCommandName): SlashCommandDefinition {

@@ -11,6 +11,16 @@ export function collaborationModeLabel(mode: CollaborationModeSelection): string
   return mode === "plan" ? "Plan" : "Default";
 }
 
+export function modelOverrideMessage(model: string | null): string {
+  return model === null ? "Model reset to default for subsequent turns." : `Model set to ${model} for subsequent turns.`;
+}
+
+export function reasoningEffortOverrideMessage(effort: ReasoningEffort | null): string {
+  return effort === null
+    ? "Reasoning effort reset to default for subsequent turns."
+    : `Reasoning effort set to ${effort} for subsequent turns.`;
+}
+
 export function pendingRuntimeSettingLabel(
   setting: { kind: "unchanged" } | { kind: "set"; value: unknown } | { kind: "resetToConfig" },
 ): string {

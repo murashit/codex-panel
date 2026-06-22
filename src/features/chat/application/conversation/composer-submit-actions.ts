@@ -4,7 +4,7 @@ import { submissionStateSnapshot } from "../state/selectors";
 import type { ChatStateStore } from "../state/store";
 import { parseSlashCommand } from "../composer/suggestions";
 import type { SlashCommandExecutionResult } from "./slash-command-execution";
-import type { SlashCommandName } from "../composer/slash-commands";
+import { slashCommandRequiresConnection, type SlashCommandName } from "../composer/slash-commands";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 
 const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
@@ -54,7 +54,7 @@ async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
 
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
-    if (!(await host.connection.connectedClient())) return;
+    if (slashCommandRequiresConnection(slashCommand.command) && !(await host.connection.connectedClient())) return;
     host.composer.setDraft("", { clearSuggestions: true });
     const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args);
     if (result?.composerDraft !== undefined) {

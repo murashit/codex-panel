@@ -12,6 +12,7 @@ import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { nextCollaborationMode, type CollaborationModeSelection, type RequestedFastMode } from "../../domain/runtime/intent";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../presentation/runtime/messages";
 
 interface ApplyPendingThreadSettingsResult {
   ok: boolean;
@@ -181,16 +182,6 @@ async function setAutoReview(host: RuntimeSettingsActionsHost, mode: AutoReviewS
   if (!(await applyPendingThreadSettings(host))) return;
   dispatch(host, { type: "ui/panel-set", panel: null });
   host.addSystemMessage(autoReviewToggleMessage(mode));
-}
-
-export function modelOverrideMessage(model: string | null): string {
-  return model === null ? "Model reset to default for subsequent turns." : `Model set to ${model} for subsequent turns.`;
-}
-
-export function reasoningEffortOverrideMessage(effort: ReasoningEffort | null): string {
-  return effort === null
-    ? "Reasoning effort reset to default for subsequent turns."
-    : `Reasoning effort set to ${effort} for subsequent turns.`;
 }
 
 function fastModeToggleMessage(state: FastModeState): string {
