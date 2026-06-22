@@ -10,7 +10,7 @@ import {
   supportedReasoningEfforts,
 } from "../../domain/runtime/effective";
 import { contextSummary } from "../../presentation/runtime/status";
-import { compactReasoningEffortLabel } from "../../presentation/runtime/messages";
+import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";

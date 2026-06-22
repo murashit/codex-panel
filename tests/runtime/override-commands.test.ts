@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { collaborationModeLabel } from "../../src/features/chat/presentation/runtime/messages";
+import { collaborationModeLabel } from "../../src/features/chat/domain/runtime/labels";
 import { nextCollaborationMode } from "../../src/features/chat/domain/runtime/intent";
 
 describe("runtime collaboration mode", () => {

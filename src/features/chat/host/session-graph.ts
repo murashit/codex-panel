@@ -55,7 +55,7 @@ import { normalizeExplicitThreadName, type Thread } from "../../../domain/thread
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { archiveExportSettings } from "../../threads/archive-export-settings";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "../presentation/runtime/messages";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,

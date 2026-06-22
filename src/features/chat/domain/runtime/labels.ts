@@ -1,5 +1,5 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { CollaborationModeSelection } from "../../domain/runtime/intent";
+import type { CollaborationModeSelection } from "./intent";
 
 export function compactReasoningEffortLabel(effort: ReasoningEffort | null): string {
   if (!effort) return "default";

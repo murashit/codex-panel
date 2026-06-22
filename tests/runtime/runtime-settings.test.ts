@@ -7,7 +7,7 @@ import {
   compactReasoningEffortLabel,
   modelOverrideMessage,
   reasoningEffortOverrideMessage,
-} from "../../src/features/chat/presentation/runtime/messages";
+} from "../../src/features/chat/domain/runtime/labels";
 import {
   autoReviewActive,
   currentModel,

@@ -9,7 +9,7 @@ import {
   supportedReasoningEfforts,
 } from "../../domain/runtime/effective";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { pendingRuntimeSettingLabel, serviceTierLabel as formatServiceTierLabel } from "./messages";
+import { pendingRuntimeSettingLabel, serviceTierLabel as formatServiceTierLabel } from "../../domain/runtime/labels";
 
 export interface ContextSummary {
   label: string;

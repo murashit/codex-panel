@@ -18,7 +18,7 @@ import {
   type SlashCommandSubcommandDefinition,
 } from "../composer/slash-commands";
 import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../presentation/runtime/messages";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 

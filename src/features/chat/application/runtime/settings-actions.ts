@@ -12,7 +12,7 @@ import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { nextCollaborationMode, type CollaborationModeSelection, type RequestedFastMode } from "../../domain/runtime/intent";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../presentation/runtime/messages";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 
 interface ApplyPendingThreadSettingsResult {
   ok: boolean;
