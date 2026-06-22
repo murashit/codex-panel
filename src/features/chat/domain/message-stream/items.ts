@@ -41,10 +41,9 @@ export type MessageStreamPrimaryTarget =
       readonly value: string;
     };
 
-interface MessageStreamToolCallDetails {
-  readonly arguments?: unknown;
-  readonly result?: unknown;
-  readonly error?: unknown;
+export interface MessageStreamDiagnosticSection {
+  readonly title: string;
+  readonly body: string;
 }
 
 interface MessageStreamWebSearchDetails {
@@ -227,7 +226,7 @@ interface ToolMessageStreamBase extends MessageStreamBase {
 
 export interface ToolCallMessageStreamItem extends ToolMessageStreamBase {
   readonly kind: "tool";
-  readonly toolCall?: MessageStreamToolCallDetails;
+  readonly diagnostics?: readonly MessageStreamDiagnosticSection[];
   readonly webSearch?: MessageStreamWebSearchDetails;
   readonly imageGeneration?: MessageStreamImageGenerationDetails;
 }

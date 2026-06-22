@@ -1,4 +1,4 @@
-import { jsonPreview, shortThreadId, truncate } from "../../../../utils";
+import { shortThreadId, truncate } from "../../../../utils";
 import { failedStatusLabel } from "../../domain/message-stream/execution-state";
 import { pathRelativeToRoot } from "../../domain/message-stream/format/path-labels";
 import type {
@@ -265,7 +265,7 @@ function resultDetails(item: ApprovalResultMessageStreamItem | ReviewResultMessa
 
 function genericToolDetails(item: ToolCallMessageStreamItem | HookMessageStreamItem): DetailSection[] {
   if (item.kind === "hook") return hookRunDetails(item);
-  return [...toolCallDetails(item), ...webSearchDetails(item), ...imageGenerationDetails(item)];
+  return [...diagnosticDetails(item), ...webSearchDetails(item), ...imageGenerationDetails(item)];
 }
 
 function genericDetailSections(item: MessageStreamItem, workspaceRoot?: string | null): DetailSection[] {
@@ -279,14 +279,8 @@ function genericDetailSections(item: MessageStreamItem, workspaceRoot?: string |
   return [...(rows.length > 0 ? [{ kind: "kv" as const, rows }] : []), ...outputSection("Output", outputField(item))];
 }
 
-function toolCallDetails(item: ToolCallMessageStreamItem): DetailSection[] {
-  const details = item.toolCall;
-  if (!details) return [];
-  return [
-    ...jsonOutputSection("Arguments JSON", details.arguments),
-    ...jsonOutputSection("Result JSON", details.result),
-    ...jsonOutputSection("Error JSON", details.error),
-  ];
+function diagnosticDetails(item: ToolCallMessageStreamItem): DetailSection[] {
+  return item.diagnostics?.map((section) => ({ kind: "output" as const, title: section.title, body: section.body })) ?? [];
 }
 
 function webSearchDetails(item: ToolCallMessageStreamItem): DetailSection[] {
@@ -326,10 +320,6 @@ function hookRunDetails(item: HookMessageStreamItem): DetailSection[] {
 
 function outputSection(title: string, body: string | null | undefined): DetailSection[] {
   return body ? [{ kind: "output", title, body }] : [];
-}
-
-function jsonOutputSection(title: string, value: unknown): DetailSection[] {
-  return value === null || value === undefined ? [] : outputSection(title, jsonPreview(value));
 }
 
 function metaRow(key: string, value: string | null | undefined): { key: string; value: string }[] {

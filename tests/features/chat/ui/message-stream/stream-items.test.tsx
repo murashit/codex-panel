@@ -33,10 +33,10 @@ describe("message stream item renderer decisions", () => {
           toolName: "github.pull_request_read",
           turnId: "turn",
           status: "completed",
-          toolCall: {
-            arguments: { id: 123 },
-            result: { ok: true },
-          },
+          diagnostics: [
+            { title: "Arguments JSON", body: '{\n  "id": 123\n}' },
+            { title: "Result JSON", body: '{\n  "ok": true\n}' },
+          ],
         },
       ],
       disclosures: emptyDisclosures(),

@@ -76,7 +76,7 @@ describe("message stream semantic classification", () => {
         changes: [{ kind: "update", path: "src/main.ts", diff: "@@" }],
         executionState: "completed",
       },
-      { id: "tool", kind: "tool", role: "tool", text: "tool", toolCall: { arguments: { k: "v" } } },
+      { id: "tool", kind: "tool", role: "tool", text: "tool", diagnostics: [{ title: "Arguments JSON", body: '{"k":"v"}' }] },
       { id: "hook", kind: "hook", role: "tool", text: "hook" },
       { id: "reasoning", kind: "reasoning", role: "tool", text: "thinking" },
       { id: "wait", kind: "wait", role: "tool", text: "Waited 2.5s", executionState: "completed" },

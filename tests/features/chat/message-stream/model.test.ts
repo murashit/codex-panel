@@ -636,10 +636,10 @@ describe("turn item conversion preserves app-server semantics", () => {
       primaryTarget: { kind: "value", value: "123" },
       failureReason: "Not found",
       toolName: "github.pull_request_read",
-      toolCall: {
-        arguments: expect.objectContaining({ id: 123 }),
-        error: { message: "Not found" },
-      },
+      diagnostics: expect.arrayContaining([
+        { title: "Arguments JSON", body: expect.stringContaining('"id": 123') },
+        { title: "Error JSON", body: expect.stringContaining("Not found") },
+      ]),
       executionState: "failed",
     });
   });
@@ -661,10 +661,10 @@ describe("turn item conversion preserves app-server semantics", () => {
       kind: "tool",
       primaryTarget: { kind: "value", value: "https://example.com" },
       toolName: "web.open",
-      toolCall: {
-        arguments: { url: "https://example.com" },
-        result: [{ type: "inputText", text: "ok" }],
-      },
+      diagnostics: expect.arrayContaining([
+        { title: "Arguments JSON", body: expect.stringContaining("https://example.com") },
+        { title: "Result JSON", body: expect.stringContaining("inputText") },
+      ]),
       executionState: "completed",
     });
   });

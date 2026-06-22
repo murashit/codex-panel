@@ -1,8 +1,8 @@
-import type { CommandMessageStreamTarget, MessageStreamItem } from "../../../domain/message-stream/items";
+import type { CommandMessageStreamTarget, MessageStreamDiagnosticSection, MessageStreamItem } from "../../../domain/message-stream/items";
 import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { TurnItem } from "../../../../../app-server/protocol/turn";
-import { definedProp } from "../../../../../utils";
+import { definedProp, jsonPreview } from "../../../../../utils";
 import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
 import { turnUserItemText } from "../../../../../app-server/protocol/turn";
 import { agentMessageStreamItem } from "./agent-items";
@@ -201,11 +201,14 @@ function mcpToolCallMessageStreamItem(item: McpToolCallItem, turnId?: string): M
     ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
     ...(item.error?.message ? { failureReason: item.error.message } : {}),
     status: item.status,
-    toolCall: {
-      arguments: item.arguments,
-      result: item.result,
-      error: item.error,
-    },
+    ...definedProp(
+      "diagnostics",
+      jsonDiagnosticSections(
+        { title: "Arguments JSON", value: item.arguments },
+        { title: "Result JSON", value: item.result },
+        { title: "Error JSON", value: item.error },
+      ),
+    ),
     output: "",
     executionState: mcpToolCallExecutionState(item.status),
   };
@@ -223,10 +226,10 @@ function dynamicToolCallMessageStreamItem(item: DynamicToolCallItem, turnId?: st
     ...(target ? { primaryTarget: { kind: "value" as const, value: target } } : {}),
     ...(failure ? { failureReason: failure } : {}),
     status: item.status,
-    toolCall: {
-      arguments: item.arguments,
-      result: item.contentItems,
-    },
+    ...definedProp(
+      "diagnostics",
+      jsonDiagnosticSections({ title: "Arguments JSON", value: item.arguments }, { title: "Result JSON", value: item.contentItems }),
+    ),
     output: "",
     executionState: dynamicToolCallExecutionState(item.status, item.success),
   };
@@ -500,6 +503,15 @@ function jsonTargetLabel(value: unknown): string | null {
 
   const firstEntry = Object.entries(record).find(([, entryValue]) => jsonTargetPrimitive(entryValue));
   return firstEntry ? jsonTargetPrimitive(firstEntry[1]) : null;
+}
+
+function jsonDiagnosticSections(
+  ...sections: readonly { readonly title: string; readonly value: unknown }[]
+): readonly MessageStreamDiagnosticSection[] | undefined {
+  const diagnostics = sections
+    .filter((section) => section.value !== null && section.value !== undefined)
+    .map((section) => ({ title: section.title, body: jsonPreview(section.value) }));
+  return diagnostics.length > 0 ? diagnostics : undefined;
 }
 
 function jsonTargetPrimitive(value: unknown): string | null {
