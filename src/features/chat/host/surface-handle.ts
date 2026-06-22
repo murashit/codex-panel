@@ -1,4 +1,5 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
+import type { AppServerQueryContext } from "../../../app-server/query/keys";
 import type { ChatPanelSnapshot } from "../panel/snapshot";
 
 export interface ChatViewLifecycleSurface {
@@ -27,6 +28,7 @@ export interface ChatSharedThreadSurface {
 }
 
 export interface ChatPanelClientSurface {
+  canServeAppServerContext(context: AppServerQueryContext): boolean;
   runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T>;
 }
 

@@ -554,6 +554,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
     vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(true);
     let resolveThreads!: (threads: Thread[]) => void;
     const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient").mockImplementation((operation) =>
       operation(
@@ -586,6 +587,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
     vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(true);
     let resolveFirst!: (threads: Thread[]) => void;
     const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient");
     const plugin = await pluginWithLeaves([connectedLeaf]);
@@ -619,12 +621,35 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("first")]);
   });
 
+  it("does not reuse a connected panel whose app-server context does not match the shared query", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const connectedLeaf = leaf();
+    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
+    const connectedView = connectedLeaf.view as CodexChatView;
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(false);
+    const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient").mockResolvedValue([thread("wrong-context")]);
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _vaultPath: string, operation: (client: ReturnType<typeof threadListClient>) => Promise<unknown>) =>
+        operation(threadListClient(() => Promise.resolve([thread("matching-context")]))),
+    );
+    const plugin = await pluginWithLeaves([connectedLeaf]);
+    plugin.settings.codexPath = "codex-b";
+
+    await expect(threadCatalog(plugin).refreshActive()).resolves.toEqual([thread("matching-context")]);
+
+    expect(runWithAppServerClient).not.toHaveBeenCalled();
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith("codex-b", "/vault", expect.any(Function), {});
+    expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("matching-context")]);
+  });
+
   it("keeps the previous shared thread list when refresh fails", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
     vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
+    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(true);
     const runWithAppServerClient = vi
       .spyOn(connectedView.surface, "runWithAppServerClient")
       .mockImplementationOnce((operation) => operation(threadListClient(() => Promise.resolve([thread("cached")]))))

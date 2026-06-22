@@ -232,16 +232,17 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     if (options.serverRequests?.kind === "reject") {
       return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
     }
-    const chatSurface = this.connectedClientSurface();
+    const chatSurface = this.connectedClientSurface(context);
     if (chatSurface) return chatSurface.runWithAppServerClient(operation);
     return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
   }
 
-  private connectedClientSurface(): ChatPanelClientSurface | null {
+  private connectedClientSurface(context: AppServerQueryContext): ChatPanelClientSurface | null {
     for (const view of this.panels.panelViews()) {
       const workspaceSurface: ChatWorkspacePanelSurface = view.surface;
       if (!workspaceSurface.openPanelSnapshot().connected) continue;
       const clientSurface: ChatPanelClientSurface = view.surface;
+      if (!clientSurface.canServeAppServerContext(context)) continue;
       return clientSurface;
     }
     return null;

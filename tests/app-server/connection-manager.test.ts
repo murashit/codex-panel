@@ -107,10 +107,12 @@ describe("ConnectionManager", () => {
     transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex-a" } });
     await expect(first).resolves.toMatchObject({ codexHome: "/tmp/codex-a" });
     expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
+    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-a", cwd: "/vault" });
 
     codexPath = "/bin/codex-b";
 
     expect(manager.currentClient()).toBeNull();
+    expect(manager.currentConnectionContext()).toBeNull();
     const second = manager.connect(silentConnectionHandlers());
     transports[1]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex-b" } });
 
@@ -118,6 +120,7 @@ describe("ConnectionManager", () => {
     expect(transports).toHaveLength(2);
     expect(transports[0]?.running).toBe(false);
     expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
+    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-b", cwd: "/vault" });
   });
 
   it("rejects app-server exit during initialization without reporting a connected-client exit", async () => {

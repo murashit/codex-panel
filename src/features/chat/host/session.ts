@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import { appServerQueryContextRawEquals, type AppServerQueryContext } from "../../../app-server/query/keys";
+import { appServerQueryContextMatches, appServerQueryContextRawEquals, type AppServerQueryContext } from "../../../app-server/query/keys";
 
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
@@ -75,6 +75,20 @@ export class ChatPanelSession implements ChatSurfaceHandle {
 
   refreshSharedThreads(): Promise<void> {
     return this.graph.actions.refreshSharedThreads();
+  }
+
+  canServeAppServerContext(context: AppServerQueryContext): boolean {
+    const connectionContext = this.graph.connection.manager.currentConnectionContext();
+    return Boolean(
+      connectionContext &&
+      appServerQueryContextMatches(
+        {
+          codexPath: connectionContext.codexPath,
+          vaultPath: connectionContext.cwd,
+        },
+        context,
+      ),
+    );
   }
 
   async runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {

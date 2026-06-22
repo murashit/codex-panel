@@ -13,6 +13,11 @@ export interface ConnectionManagerHandlers {
 
 export type AppServerClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => AppServerClient;
 
+export interface AppServerConnectionContext {
+  codexPath: string;
+  cwd: string;
+}
+
 type ConnectionLifecycleState =
   | { kind: "idle"; generation: number }
   | {
@@ -46,6 +51,13 @@ export class ConnectionManager {
     return this.state.kind === "connected" && this.state.client.isConnected() && this.stateMatchesCurrentContext(this.state)
       ? this.state.client
       : null;
+  }
+
+  currentConnectionContext(): AppServerConnectionContext | null {
+    if (this.state.kind !== "connected" || !this.state.client.isConnected() || !this.stateMatchesCurrentContext(this.state)) {
+      return null;
+    }
+    return { codexPath: this.state.codexPath, cwd: this.state.cwd };
   }
 
   isConnected(): boolean {
