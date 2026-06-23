@@ -21,7 +21,7 @@ interface SkillProvenance {
   rank: SkillProvenanceRank;
 }
 
-export function toolInventorySections(inventory: ToolInventorySnapshot | null): DiagnosticSection[] {
+function toolInventorySections(inventory: ToolInventorySnapshot | null): DiagnosticSection[] {
   if (!inventory) {
     const row = { label: "Codex capabilities", value: "not loaded", level: "warning" as const };
     return [{ title: "Tool providers", rows: [row] }];

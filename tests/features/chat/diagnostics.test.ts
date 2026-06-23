@@ -9,11 +9,17 @@ import {
   upsertMcpServerStatusDiagnostics,
 } from "../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../src/domain/server/tool-inventory";
-import { connectionDiagnosticSections } from "../../../src/features/chat/application/connection/diagnostics-display";
-import {
-  toolInventoryDiagnosticSections,
-  toolInventorySections,
-} from "../../../src/features/chat/application/connection/tool-inventory-display";
+import { connectionDiagnosticSectionsModel } from "../../../src/features/chat/application/connection/diagnostics-display";
+import { toolInventoryDiagnosticSections } from "../../../src/features/chat/application/connection/tool-inventory-display";
+import { chatStateFixture } from "./support/state";
+
+function diagnosticsWithToolInventory(inventory: ToolInventorySnapshot) {
+  let diagnostics = createServerDiagnostics();
+  for (const server of inventory.mcpDiagnostics) {
+    diagnostics = upsertMcpServerDiagnostic(diagnostics, server);
+  }
+  return { ...diagnostics, toolInventory: inventory };
+}
 
 describe("connection diagnostics", () => {
   it("formats connection rows and runtime checks for /doctor", () => {
@@ -39,16 +45,20 @@ describe("connection diagnostics", () => {
       message: null,
     });
 
-    const sections = connectionDiagnosticSections({
+    const sections = connectionDiagnosticSectionsModel({
       connected: true,
       configuredCommand: "/opt/homebrew/bin/codex",
-      initializeResponse: {
-        userAgent: "codex-cli/0.130.0",
-        codexHome: "/Users/showhey/.codex",
-        platformFamily: "unix",
-        platformOs: "macos",
-      },
-      diagnostics,
+      state: chatStateFixture({
+        connection: {
+          initializeResponse: {
+            userAgent: "codex-cli/0.130.0",
+            codexHome: "/Users/showhey/.codex",
+            platformFamily: "unix",
+            platformOs: "macos",
+          },
+          serverDiagnostics: diagnostics,
+        },
+      }),
     });
 
     const rows = sections.flatMap((section) => section.rows);
@@ -249,7 +259,7 @@ describe("connection diagnostics", () => {
       skillsError: null,
     };
 
-    const sections = toolInventorySections(inventory);
+    const sections = toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory));
     const pluginRows = sections.find((section) => section.title === "Plugins")?.rows ?? [];
     const providerRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
     const skillRows = sections.find((section) => section.title === "Skills")?.rows ?? [];
@@ -333,7 +343,9 @@ describe("connection diagnostics", () => {
       skillsError: null,
     };
 
-    const providerRows = toolInventorySections(inventory).find((section) => section.title === "Tool providers")?.rows ?? [];
+    const providerRows =
+      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory)).find((section) => section.title === "Tool providers")
+        ?.rows ?? [];
 
     expect(providerRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "codex_apps: (none)",

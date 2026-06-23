@@ -60,7 +60,7 @@ export function messageStreamItemsWithoutActiveTaskProgress(
   return items.filter((item) => !messageStreamItemIsActiveTaskProgress(item, activeTurnId));
 }
 
-export function activeAgentRunSummary(items: readonly MessageStreamItem[], activeTurnId: string | null): AgentRunSummary | null {
+function activeAgentRunSummary(items: readonly MessageStreamItem[], activeTurnId: string | null): AgentRunSummary | null {
   if (!activeTurnId) return null;
 
   const agentStatuses = new Map<string, AgentStateSummary>();

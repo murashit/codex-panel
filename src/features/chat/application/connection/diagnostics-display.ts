@@ -17,7 +17,7 @@ export interface DiagnosticSection {
   rows: DiagnosticRow[];
 }
 
-export interface ConnectionDiagnosticsInput {
+interface ConnectionDiagnosticsInput {
   connected: boolean;
   configuredCommand: string;
   initializeResponse: ServerInitialization | null;
@@ -39,7 +39,7 @@ export function connectionDiagnosticSectionsModel(input: ConnectionDiagnosticsMo
   });
 }
 
-export function connectionDiagnosticSections(input: ConnectionDiagnosticsInput): DiagnosticSection[] {
+function connectionDiagnosticSections(input: ConnectionDiagnosticsInput): DiagnosticSection[] {
   return [
     {
       title: "Process",
