@@ -8,7 +8,7 @@ import {
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
 import type { MessageStreamItem, MessageStreamUserInputQuestionResult } from "../message-stream/items";
-import { definedProp } from "../../../../utils";
+import { definedProp } from "../../../../shared/object/defined-prop";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): MessageStreamItem {
   const kind = approvalActionKind(action);

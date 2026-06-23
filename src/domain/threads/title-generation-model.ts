@@ -1,5 +1,5 @@
 import type { ThreadConversationSummary } from "./transcript";
-import { truncate } from "../../utils";
+import { truncate } from "../../shared/text/preview";
 
 const THREAD_TITLE_CONTEXT_MAX_CHARS = 4_000;
 const DEFAULT_CONTEXT_PAGE_LIMIT = 20;

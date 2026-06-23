@@ -1,4 +1,4 @@
-import { truncate } from "../../../../../utils";
+import { truncate } from "../../../../../shared/text/preview";
 import { collabAgentStateExecutionState } from "../agent-state";
 import type {
   AgentRunSummary,

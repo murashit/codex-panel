@@ -29,16 +29,22 @@ function mergeChanges(previous: MessageStreamItem, next: MessageStreamItem): rea
   return nextChanges && nextChanges.length > 0 ? nextChanges : previousChanges;
 }
 
-export function completeReasoningItems(items: readonly MessageStreamItem[], turnId: string): MessageStreamItem[] {
-  return items.map((item) =>
-    item.kind === "reasoning" && item.turnId === turnId
-      ? {
-          ...item,
-          status: "completed",
-          executionState: "completed",
-        }
-      : item,
-  );
+export function completeReasoningItems(items: readonly MessageStreamItem[], turnId: string): readonly MessageStreamItem[] {
+  let changed = false;
+  const nextItems: MessageStreamItem[] = [];
+  for (const item of items) {
+    if (item.kind !== "reasoning" || item.turnId !== turnId) {
+      nextItems.push(item);
+      continue;
+    }
+    changed = true;
+    nextItems.push({
+      ...item,
+      status: "completed",
+      executionState: "completed",
+    } satisfies MessageStreamItem);
+  }
+  return changed ? nextItems : items;
 }
 
 export function attachHookRunsToTurn(

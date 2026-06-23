@@ -23,7 +23,7 @@ import { resetRuntimeIntentToConfig, setRuntimeIntentValue } from "../../src/fea
 import {
   pendingRuntimeSettingsPatch,
   serviceTierRequestForThreadStart,
-} from "../../src/features/chat/application/runtime/thread-settings-update";
+} from "../../src/features/chat/app-server/runtime/thread-settings-update";
 import { contextSummary, rateLimitSummary } from "../../src/features/chat/presentation/runtime/status";
 
 describe("runtime settings", () => {

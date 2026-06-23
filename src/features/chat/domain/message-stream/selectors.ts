@@ -10,6 +10,21 @@ export interface PlanImplementationTarget {
   itemId: string;
 }
 
+export interface MessageStreamItemsEmptySource {
+  items: readonly MessageStreamItem[];
+  stableItems?: readonly MessageStreamItem[] | undefined;
+  activeItems?: readonly MessageStreamItem[] | undefined;
+}
+
+export function messageStreamItemsEmpty(source: MessageStreamItemsEmptySource): boolean {
+  if (!source.stableItems && !source.activeItems) return source.items.length === 0;
+  return messageStreamSegmentsEmpty(source.stableItems ?? [], source.activeItems ?? []);
+}
+
+export function messageStreamSegmentsEmpty(stableItems: readonly MessageStreamItem[], activeItems: readonly MessageStreamItem[]): boolean {
+  return stableItems.length === 0 && activeItems.length === 0;
+}
+
 export function forkCandidatesFromItems(items: readonly MessageStreamItem[]): readonly ForkCandidate[] {
   const turnOutcomeItemsByTurn = new Map<string, ForkCandidate>();
   for (const { item, capabilities } of messageStreamSemanticClassifications(items)) {

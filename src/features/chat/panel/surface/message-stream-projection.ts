@@ -1,7 +1,6 @@
 import type { ChatAction, ChatDisclosureBucket, ChatDisclosureUiState } from "../../application/state/root-reducer";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
-import { type ForkCandidate, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
+import { messageStreamSegmentsEmpty, type ForkCandidate, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
 import type { ChatPanelMessageStreamShellState } from "../shell-state";
@@ -142,7 +141,7 @@ function messageStreamStateProjection(
     state.forkCandidates,
     state.implementPlanTarget,
   );
-  const pendingRequests = messageStreamBlockItemsEmpty(state.stableItems, state.activeItems) ? null : pendingRequestBlockFromState(state);
+  const pendingRequests = messageStreamSegmentsEmpty(state.stableItems, state.activeItems) ? null : pendingRequestBlockFromState(state);
 
   return {
     activeThreadId: state.activeThreadId,
@@ -207,8 +206,4 @@ function pendingRequestBlockFromState(
     signature,
     snapshot: pendingRequestBlockSnapshotFromState(pendingRequestBlockStateFromChatState(state)),
   };
-}
-
-function messageStreamBlockItemsEmpty(stableItems: readonly MessageStreamItem[], activeItems: readonly MessageStreamItem[]): boolean {
-  return stableItems.length === 0 && activeItems.length === 0;
 }

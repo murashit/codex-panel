@@ -4,10 +4,10 @@ import {
   type RuntimeServiceTierRequest,
   type RuntimeSettingsPatch,
 } from "../../../../domain/runtime/thread-settings";
-import { currentModel, currentReasoningEffort, fastRuntimeServiceTierRequestValue } from "../../domain/runtime/effective";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import { currentModel, currentReasoningEffort, fastRuntimeServiceTierRequestValue } from "../../domain/runtime/effective";
 import { effectiveCollaborationMode, type PendingRuntimeIntent } from "../../domain/runtime/intent";
+import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 
 type TurnCollaborationModeWarning = "missing-model";
 
@@ -32,16 +32,6 @@ export interface PendingRuntimeSettingsPatch {
 
 export function serviceTierRequestForThreadStart(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimeServiceTierRequest {
   return runtimeSettingsPatchValue(serviceTierTransportIntent(snapshot, config, "thread-start"));
-}
-
-function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): TurnCollaborationModeSettings {
-  const model = currentModel(snapshot, config);
-  const effort = currentReasoningEffort(snapshot, config);
-  if (!model) return { collaborationMode: null, warning: "missing-model" };
-  return {
-    collaborationMode: runtimeCollaborationModeSettings(snapshot.selectedCollaborationMode, model, effort),
-    warning: null,
-  };
 }
 
 export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): PendingRuntimeSettingsPatch {
@@ -77,6 +67,16 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
     applyRuntimeSettingsPatchValue(update, "collaborationMode", runtimeCollaborationModeSettings.collaborationMode);
   }
   return { update, collaborationModeWarning: null };
+}
+
+function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): TurnCollaborationModeSettings {
+  const model = currentModel(snapshot, config);
+  const effort = currentReasoningEffort(snapshot, config);
+  if (!model) return { collaborationMode: null, warning: "missing-model" };
+  return {
+    collaborationMode: runtimeCollaborationModeSettings(snapshot.selectedCollaborationMode, model, effort),
+    warning: null,
+  };
 }
 
 function runtimeTransportIntentFromPending<T>(intent: PendingRuntimeIntent<T>): RuntimeTransportIntent<T> {

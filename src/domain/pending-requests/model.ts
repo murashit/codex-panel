@@ -147,6 +147,15 @@ export function approvalActionKind(action: ApprovalAction): "accept" | "accept-s
   return typeof action === "object" ? action.intent : action;
 }
 
+export function defaultPendingApprovalOptions(): PendingApprovalOption[] {
+  return [
+    { id: "accept", label: "Allow", action: "accept", intent: "accept" },
+    { id: "accept-session", label: "Allow session", action: "accept-session", intent: "accept-session" },
+    { id: "decline", label: "Deny", action: "decline", intent: "decline" },
+    { id: "cancel", label: "Cancel", action: "cancel", intent: "cancel" },
+  ];
+}
+
 export function questionDefaultAnswer(question: PendingUserInputQuestion): string {
   return question.options?.[0]?.label ?? "";
 }

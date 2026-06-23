@@ -1,5 +1,6 @@
 import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics/types";
 import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../../domain/message-stream/items";
+import { messageStreamItemsEmpty } from "../../domain/message-stream/selectors";
 import { activeTurnLiveItems, messageStreamItemsWithoutActiveTaskProgress } from "../../domain/message-stream/semantics/active-turn";
 import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type MessageStreamLayoutBlock } from "./layout";
 import { detailView, type DetailView } from "./detail-view";
@@ -132,7 +133,7 @@ export function messageStreamViewBlocks(input: MessageStreamPresentationBlockInp
 
 function messageStreamPresentationBlocks(input: MessageStreamPresentationBlockInput): MessageStreamPresentationBlock[] {
   const headerBlocks = historyPresentationBlocks(input);
-  if (messageStreamBlockItemsEmpty(input)) {
+  if (messageStreamItemsEmpty(input)) {
     return [...headerBlocks, { kind: "empty", key: "empty" }];
   }
 
@@ -178,11 +179,6 @@ function pendingRequestPresentationBlocks(input: MessageStreamPresentationBlockI
       snapshot: input.pendingRequests.snapshot,
     },
   ];
-}
-
-function messageStreamBlockItemsEmpty(input: MessageStreamPresentationBlockInput): boolean {
-  if (!input.stableItems && !input.activeItems) return input.items.length === 0;
-  return (input.stableItems?.length ?? 0) === 0 && (input.activeItems?.length ?? 0) === 0;
 }
 
 function layoutBlocksForInput(input: MessageStreamPresentationBlockInput): MessageStreamLayoutBlock[] {

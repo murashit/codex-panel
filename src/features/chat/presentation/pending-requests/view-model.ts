@@ -1,5 +1,6 @@
 import {
   approvalActionKind,
+  defaultPendingApprovalOptions,
   type ApprovalAction,
   type PendingApproval,
   type PendingMcpElicitation,
@@ -136,13 +137,16 @@ function pendingApprovalViewModel(approval: PendingApproval): PendingApprovalVie
 
 function approvalActionOptions(approval: PendingApproval): ApprovalActionOption[] {
   const options = approval.actionOptions;
-  if (!options || options.length === 0) return defaultApprovalActionOptions();
-  return options.map((option) => ({
+  return (options && options.length > 0 ? options : defaultPendingApprovalOptions()).map(approvalActionOptionViewModel);
+}
+
+function approvalActionOptionViewModel(option: { id: string; label: string; action: ApprovalAction }): ApprovalActionOption {
+  return {
     id: option.id,
     label: option.label,
     action: option.action,
     className: approvalActionClassName(option.action),
-  }));
+  };
 }
 
 function pendingUserInputViewModel(input: PendingUserInput): PendingUserInputViewModel {
@@ -162,15 +166,6 @@ function pendingUserInputViewModel(input: PendingUserInput): PendingUserInputVie
       options: question.options,
     })),
   };
-}
-
-function defaultApprovalActionOptions(): ApprovalActionOption[] {
-  return [
-    { id: "accept", label: "Allow", action: "accept", className: "mod-cta" },
-    { id: "accept-session", label: "Allow session", action: "accept-session", className: "" },
-    { id: "decline", label: "Deny", action: "decline", className: "mod-warning" },
-    { id: "cancel", label: "Cancel", action: "cancel", className: "" },
-  ];
 }
 
 function approvalActionClassName(action: ApprovalAction): string {

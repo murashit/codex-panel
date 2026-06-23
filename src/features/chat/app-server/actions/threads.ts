@@ -3,7 +3,7 @@ import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
-import { serviceTierRequestForThreadStart } from "../../application/runtime/thread-settings-update";
+import { serviceTierRequestForThreadStart } from "../runtime/thread-settings-update";
 import { resumedThreadAction } from "../../application/state/actions";
 import { captureChatServerActionClientScope, type ChatServerActionHost } from "./host";
 import type { ChatState } from "../../application/state/root-reducer";

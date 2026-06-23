@@ -7,7 +7,7 @@ import { autoReviewActive, fastModeActive, runtimeConfigOrDefault } from "../../
 import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
-} from "./thread-settings-update";
+} from "../../app-server/runtime/thread-settings-update";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { nextCollaborationMode, type CollaborationModeSelection, type RequestedFastMode } from "../../domain/runtime/intent";
 import type { ChatAction, ChatState } from "../state/root-reducer";

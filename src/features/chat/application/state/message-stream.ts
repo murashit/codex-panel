@@ -1,4 +1,4 @@
-import { upsertMessageStreamItemById } from "../../domain/message-stream/updates";
+import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/updates";
 import type { MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
 import { normalizeProposedPlanMarkdown } from "../../domain/message-stream/format/proposed-plan";
 import { messageStreamSemanticClassifications } from "../../domain/message-stream/semantics/classify";
@@ -402,42 +402,21 @@ function appendItemOutputToMessageStream(
 }
 
 function completeReasoningInMessageStream(state: ChatMessageStreamState, turnId: string): ChatMessageStreamState {
-  const stableUpdate = completedReasoningItems(state.stableItems, turnId);
+  const stableItems = completeReasoningItems(state.stableItems, turnId);
   const activeSegment = state.activeSegment;
 
   if (activeSegment?.turnId !== turnId) {
-    return stableUpdate.changed ? patchObject(state, { stableItems: stableUpdate.items }) : state;
+    return stableItems !== state.stableItems ? patchObject(state, { stableItems }) : state;
   }
 
-  const activeUpdate = completedReasoningItems(activeSegment.items, turnId);
+  const activeItems = completeReasoningItems(activeSegment.items, turnId);
 
-  return stableUpdate.changed || activeUpdate.changed
+  return stableItems !== state.stableItems || activeItems !== activeSegment.items
     ? patchObject(state, {
-        stableItems: stableUpdate.items,
-        activeSegment: activeUpdate.changed ? activeSegmentFromItems(activeSegment.turnId, activeUpdate.items) : activeSegment,
+        stableItems,
+        activeSegment: activeItems !== activeSegment.items ? activeSegmentFromItems(activeSegment.turnId, activeItems) : activeSegment,
       })
     : state;
-}
-
-function completedReasoningItems(
-  items: readonly MessageStreamItem[],
-  turnId: string,
-): { items: readonly MessageStreamItem[]; changed: boolean } {
-  let changed = false;
-  const nextItems: MessageStreamItem[] = [];
-  for (const item of items) {
-    if (item.kind !== "reasoning" || item.turnId !== turnId) {
-      nextItems.push(item);
-    } else {
-      changed = true;
-      nextItems.push({
-        ...item,
-        status: "completed",
-        executionState: "completed",
-      } satisfies MessageStreamItem);
-    }
-  }
-  return { items: changed ? nextItems : items, changed };
 }
 
 function updateActiveSegment(
