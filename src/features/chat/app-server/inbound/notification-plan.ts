@@ -214,13 +214,17 @@ const STREAM_UPDATE_PLANNERS = {
 } satisfies ServerNotificationStatePlannerMap<StreamUpdateNotificationMethod>;
 
 const TURN_LIFECYCLE_PLANNERS = {
-  "turn/started": (state, notification) =>
-    actionPlan({
-      type: "turn/started",
-      threadId: notification.params.threadId,
-      turnId: notification.params.turn.id,
-      items: messageStreamItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
-    }),
+  "turn/started": (state, notification) => ({
+    actions: [
+      {
+        type: "turn/started",
+        threadId: notification.params.threadId,
+        turnId: notification.params.turn.id,
+        items: messageStreamItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
+      },
+    ],
+    effects: [{ type: "refresh-threads" }],
+  }),
   "turn/completed": (state, notification) => {
     if (activeTurnId(state) !== notification.params.turn.id) return EMPTY_PLAN;
     return {
