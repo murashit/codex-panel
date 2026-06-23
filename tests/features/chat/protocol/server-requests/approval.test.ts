@@ -5,12 +5,25 @@ import {
   appServerApprovalResponse as approvalResponse,
 } from "../../../../../src/app-server/protocol/server-requests";
 import { createApprovalResultItem } from "../../../../../src/features/chat/domain/pending-requests/result-items";
-import { approvalActionOptions } from "../../../../../src/features/chat/presentation/pending-requests/approval-view";
+import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
+}
+
+function approvalActionOptions(approval: NonNullable<ReturnType<typeof toPendingApproval>>) {
+  return expectPresent(
+    pendingRequestBlockSnapshotFromState({
+      approvals: [approval],
+      pendingUserInputs: [],
+      pendingMcpElicitations: [],
+      userInputDrafts: new Map(),
+      mcpElicitationDrafts: new Map(),
+      approvalDetails: new Set(),
+    }).approvals[0],
+  ).actions;
 }
 
 describe("approval model", () => {

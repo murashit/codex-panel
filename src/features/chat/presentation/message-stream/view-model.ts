@@ -5,7 +5,7 @@ import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type Mess
 import { detailView, type DetailView } from "./detail-view";
 import { messageStreamTextView, type MessageStreamTextActionTargets, type MessageStreamTextView } from "./text-view";
 import { agentRunSummaryView, messageStreamStatusView, type AgentRunSummaryView, type MessageStreamStatusView } from "./status-view";
-import type { PendingRequestBlockSnapshot } from "../pending-requests/snapshot";
+import type { PendingRequestBlockSnapshot } from "../pending-requests/view-model";
 
 interface PendingRequestMessageStreamBlockInput {
   signature: string;

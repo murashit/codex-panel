@@ -1,5 +1,6 @@
-import { approvalActionOptions, type ApprovalActionOption } from "./approval-view";
 import {
+  approvalActionKind,
+  type ApprovalAction,
   type PendingApproval,
   type PendingMcpElicitation,
   type PendingMcpElicitationField,
@@ -13,6 +14,13 @@ import {
 } from "../../../../domain/pending-requests/model";
 
 type PendingRequestId = DomainPendingRequestId;
+
+interface ApprovalActionOption {
+  id: string;
+  label: string;
+  action: ApprovalAction;
+  className: string;
+}
 
 type PendingRequestApprovalOption = ApprovalActionOption;
 
@@ -87,7 +95,36 @@ export interface PendingMcpElicitationViewModel {
   url: string | null;
 }
 
-export function pendingApprovalViewModel(approval: PendingApproval): PendingApprovalViewModel {
+export interface PendingRequestBlockSnapshot {
+  approvals: readonly PendingApprovalViewModel[];
+  pendingUserInputs: readonly PendingUserInputViewModel[];
+  pendingMcpElicitations: readonly PendingMcpElicitationViewModel[];
+  userInputDrafts: ReadonlyMap<string, string>;
+  mcpElicitationDrafts: ReadonlyMap<string, string>;
+  approvalDetails: ReadonlySet<string>;
+}
+
+interface PendingRequestBlockSnapshotSource {
+  approvals: readonly PendingApproval[];
+  pendingUserInputs: readonly PendingUserInput[];
+  pendingMcpElicitations: readonly PendingMcpElicitation[];
+  userInputDrafts: ReadonlyMap<string, string>;
+  mcpElicitationDrafts: ReadonlyMap<string, string>;
+  approvalDetails: ReadonlySet<string>;
+}
+
+export function pendingRequestBlockSnapshotFromState(source: PendingRequestBlockSnapshotSource): PendingRequestBlockSnapshot {
+  return {
+    approvals: source.approvals.map(pendingApprovalViewModel),
+    pendingUserInputs: source.pendingUserInputs.map(pendingUserInputViewModel),
+    pendingMcpElicitations: source.pendingMcpElicitations.map(pendingMcpElicitationViewModel),
+    userInputDrafts: source.userInputDrafts,
+    mcpElicitationDrafts: source.mcpElicitationDrafts,
+    approvalDetails: source.approvalDetails,
+  };
+}
+
+function pendingApprovalViewModel(approval: PendingApproval): PendingApprovalViewModel {
   return {
     requestId: approval.requestId,
     title: approval.title,
@@ -97,7 +134,18 @@ export function pendingApprovalViewModel(approval: PendingApproval): PendingAppr
   };
 }
 
-export function pendingUserInputViewModel(input: PendingUserInput): PendingUserInputViewModel {
+function approvalActionOptions(approval: PendingApproval): ApprovalActionOption[] {
+  const options = approval.actionOptions;
+  if (!options || options.length === 0) return defaultApprovalActionOptions();
+  return options.map((option) => ({
+    id: option.id,
+    label: option.label,
+    action: option.action,
+    className: approvalActionClassName(option.action),
+  }));
+}
+
+function pendingUserInputViewModel(input: PendingUserInput): PendingUserInputViewModel {
   return {
     requestId: input.requestId,
     title: "Codex needs input",
@@ -116,7 +164,23 @@ export function pendingUserInputViewModel(input: PendingUserInput): PendingUserI
   };
 }
 
-export function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): PendingMcpElicitationViewModel {
+function defaultApprovalActionOptions(): ApprovalActionOption[] {
+  return [
+    { id: "accept", label: "Allow", action: "accept", className: "mod-cta" },
+    { id: "accept-session", label: "Allow session", action: "accept-session", className: "" },
+    { id: "decline", label: "Deny", action: "decline", className: "mod-warning" },
+    { id: "cancel", label: "Cancel", action: "cancel", className: "" },
+  ];
+}
+
+function approvalActionClassName(action: ApprovalAction): string {
+  const kind = approvalActionKind(action);
+  if (kind === "accept") return "mod-cta";
+  if (kind === "decline") return "mod-warning";
+  return "";
+}
+
+function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): PendingMcpElicitationViewModel {
   const title = `MCP request from ${elicitation.params.serverName}`;
   if (elicitation.params.mode === "url") {
     return {

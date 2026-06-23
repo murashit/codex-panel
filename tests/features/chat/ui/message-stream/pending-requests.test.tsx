@@ -2,10 +2,9 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { PendingRequestBlockSnapshot } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
 import {
-  pendingApprovalViewModel,
-  pendingMcpElicitationViewModel,
+  pendingRequestBlockSnapshotFromState,
+  type PendingRequestBlockSnapshot,
 } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
 import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../../src/domain/pending-requests/model";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
@@ -533,7 +532,7 @@ describe("pending request renderer decisions", () => {
         pendingRequests: pendingRequestContext({
           signature: "mcp:51",
           snapshot: emptyPendingRequestBlockSnapshot({
-            pendingMcpElicitations: [pendingMcpElicitationViewModel(pendingMcpElicitation())],
+            pendingMcpElicitations: [pendingMcpElicitationSnapshot(pendingMcpElicitation())],
           }),
           actions: pendingRequestActions({ resolveMcpElicitation, setMcpElicitationDraft }),
         }),
@@ -572,7 +571,7 @@ describe("pending request renderer decisions", () => {
         pendingRequests: pendingRequestContext({
           signature: "mcp:52",
           snapshot: emptyPendingRequestBlockSnapshot({
-            pendingMcpElicitations: [pendingMcpElicitation({ requestId: 52, defaultValue: "" })].map(pendingMcpElicitationViewModel),
+            pendingMcpElicitations: [pendingMcpElicitationSnapshot(pendingMcpElicitation({ requestId: 52, defaultValue: "" }))],
           }),
           actions: pendingRequestActions({ resolveMcpElicitation }),
         }),
@@ -673,7 +672,7 @@ describe("pending request renderer decisions", () => {
           renderMarkdown: (element, text) => element.createDiv({ text }),
           pendingRequests: pendingRequestContext({
             signature: "approval:1",
-            snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApprovalViewModel(pendingApproval())] }),
+            snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApprovalSnapshot(pendingApproval())] }),
             consumeAutoFocus,
           }),
         }),
@@ -735,7 +734,7 @@ describe("pending request renderer decisions", () => {
         ...baseContext,
         pendingRequests: pendingRequestContext({
           signature: "request:1",
-          snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApprovalViewModel(pendingApproval())] }),
+          snapshot: emptyPendingRequestBlockSnapshot({ approvals: [pendingApprovalSnapshot(pendingApproval())] }),
         }),
       }),
     );
@@ -811,8 +810,34 @@ function pendingMcpElicitation({
   };
 }
 
-function pendingMcpMultiSelectElicitation(): ReturnType<typeof pendingMcpElicitationViewModel> {
-  return pendingMcpElicitationViewModel({
+function pendingApprovalSnapshot(approval: PendingApproval): PendingRequestBlockSnapshot["approvals"][number] {
+  return expectPresent(
+    pendingRequestBlockSnapshotFromState({
+      approvals: [approval],
+      pendingUserInputs: [],
+      pendingMcpElicitations: [],
+      userInputDrafts: new Map(),
+      mcpElicitationDrafts: new Map(),
+      approvalDetails: new Set(),
+    }).approvals[0],
+  );
+}
+
+function pendingMcpElicitationSnapshot(elicitation: PendingMcpElicitation): PendingRequestBlockSnapshot["pendingMcpElicitations"][number] {
+  return expectPresent(
+    pendingRequestBlockSnapshotFromState({
+      approvals: [],
+      pendingUserInputs: [],
+      pendingMcpElicitations: [elicitation],
+      userInputDrafts: new Map(),
+      mcpElicitationDrafts: new Map(),
+      approvalDetails: new Set(),
+    }).pendingMcpElicitations[0],
+  );
+}
+
+function pendingMcpMultiSelectElicitation(): PendingRequestBlockSnapshot["pendingMcpElicitations"][number] {
+  return pendingMcpElicitationSnapshot({
     requestId: 53,
     params: {
       threadId: "thread",

@@ -3,7 +3,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 
 import type { PendingApproval, PendingUserInput } from "../../../../../src/domain/pending-requests/model";
-import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/snapshot";
+import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
 import type {
   MessageStreamContext,

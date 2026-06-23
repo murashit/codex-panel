@@ -5,7 +5,7 @@ import { type ForkCandidate, type PlanImplementationTarget } from "../../domain/
 import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";
 import type { MessageStreamContext } from "../../ui/message-stream/context";
 import type { ChatPanelMessageStreamShellState } from "../shell-state";
-import { pendingRequestBlockSnapshotFromState, type PendingRequestBlockSnapshot } from "../../presentation/pending-requests/snapshot";
+import { pendingRequestBlockSnapshotFromState, type PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
 import { pendingRequestBlockStateFromChatState, type PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import type { MessageStreamTextActionTargets } from "../../presentation/message-stream/text-view";
