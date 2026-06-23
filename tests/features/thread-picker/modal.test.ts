@@ -18,11 +18,14 @@ describe("threadPickerSuggestions", () => {
     expect(suggestions.map((item) => item.thread.id)).toEqual(["alpha-thread", "thread-beta", "thread-alpha"]);
   });
 
-  it("uses updated time for empty queries", async () => {
-    const modal = await openedThreadPicker([thread({ id: "older", updatedAt: 10 }), thread({ id: "newer", updatedAt: 20 })]);
+  it("uses recency time for empty queries", async () => {
+    const modal = await openedThreadPicker([
+      thread({ id: "updated-newer", updatedAt: 20, recencyAt: 10 }),
+      thread({ id: "recent", updatedAt: 10, recencyAt: 30 }),
+    ]);
     const suggestions = modal.getSuggestions("");
 
-    expect(suggestions.map((item) => item.thread.id)).toEqual(["newer", "older"]);
+    expect(suggestions.map((item) => item.thread.id)).toEqual(["recent", "updated-newer"]);
   });
 
   it("returns every matching thread", async () => {
@@ -128,6 +131,7 @@ function thread(options: Partial<Thread> & { id: string }): Thread {
     preview: options.preview ?? options.id,
     createdAt: options.createdAt ?? 1,
     updatedAt: options.updatedAt ?? 1,
+    ...(options.recencyAt === undefined ? {} : { recencyAt: options.recencyAt }),
     name: options.name ?? null,
     archived: false,
   };

@@ -5,6 +5,7 @@ export interface Thread {
   readonly archived: boolean;
   readonly createdAt: number;
   readonly updatedAt: number;
+  readonly recencyAt?: number | null;
 }
 
 export function explicitThreadName(thread: Thread): string | null {
@@ -25,6 +26,10 @@ export function upsertThread(threads: readonly Thread[], thread: Thread): Thread
   const index = threads.findIndex((item) => item.id === thread.id);
   if (index === -1) return [thread, ...threads];
   return threads.map((item, itemIndex) => (itemIndex === index ? { ...item, ...thread } : item));
+}
+
+export function threadRecencyAt(thread: Thread): number {
+  return thread.recencyAt ?? thread.updatedAt;
 }
 
 function normalizeTitle(value: string): string {

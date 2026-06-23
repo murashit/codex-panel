@@ -79,6 +79,16 @@ describe("threads view rename state", () => {
     expect(threadRows([thread({ name: null, preview: "" })], [], new Map())[0]?.rename.draft).toBe("");
   });
 
+  it("orders rows by thread recency when available", () => {
+    const rows = threadRows(
+      [thread({ id: "updated-newer", updatedAt: 20, recencyAt: 10 }), thread({ id: "recent", updatedAt: 10, recencyAt: 30 })],
+      [],
+      new Map(),
+    );
+
+    expect(rows.map((row) => row.threadId)).toEqual(["recent", "updated-newer"]);
+  });
+
   it("treats pending MCP elicitations as pending live state", () => {
     const rows = threadRows([thread()], [openPanelSnapshot({ pendingMcpElicitations: 1 })], new Map());
 

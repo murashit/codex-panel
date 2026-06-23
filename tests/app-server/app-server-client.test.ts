@@ -994,7 +994,7 @@ describe("AppServerClient", () => {
     await expectRequest(
       transport,
       client.listThreads("/vault", { archived: true }),
-      { method: "thread/list", params: { cwd: "/vault", archived: true, sortKey: "updated_at", sortDirection: "desc" } },
+      { method: "thread/list", params: { cwd: "/vault", archived: true, sortKey: "recency_at", sortDirection: "desc" } },
       { data: [], nextCursor: null },
     );
     await expectRequest(
@@ -1002,7 +1002,7 @@ describe("AppServerClient", () => {
       client.listThreads("/vault", { archived: false, cursor: "cursor-1", limit: 100 }),
       {
         method: "thread/list",
-        params: { cwd: "/vault", cursor: "cursor-1", limit: 100, archived: false, sortKey: "updated_at", sortDirection: "desc" },
+        params: { cwd: "/vault", cursor: "cursor-1", limit: 100, archived: false, sortKey: "recency_at", sortDirection: "desc" },
       },
       { data: [], nextCursor: null },
     );

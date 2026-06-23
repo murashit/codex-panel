@@ -1,6 +1,6 @@
 import { Notice, Platform, SuggestModal, type App } from "obsidian";
 
-import type { Thread } from "../../domain/threads/model";
+import { threadRecencyAt, type Thread } from "../../domain/threads/model";
 import { threadDisplayTitle } from "../../domain/threads/title";
 import { shortThreadId } from "../../utils";
 import type { ThreadCatalogActiveReader } from "../../workspace/thread-catalog";
@@ -37,7 +37,7 @@ export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
 function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {
   const query = queryText.trim().toLowerCase();
   return [...threads]
-    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .sort((a, b) => threadRecencyAt(b) - threadRecencyAt(a))
     .map((thread, index) => {
       const title = threadDisplayTitle(thread);
       const id = thread.id.toLowerCase();
@@ -58,7 +58,7 @@ function threadPickerSuggestions(threads: readonly Thread[], queryText: string):
       return { thread, title, score, index };
     })
     .filter((item) => item.score !== -1)
-    .sort((a, b) => a.score - b.score || b.thread.updatedAt - a.thread.updatedAt || a.index - b.index)
+    .sort((a, b) => a.score - b.score || threadRecencyAt(b.thread) - threadRecencyAt(a.thread) || a.index - b.index)
     .map(({ thread, title }) => ({
       thread,
       title,

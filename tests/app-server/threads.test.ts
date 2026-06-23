@@ -18,6 +18,30 @@ describe("app-server thread data adapters", () => {
     expect(clientListThreads).toHaveBeenCalledWith("/vault", { archived: true, cursor: null, limit: 100 });
   });
 
+  it("preserves app-server recency timestamps when available", async () => {
+    const client = {
+      listThreads: vi.fn().mockResolvedValue({
+        data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20, recencyAt: 30 }],
+      }),
+    } as unknown as AppServerClient;
+
+    await expect(listThreads(client, "/vault")).resolves.toEqual([
+      { id: "thread-1", preview: "Preview", name: null, archived: false, createdAt: 10, updatedAt: 20, recencyAt: 30 },
+    ]);
+  });
+
+  it("preserves nullable app-server recency timestamps", async () => {
+    const client = {
+      listThreads: vi.fn().mockResolvedValue({
+        data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20, recencyAt: null }],
+      }),
+    } as unknown as AppServerClient;
+
+    await expect(listThreads(client, "/vault")).resolves.toEqual([
+      { id: "thread-1", preview: "Preview", name: null, archived: false, createdAt: 10, updatedAt: 20, recencyAt: null },
+    ]);
+  });
+
   it("follows thread list pagination until the final page", async () => {
     const clientListThreads = vi
       .fn()

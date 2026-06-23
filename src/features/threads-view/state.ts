@@ -1,4 +1,4 @@
-import type { Thread } from "../../domain/threads/model";
+import { threadRecencyAt, type Thread } from "../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import { hasPendingRequests, pendingRequestCounts } from "../../domain/pending-requests/aggregate";
 import { threadRowCoreProjection, type ThreadRowCoreProjection } from "../threads/row-projection";
@@ -47,7 +47,7 @@ export function threadRows(
 ): ThreadsRowModel[] {
   const snapshotsByThread = snapshotsForThreads(snapshots);
   return [...threads]
-    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .sort((a, b) => threadRecencyAt(b) - threadRecencyAt(a))
     .map((thread) => {
       const threadSnapshots = snapshotsByThread.get(thread.id) ?? [];
       const live = liveStateForSnapshots(threadSnapshots);

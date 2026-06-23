@@ -6,6 +6,7 @@ export interface ThreadRecord {
   name: string | null;
   createdAt: number;
   updatedAt: number;
+  recencyAt?: number | null;
   [key: string]: unknown;
 }
 
@@ -17,6 +18,7 @@ export function threadFromThreadRecord(thread: ThreadRecord, options: { archived
     archived: options.archived ?? false,
     createdAt: finiteTimestamp(thread.createdAt),
     updatedAt: finiteTimestamp(thread.updatedAt),
+    ...recencyAtPatch(thread),
   };
 }
 
@@ -34,4 +36,10 @@ function normalizeString(value: string): string {
 
 function finiteTimestamp(value: number): number {
   return Number.isFinite(value) ? value : 0;
+}
+
+function recencyAtPatch(thread: ThreadRecord): { recencyAt: number | null } | Record<string, never> {
+  if (!Object.prototype.hasOwnProperty.call(thread, "recencyAt")) return {};
+  const value = thread.recencyAt;
+  return { recencyAt: typeof value === "number" && Number.isFinite(value) ? value : null };
 }

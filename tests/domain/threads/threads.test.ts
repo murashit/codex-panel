@@ -4,6 +4,7 @@ import {
   explicitThreadName,
   inheritedForkThreadName,
   normalizeExplicitThreadName,
+  threadRecencyAt,
   upsertThread,
   type Thread,
 } from "../../../src/domain/threads/model";
@@ -84,6 +85,15 @@ describe("thread helpers", () => {
 
     expect(upsertThread([first, second], updated)).toEqual([{ ...first, ...updated }, second]);
     expect(upsertThread([second], first)).toEqual([first, second]);
+  });
+
+  it("uses recency timestamps when present and clears them when app-server sends null", () => {
+    const recent = thread({ updatedAt: 10, recencyAt: 30 });
+    const cleared = thread({ updatedAt: 20, recencyAt: null });
+
+    expect(threadRecencyAt(recent)).toBe(30);
+    expect(threadRecencyAt(cleared)).toBe(20);
+    expect(upsertThread([recent], cleared)[0]?.recencyAt).toBeNull();
   });
 });
 

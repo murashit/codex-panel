@@ -356,7 +356,7 @@ export class AppServerClient {
       ...(options.cursor ? { cursor: options.cursor } : {}),
       ...(options.limit === undefined ? {} : { limit: options.limit }),
       archived: options.archived ?? false,
-      sortKey: "updated_at",
+      sortKey: "recency_at",
       sortDirection: "desc",
     });
   }
