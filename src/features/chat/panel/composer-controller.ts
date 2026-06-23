@@ -187,6 +187,7 @@ export class ChatComposerController {
       state.threadList.listedThreads,
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
+      { activeThreadId: state.activeThread.id },
     );
 
     this.dispatchSuggestions({
@@ -227,6 +228,7 @@ export class ChatComposerController {
       state.threadList.listedThreads,
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
+      { activeThreadId: state.activeThread.id },
     );
     return {
       suggestions,

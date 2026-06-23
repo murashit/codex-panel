@@ -288,6 +288,52 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/rename 019abcde-0000-7000-8000-000000000001 New name", notes, [], threads)).toEqual([]);
   });
 
+  it("prioritizes the active thread for empty archive and rename completions", () => {
+    const threads = [
+      thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Latest thread" }),
+      thread({ id: "019abcde-0000-7000-8000-000000000002", name: "Current panel thread" }),
+      thread({ id: "019abcde-0000-7000-8000-000000000003", name: "Older thread" }),
+    ];
+
+    expect(
+      activeComposerSuggestions("/archive ", notes, [], threads, [], null, { activeThreadId: "019abcde-0000-7000-8000-000000000002" }).map(
+        (suggestion) => suggestion.replacement,
+      ),
+    ).toEqual(["019abcde-0000-7000-8000-000000000002", "019abcde-0000-7000-8000-000000000001", "019abcde-0000-7000-8000-000000000003"]);
+    expect(
+      activeComposerSuggestions("/rename ", notes, [], threads, [], null, { activeThreadId: "019abcde-0000-7000-8000-000000000002" })[0]
+        ?.replacement,
+    ).toBe("019abcde-0000-7000-8000-000000000002");
+    expect(
+      activeComposerSuggestions("/archive ", notes, [], threads, [], null, { activeThreadId: null }).map((item) => item.replacement),
+    ).toEqual(["019abcde-0000-7000-8000-000000000001", "019abcde-0000-7000-8000-000000000002", "019abcde-0000-7000-8000-000000000003"]);
+    expect(
+      activeComposerSuggestions("/archive latest", notes, [], threads, [], null, {
+        activeThreadId: "019abcde-0000-7000-8000-000000000002",
+      })[0]?.replacement,
+    ).toBe("019abcde-0000-7000-8000-000000000001");
+  });
+
+  it("omits the active thread from resume and refer completions", () => {
+    const threads = [
+      thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Latest thread" }),
+      thread({ id: "019abcde-0000-7000-8000-000000000002", name: "Current panel thread" }),
+      thread({ id: "019abcde-0000-7000-8000-000000000003", name: "Older thread" }),
+    ];
+    const activeThreadId = "019abcde-0000-7000-8000-000000000002";
+
+    expect(activeComposerSuggestions("/resume ", notes, [], threads, [], null, { activeThreadId }).map((item) => item.replacement)).toEqual(
+      ["019abcde-0000-7000-8000-000000000001", "019abcde-0000-7000-8000-000000000003"],
+    );
+    expect(activeComposerSuggestions("/refer current", notes, [], threads, [], null, { activeThreadId })).toEqual([]);
+    expect(activeComposerSuggestions("/archive current", notes, [], threads, [], null, { activeThreadId })[0]?.replacement).toBe(
+      activeThreadId,
+    );
+    expect(activeComposerSuggestions("/rename current", notes, [], threads, [], null, { activeThreadId })[0]?.replacement).toBe(
+      activeThreadId,
+    );
+  });
+
   it("does not suggest threads for /fork arguments", () => {
     const suggestions = activeComposerSuggestions(
       "/fork codex",

@@ -17,6 +17,10 @@ export interface ComposerSuggestion {
   suffixOnInsert?: string;
 }
 
+export interface ComposerSuggestionOptions {
+  activeThreadId?: string | null;
+}
+
 export interface NoteCandidate {
   basename: string;
   displayName: string;
@@ -41,6 +45,36 @@ interface NoteCandidateMatch {
   path: string;
 }
 
+const THREAD_SUGGESTION_COMMANDS = ["resume", "refer", "archive", "rename"] as const;
+
+type ThreadSuggestionCommand = (typeof THREAD_SUGGESTION_COMMANDS)[number];
+
+interface ThreadCommandSuggestionPolicy {
+  excludeActiveThread: boolean;
+  prioritizeActiveThreadForEmptyQuery: boolean;
+}
+
+const THREAD_COMMAND_SUGGESTION_POLICIES: Record<ThreadSuggestionCommand, ThreadCommandSuggestionPolicy> = {
+  resume: {
+    excludeActiveThread: true,
+    prioritizeActiveThreadForEmptyQuery: false,
+  },
+  refer: {
+    excludeActiveThread: true,
+    prioritizeActiveThreadForEmptyQuery: false,
+  },
+  archive: {
+    excludeActiveThread: false,
+    prioritizeActiveThreadForEmptyQuery: true,
+  },
+  rename: {
+    excludeActiveThread: false,
+    prioritizeActiveThreadForEmptyQuery: true,
+  },
+};
+
+const THREAD_SUGGESTION_COMMAND_PATTERN = new RegExp(`^/(${THREAD_SUGGESTION_COMMANDS.join("|")})\\s+([^\\s\\n]{0,120})$`);
+
 export function parseSlashCommand(text: string): { command: SlashCommandName; args: string } | null {
   const match = /^\/([A-Za-z-]+)(?:\s+([\s\S]*))?$/.exec(text);
   if (!match) return null;
@@ -56,11 +90,12 @@ export function activeComposerSuggestions(
   threads: readonly Thread[] = [],
   models: readonly ModelMetadata[] = [],
   currentModel: string | null = null,
+  options: ComposerSuggestionOptions = {},
 ): ComposerSuggestion[] {
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
     activeSlashSubcommandSuggestions(beforeCursor) ??
-    activeThreadCommandSuggestions(beforeCursor, threads) ??
+    activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
     activeModelOverrideSuggestions(beforeCursor, models) ??
     activeReasoningEffortSuggestions(beforeCursor, models, currentModel) ??
     activeSlashCommandSuggestions(beforeCursor) ??
@@ -269,22 +304,29 @@ function activeSlashSubcommandSuggestions(beforeCursor: string): ComposerSuggest
     }));
 }
 
-function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly Thread[]): ComposerSuggestion[] | null {
-  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/(?:resume|refer|archive|rename)\s+([^\s\n]{0,120})$/);
+function activeThreadCommandSuggestions(
+  beforeCursor: string,
+  threads: readonly Thread[],
+  activeThreadId: string | null,
+): ComposerSuggestion[] | null {
+  const completion = activeThreadCommandCompletionQuery(beforeCursor);
   if (!completion) return null;
 
-  const { query, start } = completion;
+  const { command, query, start } = completion;
+  const policy = THREAD_COMMAND_SUGGESTION_POLICIES[command];
   if (threads.some((thread) => thread.id.toLowerCase() === query)) return null;
   return threads
+    .filter((thread) => !shouldExcludeActiveThreadSuggestion(policy, thread.id, activeThreadId))
     .map((thread, index) => {
       const title = threadDisplayTitle(thread);
       const id = thread.id.toLowerCase();
       const normalizedTitle = title.toLowerCase();
       const score = query.length === 0 ? 2 : id.startsWith(query) ? 0 : normalizedTitle.includes(query) ? 1 : id.includes(query) ? 2 : -1;
-      return { thread, title, score, index };
+      const activePriority = activeThreadSuggestionPriority(policy, query, thread.id, activeThreadId);
+      return { thread, title, score, activePriority, index };
     })
     .filter((item) => item.score !== -1)
-    .sort((a, b) => a.score - b.score || a.index - b.index || a.title.localeCompare(b.title))
+    .sort((a, b) => a.activePriority - b.activePriority || a.score - b.score || a.index - b.index || a.title.localeCompare(b.title))
     .slice(0, 8)
     .map(({ thread, title }) => ({
       display: title,
@@ -293,6 +335,41 @@ function activeThreadCommandSuggestions(beforeCursor: string, threads: readonly 
       start,
       appendSpaceOnInsert: true,
     }));
+}
+
+function shouldExcludeActiveThreadSuggestion(
+  policy: ThreadCommandSuggestionPolicy,
+  threadId: string,
+  activeThreadId: string | null,
+): boolean {
+  return policy.excludeActiveThread && activeThreadId !== null && threadId === activeThreadId;
+}
+
+function activeThreadSuggestionPriority(
+  policy: ThreadCommandSuggestionPolicy,
+  query: string,
+  threadId: string,
+  activeThreadId: string | null,
+): number {
+  return policy.prioritizeActiveThreadForEmptyQuery && query.length === 0 && activeThreadId !== null && threadId === activeThreadId ? 0 : 1;
+}
+
+function activeThreadCommandCompletionQuery(
+  beforeCursor: string,
+): { command: ThreadSuggestionCommand; query: string; start: number } | null {
+  const match = THREAD_SUGGESTION_COMMAND_PATTERN.exec(beforeCursor);
+  if (!match) return null;
+
+  const command = threadSuggestionCommand(match[1]);
+  const rawQuery = match[2];
+  if (!command || rawQuery === undefined) return null;
+  const query = rawQuery.trim().toLowerCase();
+  if (query.length > 0 && /\s$/.test(rawQuery)) return null;
+  return { command, query, start: beforeCursor.length - rawQuery.length };
+}
+
+function threadSuggestionCommand(value: string | undefined): ThreadSuggestionCommand | null {
+  return THREAD_SUGGESTION_COMMANDS.find((command) => command === value) ?? null;
 }
 
 function activeModelOverrideSuggestions(beforeCursor: string, models: readonly ModelMetadata[]): ComposerSuggestion[] | null {
