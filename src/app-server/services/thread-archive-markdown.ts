@@ -5,7 +5,7 @@ import {
   type ArchiveExportSettings,
   type ArchiveThreadInput,
 } from "../../domain/threads/archive-markdown";
-import { shortThreadId } from "../../utils";
+import { shortThreadId } from "../../shared/id/thread-id";
 
 export interface ArchiveExportResult {
   path: string;

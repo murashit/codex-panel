@@ -1,6 +1,6 @@
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import { jsonPreview } from "../../../../utils";
+import { jsonPreview } from "../../../../shared/text/preview";
 import {
   currentServiceTier,
   currentModel,

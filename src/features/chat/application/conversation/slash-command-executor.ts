@@ -3,7 +3,7 @@ import { codexTextInputWithAttachments, type CodexInput } from "../../../../doma
 import { readReferencedThreadConversationSummaries } from "../../../../app-server/threads";
 import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
 import type { Thread } from "../../../../domain/threads/model";
-import { shortThreadId } from "../../../../utils";
+import { shortThreadId } from "../../../../shared/id/thread-id";
 import {
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionPorts,

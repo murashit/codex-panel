@@ -6,12 +6,8 @@ import {
   type ChatInboundHandlerActions,
 } from "../../../../../src/features/chat/app-server/inbound/handler";
 import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
-import {
-  chatReducer,
-  pendingTurnStart,
-  type ChatAction,
-  type ChatState,
-} from "../../../../../src/features/chat/application/state/root-reducer";
+import { chatReducer, type ChatAction, type ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { pendingTurnStart } from "../../../../../src/features/chat/application/conversation/turn-state";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { appServerApprovalRequest, appServerUserInputRequest } from "../../../../../src/app-server/protocol/server-requests";

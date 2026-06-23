@@ -1,5 +1,6 @@
 import { runtimeSnapshotForChatState } from "../../../../src/features/chat/application/runtime/snapshot";
-import { activeTurnId, chatTurnBusy, type ChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { activeTurnId, chatTurnBusy } from "../../../../src/features/chat/application/conversation/turn-state";
+import type { ChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import {
   messageStreamActiveItems,
   messageStreamItems,

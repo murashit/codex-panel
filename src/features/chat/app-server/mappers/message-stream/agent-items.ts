@@ -1,4 +1,4 @@
-import { definedProp } from "../../../../../utils";
+import { definedProp } from "../../../../../shared/object/defined-prop";
 import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "../../../domain/message-stream/items";
 import { collabAgentStateExecutionState } from "../../../domain/message-stream/agent-state";
 import {

@@ -3,8 +3,6 @@ import { ItemView, type WorkspaceLeaf } from "obsidian";
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
 import { CodexThreadsSession, type CodexThreadsHost } from "./session";
 
-export type { CodexThreadsHost, CodexThreadsSettingsAccess } from "./session";
-
 export class CodexThreadsView extends ItemView {
   private readonly session: CodexThreadsSession;
 

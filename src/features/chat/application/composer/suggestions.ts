@@ -5,7 +5,7 @@ import { findModelMetadataByIdOrName, sortedModelMetadata } from "../../../../do
 import { supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
-import { shortThreadId } from "../../../../utils";
+import { shortThreadId } from "../../../../shared/id/thread-id";
 
 export interface ComposerSuggestion {
   display: string;

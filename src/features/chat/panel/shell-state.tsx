@@ -5,7 +5,8 @@ import { batch, computed, signal, type ReadonlySignal, type Signal } from "@prea
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { messageItemsHaveThreadTurns, runtimeSnapshotForChatSlices } from "../application/runtime/snapshot";
 import { implementPlanTargetFromState } from "../application/conversation/plan-implementation";
-import { activeTurnId, chatTurnBusy, type ChatState } from "../application/state/root-reducer";
+import { activeTurnId, chatTurnBusy } from "../application/conversation/turn-state";
+import type { ChatState } from "../application/state/root-reducer";
 import {
   messageStreamActiveItems,
   messageStreamItems,

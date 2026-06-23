@@ -2,7 +2,8 @@ import type { CommandMessageStreamTarget, MessageStreamDiagnosticSection, Messag
 import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { TurnItem } from "../../../../../app-server/protocol/turn";
-import { definedProp, jsonPreview } from "../../../../../utils";
+import { definedProp } from "../../../../../shared/object/defined-prop";
+import { jsonPreview } from "../../../../../shared/text/preview";
 import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
 import { turnUserItemText } from "../../../../../app-server/protocol/turn";
 import { agentMessageStreamItem } from "./agent-items";

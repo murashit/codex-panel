@@ -79,11 +79,6 @@ import {
 } from "./ui-state";
 import { definedPatch, patchObject } from "./patch";
 
-export { activeTurnId, chatTurnBusy, pendingTurnStart, type ChatTurnState, type PendingTurnStart } from "../conversation/turn-state";
-export type { ChatMessageStreamState } from "./message-stream";
-export type { ChatDisclosureBucket, ChatDisclosureUiState, ChatRenameGeneratingUiState, ChatRenameUiState } from "./ui-state";
-export { renameGenerationStillActive } from "./ui-state";
-
 export type ChatConnectionPhase =
   | { kind: "idle" }
   | { kind: "connecting" }
@@ -117,8 +112,6 @@ export interface ChatActiveThreadState {
   readonly goal: ThreadGoal | null;
   readonly tokenUsage: ThreadTokenUsage | null;
 }
-
-export type { ChatRuntimeState } from "../../domain/runtime/state";
 
 interface ChatComposerState {
   readonly draft: string;

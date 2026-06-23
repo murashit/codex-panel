@@ -6,13 +6,9 @@ import type { ServerNotification } from "../../../../app-server/connection/rpc-m
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
-import { jsonPreview } from "../../../../utils";
-import {
-  activeTurnId,
-  pendingTurnStart as pendingTurnStartForState,
-  type ChatAction,
-  type ChatState,
-} from "../../application/state/root-reducer";
+import { jsonPreview } from "../../../../shared/text/preview";
+import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "../../application/conversation/turn-state";
+import type { ChatAction, ChatState } from "../../application/state/root-reducer";
 import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/updates";
 import {
   messageStreamItemFromTurnItem,

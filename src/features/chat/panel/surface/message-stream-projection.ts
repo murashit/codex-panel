@@ -1,4 +1,5 @@
-import type { ChatAction, ChatDisclosureBucket, ChatDisclosureUiState } from "../../application/state/root-reducer";
+import type { ChatAction } from "../../application/state/root-reducer";
+import type { ChatDisclosureBucket, ChatDisclosureUiState } from "../../application/state/ui-state";
 import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
 import { messageStreamSegmentsEmpty, type ForkCandidate, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";

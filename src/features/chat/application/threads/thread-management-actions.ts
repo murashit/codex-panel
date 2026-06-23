@@ -6,7 +6,8 @@ import type { ThreadOperations } from "../../../threads/thread-operations";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
-import { chatTurnBusy, type ChatAction, type ChatState } from "../state/root-reducer";
+import { chatTurnBusy } from "../conversation/turn-state";
+import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 const STATUS_COMPACTION_REQUESTED = "Compaction requested.";

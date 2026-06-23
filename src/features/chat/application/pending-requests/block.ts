@@ -9,8 +9,6 @@ import type {
 import type { ChatRequestState } from "./state";
 import type { ChatUiState } from "../state/ui-state";
 
-export type { PendingRequestId } from "../../../../domain/pending-requests/model";
-
 export interface PendingRequestBlockState {
   approvals: readonly PendingApproval[];
   pendingUserInputs: readonly PendingUserInput[];

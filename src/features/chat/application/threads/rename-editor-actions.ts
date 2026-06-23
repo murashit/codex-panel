@@ -3,13 +3,8 @@ import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import type { ThreadTitleService } from "../../../threads/thread-title-service";
-import {
-  renameGenerationStillActive,
-  type ChatAction,
-  type ChatRenameGeneratingUiState,
-  type ChatRenameUiState,
-  type ChatState,
-} from "../state/root-reducer";
+import type { ChatAction, ChatState } from "../state/root-reducer";
+import { renameGenerationStillActive, type ChatRenameGeneratingUiState, type ChatRenameUiState } from "../state/ui-state";
 import type { ChatStateStore } from "../state/store";
 import { messageStreamItems } from "../state/message-stream";
 import { firstThreadTitleContextFromMessageStreamItems } from "./title-context";

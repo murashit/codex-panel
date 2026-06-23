@@ -1,4 +1,4 @@
-import { definedProp } from "../../../../../utils";
+import { definedProp } from "../../../../../shared/object/defined-prop";
 import type { ExecutionState, HookMessageStreamItem } from "../../../domain/message-stream/items";
 import {
   executionStateFromStatus,

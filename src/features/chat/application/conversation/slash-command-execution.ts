@@ -5,7 +5,7 @@ import { normalizeReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { Thread } from "../../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
-import { shortThreadId } from "../../../../utils";
+import { shortThreadId } from "../../../../shared/id/thread-id";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { GoalActions } from "../threads/goal-actions";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";

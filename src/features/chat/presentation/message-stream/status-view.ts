@@ -1,4 +1,4 @@
-import { shortThreadId } from "../../../../utils";
+import { shortThreadId } from "../../../../shared/id/thread-id";
 import { messageStreamReasoningIsActive } from "../../domain/message-stream/semantics/active-turn";
 import type {
   AgentRunSummary,

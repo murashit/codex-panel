@@ -13,7 +13,7 @@ import type {
   PendingUserInput,
 } from "../../domain/pending-requests/model";
 import { pathRelativeToRoot } from "../../shared/path/file-paths";
-import { jsonPreview } from "../../utils";
+import { jsonPreview } from "../../shared/text/preview";
 
 type AppServerRequestByMethod<Method extends ServerRequest["method"]> = Extract<ServerRequest, { method: Method }>;
 

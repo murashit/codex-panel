@@ -1,5 +1,5 @@
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
-import { chatTurnBusy } from "../state/root-reducer";
+import { chatTurnBusy } from "../conversation/turn-state";
 import type { ChatStateStore } from "../state/store";
 
 export interface StartNewThreadActions {

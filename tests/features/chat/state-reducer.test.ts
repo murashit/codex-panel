@@ -2,12 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   activeTurnId,
-  chatReducer,
   chatTurnBusy,
   pendingTurnStart,
-  type ChatState,
-} from "../../../src/features/chat/application/state/root-reducer";
-import { transitionChatTurnLifecycleState } from "../../../src/features/chat/application/conversation/turn-state";
+  transitionChatTurnLifecycleState,
+} from "../../../src/features/chat/application/conversation/turn-state";
+import { chatReducer, type ChatState } from "../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../src/features/chat/application/state/store";
 import { messageStreamItems } from "../../../src/features/chat/application/state/message-stream";
 import type { ThreadGoal } from "../../../src/domain/threads/goal";

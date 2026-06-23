@@ -6,15 +6,11 @@ import {
   type McpElicitationAction,
   type PendingApproval,
   type PendingMcpElicitation,
+  type PendingRequestId,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
-import {
-  pendingRequestBlockStateFromChatState,
-  type PendingRequestBlockActions,
-  type PendingRequestBlockState,
-  type PendingRequestId,
-} from "./block";
+import { pendingRequestBlockStateFromChatState, type PendingRequestBlockActions, type PendingRequestBlockState } from "./block";
 
 interface PendingRequestResponder {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;

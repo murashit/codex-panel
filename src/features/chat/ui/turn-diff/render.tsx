@@ -5,7 +5,7 @@ import { renderDisplayDiffLines } from "../../../../shared/diff/render";
 import { displayDiffLines } from "../../../../shared/diff/unified";
 import { IconButton } from "../../../../shared/ui/components";
 import { renderUiRoot } from "../../../../shared/ui/ui-root";
-import { shortThreadId } from "../../../../utils";
+import { shortThreadId } from "../../../../shared/id/thread-id";
 import type { ChatTurnDiffViewState, PersistedChatTurnDiffViewState } from "../../domain/turn-diff";
 
 export interface ChatTurnDiffViewActions {
