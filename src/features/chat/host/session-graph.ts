@@ -18,7 +18,7 @@ import type { ComposerSubmitActions } from "../application/conversation/composer
 import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
-import { chatTurnBusy, type ChatAction, type ChatConnectionPhase } from "../application/state/root-reducer";
+import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
 import { messageStreamItems } from "../application/state/message-stream";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
@@ -35,6 +35,7 @@ import {
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeActions } from "../application/threads/resume-actions";
 import { createSelectionActions } from "../application/threads/selection-actions";
+import { createStartNewThreadActions } from "../application/threads/start-new-thread-actions";
 import { createThreadManagementActions, type ThreadManagementActionsHost } from "../application/threads/thread-management-actions";
 import type { ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
 import type { ChatServerMetadataActions } from "../app-server/actions/metadata";
@@ -278,14 +279,14 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
 
   const composerSurface = createSessionComposerSurface(threadLifecycle, runtimeSettings);
   const composerController = createSessionComposerController(host, composerSurface, runtimeSettings);
-  const startNewThread = async (): Promise<void> => {
-    if (chatTurnBusy(stateStore.getState())) return;
-
-    identity.clearActiveThreadIdentity();
-    stateStore.dispatch({ type: "ui/panel-set", panel: null });
-    stateStore.dispatch({ type: "connection/status-set", statusText: "New chat." });
-    composerController.focus();
-  };
+  const newThreadActions = createStartNewThreadActions({
+    stateStore,
+    identity,
+    focusComposer: () => {
+      composerController.focus();
+    },
+  });
+  const startNewThread = () => newThreadActions.startNewThread();
   const threadActionParts = createThreadActionParts(host, {
     operations: threadOperations,
     connectedClient,
