@@ -15,7 +15,7 @@ import {
   createChatMessageScrollController,
   type ChatMessageScrollController,
 } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
-import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
+import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";

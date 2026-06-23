@@ -5,11 +5,35 @@ import {
   type MessageStreamRenderedItemView,
   type MessageStreamViewBlock,
 } from "../../presentation/message-stream/view-model";
+import { MessageStreamFlowFrame, type MessageStreamScrollControllerBinding } from "./flow-scroll";
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { detailNode } from "./detail";
 import { agentRunSummaryNode, statusNode } from "./status";
 import type { MessageStreamContext, PendingRequestBlockContext } from "./context";
 import { textNode } from "./text";
+
+export interface MessageStreamViewportState {
+  blocks: readonly MessageStreamViewBlock[];
+  context: MessageStreamContext;
+  scrollController: MessageStreamScrollControllerBinding;
+}
+
+interface MessageStreamViewportProps {
+  state: MessageStreamViewportState;
+  rootAttributes?: Partial<Record<`data-${string}`, string>>;
+}
+
+export function MessageStreamViewport({ state, rootAttributes }: MessageStreamViewportProps): UiNode {
+  const { blocks, context, scrollController } = state;
+  return (
+    <MessageStreamFlowFrame
+      blocks={blocks}
+      scrollController={scrollController}
+      renderBlockContent={(block) => <MessageStreamBlockContent block={block} context={context} />}
+      {...(rootAttributes ? { rootAttributes } : {})}
+    />
+  );
+}
 
 function streamItemNode(item: MessageStreamRenderedItemView, context: MessageStreamContext): UiNode {
   if (item.kind === "text") return textNode(item.view, context);
@@ -17,7 +41,7 @@ function streamItemNode(item: MessageStreamRenderedItemView, context: MessageStr
   return statusNode(item.view);
 }
 
-export function MessageStreamBlockContent({ block, context }: { block: MessageStreamViewBlock; context: MessageStreamContext }): UiNode {
+function MessageStreamBlockContent({ block, context }: { block: MessageStreamViewBlock; context: MessageStreamContext }): UiNode {
   return presentationBlockNode(block, context);
 }
 

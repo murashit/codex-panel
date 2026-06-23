@@ -17,7 +17,7 @@ import {
   type MessageStreamViewBlock,
 } from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import type { MessageStreamTextActionTargets } from "../../../../../src/features/chat/presentation/message-stream/text-view";
-import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/viewport";
+import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type { MessageStreamScrollControllerBinding } from "../../../../../src/features/chat/ui/message-stream/flow-scroll";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
