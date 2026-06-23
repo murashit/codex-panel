@@ -4,6 +4,7 @@ import { inheritedForkThreadName } from "../../../../domain/threads/model";
 import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
+import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
 import { chatTurnBusy } from "../conversation/turn-state";
@@ -236,7 +237,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
       resumedThreadActionFromActiveRuntime({
         thread: snapshot.thread,
         cwd: snapshot.cwd,
-        runtime: threadManagementState(host).runtime,
+        runtime: activeThreadRuntimeState(threadManagementState(host).runtime),
         listedThreads: threadManagementState(host).threadList.listedThreads,
       }),
     );

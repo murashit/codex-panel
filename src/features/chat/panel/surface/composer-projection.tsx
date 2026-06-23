@@ -1,14 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
 
-import {
-  autoReviewActive,
-  currentModel,
-  currentReasoningEffort,
-  fastModeActive,
-  runtimeConfigOrDefault,
-  supportedReasoningEfforts,
-} from "../../domain/runtime/effective";
+import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
+import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import { contextSummary } from "../../presentation/runtime/status";
 import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
@@ -137,14 +131,15 @@ function composerMetaViewModel(
   }
 
   const config = runtimeConfigOrDefault(state.connection.runtimeConfig);
+  const resolution = resolveRuntimeControls(snapshot, config);
   const context = contextSummary(snapshot);
-  const model = currentModel(snapshot, config);
-  const effort = currentReasoningEffort(snapshot, config);
+  const model = resolution.model.effective;
+  const effort = resolution.reasoningEffort.effective;
   const composerContext = contextComposerMeter(context?.percent ?? null);
   const compactEffort = effort ? compactReasoningEffortLabel(effort) : null;
-  const planActive = state.runtime.selectedCollaborationMode === "plan";
-  const reviewActive = autoReviewActive(snapshot, config);
-  const fastActive = fastModeActive(snapshot, config);
+  const planActive = resolution.collaborationMode.selected === "plan";
+  const reviewActive = resolution.autoReview.active;
+  const fastActive = resolution.fastMode.active;
   return {
     fatal: null,
     context: composerContext,
@@ -169,11 +164,12 @@ function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   effortChoices: ChatPanelComposerRuntimeChoice[];
 } {
   const config = runtimeConfigOrDefault(input.state.connection.runtimeConfig);
-  const activeModel = currentModel(input.snapshot, config);
+  const resolution = resolveRuntimeControls(input.snapshot, config);
+  const effectiveModel = resolution.model.effective;
   const models = sortedModelMetadata(input.state.connection.availableModels);
   const modelChoices: ChatPanelComposerRuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
-    selected: activeModel === model.model,
+    selected: effectiveModel === model.model,
     onClick: () => {
       input.requestModel(model.model);
     },
@@ -186,8 +182,8 @@ function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
     });
   }
 
-  const activeEffort = currentReasoningEffort(input.snapshot, config);
-  const effortChoices: ChatPanelComposerRuntimeChoice[] = supportedReasoningEfforts(input.snapshot, config).map((effort) => ({
+  const activeEffort = resolution.reasoningEffort.effective;
+  const effortChoices: ChatPanelComposerRuntimeChoice[] = resolution.supportedReasoningEfforts.map((effort) => ({
     label: effort,
     selected: activeEffort === effort,
     onClick: () => {

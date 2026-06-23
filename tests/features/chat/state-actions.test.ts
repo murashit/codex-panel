@@ -14,10 +14,11 @@ describe("chat thread resume helpers", () => {
       thread: resumed,
       cwd: "/vault",
       runtime: {
-        activeModel: "gpt-5.5",
-        activeReasoningEffort: "high",
-        activeServiceTier: "fast",
-        activeApprovalsReviewer: "user",
+        model: "gpt-5.5",
+        reasoningEffort: "high",
+        serviceTier: "fast",
+        serviceTierKnown: true,
+        approvalsReviewer: "user",
       },
       listedThreads: [existing],
       items: [loading],
@@ -30,6 +31,7 @@ describe("chat thread resume helpers", () => {
       model: "gpt-5.5",
       reasoningEffort: "high",
       serviceTier: "fast",
+      serviceTierKnown: true,
       approvalsReviewer: "user",
       items: [loading],
     });

@@ -801,7 +801,7 @@ describe("message stream rendering and message action menu", () => {
     const baseState = {
       activeThread: { id: "thread" },
       turn: { lifecycle: { kind: "idle" as const } },
-      runtime: { selectedCollaborationMode: "plan" as const },
+      runtime: { pending: { collaborationMode: "plan" as const } },
       messageStream: {
         stableItems: [
           firstPlan,
@@ -820,7 +820,7 @@ describe("message stream rendering and message action menu", () => {
     };
 
     expect(implementPlanTargetFromState(baseState)).toEqual({ itemId: secondPlan.id });
-    expect(implementPlanTargetFromState({ ...baseState, runtime: { selectedCollaborationMode: "default" } })).toBeNull();
+    expect(implementPlanTargetFromState({ ...baseState, runtime: { pending: { collaborationMode: "default" } } })).toBeNull();
     expect(implementPlanTargetFromState({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
   });
 

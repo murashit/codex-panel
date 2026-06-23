@@ -31,8 +31,8 @@ describe("createChatRuntimeSettingsActions", () => {
     await expect(controller.requestModel("gpt-5.5")).resolves.toBe(true);
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
-    expect(store.getState().runtime.activeModel).toBe("gpt-5.5");
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.model).toBe("gpt-5.5");
     expect(messages).toEqual([]);
   });
 
@@ -50,11 +50,11 @@ describe("createChatRuntimeSettingsActions", () => {
     controller.requestDefaultCollaborationModeForNextTurn();
 
     expect(client.updateThreadSettings).not.toHaveBeenCalled();
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
-    expect(store.getState().runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "high" });
-    expect(store.getState().runtime.requestedFastMode).toEqual({ kind: "set", value: "enabled" });
-    expect(store.getState().runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(store.getState().runtime.selectedCollaborationMode).toBe("default");
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
+    expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
+    expect(store.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(store.getState().runtime.pending.collaborationMode).toBe("default");
     expect(messages).toEqual([
       "Fast mode on for subsequent turns.",
       "Auto-review on for subsequent turns.",
@@ -74,8 +74,8 @@ describe("createChatRuntimeSettingsActions", () => {
     await controller.toggleFastMode();
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { serviceTier: "fast" });
-    expect(store.getState().runtime.requestedFastMode).toEqual({ kind: "unchanged" });
-    expect(store.getState().runtime.activeServiceTier).toBe("fast");
+    expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.serviceTier).toBe("fast");
     expect(store.getState().ui.toolbarPanel).toBeNull();
     expect(messages).toEqual(["Fast mode on for subsequent turns."]);
   });
@@ -97,11 +97,34 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual(["Fast mode on for subsequent turns.", "Fast mode off for subsequent turns."]);
   });
 
+  it("keeps Fast disabled after clearing a thread tier when config defaults to Fast", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { connection: { runtimeConfig: { ...emptyRuntimeConfigSnapshot(), serviceTier: "fast" } } });
+    state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
+    const store = createChatStateStore(state);
+    const client = clientFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, client, messages);
+
+    await controller.disableFastMode();
+
+    expect(client.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: null });
+    expect(store.getState().runtime.active.serviceTier).toBeNull();
+    expect(store.getState().runtime.active.serviceTierKnown).toBe(true);
+
+    await controller.toggleFastMode();
+
+    expect(client.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "fast" });
+    expect(messages).toEqual(["Fast mode off for subsequent turns.", "Fast mode on for subsequent turns."]);
+  });
+
   it("requests the catalog Fast tier id and toggles it off from the reported effective id", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { runtime: { activeModel: "gpt-5.5" } });
-    // Codex app-server 0.134.0 advertises Fast as id "priority" and reports that id as the effective service tier.
+    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5" } } });
+    // app-server may advertise Fast with an id such as "priority";
+    // last verified against codex app-server 0.142.0.
     state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5", "priority")] } });
     const store = createChatStateStore(state);
     const client = clientFixture();
@@ -111,13 +134,13 @@ describe("createChatRuntimeSettingsActions", () => {
     await controller.toggleFastMode();
 
     expect(client.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "priority" });
-    expect(store.getState().runtime.activeServiceTier).toBe("priority");
+    expect(store.getState().runtime.active.serviceTier).toBe("priority");
 
     store.dispatch({ type: "active-thread/settings-applied", ...threadSettings("priority") });
     await controller.toggleFastMode();
 
     expect(client.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: null });
-    expect(store.getState().runtime.activeServiceTier).toBeNull();
+    expect(store.getState().runtime.active.serviceTier).toBeNull();
     expect(messages).toEqual(["Fast mode on for subsequent turns.", "Fast mode off for subsequent turns."]);
   });
 
@@ -132,16 +155,16 @@ describe("createChatRuntimeSettingsActions", () => {
     await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
 
     expect(client.updateThreadSettings).not.toHaveBeenCalled();
-    expect(store.getState().runtime.selectedCollaborationMode).toBe("plan");
-    expect(store.getState().runtime.activeCollaborationMode).toBeNull();
+    expect(store.getState().runtime.pending.collaborationMode).toBe("plan");
+    expect(store.getState().runtime.active.collaborationMode).toBeNull();
     expect(messages).toEqual(["Plan mode is selected, but No effective model is available. Sending without a mode override."]);
   });
 
   it("requests default collaboration mode for the next turn without applying thread settings", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { runtime: { activeCollaborationMode: "plan" } });
-    state = chatStateWith(state, { runtime: { selectedCollaborationMode: "plan" } });
+    state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: "plan" } } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -150,8 +173,8 @@ describe("createChatRuntimeSettingsActions", () => {
     controller.requestDefaultCollaborationModeForNextTurn();
 
     expect(client.updateThreadSettings).not.toHaveBeenCalled();
-    expect(store.getState().runtime.selectedCollaborationMode).toBe("default");
-    expect(store.getState().runtime.activeCollaborationMode).toBe("plan");
+    expect(store.getState().runtime.pending.collaborationMode).toBe("default");
+    expect(store.getState().runtime.active.collaborationMode).toBe("plan");
     expect(messages).toEqual([]);
   });
 
@@ -203,8 +226,8 @@ describe("createChatRuntimeSettingsActions", () => {
 
     await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
 
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
-    expect(store.getState().runtime.activeModel).toBeNull();
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(store.getState().runtime.active.model).toBeNull();
     expect(messages).toEqual(["nope"]);
   });
 
@@ -219,7 +242,7 @@ describe("createChatRuntimeSettingsActions", () => {
 
     await controller.enableFastMode();
 
-    expect(store.getState().runtime.requestedFastMode).toEqual({ kind: "set", value: "enabled" });
+    expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(store.getState().ui.toolbarPanel).toBe("status-panel");
     expect(messages).toEqual(["nope"]);
   });
@@ -241,8 +264,8 @@ describe("createChatRuntimeSettingsActions", () => {
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
     expect(store.getState().activeThread.id).toBeNull();
-    expect(store.getState().runtime.activeModel).toBeNull();
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.model).toBeNull();
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
   });
 
@@ -262,8 +285,8 @@ describe("createChatRuntimeSettingsActions", () => {
     await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
 
     expect(store.getState().activeThread.id).toBeNull();
-    expect(store.getState().runtime.activeModel).toBeNull();
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.model).toBeNull();
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
   });
 
@@ -290,20 +313,20 @@ describe("createChatRuntimeSettingsActions", () => {
 
     secondUpdate.resolve({});
     await expect(secondRequest).resolves.toBe(true);
-    expect(store.getState().runtime.activeModel).toBe("gpt-new");
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.model).toBe("gpt-new");
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
 
     firstUpdate.resolve({});
     await expect(firstRequest).resolves.toBe(false);
-    expect(store.getState().runtime.activeModel).toBe("gpt-new");
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.model).toBe("gpt-new");
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
   });
 
   it("resets requested model to config through an explicit command", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { runtime: { activeModel: "gpt-5.5" } });
+    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5" } } });
     const store = createChatStateStore(state);
     const client = clientFixture();
     const messages: string[] = [];
@@ -312,8 +335,8 @@ describe("createChatRuntimeSettingsActions", () => {
     await expect(controller.resetModelToConfig()).resolves.toBe(true);
 
     expect(client.updateThreadSettings).toHaveBeenCalledWith("thread", { model: null });
-    expect(store.getState().runtime.requestedModel).toEqual({ kind: "unchanged" });
-    expect(store.getState().runtime.activeModel).toBeNull();
+    expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.model).toBeNull();
   });
 
   it("enables and disables auto-review through explicit commands", async () => {

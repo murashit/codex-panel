@@ -22,10 +22,10 @@ function canImplementPlanItemId(state: ChatState, itemId: string): boolean {
 export function implementPlanTargetFromState(state: {
   activeThread: Pick<ChatActiveThreadState, "id">;
   turn: ChatTurnState;
-  runtime: Pick<ChatRuntimeState, "selectedCollaborationMode">;
+  runtime: { pending: Pick<ChatRuntimeState["pending"], "collaborationMode"> };
   messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">;
 }): PlanImplementationTarget | null {
-  if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.selectedCollaborationMode !== "plan") {
+  if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.pending.collaborationMode !== "plan") {
     return null;
   }
   return latestImplementablePlanTargetFromItems(messageStreamItems(state.messageStream));

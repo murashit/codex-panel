@@ -96,8 +96,8 @@ export function activeComposerSuggestions(
     activeWikiLinkSuggestions(beforeCursor, notes) ??
     activeSlashSubcommandSuggestions(beforeCursor) ??
     activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
-    activeModelOverrideSuggestions(beforeCursor, models) ??
-    activeReasoningEffortSuggestions(beforeCursor, models, currentModel) ??
+    modelOverrideSuggestions(beforeCursor, models) ??
+    reasoningEffortOverrideSuggestions(beforeCursor, models, currentModel) ??
     activeSlashCommandSuggestions(beforeCursor) ??
     activeSkillSuggestions(beforeCursor, skills) ??
     []
@@ -372,7 +372,7 @@ function threadSuggestionCommand(value: string | undefined): ThreadSuggestionCom
   return THREAD_SUGGESTION_COMMANDS.find((command) => command === value) ?? null;
 }
 
-function activeModelOverrideSuggestions(beforeCursor: string, models: readonly ModelMetadata[]): ComposerSuggestion[] | null {
+function modelOverrideSuggestions(beforeCursor: string, models: readonly ModelMetadata[]): ComposerSuggestion[] | null {
   const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/model\s+([^\n]{0,120})$/);
   if (!completion) return null;
 
@@ -411,7 +411,7 @@ function activeModelOverrideSuggestions(beforeCursor: string, models: readonly M
     .slice(0, 8);
 }
 
-function activeReasoningEffortSuggestions(
+function reasoningEffortOverrideSuggestions(
   beforeCursor: string,
   models: readonly ModelMetadata[],
   currentModel: string | null,

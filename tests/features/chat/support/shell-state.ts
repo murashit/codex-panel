@@ -42,7 +42,7 @@ export function messageStreamShellStateFromChatState(state: ChatState): ChatPane
     rollbackCandidate: turnBusy ? null : messageStreamRollbackCandidateFromItems(items),
     forkCandidates: turnBusy ? [] : forkCandidatesFromItems(items),
     implementPlanTarget:
-      !state.activeThread.id || turnBusy || state.runtime.selectedCollaborationMode !== "plan"
+      !state.activeThread.id || turnBusy || state.runtime.pending.collaborationMode !== "plan"
         ? null
         : latestImplementablePlanTargetFromItems(items),
   };

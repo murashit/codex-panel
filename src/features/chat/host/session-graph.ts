@@ -978,7 +978,7 @@ function createSurfacesAndPresenter(
 }
 
 function collaborationModeLabel(stateStore: ChatStateStore): string {
-  return formatCollaborationModeLabel(stateStore.getState().runtime.selectedCollaborationMode);
+  return formatCollaborationModeLabel(stateStore.getState().runtime.pending.collaborationMode);
 }
 
 function createSessionRuntimeProjection(host: ChatPanelSessionGraphHost, connection: ConnectionManager): ChatPanelRuntimeProjection {
@@ -1045,7 +1045,7 @@ function modelStatusLines(host: ChatPanelSessionGraphHost): string[] {
   const state = host.stateStore.getState();
   return buildModelStatusLines({
     runtimeConfig: state.connection.runtimeConfig,
-    requestedModel: state.runtime.requestedModel,
+    pendingModel: state.runtime.pending.model,
     snapshot: runtimeSnapshot(host),
     collaborationModeLabel: collaborationModeLabel(host.stateStore),
   });
@@ -1055,7 +1055,7 @@ function effortStatusLines(host: ChatPanelSessionGraphHost): string[] {
   const state = host.stateStore.getState();
   return buildEffortStatusLines({
     runtimeConfig: state.connection.runtimeConfig,
-    requestedReasoningEffort: state.runtime.requestedReasoningEffort,
+    pendingReasoningEffort: state.runtime.pending.reasoningEffort,
     snapshot: runtimeSnapshot(host),
   });
 }

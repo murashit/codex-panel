@@ -3,7 +3,7 @@ import type { ThreadActivationSnapshot } from "../../../../domain/threads/activa
 import { upsertThread, type Thread } from "../../../../domain/threads/model";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { ChatRuntimeState } from "../../domain/runtime/state";
+import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { PendingTurnStart } from "../conversation/turn-state";
@@ -13,12 +13,13 @@ interface ResumedThreadActionParams {
   listedThreads?: readonly Thread[];
   items?: readonly MessageStreamItem[];
   preserveRequestedRuntimeSettings?: boolean;
+  serviceTierKnown?: boolean;
 }
 
 interface ResumedThreadFromActiveRuntimeParams {
   thread: Thread;
   cwd: string;
-  runtime: Pick<ChatRuntimeState, "activeModel" | "activeReasoningEffort" | "activeServiceTier" | "activeApprovalsReviewer">;
+  runtime: Pick<ActiveThreadRuntimeState, "model" | "reasoningEffort" | "serviceTier" | "serviceTierKnown" | "approvalsReviewer">;
   listedThreads?: readonly Thread[];
   items?: readonly MessageStreamItem[];
 }
@@ -30,7 +31,8 @@ export interface ActiveThreadResumedAction {
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
   serviceTier: ServiceTier | null;
-  approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
+  serviceTierKnown?: boolean;
+  approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
   items?: readonly MessageStreamItem[];
   status?: string;
   listedThreads?: readonly Thread[];
@@ -44,7 +46,7 @@ export interface ActiveThreadSettingsAppliedAction {
   reasoningEffort: ReasoningEffort | null;
   collaborationMode: CollaborationModeSelection;
   serviceTier: ServiceTier | null;
-  approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
+  approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
 }
 
 export interface ActiveThreadSettingsAppliedActionSettings {
@@ -53,7 +55,7 @@ export interface ActiveThreadSettingsAppliedActionSettings {
   effort: string | null;
   collaborationMode: { mode: CollaborationModeSelection };
   serviceTier: string | null;
-  approvalsReviewer: ChatRuntimeState["activeApprovalsReviewer"];
+  approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
 }
 
 export interface ConnectionInitializedAction {
@@ -108,11 +110,12 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
     response: {
       thread: params.thread,
       cwd: params.cwd,
-      model: params.runtime.activeModel,
-      reasoningEffort: params.runtime.activeReasoningEffort,
-      serviceTier: params.runtime.activeServiceTier,
-      approvalsReviewer: params.runtime.activeApprovalsReviewer,
+      model: params.runtime.model,
+      reasoningEffort: params.runtime.reasoningEffort,
+      serviceTier: params.runtime.serviceTier,
+      approvalsReviewer: params.runtime.approvalsReviewer,
     },
+    serviceTierKnown: params.runtime.serviceTierKnown,
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
     ...(params.items ? { items: params.items } : {}),
   });
@@ -127,6 +130,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     model: response.model,
     reasoningEffort: response.reasoningEffort,
     serviceTier: response.serviceTier,
+    serviceTierKnown: params.serviceTierKnown ?? true,
     approvalsReviewer: response.approvalsReviewer,
     ...(params.items ? { items: params.items } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),

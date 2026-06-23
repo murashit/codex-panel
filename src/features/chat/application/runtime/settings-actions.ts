@@ -154,7 +154,7 @@ async function setFastMode(host: RuntimeSettingsActionsHost, mode: FastModeState
 
 async function toggleCollaborationMode(host: RuntimeSettingsActionsHost): Promise<void> {
   const current = state(host);
-  const next = nextCollaborationMode(current.runtime.selectedCollaborationMode);
+  const next = nextCollaborationMode(current.runtime.pending.collaborationMode);
   await setCollaborationMode(host, next);
 }
 

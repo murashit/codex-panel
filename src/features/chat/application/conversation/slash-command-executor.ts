@@ -14,7 +14,8 @@ import type { SlashCommandName } from "../composer/slash-commands";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ChatStateStore } from "../state/store";
-import { currentModel, runtimeConfigOrDefault } from "../../domain/runtime/effective";
+import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
+import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import { submissionStateSnapshot } from "./submission-state";
 
@@ -55,7 +56,10 @@ export async function executeSlashCommandWithState(
 
 function supportedReasoningEfforts(state: ReturnType<ChatStateStore["getState"]>): ReasoningEffort[] {
   const config = runtimeConfigOrDefault(state.connection.runtimeConfig);
-  const model = findModelMetadataByIdOrName(state.connection.availableModels, currentModel(runtimeSnapshotForChatState(state), config));
+  const model = findModelMetadataByIdOrName(
+    state.connection.availableModels,
+    resolveRuntimeControls(runtimeSnapshotForChatState(state), config).model.effective,
+  );
   return supportedEffortsForModelMetadata(model);
 }
 

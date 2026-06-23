@@ -54,7 +54,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
       applyThreadCatalogEvent,
       syncThreadGoal,
     });
@@ -98,12 +98,12 @@ describe("chat server actions", () => {
     await controller.startThread("first prompt");
 
     expect(startThread).toHaveBeenCalledWith({ cwd: "/vault", serviceTier: "fast" });
-    expect(stateStore.getState().runtime.activeModel).toBe("gpt-5");
-    expect(stateStore.getState().runtime.requestedModel).toEqual({ kind: "set", value: "gpt-5.5" });
-    expect(stateStore.getState().runtime.requestedReasoningEffort).toEqual({ kind: "set", value: "high" });
-    expect(stateStore.getState().runtime.requestedFastMode).toEqual({ kind: "set", value: "enabled" });
-    expect(stateStore.getState().runtime.requestedApprovalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(stateStore.getState().runtime.selectedCollaborationMode).toBe("plan");
+    expect(stateStore.getState().runtime.active.model).toBe("gpt-5");
+    expect(stateStore.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(stateStore.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
+    expect(stateStore.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
+    expect(stateStore.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(stateStore.getState().runtime.pending.collaborationMode).toBe("plan");
   });
 
   it("can skip newly started thread goal sync when the caller sets the first goal", async () => {
@@ -125,7 +125,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
       applyThreadCatalogEvent: vi.fn(),
       syncThreadGoal,
     });
@@ -156,7 +156,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
       applyThreadCatalogEvent: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
@@ -185,7 +185,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
-      runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
       applyThreadCatalogEvent,
       syncThreadGoal: () => undefined,
     });
@@ -209,7 +209,7 @@ describe("chat server actions", () => {
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
-      runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
       applyThreadCatalogEvent,
       syncThreadGoal,
     });

@@ -1,15 +1,10 @@
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { jsonPreview } from "../../../../shared/text/preview";
-import {
-  currentServiceTier,
-  currentModel,
-  currentReasoningEffort,
-  runtimeConfigOrDefault,
-  supportedReasoningEfforts,
-} from "../../domain/runtime/effective";
+import { currentServiceTier, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { pendingRuntimeSettingLabel, serviceTierLabel as formatServiceTierLabel } from "../../domain/runtime/labels";
+import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 
 export interface ContextSummary {
   label: string;
@@ -42,14 +37,14 @@ export interface StatusSummaryLinesInput {
 
 export interface ModelStatusLinesInput {
   runtimeConfig: RuntimeSnapshot["runtimeConfig"];
-  requestedModel: RuntimeSnapshot["requestedModel"];
+  pendingModel: RuntimeSnapshot["pending"]["model"];
   snapshot: RuntimeSnapshot;
   collaborationModeLabel: string;
 }
 
 export interface EffortStatusLinesInput {
   runtimeConfig: RuntimeSnapshot["runtimeConfig"];
-  requestedReasoningEffort: RuntimeSnapshot["requestedReasoningEffort"];
+  pendingReasoningEffort: RuntimeSnapshot["pending"]["reasoningEffort"];
   snapshot: RuntimeSnapshot;
 }
 
@@ -133,11 +128,12 @@ export function statusSummaryLines(input: StatusSummaryLinesInput): string[] {
 
 export function modelStatusLines(input: ModelStatusLinesInput): string[] {
   const config = runtimeConfigOrDefault(input.runtimeConfig);
+  const resolution = resolveRuntimeControls(input.snapshot, config);
   return [
-    `Model: ${currentModel(input.snapshot, config) ?? CODEX_DEFAULT_LABEL}`,
-    `Override: ${pendingRuntimeSettingLabel(input.requestedModel)}`,
+    `Model: ${resolution.model.effective ?? CODEX_DEFAULT_LABEL}`,
+    `Override: ${pendingRuntimeSettingLabel(input.pendingModel)}`,
     `Provider: ${stringValue(config.modelProvider, CODEX_DEFAULT_LABEL)}`,
-    `Effort: ${currentReasoningEffort(input.snapshot, config) ?? CODEX_DEFAULT_LABEL}`,
+    `Effort: ${resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL}`,
     `Mode: ${input.collaborationModeLabel}`,
     `Service tier: ${serviceTierLabel(input.snapshot, config)}`,
   ];
@@ -145,10 +141,11 @@ export function modelStatusLines(input: ModelStatusLinesInput): string[] {
 
 export function effortStatusLines(input: EffortStatusLinesInput): string[] {
   const config = runtimeConfigOrDefault(input.runtimeConfig);
+  const resolution = resolveRuntimeControls(input.snapshot, config);
   return [
-    `Effort: ${currentReasoningEffort(input.snapshot, config) ?? CODEX_DEFAULT_LABEL}`,
-    `Override: ${pendingRuntimeSettingLabel(input.requestedReasoningEffort)}`,
-    `Supported: ${supportedReasoningEfforts(input.snapshot, config).join(", ")}`,
+    `Effort: ${resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL}`,
+    `Override: ${pendingRuntimeSettingLabel(input.pendingReasoningEffort)}`,
+    `Supported: ${resolution.supportedReasoningEfforts.join(", ")}`,
   ];
 }
 

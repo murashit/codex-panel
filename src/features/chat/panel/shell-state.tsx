@@ -119,7 +119,7 @@ export function createChatPanelShellState(initialState: ChatState): ChatPanelShe
       implementPlanTargetFromState({
         activeThread: { id: activeThreadIdSignal.value },
         turn: turn.value,
-        runtime: { selectedCollaborationMode: runtime.value.selectedCollaborationMode },
+        runtime: { pending: { collaborationMode: runtime.value.pending.collaborationMode } },
         messageStream: messageStream.value,
       }),
     ),

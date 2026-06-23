@@ -12,95 +12,116 @@ import {
 } from "./intent";
 
 export interface ChatRuntimeState {
-  readonly activeModel: string | null;
-  readonly activeReasoningEffort: ReasoningEffort | null;
-  readonly activeCollaborationMode: ActiveCollaborationMode;
-  readonly activeServiceTier: ServiceTier | null;
-  readonly activeApprovalsReviewer: ApprovalsReviewer | null;
-  readonly requestedModel: PendingRuntimeIntent<string>;
-  readonly requestedReasoningEffort: PendingRuntimeIntent<ReasoningEffort>;
-  readonly requestedApprovalsReviewer: PendingRuntimeIntent<ApprovalsReviewer>;
-  readonly selectedCollaborationMode: CollaborationModeSelection;
-  readonly requestedFastMode: PendingRuntimeIntent<RequestedFastMode>;
+  readonly active: ActiveThreadRuntimeState;
+  readonly pending: PendingRuntimeIntentState;
 }
 
-export function initialActiveChatRuntimeState(): Pick<
-  ChatRuntimeState,
-  "activeModel" | "activeReasoningEffort" | "activeCollaborationMode" | "activeServiceTier" | "activeApprovalsReviewer"
-> {
+export interface ActiveThreadRuntimeState {
+  readonly serviceTierKnown: boolean;
+  readonly model: string | null;
+  readonly reasoningEffort: ReasoningEffort | null;
+  readonly collaborationMode: ActiveCollaborationMode;
+  readonly serviceTier: ServiceTier | null;
+  readonly approvalsReviewer: ApprovalsReviewer | null;
+}
+
+export interface PendingRuntimeIntentState {
+  readonly model: PendingRuntimeIntent<string>;
+  readonly reasoningEffort: PendingRuntimeIntent<ReasoningEffort>;
+  readonly approvalsReviewer: PendingRuntimeIntent<ApprovalsReviewer>;
+  readonly collaborationMode: CollaborationModeSelection;
+  readonly fastMode: PendingRuntimeIntent<RequestedFastMode>;
+}
+
+export function initialActiveChatRuntimeState(): ActiveThreadRuntimeState {
   return {
-    activeModel: null,
-    activeReasoningEffort: null,
-    activeCollaborationMode: null,
-    activeServiceTier: null,
-    activeApprovalsReviewer: null,
+    serviceTierKnown: false,
+    model: null,
+    reasoningEffort: null,
+    collaborationMode: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  };
+}
+
+export function activeThreadRuntimeState(state: ChatRuntimeState): ActiveThreadRuntimeState {
+  return state.active;
+}
+
+export function pendingRuntimeIntentState(state: ChatRuntimeState): PendingRuntimeIntentState {
+  return state.pending;
+}
+
+function initialPendingRuntimeIntentState(): PendingRuntimeIntentState {
+  return {
+    model: unchangedRuntimeIntent(),
+    reasoningEffort: unchangedRuntimeIntent(),
+    approvalsReviewer: unchangedRuntimeIntent(),
+    collaborationMode: "default",
+    fastMode: unchangedRuntimeIntent(),
   };
 }
 
 export function initialChatRuntimeState(): ChatRuntimeState {
   return {
-    ...initialActiveChatRuntimeState(),
-    requestedModel: unchangedRuntimeIntent(),
-    requestedReasoningEffort: unchangedRuntimeIntent(),
-    requestedApprovalsReviewer: unchangedRuntimeIntent(),
-    selectedCollaborationMode: "default",
-    requestedFastMode: unchangedRuntimeIntent(),
+    active: initialActiveChatRuntimeState(),
+    pending: initialPendingRuntimeIntentState(),
   };
 }
 
 export function requestModelRuntimeState(state: ChatRuntimeState, model: string): ChatRuntimeState {
   return {
     ...state,
-    requestedModel: setRuntimeIntentValue(model),
+    pending: { ...state.pending, model: setRuntimeIntentValue(model) },
   };
 }
 
 export function resetModelToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedModel: resetRuntimeIntentToConfig(),
+    pending: { ...state.pending, model: resetRuntimeIntentToConfig() },
   };
 }
 
 export function requestReasoningEffortRuntimeState(state: ChatRuntimeState, effort: ReasoningEffort): ChatRuntimeState {
   return {
     ...state,
-    requestedReasoningEffort: setRuntimeIntentValue(effort),
+    pending: { ...state.pending, reasoningEffort: setRuntimeIntentValue(effort) },
   };
 }
 
 export function resetReasoningEffortToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedReasoningEffort: resetRuntimeIntentToConfig(),
+    pending: { ...state.pending, reasoningEffort: resetRuntimeIntentToConfig() },
   };
 }
 
 export function requestFastModeRuntimeState(state: ChatRuntimeState, fastMode: RequestedFastMode): ChatRuntimeState {
   return {
     ...state,
-    requestedFastMode: setRuntimeIntentValue(fastMode),
+    pending: { ...state.pending, fastMode: setRuntimeIntentValue(fastMode) },
   };
 }
 
 export function clearRequestedFastModeRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedFastMode: unchangedRuntimeIntent(),
+    pending: { ...state.pending, fastMode: unchangedRuntimeIntent() },
   };
 }
 
 export function requestApprovalsReviewerRuntimeState(state: ChatRuntimeState, approvalsReviewer: ApprovalsReviewer): ChatRuntimeState {
   return {
     ...state,
-    requestedApprovalsReviewer: setRuntimeIntentValue(approvalsReviewer),
+    pending: { ...state.pending, approvalsReviewer: setRuntimeIntentValue(approvalsReviewer) },
   };
 }
 
 export function clearRequestedApprovalsReviewerRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
   return {
     ...state,
-    requestedApprovalsReviewer: unchangedRuntimeIntent(),
+    pending: { ...state.pending, approvalsReviewer: unchangedRuntimeIntent() },
   };
 }
 
@@ -110,29 +131,27 @@ export function setSelectedCollaborationModeRuntimeState(
 ): ChatRuntimeState {
   return {
     ...state,
-    selectedCollaborationMode: collaborationMode,
+    pending: { ...state.pending, collaborationMode },
   };
 }
 
 export function commitAppliedRuntimeSettingsPatchState(state: ChatRuntimeState, update: RuntimeSettingsPatch): ChatRuntimeState {
   return {
     ...state,
-    ...("model" in update ? { activeModel: update.model ?? null, requestedModel: unchangedRuntimeIntent<string>() } : {}),
-    ...("effort" in update
-      ? {
-          activeReasoningEffort: normalizeReasoningEffort(update.effort),
-          requestedReasoningEffort: unchangedRuntimeIntent<ReasoningEffort>(),
-        }
-      : {}),
-    ...("serviceTier" in update
-      ? { activeServiceTier: parseServiceTier(update.serviceTier), requestedFastMode: unchangedRuntimeIntent<RequestedFastMode>() }
-      : {}),
-    ...("approvalsReviewer" in update
-      ? {
-          activeApprovalsReviewer: update.approvalsReviewer ?? null,
-          requestedApprovalsReviewer: unchangedRuntimeIntent<ApprovalsReviewer>(),
-        }
-      : {}),
-    ...(update.collaborationMode ? { activeCollaborationMode: update.collaborationMode.mode } : {}),
+    active: {
+      ...state.active,
+      ...("model" in update ? { model: update.model ?? null } : {}),
+      ...("effort" in update ? { reasoningEffort: normalizeReasoningEffort(update.effort) } : {}),
+      ...("serviceTier" in update ? { serviceTier: parseServiceTier(update.serviceTier), serviceTierKnown: true } : {}),
+      ...("approvalsReviewer" in update ? { approvalsReviewer: update.approvalsReviewer ?? null } : {}),
+      ...(update.collaborationMode ? { collaborationMode: update.collaborationMode.mode } : {}),
+    },
+    pending: {
+      ...state.pending,
+      ...("model" in update ? { model: unchangedRuntimeIntent<string>() } : {}),
+      ...("effort" in update ? { reasoningEffort: unchangedRuntimeIntent<ReasoningEffort>() } : {}),
+      ...("serviceTier" in update ? { fastMode: unchangedRuntimeIntent<RequestedFastMode>() } : {}),
+      ...("approvalsReviewer" in update ? { approvalsReviewer: unchangedRuntimeIntent<ApprovalsReviewer>() } : {}),
+    },
   };
 }

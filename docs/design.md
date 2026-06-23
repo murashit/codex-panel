@@ -20,9 +20,9 @@ The repository checkout is the source of truth for implementation, version contr
 
 The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility. Current optional and nullable fields are still part of the contract and must be normalized before display.
 
-Runtime settings should be panel-owned projections of user-visible controls and pending user intent, not mirrors of Codex runtime configuration. Codex-owned policy structures should stay at the app-server boundary unless the panel owns a concrete workflow for them. Diagnostics should include only actionable troubleshooting facts, not broad raw config snapshots kept because they are available. Transport semantics belong at the app-server boundary; config values should not be treated as synonymous with transport payload values.
+Runtime controls should represent visible user intent layered over Codex's active thread state and effective configuration. They should not become a parallel copy of Codex configuration or policy. Codex-owned policy structures should stay at the app-server boundary unless the panel owns a concrete workflow for them. Diagnostics should include only actionable troubleshooting facts, not broad raw snapshots kept because they are available.
 
-Fast mode is a panel runtime intent, not an arbitrary service tier override. The app-server still owns service tier ids and defaults, so the panel should express Fast mode through the app-server's supported runtime setting rather than redefining tier semantics itself.
+Fast mode is a user-facing runtime intent, not a general service-tier editor. Codex owns service tier identifiers, names, and defaults; the panel should express whether the user wants the Fast experience without redefining those semantics.
 
 ## Code Boundaries
 

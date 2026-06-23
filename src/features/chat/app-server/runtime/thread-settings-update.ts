@@ -5,8 +5,8 @@ import {
   type RuntimeSettingsPatch,
 } from "../../../../domain/runtime/thread-settings";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import { currentModel, currentReasoningEffort, fastRuntimeServiceTierRequestValue } from "../../domain/runtime/effective";
-import { effectiveCollaborationMode, type PendingRuntimeIntent } from "../../domain/runtime/intent";
+import { resolveRuntimeControls, type RuntimeControlsResolution } from "../../domain/runtime/resolution";
+import type { PendingRuntimeIntent } from "../../domain/runtime/intent";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 
 type TurnCollaborationModeWarning = "missing-model";
@@ -23,6 +23,8 @@ type TurnCollaborationModeSettings =
 
 // Transport intent is the app-server boundary vocabulary:
 // omit -> leave the field out, clear -> send null, set -> send a concrete value.
+// For service tiers, app-server treats null as clearing to its baseline/default tier,
+// not as "use the configured service_tier" for thread/start.
 type RuntimeTransportIntent<T> = { readonly kind: "omit" } | { readonly kind: "clear" } | { readonly kind: "set"; readonly value: T };
 
 export interface PendingRuntimeSettingsPatch {
@@ -31,36 +33,37 @@ export interface PendingRuntimeSettingsPatch {
 }
 
 export function serviceTierRequestForThreadStart(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimeServiceTierRequest {
-  return runtimeSettingsPatchValue(serviceTierTransportIntent(snapshot, config, "thread-start"));
+  return runtimeSettingsPatchValue(serviceTierTransportIntent(snapshot, resolveRuntimeControls(snapshot, config), "thread-start"));
 }
 
 export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): PendingRuntimeSettingsPatch {
   const update: RuntimeSettingsPatch = {};
-  const runtimeCollaborationModeSettings = requestedTurnCollaborationModeSettings(snapshot, config);
+  const resolution = resolveRuntimeControls(snapshot, config);
+  const runtimeCollaborationModeSettings = requestedTurnCollaborationModeSettings(resolution);
 
-  if (snapshot.requestedModel.kind !== "unchanged") {
-    applyRuntimeSettingsPatchValue(update, "model", runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.requestedModel)));
+  if (snapshot.pending.model.kind !== "unchanged") {
+    applyRuntimeSettingsPatchValue(update, "model", runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.pending.model)));
   }
-  if (snapshot.requestedReasoningEffort.kind !== "unchanged") {
+  if (snapshot.pending.reasoningEffort.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(
       update,
       "effort",
-      runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.requestedReasoningEffort)),
+      runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.pending.reasoningEffort)),
     );
   }
   applyRuntimeSettingsPatchValue(
     update,
     "serviceTier",
-    runtimeSettingsPatchValue(serviceTierTransportIntent(snapshot, config, "thread-update")),
+    runtimeSettingsPatchValue(serviceTierTransportIntent(snapshot, resolution, "thread-update")),
   );
-  if (snapshot.requestedApprovalsReviewer.kind !== "unchanged") {
+  if (snapshot.pending.approvalsReviewer.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(
       update,
       "approvalsReviewer",
-      runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.requestedApprovalsReviewer)),
+      runtimeSettingsPatchValue(runtimeTransportIntentFromPending(snapshot.pending.approvalsReviewer)),
     );
   }
-  if (snapshot.selectedCollaborationMode !== effectiveCollaborationMode(snapshot.activeCollaborationMode)) {
+  if (resolution.collaborationMode.dirty) {
     if (runtimeCollaborationModeSettings.warning) {
       return { update, collaborationModeWarning: runtimeCollaborationModeSettings.warning };
     }
@@ -69,12 +72,12 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
   return { update, collaborationModeWarning: null };
 }
 
-function requestedTurnCollaborationModeSettings(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): TurnCollaborationModeSettings {
-  const model = currentModel(snapshot, config);
-  const effort = currentReasoningEffort(snapshot, config);
+function requestedTurnCollaborationModeSettings(resolution: RuntimeControlsResolution): TurnCollaborationModeSettings {
+  const model = resolution.model.effective;
+  const effort = resolution.reasoningEffort.effective;
   if (!model) return { collaborationMode: null, warning: "missing-model" };
   return {
-    collaborationMode: runtimeCollaborationModeSettings(snapshot.selectedCollaborationMode, model, effort),
+    collaborationMode: runtimeCollaborationModeSettings(resolution.collaborationMode.selected, model, effort),
     warning: null,
   };
 }
@@ -87,18 +90,26 @@ function runtimeTransportIntentFromPending<T>(intent: PendingRuntimeIntent<T>): 
 
 function serviceTierTransportIntent(
   snapshot: RuntimeSnapshot,
-  config: RuntimeConfigSnapshot,
+  resolution: RuntimeControlsResolution,
   target: "thread-start" | "thread-update",
 ): RuntimeTransportIntent<string> {
   // app-server has no separate "reset to config" token for service tiers.
-  // At the transport boundary, null is the explicit clear/off request; undefined omits the field.
-  if (snapshot.requestedFastMode.kind === "set") {
-    return snapshot.requestedFastMode.value === "enabled"
-      ? { kind: "set", value: fastRuntimeServiceTierRequestValue(snapshot, config) }
+  // thread/start null falls back to app-server's baseline/default tier, so a reset
+  // to configured service_tier must send the configured id explicitly.
+  if (snapshot.pending.fastMode.kind === "set") {
+    return snapshot.pending.fastMode.value === "enabled"
+      ? { kind: "set", value: resolution.fastMode.serviceTierRequestValue }
       : { kind: "clear" };
   }
-  if (snapshot.requestedFastMode.kind === "resetToConfig") return { kind: "clear" };
-  if (target === "thread-start" && config.serviceTier) return { kind: "set", value: config.serviceTier };
+  if (snapshot.pending.fastMode.kind === "resetToConfig") {
+    if (target === "thread-start") {
+      return resolution.serviceTier.configured ? { kind: "set", value: resolution.serviceTier.configured } : { kind: "omit" };
+    }
+    return { kind: "clear" };
+  }
+  if (target === "thread-start" && resolution.serviceTier.configured) {
+    return { kind: "set", value: resolution.serviceTier.configured };
+  }
   return { kind: "omit" };
 }
 

@@ -325,11 +325,14 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
     },
     runtime: {
       ...runtimeBase,
-      activeModel: action.model,
-      activeReasoningEffort: action.reasoningEffort,
-      activeCollaborationMode: initialActiveChatRuntimeState().activeCollaborationMode,
-      activeServiceTier: action.serviceTier,
-      activeApprovalsReviewer: action.approvalsReviewer,
+      active: {
+        serviceTierKnown: action.serviceTierKnown ?? true,
+        model: action.model,
+        reasoningEffort: action.reasoningEffort,
+        collaborationMode: initialActiveChatRuntimeState().collaborationMode,
+        serviceTier: action.serviceTier,
+        approvalsReviewer: action.approvalsReviewer,
+      },
     },
     turn: initialTurnState(),
     messageStream: initialMessageStreamState(action.items ?? []),
@@ -347,12 +350,18 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
     },
     runtime: {
       ...state.runtime,
-      activeModel: action.model,
-      activeReasoningEffort: action.reasoningEffort,
-      activeCollaborationMode: action.collaborationMode,
-      selectedCollaborationMode: action.collaborationMode,
-      activeServiceTier: action.serviceTier,
-      activeApprovalsReviewer: action.approvalsReviewer,
+      active: {
+        serviceTierKnown: true,
+        model: action.model,
+        reasoningEffort: action.reasoningEffort,
+        collaborationMode: action.collaborationMode,
+        serviceTier: action.serviceTier,
+        approvalsReviewer: action.approvalsReviewer,
+      },
+      pending: {
+        ...state.runtime.pending,
+        collaborationMode: action.collaborationMode,
+      },
     },
   });
 }

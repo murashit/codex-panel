@@ -66,7 +66,7 @@ describe("chat panel surface projections", () => {
       connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-debug", approval_policy: "on-request" }) },
     });
     state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-debug")] } });
-    state = chatStateWith(state, { runtime: { requestedModel: { kind: "set", value: "gpt-debug" } } });
+    state = chatStateWith(state, { runtime: { pending: { model: { kind: "set", value: "gpt-debug" } } } });
 
     const copyDebugDetails = vi.fn<(details: string) => void>();
     const parent = renderWithShellState(
@@ -82,7 +82,9 @@ describe("chat panel surface projections", () => {
     expect(debugDetails["vaultPath"]).toBe("/vault");
     expect(debugDetails["configuredCommand"]).toBe("codex");
     expect(debugDetails["runtimeConfig"]).toMatchObject({ model: "gpt-debug" });
-    expect(debugDetails["runtime"]).toMatchObject({ requestedModel: { kind: "set", value: "gpt-debug" } });
+    expect(debugDetails["runtime"]).toMatchObject({ pending: { model: { kind: "set", value: "gpt-debug" } } });
+    expect(debugDetails["runtimeLayers"]).toBeUndefined();
+    expect(debugDetails["runtimeResolution"]).toBeUndefined();
     expect(debugDetails["availableModels"]).toMatchObject([{ model: "gpt-debug" }]);
     unmountUiRoot(parent);
   });
@@ -90,7 +92,7 @@ describe("chat panel surface projections", () => {
   it("builds composer meta from context and runtime state", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = chatStateWith(state, { runtime: { selectedCollaborationMode: "plan" } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: "plan" } } });
     state = chatStateWith(state, {
       connection: {
         runtimeConfig: runtimeConfigFixture({
@@ -233,7 +235,7 @@ describe("chat panel surface projections", () => {
     expect(
       modelStatusLines({
         runtimeConfig: state.connection.runtimeConfig,
-        requestedModel: state.runtime.requestedModel,
+        pendingModel: state.runtime.pending.model,
         snapshot,
         collaborationModeLabel: "Default",
       }),
@@ -241,7 +243,7 @@ describe("chat panel surface projections", () => {
     expect(
       modelStatusLines({
         runtimeConfig: state.connection.runtimeConfig,
-        requestedModel: state.runtime.requestedModel,
+        pendingModel: state.runtime.pending.model,
         snapshot,
         collaborationModeLabel: "Default",
       }),
@@ -249,7 +251,7 @@ describe("chat panel surface projections", () => {
     expect(
       effortStatusLines({
         runtimeConfig: state.connection.runtimeConfig,
-        requestedReasoningEffort: state.runtime.requestedReasoningEffort,
+        pendingReasoningEffort: state.runtime.pending.reasoningEffort,
         snapshot,
       }),
     ).toContain("Supported: high");

@@ -1,10 +1,15 @@
 import { createChatState, type ChatState } from "../../../../src/features/chat/application/state/root-reducer";
 
+interface RuntimePatch {
+  active?: Partial<ChatState["runtime"]["active"]>;
+  pending?: Partial<ChatState["runtime"]["pending"]>;
+}
+
 interface ChatStateFixturePatch {
   connection?: Partial<ChatState["connection"]>;
   threadList?: Partial<ChatState["threadList"]>;
   activeThread?: Partial<ChatState["activeThread"]>;
-  runtime?: Partial<ChatState["runtime"]>;
+  runtime?: RuntimePatch;
   turn?: Partial<ChatState["turn"]>;
   messageStream?: Partial<ChatState["messageStream"]>;
   requests?: Partial<ChatState["requests"]>;
@@ -26,7 +31,7 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
     ...(patch.connection ? { connection: { ...state.connection, ...patch.connection } } : {}),
     ...(patch.threadList ? { threadList: { ...state.threadList, ...patch.threadList } } : {}),
     ...(patch.activeThread ? { activeThread: { ...state.activeThread, ...patch.activeThread } } : {}),
-    ...(patch.runtime ? { runtime: { ...state.runtime, ...patch.runtime } } : {}),
+    ...(patch.runtime ? { runtime: runtimeWithPatch(state.runtime, patch.runtime) } : {}),
     ...(patch.turn ? { turn: { ...state.turn, ...patch.turn } } : {}),
     ...(patch.messageStream ? { messageStream: { ...state.messageStream, ...patch.messageStream } } : {}),
     ...(patch.requests ? { requests: { ...state.requests, ...patch.requests } } : {}),
@@ -40,5 +45,19 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
           },
         }
       : {}),
+  };
+}
+
+function runtimeWithPatch(runtime: ChatState["runtime"], patch: RuntimePatch): ChatState["runtime"] {
+  return {
+    active: {
+      ...runtime.active,
+      ...(patch.active && "serviceTier" in patch.active ? { serviceTierKnown: true } : {}),
+      ...patch.active,
+    },
+    pending: {
+      ...runtime.pending,
+      ...patch.pending,
+    },
   };
 }

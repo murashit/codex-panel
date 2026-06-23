@@ -1200,8 +1200,8 @@ describe("ChatInboundHandler", () => {
 
     it("clears all active-thread scoped state when the active thread is archived", () => {
       let state = activeRunningState();
-      state = chatStateWith(state, { runtime: { activeModel: "gpt-5.5" } });
-      state = chatStateWith(state, { runtime: { activeServiceTier: "fast" } });
+      state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5" } } });
+      state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
       state = chatStateWith(state, {
         activeThread: {
           tokenUsage: {
@@ -1618,9 +1618,9 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
       expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
-      expect(handler.currentState().runtime.activeModel).toBe("gpt-5.5");
-      expect(handler.currentState().runtime.activeServiceTier).toBe("fast");
-      expect(handler.currentState().runtime.activeApprovalsReviewer).toBe("auto_review");
+      expect(handler.currentState().runtime.active.model).toBe("gpt-5.5");
+      expect(handler.currentState().runtime.active.serviceTier).toBe("fast");
+      expect(handler.currentState().runtime.active.approvalsReviewer).toBe("auto_review");
       expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
     });
 
@@ -1628,9 +1628,9 @@ describe("ChatInboundHandler", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
-      state = chatStateWith(state, { runtime: { activeModel: "gpt-active" } });
-      state = chatStateWith(state, { runtime: { activeServiceTier: "flex" } });
-      state = chatStateWith(state, { runtime: { activeApprovalsReviewer: "user" } });
+      state = chatStateWith(state, { runtime: { active: { model: "gpt-active" } } });
+      state = chatStateWith(state, { runtime: { active: { serviceTier: "flex" } } });
+      state = chatStateWith(state, { runtime: { active: { approvalsReviewer: "user" } } });
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -1659,15 +1659,15 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
       expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
-      expect(handler.currentState().runtime.activeModel).toBe("gpt-active");
-      expect(handler.currentState().runtime.activeServiceTier).toBe("flex");
-      expect(handler.currentState().runtime.activeApprovalsReviewer).toBe("user");
+      expect(handler.currentState().runtime.active.model).toBe("gpt-active");
+      expect(handler.currentState().runtime.active.serviceTier).toBe("flex");
+      expect(handler.currentState().runtime.active.approvalsReviewer).toBe("user");
     });
 
     it("syncs null service tier from settings notifications", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { runtime: { activeServiceTier: "flex" } });
+      state = chatStateWith(state, { runtime: { active: { serviceTier: "flex" } } });
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -1695,7 +1695,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(handler.currentState().runtime.activeServiceTier).toBeNull();
+      expect(handler.currentState().runtime.active.serviceTier).toBeNull();
     });
 
     it("adds goal events for goal state changes from notifications", () => {
