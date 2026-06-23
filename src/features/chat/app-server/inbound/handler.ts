@@ -46,6 +46,10 @@ function cannotSendMcpElicitationMessage(): string {
   return "Could not send MCP request response because Codex app-server is not connected.";
 }
 
+function cannotSendCurrentTimeMessage(): string {
+  return "Could not send current time because Codex app-server is not connected.";
+}
+
 function userCancelledInputRequestMessage(): string {
   return "User cancelled input request.";
 }
@@ -154,6 +158,9 @@ function handleServerRequest(context: ChatInboundHandlerContext, request: Server
     case "mcpElicitation":
       queueMcpElicitationRequest(context, route.elicitation);
       return;
+    case "currentTime":
+      respondToCurrentTimeRequest(context, route.request);
+      return;
     case "inactive":
       rejectServerRequest(context, request, `Rejected inactive app-server request: ${request.method}`);
       return;
@@ -227,6 +234,15 @@ function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: Pe
     requestId: elicitation.requestId,
     resultItem: createMcpElicitationResultItem(elicitation, action, content),
   });
+}
+
+function respondToCurrentTimeRequest(
+  context: ChatInboundHandlerContext,
+  request: Extract<ServerRequest, { method: "currentTime/read" }>,
+): void {
+  if (!context.actions.respondToServerRequest(request.id, { currentTimeAt: Math.floor(Date.now() / 1000) })) {
+    addSystemMessage(context, cannotSendCurrentTimeMessage());
+  }
 }
 
 function pendingApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingApproval | null {

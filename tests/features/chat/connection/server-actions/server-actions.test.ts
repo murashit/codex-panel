@@ -229,6 +229,7 @@ describe("chat server actions", () => {
       activePermissionProfile: null,
       sandbox: { type: "readOnly", networkAccess: false },
       reasoningEffort: null,
+      multiAgentMode: "explicitRequestOnly",
     });
 
     await expect(starting).resolves.toBeNull();
@@ -628,6 +629,7 @@ function threadFixture(id: string, overrides: Partial<ThreadStartResponse["threa
     modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,
+    recencyAt: null,
     status: { type: "idle" },
     path: null,
     cwd: "/vault",

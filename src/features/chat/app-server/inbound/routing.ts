@@ -15,6 +15,7 @@ export type ServerRequestRoute =
   | { kind: "approval"; request: ServerRequest; approval: PendingApproval }
   | { kind: "userInput"; request: ServerRequest; input: PendingUserInput }
   | { kind: "mcpElicitation"; request: ServerRequest; elicitation: PendingMcpElicitation }
+  | { kind: "currentTime"; request: Extract<ServerRequest, { method: "currentTime/read" }> }
   | { kind: "unsupported"; request: ServerRequest }
   | { kind: "unknown"; request: ServerRequest }
   | { kind: "inactive"; request: ServerRequest };
@@ -171,6 +172,7 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
   "account/rateLimits/updated": unscopedNotificationScope,
   "app/list/updated": unscopedNotificationScope,
   "remoteControl/status/changed": unscopedNotificationScope,
+  "externalAgentConfig/import/progress": unscopedNotificationScope,
   "externalAgentConfig/import/completed": unscopedNotificationScope,
   "fs/changed": unscopedNotificationScope,
   "item/reasoning/summaryTextDelta": threadTurnNotificationScope,
@@ -180,6 +182,7 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
   "model/rerouted": threadTurnNotificationScope,
   "model/verification": threadTurnNotificationScope,
   "turn/moderationMetadata": threadTurnNotificationScope,
+  "model/safetyBuffering/updated": threadTurnNotificationScope,
   warning: threadOnlyNotificationScope,
   guardianWarning: threadOnlyNotificationScope,
   deprecationNotice: unscopedNotificationScope,
@@ -208,6 +211,7 @@ const SERVER_REQUEST_SCOPE_EXTRACTORS: ServerRequestScopeExtractors = {
   "item/tool/call": threadTurnRequestScope,
   "account/chatgptAuthTokens/refresh": unscopedRequestScope,
   "attestation/generate": unscopedRequestScope,
+  "currentTime/read": threadOnlyRequestScope,
   applyPatchApproval: unscopedRequestScope,
   execCommandApproval: unscopedRequestScope,
 };
@@ -221,6 +225,7 @@ const SERVER_REQUEST_ROUTE_KIND_BY_METHOD: ServerRequestRouteKindByMethod = {
   "item/tool/call": "unsupported",
   "account/chatgptAuthTokens/refresh": "unsupported",
   "attestation/generate": "unsupported",
+  "currentTime/read": "currentTime",
   applyPatchApproval: "unsupported",
   execCommandApproval: "unsupported",
 };
@@ -250,6 +255,8 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
       if (elicitation) return { kind: "mcpElicitation", request, elicitation };
       return { kind: "unsupported", request };
     }
+    case "currentTime":
+      return { kind: "currentTime", request: request as Extract<ServerRequest, { method: "currentTime/read" }> };
     case "unsupported":
       return { kind: "unsupported", request };
   }
@@ -314,6 +321,10 @@ function isServerNotification(message: ServerNotification | ServerRequest): mess
 
 function threadTurnRequestScope(request: { params: { threadId: string; turnId: string | null } }): MessageScope {
   return { threadId: request.params.threadId, turnId: request.params.turnId };
+}
+
+function threadOnlyRequestScope(request: { params: { threadId: string | null } }): MessageScope {
+  return { threadId: request.params.threadId, turnId: null };
 }
 
 function unscopedRequestScope(): MessageScope {

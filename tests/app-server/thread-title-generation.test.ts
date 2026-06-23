@@ -280,6 +280,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
     activePermissionProfile: null,
     sandbox: { type: "readOnly", networkAccess: false },
     reasoningEffort: null,
+    multiAgentMode: "none",
   };
 }
 
@@ -294,6 +295,7 @@ function threadFixture(id: string): ThreadStartResponse["thread"] {
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
+    recencyAt: null,
     status: { type: "idle" },
     path: null,
     cwd: "/vault",

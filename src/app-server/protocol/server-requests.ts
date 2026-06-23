@@ -39,7 +39,10 @@ export interface AppServerUserInputResponse {
 
 type AppServerMcpElicitationRequest = AppServerRequestByMethod<"mcpServer/elicitation/request">;
 type AppServerMcpElicitationFormParams = Extract<AppServerMcpElicitationRequest["params"], { mode: "form" }>;
-type AppServerMcpElicitationPrimitiveSchema = NonNullable<AppServerMcpElicitationFormParams["requestedSchema"]["properties"][string]>;
+type AppServerMcpElicitationSchema = NonNullable<AppServerMcpElicitationFormParams["requestedSchema"]>;
+type AppServerMcpElicitationPrimitiveSchema = NonNullable<
+  Extract<AppServerMcpElicitationSchema, { properties: unknown }>["properties"][string]
+>;
 
 export interface AppServerMcpElicitationResponse {
   action: McpElicitationAction;
@@ -116,7 +119,7 @@ export function appServerMcpElicitationRequest(request: ServerRequest): PendingM
       mode: "form",
       message: params.message,
       meta: params._meta,
-      fields: mcpElicitationFieldsFromSchema(params.requestedSchema.properties, new Set(params.requestedSchema.required ?? [])),
+      fields: mcpElicitationFieldsFromRequestedSchema(params.requestedSchema),
     },
   };
 }
@@ -461,6 +464,15 @@ function nonEmptyString(value: unknown): string | null {
 
 function asRecordOrNull(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function mcpElicitationFieldsFromRequestedSchema(schema: unknown): PendingMcpElicitationField[] {
+  if (!isMcpElicitationObjectSchema(schema)) return [];
+  return mcpElicitationFieldsFromSchema(schema.properties, new Set(schema.required ?? []));
+}
+
+function isMcpElicitationObjectSchema(schema: unknown): schema is Extract<AppServerMcpElicitationSchema, { properties: unknown }> {
+  return Boolean(schema && typeof schema === "object" && "properties" in schema && typeof schema.properties === "object");
 }
 
 function mcpElicitationFieldsFromSchema(

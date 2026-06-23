@@ -63,13 +63,19 @@ describe("chat inbound routing", () => {
       { request: permissionsApprovalRequest(), kind: "approval" },
       { request: userInputRequest({ threadId: "thread-active" }), kind: "userInput" },
       { request: mcpElicitationRequest(), kind: "mcpElicitation" },
+      { request: currentTimeRequest("thread-active"), kind: "currentTime" },
       { request: dynamicToolCallRequest(), kind: "unsupported" },
     ] as const;
 
     for (const { request, kind } of requests) {
       expect(routeServerRequest(request, activeScope).kind).toBe(kind);
+      if ("turnId" in request.params) {
+        expect(
+          routeServerRequest({ ...request, params: { ...request.params, turnId: "turn-other" } } as ServerRequest, activeScope).kind,
+        ).toBe("inactive");
+      }
       expect(
-        routeServerRequest({ ...request, params: { ...request.params, turnId: "turn-other" } } as ServerRequest, activeScope).kind,
+        routeServerRequest({ ...request, params: { ...request.params, threadId: "thread-other" } } as ServerRequest, activeScope).kind,
       ).toBe("inactive");
     }
   });
@@ -147,6 +153,7 @@ describe("chat inbound routing", () => {
     expect(routeServerRequest(commandApprovalRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("approval");
     expect(routeServerRequest(userInputRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("userInput");
     expect(routeServerRequest(mcpElicitationRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("mcpElicitation");
+    expect(routeServerRequest(currentTimeRequest("thread-active"), { activeThreadId: null, activeTurnId: null }).kind).toBe("currentTime");
   });
 
   it("classifies inactive requests before request-family handling", () => {
@@ -276,6 +283,7 @@ function commandApprovalRequest(): ServerRequest {
       threadId: "thread-active",
       turnId: "turn-active",
       itemId: "command",
+      environmentId: null,
       startedAtMs: 1,
       reason: null,
       commandActions: [],
@@ -362,6 +370,14 @@ function dynamicToolCallRequest(): ServerRequest {
       tool: "example",
       arguments: {},
     },
+  };
+}
+
+function currentTimeRequest(threadId: string): ServerRequest {
+  return {
+    id: 11,
+    method: "currentTime/read",
+    params: { threadId },
   };
 }
 
@@ -452,6 +468,7 @@ function threadSettingsUpdatedNotification(): Extract<ServerNotification, { meth
         summary: null,
         collaborationMode: { mode: "default", settings: { model: "gpt-5.5", reasoning_effort: "medium", developer_instructions: null } },
         activePermissionProfile: null,
+        multiAgentMode: "explicitRequestOnly",
         personality: null,
       },
     },
@@ -573,6 +590,7 @@ function threadSnapshot(id: string): Extract<ServerNotification, { method: "thre
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
+    recencyAt: null,
     status: { type: "idle" },
     path: null,
     cwd: "/vault",

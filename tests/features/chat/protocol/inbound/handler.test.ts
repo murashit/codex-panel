@@ -973,22 +973,27 @@ describe("ChatInboundHandler", () => {
     it("handles known server request families and rejects unsupported requests by default", () => {
       const state = chatStateFixture();
       const rejectServerRequest = vi.fn(() => true);
-      const handler = handlerForState(state, { rejectServerRequest });
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(state, { rejectServerRequest, respondToServerRequest });
 
       for (const request of supportedApprovalRequests()) {
         handler.handleServerRequest(request);
       }
       handler.handleServerRequest(userInputRequest(20));
       handler.handleServerRequest(mcpElicitationRequest(21));
+      const dateNow = vi.spyOn(Date, "now").mockReturnValue(1_700_000_123_456);
+      handler.handleServerRequest(currentTimeRequest(28, "thread"));
       const unsupported = unsupportedRequests();
       for (const request of unsupported) {
         handler.handleServerRequest(request);
       }
+      dateNow.mockRestore();
       handler.handleServerRequest(unknownRequest());
 
       expect(handler.currentState().requests.approvals.map((approval) => approval.requestId)).toEqual([10, 11, 12]);
       expect(handler.currentState().requests.pendingUserInputs.map((input) => input.requestId)).toEqual([20]);
       expect(handler.currentState().requests.pendingMcpElicitations.map((elicitation) => elicitation.requestId)).toEqual([21]);
+      expect(respondToServerRequest).toHaveBeenCalledWith(28, { currentTimeAt: 1_700_000_123 });
       const unsupportedMessages = unsupported.map((request) => `Rejected unsupported app-server request: ${request.method}`);
       expect(rejectServerRequest).toHaveBeenCalledTimes(unsupportedMessages.length + 1);
       for (const [index, request] of unsupported.entries()) {
@@ -1597,6 +1602,7 @@ describe("ChatInboundHandler", () => {
               settings: { model: "gpt-5.5", reasoning_effort: "high", developer_instructions: null },
             },
             activePermissionProfile: null,
+            multiAgentMode: "explicitRequestOnly",
             personality: null,
           },
         },
@@ -1637,6 +1643,7 @@ describe("ChatInboundHandler", () => {
               settings: { model: "gpt-other", reasoning_effort: "high", developer_instructions: null },
             },
             activePermissionProfile: { id: ":read-only", extends: null },
+            multiAgentMode: "explicitRequestOnly",
             personality: null,
           },
         },
@@ -1673,6 +1680,7 @@ describe("ChatInboundHandler", () => {
               settings: { model: "gpt-5.5", reasoning_effort: "high", developer_instructions: null },
             },
             activePermissionProfile: null,
+            multiAgentMode: "explicitRequestOnly",
             personality: null,
           },
         },
@@ -1995,6 +2003,7 @@ function supportedApprovalRequests(): ServerRequest[] {
         threadId: "thread",
         turnId: "turn",
         itemId: "command",
+        environmentId: null,
         startedAtMs: 1,
         reason: null,
         commandActions: [],
@@ -2073,6 +2082,7 @@ function appServerThread(id: string, cwd: string): ThreadStartedNotification["pa
     modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,
+    recencyAt: null,
     status: { type: "active", activeFlags: [] },
     path: null,
     cwd,
@@ -2153,6 +2163,14 @@ function unsupportedRequests(): ServerRequest[] {
       },
     },
   ];
+}
+
+function currentTimeRequest(id: number, threadId: string): ServerRequest {
+  return {
+    id,
+    method: "currentTime/read",
+    params: { threadId },
+  };
 }
 
 function unknownRequest(): ServerRequest {

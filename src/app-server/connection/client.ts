@@ -328,6 +328,7 @@ export class AppServerClient {
       ephemeral: true,
       sandbox: "read-only",
       approvalPolicy: "never",
+      multiAgentMode: "none",
       environments: [],
     });
   }

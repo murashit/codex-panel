@@ -35,6 +35,7 @@ function responseFixture(thread: ThreadRecord): ThreadResumeResponse {
     activePermissionProfile: null,
     sandbox: { type: "readOnly", networkAccess: false },
     reasoningEffort: "high",
+    multiAgentMode: "explicitRequestOnly",
     initialTurnsPage: null,
   };
 }
@@ -50,6 +51,7 @@ function threadFixture(id: string, name: string): ThreadRecord {
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,
+    recencyAt: null,
     status: { type: "idle" },
     path: null,
     cwd: "/vault",
