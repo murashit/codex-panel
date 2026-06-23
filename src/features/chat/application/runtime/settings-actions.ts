@@ -14,7 +14,7 @@ import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 
-interface ApplyPendingThreadSettingsResult {
+interface RuntimeSettingsCommitResult {
   ok: boolean;
   collaborationModeApplied: boolean;
 }
@@ -75,15 +75,16 @@ export function createChatRuntimeSettingsActions(host: RuntimeSettingsActionsHos
 }
 
 async function applyPendingThreadSettings(host: RuntimeSettingsActionsHost): Promise<boolean> {
-  return (await applyPendingThreadSettingsResult(host)).ok;
+  return (await commitPendingThreadSettings(host)).ok;
 }
 
-async function applyPendingThreadSettingsResult(host: RuntimeSettingsActionsHost): Promise<ApplyPendingThreadSettingsResult> {
+async function commitPendingThreadSettings(host: RuntimeSettingsActionsHost): Promise<RuntimeSettingsCommitResult> {
   const client = host.currentClient();
   const threadId = state(host).activeThread.id;
   if (!client || !threadId) return { ok: true, collaborationModeApplied: true };
 
   const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
+  if (collaborationModeWarning) reportCollaborationModeWarning(host, collaborationModeWarning);
   const collaborationModeApplied = !collaborationModeWarning && "collaborationMode" in update;
   if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
 
@@ -113,9 +114,7 @@ async function resetModelToConfig(host: RuntimeSettingsActionsHost): Promise<boo
 }
 
 async function requestModelFromUi(host: RuntimeSettingsActionsHost, model: string): Promise<void> {
-  if (!(await requestModel(host, model))) return;
-  dispatch(host, { type: "ui/panel-set", panel: null });
-  host.addSystemMessage(modelOverrideMessage(model));
+  await runRuntimeUiCommand(host, () => requestModel(host, model), modelOverrideMessage(model));
 }
 
 async function requestReasoningEffort(host: RuntimeSettingsActionsHost, effort: ReasoningEffort): Promise<boolean> {
@@ -129,15 +128,11 @@ async function resetReasoningEffortToConfig(host: RuntimeSettingsActionsHost): P
 }
 
 async function requestReasoningEffortFromUi(host: RuntimeSettingsActionsHost, effort: ReasoningEffort): Promise<void> {
-  if (!(await requestReasoningEffort(host, effort))) return;
-  dispatch(host, { type: "ui/panel-set", panel: null });
-  host.addSystemMessage(reasoningEffortOverrideMessage(effort));
+  await runRuntimeUiCommand(host, () => requestReasoningEffort(host, effort), reasoningEffortOverrideMessage(effort));
 }
 
 async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsActionsHost): Promise<void> {
-  if (!(await resetReasoningEffortToConfig(host))) return;
-  dispatch(host, { type: "ui/panel-set", panel: null });
-  host.addSystemMessage(reasoningEffortOverrideMessage(null));
+  await runRuntimeUiCommand(host, () => resetReasoningEffortToConfig(host), reasoningEffortOverrideMessage(null));
 }
 
 async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {
@@ -147,10 +142,14 @@ async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {
 
 async function setFastMode(host: RuntimeSettingsActionsHost, mode: FastModeState): Promise<void> {
   const fastMode: RequestedFastMode = mode;
-  dispatch(host, { type: "runtime/fast-mode-requested", fastMode });
-  if (!(await applyPendingThreadSettings(host))) return;
-  dispatch(host, { type: "ui/panel-set", panel: null });
-  host.addSystemMessage(fastModeToggleMessage(mode));
+  await runRuntimeUiCommand(
+    host,
+    async () => {
+      dispatch(host, { type: "runtime/fast-mode-requested", fastMode });
+      return applyPendingThreadSettings(host);
+    },
+    fastModeToggleMessage(mode),
+  );
 }
 
 async function toggleCollaborationMode(host: RuntimeSettingsActionsHost): Promise<void> {
@@ -161,8 +160,8 @@ async function toggleCollaborationMode(host: RuntimeSettingsActionsHost): Promis
 
 async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborationMode: CollaborationModeSelection): Promise<boolean> {
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode });
-  const result = await applyPendingThreadSettingsResult(host);
-  if (result.ok) dispatch(host, { type: "ui/panel-set", panel: null });
+  const result = await commitPendingThreadSettings(host);
+  if (result.ok) closeRuntimePanel(host);
   if (result.ok && result.collaborationModeApplied) host.addSystemMessage(collaborationModeToggleMessage(collaborationMode));
   return result.ok;
 }
@@ -178,10 +177,14 @@ async function toggleAutoReview(host: RuntimeSettingsActionsHost): Promise<void>
 }
 
 async function setAutoReview(host: RuntimeSettingsActionsHost, mode: AutoReviewState): Promise<void> {
-  dispatch(host, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: autoReviewReviewerForState(mode) });
-  if (!(await applyPendingThreadSettings(host))) return;
-  dispatch(host, { type: "ui/panel-set", panel: null });
-  host.addSystemMessage(autoReviewToggleMessage(mode));
+  await runRuntimeUiCommand(
+    host,
+    async () => {
+      dispatch(host, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: autoReviewReviewerForState(mode) });
+      return applyPendingThreadSettings(host);
+    },
+    autoReviewToggleMessage(mode),
+  );
 }
 
 function fastModeToggleMessage(state: FastModeState): string {
@@ -200,6 +203,20 @@ function collaborationModeWarningMessage(_warning: NonNullable<PendingRuntimeSet
   return "No effective model is available. Sending without a mode override.";
 }
 
+async function runRuntimeUiCommand(
+  host: RuntimeSettingsActionsHost,
+  command: () => Promise<boolean>,
+  successMessage: string,
+): Promise<void> {
+  if (!(await command())) return;
+  closeRuntimePanel(host);
+  host.addSystemMessage(successMessage);
+}
+
+function closeRuntimePanel(host: RuntimeSettingsActionsHost): void {
+  dispatch(host, { type: "ui/panel-set", panel: null });
+}
+
 function nextAutoReviewState(active: boolean): AutoReviewState {
   return active ? "disabled" : "enabled";
 }
@@ -210,13 +227,14 @@ function autoReviewReviewerForState(state: AutoReviewState): ApprovalsReviewer {
 
 function pendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): PendingRuntimeSettingsPatch {
   const { snapshot, config } = runtimeProjection(host);
-  const { update, collaborationModeWarning } = buildPendingRuntimeSettingsPatch(snapshot, config);
-  if (collaborationModeWarning) {
-    host.addSystemMessage(
-      `${host.collaborationModeLabel()} mode is selected, but ${collaborationModeWarningMessage(collaborationModeWarning)}`,
-    );
-  }
-  return { update, collaborationModeWarning };
+  return buildPendingRuntimeSettingsPatch(snapshot, config);
+}
+
+function reportCollaborationModeWarning(
+  host: RuntimeSettingsActionsHost,
+  warning: NonNullable<PendingRuntimeSettingsPatch["collaborationModeWarning"]>,
+): void {
+  host.addSystemMessage(`${host.collaborationModeLabel()} mode is selected, but ${collaborationModeWarningMessage(warning)}`);
 }
 
 function currentPendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): RuntimeSettingsPatch {
