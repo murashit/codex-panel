@@ -11,15 +11,27 @@ interface MockSurfaceActions {
 }
 
 describe("ThreadCatalog", () => {
-  it("applies thread snapshots to the shared cache and active observers", () => {
+  it("applies active thread snapshot replacement events through the catalog boundary", () => {
     const { catalog } = catalogFixture();
     const threads = [thread("thread")];
     const listener = vi.fn();
     catalog.observeActive(listener);
 
-    catalog.replaceActiveThreadsSnapshot(threads);
+    catalog.apply({ type: "active-list-snapshot-received", threads });
 
     expect(catalog.activeSnapshot()).toEqual(threads);
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ data: threads }));
+  });
+
+  it("applies archived thread snapshot events through the catalog boundary", () => {
+    const { catalog } = catalogFixture();
+    const threads = [thread("thread", true)];
+    const listener = vi.fn();
+    catalog.observeArchived(listener);
+
+    catalog.apply({ type: "archived-list-snapshot-received", threads });
+
+    expect(catalog.archivedSnapshot()).toEqual(threads);
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ data: threads }));
   });
 
@@ -44,9 +56,9 @@ describe("ThreadCatalog", () => {
     const { catalog, surfaces } = catalogFixture();
     const listener = vi.fn();
     catalog.observeActive(listener);
-    catalog.replaceActiveThreadsSnapshot([thread("thread"), thread("other")]);
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
 
-    catalog.recordThreadRenamed("thread", "Renamed");
+    catalog.apply({ type: "thread-renamed", threadId: "thread", name: "Renamed" });
 
     expect(catalog.activeSnapshot()).toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
     expect(listener).toHaveBeenLastCalledWith(
@@ -61,10 +73,10 @@ describe("ThreadCatalog", () => {
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.replaceActiveThreadsSnapshot([thread("thread"), thread("other")]);
-    catalog.replaceArchivedThreadsSnapshot([thread("archived", true)]);
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
+    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
 
-    catalog.recordThreadArchived("thread", { closeOpenPanels: true });
+    catalog.apply({ type: "thread-archived", threadId: "thread", options: { closeOpenPanels: true } });
 
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
     expect(catalog.archivedSnapshot()).toEqual([{ ...thread("thread"), archived: true }, thread("archived", true)]);
@@ -89,7 +101,7 @@ describe("ThreadCatalog", () => {
     const { catalog } = catalogFixture({ fetchThreads });
 
     const staleRefresh = catalog.refreshArchived();
-    catalog.recordThreadArchived("thread");
+    catalog.apply({ type: "thread-archived", threadId: "thread" });
 
     staleArchivedRefresh.resolve([thread("old", true)]);
     await staleRefresh;
@@ -107,10 +119,10 @@ describe("ThreadCatalog", () => {
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.replaceActiveThreadsSnapshot([thread("thread"), thread("other")]);
-    catalog.replaceArchivedThreadsSnapshot([thread("thread", true), thread("archived", true)]);
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
+    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("thread", true), thread("archived", true)] });
 
-    catalog.recordThreadDeleted("thread");
+    catalog.apply({ type: "thread-deleted", threadId: "thread" });
 
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
     expect(catalog.archivedSnapshot()).toEqual([thread("archived", true)]);
@@ -126,12 +138,12 @@ describe("ThreadCatalog", () => {
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.replaceActiveThreadsSnapshot([thread("existing")]);
-    catalog.replaceArchivedThreadsSnapshot([thread("restored", true), thread("archived", true)]);
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("existing")] });
+    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("restored", true), thread("archived", true)] });
 
-    catalog.recordThreadStarted(thread("started"));
-    catalog.recordThreadForked(thread("forked"));
-    catalog.recordThreadRestored(thread("restored"));
+    catalog.apply({ type: "thread-started", thread: thread("started") });
+    catalog.apply({ type: "thread-forked", thread: thread("forked") });
+    catalog.apply({ type: "thread-restored", thread: thread("restored") });
 
     expect(catalog.activeSnapshot()?.map((item) => item.id)).toEqual(["restored", "forked", "started", "existing"]);
     expect(catalog.archivedSnapshot()?.map((item) => item.id)).toEqual(["archived"]);
@@ -153,7 +165,7 @@ describe("ThreadCatalog", () => {
     const listener = vi.fn();
     catalog.observeActive(listener);
 
-    catalog.recordThreadStarted(thread("started"));
+    catalog.apply({ type: "thread-started", thread: thread("started") });
 
     await expect(catalog.refreshActive()).resolves.toEqual([thread("started"), thread("other")]);
     expect(catalog.activeSnapshot()).toEqual([thread("started"), thread("other")]);
@@ -164,16 +176,96 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
   });
 
+  it("keeps app-server rename facts when an older active list resolves later", async () => {
+    const staleRefresh = deferred<readonly Thread[]>();
+    const fetchThreads = vi
+      .fn()
+      .mockReturnValueOnce(staleRefresh.promise)
+      .mockResolvedValueOnce([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+    const { catalog } = catalogFixture({ fetchThreads });
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
+
+    const refresh = catalog.refreshActive();
+    await flushMicrotasks();
+    catalog.apply({ type: "thread-renamed", threadId: "thread", name: "Renamed" });
+    staleRefresh.resolve([thread("thread"), thread("other")]);
+
+    await expect(refresh).resolves.toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+    expect(catalog.activeSnapshot()).toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+
+    await expect(catalog.refreshActive()).resolves.toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+    expect(catalog.activeSnapshot()).toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
+  });
+
+  it("keeps app-server removal facts when older active and archived lists resolve later", async () => {
+    const staleActiveRefresh = deferred<readonly Thread[]>();
+    const staleArchivedRefresh = deferred<readonly Thread[]>();
+    const fetchThreads = vi.fn((_context: { codexPath: string; vaultPath: string }, archived: boolean) =>
+      archived ? staleArchivedRefresh.promise : staleActiveRefresh.promise,
+    );
+    const { catalog } = catalogFixture({ fetchThreads });
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("active"), thread("other")] });
+    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true), thread("kept", true)] });
+
+    const activeRefresh = catalog.refreshActive();
+    const archivedRefresh = catalog.refreshArchived();
+    await flushMicrotasks();
+
+    catalog.apply({ type: "thread-archived", threadId: "active" });
+    catalog.apply({ type: "thread-deleted", threadId: "archived" });
+    staleActiveRefresh.resolve([thread("active"), thread("other")]);
+    staleArchivedRefresh.resolve([thread("archived", true), thread("kept", true)]);
+
+    await expect(activeRefresh).resolves.toEqual([thread("other")]);
+    await expect(archivedRefresh).resolves.toEqual([thread("active", true), thread("kept", true)]);
+    expect(catalog.activeSnapshot()).toEqual([thread("other")]);
+    expect(catalog.archivedSnapshot()).toEqual([thread("active", true), thread("kept", true)]);
+  });
+
+  it("archives unacknowledged active lifecycle threads without waiting for list acknowledgement", async () => {
+    const fetchThreads = vi.fn().mockResolvedValue([thread("other")]);
+    const { catalog, surfaces } = catalogFixture({ fetchThreads });
+    const listener = vi.fn();
+    const archivedListener = vi.fn();
+    catalog.observeActive(listener);
+    catalog.observeArchived(archivedListener);
+
+    catalog.apply({ type: "thread-started", thread: thread("started") });
+    catalog.apply({ type: "thread-archived", threadId: "started" });
+
+    expect(catalog.activeSnapshot()).toEqual([]);
+    expect(catalog.archivedSnapshot()).toEqual([thread("started", true)]);
+    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("started", true)] }));
+    expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("started", undefined);
+
+    await expect(catalog.refreshActive()).resolves.toEqual([thread("other")]);
+    expect(catalog.activeSnapshot()).toEqual([thread("other")]);
+    expect(observedActiveThreadIds(listener)).not.toContainEqual(["started", "other"]);
+  });
+
+  it("deletes unacknowledged active lifecycle threads", async () => {
+    const fetchThreads = vi.fn().mockResolvedValue([thread("other")]);
+    const { catalog } = catalogFixture({ fetchThreads });
+    catalog.apply({ type: "thread-started", thread: thread("started") });
+
+    catalog.apply({ type: "thread-deleted", threadId: "started" });
+
+    expect(catalog.activeSnapshot()).toEqual([]);
+    expect(catalog.archivedSnapshot()).toEqual([]);
+    await expect(catalog.refreshActive()).resolves.toEqual([thread("other")]);
+    expect(catalog.activeSnapshot()).toEqual([thread("other")]);
+  });
+
   it("records active thread touches as catalog ordering facts without open-surface broadcasts", () => {
     const { catalog, surfaces } = catalogFixture();
     const listener = vi.fn();
     catalog.observeActive(listener);
-    catalog.replaceActiveThreadsSnapshot([
-      thread("active", false, { updatedAt: 1, recencyAt: 1 }),
-      thread("other", false, { updatedAt: 10, recencyAt: 10 }),
-    ]);
+    catalog.apply({
+      type: "active-list-snapshot-received",
+      threads: [thread("active", false, { updatedAt: 1, recencyAt: 1 }), thread("other", false, { updatedAt: 10, recencyAt: 10 })],
+    });
 
-    catalog.recordThreadTouched("active", 20);
+    catalog.apply({ type: "thread-touched", threadId: "active", recencyAt: 20 });
 
     expect(catalog.activeSnapshot()).toEqual([
       thread("active", false, { updatedAt: 1, recencyAt: 20 }),
@@ -187,18 +279,78 @@ describe("ThreadCatalog", () => {
     expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
     expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
+
+  it("applies thread lifecycle events through one catalog event boundary", () => {
+    const { catalog, surfaces } = catalogFixture();
+    const listener = vi.fn();
+    const archivedListener = vi.fn();
+    catalog.observeActive(listener);
+    catalog.observeArchived(archivedListener);
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("existing")] });
+    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
+
+    catalog.apply({ type: "thread-started", thread: thread("started") });
+    catalog.apply({ type: "thread-touched", threadId: "existing", recencyAt: 20 });
+    catalog.apply({ type: "thread-renamed", threadId: "started", name: "Started" });
+    catalog.apply({ type: "thread-archived", threadId: "existing", options: { closeOpenPanels: true } });
+
+    expect(catalog.activeSnapshot()).toEqual([{ ...thread("started"), name: "Started" }]);
+    expect(catalog.archivedSnapshot()).toEqual([thread("existing", true, { recencyAt: 20 }), thread("archived", true)]);
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [{ ...thread("started"), name: "Started" }] }));
+    expect(archivedListener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: [thread("existing", true, { recencyAt: 20 }), thread("archived", true)] }),
+    );
+    expect(surfaces.applyThreadRenamed).toHaveBeenCalledWith("started", "Started");
+    expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("existing", { closeOpenPanels: true });
+  });
+
+  it("moves known unarchived threads through the catalog and refreshes unknown unarchives", async () => {
+    const unknownActiveRefreshStarted = deferred<undefined>();
+    const unknownArchivedRefreshStarted = deferred<undefined>();
+    const fetchThreads = vi.fn((_context: { codexPath: string; vaultPath: string }, archived: boolean) => {
+      if (archived) {
+        unknownArchivedRefreshStarted.resolve(undefined);
+        return Promise.resolve([]);
+      }
+      unknownActiveRefreshStarted.resolve(undefined);
+      return Promise.resolve([thread("unknown")]);
+    });
+    const { catalog } = catalogFixture({ fetchThreads });
+    const listener = vi.fn();
+    const archivedListener = vi.fn();
+    catalog.observeActive(listener);
+    catalog.observeArchived(archivedListener);
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("active")] });
+    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("known", true)] });
+
+    catalog.apply({ type: "thread-unarchived", threadId: "known" });
+
+    expect(catalog.activeSnapshot()).toEqual([thread("known"), thread("active")]);
+    expect(catalog.archivedSnapshot()).toEqual([]);
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("known"), thread("active")] }));
+    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [] }));
+
+    catalog.apply({ type: "thread-unarchived", threadId: "unknown" });
+
+    await unknownActiveRefreshStarted.promise;
+    await unknownArchivedRefreshStarted.promise;
+    await vi.waitFor(() => {
+      expect(catalog.activeSnapshot()).toEqual([thread("known"), thread("unknown")]);
+    });
+    expect(fetchThreads).toHaveBeenCalledTimes(2);
+  });
 });
 
 function catalogFixture(
   options: { fetchThreads?: (context: { codexPath: string; vaultPath: string }, archived: boolean) => Promise<readonly Thread[]> } = {},
 ) {
   const surfaces = surfaceActions();
-  const queries = new AppServerSharedQueries({
+  const store = new AppServerSharedQueries({
     cache: cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([]))),
     context: () => ({ codexPath: "codex", vaultPath: "/vault" }),
   });
   const catalog = createThreadCatalog({
-    queries,
+    store,
     surfaces,
   });
   return { catalog, surfaces };
@@ -261,4 +413,10 @@ function deferred<T>(): {
     reject = promiseReject;
   });
   return { promise, resolve, reject };
+}
+
+async function flushMicrotasks(): Promise<void> {
+  for (let index = 0; index < 10; index += 1) {
+    await Promise.resolve();
+  }
 }

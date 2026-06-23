@@ -54,7 +54,9 @@ Imperative DOM bridges are allowed when an external API or measurement problem r
 
 Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent connection, thread, turn state, composer, and pending requests.
 
-Thread history, archived state, forks, and catalog data should follow app-server semantics. The thread catalog is a read model over app-server list snapshots and lifecycle facts; one list response must not discard newer app-server state. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
+Thread history, archived state, forks, and catalog data should follow app-server semantics. The thread catalog is a read model over app-server list snapshots and lifecycle events; callers submit events instead of choosing cache mutations or refreshes themselves. One list response must not discard newer app-server state. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
+
+Shared app-server resources should follow the same rule. Notifications should describe resource events such as skill changes, sparse rate-limit updates, or MCP startup status updates; the app-server resource actions decide whether to use cached metadata, refresh a probe, or update diagnostics.
 
 Selection rewrite is intentionally scoped to a focused edit-and-review workflow. Avoid expanding it into a broader writing assistant without a separate design decision.
 

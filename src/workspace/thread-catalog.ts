@@ -3,7 +3,7 @@ import type { Thread } from "../domain/threads/model";
 
 type ThreadListObserver = ObservedDataListener<readonly Thread[]>;
 
-interface ThreadCatalogQuerySource {
+interface ThreadCatalogStore {
   activeThreadsSnapshot(): readonly Thread[] | null;
   archivedThreadsSnapshot(): readonly Thread[] | null;
   fetchActiveThreads(): Promise<readonly Thread[]>;
@@ -23,10 +23,35 @@ interface ThreadSurfaceActions {
   applyThreadRenamed(threadId: string, name: string | null): void;
 }
 
+interface PendingThreadUpsert {
+  readonly thread: Thread;
+  readonly acknowledgedBy: (thread: Thread) => boolean;
+}
+
+type PendingThreadUpserts = Map<string, PendingThreadUpsert>;
+type PendingThreadRemovals = Set<string>;
+
+interface PendingThreadListFacts {
+  readonly upserts: PendingThreadUpserts;
+  readonly removals: PendingThreadRemovals;
+}
+
 export interface ThreadCatalogOptions {
-  queries: ThreadCatalogQuerySource;
+  store: ThreadCatalogStore;
   surfaces: ThreadSurfaceActions;
 }
+
+export type ThreadCatalogEvent =
+  | { type: "active-list-snapshot-received"; threads: readonly Thread[] }
+  | { type: "archived-list-snapshot-received"; threads: readonly Thread[] }
+  | { type: "thread-started"; thread: Thread }
+  | { type: "thread-forked"; thread: Thread }
+  | { type: "thread-touched"; threadId: string; recencyAt?: number | null }
+  | { type: "thread-renamed"; threadId: string; name: string | null }
+  | { type: "thread-archived"; threadId: string; options?: { closeOpenPanels?: boolean } }
+  | { type: "thread-deleted"; threadId: string }
+  | { type: "thread-restored"; thread: Thread }
+  | { type: "thread-unarchived"; threadId: string };
 
 export interface ThreadCatalogActiveReader {
   activeSnapshot(): readonly Thread[] | null;
@@ -42,192 +67,270 @@ export interface ThreadCatalogArchivedReader {
   observeArchived(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
 
-export interface ThreadCatalogSnapshotWriter {
-  replaceActiveThreadsSnapshot(threads: readonly Thread[]): void;
-  replaceArchivedThreadsSnapshot(threads: readonly Thread[]): void;
+export interface ThreadCatalogEventSink {
+  apply(event: ThreadCatalogEvent): void;
 }
 
-interface ThreadCatalogThreadStarts {
-  recordThreadStarted(thread: Thread): void;
-}
-
-interface ThreadCatalogThreadForks {
-  recordThreadForked(thread: Thread): void;
-}
-
-interface ThreadCatalogThreadTouches {
-  recordThreadTouched(threadId: string, recencyAt?: number | null): void;
-}
-
-interface ThreadCatalogThreadRenames {
-  recordThreadRenamed(threadId: string, name: string | null): void;
-}
-
-interface ThreadCatalogThreadArchives {
-  recordThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-}
-
-export interface ThreadCatalogThreadDeletes {
-  recordThreadDeleted(threadId: string): void;
-}
-
-export interface ThreadCatalogThreadRestores {
-  recordThreadRestored(thread: Thread): void;
-}
-
-export interface ThreadCatalogChatEvents
-  extends
-    ThreadCatalogThreadStarts,
-    ThreadCatalogThreadForks,
-    ThreadCatalogThreadTouches,
-    ThreadCatalogThreadRenames,
-    ThreadCatalogThreadArchives,
-    ThreadCatalogThreadDeletes {}
-
-export interface ThreadCatalogThreadManagementEvents extends ThreadCatalogThreadRenames, ThreadCatalogThreadArchives {}
-
-export interface ThreadCatalog
-  extends
-    ThreadCatalogActiveReader,
-    ThreadCatalogArchivedReader,
-    ThreadCatalogSnapshotWriter,
-    ThreadCatalogChatEvents,
-    ThreadCatalogThreadRestores {}
+export interface ThreadCatalog extends ThreadCatalogActiveReader, ThreadCatalogArchivedReader, ThreadCatalogEventSink {}
 
 export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalog {
-  const activeLifecycleFacts = new Map<string, Thread>();
+  const activeFacts = pendingThreadListFacts();
+  const archivedFacts = pendingThreadListFacts();
+  const { store, surfaces } = options;
+  const apply = (event: ThreadCatalogEvent): void => {
+    applyThreadCatalogEvent(store, surfaces, activeFacts, archivedFacts, event);
+  };
 
   return {
-    activeSnapshot: () => activeThreadsProjection(options.queries.activeThreadsSnapshot(), activeLifecycleFacts),
-    loadActive: () => loadActiveThreads(options.queries.fetchActiveThreads(), activeLifecycleFacts),
-    refreshActive: () => loadActiveThreads(options.queries.refreshActiveThreads(), activeLifecycleFacts),
+    apply,
+    activeSnapshot: () => threadListProjection(store.activeThreadsSnapshot(), activeFacts),
+    loadActive: () => loadThreadList(store.fetchActiveThreads(), activeFacts),
+    refreshActive: () => loadThreadList(store.refreshActiveThreads(), activeFacts),
     observeActive: (observer, observeOptions) =>
-      options.queries.observeActiveThreadsResult((result) => {
+      store.observeActiveThreadsResult((result) => {
         observer({
           ...result,
-          data: activeThreadsProjection(result.data, activeLifecycleFacts),
+          data: threadListProjection(result.data, activeFacts),
         });
       }, observeOptions),
-    archivedSnapshot: () => options.queries.archivedThreadsSnapshot(),
-    loadArchived: () => options.queries.fetchArchivedThreads(),
-    refreshArchived: () => options.queries.refreshArchivedThreads(),
-    observeArchived: (observer, observeOptions) => options.queries.observeArchivedThreadsResult(observer, observeOptions),
-    replaceActiveThreadsSnapshot: (threads) => {
-      activeLifecycleFacts.clear();
-      options.queries.setActiveThreads(threads);
-    },
-    replaceArchivedThreadsSnapshot: (threads) => {
-      options.queries.setArchivedThreads(threads);
-    },
-    recordThreadStarted: (thread) => {
-      recordActiveThread(options.queries, activeLifecycleFacts, thread);
-    },
-    recordThreadForked: (thread) => {
-      recordActiveThread(options.queries, activeLifecycleFacts, thread);
-    },
-    recordThreadTouched: (threadId, recencyAt) => {
-      recordActiveThreadTouched(options.queries, activeLifecycleFacts, threadId, recencyAt);
-    },
-    recordThreadRenamed: (threadId, name) => {
-      updateActiveLifecycleFact(activeLifecycleFacts, threadId, (thread) => ({ ...thread, name }));
-      options.queries.updateActiveThreads((current) =>
-        current ? current.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)) : null,
-      );
-      options.surfaces.applyThreadRenamed(threadId, name);
-    },
-    recordThreadArchived: (threadId, archiveOptions) => {
-      activeLifecycleFacts.delete(threadId);
-      const archivedThread = options.queries.activeThreadsSnapshot()?.find((thread) => thread.id === threadId) ?? null;
-      options.queries.updateActiveThreads((current) => {
-        return current ? current.filter((thread) => thread.id !== threadId) : null;
-      });
-      if (archivedThread) {
-        options.queries.updateArchivedThreads((current) => promoteThreadInList(current ?? [], { ...archivedThread, archived: true }));
-      } else {
-        refreshArchivedThreadsAfterUnknownArchive(options.queries);
-      }
-      options.surfaces.applyThreadArchived(threadId, archiveOptions);
-    },
-    recordThreadDeleted: (threadId) => {
-      activeLifecycleFacts.delete(threadId);
-      options.queries.updateActiveThreads((current) => (current ? current.filter((thread) => thread.id !== threadId) : null));
-      options.queries.updateArchivedThreads((current) => (current ? current.filter((thread) => thread.id !== threadId) : null));
-    },
-    recordThreadRestored: (thread) => {
-      recordActiveThread(options.queries, activeLifecycleFacts, thread);
-      options.queries.updateArchivedThreads((current) => (current ? current.filter((item) => item.id !== thread.id) : null));
-    },
+    archivedSnapshot: () => threadListProjection(store.archivedThreadsSnapshot(), archivedFacts),
+    loadArchived: () => loadThreadList(store.fetchArchivedThreads(), archivedFacts),
+    refreshArchived: () => loadThreadList(store.refreshArchivedThreads(), archivedFacts),
+    observeArchived: (observer, observeOptions) =>
+      store.observeArchivedThreadsResult((result) => {
+        observer({
+          ...result,
+          data: threadListProjection(result.data, archivedFacts),
+        });
+      }, observeOptions),
   };
 }
 
-async function loadActiveThreads(
-  threadsPromise: Promise<readonly Thread[]>,
-  activeLifecycleFacts: Map<string, Thread>,
-): Promise<readonly Thread[]> {
+function applyThreadCatalogEvent(
+  store: ThreadCatalogStore,
+  surfaces: ThreadSurfaceActions,
+  activeFacts: PendingThreadListFacts,
+  archivedFacts: PendingThreadListFacts,
+  event: ThreadCatalogEvent,
+): void {
+  switch (event.type) {
+    case "active-list-snapshot-received":
+      acknowledgeThreadListSnapshot(activeFacts, event.threads);
+      store.setActiveThreads(event.threads);
+      return;
+    case "archived-list-snapshot-received":
+      acknowledgeThreadListSnapshot(archivedFacts, event.threads);
+      store.setArchivedThreads(event.threads);
+      return;
+    case "thread-started":
+    case "thread-forked":
+      upsertActiveThread(store, activeFacts, event.thread, acknowledgeByThreadId);
+      return;
+    case "thread-touched":
+      applyThreadTouchedEvent(store, activeFacts, event.threadId, event.recencyAt);
+      return;
+    case "thread-renamed":
+      applyThreadRenamedEvent(store, surfaces, activeFacts, archivedFacts, event.threadId, event.name);
+      return;
+    case "thread-archived":
+      applyThreadArchivedEvent(store, surfaces, activeFacts, archivedFacts, event.threadId, event.options);
+      return;
+    case "thread-deleted":
+      applyThreadDeletedEvent(store, activeFacts, archivedFacts, event.threadId);
+      return;
+    case "thread-restored":
+      applyThreadRestoredEvent(store, activeFacts, archivedFacts, event.thread);
+      return;
+    case "thread-unarchived":
+      applyThreadUnarchivedEvent(store, activeFacts, archivedFacts, event.threadId);
+      return;
+  }
+}
+
+async function loadThreadList(threadsPromise: Promise<readonly Thread[]>, facts: PendingThreadListFacts): Promise<readonly Thread[]> {
   const threads = await threadsPromise;
-  acknowledgeActiveSnapshot(activeLifecycleFacts, threads);
-  return activeThreadsProjection(threads, activeLifecycleFacts) ?? [];
+  acknowledgeThreadListSnapshot(facts, threads);
+  return threadListProjection(threads, facts) ?? [];
 }
 
-function recordActiveThread(queries: ThreadCatalogQuerySource, activeLifecycleFacts: Map<string, Thread>, thread: Thread): void {
-  promoteActiveLifecycleFact(activeLifecycleFacts, thread);
-  queries.updateActiveThreads((current) => promoteThreadInList(current ?? [], thread));
+function upsertActiveThread(
+  store: ThreadCatalogStore,
+  activeFacts: PendingThreadListFacts,
+  thread: Thread,
+  acknowledgedBy: (thread: Thread) => boolean,
+): void {
+  rememberPendingThreadUpsert(activeFacts, thread, acknowledgedBy);
+  store.updateActiveThreads((current) => promoteThreadInList(current ?? [], thread));
 }
 
-function recordActiveThreadTouched(
-  queries: ThreadCatalogQuerySource,
-  activeLifecycleFacts: Map<string, Thread>,
+function applyThreadTouchedEvent(
+  store: ThreadCatalogStore,
+  activeFacts: PendingThreadListFacts,
   threadId: string,
   recencyAt: number | null | undefined,
 ): void {
-  const existingFact = activeLifecycleFacts.get(threadId) ?? null;
+  const existingFact = activeFacts.upserts.get(threadId)?.thread ?? null;
   let touchedThread = existingFact ? touchedActiveThread(existingFact, recencyAt) : null;
-  const nextThreads = queries.updateActiveThreads((current) => {
-    const currentThread = current?.find((thread) => thread.id === threadId) ?? touchedThread;
+  const nextThreads = store.updateActiveThreads((current) => {
+    const currentThread = threadListProjection(current, activeFacts)?.find((thread) => thread.id === threadId) ?? touchedThread;
     if (!currentThread) return current;
     touchedThread = touchedActiveThread(currentThread, recencyAt);
     return promoteThreadInList(current ?? [], touchedThread);
   });
   if (!touchedThread) return;
   const promotedThread = touchedThread;
-  promoteActiveLifecycleFact(activeLifecycleFacts, promotedThread);
+  rememberPendingThreadUpsert(
+    activeFacts,
+    promotedThread,
+    recencyAt === undefined ? acknowledgeByThreadId : acknowledgedByRecency(recencyAt),
+  );
   if (!nextThreads) {
-    queries.updateActiveThreads(() => [promotedThread]);
+    store.updateActiveThreads(() => [promotedThread]);
   }
 }
 
-function activeThreadsProjection(
-  snapshot: readonly Thread[] | null,
-  activeLifecycleFacts: ReadonlyMap<string, Thread>,
-): readonly Thread[] | null {
-  if (!snapshot && activeLifecycleFacts.size === 0) return null;
-  const threads = snapshot ?? [];
-  if (activeLifecycleFacts.size === 0) return threads;
+function applyThreadRenamedEvent(
+  store: ThreadCatalogStore,
+  surfaces: ThreadSurfaceActions,
+  activeFacts: PendingThreadListFacts,
+  archivedFacts: PendingThreadListFacts,
+  threadId: string,
+  name: string | null,
+): void {
+  const activeThread = threadListProjection(store.activeThreadsSnapshot(), activeFacts)?.find((thread) => thread.id === threadId) ?? null;
+  if (activeThread) rememberPendingThreadUpsert(activeFacts, { ...activeThread, name }, acknowledgedByName(name));
+  store.updateActiveThreads((current) =>
+    current ? current.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)) : null,
+  );
+  const archivedThread =
+    threadListProjection(store.archivedThreadsSnapshot(), archivedFacts)?.find((thread) => thread.id === threadId) ?? null;
+  if (archivedThread) rememberPendingThreadUpsert(archivedFacts, { ...archivedThread, name }, acknowledgedByName(name));
+  store.updateArchivedThreads((current) =>
+    current ? current.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)) : null,
+  );
+  surfaces.applyThreadRenamed(threadId, name);
+}
+
+function applyThreadArchivedEvent(
+  store: ThreadCatalogStore,
+  surfaces: ThreadSurfaceActions,
+  activeFacts: PendingThreadListFacts,
+  archivedFacts: PendingThreadListFacts,
+  threadId: string,
+  archiveOptions: { closeOpenPanels?: boolean } | undefined,
+): void {
+  const archivedThread = threadListProjection(store.activeThreadsSnapshot(), activeFacts)?.find((thread) => thread.id === threadId);
+  rememberPendingThreadRemoval(activeFacts, threadId);
+  store.updateActiveThreads((current) => {
+    return current ? current.filter((thread) => thread.id !== threadId) : null;
+  });
+  if (archivedThread) {
+    const pendingArchivedThread = { ...archivedThread, archived: true };
+    rememberPendingThreadUpsert(archivedFacts, pendingArchivedThread, acknowledgeByThreadId);
+    store.updateArchivedThreads((current) => promoteThreadInList(current ?? [], pendingArchivedThread));
+  } else {
+    refreshArchivedThreadsAfterUnknownArchive(store, archivedFacts);
+  }
+  surfaces.applyThreadArchived(threadId, archiveOptions);
+}
+
+function applyThreadDeletedEvent(
+  store: ThreadCatalogStore,
+  activeFacts: PendingThreadListFacts,
+  archivedFacts: PendingThreadListFacts,
+  threadId: string,
+): void {
+  rememberPendingThreadRemoval(activeFacts, threadId);
+  rememberPendingThreadRemoval(archivedFacts, threadId);
+  store.updateActiveThreads((current) => (current ? current.filter((thread) => thread.id !== threadId) : null));
+  store.updateArchivedThreads((current) => (current ? current.filter((thread) => thread.id !== threadId) : null));
+}
+
+function applyThreadRestoredEvent(
+  store: ThreadCatalogStore,
+  activeFacts: PendingThreadListFacts,
+  archivedFacts: PendingThreadListFacts,
+  thread: Thread,
+): void {
+  upsertActiveThread(store, activeFacts, { ...thread, archived: false }, acknowledgeByThreadId);
+  rememberPendingThreadRemoval(archivedFacts, thread.id);
+  store.updateArchivedThreads((current) => (current ? current.filter((item) => item.id !== thread.id) : null));
+}
+
+function applyThreadUnarchivedEvent(
+  store: ThreadCatalogStore,
+  activeFacts: PendingThreadListFacts,
+  archivedFacts: PendingThreadListFacts,
+  threadId: string,
+): void {
+  const restoredThread =
+    threadListProjection(store.archivedThreadsSnapshot(), archivedFacts)?.find((thread) => thread.id === threadId) ?? null;
+  rememberPendingThreadRemoval(archivedFacts, threadId);
+  store.updateArchivedThreads((current) => {
+    return current ? current.filter((thread) => thread.id !== threadId) : null;
+  });
+  if (restoredThread) {
+    upsertActiveThread(store, activeFacts, { ...restoredThread, archived: false }, acknowledgeByThreadId);
+    return;
+  }
+  refreshThreadListsAfterUnknownUnarchive(store, activeFacts, archivedFacts);
+}
+
+function threadListProjection(snapshot: readonly Thread[] | null, facts: PendingThreadListFacts): readonly Thread[] | null {
+  if (!snapshot && facts.upserts.size === 0 && facts.removals.size === 0) return null;
+  const threads = (snapshot ?? [])
+    .filter((thread) => !facts.removals.has(thread.id))
+    .map((thread) => facts.upserts.get(thread.id)?.thread ?? thread);
   const snapshotThreadIds = new Set(threads.map((thread) => thread.id));
-  const missingFactThreads = Array.from(activeLifecycleFacts.values()).filter((thread) => !snapshotThreadIds.has(thread.id));
-  if (missingFactThreads.length === 0) return threads;
-  return [...missingFactThreads.reverse(), ...threads];
+  const pendingThreads = Array.from(facts.upserts.values())
+    .map((entry) => entry.thread)
+    .filter((thread) => !facts.removals.has(thread.id) && !snapshotThreadIds.has(thread.id));
+  return pendingThreads.length === 0 ? threads : [...pendingThreads.reverse(), ...threads];
 }
 
-function acknowledgeActiveSnapshot(activeLifecycleFacts: Map<string, Thread>, threads: readonly Thread[]): void {
+function pendingThreadListFacts(): PendingThreadListFacts {
+  return {
+    upserts: new Map(),
+    removals: new Set(),
+  };
+}
+
+function acknowledgeThreadListSnapshot(facts: PendingThreadListFacts, threads: readonly Thread[]): void {
+  const threadIds = new Set(threads.map((thread) => thread.id));
   for (const thread of threads) {
-    activeLifecycleFacts.delete(thread.id);
+    const upsert = facts.upserts.get(thread.id);
+    if (upsert?.acknowledgedBy(thread)) facts.upserts.delete(thread.id);
+  }
+  for (const threadId of [...facts.removals]) {
+    if (!threadIds.has(threadId)) facts.removals.delete(threadId);
   }
 }
 
-function promoteActiveLifecycleFact(activeLifecycleFacts: Map<string, Thread>, thread: Thread): void {
-  activeLifecycleFacts.delete(thread.id);
-  activeLifecycleFacts.set(thread.id, thread);
+function rememberPendingThreadUpsert(facts: PendingThreadListFacts, thread: Thread, acknowledgedBy: (thread: Thread) => boolean): void {
+  facts.removals.delete(thread.id);
+  facts.upserts.delete(thread.id);
+  facts.upserts.set(thread.id, { thread, acknowledgedBy });
 }
 
-function updateActiveLifecycleFact(activeLifecycleFacts: Map<string, Thread>, threadId: string, updater: (thread: Thread) => Thread): void {
-  const thread = activeLifecycleFacts.get(threadId);
-  if (!thread) return;
-  promoteActiveLifecycleFact(activeLifecycleFacts, updater(thread));
+function rememberPendingThreadRemoval(facts: PendingThreadListFacts, threadId: string): void {
+  facts.upserts.delete(threadId);
+  facts.removals.add(threadId);
 }
 
 function touchedActiveThread(thread: Thread, recencyAt: number | null | undefined): Thread {
   return recencyAt === undefined ? thread : { ...thread, recencyAt };
+}
+
+function acknowledgeByThreadId(): boolean {
+  return true;
+}
+
+function acknowledgedByName(name: string | null): (thread: Thread) => boolean {
+  return (thread) => thread.name === name;
+}
+
+function acknowledgedByRecency(recencyAt: number | null): (thread: Thread) => boolean {
+  return (thread) => thread.recencyAt === recencyAt;
 }
 
 function promoteThreadInList(threads: readonly Thread[], thread: Thread): readonly Thread[] {
@@ -235,11 +338,31 @@ function promoteThreadInList(threads: readonly Thread[], thread: Thread): readon
   return [thread, ...withoutThread];
 }
 
-function refreshArchivedThreadsAfterUnknownArchive(queries: ThreadCatalogQuerySource): void {
+function refreshArchivedThreadsAfterUnknownArchive(store: ThreadCatalogStore, archivedFacts: PendingThreadListFacts): void {
   // A force refresh can join an older in-flight archived request. Run one more
   // refresh afterward so an archive recorded during that request is not lost.
-  void queries
+  void store
     .refreshArchivedThreads()
-    .then(() => queries.refreshArchivedThreads())
+    .then((threads) => {
+      acknowledgeThreadListSnapshot(archivedFacts, threads);
+      return store.refreshArchivedThreads();
+    })
+    .then((threads) => {
+      acknowledgeThreadListSnapshot(archivedFacts, threads);
+    })
+    .catch(() => undefined);
+}
+
+function refreshThreadListsAfterUnknownUnarchive(
+  store: ThreadCatalogStore,
+  activeFacts: PendingThreadListFacts,
+  archivedFacts: PendingThreadListFacts,
+): void {
+  // Unknown unarchives need both lists: active gains the thread, archived loses it.
+  void Promise.all([store.refreshActiveThreads(), store.refreshArchivedThreads()])
+    .then(([activeThreads, archivedThreads]) => {
+      acknowledgeThreadListSnapshot(activeFacts, activeThreads);
+      acknowledgeThreadListSnapshot(archivedFacts, archivedThreads);
+    })
     .catch(() => undefined);
 }

@@ -37,7 +37,7 @@ describe("chat server actions", () => {
     const started = threadFixture("started");
     const optimistic = threadFromThreadRecord({ ...started, preview: "first prompt" });
     const existingThread = threadFromThreadRecord(existing);
-    const recordThreadStarted = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const syncThreadGoal = vi.fn();
     const client = {
       startThread: vi.fn().mockResolvedValue({
@@ -55,14 +55,14 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      recordThreadStarted,
+      applyThreadCatalogEvent,
       syncThreadGoal,
     });
 
     await controller.startThread("first prompt");
 
     expect(stateStore.getState().threadList.listedThreads).toEqual([optimistic, existingThread]);
-    expect(recordThreadStarted).toHaveBeenCalledWith(optimistic);
+    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({ type: "thread-started", thread: optimistic });
     expect(syncThreadGoal).toHaveBeenCalledWith("started");
   });
 
@@ -91,7 +91,7 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: runtimeSnapshotForChatState,
-      recordThreadStarted: vi.fn(),
+      applyThreadCatalogEvent: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
 
@@ -126,7 +126,7 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      recordThreadStarted: vi.fn(),
+      applyThreadCatalogEvent: vi.fn(),
       syncThreadGoal,
     });
 
@@ -157,7 +157,7 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      recordThreadStarted: vi.fn(),
+      applyThreadCatalogEvent: vi.fn(),
       syncThreadGoal: vi.fn(),
     });
 
@@ -169,7 +169,7 @@ describe("chat server actions", () => {
   it("keeps app-server preview when newly started threads already have one", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const started = threadFixture("started", { preview: "server preview" });
-    const recordThreadStarted = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const client = {
       startThread: vi.fn().mockResolvedValue({
         thread: started,
@@ -186,13 +186,13 @@ describe("chat server actions", () => {
       vaultPath: "/vault",
       currentClient: () => client,
       runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      recordThreadStarted,
+      applyThreadCatalogEvent,
       syncThreadGoal: () => undefined,
     });
 
     await controller.startThread("local preview");
 
-    expect(recordThreadStarted).toHaveBeenCalledWith(threadFromThreadRecord(started));
+    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({ type: "thread-started", thread: threadFromThreadRecord(started) });
   });
 
   it("does not apply newly started threads after the client changes", async () => {
@@ -203,14 +203,14 @@ describe("chat server actions", () => {
     } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const recordThreadStarted = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const syncThreadGoal = vi.fn();
     const controller = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
       runtimeSnapshotForState: () => ({ requestedFastMode: { kind: "unchanged" }, runtimeConfig: null }) as never,
-      recordThreadStarted,
+      applyThreadCatalogEvent,
       syncThreadGoal,
     });
 
@@ -235,7 +235,7 @@ describe("chat server actions", () => {
     await expect(starting).resolves.toBeNull();
     expect(stateStore.getState().activeThread.id).toBeNull();
     expect(stateStore.getState().threadList.listedThreads).toEqual([]);
-    expect(recordThreadStarted).not.toHaveBeenCalled();
+    expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
     expect(syncThreadGoal).not.toHaveBeenCalled();
   });
 
@@ -490,7 +490,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    const refreshing = controller.refreshSkills(true);
+    const refreshing = controller.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
     currentClient = secondClient;
     skillRefresh.resolve({ data: [{ skills: [skillFixture("stale-skill")] }] });
 
@@ -517,7 +517,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    await controller.refreshRateLimits({ preserveExistingOnFailure: true });
+    await controller.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
 
     expect(stateStore.getState().connection.rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
     expect(cachedMetadata.current?.rateLimit).toStrictEqual(rateLimit);
@@ -542,7 +542,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    await controller.refreshRateLimits({ preserveExistingOnFailure: true });
+    await controller.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
 
     expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
     expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
@@ -566,7 +566,7 @@ describe("chat server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    const refreshing = controller.refreshRateLimits({ preserveExistingOnFailure: true });
+    const refreshing = controller.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
     currentClient = secondClient;
     rateLimitRefresh.resolve({
       rateLimits: rateLimitFixture({ primary: { usedPercent: 88, windowDurationMins: 300, resetsAt: null } }),
@@ -591,16 +591,28 @@ describe("chat server actions", () => {
       listSkills: vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", skills: [] }] }),
     } as unknown as AppServerClient;
     const metadataCache = metadataCacheHost({ current: serverMetadataFixture() });
-    const controller = createChatServerDiagnosticsActions({
+    const metadata = createChatServerMetadataActions({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      ...metadataCache,
+      refreshAppServerMetadata: async () => null,
+    });
+    const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
       ...metadataCache,
     });
 
-    controller.recordMcpStartupStatus("github", "ready", null);
+    await metadata.applyAppServerResourceEvent({
+      type: "mcp-startup-status-updated",
+      name: "github",
+      status: "ready",
+      message: null,
+    });
 
-    await controller.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
+    await diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
 
     const sections = toolInventoryDiagnosticSections(stateStore.getState().connection.serverDiagnostics);
     const providerRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];

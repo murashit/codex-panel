@@ -21,7 +21,7 @@ describe("ThreadOperations", () => {
     await expect(operations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
 
     expect(client?.setThreadName).toHaveBeenCalledWith("thread", "Saved title");
-    expect(catalog.recordThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
+    expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-renamed", threadId: "thread", name: "Saved title" });
   });
 
   it("can skip rename publication when the caller invalidates the save", async () => {
@@ -29,7 +29,7 @@ describe("ThreadOperations", () => {
 
     await operations.renameThread("thread", "Generated title", { shouldPublish: () => false });
 
-    expect(catalog.recordThreadRenamed).not.toHaveBeenCalled();
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
@@ -41,7 +41,11 @@ describe("ThreadOperations", () => {
     });
 
     expect(notice).toHaveBeenCalledWith("Saved archived thread to Archive/thread.md.");
-    expect(catalog.recordThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
+    expect(catalog.apply).toHaveBeenCalledWith({
+      type: "thread-archived",
+      threadId: "thread",
+      options: { closeOpenPanels: true },
+    });
   });
 
   it("does not notify surfaces when an operation has no current client", async () => {
@@ -50,8 +54,7 @@ describe("ThreadOperations", () => {
     await expect(operations.renameThread("thread", "Title")).rejects.toThrow("No current client.");
     await expect(operations.archiveThread("thread")).rejects.toThrow("No current client.");
 
-    expect(catalog.recordThreadRenamed).not.toHaveBeenCalled();
-    expect(catalog.recordThreadArchived).not.toHaveBeenCalled();
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("does not publish stale rename results after the current client changes", async () => {
@@ -65,7 +68,7 @@ describe("ThreadOperations", () => {
 
     await expect(operations.renameThread("thread", "Title")).rejects.toThrow("Client changed.");
 
-    expect(catalog.recordThreadRenamed).not.toHaveBeenCalled();
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("does not publish stale archive results after the current client changes", async () => {
@@ -80,7 +83,7 @@ describe("ThreadOperations", () => {
 
     await expect(operations.archiveThread("thread")).rejects.toThrow("Client changed.");
 
-    expect(catalog.recordThreadArchived).not.toHaveBeenCalled();
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 });
 
@@ -90,8 +93,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
   const configuredClient = options.client === undefined ? clientMock() : options.client;
   const currentClient = typeof configuredClient === "function" ? configuredClient : () => configuredClient;
   const catalog = {
-    recordThreadArchived: vi.fn(),
-    recordThreadRenamed: vi.fn(),
+    apply: vi.fn(),
   };
   const notice = vi.fn();
   const host: ThreadOperationsHost = {

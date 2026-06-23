@@ -483,7 +483,7 @@ function createSessionAutoTitleCoordinator(
       await client.setThreadName(threadId, name);
       if (currentClient() !== client) return false;
       if (options.shouldPublish()) {
-        host.environment.plugin.threadCatalog.recordThreadRenamed(threadId, name);
+        host.environment.plugin.threadCatalog.apply({ type: "thread-renamed", threadId, name });
       }
       return true;
     },
@@ -746,8 +746,8 @@ function createThreadActionParts(
     refreshAfterThreadMutation: async () => {
       await refreshActiveThreads();
     },
-    recordThreadForked: (thread) => {
-      environment.plugin.threadCatalog.recordThreadForked(thread);
+    applyThreadCatalogEvent: (event) => {
+      environment.plugin.threadCatalog.apply(event);
     },
   };
   const actions = createThreadManagementActions(threadManagementHost);

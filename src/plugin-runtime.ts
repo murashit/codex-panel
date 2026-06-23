@@ -51,7 +51,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       },
     });
     this.threadCatalog = createThreadCatalog({
-      queries: this.appServerSharedQueries,
+      store: this.appServerSharedQueries,
       surfaces: {
         applyThreadArchived: (threadId, archiveOptions) => {
           this.applyThreadArchived(threadId, archiveOptions);

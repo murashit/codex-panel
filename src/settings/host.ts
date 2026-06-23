@@ -2,7 +2,7 @@ import type { AppServerClientAccess } from "../app-server/connection/client-acce
 import type { ModelMetadata } from "../domain/catalog/metadata";
 import type { ObservedDataListener } from "../domain/observed-data";
 import type { CodexPanelSettings } from "./model";
-import type { ThreadCatalogArchivedReader, ThreadCatalogThreadDeletes, ThreadCatalogThreadRestores } from "../workspace/thread-catalog";
+import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../workspace/thread-catalog";
 
 interface SettingsAppServerData {
   modelsSnapshot(): readonly ModelMetadata[] | null;
@@ -17,7 +17,7 @@ export interface SettingsDynamicDataHost {
   vaultPath: string;
   clientAccess: AppServerClientAccess;
   appServerData: SettingsAppServerData;
-  threadCatalog: ThreadCatalogArchivedReader & ThreadCatalogThreadDeletes & ThreadCatalogThreadRestores;
+  threadCatalog: ThreadCatalogArchivedReader & ThreadCatalogEventSink;
 }
 
 export interface CodexPanelSettingTabHost extends SettingsDynamicDataHost {

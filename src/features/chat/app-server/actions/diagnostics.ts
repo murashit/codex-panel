@@ -6,10 +6,8 @@ import {
   diagnosticProbeError,
   diagnosticProbeOk,
   upsertMcpServerStatusDiagnostics,
-  upsertMcpServerDiagnostic,
   type Diagnostics,
   type DiagnosticProbeMethod,
-  type McpServerStartupStatus,
 } from "../../../../domain/server/diagnostics";
 import { readToolInventory } from "../../../../app-server/tool-inventory";
 import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
@@ -32,16 +30,12 @@ export interface ChatServerDiagnosticsActionsHost extends ChatServerActionHost {
 
 export interface ChatServerDiagnosticsActions {
   refreshServerDiagnostics: (options?: RefreshServerDiagnosticsOptions) => Promise<void>;
-  recordMcpStartupStatus: (name: string, startupStatus: McpServerStartupStatus, message: string | null) => void;
 }
 
 export function createChatServerDiagnosticsActions(host: ChatServerDiagnosticsActionsHost): ChatServerDiagnosticsActions {
   return {
     refreshServerDiagnostics: async (options) => {
       await refreshServerDiagnostics(host, options);
-    },
-    recordMcpStartupStatus: (name, startupStatus, message) => {
-      recordMcpStartupStatus(host, name, startupStatus, message);
     },
   };
 }
@@ -104,26 +98,6 @@ async function refreshServerDiagnostics(
 async function readRateLimitDiagnosticProbe(client: AppServerClient): Promise<DiagnosticProbeSnapshot> {
   const result = await readRateLimitMetadataProbe(client);
   return { probe: result.probe };
-}
-
-function recordMcpStartupStatus(
-  host: ChatServerDiagnosticsActionsHost,
-  name: string,
-  startupStatus: McpServerStartupStatus,
-  message: string | null,
-): void {
-  const diagnostics = upsertMcpServerDiagnostic(currentMetadataDiagnostics(host), {
-    name,
-    startupStatus,
-    authStatus: null,
-    toolCount: null,
-    message,
-  });
-  host.updateAppServerMetadata((metadata) => (metadata ? { ...metadata, serverDiagnostics: diagnostics } : null));
-  host.stateStore.dispatch({
-    type: "connection/metadata-applied",
-    serverDiagnostics: diagnostics,
-  });
 }
 
 function currentMetadataDiagnostics(host: ChatServerDiagnosticsActionsHost): SharedServerMetadata["serverDiagnostics"] {

@@ -302,9 +302,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       archiveThread,
     });
-    const recordThreadArchived = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const host = threadsHost({
-      threadCatalog: { recordThreadArchived },
+      threadCatalog: { apply: applyThreadCatalogEvent },
     });
     const view = await threadsView(host);
 
@@ -314,7 +314,11 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(archiveThread).toHaveBeenCalledWith("thread");
-      expect(recordThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-archived",
+        threadId: "thread",
+        options: { closeOpenPanels: true },
+      });
     });
   });
 
@@ -324,9 +328,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       setThreadName,
     });
-    const recordThreadRenamed = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const host = threadsHost({
-      threadCatalog: { recordThreadRenamed },
+      threadCatalog: { apply: applyThreadCatalogEvent },
     });
     const view = await threadsView(host);
 
@@ -340,7 +344,11 @@ describe("CodexThreadsView", () => {
 
     await waitForAsyncWork(() => {
       expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
-      expect(recordThreadRenamed).toHaveBeenCalledWith("thread", "Renamed thread");
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-renamed",
+        threadId: "thread",
+        name: "Renamed thread",
+      });
     });
   });
 
@@ -351,9 +359,9 @@ describe("CodexThreadsView", () => {
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
       setThreadName,
     });
-    const recordThreadRenamed = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const host = threadsHost({
-      threadCatalog: { recordThreadRenamed },
+      threadCatalog: { apply: applyThreadCatalogEvent },
     });
     const view = await threadsView(host);
 
@@ -378,7 +386,11 @@ describe("CodexThreadsView", () => {
     saved.resolve({});
 
     await waitForAsyncWork(() => {
-      expect(recordThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-renamed",
+        threadId: "thread",
+        name: "Saved title",
+      });
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("New draft");
     });
   });
@@ -536,9 +548,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     getOpenPanelSnapshots: vi.fn(() => []),
     threadCatalog: {
-      recordThreadArchived: vi.fn(),
-      recordThreadDeleted: vi.fn(),
-      recordThreadRenamed: vi.fn(),
+      apply: vi.fn(),
       loadActive: vi.fn(async () => []),
       refreshActive: vi.fn(async () => {
         const client = connectionMock.state.client;

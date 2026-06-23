@@ -7,7 +7,7 @@ import type { ObservedDataResult } from "../../domain/observed-data";
 import { observedData, observedInitialError, observedInitialLoading } from "../../domain/observed-data";
 import type { Thread } from "../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
-import type { ThreadCatalogActiveReader, ThreadCatalogThreadManagementEvents } from "../../workspace/thread-catalog";
+import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../workspace/thread-catalog";
 import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
@@ -37,7 +37,7 @@ export interface CodexThreadsHost {
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
 }
 
-type ThreadsThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogThreadManagementEvents;
+type ThreadsThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
 
 export interface CodexThreadsSettingsAccess {
   archiveExportEnabled(): boolean;

@@ -470,7 +470,7 @@ describe("settings tab", () => {
 
   it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
-    const recordThreadRestored = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const initialClient = settingsClient();
     const restoreClient = {
       unarchiveThread: vi.fn(() => staleRestore.promise),
@@ -490,7 +490,7 @@ describe("settings tab", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const controller = new SettingsDynamicDataController(settingsTabHost({ recordThreadRestored, refreshArchived }), {
+    const controller = new SettingsDynamicDataController(settingsTabHost({ applyThreadCatalogEvent, refreshArchived }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
@@ -505,13 +505,13 @@ describe("settings tab", () => {
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
 
-    expect(recordThreadRestored).not.toHaveBeenCalled();
+    expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
   });
 
   it("records restored archived threads in the active catalog", async () => {
     const notify = vi.fn();
-    const recordThreadRestored = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const initialClient = settingsClient();
     const restoreClient = {
       unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
@@ -526,7 +526,7 @@ describe("settings tab", () => {
     const controller = new SettingsDynamicDataController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        recordThreadRestored,
+        applyThreadCatalogEvent,
       }),
       { display: vi.fn(), notify },
     );
@@ -537,9 +537,10 @@ describe("settings tab", () => {
     const snapshot = controller.snapshot();
     expect(snapshot.archivedThreads).toEqual([]);
     expect(snapshot.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(recordThreadRestored).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
-    );
+    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      type: "thread-restored",
+      thread: expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
+    });
     expect(notify).not.toHaveBeenCalledWith("Could not restore archived Codex thread.");
   });
 
@@ -567,7 +568,7 @@ describe("settings tab", () => {
           };
           return () => undefined;
         },
-        recordThreadRestored: () => {
+        applyThreadCatalogEvent: () => {
           emitArchived([]);
         },
       }),
@@ -614,7 +615,7 @@ describe("settings tab", () => {
           };
           return () => undefined;
         },
-        recordThreadDeleted: () => {
+        applyThreadCatalogEvent: () => {
           emitArchived([]);
         },
       }),
@@ -1005,8 +1006,7 @@ function newSettingsTab(
     archivedSnapshot?: Thread[] | null;
     refreshArchived?: () => Promise<readonly Thread[]>;
     observeArchived?: CodexPanelSettingTabHost["threadCatalog"]["observeArchived"];
-    recordThreadRestored?: (thread: Thread) => void;
-    recordThreadDeleted?: (threadId: string) => void;
+    applyThreadCatalogEvent?: CodexPanelSettingTabHost["threadCatalog"]["apply"];
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -1032,8 +1032,7 @@ function settingsTabHost(
     archivedSnapshot?: Thread[] | null;
     refreshArchived?: () => Promise<readonly Thread[]>;
     observeArchived?: CodexPanelSettingTabHost["threadCatalog"]["observeArchived"];
-    recordThreadRestored?: (thread: Thread) => void;
-    recordThreadDeleted?: (threadId: string) => void;
+    applyThreadCatalogEvent?: CodexPanelSettingTabHost["threadCatalog"]["apply"];
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -1078,8 +1077,7 @@ function settingsTabHost(
       loadArchived: vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
       refreshArchived: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
       observeArchived: options.observeArchived ?? vi.fn(() => () => undefined),
-      recordThreadDeleted: options.recordThreadDeleted ?? vi.fn(),
-      recordThreadRestored: options.recordThreadRestored ?? vi.fn(),
+      apply: options.applyThreadCatalogEvent ?? vi.fn(),
     },
   };
 }

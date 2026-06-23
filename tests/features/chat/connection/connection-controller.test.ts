@@ -27,10 +27,8 @@ function createController({ connected = false, client = {} as AppServerClient } 
   };
   const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
   const refreshServerDiagnostics = vi.fn().mockResolvedValue(undefined);
-  const refreshSkills = vi.fn().mockResolvedValue(undefined);
   const metadata = {
     refreshAppServerMetadata,
-    refreshSkills,
   } satisfies ChatConnectionMetadataActions;
   const diagnostics = {
     refreshServerDiagnostics,

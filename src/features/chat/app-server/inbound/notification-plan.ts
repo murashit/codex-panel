@@ -1,11 +1,11 @@
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
-import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { threadFromAppServerRecord } from "../../../../app-server/threads";
 import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
-import { normalizeExplicitThreadName, type Thread } from "../../../../domain/threads/model";
+import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
+import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import { jsonPreview } from "../../../../utils";
 import {
   activeTurnId,
@@ -38,6 +38,7 @@ import {
 import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
 import { messageStreamItems } from "../../application/state/message-stream";
 import { reconcileCompletedTurnItems } from "../../domain/message-stream/completed-turn-reconciliation";
+import type { AppServerResourceEvent } from "../actions/metadata";
 import {
   routeServerNotification,
   type DiagnosticStatusNotification,
@@ -54,21 +55,9 @@ import {
 
 export type ChatNotificationEffect =
   | { type: "refresh-threads" }
-  | { type: "refresh-rate-limits" }
-  | { type: "refresh-skills"; forceReload: boolean }
-  | { type: "apply-app-server-metadata-snapshot" }
+  | { type: "apply-app-server-resource-event"; event: AppServerResourceEvent }
   | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ThreadConversationSummary | null }
-  | { type: "record-thread-started"; thread: Thread }
-  | { type: "record-thread-touched"; threadId: string; recencyAt: number | null }
-  | { type: "apply-thread-archived"; threadId: string }
-  | { type: "record-active-thread-deleted"; threadId: string }
-  | { type: "apply-thread-renamed"; threadId: string; name: string | null }
-  | {
-      type: "record-mcp-startup-status";
-      name: string;
-      status: McpServerStartupStatus;
-      message: string | null;
-    };
+  | { type: "apply-thread-catalog-event"; event: ThreadCatalogEvent };
 
 export interface ChatNotificationPlan {
   actions: readonly ChatAction[];
@@ -106,22 +95,27 @@ const DIAGNOSTIC_STATUS_PLANNERS = {
       type: "active-thread/token-usage-set",
       tokenUsage: threadTokenUsageFromRuntimeUsage(notification.params.tokenUsage),
     }),
-  "account/rateLimits/updated": () => ({ actions: [], effects: [{ type: "refresh-rate-limits" }] }),
-  "skills/changed": () => ({ actions: [], effects: [{ type: "refresh-skills", forceReload: true }] }),
+  "account/rateLimits/updated": () => ({
+    actions: [],
+    effects: [{ type: "apply-app-server-resource-event", event: { type: "rate-limits-updated", preserveExistingOnFailure: true } }],
+  }),
+  "skills/changed": () => ({
+    actions: [],
+    effects: [{ type: "apply-app-server-resource-event", event: { type: "skills-changed", forceReload: true } }],
+  }),
   "mcpServer/startupStatus/updated": (notification) => ({
     actions: [],
-    effects:
-      notification.params.name.length === 0
-        ? [{ type: "apply-app-server-metadata-snapshot" }]
-        : [
-            {
-              type: "record-mcp-startup-status",
-              name: notification.params.name,
-              status: notification.params.status,
-              message: notification.params.error,
-            },
-            { type: "apply-app-server-metadata-snapshot" },
-          ],
+    effects: [
+      {
+        type: "apply-app-server-resource-event",
+        event: {
+          type: "mcp-startup-status-updated",
+          name: notification.params.name,
+          status: notification.params.status,
+          message: notification.params.error,
+        },
+      },
+    ],
   }),
 } satisfies ServerNotificationPlannerMap<DiagnosticStatusNotificationMethod>;
 
@@ -224,7 +218,12 @@ const TURN_LIFECYCLE_PLANNERS = {
         items: messageStreamItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
       },
     ],
-    effects: [{ type: "record-thread-touched", threadId: notification.params.threadId, recencyAt: notification.params.turn.startedAt }],
+    effects: [
+      {
+        type: "apply-thread-catalog-event",
+        event: { type: "thread-touched", threadId: notification.params.threadId, recencyAt: notification.params.turn.startedAt },
+      },
+    ],
   }),
   "turn/completed": (state, notification) => {
     if (activeTurnId(state) !== notification.params.turn.id) return EMPTY_PLAN;
@@ -261,8 +260,8 @@ const THREAD_LIFECYCLE_PLANNERS = {
   "thread/started": (state, notification) => {
     const effects: ChatNotificationEffect[] = [
       {
-        type: "record-thread-started",
-        thread: threadFromAppServerRecord(notification.params.thread),
+        type: "apply-thread-catalog-event",
+        event: { type: "thread-started", thread: threadFromAppServerRecord(notification.params.thread) },
       },
     ];
     if (!state.activeThread.id || state.activeThread.id === notification.params.thread.id) {
@@ -272,18 +271,21 @@ const THREAD_LIFECYCLE_PLANNERS = {
   },
   "thread/archived": (_state, notification) => ({
     actions: [],
-    effects: [{ type: "apply-thread-archived", threadId: notification.params.threadId }],
+    effects: [{ type: "apply-thread-catalog-event", event: { type: "thread-archived", threadId: notification.params.threadId } }],
   }),
   "thread/deleted": (_state, notification) => ({
     actions: [],
-    effects: [{ type: "record-active-thread-deleted", threadId: notification.params.threadId }],
+    effects: [{ type: "apply-thread-catalog-event", event: { type: "thread-deleted", threadId: notification.params.threadId } }],
   }),
-  "thread/unarchived": () => ({ actions: [], effects: [{ type: "refresh-threads" }] }),
+  "thread/unarchived": (_state, notification) => ({
+    actions: [],
+    effects: [{ type: "apply-thread-catalog-event", event: { type: "thread-unarchived", threadId: notification.params.threadId } }],
+  }),
   "thread/name/updated": (_state, notification) => {
     const name = normalizeExplicitThreadName(notification.params.threadName);
     return {
       actions: [],
-      effects: [{ type: "apply-thread-renamed", threadId: notification.params.threadId, name }],
+      effects: [{ type: "apply-thread-catalog-event", event: { type: "thread-renamed", threadId: notification.params.threadId, name } }],
     };
   },
   "thread/settings/updated": (state, notification) => {

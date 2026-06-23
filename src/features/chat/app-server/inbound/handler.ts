@@ -4,9 +4,9 @@ import {
   appServerMcpElicitationResponse,
   appServerUserInputResponse,
 } from "../../../../app-server/protocol/server-requests";
-import type { McpServerStartupStatus } from "../../../../domain/server/diagnostics";
-import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
+import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
+import type { AppServerResourceEvent } from "../actions/metadata";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
 import { classifyAppServerLog } from "./app-server-logs";
 import { activeTurnId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
@@ -60,16 +60,9 @@ function cannotRejectServerRequestMessage(): string {
 
 export interface ChatInboundHandlerActions {
   refreshActiveThreads: () => void;
-  refreshRateLimits: () => void;
-  refreshSkills: (forceReload?: boolean) => void;
-  applyAppServerMetadataSnapshot: () => void;
+  applyAppServerResourceEvent: (event: AppServerResourceEvent) => void;
   maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
-  recordThreadStarted: (thread: Thread) => void;
-  recordThreadTouched: (threadId: string, recencyAt: number | null) => void;
-  applyThreadArchived: (threadId: string) => void;
-  recordActiveThreadDeleted: (threadId: string) => void;
-  applyThreadRenamed: (threadId: string, name: string | null) => void;
-  recordMcpStartupStatus: (name: string, status: McpServerStartupStatus, message: string | null) => void;
+  applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
 }
@@ -319,35 +312,14 @@ function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatN
     case "refresh-threads":
       context.actions.refreshActiveThreads();
       return;
-    case "refresh-rate-limits":
-      context.actions.refreshRateLimits();
-      return;
-    case "refresh-skills":
-      context.actions.refreshSkills(effect.forceReload);
-      return;
-    case "apply-app-server-metadata-snapshot":
-      context.actions.applyAppServerMetadataSnapshot();
+    case "apply-app-server-resource-event":
+      context.actions.applyAppServerResourceEvent(effect.event);
       return;
     case "maybe-name-thread":
       context.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);
       return;
-    case "record-thread-started":
-      context.actions.recordThreadStarted(effect.thread);
-      return;
-    case "record-thread-touched":
-      context.actions.recordThreadTouched(effect.threadId, effect.recencyAt);
-      return;
-    case "apply-thread-archived":
-      context.actions.applyThreadArchived(effect.threadId);
-      return;
-    case "record-active-thread-deleted":
-      context.actions.recordActiveThreadDeleted(effect.threadId);
-      return;
-    case "apply-thread-renamed":
-      context.actions.applyThreadRenamed(effect.threadId, effect.name);
-      return;
-    case "record-mcp-startup-status":
-      context.actions.recordMcpStartupStatus(effect.name, effect.status, effect.message);
+    case "apply-thread-catalog-event":
+      context.actions.applyThreadCatalogEvent(effect.event);
       return;
   }
 }

@@ -312,12 +312,7 @@ describe("createChatPanelSessionGraph actions", () => {
       refreshActive: vi.fn().mockResolvedValue([]),
       activeSnapshot: vi.fn(() => null),
       observeActive: vi.fn(() => () => undefined),
-      recordThreadArchived: vi.fn(),
-      recordThreadDeleted: vi.fn(),
-      recordThreadRenamed: vi.fn(),
-      recordThreadStarted: vi.fn(),
-      recordThreadForked: vi.fn(),
-      recordThreadTouched: vi.fn(),
+      apply: vi.fn(),
       ...overrides,
     };
   }

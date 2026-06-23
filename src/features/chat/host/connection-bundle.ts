@@ -118,8 +118,8 @@ export function createConnectionBundle(
     vaultPath: environment.plugin.settingsRef.vaultPath,
     currentClient,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
-    recordThreadStarted: (thread) => {
-      environment.plugin.threadCatalog.recordThreadStarted(thread);
+    applyThreadCatalogEvent: (event) => {
+      environment.plugin.threadCatalog.apply(event);
     },
     syncThreadGoal: (threadId) => {
       void goalSync.syncThreadGoal(threadId);
@@ -141,33 +141,16 @@ export function createConnectionBundle(
       refreshActiveThreads: () => {
         refreshSharedThreadsQuietly();
       },
-      refreshRateLimits: () => {
-        void serverMetadata.refreshRateLimits({ preserveExistingOnFailure: true });
-      },
-      refreshSkills: (forceReload) => void serverMetadata.refreshSkills(forceReload),
-      applyAppServerMetadataSnapshot: () => {
-        serverMetadata.applyAppServerMetadataSnapshot();
+      applyAppServerResourceEvent: (event) => {
+        void serverMetadata.applyAppServerResourceEvent(event).catch((error: unknown) => {
+          status.addSystemMessage(error instanceof Error ? error.message : String(error));
+        });
       },
       maybeNameThread: (threadId, turnId, completedSummary) => {
         autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedSummary);
       },
-      recordThreadStarted: (thread) => {
-        environment.plugin.threadCatalog.recordThreadStarted(thread);
-      },
-      recordThreadTouched: (threadId, recencyAt) => {
-        environment.plugin.threadCatalog.recordThreadTouched(threadId, recencyAt);
-      },
-      applyThreadArchived: (threadId) => {
-        environment.plugin.threadCatalog.recordThreadArchived(threadId);
-      },
-      recordActiveThreadDeleted: (threadId) => {
-        environment.plugin.threadCatalog.recordThreadDeleted(threadId);
-      },
-      applyThreadRenamed: (threadId, name) => {
-        environment.plugin.threadCatalog.recordThreadRenamed(threadId, name);
-      },
-      recordMcpStartupStatus: (name, mcpStatus, message) => {
-        serverDiagnostics.recordMcpStartupStatus(name, mcpStatus, message);
+      applyThreadCatalogEvent: (event) => {
+        environment.plugin.threadCatalog.apply(event);
       },
       respondToServerRequest: (requestId, result) => respondToCurrentServerRequest(currentClient, requestId, result),
       rejectServerRequest: (requestId, code, message) => rejectCurrentServerRequest(currentClient, requestId, code, message),
@@ -213,7 +196,6 @@ export function createConnectionBundle(
     },
     metadata: {
       refreshAppServerMetadata: () => serverMetadata.refreshAppServerMetadata(),
-      refreshSkills: (forceReload) => serverMetadata.refreshSkills(forceReload),
     },
     diagnostics: {
       refreshServerDiagnostics: (options) => serverDiagnostics.refreshServerDiagnostics(options),

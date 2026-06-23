@@ -1,6 +1,7 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { forkThread as forkThreadOnAppServer, rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/threads";
-import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
+import { inheritedForkThreadName } from "../../../../domain/threads/model";
+import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
@@ -26,7 +27,7 @@ export interface ThreadManagementActionsHost {
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
   refreshAfterThreadMutation: () => Promise<void>;
-  recordThreadForked: (thread: Thread) => void;
+  applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
 }
 
 export interface ThreadManagementActions {
@@ -169,7 +170,7 @@ async function forkThreadFromTurn(
       await rollbackThreadOnAppServer(scope.client, forkedThreadId, turnsToDrop);
       if (threadManagementScopeClientStale(host, scope)) return;
     }
-    host.recordThreadForked(forkedThread);
+    host.applyThreadCatalogEvent({ type: "thread-forked", thread: forkedThread });
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     if (sourceName) {
       try {

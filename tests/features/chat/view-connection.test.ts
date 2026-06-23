@@ -14,15 +14,13 @@ import type { SharedServerMetadata } from "../../../src/domain/server/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../src/domain/runtime/config";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
-import type { ThreadCatalogSnapshotWriter } from "../../../src/workspace/thread-catalog";
+import type { ThreadCatalogEvent } from "../../../src/workspace/thread-catalog";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
-type TestCodexChatHost = CodexChatHost & {
-  threadCatalog: CodexChatHost["threadCatalog"] & ThreadCatalogSnapshotWriter;
-};
+type TestCodexChatHost = CodexChatHost;
 
 const connectionMock = vi.hoisted(() => {
   const state = {
@@ -384,14 +382,17 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.setState({ threadId: "thread-named" }, {} as never);
     await view.onOpen();
-    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-named", name: "作業メモ" })]);
+    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-named", name: "作業メモ" })] });
     expect(view.getDisplayText()).toBe("Codex: 作業メモ");
 
-    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-named", name: null, preview: "初回依頼" })]);
+    host.threadCatalog.apply({
+      type: "active-list-snapshot-received",
+      threads: [panelThread({ id: "thread-named", name: null, preview: "初回依頼" })],
+    });
     expect(view.getDisplayText()).toBe("Codex: 初回依頼");
 
     await view.setState({ threadId: "019e061e-0000-7000-8000-000000000001" }, {} as never);
-    host.threadCatalog.replaceActiveThreadsSnapshot([]);
+    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [] });
     expect(view.getDisplayText()).toBe("Codex: 019e061e");
   });
 
@@ -671,9 +672,9 @@ describe("CodexChatView connection lifecycle", () => {
   });
 
   it("routes slash archive through shared panel notifications", async () => {
-    const recordThreadArchived = vi.fn();
+    const applyThreadCatalogEvent = vi.fn();
     const host = chatHost({
-      recordThreadArchived,
+      applyThreadCatalogEvent,
     });
     const client = connectedClient({
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
@@ -687,12 +688,12 @@ describe("CodexChatView connection lifecycle", () => {
     await submitComposerByEnter(view);
 
     expect(client.archiveThread).toHaveBeenCalledWith("thread-1");
-    expect(recordThreadArchived).toHaveBeenCalledWith("thread-1");
+    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({ type: "thread-archived", threadId: "thread-1" });
   });
 
   it("replaces the current panel with the forked thread after fork and archive", async () => {
-    const recordThreadArchived = vi.fn();
-    const host = chatHost({ recordThreadArchived });
+    const applyThreadCatalogEvent = vi.fn();
+    const host = chatHost({ applyThreadCatalogEvent });
     const client = connectedClient({
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("source")] }),
       resumeThread: vi.fn((threadId: string) => Promise.resolve(resumedThread(threadId))),
@@ -720,7 +721,7 @@ describe("CodexChatView connection lifecycle", () => {
       expect(client.resumeThread).toHaveBeenLastCalledWith("forked", "/vault");
       expect(view.getState()).toEqual({ version: 1, threadId: "forked", threadTitle: "Restored thread" });
       expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "forked" });
-      expect(recordThreadArchived).toHaveBeenCalledWith("source");
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({ type: "thread-archived", threadId: "source" });
     });
   });
 
@@ -756,7 +757,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
 
-    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-1", name: "Explicit name" })]);
+    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: "Explicit name" })] });
     view.surface.applyThreadRenamed("thread-1", "Explicit name");
 
     await waitForAsyncWork(() => {
@@ -799,14 +800,14 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.onOpen();
     await view.surface.openThread("thread-1");
-    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-1", name: "Renamed thread" })]);
+    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: "Renamed thread" })] });
     view.surface.applyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
       expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Renamed thread”...");
     });
 
-    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-1", name: null })]);
+    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: null })] });
     view.surface.applyThreadRenamed("thread-1", null);
 
     await waitForAsyncWork(() => {
@@ -829,7 +830,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     composer.setSelectionRange(5, 9);
 
-    host.threadCatalog.replaceActiveThreadsSnapshot([panelThread({ id: "thread-1", name: "Renamed thread" })]);
+    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: "Renamed thread" })] });
     view.surface.applyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
@@ -1334,13 +1335,7 @@ interface ChatHostFixtureOverrides {
   focusThreadInOpenView?: CodexChatHost["workspace"]["focusThreadInOpenView"];
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   refreshThreadsViewLiveState?: CodexChatHost["workspace"]["refreshThreadsViewLiveState"];
-  recordThreadArchived?: CodexChatHost["threadCatalog"]["recordThreadArchived"];
-  recordThreadDeleted?: CodexChatHost["threadCatalog"]["recordThreadDeleted"];
-  recordThreadRenamed?: CodexChatHost["threadCatalog"]["recordThreadRenamed"];
-  replaceActiveThreadsSnapshot?: ThreadCatalogSnapshotWriter["replaceActiveThreadsSnapshot"];
-  recordThreadStarted?: CodexChatHost["threadCatalog"]["recordThreadStarted"];
-  recordThreadForked?: CodexChatHost["threadCatalog"]["recordThreadForked"];
-  recordThreadTouched?: CodexChatHost["threadCatalog"]["recordThreadTouched"];
+  applyThreadCatalogEvent?: CodexChatHost["threadCatalog"]["apply"];
   updateAppServerMetadata?: CodexChatHost["appServerData"]["updateAppServerMetadata"];
   refreshActive?: CodexChatHost["threadCatalog"]["refreshActive"];
   activeSnapshot?: CodexChatHost["threadCatalog"]["activeSnapshot"];
@@ -1401,6 +1396,46 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       serverDiagnostics: createServerDiagnostics(),
     };
   };
+  const emitActiveThreads = (): void => {
+    if (!activeThreads) return;
+    for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
+  };
+  const upsertActiveThread = (thread: Thread): void => {
+    activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
+    emitActiveThreads();
+  };
+  const applyThreadCatalogEvent = (event: ThreadCatalogEvent): void => {
+    switch (event.type) {
+      case "active-list-snapshot-received":
+        activeThreads = event.threads;
+        emitActiveThreads();
+        return;
+      case "thread-archived":
+      case "thread-deleted":
+        activeThreads = activeThreads?.filter((thread) => thread.id !== event.threadId) ?? null;
+        emitActiveThreads();
+        return;
+      case "thread-renamed":
+        activeThreads = activeThreads?.map((thread) => (thread.id === event.threadId ? { ...thread, name: event.name } : thread)) ?? null;
+        emitActiveThreads();
+        return;
+      case "thread-started":
+      case "thread-forked":
+      case "thread-restored":
+        upsertActiveThread(event.thread);
+        return;
+      case "thread-touched":
+        activeThreads =
+          activeThreads?.map((thread) =>
+            thread.id === event.threadId && event.recencyAt !== undefined ? { ...thread, recencyAt: event.recencyAt } : thread,
+          ) ?? activeThreads;
+        emitActiveThreads();
+        return;
+      case "archived-list-snapshot-received":
+      case "thread-unarchived":
+        return;
+    }
+  };
   return {
     settingsRef: {
       settings,
@@ -1446,59 +1481,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       },
     },
     threadCatalog: {
-      recordThreadArchived:
-        overrides.recordThreadArchived ??
-        ((threadId) => {
-          activeThreads = activeThreads?.filter((thread) => thread.id !== threadId) ?? null;
-          if (activeThreads) {
-            for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
-          }
-        }),
-      recordThreadDeleted:
-        overrides.recordThreadDeleted ??
-        ((threadId) => {
-          activeThreads = activeThreads?.filter((thread) => thread.id !== threadId) ?? null;
-          if (activeThreads) {
-            for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
-          }
-        }),
-      recordThreadRenamed:
-        overrides.recordThreadRenamed ??
-        ((threadId, name) => {
-          activeThreads = activeThreads?.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)) ?? null;
-          if (activeThreads) {
-            for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
-          }
-        }),
-      recordThreadStarted:
-        overrides.recordThreadStarted ??
-        ((thread) => {
-          activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
-          for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
-        }),
-      recordThreadForked:
-        overrides.recordThreadForked ??
-        ((thread) => {
-          activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
-          for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
-        }),
-      recordThreadTouched:
-        overrides.recordThreadTouched ??
-        ((threadId, recencyAt) => {
-          activeThreads =
-            activeThreads?.map((thread) => (thread.id === threadId && recencyAt !== undefined ? { ...thread, recencyAt } : thread)) ??
-            activeThreads;
-          if (activeThreads) {
-            for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
-          }
-        }),
-      replaceActiveThreadsSnapshot:
-        overrides.replaceActiveThreadsSnapshot ??
-        ((threads) => {
-          activeThreads = threads;
-          for (const listener of activeThreadResultListeners) listener(queryResult(threads));
-        }),
-      replaceArchivedThreadsSnapshot: vi.fn(),
+      apply: overrides.applyThreadCatalogEvent ?? applyThreadCatalogEvent,
       refreshActive:
         overrides.refreshActive ??
         (vi.fn(async () => {

@@ -344,7 +344,7 @@ export class SettingsDynamicDataController {
         const restoredThread = await this.withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-        this.host.threadCatalog.recordThreadRestored(restoredThread);
+        this.host.threadCatalog.apply({ type: "thread-restored", thread: restoredThread });
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: `Restored "${threadArchiveDisplayTitle(restoredThread)}".`,
@@ -368,7 +368,7 @@ export class SettingsDynamicDataController {
         await this.withSettingsConnection((client) => client.deleteThread(threadId));
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-        this.host.threadCatalog.recordThreadDeleted(threadId);
+        this.host.threadCatalog.apply({ type: "thread-deleted", threadId });
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: `Deleted "${title}".`,

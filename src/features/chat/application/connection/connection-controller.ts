@@ -19,7 +19,6 @@ export interface ChatConnectionAdapter {
 
 export interface ChatConnectionMetadataActions {
   refreshAppServerMetadata: () => Promise<unknown>;
-  refreshSkills: (forceReload?: boolean) => Promise<void>;
 }
 
 export interface ChatConnectionDiagnosticsActions {
@@ -66,7 +65,6 @@ export interface ChatConnectionController {
   refreshActiveThreads(): Promise<void>;
   refreshDiagnostics(): Promise<void>;
   refreshStatusPanel(): Promise<void>;
-  refreshSkills(forceReload?: boolean): Promise<void>;
 }
 
 export function createChatConnectionController(host: ChatConnectionControllerHost): ChatConnectionController {
@@ -81,7 +79,6 @@ export function createChatConnectionController(host: ChatConnectionControllerHos
     refreshActiveThreads: () => refreshActiveThreads(host),
     refreshDiagnostics: () => refreshDiagnostics(host, controller),
     refreshStatusPanel: () => refreshStatusPanel(host, controller),
-    refreshSkills: (forceReload = false) => refreshSkills(host, forceReload),
   };
   return controller;
 }
@@ -137,11 +134,6 @@ async function refreshStatusPanel(
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
   await controller.refreshActiveThreads();
-}
-
-async function refreshSkills(host: ChatConnectionControllerHost, forceReload = false): Promise<void> {
-  if (!host.connection.currentClient()) return;
-  await host.metadata.refreshSkills(forceReload);
 }
 
 async function initializeConnection(host: ChatConnectionControllerHost, connection: ActiveConnectionWork): Promise<void> {

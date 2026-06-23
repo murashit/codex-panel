@@ -17,6 +17,7 @@ import type { ServerNotification, ServerRequest } from "../../../../../src/app-s
 import { appServerApprovalRequest, appServerUserInputRequest } from "../../../../../src/app-server/protocol/server-requests";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
+import type { ThreadCatalogEvent } from "../../../../../src/workspace/thread-catalog";
 import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -33,16 +34,9 @@ function handlerForState(
       store,
       {
         refreshActiveThreads: vi.fn(),
-        refreshRateLimits: vi.fn(),
-        refreshSkills: vi.fn(),
-        applyAppServerMetadataSnapshot: vi.fn(),
+        applyAppServerResourceEvent: vi.fn(),
         maybeNameThread: vi.fn(),
-        recordThreadStarted: vi.fn(),
-        recordThreadTouched: vi.fn(),
-        applyThreadArchived: vi.fn(),
-        recordActiveThreadDeleted: vi.fn(),
-        applyThreadRenamed: vi.fn(),
-        recordMcpStartupStatus: vi.fn(),
+        applyThreadCatalogEvent: vi.fn(),
         respondToServerRequest: vi.fn(() => true),
         rejectServerRequest: vi.fn(() => true),
         ...actions,
@@ -203,16 +197,16 @@ describe("ChatInboundHandler", () => {
   });
 
   describe("app-server source of truth updates", () => {
-    it("refreshes skills from disk when app-server reports skill changes", () => {
-      const refreshSkills = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { refreshSkills });
+    it("routes skill changes through the app-server resource event boundary", () => {
+      const applyAppServerResourceEvent = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyAppServerResourceEvent });
 
       handler.handleNotification({
         method: "skills/changed",
         params: {},
       } satisfies Extract<ServerNotification, { method: "skills/changed" }>);
 
-      expect(refreshSkills).toHaveBeenCalledWith(true);
+      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({ type: "skills-changed", forceReload: true });
     });
 
     it("stores the latest aggregated turn diff for the active turn", () => {
@@ -468,8 +462,8 @@ describe("ChatInboundHandler", () => {
         },
       ]);
       const refreshActiveThreads = vi.fn();
-      const recordThreadTouched = vi.fn();
-      const handler = handlerForState(state, { refreshActiveThreads, recordThreadTouched });
+      const applyThreadCatalogEvent = vi.fn();
+      const handler = handlerForState(state, { refreshActiveThreads, applyThreadCatalogEvent });
 
       handler.handleNotification({
         method: "turn/started",
@@ -491,7 +485,11 @@ describe("ChatInboundHandler", () => {
       expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(chatStateMessageStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
       expect(pendingTurnStart(handler.currentState())).toBeNull();
-      expect(recordThreadTouched).toHaveBeenCalledWith("thread-active", 1);
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-touched",
+        threadId: "thread-active",
+        recencyAt: 1,
+      } satisfies ThreadCatalogEvent);
       expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
 
@@ -690,10 +688,10 @@ describe("ChatInboundHandler", () => {
       expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
 
-    it("refreshes account rate limits after sparse update notifications", () => {
+    it("routes sparse account rate limit updates through the app-server resource event boundary", () => {
       const state = chatStateFixture();
-      const refreshRateLimits = vi.fn();
-      const handler = handlerForState(state, { refreshRateLimits });
+      const applyAppServerResourceEvent = vi.fn();
+      const handler = handlerForState(state, { applyAppServerResourceEvent });
 
       handler.handleNotification({
         method: "account/rateLimits/updated",
@@ -712,14 +710,16 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "account/rateLimits/updated" }>);
 
       expect(state.connection.rateLimit).toBeNull();
-      expect(refreshRateLimits).toHaveBeenCalledOnce();
+      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({
+        type: "rate-limits-updated",
+        preserveExistingOnFailure: true,
+      });
     });
 
-    it("records MCP startup status for diagnostics without a chat system message", () => {
+    it("routes MCP startup status through the app-server resource event boundary", () => {
       const state = chatStateFixture();
-      const recordMcpStartupStatus = vi.fn();
-      const applyAppServerMetadataSnapshot = vi.fn();
-      const handler = handlerForState(state, { recordMcpStartupStatus, applyAppServerMetadataSnapshot });
+      const applyAppServerResourceEvent = vi.fn();
+      const handler = handlerForState(state, { applyAppServerResourceEvent });
 
       handler.handleNotification({
         method: "mcpServer/startupStatus/updated",
@@ -731,8 +731,12 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
 
-      expect(recordMcpStartupStatus).toHaveBeenCalledWith("github", "failed", "missing token");
-      expect(applyAppServerMetadataSnapshot).toHaveBeenCalledOnce();
+      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({
+        type: "mcp-startup-status-updated",
+        name: "github",
+        status: "failed",
+        message: "missing token",
+      });
       expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
     });
   });
@@ -1271,8 +1275,8 @@ describe("ChatInboundHandler", () => {
         },
       });
       state = chatStateWith(state, { requests: { userInputDrafts: new Map([["20:note", "draft"]]) } });
-      const applyThreadArchived = vi.fn();
-      const handler = handlerForState(state, { applyThreadArchived });
+      const applyThreadCatalogEvent = vi.fn();
+      const handler = handlerForState(state, { applyThreadCatalogEvent });
 
       handler.handleNotification({
         method: "thread/archived",
@@ -1280,20 +1284,43 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
       expect(handler.currentState().activeThread.id).toBe("thread-active");
-      expect(applyThreadArchived).toHaveBeenCalledWith("thread-active");
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-archived",
+        threadId: "thread-active",
+      } satisfies ThreadCatalogEvent);
     });
 
     it("records deleted thread notifications in the active catalog", () => {
-      const recordActiveThreadDeleted = vi.fn();
+      const applyThreadCatalogEvent = vi.fn();
       const refreshActiveThreads = vi.fn();
-      const handler = handlerForState(chatStateFixture(), { recordActiveThreadDeleted, refreshActiveThreads });
+      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent, refreshActiveThreads });
 
       handler.handleNotification({
         method: "thread/deleted",
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/deleted" }>);
 
-      expect(recordActiveThreadDeleted).toHaveBeenCalledWith("thread-active");
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-deleted",
+        threadId: "thread-active",
+      } satisfies ThreadCatalogEvent);
+      expect(refreshActiveThreads).not.toHaveBeenCalled();
+    });
+
+    it("routes unarchived thread notifications through the catalog instead of refreshing in the handler", () => {
+      const applyThreadCatalogEvent = vi.fn();
+      const refreshActiveThreads = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent, refreshActiveThreads });
+
+      handler.handleNotification({
+        method: "thread/unarchived",
+        params: { threadId: "thread-active" },
+      } satisfies Extract<ServerNotification, { method: "thread/unarchived" }>);
+
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-unarchived",
+        threadId: "thread-active",
+      } satisfies ThreadCatalogEvent);
       expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
 
@@ -1301,8 +1328,8 @@ describe("ChatInboundHandler", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, { activeThread: { cwd: "/workspace/active" } });
-      const recordThreadStarted = vi.fn();
-      const handler = handlerForState(state, { recordThreadStarted });
+      const applyThreadCatalogEvent = vi.fn();
+      const handler = handlerForState(state, { applyThreadCatalogEvent });
 
       handler.handleNotification({
         method: "thread/started",
@@ -1310,14 +1337,17 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
-      expect(recordThreadStarted).toHaveBeenCalledWith(expect.objectContaining({ id: "thread-other" }));
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-started",
+        thread: expect.objectContaining({ id: "thread-other" }),
+      });
     });
 
     it("records cwd from active thread-started notifications", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      const recordThreadStarted = vi.fn();
-      const handler = handlerForState(state, { recordThreadStarted });
+      const applyThreadCatalogEvent = vi.fn();
+      const handler = handlerForState(state, { applyThreadCatalogEvent });
 
       handler.handleNotification({
         method: "thread/started",
@@ -1325,7 +1355,10 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
-      expect(recordThreadStarted).toHaveBeenCalledWith(expect.objectContaining({ id: "thread-active" }));
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-started",
+        thread: expect.objectContaining({ id: "thread-active" }),
+      });
     });
 
     it("replaces optimistic user echoes when completed turns are reconciled", () => {
@@ -1567,12 +1600,12 @@ describe("ChatInboundHandler", () => {
       });
     });
 
-    it("routes thread name notifications through catalog mutation effects", () => {
+    it("routes thread name notifications through catalog events", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
       state = chatStateWith(state, { threadList: { listedThreads: [panelThread("thread-active")] } });
-      const applyThreadRenamed = vi.fn();
-      const handler = handlerForState(state, { applyThreadRenamed });
+      const applyThreadCatalogEvent = vi.fn();
+      const handler = handlerForState(state, { applyThreadCatalogEvent });
 
       handler.handleNotification({
         method: "thread/name/updated",
@@ -1580,7 +1613,11 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>);
 
       expect(state.threadList.listedThreads[0]?.name).toBeNull();
-      expect(applyThreadRenamed).toHaveBeenCalledWith("thread-active", "Codex Panel自動命名");
+      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+        type: "thread-renamed",
+        threadId: "thread-active",
+        name: "Codex Panel自動命名",
+      } satisfies ThreadCatalogEvent);
     });
 
     it("syncs active runtime state from thread settings notifications", () => {

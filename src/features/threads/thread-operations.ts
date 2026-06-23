@@ -2,6 +2,7 @@ import type { AppServerClientAccess } from "../../app-server/connection/client-a
 import { archiveThreadOnAppServer, type ArchiveThreadResult } from "../../app-server/services/thread-archive";
 import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../domain/threads/model";
+import type { ThreadCatalogEventSink } from "../../workspace/thread-catalog";
 
 export interface ThreadOperationsHost {
   clientAccess: AppServerClientAccess;
@@ -12,10 +13,7 @@ export interface ThreadOperationsHost {
     vaultConfigDir: string;
   };
   archiveAdapter(): ArchiveExportAdapter;
-  catalog: {
-    recordThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-    recordThreadRenamed(threadId: string, name: string | null): void;
-  };
+  catalog: ThreadCatalogEventSink;
   notice(message: string): void;
 }
 
@@ -51,7 +49,7 @@ async function renameThread(
 
   await host.clientAccess.withClient((client) => client.setThreadName(threadId, name));
   if (options.shouldPublish?.() ?? true) {
-    host.catalog.recordThreadRenamed(threadId, name);
+    host.catalog.apply({ type: "thread-renamed", threadId, name });
   }
   return true;
 }
@@ -74,10 +72,10 @@ async function archiveThread(
   if (result.exportedPath) {
     host.notice(`Saved archived thread to ${result.exportedPath}.`);
   }
-  if (options.closeOpenPanels === undefined) {
-    host.catalog.recordThreadArchived(threadId);
-  } else {
-    host.catalog.recordThreadArchived(threadId, { closeOpenPanels: options.closeOpenPanels });
-  }
+  host.catalog.apply(
+    options.closeOpenPanels === undefined
+      ? { type: "thread-archived", threadId }
+      : { type: "thread-archived", threadId, options: { closeOpenPanels: options.closeOpenPanels } },
+  );
   return result;
 }

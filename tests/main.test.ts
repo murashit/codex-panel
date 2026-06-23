@@ -503,7 +503,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const refreshSharedThreads = vi.spyOn(connectedView.surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
-    threadCatalog(plugin).recordThreadArchived("thread-1");
+    threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(refreshSharedThreads).not.toHaveBeenCalled();
   });
@@ -521,13 +521,13 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     vi.spyOn((otherLeaf.view as CodexChatView).surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([restoredMatchingLeaf, matchingLeaf, otherLeaf]);
 
-    threadCatalog(plugin).recordThreadArchived("thread-1");
+    threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(restoredMatchingLeaf.detach).not.toHaveBeenCalled();
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
 
-    threadCatalog(plugin).recordThreadArchived("thread-1", { closeOpenPanels: true });
+    threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1", options: { closeOpenPanels: true } });
 
     expect(restoredMatchingLeaf.detach).toHaveBeenCalledOnce();
     expect(matchingLeaf.detach).toHaveBeenCalledOnce();
@@ -543,7 +543,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const refreshSharedThreads = vi.spyOn(connectedView.surface, "refreshSharedThreads").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([connectedLeaf]);
 
-    threadCatalog(plugin).recordThreadRenamed("thread-1", "Renamed thread");
+    threadCatalog(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
 
     expect(refreshSharedThreads).not.toHaveBeenCalled();
   });
@@ -715,7 +715,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const plugin = await pluginWithLeaves(leaves);
 
     sourceLeaf.detach();
-    threadCatalog(plugin).recordThreadArchived("thread-1");
+    threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
 
     expect(sourceRefresh).not.toHaveBeenCalled();
     expect(remainingRefresh).not.toHaveBeenCalled();
@@ -833,12 +833,7 @@ function chatHostFixture(): CodexChatHost {
       observeModelsResult: vi.fn(() => () => undefined),
     },
     threadCatalog: {
-      recordThreadArchived: vi.fn(),
-      recordThreadDeleted: vi.fn(),
-      recordThreadRenamed: vi.fn(),
-      recordThreadStarted: vi.fn(),
-      recordThreadForked: vi.fn(),
-      recordThreadTouched: vi.fn(),
+      apply: vi.fn(),
       loadActive: vi.fn(() => Promise.resolve([])),
       refreshActive: vi.fn(() => Promise.resolve([])),
       activeSnapshot: vi.fn(() => null),

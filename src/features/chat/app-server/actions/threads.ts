@@ -1,4 +1,5 @@
 import type { Thread } from "../../../../domain/threads/model";
+import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
@@ -13,7 +14,7 @@ interface StartedThreadSummary {
 
 export interface ChatServerThreadActionsHost extends ChatServerActionHost {
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
-  recordThreadStarted: (thread: Thread) => void;
+  applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
   syncThreadGoal: (threadId: string) => void;
 }
 
@@ -61,7 +62,7 @@ async function startThread(
     preserveRequestedRuntimeSettings: requestState.activeThread.id === null,
   });
   host.stateStore.dispatch(action);
-  host.recordThreadStarted(action.thread);
+  host.applyThreadCatalogEvent({ type: "thread-started", thread: action.thread });
   if (options.syncGoal ?? true) host.syncThreadGoal(response.thread.id);
   return { threadId: response.thread.id };
 }

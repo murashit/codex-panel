@@ -5,7 +5,7 @@ import type { ObservedDataListener } from "../../../domain/observed-data";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ArchiveExportAdapter } from "../../../domain/threads/archive-markdown";
 import type { CodexPanelSettings } from "../../../settings/model";
-import type { ThreadCatalogActiveReader, ThreadCatalogChatEvents } from "../../../workspace/thread-catalog";
+import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../../workspace/thread-catalog";
 import type { ChatTurnDiffViewState } from "../domain/turn-diff";
 
 export interface CodexChatHost {
@@ -27,7 +27,7 @@ interface WorkspacePanels {
   refreshThreadsViewLiveState(): void;
 }
 
-type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogChatEvents;
+type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
 
 interface ChatAppServerData {
   updateAppServerMetadata(updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null): SharedServerMetadata | null;
