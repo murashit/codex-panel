@@ -8,14 +8,13 @@ Use this document for day-to-day implementation mechanics: commands, generated f
 npm ci
 npm run format
 npm run check
-npm run build
 ```
 
-Run `npm run format` after edits and before `npm run check` so Prettier-only issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, lint checks, Prettier check, CSS verification, and the production esbuild bundle. `npm run check:ci` uses the same checks without local caches.
+Run `npm run format` after edits and before `npm run check` so Prettier-only issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, lint checks, Prettier check, CSS verification, and the production esbuild bundle. `npm run check:ci` uses the same checks without local caches. Use `npm run build` when you need to refresh Obsidian-loaded assets without running the full check.
 
 ## Generated and Loaded Files
 
-`main.js`, `styles.css`, `data.json`, and `node_modules/` are ignored by Git. `main.js` and `styles.css` are still the files Obsidian loads, so run `npm run build` after source changes.
+`main.js`, `styles.css`, `data.json`, and `node_modules/` are ignored by Git. `main.js` and `styles.css` are still the files Obsidian loads, so run `npm run build` before live Obsidian validation if you have not already run `npm run check` after the source change.
 
 CSS is authored in `src/styles/` and generated into the ignored root `styles.css` release asset. Use `npm run build:styles` when only regenerating CSS; it also verifies the authored CSS order before writing `styles.css`.
 
@@ -30,20 +29,25 @@ The generation script uses `codex app-server generate-ts --experimental` because
 
 ## Source Layout
 
-The source tree is organized by implementation ownership:
+The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint:
 
-- `src/main.ts` registers Obsidian views, commands, settings, and lifecycle hooks.
-- `src/app-server/` owns the app-server boundary, protocol adapters, connection/client code, app-server services, and generated payload adaptation.
-- `src/features/chat/` owns the main Codex chat surface, including panel orchestration, app-server event handling, composer behavior, chat state, message display, pending requests, runtime controls, and thread actions. `src/features/chat/app-server/` is chat-local integration code that routes app-server projections into chat-owned state and display models.
-- `src/features/thread-picker/` owns the Obsidian thread picker modal and its thread search/opening behavior.
-- `src/features/threads/` contains thread-related services shared by chat, the thread picker, and the Threads view, including archive export settings, thread operations, and title generation.
-- `src/features/threads-view/` owns the dedicated Obsidian thread list view, including app-server thread list rendering and live open-panel snapshot aggregation.
-- `src/features/selection-rewrite/` owns the Markdown editor selection rewrite command, popover, prompt/output handling, and ephemeral rewrite thread runner.
-- `src/workspace/` owns Obsidian workspace coordination across Codex surfaces, including panel discovery/opening, open-panel snapshots, and thread surface broadcasts.
-- `src/shared/` contains feature-neutral helpers, including reusable DOM pieces and unified diff display helpers shared by chat and selection rewrite.
-- `src/settings/` contains Obsidian settings models, settings-tab rendering, and app-server-backed dynamic settings data.
-- `src/domain/` contains panel-owned, generated-independent meaning models and pure derivations shared by app-server, features, workspace, and settings code. Domain code must not import app-server protocol, generated bindings, feature modules, UI, or Obsidian APIs.
-- `src/styles/` contains the authored CSS modules and `order.json` concatenation order. `scripts/build-styles.mjs` concatenates them into the ignored root `styles.css`, which remains the Obsidian release asset.
+- `src/main.ts` and `src/plugin-runtime.ts` own Obsidian plugin registration, lifecycle wiring, and cross-surface runtime coordination.
+- `src/app-server/` owns the app-server boundary, including connection code, protocol adapters, app-server services, shared queries, and generated payload adaptation.
+- `src/features/` contains feature-owned surfaces and workflows. Feature-to-feature imports are acceptable only when the imported feature owns a concrete capability.
+- `src/workspace/` and `src/settings/` own Obsidian workspace coordination and settings-tab behavior.
+- `src/domain/` contains panel-owned, generated-independent meaning models and pure derivations. Domain code must not import app-server protocol, generated bindings, feature modules, UI, or Obsidian APIs.
+- `src/shared/` contains feature-neutral helpers. Move behavior here only when it is genuinely shared outside one feature.
+- `src/styles/` contains authored CSS modules and `order.json`; `scripts/build-styles.mjs` concatenates them into the ignored root `styles.css` release asset.
+
+Within `src/features/chat/`:
+
+- `domain/` owns chat-local meaning models and pure derivations for message stream items, pending request display facts, runtime intent, local IDs, and turn diffs.
+- `application/` owns chat state transitions and workflow orchestration for composer input, turn submission, thread lifecycle, pending requests, runtime settings, connection status, and reducer state.
+- `app-server/` adapts app-server notifications, requests, thread payloads, diagnostics, and turn items into chat-owned actions, projections, and message stream models.
+- `host/` wires each chat session to Obsidian views, workspace services, app-server clients, plugin settings, shared runtime data, lifecycle cleanup, and cross-surface handles.
+- `panel/` owns the Preact shell, shell-state projection, panel controllers, toolbar/composer/message-stream surface adapters, and Obsidian-facing panel snapshots.
+- `presentation/` owns view-model projection, grouping, formatting, and status text for chat UI surfaces.
+- `ui/` owns Preact and explicit DOM bridge rendering pieces for the composer, toolbar, goal view, message stream, and turn diff view.
 
 ## Placement Rules
 
@@ -54,6 +58,12 @@ Generated app-server types should stay behind `src/app-server/` or chat-local ap
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only in `src/features/chat/panel/shell-state.tsx`; lint enforces this boundary. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
 
 Use imperative DOM writes only for explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components.
+
+## CSS Rules
+
+CSS should stay native to Obsidian. Prefer Obsidian variables and Codex Panel tokens for color, typography, spacing, and layout dimensions instead of hardcoded values.
+
+Keep selectors shallow and specific to Codex Panel classes. Avoid broad invalidation patterns such as `:has()`, hidden specificity inside `:where()`, IDs, universal selectors, and unnecessary type selectors. Add new authored CSS files to `src/styles/order.json`, and remove unused or test-only `codex-panel` classes instead of keeping dead styles.
 
 ## Naming Conventions
 

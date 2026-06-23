@@ -21,7 +21,7 @@ Use this skill when Codex Panel needs to follow Codex CLI or experimental `codex
 2. Compare the README Compatibility table's `codex.testedCliVersion` with the target `codex --version`.
 3. Check official Codex CLI or app-server release information when the target version is newer or behavior is uncertain.
 4. Regenerate bindings with `npm run generate:app-server-types`.
-5. Review generated diffs for protocol changes that affect runtime behavior. If mechanical normalization is needed, update `scripts/normalize-generated-types.mjs` and regenerate instead of patching generated files by hand.
+5. Review generated diffs for protocol changes that affect runtime behavior. If mechanical normalization is needed, update the normalization code in `scripts/generate-app-server-types.mjs` and regenerate instead of patching generated files by hand.
 6. Implement only the compatibility changes needed for the target Codex CLI version.
 7. Update the README Compatibility table's `codex.testedCliVersion` only after validating against that version.
 8. Identify optional follow-ups separately from required compatibility work:
