@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { collabAgentStateExecutionState } from "../../../../src/features/chat/domain/message-stream/agent-state";
-import { activeAgentRunSummary } from "../../../../src/features/chat/domain/message-stream/semantics/active-turn";
+import { activeTurnLiveItems } from "../../../../src/features/chat/domain/message-stream/semantics/active-turn";
 import { messageStreamLayoutBlocks } from "../../../../src/features/chat/presentation/message-stream/layout";
 import { upsertMessageStreamItemById } from "../../../../src/features/chat/domain/message-stream/updates";
-import { taskProgressMessageStreamItem } from "../../../../src/features/chat/domain/message-stream/factories/task-progress";
+import { taskProgressMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/task-progress";
 import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/domain/message-stream/format/proposed-plan";
 import { pathRelativeToRoot } from "../../../../src/shared/path/file-paths";
 import { permissionRows } from "../../../../src/features/chat/domain/message-stream/format/permission-rows";
@@ -59,6 +59,11 @@ function autoReviewResultItem(id: string, turnId: string, text = "Auto-review ap
     provenance: { source: "appServer", channel: "notification", event: "autoReview", sourceItemId: id },
     executionState: "completed",
   };
+}
+
+function activeAgentSummary(items: readonly MessageStreamItem[], activeTurnId: string | null) {
+  if (!activeTurnId) return null;
+  return activeTurnLiveItems({ items }, activeTurnId).find((item) => item.kind === "agentSummary")?.summary ?? null;
 }
 
 describe("turn item conversion preserves app-server semantics", () => {
@@ -1241,14 +1246,14 @@ describe("display block grouping keeps message stream details subordinate to con
       },
     ];
 
-    expect(activeAgentRunSummary(items, "t1")).toEqual({
+    expect(activeAgentSummary(items, "t1")).toEqual({
       running: 1,
       completed: 1,
       failed: 1,
       agents: [{ threadId: "running", status: "running", messagePreview: null }],
       additionalAgents: 0,
     });
-    expect(activeAgentRunSummary(items, null)).toBeNull();
+    expect(activeAgentSummary(items, null)).toBeNull();
   });
 
   it("summarizes active subagent previews and fallback receiver states", () => {
@@ -1291,7 +1296,7 @@ describe("display block grouping keeps message stream details subordinate to con
       },
     ];
 
-    expect(activeAgentRunSummary(items, "t1")).toMatchObject({
+    expect(activeAgentSummary(items, "t1")).toMatchObject({
       running: 5,
       completed: 0,
       failed: 1,
@@ -1325,7 +1330,7 @@ describe("display block grouping keeps message stream details subordinate to con
       },
     ];
 
-    expect(activeAgentRunSummary(items, "t1")).toBeNull();
+    expect(activeAgentSummary(items, "t1")).toBeNull();
   });
 
   it("adds edited files to the final assistant message", () => {

@@ -24,7 +24,7 @@ import {
   streamingFileChangeMessageStreamItem,
   type AppServerFileChange,
 } from "../mappers/message-stream/file-changes";
-import { taskProgressMessageStreamItem } from "../../domain/message-stream/factories/task-progress";
+import { taskProgressMessageStreamItem } from "../mappers/message-stream/task-progress";
 import type { MessageStreamItem, MessageStreamItemKind } from "../../domain/message-stream/items";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
 import { hookRunMessageStreamItem } from "../mappers/message-stream/hook-run-items";

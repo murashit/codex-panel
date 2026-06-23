@@ -1,5 +1,9 @@
-import type { ExecutionState, MessageStreamItem } from "../items";
-import { executionStateFromStatus, RUNNING_EXECUTION_STATE, type ExecutionStateByStatus } from "../execution-state";
+import type { ExecutionState, MessageStreamItem } from "../../../domain/message-stream/items";
+import {
+  executionStateFromStatus,
+  RUNNING_EXECUTION_STATE,
+  type ExecutionStateByStatus,
+} from "../../../domain/message-stream/execution-state";
 
 const TASK_STATES = {
   pending: RUNNING_EXECUTION_STATE,
@@ -9,7 +13,7 @@ const TASK_STATES = {
 
 type TaskStepStatus = "pending" | "inProgress" | "completed";
 
-export interface TaskPlanStep {
+interface TaskPlanStep {
   step: string;
   status: TaskStepStatus;
 }
