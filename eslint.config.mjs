@@ -46,6 +46,17 @@ const removedChatStateEscapeHatchRestrictions = [
     message: "Use a named ChatAction instead of reintroducing the generic state patch escape hatch.",
   },
 ];
+const handWrittenReExportRestrictions = [
+  {
+    selector: "ExportNamedDeclaration[source.value]",
+    message: "Do not add hand-written re-exports. Import from the owning module directly unless this file is an explicit public boundary.",
+  },
+  {
+    selector: "ExportAllDeclaration[source.value]",
+    message:
+      "Do not add hand-written export-all barrels. Import from the owning module directly unless this file is an explicit public boundary.",
+  },
+];
 const chatSignalAdapterRestrictions = [
   {
     selector: "ImportDeclaration[source.value='@preact/signals']",
@@ -209,6 +220,7 @@ const appServerClientProjectionTypeRestrictions = [
   },
 ];
 const baseSourceSyntaxRestrictions = [
+  ...handWrittenReExportRestrictions,
   ...removedChatStateEscapeHatchRestrictions,
   ...generatedAppServerThreadImportRestrictions,
   ...appServerClientProjectionTypeRestrictions,
@@ -295,7 +307,11 @@ export default defineConfig([
     files: ["tests/**/*.{ts,tsx}"],
     rules: {
       ...testTypeScriptRelaxations,
-      ...restrictedSyntaxRule([...generatedAppServerThreadImportRestrictions, ...chatSignalAdapterRestrictions]),
+      ...restrictedSyntaxRule([
+        ...handWrittenReExportRestrictions,
+        ...generatedAppServerThreadImportRestrictions,
+        ...chatSignalAdapterRestrictions,
+      ]),
     },
   },
   {

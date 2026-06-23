@@ -101,6 +101,46 @@ export const status = signal("idle");
     expect(messages).toContain("no-restricted-syntax");
   });
 
+  it("reports hand-written named re-exports", async () => {
+    const messages = await lintSource(
+      "src/shared/text/preview.ts",
+      `
+export { shortThreadId } from "../id/thread-id";
+export type { Thread } from "../../domain/threads/model";
+`,
+    );
+
+    expect(messages.filter((message) => message === "no-restricted-syntax")).toHaveLength(2);
+  });
+
+  it("reports hand-written export-all barrels", async () => {
+    const messages = await lintSource(
+      "src/shared/text/preview.ts",
+      `
+export * from "../id/thread-id";
+`,
+    );
+
+    expect(messages).toContain("no-restricted-syntax");
+  });
+
+  it("allows local exports from owning modules", async () => {
+    const messages = await lintSource(
+      "src/shared/text/preview.ts",
+      `
+const limit = 80;
+
+export function truncate(value: string): string {
+  return value.slice(0, limit);
+}
+
+export { limit };
+`,
+    );
+
+    expect(messages).not.toContain("no-restricted-syntax");
+  });
+
   it("reports non-turn app-server protocol imports outside app-server", async () => {
     const messages = await lintSource(
       "src/features/chat/application/pending-requests/pending-request-actions.ts",
