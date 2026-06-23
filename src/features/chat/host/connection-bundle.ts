@@ -154,6 +154,9 @@ export function createConnectionBundle(
       recordThreadStarted: (thread) => {
         environment.plugin.threadCatalog.recordThreadStarted(thread);
       },
+      recordThreadTouched: (threadId, recencyAt) => {
+        environment.plugin.threadCatalog.recordThreadTouched(threadId, recencyAt);
+      },
       applyThreadArchived: (threadId) => {
         environment.plugin.threadCatalog.recordThreadArchived(threadId);
       },

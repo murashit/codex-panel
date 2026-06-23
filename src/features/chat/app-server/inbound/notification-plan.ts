@@ -59,6 +59,7 @@ export type ChatNotificationEffect =
   | { type: "apply-app-server-metadata-snapshot" }
   | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ThreadConversationSummary | null }
   | { type: "record-thread-started"; thread: Thread }
+  | { type: "record-thread-touched"; threadId: string; recencyAt: number | null }
   | { type: "apply-thread-archived"; threadId: string }
   | { type: "record-active-thread-deleted"; threadId: string }
   | { type: "apply-thread-renamed"; threadId: string; name: string | null }
@@ -223,7 +224,7 @@ const TURN_LIFECYCLE_PLANNERS = {
         items: messageStreamItemsWithPendingPromptSubmitHooks(state, notification.params.turn.id),
       },
     ],
-    effects: [{ type: "refresh-threads" }],
+    effects: [{ type: "record-thread-touched", threadId: notification.params.threadId, recencyAt: notification.params.turn.startedAt }],
   }),
   "turn/completed": (state, notification) => {
     if (activeTurnId(state) !== notification.params.turn.id) return EMPTY_PLAN;

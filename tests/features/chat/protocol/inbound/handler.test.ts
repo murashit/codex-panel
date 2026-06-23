@@ -38,6 +38,7 @@ function handlerForState(
         applyAppServerMetadataSnapshot: vi.fn(),
         maybeNameThread: vi.fn(),
         recordThreadStarted: vi.fn(),
+        recordThreadTouched: vi.fn(),
         applyThreadArchived: vi.fn(),
         recordActiveThreadDeleted: vi.fn(),
         applyThreadRenamed: vi.fn(),
@@ -467,7 +468,8 @@ describe("ChatInboundHandler", () => {
         },
       ]);
       const refreshActiveThreads = vi.fn();
-      const handler = handlerForState(state, { refreshActiveThreads });
+      const recordThreadTouched = vi.fn();
+      const handler = handlerForState(state, { refreshActiveThreads, recordThreadTouched });
 
       handler.handleNotification({
         method: "turn/started",
@@ -489,7 +491,8 @@ describe("ChatInboundHandler", () => {
       expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(chatStateMessageStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
       expect(pendingTurnStart(handler.currentState())).toBeNull();
-      expect(refreshActiveThreads).toHaveBeenCalledOnce();
+      expect(recordThreadTouched).toHaveBeenCalledWith("thread-active", 1);
+      expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
 
     it("moves pre-turn hook runs after the optimistic user message when a turn id is assigned", () => {

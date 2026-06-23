@@ -65,6 +65,7 @@ export interface ChatInboundHandlerActions {
   applyAppServerMetadataSnapshot: () => void;
   maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
   recordThreadStarted: (thread: Thread) => void;
+  recordThreadTouched: (threadId: string, recencyAt: number | null) => void;
   applyThreadArchived: (threadId: string) => void;
   recordActiveThreadDeleted: (threadId: string) => void;
   applyThreadRenamed: (threadId: string, name: string | null) => void;
@@ -332,6 +333,9 @@ function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatN
       return;
     case "record-thread-started":
       context.actions.recordThreadStarted(effect.thread);
+      return;
+    case "record-thread-touched":
+      context.actions.recordThreadTouched(effect.threadId, effect.recencyAt);
       return;
     case "apply-thread-archived":
       context.actions.applyThreadArchived(effect.threadId);

@@ -142,6 +142,51 @@ describe("ThreadCatalog", () => {
     expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
     expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
+
+  it("keeps app-server lifecycle threads visible until the server list acknowledges them", async () => {
+    const fetchThreads = vi
+      .fn()
+      .mockResolvedValueOnce([thread("other")])
+      .mockResolvedValueOnce([thread("started"), thread("other")])
+      .mockResolvedValueOnce([thread("other")]);
+    const { catalog } = catalogFixture({ fetchThreads });
+    const listener = vi.fn();
+    catalog.observeActive(listener);
+
+    catalog.recordThreadStarted(thread("started"));
+
+    await expect(catalog.refreshActive()).resolves.toEqual([thread("started"), thread("other")]);
+    expect(catalog.activeSnapshot()).toEqual([thread("started"), thread("other")]);
+    expect(observedActiveThreadIds(listener)).not.toContainEqual(["other"]);
+
+    await expect(catalog.refreshActive()).resolves.toEqual([thread("started"), thread("other")]);
+    await expect(catalog.refreshActive()).resolves.toEqual([thread("other")]);
+    expect(catalog.activeSnapshot()).toEqual([thread("other")]);
+  });
+
+  it("records active thread touches as catalog ordering facts without open-surface broadcasts", () => {
+    const { catalog, surfaces } = catalogFixture();
+    const listener = vi.fn();
+    catalog.observeActive(listener);
+    catalog.replaceActiveThreadsSnapshot([
+      thread("active", false, { updatedAt: 1, recencyAt: 1 }),
+      thread("other", false, { updatedAt: 10, recencyAt: 10 }),
+    ]);
+
+    catalog.recordThreadTouched("active", 20);
+
+    expect(catalog.activeSnapshot()).toEqual([
+      thread("active", false, { updatedAt: 1, recencyAt: 20 }),
+      thread("other", false, { updatedAt: 10, recencyAt: 10 }),
+    ]);
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: [thread("active", false, { updatedAt: 1, recencyAt: 20 }), thread("other", false, { updatedAt: 10, recencyAt: 10 })],
+      }),
+    );
+    expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
+    expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
+  });
 });
 
 function catalogFixture(
@@ -183,7 +228,16 @@ function surfaceActions(): MockSurfaceActions {
   };
 }
 
-function thread(id: string, archived = false): Thread {
+function observedActiveThreadIds(listener: Mock): string[][] {
+  return listener.mock.calls
+    .map((call) => {
+      const result = call[0] as { data: readonly Thread[] | null };
+      return result.data?.map((item) => item.id) ?? null;
+    })
+    .filter((ids): ids is string[] => ids !== null);
+}
+
+function thread(id: string, archived = false, overrides: Partial<Thread> = {}): Thread {
   return {
     id,
     preview: id,
@@ -191,6 +245,7 @@ function thread(id: string, archived = false): Thread {
     updatedAt: 1,
     name: null,
     archived,
+    ...overrides,
   };
 }
 

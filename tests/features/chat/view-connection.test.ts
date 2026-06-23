@@ -1340,6 +1340,7 @@ interface ChatHostFixtureOverrides {
   replaceActiveThreadsSnapshot?: ThreadCatalogSnapshotWriter["replaceActiveThreadsSnapshot"];
   recordThreadStarted?: CodexChatHost["threadCatalog"]["recordThreadStarted"];
   recordThreadForked?: CodexChatHost["threadCatalog"]["recordThreadForked"];
+  recordThreadTouched?: CodexChatHost["threadCatalog"]["recordThreadTouched"];
   updateAppServerMetadata?: CodexChatHost["appServerData"]["updateAppServerMetadata"];
   refreshActive?: CodexChatHost["threadCatalog"]["refreshActive"];
   activeSnapshot?: CodexChatHost["threadCatalog"]["activeSnapshot"];
@@ -1480,6 +1481,16 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
         ((thread) => {
           activeThreads = [thread, ...(activeThreads?.filter((item) => item.id !== thread.id) ?? [])];
           for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
+        }),
+      recordThreadTouched:
+        overrides.recordThreadTouched ??
+        ((threadId, recencyAt) => {
+          activeThreads =
+            activeThreads?.map((thread) => (thread.id === threadId && recencyAt !== undefined ? { ...thread, recencyAt } : thread)) ??
+            activeThreads;
+          if (activeThreads) {
+            for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
+          }
         }),
       replaceActiveThreadsSnapshot:
         overrides.replaceActiveThreadsSnapshot ??

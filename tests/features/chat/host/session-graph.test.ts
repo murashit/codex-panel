@@ -317,6 +317,7 @@ describe("createChatPanelSessionGraph actions", () => {
       recordThreadRenamed: vi.fn(),
       recordThreadStarted: vi.fn(),
       recordThreadForked: vi.fn(),
+      recordThreadTouched: vi.fn(),
       ...overrides,
     };
   }
