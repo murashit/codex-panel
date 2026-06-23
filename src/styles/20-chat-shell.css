@@ -1,0 +1,47 @@
+.codex-panel {
+  box-sizing: border-box;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--codex-panel-text-normal);
+}
+
+.workspace-leaf-content[data-type="codex-panel-view"] .view-content.codex-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.codex-panel__body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.codex-panel__region {
+  min-width: 0;
+}
+
+.codex-panel__region--goal {
+  grid-row: 1;
+}
+
+.codex-panel__region--message-stream {
+  grid-row: 2;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.codex-panel__region--composer {
+  grid-row: 3;
+}
+
+.codex-panel__region--goal:empty {
+  display: none;
+}

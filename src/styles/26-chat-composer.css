@@ -270,6 +270,9 @@
 .codex-panel__suggestion-detail {
   display: block;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .codex-panel__suggestion-label {

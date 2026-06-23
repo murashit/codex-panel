@@ -1,3 +1,68 @@
+.codex-panel__toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.codex-panel__limit-panel-label,
+.codex-panel__limit-panel-value,
+.codex-panel__limit-panel-reset,
+.codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-panel__toolbar-panel-item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  font: inherit;
+  font-size: var(--codex-panel-toolbar-text-size);
+  line-height: var(--codex-panel-toolbar-line-height);
+  text-align: left;
+}
+
+.codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-meta {
+  min-width: 0;
+}
+
+.codex-panel__toolbar-panel-label {
+  flex: 1 1 auto;
+  color: currentcolor;
+}
+
+.codex-panel__toolbar-panel-meta {
+  flex: 0 1 auto;
+  color: var(--text-faint);
+  font-size: var(--codex-panel-toolbar-meta-size);
+}
+
+.codex-panel__toolbar-panel-item:where(:hover, :focus-visible, :active):not(:disabled):not(.is-disabled) .codex-panel__toolbar-panel-label {
+  color: var(--nav-item-color-hover, var(--text-normal));
+}
+
+.codex-panel__toolbar-panel-item:where(:hover, :focus-visible, :active):not(:disabled):not(.is-disabled) .codex-panel__toolbar-panel-meta {
+  color: var(--nav-item-color-hover, var(--text-normal));
+}
+
+.codex-panel__toolbar-panel-item.is-selected .codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-item.is-selected:where(:hover, :focus, :focus-visible, :active) .codex-panel__toolbar-panel-label,
+.codex-panel__toolbar-panel-item.is-selected .codex-panel__toolbar-panel-meta,
+.codex-panel__toolbar-panel-item.is-selected:where(:hover, :focus, :focus-visible, :active) .codex-panel__toolbar-panel-meta {
+  color: var(--nav-item-color-active, var(--text-normal));
+}
+
+.codex-panel__toolbar-panel-item:focus:not(.is-selected),
+.codex-panel__toolbar-panel-item:focus-visible:not(.is-selected),
+.codex-panel__toolbar-panel-item:active:not(.is-selected) {
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
 .codex-panel__status-menu-toggle {
   flex: 0 0 auto;
 }
@@ -209,4 +274,108 @@
 
 .codex-panel__connection-diagnostics-row--error dd {
   color: var(--codex-panel-color-danger);
+}
+
+.codex-panel__threads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nav-item-margin-bottom, var(--codex-panel-panel-gap));
+  min-width: 0;
+  max-width: 100%;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.codex-panel__thread-row {
+  grid-template-columns: minmax(0, 1fr) 0 0;
+  gap: 0;
+}
+
+.codex-panel__thread-row:hover,
+.codex-panel__thread-row:focus-within {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--codex-panel-panel-gap);
+}
+
+.codex-panel__thread-row--renaming {
+  grid-template-columns: minmax(0, 1fr) 0;
+}
+
+.codex-panel__thread-row--renaming:hover,
+.codex-panel__thread-row--renaming:focus-within {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.codex-panel__thread-row--archive-confirming {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--codex-panel-panel-gap);
+}
+
+.codex-panel__thread-rename {
+  box-sizing: border-box;
+  min-height: var(--codex-panel-size-nav-item);
+  cursor: text;
+}
+
+.codex-panel__thread-rename-field {
+  display: flex;
+  flex: 1 1 auto;
+  align-self: stretch;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+  font-size: var(--codex-panel-toolbar-text-size);
+  line-height: var(--codex-panel-toolbar-line-height);
+}
+
+.codex-panel__thread-rename-input {
+  width: 100%;
+}
+
+.codex-panel__thread {
+  min-height: var(--codex-panel-size-nav-item);
+  margin: 0;
+  box-shadow: none;
+}
+
+.codex-panel__thread-action {
+  min-width: 0;
+  width: 0;
+  padding: var(--codex-panel-control-gap) 0;
+  overflow: hidden;
+  visibility: hidden;
+  opacity: 0;
+}
+
+.codex-panel__thread-row:hover .codex-panel__thread-action,
+.codex-panel__thread-row:focus-within .codex-panel__thread-action,
+.codex-panel__thread-action:focus-visible {
+  min-width: calc(var(--icon-size) + var(--codex-panel-control-gap) * 2);
+  width: auto;
+  padding: var(--codex-panel-control-gap);
+  overflow: visible;
+  visibility: visible;
+  opacity: 1;
+}
+
+.codex-panel__thread-row:hover .codex-panel__thread-action:disabled,
+.codex-panel__thread-row:focus-within .codex-panel__thread-action:disabled {
+  opacity: 0.4;
+}
+
+.codex-panel__thread-row--archive-confirming .codex-panel__thread-action {
+  min-width: calc(var(--icon-size) + var(--codex-panel-control-gap) * 2);
+  width: auto;
+  padding: var(--codex-panel-control-gap);
+  overflow: visible;
+  visibility: visible;
+  opacity: 1;
+}
+
+.codex-panel__thread--empty {
+  color: var(--text-faint);
+  pointer-events: none;
 }

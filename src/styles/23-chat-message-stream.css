@@ -16,6 +16,50 @@
   width: 100%;
 }
 
+.codex-panel__approval-details summary,
+.codex-panel__output summary,
+.codex-panel-diff-file summary,
+.codex-panel__output-title {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.codex-panel__approval-details summary,
+.codex-panel__output summary,
+.codex-panel-diff-file summary {
+  cursor: default;
+}
+
+.codex-panel__approval-details summary:hover,
+.codex-panel__output summary:hover,
+.codex-panel-diff-file summary:hover {
+  color: var(--nav-item-color-hover, var(--text-normal));
+}
+
+.codex-panel__meta-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--codex-panel-control-gap) var(--codex-panel-section-gap);
+  margin: var(--codex-panel-item-gap) 0;
+  font-size: var(--font-ui-smaller);
+  cursor: text;
+  user-select: text;
+}
+
+.codex-panel__meta-grid dt {
+  color: var(--text-faint);
+  cursor: text;
+  user-select: text;
+}
+
+.codex-panel__meta-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
 .codex-panel__message-block {
   display: flow-root;
   min-width: 0;
