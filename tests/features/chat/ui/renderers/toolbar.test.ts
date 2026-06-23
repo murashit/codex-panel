@@ -193,7 +193,7 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         statusPanelOpen: true,
         openPanel: "status",
-        debugDetails,
+        debugDetails: () => debugDetails,
       }),
       toolbarActions({ copyDebugDetails }),
     );
@@ -360,7 +360,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     historyOpen: false,
     statusPanelOpen: false,
     rateLimit: null,
-    debugDetails: "{}",
+    debugDetails: () => "{}",
     openPanel: null,
     threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
     connectLabel: "Reconnect",

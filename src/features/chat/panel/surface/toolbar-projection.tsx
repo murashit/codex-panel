@@ -1,6 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
 
+import { CLIENT_VERSION } from "../../../../constants";
 import type { Thread } from "../../../../domain/threads/model";
 import { threadRowCoreProjection } from "../../../threads/row-projection";
 import { rateLimitSummary } from "../../presentation/runtime/status";
@@ -70,7 +71,7 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
     historyOpen: projection.historyOpen,
     statusPanelOpen: projection.statusPanelOpen,
     rateLimit: limit,
-    debugDetails: runtimeDebugDetails(input),
+    debugDetails: () => runtimeDebugDetails(input),
     openPanel: projection.openPanel,
     threads: projection.threads,
     connectLabel: input.connected ? "Reconnect" : "Connect",
@@ -84,13 +85,27 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
 }
 
 function runtimeDebugDetails(input: ToolbarViewModelInput): string {
+  const connection = input.state.connection;
   return JSON.stringify(
     {
+      clientVersion: CLIENT_VERSION,
       vaultPath: input.vaultPath,
       configuredCommand: input.configuredCommand,
-      runtimeConfig: input.state.connection.runtimeConfig,
+      activeThreadId: input.state.activeThreadId,
+      connection: {
+        connected: input.connected,
+        phase: connection.phase,
+        statusText: connection.statusText,
+        initializeResponse: connection.initializeResponse,
+        rateLimit: connection.rateLimit,
+        serverDiagnostics: {
+          probes: connection.serverDiagnostics.probes,
+          mcpServers: connection.serverDiagnostics.mcpServers,
+        },
+      },
+      runtimeConfig: connection.runtimeConfig,
       runtime: input.state.runtime,
-      availableModels: input.state.connection.availableModels,
+      availableModels: connection.availableModels,
     },
     null,
     2,

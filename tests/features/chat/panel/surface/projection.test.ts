@@ -81,6 +81,22 @@ describe("chat panel surface projections", () => {
 
     expect(debugDetails["vaultPath"]).toBe("/vault");
     expect(debugDetails["configuredCommand"]).toBe("codex");
+    expect(debugDetails["clientVersion"]).toEqual(expect.any(String));
+    expect(debugDetails["activeThreadId"]).toBeNull();
+    expect(debugDetails["connection"]).toMatchObject({
+      connected: true,
+      phase: { kind: "idle" },
+      statusText: "Idle",
+      initializeResponse: null,
+      rateLimit: null,
+      serverDiagnostics: {
+        probes: expect.any(Object),
+        mcpServers: [],
+      },
+    });
+    expect(
+      (debugDetails["connection"] as { serverDiagnostics?: Record<string, unknown> }).serverDiagnostics?.["toolInventory"],
+    ).toBeUndefined();
     expect(debugDetails["runtimeConfig"]).toMatchObject({ model: "gpt-debug" });
     expect(debugDetails["runtime"]).toMatchObject({ pending: { model: { kind: "set", value: "gpt-debug" } } });
     expect(debugDetails["runtimeLayers"]).toBeUndefined();

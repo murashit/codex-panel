@@ -38,7 +38,7 @@ export interface ToolbarViewModel {
   historyOpen: boolean;
   statusPanelOpen: boolean;
   rateLimit: RateLimitSummary | null;
-  debugDetails: string;
+  debugDetails: () => string;
   openPanel: "history" | "chat-actions" | "status" | null;
   threads: ToolbarThreadRow[];
   connectLabel: string;
@@ -167,7 +167,7 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
         <ToolbarPanelItem
           label="Copy debug details"
           onClick={() => {
-            actions.copyDebugDetails(model.debugDetails);
+            actions.copyDebugDetails(model.debugDetails());
           }}
           className="codex-panel__status-panel-item"
           role="menuitem"
