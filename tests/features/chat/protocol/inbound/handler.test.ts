@@ -61,6 +61,13 @@ function testStoreForState(state: ChatState): ChatStateStore {
   };
 }
 
+function activeRunningState(): ChatState {
+  return chatStateFixture({
+    activeThread: { id: "thread-active" },
+    turn: { lifecycle: { kind: "running", turnId: "turn-active" } },
+  });
+}
+
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
@@ -77,9 +84,7 @@ function pendingUserInputFromRequest(request: ServerRequest) {
 describe("ChatInboundHandler", () => {
   describe("active turn routing", () => {
     it("applies matching streaming deltas as assistant markdown", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -91,9 +96,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("marks active reasoning completed when assistant text starts", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      let state = activeRunningState();
       state = withChatStateMessageStreamItems(state, [
         { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" },
       ]);
@@ -113,9 +116,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("streams plan deltas as plain assistant text until completion", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -129,9 +130,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("marks streamed plan deltas completed when the completed turn reconciles", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -169,9 +168,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("updates structured turn plan progress", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -210,9 +207,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("stores the latest aggregated turn diff for the active turn", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -228,9 +223,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("ignores aggregated turn diffs outside the active scope", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -246,9 +239,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("formats hook runs as compact summaries with details", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -296,9 +287,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("omits hook duration details while duration is unavailable", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -335,9 +324,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("attaches unscoped hook runs to the active turn while streaming", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -372,9 +359,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("leaves non-prompt unscoped hook runs outside the active turn", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -406,9 +391,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("keeps repeated hook runs with the same run id as separate message stream items", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
       const baseRun: Extract<ServerNotification, { method: "hook/completed" }>["params"]["run"] = {
         id: "hook-1",
@@ -1036,9 +1019,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("rejects server requests scoped to a different active thread or turn", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
 
@@ -1222,9 +1203,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("clears all active-thread scoped state when the active thread is archived", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      let state = activeRunningState();
       state = chatStateWith(state, { runtime: { activeModel: "gpt-5.5" } });
       state = chatStateWith(state, { runtime: { activeServiceTier: "fast" } });
       state = chatStateWith(state, {
@@ -1362,9 +1341,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("replaces optimistic user echoes when completed turns are reconciled", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      let state = activeRunningState();
       state = withChatStateMessageStreamItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello", turnId: "turn-active" },
         {
@@ -1410,9 +1387,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("reconciles optimistic user echoes by client id before falling back to same-turn text only when client ids are absent", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      let state = activeRunningState();
       state = withChatStateMessageStreamItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
         { id: "local-steer-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
@@ -1517,9 +1492,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("keeps the observed steer message order when completed turns reconcile by client id", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      let state = activeRunningState();
       state = withChatStateMessageStreamItems(state, [
         { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "start", turnId: "turn-active" },
         {
@@ -1570,9 +1543,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("asks the view to auto-name completed turns", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const maybeNameThread = vi.fn();
       const handler = handlerForState(state, { maybeNameThread });
       const turn = {
@@ -1926,9 +1897,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("renders auto approval review notifications as upserted review results", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -1970,9 +1939,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("replaces guardian auto-review warnings when structured auto-review notifications arrive", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -2004,9 +1971,7 @@ describe("ChatInboundHandler", () => {
     });
 
     it("ignores guardian auto-review warnings after structured auto-review notifications", () => {
-      let state = chatStateFixture();
-      state = chatStateWith(state, { activeThread: { id: "thread-active" } });
-      state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+      const state = activeRunningState();
       const handler = handlerForState(state);
 
       handler.handleNotification({

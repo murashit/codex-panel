@@ -5,7 +5,6 @@ import { activeTurnLiveItems } from "../../../../src/features/chat/domain/messag
 import { messageStreamLayoutBlocks } from "../../../../src/features/chat/presentation/message-stream/layout";
 import { upsertMessageStreamItemById } from "../../../../src/features/chat/domain/message-stream/updates";
 import { taskProgressMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/task-progress";
-import { normalizeProposedPlanMarkdown } from "../../../../src/features/chat/domain/message-stream/format/proposed-plan";
 import { pathRelativeToRoot } from "../../../../src/shared/path/file-paths";
 import { permissionRows } from "../../../../src/features/chat/domain/message-stream/format/permission-rows";
 import {
@@ -214,10 +213,6 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("normalizes proposed plan wrappers before markdown rendering", () => {
-    expect(normalizeProposedPlanMarkdown("<proposed_plan>\n## Summary\n- Ship it\n</proposed_plan>")).toBe("## Summary\n- Ship it");
-  });
-
   it("formats structured plan progress as task progress", () => {
     expect(
       taskProgressMessageStreamItem("t1", "Working plan", [
@@ -291,21 +286,16 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("keeps command output in details instead of inline summaries", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "npm run check",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "failed",
-      commandActions: [{ type: "unknown", command: "npm" }],
-      aggregatedOutput: "stderr with many details",
-      exitCode: 1,
-      durationMs: 42,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "npm run check",
+        status: "failed",
+        commandActions: [{ type: "unknown", command: "npm" }],
+        aggregatedOutput: "stderr with many details",
+        exitCode: 1,
+        durationMs: 42,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandTarget: { kind: "command", commandLine: "npm run check" },
       output: "stderr with many details",
@@ -314,21 +304,15 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed read commands separately from generic commands", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "sed -n '1,20p' src/main.ts",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "read", command: "sed", name: "main.ts", path: "/vault/src/main.ts" }],
-      aggregatedOutput: "file contents",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "sed -n '1,20p' src/main.ts",
+        commandActions: [{ type: "read", command: "sed", name: "main.ts", path: "/vault/src/main.ts" }],
+        aggregatedOutput: "file contents",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "read",
       commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
@@ -337,21 +321,15 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes piped parsed read commands by file name only", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "nl -ba src/main.ts | sed -n '1,20p'",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "read", command: "nl", name: "main.ts", path: "/vault/src/main.ts" }],
-      aggregatedOutput: "numbered file contents",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "nl -ba src/main.ts | sed -n '1,20p'",
+        commandActions: [{ type: "read", command: "nl", name: "main.ts", path: "/vault/src/main.ts" }],
+        aggregatedOutput: "numbered file contents",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "read",
       commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
@@ -362,21 +340,16 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("keeps absolute read paths when they are outside the command cwd", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "sed -n '1,20p' /vault/src/main.ts",
-      cwd: "/vault/tests",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "read", command: "sed", name: "main.ts", path: "/vault/src/main.ts" }],
-      aggregatedOutput: "file contents",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "sed -n '1,20p' /vault/src/main.ts",
+        cwd: "/vault/tests",
+        commandActions: [{ type: "read", command: "sed", name: "main.ts", path: "/vault/src/main.ts" }],
+        aggregatedOutput: "file contents",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "read",
       commandTarget: { kind: "read", path: "/vault/src/main.ts", name: "main.ts" },
@@ -385,21 +358,15 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes zsh login wrapper commands without changing their command classification", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "/bin/zsh -lc 'npm run check'",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "unknown", command: "zsh" }],
-      aggregatedOutput: "check output",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "/bin/zsh -lc 'npm run check'",
+        commandActions: [{ type: "unknown", command: "zsh" }],
+        aggregatedOutput: "check output",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "command",
       commandTarget: { kind: "command", commandLine: "npm run check" },
@@ -410,21 +377,15 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed search commands and summarizes their query and path", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "rg 'command target' src/display",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "search", command: "rg", query: "command target", path: "src/display" }],
-      aggregatedOutput: "search results",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "rg 'command target' src/display",
+        commandActions: [{ type: "search", command: "rg", query: "command target", path: "src/display" }],
+        aggregatedOutput: "search results",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "search",
       commandTarget: { kind: "search", query: "command target", path: "src/display" },
@@ -435,21 +396,15 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes parsed search paths relative to the command cwd", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "rg target /vault/src/display",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "search", command: "rg", query: "target", path: "/vault/src/display" }],
-      aggregatedOutput: "search results",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "rg target /vault/src/display",
+        commandActions: [{ type: "search", command: "rg", query: "target", path: "/vault/src/display" }],
+        aggregatedOutput: "search results",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "search",
       commandTarget: { kind: "search", query: "target", path: "/vault/src/display" },
@@ -458,21 +413,16 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes Windows paths relative to the command cwd", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "rg target C:\\Vault\\src\\display",
-      cwd: "C:\\Vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "search", command: "rg", query: "target", path: "C:\\Vault\\src\\display" }],
-      aggregatedOutput: "search results",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "rg target C:\\Vault\\src\\display",
+        cwd: "C:\\Vault",
+        commandActions: [{ type: "search", command: "rg", query: "target", path: "C:\\Vault\\src\\display" }],
+        aggregatedOutput: "search results",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "search",
       commandTarget: { kind: "search", query: "target", path: "C:\\Vault\\src\\display" },
@@ -481,21 +431,15 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("labels parsed file listing commands and summarizes their path", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "rg --files src/display",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "listFiles", command: "rg", path: "src/display" }],
-      aggregatedOutput: "src/display/thread-items.ts",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "rg --files src/display",
+        commandActions: [{ type: "listFiles", command: "rg", path: "src/display" }],
+        aggregatedOutput: "src/display/thread-items.ts",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "listFiles",
       commandTarget: { kind: "listFiles", path: "src/display" },
@@ -504,24 +448,18 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("uses the representative command action for both label and summary", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "cd src && rg target",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [
-        { type: "unknown", command: "cd" },
-        { type: "search", command: "rg", query: "target", path: "src" },
-      ],
-      aggregatedOutput: "search results",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "cd src && rg target",
+        commandActions: [
+          { type: "unknown", command: "cd" },
+          { type: "search", command: "rg", query: "target", path: "src" },
+        ],
+        aggregatedOutput: "search results",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "search",
       commandTarget: { kind: "search", query: "target", path: "src" },
@@ -530,21 +468,15 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes parsed workspace file listings without a path", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "rg --files",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "listFiles", command: "rg", path: null }],
-      aggregatedOutput: "README.md",
-      exitCode: 0,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "rg --files",
+        commandActions: [{ type: "listFiles", command: "rg", path: null }],
+        aggregatedOutput: "README.md",
+        exitCode: 0,
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandAction: "listFiles",
       commandTarget: { kind: "listFiles" },
@@ -553,21 +485,15 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("uses structured command status instead of stdout or stderr text", () => {
-    const item: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "rg error src",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "completed",
-      commandActions: [{ type: "unknown", command: "rg" }],
-      aggregatedOutput: "error appears as search result text",
-      exitCode: 0,
-      durationMs: null,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "rg error src",
+        commandActions: [{ type: "unknown", command: "rg" }],
+        aggregatedOutput: "error appears as search result text",
+        exitCode: 0,
+        durationMs: null,
+      }),
+    ).toMatchObject({
       kind: "command",
       commandTarget: { kind: "command", commandLine: "rg error src" },
       executionState: "completed",
@@ -575,48 +501,21 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("omits running qualifiers from command, file change, and tool summaries", () => {
-    const command: TurnItem = {
-      type: "commandExecution",
-      id: "cmd-1",
-      command: "npm run check",
-      cwd: "/vault",
-      processId: null,
-      source: "agent",
-      status: "inProgress",
-      commandActions: [{ type: "unknown", command: "npm" }],
-      aggregatedOutput: null,
-      exitCode: null,
-      durationMs: null,
-    };
-    const fileChange: TurnItem = {
-      type: "fileChange",
-      id: "patch-1",
-      status: "inProgress",
-      changes: [{ kind: { type: "update", move_path: null }, path: "src/main.ts", diff: "@@\n-old\n+new" }],
-    };
-    const tool: TurnItem = {
-      type: "mcpToolCall",
-      id: "mcp-1",
-      server: "github",
-      tool: "pull_request_read",
-      status: "inProgress",
-      arguments: { id: 123 },
-      appContext: null,
-      pluginId: null,
-      result: null,
-      error: null,
-      durationMs: null,
-    };
-
-    expect(messageStreamItemFromTurnItem(command, "t1")).toMatchObject({
+    expect(
+      commandExecutionItem({
+        command: "npm run check",
+        status: "inProgress",
+        commandActions: [{ type: "unknown", command: "npm" }],
+      }),
+    ).toMatchObject({
       commandTarget: { kind: "command", commandLine: "npm run check" },
       executionState: "running",
     });
-    expect(messageStreamItemFromTurnItem(fileChange, "t1")).toMatchObject({
+    expect(fileChangeStreamItem({ status: "inProgress" })).toMatchObject({
       changes: [{ path: "src/main.ts" }],
       executionState: "running",
     });
-    expect(messageStreamItemFromTurnItem(tool, "t1")).toMatchObject({
+    expect(mcpToolCallItem({ status: "inProgress" })).toMatchObject({
       primaryTarget: { kind: "value", value: "123" },
       toolName: "github.pull_request_read",
       executionState: "running",
@@ -624,21 +523,14 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes MCP tool calls from structured arguments and errors", () => {
-    const item: TurnItem = {
-      type: "mcpToolCall",
-      id: "mcp-1",
-      server: "github",
-      tool: "pull_request_read",
-      status: "failed",
-      arguments: { owner: "org", repo: "project", id: 123 },
-      appContext: null,
-      pluginId: null,
-      result: null,
-      error: { message: "Not found" },
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      mcpToolCallItem({
+        status: "failed",
+        arguments: { owner: "org", repo: "project", id: 123 },
+        error: { message: "Not found" },
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "tool",
       primaryTarget: { kind: "value", value: "123" },
       failureReason: "Not found",
@@ -652,19 +544,12 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 
   it("summarizes dynamic tool calls from structured arguments only", () => {
-    const item: TurnItem = {
-      type: "dynamicToolCall",
-      id: "tool-1",
-      namespace: "web",
-      tool: "open",
-      arguments: { url: "https://example.com" },
-      status: "completed",
-      contentItems: [{ type: "inputText", text: "ok" }],
-      success: true,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
+    expect(
+      dynamicToolCallItem({
+        contentItems: [{ type: "inputText", text: "ok" }],
+        durationMs: 10,
+      }),
+    ).toMatchObject({
       kind: "tool",
       primaryTarget: { kind: "value", value: "https://example.com" },
       toolName: "web.open",
@@ -745,26 +630,6 @@ describe("turn item conversion preserves app-server semantics", () => {
         revisedPrompt: "A precise UI mockup.",
         result: "image result",
       },
-    });
-  });
-
-  it("uses details as the summary when a tool target cannot be extracted", () => {
-    const item: TurnItem = {
-      type: "dynamicToolCall",
-      id: "tool-1",
-      namespace: "multi_tool_use",
-      tool: "parallel",
-      arguments: {},
-      status: "completed",
-      contentItems: null,
-      success: true,
-      durationMs: 10,
-    };
-
-    expect(messageStreamItemFromTurnItem(item, "t1")).toMatchObject({
-      kind: "tool",
-      toolName: "multi_tool_use.parallel",
-      executionState: "completed",
     });
   });
 

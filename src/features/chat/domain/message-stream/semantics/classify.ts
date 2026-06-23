@@ -76,23 +76,18 @@ function meaningForMessageStreamItem(item: MessageStreamItem): MessageStreamMean
       if (item.messageKind === "proposedPlan") return { plane: "dialogue", event: "proposal" };
       return { plane: "dialogue", event: "response" };
     case "command":
+    case "tool":
+    case "hook":
       return { plane: "execution", event: "evidence" };
     case "fileChange":
       return { plane: "workspace", event: "result" };
-    case "tool":
-      return { plane: "execution", event: "evidence" };
-    case "hook":
-      return { plane: "execution", event: "evidence" };
     case "reasoning":
-      return { plane: "execution", event: "progress" };
     case "wait":
-      return { plane: "execution", event: "progress" };
     case "taskProgress":
       return { plane: "execution", event: "progress" };
     case "agent":
       return { plane: "coordination", event: "progress" };
     case "contextCompaction":
-      return { plane: "context", event: "stateChange" };
     case "goal":
       return { plane: "context", event: "stateChange" };
     case "approvalResult":

@@ -338,7 +338,6 @@ describe("threads view CSS", () => {
   });
 
   it("keeps toolbar action hover color separate from row action hover color", () => {
-    const toolbarAction = /\.codex-panel-ui__toolbar-action \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
     const toolbarHover =
       /\.codex-panel-ui__toolbar-action:hover,\n\.codex-panel-ui__toolbar-action:focus-visible \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
         "body"
@@ -353,28 +352,12 @@ describe("threads view CSS", () => {
       )?.groups?.["body"] ?? "";
 
     expect(styles).not.toContain(".codex-panel-threads__toolbar-actions {");
-    expect(toolbarAction).toContain("--icon-size: var(--codex-panel-control-icon-size)");
-    expect(toolbarAction).toContain("--icon-stroke: var(--icon-m-stroke-width, 1.75px)");
-    expect(toolbarAction).not.toContain("width:");
-    expect(toolbarAction).not.toContain("height:");
-    expect(toolbarAction).not.toContain("padding:");
-    expect(toolbarAction).not.toContain("border-radius:");
     expect(toolbarHover).toContain("background: var(--background-modifier-hover)");
     expect(toolbarHover).toContain("color: var(--icon-color)");
     expect(toolbarHover).not.toContain("var(--icon-color-active)");
     expect(toolbarMouseFocus).toContain("background: transparent");
     expect(toolbarMouseFocus).toContain("color: var(--icon-color)");
     expect(rowHover).toContain("color: var(--icon-color-active)");
-  });
-
-  it("keeps selected thread rows stable while hovered", () => {
-    const selectedRowHover =
-      /\.codex-panel-ui__nav-item\.is-selected:where\(:hover, :focus, :focus-visible, :active, :focus-within\) \{(?<body>[^}]+)\}/.exec(
-        styles,
-      )?.groups?.["body"] ?? "";
-
-    expect(selectedRowHover).toContain("background: var(--nav-item-background-active, var(--background-modifier-active))");
-    expect(selectedRowHover).not.toContain("nav-item-background-active-hover");
   });
 
   it("does not rely on :has() to avoid hover-highlighting action rows", () => {

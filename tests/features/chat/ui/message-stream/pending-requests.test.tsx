@@ -14,9 +14,7 @@ import "./setup";
 import {
   actEvent,
   dispatchComposingInputValue,
-  emptyDisclosures,
   expectPresent,
-  idleTurnLifecycle,
   messageStreamBlocks,
   pendingApproval,
   pendingFreeformUserInput,
@@ -370,10 +368,6 @@ describe("pending request renderer decisions", () => {
   it("renders submitted user input separately from approvals", () => {
     const renderMarkdown = vi.fn((parent: HTMLElement, text: string) => parent.createDiv({ text: `markdown:${text}` }));
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "user-input-submitted-1",
@@ -385,9 +379,6 @@ describe("pending request renderer decisions", () => {
           questions: [{ id: "scope", header: "Scope", question: "How broad?", answer: "Narrow" }],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
       renderMarkdown,
     })[0];
 
@@ -404,10 +395,6 @@ describe("pending request renderer decisions", () => {
 
   it("renders manual approval results with completion state and details", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "approval-1",
@@ -424,10 +411,6 @@ describe("pending request renderer decisions", () => {
           },
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -445,10 +428,6 @@ describe("pending request renderer decisions", () => {
 
   it("renders auto-review summaries under the final assistant message", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "review-1",
@@ -476,10 +455,6 @@ describe("pending request renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
     const block = blocks.find((candidate) => candidate.key === "item:assistant-1");
     if (!block) throw new Error("Expected assistant block");
@@ -492,15 +467,7 @@ describe("pending request renderer decisions", () => {
 
   it("adds pending requests to the bottom of message stream blocks", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [{ id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" }],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
         signature: "request:1",
       }),
@@ -518,16 +485,9 @@ describe("pending request renderer decisions", () => {
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
         items: [
           { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
         ],
-        disclosures: emptyDisclosures(),
-        forkMenuItemId: null,
-        loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
         pendingRequests: pendingRequestContext({
           signature: "mcp:51",
@@ -557,16 +517,9 @@ describe("pending request renderer decisions", () => {
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
         items: [
           { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
         ],
-        disclosures: emptyDisclosures(),
-        forkMenuItemId: null,
-        loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
         pendingRequests: pendingRequestContext({
           signature: "mcp:52",
@@ -598,16 +551,9 @@ describe("pending request renderer decisions", () => {
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
         items: [
           { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
         ],
-        disclosures: emptyDisclosures(),
-        forkMenuItemId: null,
-        loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
         pendingRequests: pendingRequestContext({
           signature: "mcp:53",
@@ -631,15 +577,7 @@ describe("pending request renderer decisions", () => {
     const consumeAutoFocus = vi.fn(() => true);
 
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [{ id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" }],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
         signature: "request:1",
         consumeAutoFocus,
@@ -659,16 +597,9 @@ describe("pending request renderer decisions", () => {
       renderMessageStreamBlocksInAct(
         parent,
         messageStreamBlocks({
-          activeThreadId: "thread",
-          turnLifecycle: idleTurnLifecycle(),
-          historyCursor: null,
-          loadingHistory: false,
           items: [
             { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
           ],
-          disclosures: emptyDisclosures(),
-          forkMenuItemId: null,
-          loadOlderTurns: vi.fn(),
           renderMarkdown: (element, text) => element.createDiv({ text }),
           pendingRequests: pendingRequestContext({
             signature: "approval:1",
@@ -691,15 +622,7 @@ describe("pending request renderer decisions", () => {
     const consumeAutoFocus = vi.fn(() => true);
 
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: pendingRequestContext({
         signature: "request:1",
         snapshot: pendingSnapshot,
@@ -715,17 +638,9 @@ describe("pending request renderer decisions", () => {
   it("removes pending request blocks when the signature clears", () => {
     const parent = document.createElement("div");
     const baseContext = {
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         { id: "a1", kind: "message", role: "assistant", text: "Done", messageKind: "assistantResponse", messageState: "completed" },
       ] satisfies MessageStreamItem[],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
     renderMessageStreamBlocksInAct(

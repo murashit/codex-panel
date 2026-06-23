@@ -42,15 +42,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     connectedClient: vi.fn().mockResolvedValue(client),
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
     startThread: vi.fn().mockImplementation(async () => {
-      stateStore.dispatch({
-        type: "active-thread/resumed",
-        thread: thread("thread"),
-        cwd: "/vault",
-        model: null,
-        reasoningEffort: null,
-        serviceTier: null,
-        approvalsReviewer: null,
-      });
+      resumeThread(stateStore);
       return {};
     }),
     notifyActiveThreadIdentityChanged: vi.fn(),
@@ -64,6 +56,18 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     localItemIds: overrides.localItemIds ?? createLocalIdSource(),
   };
   return { host, startTurn, stateStore, steerTurn };
+}
+
+function resumeThread(stateStore: ReturnType<typeof createChatStateStore>) {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    thread: thread("thread"),
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
 }
 
 describe("TurnSubmissionActions", () => {
@@ -107,15 +111,7 @@ describe("TurnSubmissionActions", () => {
 
   it("does not restore stale drafts or report stale start failures after the active thread changes", async () => {
     const { host, startTurn, stateStore } = createHost();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      thread: thread("thread"),
-      cwd: "/vault",
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
+    resumeThread(stateStore);
     startTurn.mockImplementation(async () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
       throw new Error("offline");
@@ -131,15 +127,7 @@ describe("TurnSubmissionActions", () => {
 
   it("steers a running turn instead of starting another turn", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      thread: thread("thread"),
-      cwd: "/vault",
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
+    resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     const actions = createTurnSubmissionActions(host);
 
@@ -163,15 +151,7 @@ describe("TurnSubmissionActions", () => {
 
   it("reports busy turns that cannot be steered", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      thread: thread("thread"),
-      cwd: "/vault",
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
+    resumeThread(stateStore);
     const optimistic = optimisticTurnStart({ id: "local-user", text: "pending", codexInput: textInput("pending") });
     stateStore.dispatch({
       type: "turn/optimistic-started",
@@ -193,15 +173,7 @@ describe("TurnSubmissionActions", () => {
       const first = createHost();
       const second = createHost();
       for (const host of [first.host, second.host]) {
-        host.stateStore.dispatch({
-          type: "active-thread/resumed",
-          thread: thread("thread"),
-          cwd: "/vault",
-          model: null,
-          reasoningEffort: null,
-          serviceTier: null,
-          approvalsReviewer: null,
-        });
+        resumeThread(host.stateStore);
       }
 
       await createTurnSubmissionActions(first.host).sendTurnText("first");
@@ -219,15 +191,7 @@ describe("TurnSubmissionActions", () => {
 
   it("does not append stale steer messages after the active turn changes", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      thread: thread("thread"),
-      cwd: "/vault",
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
+    resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     steerTurn.mockImplementation(async () => {
       stateStore.dispatch({ type: "active-thread/cleared" });
@@ -245,15 +209,7 @@ describe("TurnSubmissionActions", () => {
 
   it("does not restore stale steer drafts or report stale steer failures after the active turn changes", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      thread: thread("thread"),
-      cwd: "/vault",
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
+    resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     steerTurn.mockImplementation(async () => {
       stateStore.dispatch({ type: "active-thread/cleared" });

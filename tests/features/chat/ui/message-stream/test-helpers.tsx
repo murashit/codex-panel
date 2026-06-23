@@ -25,16 +25,16 @@ export function messageStreamBlocks(context: TestMessageStreamContext): [Message
   const normalized = normalizeMessageStreamContext(context);
   const blocks = messageStreamViewBlocks({
     activeThreadId: normalized.activeThreadId,
-    activeTurnId: activeTurnIdForMessageStream(context.turnLifecycle),
-    historyCursor: context.historyCursor,
-    loadingHistory: context.loadingHistory,
-    items: context.items,
-    stableItems: context.stableItems,
-    activeItems: context.activeItems,
+    activeTurnId: activeTurnIdForMessageStream(normalized.turnLifecycle),
+    historyCursor: normalized.historyCursor,
+    loadingHistory: normalized.loadingHistory,
+    items: normalized.items,
+    stableItems: normalized.stableItems,
+    activeItems: normalized.activeItems,
     workspaceRoot: normalized.workspaceRoot,
-    turnDiffs: context.turnDiffs,
-    textActionTargetsByItemId: context.textActionTargetsByItemId,
-    pendingRequests: pendingRequestBlockInput(context),
+    turnDiffs: normalized.turnDiffs,
+    textActionTargetsByItemId: normalized.textActionTargetsByItemId,
+    pendingRequests: pendingRequestBlockInput(normalized),
   });
   if (blocks.length === 0) throw new Error("Expected at least one message stream block.");
   for (const block of blocks) messageStreamContextByBlock.set(block, normalized);
@@ -63,13 +63,18 @@ function messageStreamBlockItemsEmpty(context: TestMessageStreamContext): boolea
 
 type TestMessageStreamContext = Omit<
   MessageStreamContext,
-  "disclosures" | "forkMenuItemId" | "renderObsidianMarkdown" | "renderStreamMarkdown"
+  "activeThreadId" | "disclosures" | "forkMenuItemId" | "loadOlderTurns" | "renderObsidianMarkdown" | "renderStreamMarkdown"
 > &
-  Partial<Pick<MessageStreamContext, "disclosures" | "forkMenuItemId" | "renderObsidianMarkdown" | "renderStreamMarkdown">> & {
+  Partial<
+    Pick<
+      MessageStreamContext,
+      "activeThreadId" | "disclosures" | "forkMenuItemId" | "loadOlderTurns" | "renderObsidianMarkdown" | "renderStreamMarkdown"
+    >
+  > & {
     renderMarkdown?: (parent: HTMLElement, text: string) => void;
-    turnLifecycle: MessageStreamTurnLifecycleState;
-    historyCursor: string | null;
-    loadingHistory: boolean;
+    turnLifecycle?: MessageStreamTurnLifecycleState;
+    historyCursor?: string | null;
+    loadingHistory?: boolean;
     items: readonly MessageStreamItem[];
     stableItems?: readonly MessageStreamItem[];
     activeItems?: readonly MessageStreamItem[];
@@ -82,7 +87,16 @@ type MessageStreamTurnLifecycleState =
   | { kind: "starting"; pendingTurnStart: unknown }
   | { kind: "running"; turnId: string };
 
-export function emptyDisclosures(): MessageStreamDisclosureState {
+type NormalizedTestMessageStreamContext = MessageStreamContext &
+  Omit<TestMessageStreamContext, "activeThreadId" | "historyCursor" | "loadingHistory" | "loadOlderTurns" | "turnLifecycle"> & {
+    activeThreadId: string | null;
+    historyCursor: string | null;
+    loadingHistory: boolean;
+    loadOlderTurns: () => void;
+    turnLifecycle: MessageStreamTurnLifecycleState;
+  };
+
+function emptyDisclosures(): MessageStreamDisclosureState {
   return testDisclosures();
 }
 
@@ -99,7 +113,7 @@ export function testDisclosures(
   };
 }
 
-function normalizeMessageStreamContext(context: TestMessageStreamContext): MessageStreamContext {
+function normalizeMessageStreamContext(context: TestMessageStreamContext): NormalizedTestMessageStreamContext {
   const renderObsidianMarkdown =
     context.renderObsidianMarkdown ??
     context.renderMarkdown ??
@@ -109,6 +123,11 @@ function normalizeMessageStreamContext(context: TestMessageStreamContext): Messa
   const renderStreamMarkdown = context.renderStreamMarkdown ?? context.renderMarkdown ?? renderObsidianMarkdown;
   return {
     ...context,
+    activeThreadId: context.activeThreadId ?? "thread",
+    turnLifecycle: context.turnLifecycle ?? idleTurnLifecycle(),
+    historyCursor: context.historyCursor ?? null,
+    loadingHistory: context.loadingHistory ?? false,
+    loadOlderTurns: context.loadOlderTurns ?? vi.fn(),
     disclosures: context.disclosures ?? emptyDisclosures(),
     forkMenuItemId: context.forkMenuItemId ?? null,
     renderObsidianMarkdown,
@@ -262,10 +281,6 @@ export function idleTurnLifecycle(): MessageStreamTurnLifecycleState {
 
 export function runningTurnLifecycle(turnId = "turn"): MessageStreamTurnLifecycleState {
   return { kind: "running", turnId };
-}
-
-export function startingTurnLifecycle(): MessageStreamTurnLifecycleState {
-  return { kind: "starting", pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] } };
 }
 
 function activeTurnIdForMessageStream(lifecycle: MessageStreamTurnLifecycleState): string | null {

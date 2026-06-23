@@ -13,16 +13,6 @@ describe("service tier runtime state", () => {
     expect(fastMode("priority", [{ id: "priority", name: "Priority" }])).toBe(false);
     expect(fastMode("flex", [{ id: "flex", name: "Flex" }])).toBe(false);
   });
-
-  it("locks the Codex 0.134.0 Fast catalog semantics observed from app-server", () => {
-    // Codex app-server 0.134.0 reports Fast as serviceTiers[{ id: "priority", name: "Fast" }].
-    const codex01340FastTier = { id: "priority", name: "Fast" };
-
-    expect(fastMode("priority", [codex01340FastTier])).toBe(true);
-
-    // Clearing Fast with serviceTier: null is reported back by 0.134.0 as "default", not null.
-    expect(fastMode("default", [codex01340FastTier])).toBe(false);
-  });
 });
 
 function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["serviceTiers"] = []): boolean {

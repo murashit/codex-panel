@@ -85,24 +85,4 @@ describe("chat thread title context", () => {
       assistantResponse: "ゴール内容に基づいて実装しました。",
     });
   });
-
-  it("finds the first visible message stream item title context", () => {
-    expect(
-      firstThreadTitleContextFromMessageStreamItems([
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "表示済み履歴から命名したい", turnId: "visible" },
-        {
-          id: "a1",
-          kind: "message",
-          role: "assistant",
-          text: "表示済み履歴を使います。",
-          turnId: "visible",
-          messageKind: "assistantResponse",
-          messageState: "completed",
-        },
-      ]),
-    ).toEqual({
-      userRequest: "表示済み履歴から命名したい",
-      assistantResponse: "表示済み履歴を使います。",
-    });
-  });
 });

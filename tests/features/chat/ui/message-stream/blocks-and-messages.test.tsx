@@ -12,14 +12,12 @@ import { deferred } from "../../../../support/async";
 import { topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
-  emptyDisclosures,
   expectPresent,
   idleTurnLifecycle,
   messageStreamBlocks,
   renderMessageBlockElement,
   renderMessageStreamBlocksInAct,
   runningTurnLifecycle,
-  startingTurnLifecycle,
   testDisclosures,
   unmountUiRootInAct,
   withMessageContentScrollHeight,
@@ -28,21 +26,10 @@ import {
 describe("message stream rendering and message action menu", () => {
   it("inserts completed-turn activity groups between conversation blocks", () => {
     const parent = document.createElement("div");
-    const baseContext = {
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
-    };
 
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
-        ...baseContext,
         items: [
           { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
           {
@@ -60,7 +47,6 @@ describe("message stream rendering and message action menu", () => {
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
-        ...baseContext,
         items: [
           { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
           {
@@ -99,10 +85,6 @@ describe("message stream rendering and message action menu", () => {
   it("keeps Work details in the flow when the activity group is collapsed", async () => {
     const parent = document.createElement("div");
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "t1" },
         {
@@ -125,9 +107,6 @@ describe("message stream rendering and message action menu", () => {
         },
       ],
       disclosures: testDisclosures({ activityGroups: ["t1"] }),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     });
     const activityBlock = expectPresent(blocks.find((block) => block.key === "activity:turn-t1-activity"));
 
@@ -159,16 +138,7 @@ describe("message stream rendering and message action menu", () => {
 
   it("keeps blocks in the flow after their rendered content shrinks on rerender", () => {
     const parent = document.createElement("div");
-    const baseContext = {
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
-    };
     const block = messageStreamBlocks({
-      ...baseContext,
       items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "expanded", turnId: "t1" }],
     })[0];
 
@@ -187,7 +157,6 @@ describe("message stream rendering and message action menu", () => {
     Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
     renderMessageStreamBlocksInAct(parent, [
       messageStreamBlocks({
-        ...baseContext,
         items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "collapsed", turnId: "t1" }],
       })[0],
     ]);
@@ -199,15 +168,7 @@ describe("message stream rendering and message action menu", () => {
 
   it("renders review result items as compact auto-review tool rows", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." }],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -221,10 +182,6 @@ describe("message stream rendering and message action menu", () => {
 
   it("renders review result details inside one auto-review details block", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "review-1",
@@ -242,10 +199,6 @@ describe("message stream rendering and message action menu", () => {
           },
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -264,10 +217,6 @@ describe("message stream rendering and message action menu", () => {
   it("renders structured system result details as visible selectable meta rows", () => {
     const renderMarkdown = vi.fn((parent: HTMLElement, text: string) => parent.createDiv({ text: `markdown:${text}` }));
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "system-help",
@@ -289,9 +238,6 @@ describe("message stream rendering and message action menu", () => {
           ],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
       renderMarkdown,
     })[0];
 
@@ -320,10 +266,6 @@ describe("message stream rendering and message action menu", () => {
 
   it("renders goal events as collapsed tool-like message stream items", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "goal-1",
@@ -334,9 +276,6 @@ describe("message stream rendering and message action menu", () => {
           objective: "Ship the feature",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
       renderMarkdown: (element, text) => element.createDiv({ text }),
     })[0];
 
@@ -367,15 +306,7 @@ describe("message stream rendering and message action menu", () => {
       { id: "u2", kind: "message", messageKind: "user", role: "user", text: "latest", turnId: "turn-2" },
     ] as const;
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [...items],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       textActionTargetsByItemId: new Map([["u2", { rollback: true }]]),
       onRollback,
     });
@@ -393,10 +324,6 @@ describe("message stream rendering and message action menu", () => {
   it("renders copy actions for copyable messages", () => {
     const copyText = vi.fn();
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "rendered user", copyText: "**user**", turnId: "turn-1" },
         {
@@ -410,10 +337,6 @@ describe("message stream rendering and message action menu", () => {
           messageState: "completed",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText,
     });
 
@@ -444,16 +367,8 @@ describe("message stream rendering and message action menu", () => {
     };
 
     const closedBlock = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [item],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
       onForkMenuToggle,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
       onFork,
@@ -468,16 +383,9 @@ describe("message stream rendering and message action menu", () => {
     expect(onForkMenuToggle).toHaveBeenCalledWith("a1");
 
     const openBlock = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [item],
-      disclosures: emptyDisclosures(),
       forkMenuItemId: "a1",
       onForkMenuToggle,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
       onFork,
@@ -508,16 +416,9 @@ describe("message stream rendering and message action menu", () => {
       turnId: "turn-1",
     };
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [item],
-      disclosures: emptyDisclosures(),
       forkMenuItemId: "a1",
       onForkMenuToggle: vi.fn(),
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       textActionTargetsByItemId: new Map([["a1", { fork: { itemId: "a1", turnId: "turn-1" } }]]),
       onFork,
@@ -532,13 +433,6 @@ describe("message stream rendering and message action menu", () => {
   it("updates message content when a streaming plan delta completes", () => {
     const parent = document.createElement("div");
     const baseContext = {
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text: `markdown:${text}` }),
     };
 
@@ -590,13 +484,6 @@ describe("message stream rendering and message action menu", () => {
       element.replaceChildren(rendered);
     };
     const baseContext = {
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
       renderMarkdown,
     };
 
@@ -665,13 +552,6 @@ describe("message stream rendering and message action menu", () => {
       vaultPath: "/vault",
     });
     const baseContext = {
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
       renderMarkdown: (element: HTMLElement, text: string) => {
         markdownRenderer.renderObsidianMarkdown(element, text);
       },
@@ -739,13 +619,6 @@ describe("message stream rendering and message action menu", () => {
       element.replaceChildren(element.createEl("strong", { text: `stream:${text.replace(/\*/g, "")}` }));
     });
     const baseContext = {
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
       renderObsidianMarkdown: vi.fn(),
       renderStreamMarkdown,
     };
@@ -792,13 +665,6 @@ describe("message stream rendering and message action menu", () => {
     renderMessageStreamBlocksInAct(
       parent,
       messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
-        disclosures: emptyDisclosures(),
-        forkMenuItemId: null,
-        loadOlderTurns: vi.fn(),
         renderObsidianMarkdown: (element: HTMLElement, text: string) => {
           markdownRenderer.renderObsidianMarkdown(element, text);
         },
@@ -872,14 +738,8 @@ describe("message stream rendering and message action menu", () => {
       turnId: "turn-1",
     } as const;
     const context = {
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn-1"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [item],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
       renderMarkdown: (parent: HTMLElement, text: string) => parent.createDiv({ text }),
       copyText: vi.fn(),
     };
@@ -894,10 +754,6 @@ describe("message stream rendering and message action menu", () => {
   it("renders implement plan action for eligible proposed plans", () => {
     const onImplementPlan = vi.fn();
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "p1",
@@ -910,10 +766,6 @@ describe("message stream rendering and message action menu", () => {
           messageState: "completed",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
       textActionTargetsByItemId: new Map([["p1", { implementPlan: { itemId: "p1" } }]]),
       onImplementPlan,
@@ -974,10 +826,6 @@ describe("message stream rendering and message action menu", () => {
 
   it("does not render copy actions for tool items", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "tool-1",
@@ -988,10 +836,6 @@ describe("message stream rendering and message action menu", () => {
           toolName: "web search",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText: vi.fn(),
     })[0];
 
@@ -1002,15 +846,7 @@ describe("message stream rendering and message action menu", () => {
     const copyText = vi.fn();
     const onRollback = vi.fn();
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "latest", copyText: "latest", turnId: "turn-1" }],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       copyText,
       textActionTargetsByItemId: new Map([["u1", { rollback: true }]]),
       onRollback,
@@ -1039,10 +875,6 @@ describe("message stream rendering and message action menu", () => {
       });
       const render = () => {
         const blocks = messageStreamBlocks({
-          activeThreadId: "thread",
-          turnLifecycle: idleTurnLifecycle(),
-          historyCursor: null,
-          loadingHistory: false,
           items: [
             {
               id: "u1",
@@ -1055,10 +887,7 @@ describe("message stream rendering and message action menu", () => {
             },
           ],
           disclosures: testDisclosures({ userMessageExpanded: [...expandedMessages] }),
-          forkMenuItemId: null,
           onDisclosureToggle,
-          loadOlderTurns: vi.fn(),
-          renderMarkdown: (parent, text) => parent.createDiv({ text }),
           copyText,
         });
         renderMessageStreamBlocksInAct(parent, blocks);
@@ -1104,15 +933,7 @@ describe("message stream rendering and message action menu", () => {
   it("does not show the collapse control for short user messages or assistant messages", () => {
     withMessageContentScrollHeight(120, () => {
       const shortUserBlock = messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
         items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "short", turnId: "turn-1" }],
-        disclosures: emptyDisclosures(),
-        forkMenuItemId: null,
-        loadOlderTurns: vi.fn(),
-        renderMarkdown: (parent, text) => parent.createDiv({ text }),
       })[0];
       const shortUser = renderMessageBlockElement(shortUserBlock);
 
@@ -1121,10 +942,6 @@ describe("message stream rendering and message action menu", () => {
 
     withMessageContentScrollHeight(500, () => {
       const assistantBlock = messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
         items: [
           {
             id: "a1",
@@ -1136,10 +953,6 @@ describe("message stream rendering and message action menu", () => {
             messageState: "completed",
           },
         ],
-        disclosures: emptyDisclosures(),
-        forkMenuItemId: null,
-        loadOlderTurns: vi.fn(),
-        renderMarkdown: (parent, text) => parent.createDiv({ text }),
       })[0];
       const assistant = renderMessageBlockElement(assistantBlock);
 
@@ -1147,28 +960,9 @@ describe("message stream rendering and message action menu", () => {
     });
   });
 
-  it("does not render rollback action when no item is eligible", () => {
-    const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: startingTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
-      items: [{ id: "u1", kind: "message", messageKind: "user", role: "user", text: "running", turnId: "turn-1" }],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
-    })[0];
-
-    expect(renderMessageBlockElement(block).querySelector(".codex-panel__rollback-turn")).toBeNull();
-  });
-
   it("renders command items as a compact summary with output behind details", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "cmd-1",
@@ -1184,10 +978,6 @@ describe("message stream rendering and message action menu", () => {
           output: "stderr details",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1204,10 +994,7 @@ describe("message stream rendering and message action menu", () => {
 
   it("omits command exit and duration rows while they are unavailable", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "cmd-1",
@@ -1222,10 +1009,6 @@ describe("message stream rendering and message action menu", () => {
           output: "",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1240,10 +1023,7 @@ describe("message stream rendering and message action menu", () => {
 
   it("uses read as the command header for parsed file reads", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "cmd-1",
@@ -1259,10 +1039,6 @@ describe("message stream rendering and message action menu", () => {
           output: "contents",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1272,10 +1048,7 @@ describe("message stream rendering and message action menu", () => {
 
   it("derives command summaries from semantic command targets instead of item text", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "cmd-1",
@@ -1290,10 +1063,6 @@ describe("message stream rendering and message action menu", () => {
           output: "results",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1303,10 +1072,7 @@ describe("message stream rendering and message action menu", () => {
 
   it("renders file diffs inside a single file change details block", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -1319,10 +1085,6 @@ describe("message stream rendering and message action menu", () => {
           output: "patch applied",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1339,10 +1101,7 @@ describe("message stream rendering and message action menu", () => {
 
   it("derives file change summaries from changes and status instead of item text", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -1354,10 +1113,6 @@ describe("message stream rendering and message action menu", () => {
           changes: [{ kind: "update", path: "/vault/project/src/main.ts", diff: "@@\n-old\n+new" }],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -1368,10 +1123,6 @@ describe("message stream rendering and message action menu", () => {
   it("renders the edited files footer with an open diff action when aggregated turn diff exists", () => {
     const openTurnDiff = vi.fn();
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -1393,10 +1144,6 @@ describe("message stream rendering and message action menu", () => {
         },
       ],
       turnDiffs: new Map([["turn", "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new"]]),
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       openTurnDiff,
     });
 
@@ -1421,10 +1168,6 @@ describe("message stream rendering and message action menu", () => {
 
   it("renders referenced thread metadata without exposing hidden context", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "u1",
@@ -1441,10 +1184,6 @@ describe("message stream rendering and message action menu", () => {
           },
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
 
     const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
@@ -1457,10 +1196,6 @@ describe("message stream rendering and message action menu", () => {
 
   it("renders resolved file mentions as a collapsed user message attachment", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "u1",
@@ -1472,10 +1207,6 @@ describe("message stream rendering and message action menu", () => {
           mentionedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
 
     const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
@@ -1490,10 +1221,6 @@ describe("message stream rendering and message action menu", () => {
 
   it("does not render the open diff action without aggregated turn diff", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "patch-1",
@@ -1513,10 +1240,6 @@ describe("message stream rendering and message action menu", () => {
           messageState: "completed",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       openTurnDiff: vi.fn(),
     });
 

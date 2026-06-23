@@ -6,9 +6,7 @@ import type { MessageStreamItem } from "../../../../../src/features/chat/domain/
 import { topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
-  emptyDisclosures,
   expectPresent,
-  idleTurnLifecycle,
   messageStreamBlocks,
   renderMessageBlockElement,
   renderMessageStreamBlocksInAct,
@@ -20,10 +18,7 @@ import {
 describe("message stream item renderer decisions", () => {
   it("renders generic tool details as visible sections inside one details block", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "tool-1",
@@ -39,10 +34,6 @@ describe("message stream item renderer decisions", () => {
           ],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -60,10 +51,6 @@ describe("message stream item renderer decisions", () => {
 
   it("renders steering activity as a compact two-line tool summary", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "turn" },
         {
@@ -85,9 +72,6 @@ describe("message stream item renderer decisions", () => {
         },
       ],
       disclosures: testDisclosures({ activityGroups: ["turn"] }),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     }).find((item) => item.key === "activity:turn-turn-activity");
 
     const element = renderMessageBlockElement(expectPresent(block));
@@ -98,10 +82,7 @@ describe("message stream item renderer decisions", () => {
 
   it("renders path summary tools relative to the workspace root", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -114,10 +95,6 @@ describe("message stream item renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -128,10 +105,7 @@ describe("message stream item renderer decisions", () => {
 
   it("derives generic tool summaries from primary targets instead of item text", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -145,10 +119,6 @@ describe("message stream item renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -168,15 +138,8 @@ describe("message stream item renderer decisions", () => {
       turnId: "turn",
     } as const;
     const baseContext = {
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [item] satisfies MessageStreamItem[],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text }),
     };
 
     renderMessageStreamBlocksInAct(parent, messageStreamBlocks({ ...baseContext, workspaceRoot: "/vault" }));
@@ -189,10 +152,7 @@ describe("message stream item renderer decisions", () => {
 
   it("keeps path summary tools absolute outside the workspace root", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -205,10 +165,6 @@ describe("message stream item renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -218,10 +174,7 @@ describe("message stream item renderer decisions", () => {
 
   it("does not treat generic tool summaries as paths without an explicit marker", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       workspaceRoot: "/vault/project",
       items: [
         {
@@ -233,10 +186,6 @@ describe("message stream item renderer decisions", () => {
           turnId: "turn",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -246,10 +195,7 @@ describe("message stream item renderer decisions", () => {
 
   it("renders hook metadata as rows inside one details block", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "hook-1",
@@ -268,10 +214,6 @@ describe("message stream item renderer decisions", () => {
           },
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -290,10 +232,6 @@ describe("message stream item renderer decisions", () => {
 
   it("renders hook metadata when the hook is inside a completed-turn activity group", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
-      turnLifecycle: idleTurnLifecycle(),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "do it", turnId: "turn" },
         {
@@ -322,9 +260,6 @@ describe("message stream item renderer decisions", () => {
         },
       ],
       disclosures: testDisclosures({ activityGroups: ["turn"], details: ["hook-1:details"] }),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
 
     const element = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")));
@@ -341,10 +276,7 @@ describe("message stream item renderer decisions", () => {
 
   it("renders task progress items as a dedicated task list", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "plan-progress-turn",
@@ -360,10 +292,6 @@ describe("message stream item renderer decisions", () => {
           status: "inProgress",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -377,10 +305,7 @@ describe("message stream item renderer decisions", () => {
 
   it("renders active task progress with the shared bottom live blocks", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
@@ -418,10 +343,6 @@ describe("message stream item renderer decisions", () => {
           agents: [{ threadId: "running", status: "running", message: "Inspecting renderer" }],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
       pendingRequests: {
         signature: "request:1",
         snapshot: () => ({
@@ -456,10 +377,7 @@ describe("message stream item renderer decisions", () => {
 
   it("orders shared bottom live blocks by insertion order", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
@@ -488,10 +406,6 @@ describe("message stream item renderer decisions", () => {
           status: "inProgress",
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
 
     expect(blocks.map((block) => block.key)).toEqual(["item:u1", "item:agent-1", "live-agents:turn", "live-task:plan-progress-turn"]);
@@ -499,10 +413,7 @@ describe("message stream item renderer decisions", () => {
 
   it("anchors the live agent summary at the first agent activity", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Do it", turnId: "turn" },
         {
@@ -546,10 +457,6 @@ describe("message stream item renderer decisions", () => {
           agents: [{ threadId: "child", status: "running", message: "Inspecting renderer" }],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
 
     expect(blocks.map((block) => block.key)).toEqual([
@@ -563,10 +470,7 @@ describe("message stream item renderer decisions", () => {
 
   it("renders agent activity as a one-line summary with consolidated details", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "agent-1",
@@ -584,10 +488,6 @@ describe("message stream item renderer decisions", () => {
           agents: [{ threadId: "child", status: "completed", message: "Done" }],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -605,10 +505,7 @@ describe("message stream item renderer decisions", () => {
 
   it("keeps agent activity prompt previews visually constrained to one line", () => {
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "agent-1",
@@ -626,10 +523,6 @@ describe("message stream item renderer decisions", () => {
           agents: [],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -643,10 +536,7 @@ describe("message stream item renderer decisions", () => {
     const threadId = "019e061e-0046-7653-a362-86de9a47cb5c";
     const onDisclosureToggle = vi.fn();
     const block = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "agent-1",
@@ -664,11 +554,7 @@ describe("message stream item renderer decisions", () => {
           agents: [{ threadId, status: "completed", message: longMessage }],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
       onDisclosureToggle,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     })[0];
 
     const element = renderMessageBlockElement(block);
@@ -691,10 +577,7 @@ describe("message stream item renderer decisions", () => {
 
   it("renders a compact live agent summary while subagents are running", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "agent-1",
@@ -715,10 +598,6 @@ describe("message stream item renderer decisions", () => {
           ],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
 
     const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));
@@ -743,14 +622,8 @@ describe("message stream item renderer decisions", () => {
     renderMessageStreamBlocksInAct(
       runningParent,
       messageStreamBlocks({
-        activeThreadId: "thread",
         turnLifecycle: runningTurnLifecycle("turn"),
-        historyCursor: null,
-        loadingHistory: false,
         items: [item],
-        disclosures: emptyDisclosures(),
-        forkMenuItemId: null,
-        loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
       }),
     );
@@ -767,14 +640,7 @@ describe("message stream item renderer decisions", () => {
     renderMessageStreamBlocksInAct(
       completedParent,
       messageStreamBlocks({
-        activeThreadId: "thread",
-        turnLifecycle: idleTurnLifecycle(),
-        historyCursor: null,
-        loadingHistory: false,
         items: [item],
-        disclosures: emptyDisclosures(),
-        forkMenuItemId: null,
-        loadOlderTurns: vi.fn(),
         renderMarkdown: (element, text) => element.createDiv({ text }),
       }),
     );
@@ -789,10 +655,7 @@ describe("message stream item renderer decisions", () => {
 
   it("hides the live agent summary once all subagents are complete", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "agent-1",
@@ -810,10 +673,6 @@ describe("message stream item renderer decisions", () => {
           agents: [{ threadId: "done", status: "completed", message: null }],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
 
     expect(blocks.some((block) => block.key.startsWith("live-agents:"))).toBe(false);
@@ -821,10 +680,7 @@ describe("message stream item renderer decisions", () => {
 
   it("marks the live agent summary failed when any subagent fails", () => {
     const blocks = messageStreamBlocks({
-      activeThreadId: "thread",
       turnLifecycle: runningTurnLifecycle("turn"),
-      historyCursor: null,
-      loadingHistory: false,
       items: [
         {
           id: "agent-1",
@@ -845,10 +701,6 @@ describe("message stream item renderer decisions", () => {
           ],
         },
       ],
-      disclosures: emptyDisclosures(),
-      forkMenuItemId: null,
-      loadOlderTurns: vi.fn(),
-      renderMarkdown: (parent, text) => parent.createDiv({ text }),
     });
 
     const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));
