@@ -16,6 +16,7 @@ describe("PendingRequestActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const resolveUserInput = vi.fn();
     const refreshLiveState = vi.fn();
+    const focusComposer = vi.fn();
     const pendingRequests = createPendingRequestActions({
       stateStore,
       responder: {
@@ -25,6 +26,7 @@ describe("PendingRequestActions", () => {
         resolveMcpElicitation: vi.fn(),
       },
       composerHasFocus: () => false,
+      focusComposer,
       refreshLiveState,
     });
     const input = expectPresent(toPendingUserInput(userInputRequest()));
@@ -35,6 +37,10 @@ describe("PendingRequestActions", () => {
 
     expect(resolveUserInput).toHaveBeenCalledWith(input.requestId, { direction: "Left" });
     expect(refreshLiveState).toHaveBeenCalledOnce();
+    expect(focusComposer).toHaveBeenCalledOnce();
+    expect(expectPresent(refreshLiveState.mock.invocationCallOrder[0])).toBeLessThan(
+      expectPresent(focusComposer.mock.invocationCallOrder[0]),
+    );
   });
 });
 

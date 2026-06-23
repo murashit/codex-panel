@@ -795,6 +795,9 @@ function createComposerAndTurnActions(
     stateStore: host.stateStore,
     responder: inboundHandler,
     composerHasFocus: () => composerController.hasFocus(),
+    focusComposer: () => {
+      composerController.focus();
+    },
     refreshLiveState: () => {
       refreshLiveState(host);
     },

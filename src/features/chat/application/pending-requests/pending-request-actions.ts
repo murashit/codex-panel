@@ -27,6 +27,7 @@ export interface PendingRequestActionsHost {
   stateStore: ChatStateStore;
   responder: PendingRequestResponder;
   composerHasFocus: () => boolean;
+  focusComposer: () => void;
   refreshLiveState: () => void;
 }
 
@@ -149,4 +150,5 @@ function pendingMcpElicitation(host: PendingRequestActionsHost, requestId: Pendi
 
 function commitRequestAction(host: PendingRequestActionsHost): void {
   host.refreshLiveState();
+  host.focusComposer();
 }
