@@ -11,53 +11,34 @@ const eslint = new ESLint({
 });
 
 describe("eslint config", () => {
-  it(
-    "reports imperative DOM writes in non-bridge source files",
-    async () => {
-      const messages = await lintSource(
-        "src/features/chat/domain/runtime/effective.ts",
-        `
+  describe("custom Codex Panel rules", () => {
+    it(
+      "rejects imperative DOM writes while leaving non-DOM writes alone",
+      async () => {
+        await expectReports(
+          "reports DOM property writes",
+          "src/features/chat/domain/runtime/effective.ts",
+          `
 export function setStatus(element: HTMLElement): void {
   element.textContent = "Loading";
 }
 `,
-      );
-
-      expect(messages).toContain("codex-panel/no-imperative-dom");
-    },
-    ESLINT_STARTUP_TEST_TIMEOUT_MS,
-  );
-
-  it("reports Obsidian HTMLElement mutation helpers in non-bridge source files", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+          "codex-panel/no-imperative-dom",
+        );
+        await expectReports(
+          "reports Obsidian HTMLElement mutation helpers",
+          "src/features/chat/domain/runtime/effective.ts",
+          `
 export function setStatus(element: HTMLElement): void {
   element.addClass("is-ready");
 }
 `,
-    );
-
-    expect(messages).toContain("codex-panel/no-imperative-dom");
-  });
-
-  it("keeps chat composer components outside the imperative DOM bridge allowlist", async () => {
-    const messages = await lintSource(
-      "src/features/chat/ui/composer.tsx",
-      `
-export function renderIcon(element: HTMLElement): void {
-  element.replaceChildren();
-}
-`,
-    );
-
-    expect(messages).toContain("codex-panel/no-imperative-dom");
-  });
-
-  it("does not confuse plain value properties with DOM writes", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+          "codex-panel/no-imperative-dom",
+        );
+        await expectClean(
+          "allows plain value properties",
+          "src/features/chat/domain/runtime/effective.ts",
+          `
 interface Box {
   value: string;
 }
@@ -66,15 +47,12 @@ export function setBoxValue(box: Box): void {
   box.value = "ready";
 }
 `,
-    );
-
-    expect(messages).not.toContain("codex-panel/no-imperative-dom");
-  });
-
-  it("does not confuse signal value writes with DOM writes", async () => {
-    const messages = await lintSource(
-      "src/features/chat/panel/shell-state.tsx",
-      `
+          "codex-panel/no-imperative-dom",
+        );
+        await expectClean(
+          "allows Preact signal value writes",
+          "src/features/chat/panel/shell-state.tsx",
+          `
 import { signal } from "@preact/signals";
 
 export function setSignalStatus(): string {
@@ -83,301 +61,74 @@ export function setSignalStatus(): string {
   return status.value;
 }
 `,
+          "codex-panel/no-imperative-dom",
+        );
+      },
+      ESLINT_STARTUP_TEST_TIMEOUT_MS,
     );
 
-    expect(messages).not.toContain("codex-panel/no-imperative-dom");
-  });
-
-  it("keeps chat signals inside the shell-state adapter", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
-import { signal } from "@preact/signals";
-
-export const status = signal("idle");
-`,
-    );
-
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("reports hand-written named re-exports", async () => {
-    const messages = await lintSource(
-      "src/shared/text/preview.ts",
-      `
-export { shortThreadId } from "../id/thread-id";
-export type { Thread } from "../../domain/threads/model";
-`,
-    );
-
-    expect(messages.filter((message) => message === "no-restricted-syntax")).toHaveLength(2);
-  });
-
-  it("reports hand-written export-all barrels", async () => {
-    const messages = await lintSource(
-      "src/shared/text/preview.ts",
-      `
-export * from "../id/thread-id";
-`,
-    );
-
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("allows local exports from owning modules", async () => {
-    const messages = await lintSource(
-      "src/shared/text/preview.ts",
-      `
-const limit = 80;
-
-export function truncate(value: string): string {
-  return value.slice(0, limit);
-}
-
-export { limit };
-`,
-    );
-
-    expect(messages).not.toContain("no-restricted-syntax");
-  });
-
-  it("reports non-turn app-server protocol imports outside app-server", async () => {
-    const messages = await lintSource(
-      "src/features/chat/application/pending-requests/pending-request-actions.ts",
-      `
-import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/protocol/runtime-metrics";
-
-export const convert = threadTokenUsageFromAppServerUsage;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-imports");
-  });
-
-  it("allows turn protocol imports at chat ingestion and message-stream conversion boundaries", async () => {
-    const conversionMessages = await lintSource(
-      "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
-      `
-import type { TurnItem } from "../../../../../app-server/protocol/turn";
-
-export type Item = TurnItem;
-`,
-    );
-    const ingestionMessages = await lintSource(
-      "src/features/chat/app-server/inbound/notification-plan.ts",
-      `
-import type { TurnRecord } from "../../../../app-server/protocol/turn";
-
-export type Turn = TurnRecord;
-`,
-    );
-
-    expect(conversionMessages).not.toContain("no-restricted-imports");
-    expect(ingestionMessages).not.toContain("no-restricted-imports");
-  });
-
-  it("reports turn protocol imports outside chat app-server ingestion and conversion boundaries", async () => {
-    const messages = await lintSource(
-      "src/features/chat/application/threads/history-controller.ts",
-      `
-import type { TurnItem } from "../../../../app-server/protocol/turn";
-
-export type Item = TurnItem;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-imports");
-  });
-
-  it("reports non-turn protocol imports at chat app-server ingestion and conversion boundaries", async () => {
-    const messages = await lintSource(
-      "src/features/chat/app-server/inbound/notification-plan.ts",
-      `
-import type { FileUpdateChange } from "../../../../app-server/protocol/file-change";
-
-export type Change = FileUpdateChange;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-imports");
-  });
-
-  it("reports server request protocol imports outside app-server and chat request boundaries", async () => {
-    const messages = await lintSource(
-      "src/features/chat/panel/surface/message-stream-presenter.ts",
-      `
-import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
-
-export const response = appServerUserInputResponse;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-imports");
-  });
-
-  it("allows server request protocol imports in chat inbound request boundaries", async () => {
-    const routingMessages = await lintSource(
-      "src/features/chat/app-server/inbound/routing.ts",
-      `
-import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
-
-export const response = appServerUserInputResponse;
-`,
-    );
-    const handlerMessages = await lintSource(
-      "src/features/chat/app-server/inbound/handler.ts",
-      `
-import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
-
-export const response = appServerUserInputResponse;
-`,
-    );
-
-    expect(routingMessages).not.toContain("no-restricted-imports");
-    expect(handlerMessages).not.toContain("no-restricted-imports");
-  });
-
-  it("reports server request protocol imports in non-boundary chat app-server modules", async () => {
-    const messages = await lintSource(
-      "src/features/chat/app-server/inbound/app-server-logs.ts",
-      `
-import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
-
-export const response = appServerUserInputResponse;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-imports");
-  });
-
-  it("keeps generated app-server bindings out of non-exception protocol modules", async () => {
-    const messages = await lintSource(
-      "src/app-server/protocol/request-input.ts",
-      `
-import type { UserInput } from "${generatedAppServerImportRoot}/v2/UserInput";
-
-export type Input = UserInput;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-imports");
-  });
-
-  it("keeps app-server protocol adapters independent from the connection layer", async () => {
-    const messages = await lintSource(
-      "src/app-server/protocol/catalog.ts",
-      `
-import type { AppServerClient } from "../connection/client";
-
-export type Client = AppServerClient;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-imports");
-  });
-
-  it("keeps generated app-server bindings out of app-server service seams", async () => {
-    const messages = await lintSource(
-      "src/app-server/services/runtime-overrides.ts",
-      `
-import type { ModelListResponse } from "${generatedAppServerImportRoot}/v2/ModelListResponse";
-
-export interface RuntimeOverrideModelClient {
-  listModels(includeHidden: boolean): Promise<ModelListResponse>;
+    it("treats event wiring as imperative only for DOM targets", async () => {
+      await expectClean(
+        "allows AbortSignal event wiring",
+        "src/app-server/services/abortable-operation.ts",
+        `
+export function attach(signal: AbortSignal): void {
+  signal.addEventListener("abort", () => undefined);
 }
 `,
-    );
-
-    expect(messages).toContain("no-restricted-imports");
-  });
-
-  it("allows generated app-server bindings in the explicit turn protocol exception", async () => {
-    const messages = await lintSource(
-      "src/app-server/protocol/turn.ts",
-      `
-import type { ThreadItem as GeneratedTurnItem } from "${generatedAppServerImportRoot}/v2/ThreadItem";
-
-export type TurnItem = GeneratedTurnItem;
+        "codex-panel/no-imperative-dom",
+      );
+      await expectClean(
+        "allows generic EventTarget helpers",
+        "src/shared/ui/dom-events.ts",
+        `
+export function attach(target: EventTarget): void {
+  target.addEventListener("click", () => undefined);
+}
 `,
-    );
-
-    expect(messages).not.toContain("no-restricted-imports");
-    expect(messages).not.toContain("no-restricted-syntax");
-  });
-
-  it("allows generated app-server bindings in the explicit server request protocol exception", async () => {
-    const messages = await lintSource(
-      "src/app-server/protocol/server-requests.ts",
-      `
-import type { ServerRequest } from "${generatedAppServerImportRoot}/ServerRequest";
-
-export type Request = ServerRequest;
+        "codex-panel/no-imperative-dom",
+      );
+      await expectReports(
+        "reports DOM event wiring",
+        "src/features/chat/ui/goal.tsx",
+        `
+export function attach(element: HTMLElement): void {
+  element.addEventListener("click", () => undefined);
+}
 `,
-    );
+        "codex-panel/no-imperative-dom",
+      );
+    });
 
-    expect(messages).not.toContain("no-restricted-imports");
-  });
-
-  it("reports unrelated generated app-server imports in the server request protocol exception", async () => {
-    const messages = await lintSource(
-      "src/app-server/protocol/server-requests.ts",
-      `
-import type { ToolRequestUserInputParams } from "${generatedAppServerImportRoot}/v2/ToolRequestUserInputParams";
-
-export type Params = ToolRequestUserInputParams;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("reports non-ThreadItem generated app-server imports in the turn protocol exception", async () => {
-    const messages = await lintSource(
-      "src/app-server/protocol/turn.ts",
-      `
-import type { UserInput } from "${generatedAppServerImportRoot}/v2/UserInput";
-
-export type Input = UserInput;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("reports direct ChatState alias mutation", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+    it("rejects direct ChatState mutation through aliases and store snapshots", async () => {
+      await expectReports(
+        "reports direct ChatState property mutation",
+        "src/features/chat/domain/runtime/effective.ts",
+        `
 import type { ChatState } from "../../application/state/root-reducer";
 
 export function mutateState(current: ChatState): void {
   current.activeThread.id = "thread";
 }
 `,
-    );
-
-    expect(messages).toContain("codex-panel/no-chat-state-direct-mutation");
-  });
-
-  it("reports direct ChatState collection mutation from getState", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+        "codex-panel/no-chat-state-direct-mutation",
+      );
+      await expectReports(
+        "reports collection mutation from getState",
+        "src/features/chat/domain/runtime/effective.ts",
+        `
 import type { ChatStateStore } from "../../application/state/store";
 
 export function mutateState(store: ChatStateStore): void {
   store.getState().requests.userInputDrafts.set("key", "value");
 }
 `,
-    );
-
-    expect(messages).toContain("codex-panel/no-chat-state-direct-mutation");
-  });
-
-  it("reports direct ChatState slice alias collection mutation", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+        "codex-panel/no-chat-state-direct-mutation",
+      );
+      await expectReports(
+        "reports collection mutation through a slice alias",
+        "src/features/chat/domain/runtime/effective.ts",
+        `
 import type { ChatStateStore } from "../../application/state/store";
 
 export function mutateState(store: ChatStateStore): void {
@@ -385,15 +136,12 @@ export function mutateState(store: ChatStateStore): void {
   requests.userInputDrafts.set("key", "value");
 }
 `,
-    );
-
-    expect(messages).toContain("codex-panel/no-chat-state-direct-mutation");
-  });
-
-  it("reports direct ChatState snapshot alias collection mutation", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+        "codex-panel/no-chat-state-direct-mutation",
+      );
+      await expectReports(
+        "reports collection mutation through a state alias",
+        "src/features/chat/domain/runtime/effective.ts",
+        `
 import type { ChatStateStore } from "../../application/state/store";
 
 export function mutateState(store: ChatStateStore): void {
@@ -401,15 +149,15 @@ export function mutateState(store: ChatStateStore): void {
   current.requests.userInputDrafts.set("key", "value");
 }
 `,
-    );
+        "codex-panel/no-chat-state-direct-mutation",
+      );
+    });
 
-    expect(messages).toContain("codex-panel/no-chat-state-direct-mutation");
-  });
-
-  it("allows scalar values derived from ChatState", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+    it("allows local values that cannot mutate ChatState", async () => {
+      await expectClean(
+        "allows scalar values derived from ChatState",
+        "src/features/chat/domain/runtime/effective.ts",
+        `
 import type { ChatState } from "../../application/state/root-reducer";
 
 export function updateThreadId(state: ChatState, response: { threadId?: string }): string | null {
@@ -418,15 +166,12 @@ export function updateThreadId(state: ChatState, response: { threadId?: string }
   return threadId;
 }
 `,
-    );
-
-    expect(messages).not.toContain("codex-panel/no-chat-state-direct-mutation");
-  });
-
-  it("allows replacing a ChatState snapshot reference", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+        "codex-panel/no-chat-state-direct-mutation",
+      );
+      await expectClean(
+        "allows replacing a ChatState reference",
+        "src/features/chat/domain/runtime/effective.ts",
+        `
 import type { ChatState } from "../../application/state/root-reducer";
 
 export function replaceSnapshot(current: ChatState, next: ChatState): ChatState {
@@ -434,15 +179,12 @@ export function replaceSnapshot(current: ChatState, next: ChatState): ChatState 
   return current;
 }
 `,
-    );
-
-    expect(messages).not.toContain("codex-panel/no-chat-state-direct-mutation");
-  });
-
-  it("does not report shadowed ChatState alias names", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/runtime/effective.ts",
-      `
+        "codex-panel/no-chat-state-direct-mutation",
+      );
+      await expectClean(
+        "does not confuse shadowed local names with ChatState aliases",
+        "src/features/chat/domain/runtime/effective.ts",
+        `
 import type { ChatStateStore } from "../../application/state/store";
 
 export function mutateState(store: ChatStateStore): void {
@@ -453,181 +195,351 @@ export function mutateState(store: ChatStateStore): void {
   update(new Map());
 }
 `,
-    );
-
-    expect(messages).not.toContain("codex-panel/no-chat-state-direct-mutation");
+        "codex-panel/no-chat-state-direct-mutation",
+      );
+    });
   });
 
-  it("allows signals only in the chat shell-state adapter", async () => {
-    const messages = await lintSource(
-      "src/features/chat/panel/shell-state.tsx",
-      `
-import { signal } from "@preact/signals";
-
-export const status = signal("idle");
+  describe("source-shape policy", () => {
+    it("rejects hand-written re-export barrels while allowing local exports", async () => {
+      const reExportMessages = await lintSource(
+        "src/shared/text/preview.ts",
+        `
+export { shortThreadId } from "../id/thread-id";
+export type { Thread } from "../../domain/threads/model";
+export * from "../id/thread-id";
 `,
-    );
+      );
+      expect(reExportMessages.filter((message) => message === "no-restricted-syntax")).toHaveLength(3);
 
-    expect(messages).not.toContain("no-restricted-syntax");
-  });
+      await expectClean(
+        "allows local exports from owning modules",
+        "src/shared/text/preview.ts",
+        `
+const limit = 80;
 
-  it("reports signals outside the chat shell-state adapter", async () => {
-    const messages = await lintSource(
-      "src/shared/ui/components.tsx",
-      `
-import { signal } from "@preact/signals";
-
-export const status = signal("idle");
-`,
-    );
-
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("reports direct signals usage in tests", async () => {
-    const messages = await lintSource(
-      "tests/features/chat/panel/shell.test.tsx",
-      `
-import { signal } from "@preact/signals";
-
-export const status = signal("idle");
-`,
-    );
-
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("does not treat AbortSignal event wiring as imperative DOM", async () => {
-    const messages = await lintSource(
-      "src/app-server/services/abortable-operation.ts",
-      `
-export function attach(signal: AbortSignal): void {
-  signal.addEventListener("abort", () => undefined);
+export function truncate(value: string): string {
+  return value.slice(0, limit);
 }
+
+export { limit };
 `,
-    );
+        "no-restricted-syntax",
+      );
+    });
 
-    expect(messages).not.toContain("codex-panel/no-imperative-dom");
-  });
+    it("keeps Preact signals behind the chat shell-state adapter", async () => {
+      await expectClean(
+        "allows signals in the shell-state adapter",
+        "src/features/chat/panel/shell-state.tsx",
+        `
+import { signal } from "@preact/signals";
 
-  it("still reports DOM writes beside AbortSignal event wiring", async () => {
-    const messages = await lintSource(
-      "src/app-server/services/abortable-operation.ts",
-      `
-export function attach(signal: AbortSignal, element: HTMLElement): void {
-  signal.addEventListener("abort", () => undefined);
+export const status = signal("idle");
+`,
+        "no-restricted-syntax",
+      );
+      await expectReports(
+        "reports signals outside the shell-state adapter",
+        "src/shared/ui/components.tsx",
+        `
+import { signal } from "@preact/signals";
+
+export const status = signal("idle");
+`,
+        "no-restricted-syntax",
+      );
+      await expectReports(
+        "reports direct signals usage in tests",
+        "tests/features/chat/panel/shell.test.tsx",
+        `
+import { signal } from "@preact/signals";
+
+export const status = signal("idle");
+`,
+        "no-restricted-syntax",
+      );
+    });
+
+    it("keeps the Preact root adapter in explicit root bridge files", async () => {
+      await expectReports(
+        "reports root adapter imports outside root bridges",
+        "src/features/chat/ui/composer.tsx",
+        `
+import { renderUiRoot } from "../../../shared/ui/ui-root";
+
+export const render = renderUiRoot;
+`,
+        "no-restricted-syntax",
+      );
+      await expectClean(
+        "allows root adapter imports in root bridges",
+        "src/features/chat/panel/shell.tsx",
+        `
+import { renderUiRoot } from "../../../shared/ui/ui-root";
+
+export const render = renderUiRoot;
+`,
+        "no-restricted-syntax",
+      );
+    });
+
+    it("keeps imperative DOM writes in explicit bridge files", async () => {
+      await expectReports(
+        "reports chat UI components outside the bridge allowlist",
+        "src/features/chat/ui/composer.tsx",
+        `
+export function renderIcon(element: HTMLElement): void {
   element.replaceChildren();
 }
 `,
-    );
-
-    expect(messages.filter((message) => message === "codex-panel/no-imperative-dom")).toHaveLength(1);
-  });
-
-  it("does not treat generic EventTarget helpers as DOM event wiring", async () => {
-    const messages = await lintSource(
-      "src/shared/ui/dom-events.ts",
-      `
-export function attach(target: EventTarget): void {
-  target.addEventListener("click", () => undefined);
-}
-`,
-    );
-
-    expect(messages).not.toContain("codex-panel/no-imperative-dom");
-  });
-
-  it("does not keep chat UI components on the DOM event bridge allowlist", async () => {
-    const messages = await lintSource(
-      "src/features/chat/ui/goal.tsx",
-      `
-export function attach(element: HTMLElement): void {
-  element.addEventListener("click", () => undefined);
-}
-`,
-    );
-
-    expect(messages).toContain("codex-panel/no-imperative-dom");
-  });
-
-  it("allows DOM root attachment in explicit Preact renderer bridge files", async () => {
-    const messages = await lintSource(
-      "src/features/threads-view/renderer.tsx",
-      `
+        "codex-panel/no-imperative-dom",
+      );
+      await expectClean(
+        "allows DOM root attachment in explicit Preact renderer bridges",
+        "src/features/threads-view/renderer.tsx",
+        `
 export function renderThreadsView(parent: HTMLElement): void {
   parent.addClass("codex-panel-threads");
 }
 `,
-    );
+        "codex-panel/no-imperative-dom",
+      );
+    });
 
-    expect(messages).not.toContain("codex-panel/no-imperative-dom");
-  });
-
-  it("reports Preact root adapter imports outside explicit root bridge files", async () => {
-    const messages = await lintSource(
-      "src/features/chat/ui/composer.tsx",
-      `
-import { renderUiRoot } from "../../../shared/ui/ui-root";
-
-export const render = renderUiRoot;
-`,
-    );
-
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("allows Preact root adapter imports in explicit root bridge files", async () => {
-    const messages = await lintSource(
-      "src/features/chat/panel/shell.tsx",
-      `
-import { renderUiRoot } from "../../../shared/ui/ui-root";
-
-export const render = renderUiRoot;
-`,
-    );
-
-    expect(messages).not.toContain("no-restricted-syntax");
-  });
-
-  it("keeps all chat state modules deterministic", async () => {
-    const messages = await lintSource(
-      "src/features/chat/application/state/message-stream.ts",
-      `
+    it("keeps chat state transforms deterministic", async () => {
+      await expectReports(
+        "reports time reads in chat state transforms",
+        "src/features/chat/application/state/message-stream.ts",
+        `
 export function timestamp(): number {
   return Date.now();
 }
 `,
-    );
+        "no-restricted-syntax",
+      );
+    });
 
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("keeps chat domain independent from outer chat layers", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/message-stream/selectors.ts",
-      `
+    it("keeps chat domain independent from outer chat layers", async () => {
+      await expectReports(
+        "reports imports from outer chat layers",
+        "src/features/chat/domain/message-stream/selectors.ts",
+        `
 import type { ChatStateStore } from "../../application/state/store";
 
 export type Store = ChatStateStore;
 `,
-    );
-
-    expect(messages).toContain("no-restricted-syntax");
-  });
-
-  it("allows chat domain modules to depend on sibling domain modules", async () => {
-    const messages = await lintSource(
-      "src/features/chat/domain/message-stream/selectors.ts",
-      `
+        "no-restricted-syntax",
+      );
+      await expectClean(
+        "allows sibling chat domain imports",
+        "src/features/chat/domain/message-stream/selectors.ts",
+        `
 import type { MessageStreamItem } from "./items";
 
 export type Item = MessageStreamItem;
 `,
-    );
+        "no-restricted-syntax",
+      );
+    });
+  });
 
-    expect(messages).not.toContain("no-restricted-syntax");
+  describe("app-server boundary policy", () => {
+    it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
+      await expectReports(
+        "reports non-turn protocol imports outside app-server",
+        "src/features/chat/application/pending-requests/pending-request-actions.ts",
+        `
+import { threadTokenUsageFromAppServerUsage } from "../../../../app-server/protocol/runtime-metrics";
+
+export const convert = threadTokenUsageFromAppServerUsage;
+`,
+        "no-restricted-imports",
+      );
+      await expectReports(
+        "reports turn protocol imports outside chat ingestion boundaries",
+        "src/features/chat/application/threads/history-controller.ts",
+        `
+import type { TurnItem } from "../../../../app-server/protocol/turn";
+
+export type Item = TurnItem;
+`,
+        "no-restricted-imports",
+      );
+      await expectClean(
+        "allows turn protocol imports in message-stream conversion boundaries",
+        "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
+        `
+import type { TurnItem } from "../../../../../app-server/protocol/turn";
+
+export type Item = TurnItem;
+`,
+        "no-restricted-imports",
+      );
+      await expectClean(
+        "allows turn protocol imports in notification planning boundaries",
+        "src/features/chat/app-server/inbound/notification-plan.ts",
+        `
+import type { TurnRecord } from "../../../../app-server/protocol/turn";
+
+export type Turn = TurnRecord;
+`,
+        "no-restricted-imports",
+      );
+      await expectReports(
+        "reports non-turn protocol imports in turn-only chat ingestion boundaries",
+        "src/features/chat/app-server/inbound/notification-plan.ts",
+        `
+import type { FileUpdateChange } from "../../../../app-server/protocol/file-change";
+
+export type Change = FileUpdateChange;
+`,
+        "no-restricted-imports",
+      );
+    });
+
+    it("keeps server request protocol imports in chat request boundaries only", async () => {
+      await expectReports(
+        "reports server request protocol imports outside app-server and chat request boundaries",
+        "src/features/chat/panel/surface/message-stream-presenter.ts",
+        `
+import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`,
+        "no-restricted-imports",
+      );
+      await expectClean(
+        "allows server request protocol imports in inbound routing",
+        "src/features/chat/app-server/inbound/routing.ts",
+        `
+import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`,
+        "no-restricted-imports",
+      );
+      await expectClean(
+        "allows server request protocol imports in inbound handlers",
+        "src/features/chat/app-server/inbound/handler.ts",
+        `
+import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`,
+        "no-restricted-imports",
+      );
+      await expectReports(
+        "reports server request protocol imports in non-request chat app-server modules",
+        "src/features/chat/app-server/inbound/app-server-logs.ts",
+        `
+import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`,
+        "no-restricted-imports",
+      );
+    });
+
+    it("keeps generated app-server bindings behind explicit exceptions", async () => {
+      await expectReports(
+        "reports generated bindings in non-exception protocol modules",
+        "src/app-server/protocol/request-input.ts",
+        `
+import type { UserInput } from "${generatedAppServerImportRoot}/v2/UserInput";
+
+export type Input = UserInput;
+`,
+        "no-restricted-imports",
+      );
+      await expectReports(
+        "reports generated bindings in app-server services",
+        "src/app-server/services/runtime-overrides.ts",
+        `
+import type { ModelListResponse } from "${generatedAppServerImportRoot}/v2/ModelListResponse";
+
+export interface RuntimeOverrideModelClient {
+  listModels(includeHidden: boolean): Promise<ModelListResponse>;
+}
+`,
+        "no-restricted-imports",
+      );
+      await expectClean(
+        "allows generated ThreadItem in the turn protocol exception",
+        "src/app-server/protocol/turn.ts",
+        `
+import type { ThreadItem as GeneratedTurnItem } from "${generatedAppServerImportRoot}/v2/ThreadItem";
+
+export type TurnItem = GeneratedTurnItem;
+`,
+        "no-restricted-imports",
+      );
+      await expectReports(
+        "reports unrelated generated bindings in the turn protocol exception",
+        "src/app-server/protocol/turn.ts",
+        `
+import type { UserInput } from "${generatedAppServerImportRoot}/v2/UserInput";
+
+export type Input = UserInput;
+`,
+        "no-restricted-syntax",
+      );
+      await expectClean(
+        "allows generated ServerRequest in the server request protocol exception",
+        "src/app-server/protocol/server-requests.ts",
+        `
+import type { ServerRequest } from "${generatedAppServerImportRoot}/ServerRequest";
+
+export type Request = ServerRequest;
+`,
+        "no-restricted-imports",
+      );
+      await expectReports(
+        "reports unrelated generated bindings in the server request protocol exception",
+        "src/app-server/protocol/server-requests.ts",
+        `
+import type { ToolRequestUserInputParams } from "${generatedAppServerImportRoot}/v2/ToolRequestUserInputParams";
+
+export type Params = ToolRequestUserInputParams;
+`,
+        "no-restricted-syntax",
+      );
+    });
+
+    it("keeps app-server protocol adapters independent from connection and feature layers", async () => {
+      await expectReports(
+        "reports connection-layer imports from protocol adapters",
+        "src/app-server/protocol/catalog.ts",
+        `
+import type { AppServerClient } from "../connection/client";
+
+export type Client = AppServerClient;
+`,
+        "no-restricted-imports",
+      );
+      await expectReports(
+        "reports feature-layer imports from protocol adapters",
+        "src/app-server/protocol/catalog.ts",
+        `
+import type { ThreadPickerModal } from "../../features/thread-picker/modal";
+
+export type Modal = ThreadPickerModal;
+`,
+        "no-restricted-imports",
+      );
+    });
   });
 });
+
+async function expectReports(name: string, filePath: string, source: string, ruleId: string): Promise<void> {
+  const messages = await lintSource(filePath, source);
+  expect(messages, name).toContain(ruleId);
+}
+
+async function expectClean(name: string, filePath: string, source: string, ruleId: string): Promise<void> {
+  const messages = await lintSource(filePath, source);
+  expect(messages, name).not.toContain(ruleId);
+}
 
 async function lintSource(filePath: string, source: string): Promise<string[]> {
   const [result] = await eslint.lintText(source, { filePath: path.join(repoRoot, filePath) });
