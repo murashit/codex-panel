@@ -8,6 +8,7 @@ interface ComposerBoundaryScrollByAction {
   kind: "scroll-by";
   direction: ComposerBoundaryScrollDirection;
   amount: ComposerBoundaryScrollAmount;
+  repeated?: boolean;
 }
 
 interface ComposerBoundaryScrollToAction {
@@ -17,6 +18,7 @@ interface ComposerBoundaryScrollToAction {
 
 export interface ComposerBoundaryScrollKeyEvent {
   key: string;
+  repeat: boolean;
   ctrlKey: boolean;
   metaKey: boolean;
   altKey: boolean;
@@ -57,19 +59,27 @@ export function composerBoundaryScrollDirection(
 
 function composerBoundaryScrollKeyAction(event: ComposerBoundaryScrollKeyEvent): ComposerBoundaryScrollAction | null {
   if (!event.ctrlKey) {
-    if (event.key === "ArrowUp") return { kind: "scroll-by", direction: -1, amount: "text-lines" };
-    if (event.key === "ArrowDown") return { kind: "scroll-by", direction: 1, amount: "text-lines" };
-    if (event.key === "PageUp") return { kind: "scroll-by", direction: -1, amount: "page" };
-    if (event.key === "PageDown") return { kind: "scroll-by", direction: 1, amount: "page" };
+    if (event.key === "ArrowUp") return composerBoundaryScrollByAction(-1, "text-lines", event.repeat);
+    if (event.key === "ArrowDown") return composerBoundaryScrollByAction(1, "text-lines", event.repeat);
+    if (event.key === "PageUp") return composerBoundaryScrollByAction(-1, "page", event.repeat);
+    if (event.key === "PageDown") return composerBoundaryScrollByAction(1, "page", event.repeat);
     if (event.key === "Home") return { kind: "scroll-to", edge: "start" };
     if (event.key === "End") return { kind: "scroll-to", edge: "end" };
     return null;
   }
 
   const key = event.key.toLowerCase();
-  if (key === "p") return { kind: "scroll-by", direction: -1, amount: "text-lines" };
-  if (key === "n") return { kind: "scroll-by", direction: 1, amount: "text-lines" };
+  if (key === "p") return composerBoundaryScrollByAction(-1, "text-lines", event.repeat);
+  if (key === "n") return composerBoundaryScrollByAction(1, "text-lines", event.repeat);
   return null;
+}
+
+function composerBoundaryScrollByAction(
+  direction: ComposerBoundaryScrollDirection,
+  amount: ComposerBoundaryScrollAmount,
+  repeat: boolean,
+): ComposerBoundaryScrollByAction {
+  return repeat ? { kind: "scroll-by", direction, amount, repeated: true } : { kind: "scroll-by", direction, amount };
 }
 
 function composerCursorOnFirstLine(composer: ComposerBoundaryScrollTextState): boolean {

@@ -24,6 +24,21 @@ describe("composer boundary scroll shortcuts", () => {
     });
   });
 
+  it("marks repeated text-line scrolling", () => {
+    expect(direction("ArrowDown", "first\nsecond", 9, { repeat: true })).toEqual({
+      kind: "scroll-by",
+      direction: 1,
+      amount: "text-lines",
+      repeated: true,
+    });
+    expect(direction("n", "first\nsecond", 9, { ctrlKey: true, repeat: true })).toEqual({
+      kind: "scroll-by",
+      direction: 1,
+      amount: "text-lines",
+      repeated: true,
+    });
+  });
+
   it("scrolls by page from any composer line for PageUp and PageDown", () => {
     expect(direction("PageUp", "first\nsecond", 9)).toEqual({ kind: "scroll-by", direction: -1, amount: "page" });
     expect(direction("PageDown", "first\nsecond", 3)).toEqual({ kind: "scroll-by", direction: 1, amount: "page" });
@@ -31,6 +46,12 @@ describe("composer boundary scroll shortcuts", () => {
       kind: "scroll-by",
       direction: 1,
       amount: "page",
+    });
+    expect(direction("PageDown", "first\nsecond", 3, { repeat: true })).toEqual({
+      kind: "scroll-by",
+      direction: 1,
+      amount: "page",
+      repeated: true,
     });
   });
 
@@ -75,6 +96,7 @@ function direction(
     altKey: boolean;
     shiftKey: boolean;
     isComposing: boolean;
+    repeat: boolean;
     selectionEnd: number;
     visualBoundary: boolean | ((direction: -1 | 1) => boolean);
   }> = {},
@@ -89,6 +111,7 @@ function direction(
   return composerBoundaryScrollDirection(
     {
       key,
+      repeat: options.repeat ?? false,
       ctrlKey: options.ctrlKey ?? false,
       metaKey: options.metaKey ?? false,
       altKey: options.altKey ?? false,

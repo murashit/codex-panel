@@ -26,6 +26,7 @@ describe("message stream flow scrolling", () => {
       return animationFrameCallbacks.length;
     }) as typeof window.requestAnimationFrame;
     window.cancelAnimationFrame = (() => undefined) as typeof window.cancelAnimationFrame;
+    window.matchMedia = createTestMatchMedia(false);
   });
 
   afterEach(() => {
@@ -34,15 +35,18 @@ describe("message stream flow scrolling", () => {
 
   it("pins to the DOM scroll end and follows appended content while pinned", () => {
     const { controller, messages, render } = renderFlowMessageStream(["first"], { first: 300 });
+    const scrollCalls = installScrollToCapture(messages);
 
     void act(() => {
       controller.dispatch({ kind: "show-latest" });
     });
     expect(messages.scrollTop).toBe(200);
+    expect(scrollCalls).toEqual([]);
 
     render(["first", "second"], { first: 300, second: 180 });
 
     expect(messages.scrollTop).toBe(380);
+    expect(scrollCalls).toEqual([]);
   });
 
   it("keeps the current reading position when content is appended after the user scrolls away", () => {
@@ -168,6 +172,7 @@ describe("message stream flow scrolling", () => {
 
   it("scrolls by composer text-line and page commands", () => {
     const { controller, messages } = renderFlowMessageStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(messages);
     messages.style.lineHeight = "20px";
     messages.scrollTop = 240;
     messages.dispatchEvent(new Event("scroll"));
@@ -175,16 +180,67 @@ describe("message stream flow scrolling", () => {
     void act(() => {
       controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1 });
     });
-    expect(messages.scrollTop).toBe(200);
+    expect(messages.scrollTop).toBe(160);
+    expect(scrollCalls).toEqual([{ top: 160, behavior: "smooth" }]);
 
     void act(() => {
       controller.dispatch({ kind: "scroll-by", amount: "page", direction: 1 });
     });
-    expect(messages.scrollTop).toBe(280);
+    expect(messages.scrollTop).toBe(240);
+    expect(scrollCalls).toEqual([
+      { top: 160, behavior: "smooth" },
+      { top: 240, behavior: "smooth" },
+    ]);
+  });
+
+  it("uses instant composer scrolling when reduced motion is preferred", () => {
+    window.matchMedia = createTestMatchMedia(true);
+    const { controller, messages } = renderFlowMessageStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(messages);
+    messages.style.lineHeight = "20px";
+    messages.scrollTop = 240;
+    messages.dispatchEvent(new Event("scroll"));
+
+    void act(() => {
+      controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1 });
+    });
+
+    expect(messages.scrollTop).toBe(160);
+    expect(scrollCalls).toEqual([]);
+  });
+
+  it("uses the normal text-line distance for repeated composer scrolling without smooth animation", () => {
+    const { controller, messages } = renderFlowMessageStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(messages);
+    messages.style.lineHeight = "20px";
+    messages.scrollTop = 240;
+    messages.dispatchEvent(new Event("scroll"));
+
+    void act(() => {
+      controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1, repeated: true });
+    });
+
+    expect(messages.scrollTop).toBe(160);
+    expect(scrollCalls).toEqual([]);
+  });
+
+  it("uses the normal page distance for repeated composer page scrolling without smooth animation", () => {
+    const { controller, messages } = renderFlowMessageStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(messages);
+    messages.scrollTop = 240;
+    messages.dispatchEvent(new Event("scroll"));
+
+    void act(() => {
+      controller.dispatch({ kind: "scroll-by", amount: "page", direction: 1, repeated: true });
+    });
+
+    expect(messages.scrollTop).toBe(320);
+    expect(scrollCalls).toEqual([]);
   });
 
   it("scrolls to stream edges from composer commands", () => {
     const { controller, messages } = renderFlowMessageStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(messages);
     messages.scrollTop = 240;
     messages.dispatchEvent(new Event("scroll"));
 
@@ -192,13 +248,23 @@ describe("message stream flow scrolling", () => {
       controller.dispatch({ kind: "scroll-to", edge: "start" });
     });
     expect(messages.scrollTop).toBe(0);
+    expect(scrollCalls).toEqual([{ top: 0, behavior: "smooth" }]);
 
     void act(() => {
       controller.dispatch({ kind: "scroll-to", edge: "end" });
     });
     expect(messages.scrollTop).toBe(500);
+    expect(scrollCalls).toEqual([
+      { top: 0, behavior: "smooth" },
+      { top: 500, behavior: "smooth" },
+    ]);
   });
 });
+
+interface CapturedScrollToOptions {
+  top: number | undefined;
+  behavior: ScrollBehavior | undefined;
+}
 
 interface TestMessageStreamScrollController extends MessageStreamScrollControllerBinding {
   dispatch(command: MessageStreamScrollCommand): void;
@@ -323,9 +389,33 @@ function installFlowMetrics(
   });
 }
 
+function installScrollToCapture(messages: HTMLElement): CapturedScrollToOptions[] {
+  const calls: CapturedScrollToOptions[] = [];
+  messages.scrollTo = ((optionsOrX?: ScrollToOptions | number, y?: number) => {
+    const top = typeof optionsOrX === "number" ? y : optionsOrX?.top;
+    const behavior = typeof optionsOrX === "number" ? undefined : optionsOrX?.behavior;
+    calls.push({ top, behavior });
+    if (top !== undefined) messages.scrollTop = top;
+  }) as typeof messages.scrollTo;
+  return calls;
+}
+
 const messageScrollTop = new WeakMap<HTMLElement, number>();
 let resizeObserverCallbacks: ResizeObserverCallback[] = [];
 let animationFrameCallbacks: FrameRequestCallback[] = [];
+
+function createTestMatchMedia(matches: boolean): typeof window.matchMedia {
+  return ((query: string) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+}
 
 class TestResizeObserver implements ResizeObserver {
   private readonly callback: ResizeObserverCallback;

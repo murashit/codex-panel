@@ -4,10 +4,13 @@ import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 
 type MessageScrollDirection = -1 | 1;
 
+const MESSAGE_FLOW_TEXT_LINE_SCROLL_LINES = 4;
+const MESSAGE_FLOW_REPEATED_TEXT_LINE_SCROLL_LINES = 4;
+
 export type MessageStreamScrollCommand =
   | { kind: "show-latest" }
   | { kind: "scroll-to"; edge: "start" | "end" }
-  | { kind: "scroll-by"; amount: "text-lines" | "page"; direction: MessageScrollDirection };
+  | { kind: "scroll-by"; amount: "text-lines" | "page"; direction: MessageScrollDirection; repeated?: boolean };
 
 export interface MessageStreamScrollPort {
   dispatchScrollCommand(command: MessageStreamScrollCommand): void;
@@ -210,15 +213,18 @@ function applyMessageFlowScrollCommand(runtime: MessageFlowRuntime, command: Mes
       break;
     case "scroll-to":
       if (command.edge === "start") {
-        scrollMessageFlowToStart(runtime);
+        scrollMessageFlowToStart(runtime, messageFlowManualScrollBehavior(runtime, false));
       } else {
         runtime.followingEnd = true;
-        scrollMessageFlowToEnd(runtime);
-        scheduleMessageFlowEndRestore(runtime);
+        scrollMessageFlowToEnd(runtime, messageFlowManualScrollBehavior(runtime, false));
       }
       break;
     case "scroll-by":
-      scrollMessageFlowBy(runtime, messageFlowScrollDelta(runtime, command.amount, command.direction));
+      scrollMessageFlowBy(
+        runtime,
+        messageFlowScrollDelta(runtime, command.amount, command.direction, command.repeated === true),
+        messageFlowManualScrollBehavior(runtime, command.repeated === true),
+      );
       break;
   }
 }
@@ -229,32 +235,62 @@ function handleMessageFlowBlockLayout(runtime: MessageFlowRuntime, element: HTML
   scheduleMessageFlowEndRestore(runtime);
 }
 
-function scrollMessageFlowBy(runtime: MessageFlowRuntime, delta: number): void {
+function scrollMessageFlowBy(runtime: MessageFlowRuntime, delta: number, behavior: ScrollBehavior = "auto"): void {
   const container = runtime.container;
   if (!container) return;
-  container.scrollTop += delta;
-  runtime.followingEnd = isMessageFlowAtEnd(container);
+  const targetTop = clampMessageFlowScrollTop(container, container.scrollTop + delta);
+  scrollMessageFlowToTop(container, targetTop, behavior);
+  runtime.followingEnd = isMessageFlowTopAtEnd(container, targetTop);
 }
 
-function scrollMessageFlowToStart(runtime: MessageFlowRuntime): void {
+function scrollMessageFlowToStart(runtime: MessageFlowRuntime, behavior: ScrollBehavior = "auto"): void {
   const container = runtime.container;
   if (!container) return;
-  container.scrollTop = 0;
+  scrollMessageFlowToTop(container, 0, behavior);
   runtime.followingEnd = false;
 }
 
-function messageFlowScrollDelta(runtime: MessageFlowRuntime, amount: "text-lines" | "page", direction: MessageScrollDirection): number {
+function messageFlowScrollDelta(
+  runtime: MessageFlowRuntime,
+  amount: "text-lines" | "page",
+  direction: MessageScrollDirection,
+  repeated: boolean,
+): number {
   const container = runtime.container;
   if (!container) return 0;
   if (amount === "page") return Math.max(1, Math.floor(container.clientHeight * 0.8)) * direction;
-  return Math.max(1, Math.round(textLineHeight(container) * 2)) * direction;
+  const lines = repeated ? MESSAGE_FLOW_REPEATED_TEXT_LINE_SCROLL_LINES : MESSAGE_FLOW_TEXT_LINE_SCROLL_LINES;
+  return Math.max(1, Math.round(textLineHeight(container) * lines)) * direction;
 }
 
-function scrollMessageFlowToEnd(runtime: MessageFlowRuntime): void {
+function scrollMessageFlowToEnd(runtime: MessageFlowRuntime, behavior: ScrollBehavior = "auto"): void {
   const container = runtime.container;
   if (!container) return;
-  container.scrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+  scrollMessageFlowToTop(container, messageFlowEndScrollTop(container), behavior);
   runtime.followingEnd = true;
+}
+
+function scrollMessageFlowToTop(container: HTMLElement, top: number, behavior: ScrollBehavior): void {
+  if (behavior === "smooth") {
+    container.scrollTo({ top, behavior });
+    return;
+  }
+
+  container.scrollTop = top;
+}
+
+function messageFlowManualScrollBehavior(runtime: MessageFlowRuntime, repeated: boolean): ScrollBehavior {
+  if (repeated) return "auto";
+  const win = runtime.container?.win;
+  return win?.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
+function messageFlowEndScrollTop(container: HTMLElement): number {
+  return Math.max(0, container.scrollHeight - container.clientHeight);
+}
+
+function clampMessageFlowScrollTop(container: HTMLElement, top: number): number {
+  return Math.max(0, Math.min(top, messageFlowEndScrollTop(container)));
 }
 
 function scheduleMessageFlowEndRestore(runtime: MessageFlowRuntime): void {
@@ -307,7 +343,11 @@ function messageFlowBlockElements(container: HTMLElement): HTMLElement[] {
 }
 
 function isMessageFlowAtEnd(container: HTMLElement): boolean {
-  return container.scrollHeight - container.clientHeight - container.scrollTop <= 4;
+  return isMessageFlowTopAtEnd(container, container.scrollTop);
+}
+
+function isMessageFlowTopAtEnd(container: HTMLElement, top: number): boolean {
+  return messageFlowEndScrollTop(container) - top <= 4;
 }
 
 function isMessageFlowViewportHidden(container: HTMLElement): boolean {
