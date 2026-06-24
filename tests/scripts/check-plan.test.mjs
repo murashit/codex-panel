@@ -13,7 +13,7 @@ describe("check command plan", () => {
           {
             name: "lint:eslint",
             command:
-              'eslint src tests scripts "*.config.ts" "*.config.mjs" --max-warnings=0 --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache',
+              "eslint src --max-warnings=0 --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache",
           },
           { name: "lint:css", command: 'stylelint "src/**/*.css" --max-warnings=0' },
           { name: "lint:css-usage", command: "node scripts/lint/check-css-usage.mjs" },
@@ -42,7 +42,7 @@ describe("check command plan", () => {
   it("omits cache-only local flags in CI mode", () => {
     expect(commandPlan({ ciMode: true, lintOnly: false }).phases[0]?.commands).toContainEqual({
       name: "lint:eslint",
-      command: 'eslint src tests scripts "*.config.ts" "*.config.mjs" --max-warnings=0',
+      command: "eslint src --max-warnings=0",
     });
   });
 });

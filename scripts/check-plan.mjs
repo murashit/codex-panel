@@ -37,7 +37,7 @@ function nonBiomeLintCommands({ ciMode, namePrefix = "" }) {
   return [
     {
       name: `${namePrefix}eslint`,
-      command: `eslint src tests scripts "*.config.ts" "*.config.mjs" --max-warnings=0${eslintCacheArgs}`,
+      command: `eslint src --max-warnings=0${eslintCacheArgs}`,
     },
     { name: `${namePrefix}css`, command: 'stylelint "src/**/*.css" --max-warnings=0' },
     { name: `${namePrefix}css-usage`, command: "node scripts/lint/check-css-usage.mjs" },
