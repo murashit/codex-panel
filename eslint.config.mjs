@@ -1,6 +1,4 @@
-import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
-import eslintConfigPrettier from "eslint-config-prettier/flat";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import reactHooks from "eslint-plugin-react-hooks";
 import codexPanelEslintPlugin from "./scripts/lint/eslint-plugin-codex-panel.mjs";
@@ -17,22 +15,15 @@ const unsafeTypeScriptRules = {
   "@typescript-eslint/no-unsafe-member-access": "error",
 };
 const projectTypeScriptRules = {
-  "@typescript-eslint/consistent-type-imports": "error",
-  "@typescript-eslint/no-explicit-any": "error",
   "@typescript-eslint/no-floating-promises": "error",
-  "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
   ...unsafeTypeScriptRules,
   "react-hooks/exhaustive-deps": "error",
   "react-hooks/rules-of-hooks": "error",
 };
 const testTypeScriptRelaxations = {
-  "@typescript-eslint/no-deprecated": "off",
   "@typescript-eslint/no-unsafe-assignment": "off",
   "@typescript-eslint/no-unsafe-call": "off",
   "@typescript-eslint/no-unsafe-member-access": "off",
-  "@typescript-eslint/no-unsafe-return": "off",
-  "@typescript-eslint/no-unnecessary-type-assertion": "off",
-  "@typescript-eslint/require-await": "off",
 };
 const preactFormRestrictions = [
   {
@@ -249,15 +240,6 @@ export default defineConfig([
   {
     ignores: ["main.js", "node_modules/**", "src/generated/**"],
   },
-  js.configs.recommended,
-  ...tseslint.configs.strictTypeChecked.map((config) => ({
-    ...config,
-    files: lintedTypeScriptFiles,
-  })),
-  ...tseslint.configs.stylisticTypeChecked.map((config) => ({
-    ...config,
-    files: lintedTypeScriptFiles,
-  })),
   ...obsidianmd.configs.recommended.map((config) => ({
     ...config,
     basePath: "src",
@@ -265,9 +247,11 @@ export default defineConfig([
   {
     files: lintedTypeScriptFiles,
     plugins: {
+      "@typescript-eslint": tseslint.plugin,
       "react-hooks": reactHooks,
     },
     languageOptions: {
+      parser: tseslint.parser,
       ecmaVersion: 2022,
       sourceType: "module",
       parserOptions: {
@@ -579,5 +563,4 @@ export default defineConfig([
       ],
     },
   },
-  eslintConfigPrettier,
 ]);

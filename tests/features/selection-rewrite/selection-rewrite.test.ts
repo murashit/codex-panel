@@ -258,14 +258,14 @@ describe("selection rewrite lifecycle", () => {
     { status: "applied", event: previewUpdatedEvent() },
     { status: "applied", event: generationSucceededEvent() },
     { status: "applied", event: generationFailedEvent() },
-  ] satisfies { status: SelectionRewriteState["status"]; event: SelectionRewriteLifecycleEvent }[])(
-    "preserves state identity for ignored transition from $status via $event.type",
-    ({ status, event }) => {
-      const state = selectionRewriteStateWithStatus(status);
+  ] satisfies {
+    status: SelectionRewriteState["status"];
+    event: SelectionRewriteLifecycleEvent;
+  }[])("preserves state identity for ignored transition from $status via $event.type", ({ status, event }) => {
+    const state = selectionRewriteStateWithStatus(status);
 
-      expect(transitionSelectionRewriteState(state, event)).toBe(state);
-    },
-  );
+    expect(transitionSelectionRewriteState(state, event)).toBe(state);
+  });
 });
 
 describe("selection rewrite runner lifecycle", () => {
@@ -814,9 +814,7 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
     return this.modelList;
   }
 
-  rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {
-    return undefined;
-  }
+  rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {}
 
   async startEphemeralThread(): Promise<ThreadStartResponse> {
     return threadStartResponse("thread");

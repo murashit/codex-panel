@@ -116,36 +116,6 @@ describe("development scripts", () => {
     expect(report.failures).toEqual([]);
   });
 
-  it("keeps files unchanged when format check finds unformatted content", async () => {
-    const cwd = await tempWorkspace();
-    await mkdir(path.join(cwd, "src"), { recursive: true });
-    await mkdir(path.join(cwd, "tests"), { recursive: true });
-    await mkdir(path.join(cwd, "scripts"), { recursive: true });
-
-    const sourcePath = path.join(cwd, "src", "unformatted.ts");
-    const source = "export const value=1\n";
-    await writeFile(sourcePath, source);
-
-    const result = runNodeScript("scripts/format.mjs", ["--check"], cwd);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Unformatted files:");
-    expect(result.stderr).toContain("src/unformatted.ts");
-    await expect(readFile(sourcePath, "utf8")).resolves.toBe(source);
-  });
-
-  it("fails format checks on unknown or incomplete arguments", async () => {
-    const cwd = await tempWorkspace();
-
-    const unknownArg = runNodeScript("scripts/format.mjs", ["--unknown"], cwd);
-    const missingCacheLocation = runNodeScript("scripts/format.mjs", ["--cache-location"], cwd);
-
-    expect(unknownArg.status).toBe(1);
-    expect(unknownArg.stderr).toContain("Usage: node scripts/format.mjs");
-    expect(missingCacheLocation.status).toBe(1);
-    expect(missingCacheLocation.stderr).toContain("Usage: node scripts/format.mjs");
-  });
-
   it("detects runtime import cycles", async () => {
     const cwd = await tempWorkspace();
     await writeImportCycleFixture(cwd, {

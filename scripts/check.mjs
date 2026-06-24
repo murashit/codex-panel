@@ -34,13 +34,12 @@ async function runConcurrently(commands) {
 
 function checkCommands({ ciMode }) {
   const suffix = ciMode ? ":ci" : "";
-  const formatArgs = ciMode ? "--check" : "--check --cache";
 
   return [
     { name: "typecheck", command: `npm run --silent typecheck${suffix}` },
     { name: "test", command: `npm run --silent test${suffix}` },
     ...lintCommands({ ciMode, namePrefix: "lint:" }),
-    { name: "format:check", command: `node scripts/format.mjs ${formatArgs}` },
+    { name: "format:check", command: "npm run --silent format:check" },
   ];
 }
 
@@ -48,8 +47,9 @@ function lintCommands({ ciMode, namePrefix = "" }) {
   const eslintCacheArgs = ciMode ? "" : " --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache";
 
   return [
+    { name: `${namePrefix}biome`, command: "biome lint --no-errors-on-unmatched --diagnostic-level=error" },
     {
-      name: `${namePrefix}ts`,
+      name: `${namePrefix}eslint`,
       command: `eslint src tests scripts "*.config.ts" "*.config.mjs" --max-warnings=0${eslintCacheArgs}`,
     },
     { name: `${namePrefix}css`, command: 'stylelint "src/**/*.css" --max-warnings=0' },

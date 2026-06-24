@@ -182,7 +182,7 @@ function editedFilesForTurns(items: readonly MessageStreamSemanticClassification
     const files = editedFilesForItem(item, workspaceRoot);
     if (files.length === 0) continue;
     const set = byTurn.get(item.turnId) ?? new Set<string>();
-    files.forEach((file) => set.add(file));
+    for (const file of files) set.add(file);
     byTurn.set(item.turnId, set);
   }
 

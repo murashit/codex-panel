@@ -202,11 +202,7 @@ describe("createChatPanelSessionGraph actions", () => {
     expect(disposeComposer).toHaveBeenCalledOnce();
   });
 
-  function sessionGraphFixture(
-    options: {
-      environment?: PartialChatPanelEnvironment;
-    } = {},
-  ): {
+  function sessionGraphFixture(options: { environment?: PartialChatPanelEnvironment } = {}): {
     graph: ReturnType<typeof createChatPanelSessionGraph>;
     stateStore: ChatStateStore;
     resumeWork: ChatResumeWorkTracker;

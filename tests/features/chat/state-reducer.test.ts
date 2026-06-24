@@ -833,7 +833,7 @@ function uiDisclosureCount(state: ChatState): number {
   );
 }
 
-export function thread(id: string): Thread {
+function thread(id: string): Thread {
   return {
     id,
     preview: "",

@@ -240,17 +240,13 @@ class FakeThreadTitleClient implements EphemeralStructuredTurnClient {
     return { codexHome: "/tmp/codex" } as InitializeResponse;
   }
 
-  disconnect(): void {
-    return undefined;
-  }
+  disconnect(): void {}
 
   async listModels(): Promise<ModelListResponse> {
     return { data: this.modelList, nextCursor: null };
   }
 
-  rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {
-    return undefined;
-  }
+  rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {}
 
   async startEphemeralThread(): Promise<ThreadStartResponse> {
     return threadStartResponse("thread");

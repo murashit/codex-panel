@@ -435,19 +435,20 @@ describe("approval model", () => {
       acceptSession: { decision: "acceptForSession" },
       cancel: { decision: "cancel" },
     },
-  ] satisfies { name: string; request: ServerRequest; acceptSession: unknown; cancel: unknown }[])(
-    "builds action responses for $name",
-    ({ request, acceptSession, cancel }) => {
-      const approval = expectPresent(toPendingApproval(request));
-      if (approval.kind === "command") {
-        expect(approvalResponseAt(approval, 0)).toEqual(acceptSession);
-        expect(approvalResponseAt(approval, 1)).toEqual(cancel);
-        expect(approvalResponseAt(approval, 2)).toEqual({ decision: "decline" });
-        return;
-      }
-      expect(approvalResponse(approval, "accept-session")).toEqual(acceptSession);
-      expect(approvalResponse(approval, "cancel")).toEqual(cancel);
-      expect(approvalResponse(approval, "decline")).toEqual({ decision: "decline" });
-    },
-  );
+  ] satisfies { name: string; request: ServerRequest; acceptSession: unknown; cancel: unknown }[])("builds action responses for $name", ({
+    request,
+    acceptSession,
+    cancel,
+  }) => {
+    const approval = expectPresent(toPendingApproval(request));
+    if (approval.kind === "command") {
+      expect(approvalResponseAt(approval, 0)).toEqual(acceptSession);
+      expect(approvalResponseAt(approval, 1)).toEqual(cancel);
+      expect(approvalResponseAt(approval, 2)).toEqual({ decision: "decline" });
+      return;
+    }
+    expect(approvalResponse(approval, "accept-session")).toEqual(acceptSession);
+    expect(approvalResponse(approval, "cancel")).toEqual(cancel);
+    expect(approvalResponse(approval, "decline")).toEqual({ decision: "decline" });
+  });
 });

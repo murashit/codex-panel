@@ -126,10 +126,7 @@ describe("AutoTitleCoordinator", () => {
 });
 
 function coordinatorFixture(
-  overrides: {
-    currentClient?: () => AppServerClient;
-    generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null>;
-  } = {},
+  overrides: { currentClient?: () => AppServerClient; generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null> } = {},
 ): AutoTitleCoordinatorHost & {
   coordinator: AutoTitleCoordinator;
   notifyThreadRenamed: ReturnType<typeof vi.fn>;

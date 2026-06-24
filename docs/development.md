@@ -10,7 +10,9 @@ npm run format
 npm run check
 ```
 
-Run `npm run format` after edits and before `npm run check` so Prettier-only issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, lint checks, Prettier check, CSS verification, and the production esbuild bundle. `npm run check:ci` uses the same checks without local caches. Use `npm run build` when you need to refresh Obsidian-loaded assets without running the full check.
+Run `npm run format` after edits and before `npm run check` so Biome formatting issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, lint checks, Biome format check, CSS verification, and the production esbuild bundle. `npm run check:ci` uses the same checks with CI cache settings for TypeScript, tests, and ESLint. Use `npm run build` when you need to refresh Obsidian-loaded assets without running the full check.
+
+Formatting and general JavaScript/TypeScript/JSON linting and JavaScript/TypeScript/CSS/JSON formatting are handled by Biome. The Biome lint configuration explicitly uses the recommended preset, with accessibility diagnostics downgraded to info while the Obsidian-specific UI semantics are reviewed rule by rule. CSS is formatted by Biome but excluded from Biome linting so CSS lint policy stays centralized in Stylelint and the project CSS usage script. ESLint remains for rules that need TypeScript parser services, React Hooks analysis, Obsidian text checks, or Codex Panel responsibility-boundary checks.
 
 ## Generated and Loaded Files
 

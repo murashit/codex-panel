@@ -81,13 +81,13 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     const connectionContext = this.graph.connection.manager.currentConnectionContext();
     return Boolean(
       connectionContext &&
-      appServerQueryContextMatches(
-        {
-          codexPath: connectionContext.codexPath,
-          vaultPath: connectionContext.cwd,
-        },
-        context,
-      ),
+        appServerQueryContextMatches(
+          {
+            codexPath: connectionContext.codexPath,
+            vaultPath: connectionContext.cwd,
+          },
+          context,
+        ),
     );
   }
 
