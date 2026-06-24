@@ -1,0 +1,38 @@
+language js
+
+or {
+  or {
+    JsImport() as $stmt,
+    JsExportNamedFromClause() as $stmt,
+    JsExportFromClause() as $stmt,
+    TsImportType() as $stmt,
+    JsImportCallExpression() as $stmt
+  } where {
+    $filename <: r".*/src/(?:app-server|domain|shared)/.*",
+    $stmt <: contains `$source` where { or { $source <: r"^[\"'](?:(?:\.\./)+features|src/features)(?:/.*)?[\"']$" } },
+    register_diagnostic(span=$stmt, message="Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.", severity="error")
+  },
+  or {
+    JsImport() as $stmt,
+    JsExportNamedFromClause() as $stmt,
+    JsExportFromClause() as $stmt,
+    TsImportType() as $stmt,
+    JsImportCallExpression() as $stmt
+  } where {
+    or { $filename <: r".*/src/app-server/protocol/.*", $filename <: r".*/src/(?:domain|shared)/.*" },
+    $stmt <: contains `$source` where {
+      or { $source <: r"^[\"'](?:(?:\.\./)+(?:app-server/)?connection|src/app-server/connection)(?:/.*)?[\"']$" }
+    },
+    register_diagnostic(span=$stmt, message="Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.", severity="error")
+  },
+  `require($source)` as $stmt where {
+    $filename <: r".*/src/(?:app-server|domain|shared)/.*",
+    or { $source <: r"^[\"'](?:(?:\.\./)+features|src/features)(?:/.*)?[\"']$" },
+    register_diagnostic(span=$stmt, message="Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.", severity="error")
+  },
+  `require($source)` as $stmt where {
+    or { $filename <: r".*/src/app-server/protocol/.*", $filename <: r".*/src/(?:domain|shared)/.*" },
+    or { $source <: r"^[\"'](?:(?:\.\./)+(?:app-server/)?connection|src/app-server/connection)(?:/.*)?[\"']$" },
+    register_diagnostic(span=$stmt, message="Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.", severity="error")
+  }
+}

@@ -1,0 +1,6 @@
+language js
+
+JsxAttribute(name=$name) as $stmt where {
+  or { $name <: `defaultValue`, $name <: `defaultChecked` },
+  register_diagnostic(span=$stmt, message="Keep Preact form state explicit with controlled value or checked props.", severity="error")
+}

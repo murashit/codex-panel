@@ -5,13 +5,38 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
+  "plugins": [
+    // App-server and generated binding boundaries.
+    "./scripts/lint/grit/no-app-server-projection-rpcs.grit",
+    "./scripts/lint/grit/no-app-server-protocol-boundary-imports.grit",
+    "./scripts/lint/grit/no-generated-app-server-boundary-imports.grit",
+    "./scripts/lint/grit/no-generated-app-server-import-shapes.grit",
+    "./scripts/lint/grit/no-lower-level-boundary-imports.grit",
+
+    // Chat feature architecture.
+    "./scripts/lint/grit/no-chat-domain-outer-layer-imports.grit",
+    "./scripts/lint/grit/no-chat-signal-imports.grit",
+    "./scripts/lint/grit/no-chat-state-escape-hatches.grit",
+    "./scripts/lint/grit/no-pure-chat-state-side-effects.grit",
+    "./scripts/lint/grit/no-ui-root-imports.grit",
+
+    // Project-wide source shape.
+    "./scripts/lint/grit/no-handwritten-reexports.grit",
+    "./scripts/lint/grit/no-non-reexport-index.grit",
+    "./scripts/lint/grit/no-self-referential-initializer-callback.grit",
+    "./scripts/lint/grit/no-unsafe-iterator-value.grit",
+    "./scripts/lint/grit/no-uncontrolled-preact-form-state.grit"
+  ],
   "files": {
     "includes": [
       "*.config.mjs",
       "*.config.ts",
       "*.css",
       "*.json",
+      "*.jsonc",
       "*.mjs",
+      "scripts/**/*.{json,jsonc}",
+      "scripts/**/*.grit",
       "scripts/**/*.mjs",
       "src/**/*.{css,ts,tsx}",
       "tests/**/*.{mjs,ts,tsx}",

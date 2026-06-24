@@ -1,0 +1,5 @@
+language js
+
+`"state/patched"` as $stmt where {
+  register_diagnostic(span=$stmt, message="Use a named ChatAction instead of reintroducing the generic state patch escape hatch.", severity="error")
+}

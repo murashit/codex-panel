@@ -1,0 +1,7 @@
+language js
+
+JsImport() as $stmt where {
+  $stmt <: contains `$source` where { $source <: r"^[\"']@preact/signals[\"']$" },
+  not { $filename <: r".*/src/features/chat/panel/shell-state\.tsx$" },
+  register_diagnostic(span=$stmt, message="Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.", severity="error")
+}

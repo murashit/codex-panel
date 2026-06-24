@@ -1,0 +1,5 @@
+language js
+
+`$iterator.next().value` as $stmt where {
+  register_diagnostic(span=$stmt, message="Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.", severity="error")
+}

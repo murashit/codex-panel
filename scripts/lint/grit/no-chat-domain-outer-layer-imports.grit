@@ -1,0 +1,12 @@
+language js
+
+JsImport() as $stmt where {
+  $filename <: r".*/src/features/chat/domain/.*",
+  $stmt <: contains `$source` where {
+    or {
+      $source <: r"^[\"'](?:\.\./)+(?:app-server|application|host|panel|presentation|ui)(?:/.*)?[\"']$",
+      $source <: r"^[\"']src/features/chat/(?:app-server|application|host|panel|presentation|ui)(?:/.*)?[\"']$"
+    }
+  },
+  register_diagnostic(span=$stmt, message="Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.", severity="error")
+}

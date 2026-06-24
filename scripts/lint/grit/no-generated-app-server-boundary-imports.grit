@@ -1,0 +1,26 @@
+language js
+
+or {
+  or {
+    JsImport() as $stmt,
+    JsExportNamedFromClause() as $stmt,
+    JsExportFromClause() as $stmt,
+    TsImportType() as $stmt,
+    JsImportCallExpression() as $stmt
+  } where {
+    $stmt <: contains `$source` where { $source <: r"^[\"'].*(?:src/)?generated/app-server(?:/.*)?[\"']$" },
+    not { $filename <: r".*/src/generated/.*" },
+    not { $filename <: r".*/src/app-server/connection/.*" },
+    not { $filename <: r".*/src/app-server/protocol/(?:turn|server-requests)\.ts$" },
+    not { $filename <: r".*/tests/app-server/.*" },
+    register_diagnostic(span=$stmt, message="Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.", severity="error")
+  },
+  `require($source)` as $stmt where {
+    $source <: r"^[\"'].*(?:src/)?generated/app-server(?:/.*)?[\"']$",
+    not { $filename <: r".*/src/generated/.*" },
+    not { $filename <: r".*/src/app-server/connection/.*" },
+    not { $filename <: r".*/src/app-server/protocol/(?:turn|server-requests)\.ts$" },
+    not { $filename <: r".*/tests/app-server/.*" },
+    register_diagnostic(span=$stmt, message="Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.", severity="error")
+  }
+}

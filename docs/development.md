@@ -14,7 +14,7 @@ Use this as the normal edit loop. `npm run format` applies Biome formatting and 
 
 Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run lint`, or `npm run build`. The `*:ci` variants match CI cache behavior.
 
-Biome owns formatting, import organization, and general JavaScript/TypeScript/JSON linting. Biome warnings fail `npm run lint` and `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. CSS lint policy stays in Stylelint and the CSS usage script. ESLint remains for typed unsafe-any checks, Obsidian plugin policy, and Codex Panel responsibility-boundary rules.
+Biome owns formatting, import organization, general JavaScript/TypeScript/JSON linting, GritQL source-shape plugins, and GritQL import-boundary restrictions. Biome warnings fail `npm run lint` and `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. CSS lint policy stays in Stylelint and the CSS usage script. ESLint remains for typed unsafe-any checks, Obsidian plugin policy, and Codex Panel responsibility-boundary rules that need TypeScript type information.
 
 ## Generated and Loaded Files
 

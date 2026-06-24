@@ -28,9 +28,14 @@ describe("check command plan", () => {
   });
 
   it("keeps lint-only mode on Biome lint", () => {
-    expect(commandPlan({ ciMode: false, lintOnly: true }).phases[0]?.commands).toContainEqual({
-      name: "biome",
-      command: "biome lint --no-errors-on-unmatched --diagnostic-level=warn --error-on-warnings",
+    expect(commandPlan({ ciMode: false, lintOnly: true }).phases[0]).toEqual({
+      name: "lint",
+      commands: expect.arrayContaining([
+        {
+          name: "biome",
+          command: "biome lint --no-errors-on-unmatched --diagnostic-level=warn --error-on-warnings",
+        },
+      ]),
     });
   });
 

@@ -1,0 +1,19 @@
+language js
+
+or {
+  `Date.now()` as $stmt,
+  `new Date()` as $stmt,
+  `Math.random()` as $stmt,
+  `new AppServerClient($...)` as $stmt,
+  `new ConnectionManager($...)` as $stmt,
+  `new Notice($...)` as $stmt,
+  `setTimeout($...)` as $stmt,
+  `clearTimeout($...)` as $stmt,
+  `requestAnimationFrame($...)` as $stmt,
+  `document.$property` as $stmt,
+  `localStorage.$property` as $stmt,
+  `sessionStorage.$property` as $stmt
+} where {
+  $filename <: r".*/src/features/chat/application/state/.*",
+  register_diagnostic(span=$stmt, message="Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.", severity="error")
+}

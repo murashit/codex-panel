@@ -1,0 +1,13 @@
+language js
+
+JsImport() as $stmt where {
+  $filename <: r".*/src/.*",
+  $stmt <: contains `$source` where { $source <: r"^[\"'].*shared/ui/ui-root[\"']$" },
+  not { $filename <: r".*/src/features/chat/panel/shell\.tsx$" },
+  not { $filename <: r".*/src/features/chat/ui/turn-diff/render\.tsx$" },
+  not { $filename <: r".*/src/features/chat/ui/turn-diff/view\.ts$" },
+  not { $filename <: r".*/src/features/selection-rewrite/popover\.tsx$" },
+  not { $filename <: r".*/src/features/threads-view/renderer\.tsx$" },
+  not { $filename <: r".*/src/settings/tab\.tsx$" },
+  register_diagnostic(span=$stmt, message="Import the Preact root adapter only from explicit root bridge files.", severity="error")
+}

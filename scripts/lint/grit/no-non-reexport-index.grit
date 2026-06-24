@@ -1,0 +1,16 @@
+language js
+
+file($name, $body) where {
+  $name <: r".*/src/.*/index\.tsx?$",
+  $body <: contains bubble or {
+    JsImport() as $stmt,
+    JsExport() as $stmt where {
+      not {
+        $stmt <: contains or {
+          JsExportNamedFromClause(),
+          JsExportFromClause()
+        }
+      }
+    }
+  } where { register_diagnostic(span=$stmt, message="Keep src index files as re-export-only boundaries.", severity="error") }
+}
