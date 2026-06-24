@@ -107,7 +107,7 @@ describe("settings tab", () => {
       "Show chat toolbar",
       "Composer",
       "Send shortcut",
-      "Scroll thread from composer edges",
+      "Scroll thread from composer line edges",
       "Codex helpers",
       "Automatic thread naming",
       "Selection rewrite",
@@ -157,20 +157,20 @@ describe("settings tab", () => {
     expect(settingDesc(tab, "Show chat toolbar")).toContain("toolbar above the chat panel");
   });
 
-  it("saves the composer edge scroll setting", async () => {
+  it("saves the composer line edge scroll setting", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    const toggle = inputForSetting(tab, "Scroll thread from composer edges");
-    if (!toggle) throw new Error("Missing composer edge scroll toggle");
+    const toggle = inputForSetting(tab, "Scroll thread from composer line edges");
+    if (!toggle) throw new Error("Missing composer line edge scroll toggle");
 
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Scroll thread from composer edges")).toContain("Up/Ctrl+P");
+    expect(settingDesc(tab, "Scroll thread from composer line edges")).toContain("Up/Ctrl+P");
   });
 
   it("saves archive export settings", async () => {

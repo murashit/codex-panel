@@ -317,8 +317,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
     expect(() => {
       scrollController.showLatest();
-      scrollController.scrollFromComposer({ direction: 1, amount: "text-lines" });
-      scrollController.scrollFromComposer({ direction: -1, amount: "page" });
+      scrollController.scrollFromComposer({ kind: "scroll-by", direction: 1, amount: "text-lines" });
+      scrollController.scrollFromComposer({ kind: "scroll-by", direction: -1, amount: "page" });
+      scrollController.scrollFromComposer({ kind: "scroll-to", edge: "start" });
       presenter.dispose();
       scrollController.showLatest();
     }).not.toThrow();
@@ -349,7 +350,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
     expect(() => {
       scrollController.showLatest();
-      scrollController.scrollFromComposer({ direction: 1, amount: "page" });
+      scrollController.scrollFromComposer({ kind: "scroll-by", direction: 1, amount: "page" });
     }).not.toThrow();
   });
 

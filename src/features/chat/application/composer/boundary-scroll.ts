@@ -1,9 +1,18 @@
 type ComposerBoundaryScrollDirection = -1 | 1;
 type ComposerBoundaryScrollAmount = "text-lines" | "page";
+type ComposerBoundaryScrollEdge = "start" | "end";
 
-export interface ComposerBoundaryScrollAction {
+export type ComposerBoundaryScrollAction = ComposerBoundaryScrollByAction | ComposerBoundaryScrollToAction;
+
+interface ComposerBoundaryScrollByAction {
+  kind: "scroll-by";
   direction: ComposerBoundaryScrollDirection;
   amount: ComposerBoundaryScrollAmount;
+}
+
+interface ComposerBoundaryScrollToAction {
+  kind: "scroll-to";
+  edge: ComposerBoundaryScrollEdge;
 }
 
 export interface ComposerBoundaryScrollKeyEvent {
@@ -34,7 +43,7 @@ export function composerBoundaryScrollDirection(
 
   const keyAction = composerBoundaryScrollKeyAction(event);
   if (!keyAction) return null;
-  if (keyAction.amount === "page") return keyAction;
+  if (keyAction.kind === "scroll-to" || keyAction.amount === "page") return keyAction;
   if (composer.selectionStart !== composer.selectionEnd) return null;
 
   return keyAction.direction === -1
@@ -48,16 +57,18 @@ export function composerBoundaryScrollDirection(
 
 function composerBoundaryScrollKeyAction(event: ComposerBoundaryScrollKeyEvent): ComposerBoundaryScrollAction | null {
   if (!event.ctrlKey) {
-    if (event.key === "ArrowUp") return { direction: -1, amount: "text-lines" };
-    if (event.key === "ArrowDown") return { direction: 1, amount: "text-lines" };
-    if (event.key === "PageUp") return { direction: -1, amount: "page" };
-    if (event.key === "PageDown") return { direction: 1, amount: "page" };
+    if (event.key === "ArrowUp") return { kind: "scroll-by", direction: -1, amount: "text-lines" };
+    if (event.key === "ArrowDown") return { kind: "scroll-by", direction: 1, amount: "text-lines" };
+    if (event.key === "PageUp") return { kind: "scroll-by", direction: -1, amount: "page" };
+    if (event.key === "PageDown") return { kind: "scroll-by", direction: 1, amount: "page" };
+    if (event.key === "Home") return { kind: "scroll-to", edge: "start" };
+    if (event.key === "End") return { kind: "scroll-to", edge: "end" };
     return null;
   }
 
   const key = event.key.toLowerCase();
-  if (key === "p") return { direction: -1, amount: "text-lines" };
-  if (key === "n") return { direction: 1, amount: "text-lines" };
+  if (key === "p") return { kind: "scroll-by", direction: -1, amount: "text-lines" };
+  if (key === "n") return { kind: "scroll-by", direction: 1, amount: "text-lines" };
   return null;
 }
 

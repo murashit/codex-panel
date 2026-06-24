@@ -153,13 +153,14 @@ export class ChatComposerController {
   }
 
   private handleBoundaryScrollKeydown(event: KeyboardEvent): boolean {
-    if (!this.composer || !this.options.scrollThreadFromComposerEdges()) return false;
+    if (!this.composer) return false;
 
     const composer = this.composer;
     const action = composerBoundaryScrollDirection(event, composer, {
       cursorAtVisualBoundary: (direction) => textareaCursorAtVisualBoundary(direction, composer),
     });
     if (!action) return false;
+    if (action.kind === "scroll-by" && action.amount === "text-lines" && !this.options.scrollThreadFromComposerEdges()) return false;
 
     event.preventDefault();
     this.options.threadScrollFromComposer(action);

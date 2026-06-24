@@ -31,7 +31,7 @@ export function createChatMessageScrollController(): ChatMessageScrollController
     },
 
     scrollFromComposer(action): void {
-      dispatch({ kind: "scroll-by", amount: action.amount, direction: action.direction });
+      dispatch(action);
     },
 
     dispose(): void {

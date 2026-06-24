@@ -7,19 +7,37 @@ import {
 
 describe("composer boundary scroll shortcuts", () => {
   it("scrolls up from the first composer line", () => {
-    expect(direction("ArrowUp", "first\nsecond", 3)).toEqual({ direction: -1, amount: "text-lines" });
-    expect(direction("p", "first\nsecond", 3, { ctrlKey: true })).toEqual({ direction: -1, amount: "text-lines" });
+    expect(direction("ArrowUp", "first\nsecond", 3)).toEqual({ kind: "scroll-by", direction: -1, amount: "text-lines" });
+    expect(direction("p", "first\nsecond", 3, { ctrlKey: true })).toEqual({
+      kind: "scroll-by",
+      direction: -1,
+      amount: "text-lines",
+    });
   });
 
   it("scrolls down from the last composer line", () => {
-    expect(direction("ArrowDown", "first\nsecond", 9)).toEqual({ direction: 1, amount: "text-lines" });
-    expect(direction("n", "first\nsecond", 9, { ctrlKey: true })).toEqual({ direction: 1, amount: "text-lines" });
+    expect(direction("ArrowDown", "first\nsecond", 9)).toEqual({ kind: "scroll-by", direction: 1, amount: "text-lines" });
+    expect(direction("n", "first\nsecond", 9, { ctrlKey: true })).toEqual({
+      kind: "scroll-by",
+      direction: 1,
+      amount: "text-lines",
+    });
   });
 
   it("scrolls by page from any composer line for PageUp and PageDown", () => {
-    expect(direction("PageUp", "first\nsecond", 9)).toEqual({ direction: -1, amount: "page" });
-    expect(direction("PageDown", "first\nsecond", 3)).toEqual({ direction: 1, amount: "page" });
-    expect(direction("PageDown", "first\nsecond", 3, { selectionEnd: 8 })).toEqual({ direction: 1, amount: "page" });
+    expect(direction("PageUp", "first\nsecond", 9)).toEqual({ kind: "scroll-by", direction: -1, amount: "page" });
+    expect(direction("PageDown", "first\nsecond", 3)).toEqual({ kind: "scroll-by", direction: 1, amount: "page" });
+    expect(direction("PageDown", "first\nsecond", 3, { selectionEnd: 8 })).toEqual({
+      kind: "scroll-by",
+      direction: 1,
+      amount: "page",
+    });
+  });
+
+  it("scrolls to stream edges from any composer line for Home and End", () => {
+    expect(direction("Home", "first\nsecond", 9)).toEqual({ kind: "scroll-to", edge: "start" });
+    expect(direction("End", "first\nsecond", 3)).toEqual({ kind: "scroll-to", edge: "end" });
+    expect(direction("End", "first\nsecond", 3, { selectionEnd: 8 })).toEqual({ kind: "scroll-to", edge: "end" });
   });
 
   it("keeps normal cursor movement away from composer edges", () => {

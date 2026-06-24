@@ -6,6 +6,7 @@ type MessageScrollDirection = -1 | 1;
 
 export type MessageStreamScrollCommand =
   | { kind: "show-latest" }
+  | { kind: "scroll-to"; edge: "start" | "end" }
   | { kind: "scroll-by"; amount: "text-lines" | "page"; direction: MessageScrollDirection };
 
 export interface MessageStreamScrollPort {
@@ -207,6 +208,15 @@ function applyMessageFlowScrollCommand(runtime: MessageFlowRuntime, command: Mes
       scrollMessageFlowToEnd(runtime);
       scheduleMessageFlowEndRestore(runtime);
       break;
+    case "scroll-to":
+      if (command.edge === "start") {
+        scrollMessageFlowToStart(runtime);
+      } else {
+        runtime.followingEnd = true;
+        scrollMessageFlowToEnd(runtime);
+        scheduleMessageFlowEndRestore(runtime);
+      }
+      break;
     case "scroll-by":
       scrollMessageFlowBy(runtime, messageFlowScrollDelta(runtime, command.amount, command.direction));
       break;
@@ -224,6 +234,13 @@ function scrollMessageFlowBy(runtime: MessageFlowRuntime, delta: number): void {
   if (!container) return;
   container.scrollTop += delta;
   runtime.followingEnd = isMessageFlowAtEnd(container);
+}
+
+function scrollMessageFlowToStart(runtime: MessageFlowRuntime): void {
+  const container = runtime.container;
+  if (!container) return;
+  container.scrollTop = 0;
+  runtime.followingEnd = false;
 }
 
 function messageFlowScrollDelta(runtime: MessageFlowRuntime, amount: "text-lines" | "page", direction: MessageScrollDirection): number {

@@ -243,6 +243,106 @@ describe("ChatComposerController", () => {
     expect(submit).toHaveBeenCalledOnce();
   });
 
+  it("scrolls by page from the composer even when line edge scrolling is disabled", () => {
+    const stateStore = createChatStateStore();
+    const parent = document.createElement("div");
+    const threadScrollFromComposer = vi.fn();
+    const controller = new ChatComposerController({
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer,
+      canInterrupt: (_state) => false,
+      composerProjection: defaultComposerProjection,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "first\nsecond");
+    composer(parent).setSelectionRange(3, 3);
+    const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "PageDown" });
+    composer(parent).dispatchEvent(event);
+
+    expect(threadScrollFromComposer).toHaveBeenCalledWith({ kind: "scroll-by", direction: 1, amount: "page" });
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("scrolls to stream edges from the composer even when line edge scrolling is disabled", () => {
+    const stateStore = createChatStateStore();
+    const parent = document.createElement("div");
+    const threadScrollFromComposer = vi.fn();
+    const controller = new ChatComposerController({
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer,
+      canInterrupt: (_state) => false,
+      composerProjection: defaultComposerProjection,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "first\nsecond");
+    composer(parent).setSelectionRange(3, 8);
+    const home = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Home" });
+    composer(parent).dispatchEvent(home);
+    const end = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "End" });
+    composer(parent).dispatchEvent(end);
+
+    expect(threadScrollFromComposer).toHaveBeenNthCalledWith(1, { kind: "scroll-to", edge: "start" });
+    expect(threadScrollFromComposer).toHaveBeenNthCalledWith(2, { kind: "scroll-to", edge: "end" });
+    expect(home.defaultPrevented).toBe(true);
+    expect(end.defaultPrevented).toBe(true);
+  });
+
+  it("leaves composer line edge scrolling disabled by the setting", () => {
+    const stateStore = createChatStateStore();
+    const parent = document.createElement("div");
+    const threadScrollFromComposer = vi.fn();
+    const controller = new ChatComposerController({
+      noteCandidateProvider: noteProvider(),
+      sourcePath: () => "",
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer,
+      canInterrupt: (_state) => false,
+      composerProjection: defaultComposerProjection,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "first\nsecond");
+    composer(parent).setSelectionRange("first\nsecond".length, "first\nsecond".length);
+    const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "n", ctrlKey: true });
+    composer(parent).dispatchEvent(event);
+
+    expect(threadScrollFromComposer).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("clears the Preact-owned textarea ref when the composer unmounts", () => {
     const stateStore = createChatStateStore();
     stateStore.dispatch({ type: "composer/draft-set", draft: "state draft" });

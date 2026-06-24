@@ -110,6 +110,7 @@ describe("settings", () => {
   });
 
   it("normalizes composer edge scrolling", () => {
+    expect(normalizeSettings({}).scrollThreadFromComposerEdges).toBe(false);
     expect(normalizeSettings({ scrollThreadFromComposerEdges: true }).scrollThreadFromComposerEdges).toBe(true);
     expect(normalizeSettings({ scrollThreadFromComposerEdges: "yes" }).scrollThreadFromComposerEdges).toBe(
       DEFAULT_SETTINGS.scrollThreadFromComposerEdges,

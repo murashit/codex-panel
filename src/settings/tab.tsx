@@ -143,8 +143,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         });
       });
     new Setting(composerItems)
-      .setName("Scroll thread from composer edges")
-      .setDesc("Use Up/Ctrl+P and Down/Ctrl+N at composer edges to scroll the thread.")
+      .setName("Scroll thread from composer line edges")
+      .setDesc("Use Up/Ctrl+P and Down/Ctrl+N at composer line edges to scroll the thread.")
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.scrollThreadFromComposerEdges).onChange(async (value) => {
           this.plugin.settings.scrollThreadFromComposerEdges = value;

@@ -182,6 +182,22 @@ describe("message stream flow scrolling", () => {
     });
     expect(messages.scrollTop).toBe(280);
   });
+
+  it("scrolls to stream edges from composer commands", () => {
+    const { controller, messages } = renderFlowMessageStream(["first", "second"], { first: 300, second: 300 });
+    messages.scrollTop = 240;
+    messages.dispatchEvent(new Event("scroll"));
+
+    void act(() => {
+      controller.dispatch({ kind: "scroll-to", edge: "start" });
+    });
+    expect(messages.scrollTop).toBe(0);
+
+    void act(() => {
+      controller.dispatch({ kind: "scroll-to", edge: "end" });
+    });
+    expect(messages.scrollTop).toBe(500);
+  });
 });
 
 interface TestMessageStreamScrollController extends MessageStreamScrollControllerBinding {
