@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import codexPanelEslintPlugin from "./scripts/lint/eslint-plugin-codex-panel.mjs";
 
 const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
-const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs"];
+const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs", "tests/**/*.mjs"];
 const typeScriptConfigFiles = ["*.config.ts"];
 const lintedTypeScriptFiles = [...typeScriptFiles, ...typeScriptConfigFiles];
 const unsafeAnyTypeScriptRules = {

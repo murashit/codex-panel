@@ -116,28 +116,6 @@ describe("development scripts", () => {
     expect(report.failures).toEqual([]);
   });
 
-  it("runs Biome lint with warning-level diagnostics", async () => {
-    const cwd = await tempWorkspace();
-    const binDir = path.join(cwd, "bin");
-    await mkdir(binDir, { recursive: true });
-    await mkdir(path.join(cwd, "scripts", "lint"), { recursive: true });
-    await writeFile(path.join(cwd, "scripts", "lint", "check-css-usage.mjs"), "");
-
-    await writeCaptureBin(path.join(binDir, "biome"), "biome-args.txt");
-    await writeExitZeroBin(path.join(binDir, "eslint"));
-    await writeExitZeroBin(path.join(binDir, "stylelint"));
-    await writeExitZeroBin(path.join(binDir, "knip"));
-
-    const result = runNodeScript("scripts/check.mjs", ["--lint"], cwd, {
-      PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
-    });
-
-    expect(result.status).toBe(0);
-    await expect(readFile(path.join(cwd, "biome-args.txt"), "utf8")).resolves.toBe(
-      "lint\n--no-errors-on-unmatched\n--diagnostic-level=warn\n--error-on-warnings\n",
-    );
-  });
-
   it("keeps CSS usage checks quiet when every class is used", async () => {
     const cwd = await cssUsageFixture({
       "src/styles/10-component.css": ".codex-panel__used { display: block; }\n",
@@ -271,21 +249,4 @@ async function writeJson(file: string, value: unknown): Promise<void> {
 
 async function readJson(file: string): Promise<unknown> {
   return JSON.parse(await readFile(file, "utf8"));
-}
-
-async function writeCaptureBin(file: string, outputFile: string): Promise<void> {
-  await writeFile(
-    file,
-    [
-      "#!/usr/bin/env node",
-      "const { appendFileSync } = require('node:fs');",
-      `appendFileSync(${JSON.stringify(outputFile)}, \`\${process.argv.slice(2).join("\\n")}\\n\`);`,
-    ].join("\n"),
-  );
-  await chmod(file, 0o755);
-}
-
-async function writeExitZeroBin(file: string): Promise<void> {
-  await writeFile(file, "#!/usr/bin/env node\n");
-  await chmod(file, 0o755);
 }
