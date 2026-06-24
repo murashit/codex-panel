@@ -12,9 +12,9 @@ npm run check
 
 Use this as the normal edit loop. `npm run format` applies Biome formatting and import organization; `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, CSS checks, and the production bundle.
 
-Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run lint`, or `npm run build`. The `*:ci` variants match CI cache behavior.
+Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run build`, or the targeted `npm run check:*` scripts. CI and release preflight run the same `npm run check` command as local development.
 
-Biome owns formatting, import organization, general JavaScript/TypeScript/JSON/CSS linting, GritQL source-shape plugins, GritQL import-boundary restrictions, and GritQL CSS source policy. Biome warnings fail `npm run lint` and `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. The CSS usage script still checks dead authored classes. ESLint remains for typed unsafe-any checks, Obsidian plugin policy, and Codex Panel responsibility-boundary rules that need TypeScript type information.
+Biome owns formatting, import organization, general JavaScript/TypeScript/JSON/CSS linting, GritQL source-shape plugins, GritQL import-boundary restrictions, and GritQL CSS source policy. Biome warnings fail `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. The CSS usage script still checks dead authored classes. ESLint remains for typed unsafe-any checks, Obsidian plugin policy, and Codex Panel responsibility-boundary rules that need TypeScript type information.
 
 ## Generated and Loaded Files
 

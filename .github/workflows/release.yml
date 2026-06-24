@@ -36,7 +36,7 @@ jobs:
           RELEASE_VERSION: ${{ github.ref_name }}
 
       - name: Run checks and build
-        run: npm run check:ci
+        run: npm run check
 
       - name: Generate artifact attestations
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4

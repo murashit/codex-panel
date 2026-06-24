@@ -646,7 +646,7 @@ async function tempBiomeWorkspace(plugins) {
     JSON.stringify({
       $schema: "https://biomejs.dev/schemas/2.5.1/schema.json",
       vcs: { enabled: false },
-      plugins: plugins.map((plugin) => path.join(repoRoot, "scripts", "lint", "grit", plugin)),
+      plugins: plugins.map((plugin) => path.join(repoRoot, "scripts", "lint", plugin)),
       css: { linter: { enabled: true } },
     }),
   );

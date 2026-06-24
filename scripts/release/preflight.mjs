@@ -84,6 +84,6 @@ if (maybeRun("jj", ["root"])) {
 run("npm", ["run", "release:check"]);
 run("npm", ["run", "api:baseline"]);
 run("npm", ["ci", "--dry-run"]);
-run("npm", ["run", "check:ci"]);
+run("npm", ["run", "check"]);
 
 console.log(`release preflight passed for ${packageVersion}`);

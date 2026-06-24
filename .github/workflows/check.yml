@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   check:
-    name: npm run check:ci
+    name: npm run check
     runs-on: ubuntu-latest
 
     steps:
@@ -30,4 +30,4 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Check
-        run: npm run check:ci
+        run: npm run check
