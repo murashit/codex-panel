@@ -25,6 +25,18 @@ const STANDARD_TOOL_STATES = {
   failed: "failed",
 } as const satisfies ExecutionStateByStatus;
 
+const COLLAB_AGENT_STATES = {
+  pendingInit: RUNNING_EXECUTION_STATE,
+  running: RUNNING_EXECUTION_STATE,
+  inProgress: RUNNING_EXECUTION_STATE,
+  completed: "completed",
+  shutdown: "completed",
+  interrupted: "failed",
+  errored: "failed",
+  notFound: "failed",
+  failed: "failed",
+} as const satisfies ExecutionStateByStatus;
+
 export function commandExecutionState(status: string, exitCode?: number): ExecutionState {
   if (typeof exitCode === "number" && exitCode !== 0) return "failed";
   const state = executionStateFromStatus(status, COMMAND_STATES);
@@ -50,6 +62,10 @@ export function dynamicToolCallExecutionState(status: string, success?: boolean 
 
 export function imageGenerationExecutionState(status: string): ExecutionState {
   return standardToolCallExecutionState(status);
+}
+
+export function collabAgentStateExecutionState(status: string): ExecutionState {
+  return executionStateFromStatus(status, COLLAB_AGENT_STATES);
 }
 
 export function failedStatusLabel(status: unknown): string | null {

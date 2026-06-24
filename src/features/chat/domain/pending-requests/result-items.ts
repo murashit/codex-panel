@@ -8,7 +8,6 @@ import {
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
 import type { MessageStreamItem, MessageStreamUserInputQuestionResult } from "../message-stream/items";
-import { definedProp } from "../../../../shared/object/defined-prop";
 
 export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): MessageStreamItem {
   const kind = approvalActionKind(action);
@@ -123,4 +122,8 @@ function formatMcpElicitationContentValue(value: McpElicitationContentValue | un
   if (Array.isArray(value)) return value.join(", ");
   if (value === null || typeof value === "undefined") return "";
   return String(value);
+}
+
+function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {
+  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
 }

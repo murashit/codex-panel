@@ -54,7 +54,6 @@ import { threadTitleContextFromMessageStreamItems } from "../application/threads
 import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
-import { archiveExportSettings } from "../../threads/archive-export-settings";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import {
   effortStatusLines as buildEffortStatusLines,
@@ -536,7 +535,11 @@ function createSessionThreadOperations(environment: ChatPanelEnvironment, curren
   return createThreadOperations({
     clientAccess: createCurrentClientAccess(currentClient),
     archiveExport: {
-      settings: () => archiveExportSettings(environment.plugin.settingsRef.settings),
+      settings: () => ({
+        archiveExportFolderTemplate: environment.plugin.settingsRef.settings.archiveExportFolderTemplate,
+        archiveExportFilenameTemplate: environment.plugin.settingsRef.settings.archiveExportFilenameTemplate,
+        archiveExportTags: environment.plugin.settingsRef.settings.archiveExportTags,
+      }),
       enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled,
       vaultPath: environment.plugin.settingsRef.vaultPath,
       vaultConfigDir: environment.obsidian.app.vault.configDir,

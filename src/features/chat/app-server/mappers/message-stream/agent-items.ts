@@ -1,7 +1,6 @@
-import { definedProp } from "../../../../../shared/object/defined-prop";
 import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "../../../domain/message-stream/items";
-import { collabAgentStateExecutionState } from "../../../domain/message-stream/agent-state";
 import {
+  collabAgentStateExecutionState,
   executionStateFromStatus,
   RUNNING_EXECUTION_STATE,
   type ExecutionStateByStatus,
@@ -75,4 +74,8 @@ function collabAgentExecutionState(tool: string, status: string, receiverThreadI
 
 function collabAgentToolCallExecutionState(status: string): ExecutionState {
   return executionStateFromStatus(status, STANDARD_TOOL_STATES);
+}
+
+function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {
+  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
 }

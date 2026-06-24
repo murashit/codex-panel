@@ -18,7 +18,6 @@ import type {
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
-import { archiveExportSettings } from "./features/threads/archive-export-settings";
 import type { CodexThreadsHost, CodexThreadsSettingsAccess } from "./features/threads-view/session";
 import { CodexThreadsView } from "./features/threads-view/view";
 import type { CodexPanelSettingTabHost } from "./settings/host";
@@ -143,7 +142,11 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       codexPath: () => this.options.settingsRef.settings.codexPath,
       threadNamingModel: () => this.options.settingsRef.settings.threadNamingModel,
       threadNamingEffort: () => this.options.settingsRef.settings.threadNamingEffort,
-      archiveExportSettings: () => archiveExportSettings(this.options.settingsRef.settings),
+      archiveExportSettings: () => ({
+        archiveExportFolderTemplate: this.options.settingsRef.settings.archiveExportFolderTemplate,
+        archiveExportFilenameTemplate: this.options.settingsRef.settings.archiveExportFilenameTemplate,
+        archiveExportTags: this.options.settingsRef.settings.archiveExportTags,
+      }),
     };
   }
 

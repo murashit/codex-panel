@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
-import { setHookItemEnabled, trustHookItem } from "../app-server/catalog";
+import { listHookData, setHookItemEnabled, trustHookItem, type HookData } from "../app-server/catalog";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
@@ -8,8 +8,6 @@ import type { ObservedDataResult } from "../domain/observed-data";
 import { observedData } from "../domain/observed-data";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
-import { errorMessage } from "../utils";
-import { loadHookData } from "./app-server-data";
 import type { SettingsDynamicDataHost } from "./host";
 import {
   createSettingsDynamicSectionLifecycle,
@@ -19,6 +17,22 @@ import {
 
 function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: string): string {
   return thread ? threadArchiveDisplayTitle(thread) : threadId;
+}
+
+interface LoadedHooks extends HookData {
+  status: string;
+}
+
+async function loadHookData(client: AppServerClient, cwd: string): Promise<LoadedHooks> {
+  const hooks = await listHookData(client, cwd);
+  return {
+    ...hooks,
+    status: hooksStatus(hooks.hooks.length),
+  };
+}
+
+function hooksStatus(count: number): string {
+  return `Loaded ${String(count)} hook${count === 1 ? "" : "s"}.`;
 }
 
 interface SettingsDynamicDataControllerCallbacks {
@@ -511,4 +525,8 @@ function displayTargetForDynamicOperationSection(section: "hooks" | "archivedThr
 
 function archivedThreadsStatus(count: number): string {
   return `Loaded ${String(count)} archived thread${count === 1 ? "" : "s"}.`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

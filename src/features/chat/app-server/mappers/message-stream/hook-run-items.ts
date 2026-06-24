@@ -1,4 +1,3 @@
-import { definedProp } from "../../../../../shared/object/defined-prop";
 import type { ExecutionState, HookMessageStreamItem } from "../../../domain/message-stream/items";
 import {
   executionStateFromStatus,
@@ -60,4 +59,8 @@ function hookRunDisplayId(run: MessageStreamHookRun): string {
 function hookEventName(eventName: string | null | undefined): string {
   const trimmed = eventName?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : "Hook";
+}
+
+function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {
+  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
 }

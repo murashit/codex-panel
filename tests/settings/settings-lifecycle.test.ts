@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
-import { loadHookData } from "../../src/settings/app-server-data";
+import { listHookData } from "../../src/app-server/catalog";
 import { createSettingsDynamicSectionLifecycle, transitionSettingsDynamicSectionLifecycle } from "../../src/settings/lifecycle";
 
 describe("settings lifecycle", () => {
@@ -47,11 +47,10 @@ describe("settings lifecycle", () => {
       }),
     } as unknown as AppServerClient;
 
-    await expect(loadHookData(client, "/vault")).resolves.toMatchObject({
+    await expect(listHookData(client, "/vault")).resolves.toEqual({
       hooks: [{ key: "vault" }],
       warnings: ["warn"],
       errors: ['{"message":"err"}'],
-      status: "Loaded 1 hook.",
     });
   });
 
@@ -62,11 +61,10 @@ describe("settings lifecycle", () => {
       }),
     } as unknown as AppServerClient;
 
-    await expect(loadHookData(client, "/vault")).resolves.toMatchObject({
+    await expect(listHookData(client, "/vault")).resolves.toEqual({
       hooks: [],
       warnings: [],
       errors: [],
-      status: "Loaded 0 hooks.",
     });
   });
 });

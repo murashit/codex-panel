@@ -2,7 +2,6 @@ import type { CommandMessageStreamTarget, MessageStreamDiagnosticSection, Messag
 import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { TurnItem } from "../../../../../app-server/protocol/turn";
-import { definedProp } from "../../../../../shared/object/defined-prop";
 import { jsonPreview } from "../../../../../shared/text/preview";
 import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
 import { turnUserItemText } from "../../../../../app-server/protocol/turn";
@@ -530,4 +529,8 @@ function durationLabel(durationMs: number): string {
   if (durationMs < 1000) return `${String(durationMs)}ms`;
   if (durationMs % 1000 === 0) return `${String(durationMs / 1000)}s`;
   return `${String(durationMs / 1000)}s`;
+}
+
+function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {
+  return value === null || value === undefined ? {} : ({ [key]: value } as Record<Key, Value>);
 }
