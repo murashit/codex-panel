@@ -651,16 +651,14 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Reasoning effort reset to default for subsequent turns.");
   });
 
-  it("routes runtime reset aliases through reset commands", async () => {
+  it.each(["reset", "clear", "off"])("routes runtime reset alias %s through reset commands", async (alias) => {
     const ctx = context();
 
-    for (const alias of ["reset", "clear", "off"]) {
-      await executeSlashCommand("model", alias, ctx);
-      await executeSlashCommand("reasoning", alias, ctx);
-    }
+    await executeSlashCommand("model", alias, ctx);
+    await executeSlashCommand("reasoning", alias, ctx);
 
-    expect(ctx.runtimeSettings.resetModelToConfig).toHaveBeenCalledTimes(3);
-    expect(ctx.runtimeSettings.resetReasoningEffortToConfig).toHaveBeenCalledTimes(3);
+    expect(ctx.runtimeSettings.resetModelToConfig).toHaveBeenCalledOnce();
+    expect(ctx.runtimeSettings.resetReasoningEffortToConfig).toHaveBeenCalledOnce();
     expect(ctx.runtimeSettings.requestModel).not.toHaveBeenCalled();
     expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
   });

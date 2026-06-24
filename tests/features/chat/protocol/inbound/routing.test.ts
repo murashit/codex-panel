@@ -56,28 +56,24 @@ describe("chat inbound routing", () => {
     );
   });
 
-  it("classifies every active-thread server request method and extracts its scope", () => {
-    const requests = [
-      { request: commandApprovalRequest(), kind: "approval" },
-      { request: fileChangeApprovalRequest(), kind: "approval" },
-      { request: permissionsApprovalRequest(), kind: "approval" },
-      { request: userInputRequest({ threadId: "thread-active" }), kind: "userInput" },
-      { request: mcpElicitationRequest(), kind: "mcpElicitation" },
-      { request: currentTimeRequest("thread-active"), kind: "currentTime" },
-      { request: dynamicToolCallRequest(), kind: "unsupported" },
-    ] as const;
-
-    for (const { request, kind } of requests) {
-      expect(routeServerRequest(request, activeScope).kind).toBe(kind);
-      if ("turnId" in request.params) {
-        expect(
-          routeServerRequest({ ...request, params: { ...request.params, turnId: "turn-other" } } as ServerRequest, activeScope).kind,
-        ).toBe("inactive");
-      }
+  it.each([
+    { name: "command approval", request: commandApprovalRequest(), kind: "approval" },
+    { name: "file change approval", request: fileChangeApprovalRequest(), kind: "approval" },
+    { name: "permissions approval", request: permissionsApprovalRequest(), kind: "approval" },
+    { name: "user input", request: userInputRequest({ threadId: "thread-active" }), kind: "userInput" },
+    { name: "MCP elicitation", request: mcpElicitationRequest(), kind: "mcpElicitation" },
+    { name: "current time", request: currentTimeRequest("thread-active"), kind: "currentTime" },
+    { name: "dynamic tool call", request: dynamicToolCallRequest(), kind: "unsupported" },
+  ])("classifies $name server requests and extracts scope", ({ request, kind }) => {
+    expect(routeServerRequest(request, activeScope).kind).toBe(kind);
+    if ("turnId" in request.params) {
       expect(
-        routeServerRequest({ ...request, params: { ...request.params, threadId: "thread-other" } } as ServerRequest, activeScope).kind,
+        routeServerRequest({ ...request, params: { ...request.params, turnId: "turn-other" } } as ServerRequest, activeScope).kind,
       ).toBe("inactive");
     }
+    expect(
+      routeServerRequest({ ...request, params: { ...request.params, threadId: "thread-other" } } as ServerRequest, activeScope).kind,
+    ).toBe("inactive");
   });
 
   it("marks scoped messages inactive when the thread or turn does not match", () => {
@@ -149,11 +145,13 @@ describe("chat inbound routing", () => {
     ).toBe("inactive");
   });
 
-  it("classifies supported server request families before unsupported requests", () => {
-    expect(routeServerRequest(commandApprovalRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("approval");
-    expect(routeServerRequest(userInputRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("userInput");
-    expect(routeServerRequest(mcpElicitationRequest(), { activeThreadId: null, activeTurnId: null }).kind).toBe("mcpElicitation");
-    expect(routeServerRequest(currentTimeRequest("thread-active"), { activeThreadId: null, activeTurnId: null }).kind).toBe("currentTime");
+  it.each([
+    { name: "command approval", request: commandApprovalRequest(), kind: "approval" },
+    { name: "user input", request: userInputRequest(), kind: "userInput" },
+    { name: "MCP elicitation", request: mcpElicitationRequest(), kind: "mcpElicitation" },
+    { name: "current time", request: currentTimeRequest("thread-active"), kind: "currentTime" },
+  ])("classifies $name before unsupported requests", ({ request, kind }) => {
+    expect(routeServerRequest(request, { activeThreadId: null, activeTurnId: null }).kind).toBe(kind);
   });
 
   it("classifies inactive requests before request-family handling", () => {
@@ -162,10 +160,13 @@ describe("chat inbound routing", () => {
     expect(route.kind).toBe("inactive");
   });
 
-  it("keeps unscoped unsupported requests out of active-turn routing", () => {
-    for (const request of unscopedUnsupportedRequests()) {
-      expect(routeServerRequest(request, activeScope).kind).toBe("unsupported");
-    }
+  it.each(
+    unscopedUnsupportedRequests().map((request) => ({
+      name: request.method,
+      request,
+    })),
+  )("keeps unscoped unsupported request $name out of active-turn routing", ({ request }) => {
+    expect(routeServerRequest(request, activeScope).kind).toBe("unsupported");
   });
 
   it("routes unknown runtime server requests to the unknown fallback", () => {
@@ -187,15 +188,17 @@ describe("chat inbound routing", () => {
     ).toBe("inactive");
   });
 
-  it("classifies notification categories without mutating state", () => {
-    expect(routeServerNotification(agentDeltaNotification(), activeScope).kind).toBe("streamUpdate");
-    expect(routeServerNotification(turnStartedNotification(), activeScope).kind).toBe("turnLifecycle");
-    expect(routeServerNotification(threadArchivedNotification(), activeScope).kind).toBe("threadLifecycle");
-    expect(routeServerNotification(threadSettingsUpdatedNotification(), activeScope).kind).toBe("threadLifecycle");
-    expect(routeServerNotification(threadGoalUpdatedNotification(), activeScope).kind).toBe("threadLifecycle");
-    expect(routeServerNotification(serverRequestResolvedNotification(), activeScope).kind).toBe("requestResolved");
-    expect(routeServerNotification(mcpStartupStatusNotification(), activeScope).kind).toBe("diagnosticStatus");
-    expect(routeServerNotification(warningNotification(), activeScope).kind).toBe("userVisibleNotice");
+  it.each([
+    { name: "agent delta", notification: agentDeltaNotification(), kind: "streamUpdate" },
+    { name: "turn started", notification: turnStartedNotification(), kind: "turnLifecycle" },
+    { name: "thread archived", notification: threadArchivedNotification(), kind: "threadLifecycle" },
+    { name: "thread settings updated", notification: threadSettingsUpdatedNotification(), kind: "threadLifecycle" },
+    { name: "thread goal updated", notification: threadGoalUpdatedNotification(), kind: "threadLifecycle" },
+    { name: "server request resolved", notification: serverRequestResolvedNotification(), kind: "requestResolved" },
+    { name: "MCP startup status", notification: mcpStartupStatusNotification(), kind: "diagnosticStatus" },
+    { name: "warning", notification: warningNotification(), kind: "userVisibleNotice" },
+  ])("classifies $name notifications without mutating state", ({ notification, kind }) => {
+    expect(routeServerNotification(notification, activeScope).kind).toBe(kind);
   });
 
   it("leaves unhandled app-server notifications explicit", () => {
@@ -240,31 +243,23 @@ describe("chat inbound routing", () => {
     expect(planChatNotification(state, notification, (prefix) => `${prefix}-1`)).toEqual({ actions: [], effects: [] });
   });
 
-  it("still scopes app-server notifications that Codex Panel does not handle", () => {
-    expect(routeServerNotification(rawResponseItemCompletedNotification("thread-active", "turn-active"), activeScope).kind).toBe(
-      "unhandled",
-    );
-    expect(routeServerNotification(rawResponseItemCompletedNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
-    expect(routeServerNotification(rawResponseItemCompletedNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
-
-    expect(routeServerNotification(turnModerationMetadataNotification("thread-active", "turn-active"), activeScope).kind).toBe("unhandled");
-    expect(routeServerNotification(turnModerationMetadataNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
-    expect(routeServerNotification(turnModerationMetadataNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
-
-    expect(routeServerNotification(terminalInteractionNotification("thread-active", "turn-active"), activeScope).kind).toBe("unhandled");
-    expect(routeServerNotification(terminalInteractionNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
-    expect(routeServerNotification(terminalInteractionNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
-
-    expect(routeServerNotification(modelVerificationNotification("thread-active", "turn-active"), activeScope).kind).toBe("unhandled");
-    expect(routeServerNotification(modelVerificationNotification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
-    expect(routeServerNotification(modelVerificationNotification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
+  it.each([
+    { name: "raw response item completed", notification: rawResponseItemCompletedNotification },
+    { name: "turn moderation metadata", notification: turnModerationMetadataNotification },
+    { name: "terminal interaction", notification: terminalInteractionNotification },
+    { name: "model verification", notification: modelVerificationNotification },
+  ])("still scopes unhandled turn notification $name", ({ notification }) => {
+    expect(routeServerNotification(notification("thread-active", "turn-active"), activeScope).kind).toBe("unhandled");
+    expect(routeServerNotification(notification("thread-other", "turn-active"), activeScope).kind).toBe("inactive");
+    expect(routeServerNotification(notification("thread-active", "turn-other"), activeScope).kind).toBe("inactive");
   });
 
-  it("still scopes unhandled thread lifecycle notifications", () => {
-    expect(routeServerNotification(threadStatusChangedNotification("thread-active"), activeScope).kind).toBe("unhandled");
-    expect(routeServerNotification(threadStatusChangedNotification("thread-other"), activeScope).kind).toBe("inactive");
-    expect(routeServerNotification(threadClosedNotification("thread-active"), activeScope).kind).toBe("unhandled");
-    expect(routeServerNotification(threadClosedNotification("thread-other"), activeScope).kind).toBe("inactive");
+  it.each([
+    { name: "thread status changed", notification: threadStatusChangedNotification },
+    { name: "thread closed", notification: threadClosedNotification },
+  ])("still scopes unhandled thread lifecycle notification $name", ({ notification }) => {
+    expect(routeServerNotification(notification("thread-active"), activeScope).kind).toBe("unhandled");
+    expect(routeServerNotification(notification("thread-other"), activeScope).kind).toBe("inactive");
   });
 
   it("scopes MCP startup status notifications when app-server provides a thread id", () => {

@@ -385,60 +385,61 @@ describe("approval model", () => {
     ]);
   });
 
-  it("builds action responses for current approval families", () => {
-    const requests: { request: ServerRequest; acceptSession: unknown; cancel: unknown }[] = [
-      {
-        request: {
-          id: 3,
-          method: "item/commandExecution/requestApproval",
-          params: {
-            command: "npm test",
-            cwd: "/tmp/project",
-            threadId: "thread",
-            turnId: "turn",
-            itemId: "command",
-            environmentId: null,
-            startedAtMs: 1,
-            reason: null,
-            commandActions: [],
-            proposedExecpolicyAmendment: null,
-            proposedNetworkPolicyAmendments: [],
-            availableDecisions: ["acceptForSession", "cancel", "decline"],
-          },
+  it.each([
+    {
+      name: "command approval",
+      request: {
+        id: 3,
+        method: "item/commandExecution/requestApproval",
+        params: {
+          command: "npm test",
+          cwd: "/tmp/project",
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "command",
+          environmentId: null,
+          startedAtMs: 1,
+          reason: null,
+          commandActions: [],
+          proposedExecpolicyAmendment: null,
+          proposedNetworkPolicyAmendments: [],
+          availableDecisions: ["acceptForSession", "cancel", "decline"],
         },
-        acceptSession: { decision: "acceptForSession" },
-        cancel: { decision: "cancel" },
       },
-      {
-        request: {
-          id: 4,
-          method: "item/fileChange/requestApproval",
-          params: {
-            threadId: "thread",
-            turnId: "turn",
-            itemId: "file",
-            startedAtMs: 1,
-            reason: "write",
-            grantRoot: "/tmp/project",
-          },
+      acceptSession: { decision: "acceptForSession" },
+      cancel: { decision: "cancel" },
+    },
+    {
+      name: "file change approval",
+      request: {
+        id: 4,
+        method: "item/fileChange/requestApproval",
+        params: {
+          threadId: "thread",
+          turnId: "turn",
+          itemId: "file",
+          startedAtMs: 1,
+          reason: "write",
+          grantRoot: "/tmp/project",
         },
-        acceptSession: { decision: "acceptForSession" },
-        cancel: { decision: "cancel" },
       },
-    ];
-
-    for (const { request, acceptSession, cancel } of requests) {
+      acceptSession: { decision: "acceptForSession" },
+      cancel: { decision: "cancel" },
+    },
+  ] satisfies { name: string; request: ServerRequest; acceptSession: unknown; cancel: unknown }[])(
+    "builds action responses for $name",
+    ({ request, acceptSession, cancel }) => {
       const approval = expectPresent(toPendingApproval(request));
       if (approval.kind === "command") {
         const options = approvalActionOptions(approval);
         expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual(acceptSession);
         expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual(cancel);
         expect(approvalResponse(approval, expectPresent(options[2]).action)).toEqual({ decision: "decline" });
-      } else {
-        expect(approvalResponse(approval, "accept-session")).toEqual(acceptSession);
-        expect(approvalResponse(approval, "cancel")).toEqual(cancel);
-        expect(approvalResponse(approval, "decline")).toEqual({ decision: "decline" });
+        return;
       }
-    }
-  });
+      expect(approvalResponse(approval, "accept-session")).toEqual(acceptSession);
+      expect(approvalResponse(approval, "cancel")).toEqual(cancel);
+      expect(approvalResponse(approval, "decline")).toEqual({ decision: "decline" });
+    },
+  );
 });

@@ -6,12 +6,14 @@ import { fastModeActive } from "../../src/features/chat/domain/runtime/effective
 import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
 
 describe("service tier runtime state", () => {
-  it("recognizes Codex fast tier aliases without rejecting other tier ids", () => {
-    expect(fastMode("fast")).toBe(true);
-    expect(fastMode("priority")).toBe(true);
-    expect(fastMode("catalog-fast", [{ id: "catalog-fast", name: "Fast" }])).toBe(true);
-    expect(fastMode("priority", [{ id: "priority", name: "Priority" }])).toBe(false);
-    expect(fastMode("flex", [{ id: "flex", name: "Flex" }])).toBe(false);
+  it.each([
+    { name: "built-in fast", serviceTier: "fast", serviceTiers: [], expected: true },
+    { name: "built-in priority", serviceTier: "priority", serviceTiers: [], expected: true },
+    { name: "catalog Fast tier", serviceTier: "catalog-fast", serviceTiers: [{ id: "catalog-fast", name: "Fast" }], expected: true },
+    { name: "catalog Priority tier", serviceTier: "priority", serviceTiers: [{ id: "priority", name: "Priority" }], expected: false },
+    { name: "catalog Flex tier", serviceTier: "flex", serviceTiers: [{ id: "flex", name: "Flex" }], expected: false },
+  ])("recognizes $name without rejecting other tier ids", ({ serviceTier, serviceTiers, expected }) => {
+    expect(fastMode(serviceTier, serviceTiers)).toBe(expected);
   });
 });
 

@@ -19,11 +19,13 @@ describe("app-server thread settings", () => {
     expect(update).toEqual({ model: "gpt-5.5", effort: null });
   });
 
-  it("parses supported approvals reviewer values", () => {
-    expect(approvalsReviewerOrNull("user")).toBe("user");
-    expect(approvalsReviewerOrNull("auto_review")).toBe("auto_review");
-    expect(approvalsReviewerOrNull("guardian_subagent")).toBe("guardian_subagent");
-    expect(approvalsReviewerOrNull("unknown")).toBeNull();
+  it.each([
+    ["user", "user"],
+    ["auto_review", "auto_review"],
+    ["guardian_subagent", "guardian_subagent"],
+    ["unknown", null],
+  ] as const)("parses approvals reviewer value %s", (value, expected) => {
+    expect(approvalsReviewerOrNull(value)).toBe(expected);
   });
 
   it("builds collaboration mode payloads with built-in instructions", () => {
@@ -54,18 +56,14 @@ describe("app-server thread settings", () => {
     });
   });
 
-  it("accepts non-empty service tier ids from config and app-server reports", () => {
-    expect(parseServiceTier("fast")).toBe("fast");
-    expect(parseServiceTier("standard")).toBe("standard");
-    expect(parseServiceTier("priority")).toBe("priority");
-    expect(parseServiceTier("default")).toBe("default");
-    expect(parseServiceTier("flex")).toBe("flex");
-    expect(parseServiceTier("auto")).toBe("auto");
-    expect(parseServiceTier("catalog-tier")).toBe("catalog-tier");
-  });
+  it.each(["fast", "standard", "priority", "default", "flex", "auto", "catalog-tier"])(
+    "accepts non-empty service tier id %s from config and app-server reports",
+    (serviceTier) => {
+      expect(parseServiceTier(serviceTier)).toBe(serviceTier);
+    },
+  );
 
-  it("ignores absent service tier values", () => {
-    expect(parseServiceTier("")).toBeNull();
-    expect(parseServiceTier(null)).toBeNull();
+  it.each(["", null])("ignores absent service tier value %s", (serviceTier) => {
+    expect(parseServiceTier(serviceTier)).toBeNull();
   });
 });

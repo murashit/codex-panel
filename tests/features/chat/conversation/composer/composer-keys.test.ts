@@ -12,20 +12,26 @@ const baseEvent: ComposerSendKeyEvent = {
 };
 
 describe("composer send keys", () => {
-  it("sends on plain Enter in Enter mode", () => {
-    expect(isComposerSendKey(baseEvent, "enter")).toBe(true);
-    expect(isComposerSendKey({ ...baseEvent, shiftKey: true }, "enter")).toBe(false);
-    expect(isComposerSendKey({ ...baseEvent, metaKey: true }, "enter")).toBe(false);
+  it.each([
+    { name: "plain Enter", event: baseEvent, shortcut: "enter", expected: true },
+    { name: "Shift+Enter", event: { ...baseEvent, shiftKey: true }, shortcut: "enter", expected: false },
+    { name: "Meta+Enter", event: { ...baseEvent, metaKey: true }, shortcut: "enter", expected: false },
+  ] as const)("checks $name in Enter mode", ({ event, shortcut, expected }) => {
+    expect(isComposerSendKey(event, shortcut)).toBe(expected);
   });
 
-  it("sends on Cmd/Ctrl+Enter in mod-enter mode", () => {
-    expect(isComposerSendKey({ ...baseEvent, metaKey: true }, "mod-enter")).toBe(true);
-    expect(isComposerSendKey({ ...baseEvent, ctrlKey: true }, "mod-enter")).toBe(true);
-    expect(isComposerSendKey(baseEvent, "mod-enter")).toBe(false);
+  it.each([
+    { name: "Meta+Enter", event: { ...baseEvent, metaKey: true }, shortcut: "mod-enter", expected: true },
+    { name: "Ctrl+Enter", event: { ...baseEvent, ctrlKey: true }, shortcut: "mod-enter", expected: true },
+    { name: "plain Enter", event: baseEvent, shortcut: "mod-enter", expected: false },
+  ] as const)("checks $name in Cmd/Ctrl+Enter mode", ({ event, shortcut, expected }) => {
+    expect(isComposerSendKey(event, shortcut)).toBe(expected);
   });
 
-  it("does not send during composition", () => {
-    expect(isComposerSendKey({ ...baseEvent, isComposing: true }, "enter")).toBe(false);
-    expect(isComposerSendKey({ ...baseEvent, metaKey: true, isComposing: true }, "mod-enter")).toBe(false);
+  it.each([
+    { name: "Enter mode", event: { ...baseEvent, isComposing: true }, shortcut: "enter" },
+    { name: "Cmd/Ctrl+Enter mode", event: { ...baseEvent, metaKey: true, isComposing: true }, shortcut: "mod-enter" },
+  ] as const)("does not send during composition in $name", ({ event, shortcut }) => {
+    expect(isComposerSendKey(event, shortcut)).toBe(false);
   });
 });

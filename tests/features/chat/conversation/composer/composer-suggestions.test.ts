@@ -112,22 +112,24 @@ describe("composer suggestions", () => {
     },
   ];
 
-  it("parses supported slash commands only", () => {
-    expect(parseSlashCommand("/status")).toEqual({ command: "status", args: "" });
-    expect(parseSlashCommand("/clear")).toEqual({ command: "clear", args: "" });
-    expect(parseSlashCommand("/resume thread-1")).toEqual({ command: "resume", args: "thread-1" });
-    expect(parseSlashCommand("/refer thread-1 続きです")).toEqual({ command: "refer", args: "thread-1 続きです" });
-    expect(parseSlashCommand("/fork")).toEqual({ command: "fork", args: "" });
-    expect(parseSlashCommand("/archive thread-1")).toEqual({ command: "archive", args: "thread-1" });
-    expect(parseSlashCommand("/rename thread-1 New name")).toEqual({ command: "rename", args: "thread-1 New name" });
-    expect(parseSlashCommand("/doctor")).toEqual({ command: "doctor", args: "" });
-    expect(parseSlashCommand("/fast now")).toEqual({ command: "fast", args: "now" });
-    expect(parseSlashCommand("/plan")).toEqual({ command: "plan", args: "" });
-    expect(parseSlashCommand("/plan OK、実装してください")).toEqual({ command: "plan", args: "OK、実装してください" });
-    expect(parseSlashCommand("/model gpt-5.5")).toEqual({ command: "model", args: "gpt-5.5" });
-    expect(parseSlashCommand("/reasoning high")).toEqual({ command: "reasoning", args: "high" });
-    expect(parseSlashCommand("/new")).toBeNull();
-    expect(parseSlashCommand("/unknown")).toBeNull();
+  it.each([
+    { input: "/status", expected: { command: "status", args: "" } },
+    { input: "/clear", expected: { command: "clear", args: "" } },
+    { input: "/resume thread-1", expected: { command: "resume", args: "thread-1" } },
+    { input: "/refer thread-1 続きです", expected: { command: "refer", args: "thread-1 続きです" } },
+    { input: "/fork", expected: { command: "fork", args: "" } },
+    { input: "/archive thread-1", expected: { command: "archive", args: "thread-1" } },
+    { input: "/rename thread-1 New name", expected: { command: "rename", args: "thread-1 New name" } },
+    { input: "/doctor", expected: { command: "doctor", args: "" } },
+    { input: "/fast now", expected: { command: "fast", args: "now" } },
+    { input: "/plan", expected: { command: "plan", args: "" } },
+    { input: "/plan OK、実装してください", expected: { command: "plan", args: "OK、実装してください" } },
+    { input: "/model gpt-5.5", expected: { command: "model", args: "gpt-5.5" } },
+    { input: "/reasoning high", expected: { command: "reasoning", args: "high" } },
+    { input: "/new", expected: null },
+    { input: "/unknown", expected: null },
+  ])("parses slash command input $input", ({ input, expected }) => {
+    expect(parseSlashCommand(input)).toEqual(expected);
   });
 
   it("ranks wikilinks with Obsidian fuzzy search and uses Obsidian linktext", () => {
