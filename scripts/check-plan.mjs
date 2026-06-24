@@ -39,7 +39,6 @@ function nonBiomeLintCommands({ ciMode, namePrefix = "" }) {
       name: `${namePrefix}eslint`,
       command: `eslint src --max-warnings=0${eslintCacheArgs}`,
     },
-    { name: `${namePrefix}css`, command: 'stylelint "src/**/*.css" --max-warnings=0' },
     { name: `${namePrefix}css-usage`, command: "node scripts/lint/check-css-usage.mjs" },
     { name: `${namePrefix}unused`, command: "knip --no-progress" },
   ];

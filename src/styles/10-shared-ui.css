@@ -54,6 +54,14 @@
   color: var(--icon-color);
 }
 
+.codex-panel-ui__icon-button svg,
+.codex-panel-ui__toolbar-action svg,
+.codex-panel-ui__nav-row-action svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  stroke-width: var(--icon-stroke);
+}
+
 .codex-panel-ui__toolbar-action.is-active,
 .codex-panel-ui__toolbar-action.is-active:hover,
 .codex-panel-ui__toolbar-action.is-active:focus-visible,
@@ -214,14 +222,6 @@
   box-shadow: none;
   background: transparent;
   outline: none;
-}
-
-.codex-panel-ui__icon-button svg,
-.codex-panel-ui__toolbar-action svg,
-.codex-panel-ui__nav-row-action svg {
-  width: var(--icon-size);
-  height: var(--icon-size);
-  stroke-width: var(--icon-stroke);
 }
 
 .codex-panel-ui__text-input {

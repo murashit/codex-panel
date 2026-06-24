@@ -556,6 +556,68 @@ runner = new Runner(() => runner.stop());
     ]);
     expect(pluginDiagnostics(biomeLint(["src/plugin-runtime-declared.ts"], cwd, { expectErrors: false }))).toEqual([]);
   });
+
+  it("keeps CSS on design tokens and scoped selectors", async () => {
+    const cwd = await tempBiomeWorkspace(["no-restricted-css-policy.grit"]);
+    await writeFile(
+      path.join(cwd, "src/styles/bad.css"),
+      `
+.codex-panel:has(.codex-panel__item) {
+  color: black;
+  margin-top: 8px;
+}
+
+:where(.codex-panel__item) {
+  font-size: 12px;
+}
+
+#codex-panel-id {
+  font-weight: bold;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/styles/good.css"),
+      `
+.codex-panel__item:where(:hover, :focus-visible) {
+  color: var(--text-normal);
+  margin-top: var(--codex-panel-item-gap);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-normal);
+}
+
+@keyframes codex-panel-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+`.trimStart(),
+    );
+
+    expect(pluginMessages(biomeLint(["src/styles/bad.css"], cwd))).toEqual([
+      "Avoid :has() because it can cause broad selector invalidation.",
+      "Use Obsidian or Codex Panel design tokens instead of hardcoded colors.",
+      "Prefer Obsidian or Codex Panel spacing and size tokens for layout dimensions.",
+      "Do not hide class, id, or attribute selectors inside :where().",
+      "Use Obsidian or Codex Panel typography tokens instead of hardcoded font sizes.",
+      "Avoid ID selectors in Codex Panel CSS.",
+      "Use Obsidian or Codex Panel typography tokens instead of hardcoded font weights.",
+      "Prefix keyframes with codex-panel-.",
+    ]);
+    expect(pluginDiagnostics(biomeLint(["src/styles/good.css"], cwd, { expectErrors: false }))).toEqual([]);
+  });
 });
 
 async function tempBiomeWorkspace(plugins) {
@@ -577,6 +639,7 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/app-server/services"), { recursive: true });
   await mkdir(path.join(cwd, "src/shared"), { recursive: true });
   await mkdir(path.join(cwd, "src/shared/ui"), { recursive: true });
+  await mkdir(path.join(cwd, "src/styles"), { recursive: true });
   await mkdir(path.join(cwd, "tests/app-server"), { recursive: true });
   await writeFile(
     path.join(cwd, "biome.jsonc"),
@@ -584,6 +647,7 @@ async function tempBiomeWorkspace(plugins) {
       $schema: "https://biomejs.dev/schemas/2.5.1/schema.json",
       vcs: { enabled: false },
       plugins: plugins.map((plugin) => path.join(repoRoot, "scripts", "lint", "grit", plugin)),
+      css: { linter: { enabled: true } },
     }),
   );
   return cwd;

@@ -71,6 +71,11 @@
   margin-bottom: 0;
 }
 
+.codex-panel__output,
+.codex-panel-diff-file {
+  margin-top: var(--codex-panel-section-gap);
+}
+
 .codex-panel__detail > .codex-panel__output,
 .codex-panel__detail > .codex-panel-diff-file,
 .codex-panel__detail > .codex-panel__meta-grid,
@@ -155,11 +160,6 @@
 
 .codex-panel__agent-row--more .codex-panel__agent-status {
   color: var(--text-faint);
-}
-
-.codex-panel__output,
-.codex-panel-diff-file {
-  margin-top: var(--codex-panel-section-gap);
 }
 
 .codex-panel__output-title {

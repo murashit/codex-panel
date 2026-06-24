@@ -1,0 +1,57 @@
+engine biome(1.0)
+language css
+
+or {
+  // Keep colors on Obsidian or Codex Panel design tokens.
+  CssDeclarationWithSemicolon() as $decl where {
+    $decl <: r"\s*(?:background(?:-color)?|border(?:-(?:block|inline|top|right|bottom|left))?(?:-color)?|box-shadow|caret-color|color|fill|outline(?:-color)?|stroke|text-shadow): .*?(?:#[0-9a-fA-F]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\(|\b(?:black|white)\b).*",
+    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel design tokens instead of hardcoded colors.")
+  },
+  CssDeclarationWithSemicolon() as $decl where {
+    $decl <: r".*--codex-panel-.*(?:accent|background|border|color|danger|error|faint|muted|ring|success|surface|text|warning).*: .*?(?:#[0-9a-fA-F]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\(|\b(?:black|white)\b).*",
+    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel design tokens instead of hardcoded colors.")
+  },
+  CssDeclarationWithSemicolon() as $decl where {
+    $decl <: r".*\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\(.*",
+    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel design tokens instead of color functions.")
+  },
+  // Keep typography and layout dimensions on shared variables.
+  CssDeclarationWithSemicolon() as $decl where {
+    $decl <: r"\s*font-size: .*?\b\d*\.?\d+(?:px|rem|em|%)\b.*",
+    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel typography tokens instead of hardcoded font sizes.")
+  },
+  CssDeclarationWithSemicolon() as $decl where {
+    $decl <: r"\s*font-weight:\s*(?:[1-9]00|bold|bolder|lighter|normal)\s*;.*",
+    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel typography tokens instead of hardcoded font weights.")
+  },
+  CssDeclarationWithSemicolon() as $decl where {
+    $decl <: r"\s*line-height: .*?(?:\b\d*\.?\d+\b|\b\d*\.?\d+(?:px|rem|em|%)\b).*",
+    register_diagnostic(span=$decl, message="Use Obsidian or Codex Panel typography tokens instead of hardcoded line heights.")
+  },
+  CssDeclarationWithSemicolon() as $decl where {
+    $decl <: r"\s*(?:border(?:-(?:block|inline|top|right|bottom|left))?-width|border-radius|bottom|column-gap|gap|height|inset|inset-(?:block|inline)|left|margin|margin-(?:block|inline|top|right|bottom|left)|max-height|max-width|min-height|min-width|padding|padding-(?:block|inline|top|right|bottom|left)|right|row-gap|top|width): .*?\b\d*\.?\d+(?:px|rem|em)\b.*",
+    register_diagnostic(span=$decl, message="Prefer Obsidian or Codex Panel spacing and size tokens for layout dimensions.")
+  },
+  // Keep selectors local and predictable.
+  CssPseudoClassSelector() as $selector where {
+    $selector <: r".*:has.*",
+    register_diagnostic(span=$selector, message="Avoid :has() because it can cause broad selector invalidation.")
+  },
+  CssPseudoClassSelector() as $selector where {
+    $selector <: r".*:where[(].*(?:[.]|#|\[).*",
+    register_diagnostic(span=$selector, message="Do not hide class, id, or attribute selectors inside :where().")
+  },
+  CssIdSelector() as $selector where { register_diagnostic(span=$selector, message="Avoid ID selectors in Codex Panel CSS.") },
+  CssUniversalSelector() as $selector where {
+    register_diagnostic(span=$selector, message="Avoid universal selectors in Codex Panel CSS.")
+  },
+  CssTypeSelector() as $selector where {
+    not $selector <: r"(?:dd|dt|pre|span|summary|svg|ul)",
+    register_diagnostic(span=$selector, message="Avoid unnecessary type selectors in Codex Panel CSS.")
+  },
+  CssAtRule() as $rule where {
+    $rule <: r"@keyframes ([a-zA-Z0-9_-]+)[\s\S]*"($name),
+    not $name <: r"codex-panel-[a-z0-9-]+",
+    register_diagnostic(span=$rule, message="Prefix keyframes with codex-panel-.")
+  }
+}

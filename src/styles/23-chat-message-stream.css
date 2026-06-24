@@ -129,6 +129,16 @@
   font-weight: var(--codex-panel-secondary-label-weight);
 }
 
+.codex-panel__message-content {
+  min-width: 0;
+  max-width: 100%;
+  font-family: var(--codex-panel-content-font);
+  font-size: var(--codex-panel-content-font-size);
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+}
+
 .codex-panel__message--system .codex-panel__message-content {
   color: var(--text-muted);
   font-family: var(--font-interface);
@@ -220,6 +230,20 @@
   color: var(--codex-panel-color-accent);
 }
 
+.codex-panel__reasoning {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 0 var(--codex-panel-section-gap);
+  padding-left: var(--codex-panel-message-indent);
+  border-left: var(--codex-panel-rail);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+}
+
 .codex-panel__activity-group {
   min-width: 0;
   max-width: 100%;
@@ -250,16 +274,6 @@
 .codex-panel__activity-group > .codex-panel__reasoning {
   margin-top: var(--codex-panel-section-gap);
   margin-bottom: var(--codex-panel-section-gap);
-}
-
-.codex-panel__message-content {
-  min-width: 0;
-  max-width: 100%;
-  font-family: var(--codex-panel-content-font);
-  font-size: var(--codex-panel-content-font-size);
-  overflow-wrap: anywhere;
-  cursor: text;
-  user-select: text;
 }
 
 .codex-panel__message-content.markdown-rendered {
@@ -394,20 +408,6 @@
 
 .codex-panel__edited-files-separator {
   color: var(--text-faint);
-}
-
-.codex-panel__reasoning {
-  min-width: 0;
-  max-width: 100%;
-  margin: 0 0 var(--codex-panel-section-gap);
-  padding-left: var(--codex-panel-message-indent);
-  border-left: var(--codex-panel-rail);
-  color: var(--text-muted);
-  font-size: var(--font-ui-small);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  cursor: text;
-  user-select: text;
 }
 
 .codex-panel__reasoning-role {

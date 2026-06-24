@@ -64,9 +64,20 @@
   content: "";
 }
 
-.codex-panel-threads__row-main:hover .codex-panel-threads__row-title,
-.codex-panel-threads__row-main:focus .codex-panel-threads__row-title {
-  color: var(--nav-item-color-hover, var(--text-normal));
+.codex-panel-threads__row-main,
+.codex-panel-threads__row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-panel-threads__row-title {
+  display: block;
+  color: var(--codex-panel-threads-row-title-color);
+  font-size: var(--font-ui-small);
+  font-weight: var(--nav-item-weight, var(--font-normal));
+  line-height: var(--line-height-tight);
 }
 
 .codex-panel-threads__row--selected {
@@ -76,6 +87,11 @@
 .codex-panel-threads__row--selected .codex-panel-threads__row-title {
   color: var(--nav-item-color-active, var(--text-normal));
   font-weight: var(--nav-item-weight-active, var(--font-medium));
+}
+
+.codex-panel-threads__row-main:hover .codex-panel-threads__row-title,
+.codex-panel-threads__row-main:focus .codex-panel-threads__row-title {
+  color: var(--nav-item-color-hover, var(--text-normal));
 }
 
 .codex-panel-threads__row--pending {
@@ -102,22 +118,6 @@
 
 .codex-panel-threads__row--renaming .codex-panel-ui__nav-row-action {
   padding: var(--codex-panel-panel-gap);
-}
-
-.codex-panel-threads__row-main,
-.codex-panel-threads__row-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.codex-panel-threads__row-title {
-  display: block;
-  color: var(--codex-panel-threads-row-title-color);
-  font-size: var(--font-ui-small);
-  font-weight: var(--nav-item-weight, var(--font-normal));
-  line-height: var(--line-height-tight);
 }
 
 .codex-panel-threads__actions {

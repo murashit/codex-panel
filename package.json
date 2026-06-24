@@ -42,8 +42,6 @@
     "jsdom": "^29.1.1",
     "knip": "^6.16.1",
     "obsidian": "~1.12.3",
-    "stylelint": "^17.13.0",
-    "stylelint-config-standard": "^40.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.0",
     "vitest": "^4.1.8"

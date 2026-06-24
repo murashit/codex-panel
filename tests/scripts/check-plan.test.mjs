@@ -15,7 +15,6 @@ describe("check command plan", () => {
             command:
               "eslint src --max-warnings=0 --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache",
           },
-          { name: "lint:css", command: 'stylelint "src/**/*.css" --max-warnings=0' },
           { name: "lint:css-usage", command: "node scripts/lint/check-css-usage.mjs" },
           { name: "lint:unused", command: "knip --no-progress" },
         ],

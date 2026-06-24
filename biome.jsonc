@@ -25,7 +25,10 @@
     "./scripts/lint/grit/no-non-reexport-index.grit",
     "./scripts/lint/grit/no-self-referential-initializer-callback.grit",
     "./scripts/lint/grit/no-unsafe-iterator-value.grit",
-    "./scripts/lint/grit/no-uncontrolled-preact-form-state.grit"
+    "./scripts/lint/grit/no-uncontrolled-preact-form-state.grit",
+
+    // CSS source policy.
+    "./scripts/lint/grit/no-restricted-css-policy.grit"
   ],
   "files": {
     "includes": [
@@ -72,17 +75,18 @@
         "noFloatingPromises": "error",
         "noMisusedPromises": "error",
         "noUnsafePlusOperands": "error",
-        "useExhaustiveSwitchCases": "error"
+        "useExhaustiveSwitchCases": "error",
+        "noExcessiveSelectorClasses": {
+          "level": "error",
+          "options": {
+            "maxClasses": 4
+          }
+        }
       },
       "suspicious": {
         "noArrayIndexKey": "error",
         "noImportCycles": "error"
       }
-    }
-  },
-  "css": {
-    "linter": {
-      "enabled": false
     }
   }
 }
