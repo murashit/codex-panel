@@ -40,6 +40,8 @@ interface WorkspacePanelReconcileOptions {
   loadRestoredLeaves?: boolean;
 }
 
+const ignoreWorkspacePanelLoadError = (): void => undefined;
+
 export interface OpenCodexPanelSnapshot extends ChatPanelSnapshot {
   lastFocused: boolean;
 }
@@ -163,9 +165,7 @@ export class WorkspacePanelCoordinator {
     const leaves = this.panelLeaves();
     const foregroundLeaf = this.foregroundPanelLeaf(leaves, hintLeaf);
     if (foregroundLeaf) {
-      void this.hydratePanelLeaf(foregroundLeaf).catch((error: unknown) => {
-        console.warn("Codex Panel could not hydrate a foreground panel leaf.", error);
-      });
+      void this.hydratePanelLeaf(foregroundLeaf).catch(ignoreWorkspacePanelLoadError);
     }
 
     if (options.loadRestoredLeaves) {
@@ -393,8 +393,8 @@ export class WorkspacePanelCoordinator {
     if (this.workspacePanelReconcileSchedule.kind === "cancelled") return;
     try {
       await leaf.loadIfDeferred();
-    } catch (error) {
-      console.warn("Codex Panel could not load a restored panel leaf.", error);
+    } catch {
+      ignoreWorkspacePanelLoadError();
     }
   }
 
