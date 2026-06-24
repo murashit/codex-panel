@@ -9,9 +9,9 @@ export async function withShortLivedAppServerClient<T>(
 ): Promise<T> {
   const client = new AppServerClient(codexPath, cwd, {
     onNotification: () => undefined,
-    onServerRequest: (request) => {
-      client.rejectServerRequest(
-        request.id,
+    onServerRequest: (request, responder) => {
+      void request;
+      responder.reject(
         -32601,
         options.serverRequests?.kind === "reject"
           ? options.serverRequests.message

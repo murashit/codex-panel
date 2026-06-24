@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import manifest from "../../manifest.json";
-import type { AppServerStartStructuredTurnOptions, AppServerStartTurnOptions } from "../../src/app-server/connection/client";
+import type {
+  AppServerServerRequestResponder,
+  AppServerStartStructuredTurnOptions,
+  AppServerStartTurnOptions,
+} from "../../src/app-server/connection/client";
 import { AppServerClient } from "../../src/app-server/connection/client";
 import type { RpcOutboundMessage } from "../../src/app-server/connection/rpc-messages";
 import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
@@ -108,12 +112,16 @@ describe("AppServerClient", () => {
     const getTransport = () => transport;
     const notifications: string[] = [];
     const serverRequests: ServerRequest[] = [];
+    const serverRequestResponders: AppServerServerRequestResponder[] = [];
     const client = new AppServerClient(
       "/bin/codex",
       "/vault",
       {
         onNotification: (notification) => notifications.push(notification.method),
-        onServerRequest: (request) => serverRequests.push(request),
+        onServerRequest: (request, responder) => {
+          serverRequests.push(request);
+          serverRequestResponders.push(responder);
+        },
         onLog: () => undefined,
         onExit: () => undefined,
       },
@@ -164,6 +172,8 @@ describe("AppServerClient", () => {
       },
     });
     expect(serverRequests[0]?.method).toBe("item/commandExecution/requestApproval");
+    serverRequestResponders[0]?.reject(-32601, "Request not handled.");
+    expect(latestSent(getTransport())).toEqual({ id: 99, error: { code: -32601, message: "Request not handled." } });
   });
 
   it("injects raw items into a thread", async () => {

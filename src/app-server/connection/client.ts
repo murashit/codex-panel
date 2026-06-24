@@ -62,9 +62,14 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 
 export interface AppServerClientHandlers {
   onNotification: (notification: ServerNotification) => void;
-  onServerRequest: (request: ServerRequest) => void;
+  onServerRequest: (request: ServerRequest, responder: AppServerServerRequestResponder) => void;
   onLog: (message: string) => void;
   onExit: (code: number | null, signal: NodeJS.Signals | null) => void;
+}
+
+export interface AppServerServerRequestResponder {
+  respond(result: unknown): void;
+  reject(code: number, message: string): void;
 }
 
 export type AppServerTransportFactory = (handlers: AppServerTransportHandlers) => AppServerTransport;
@@ -197,7 +202,16 @@ export class AppServerClient {
         this.send(message);
       },
       onNotification: this.handlers.onNotification,
-      onServerRequest: this.handlers.onServerRequest,
+      onServerRequest: (request) => {
+        this.handlers.onServerRequest(request, {
+          respond: (result) => {
+            this.respondToServerRequest(request.id, result);
+          },
+          reject: (code, message) => {
+            this.rejectServerRequest(request.id, code, message);
+          },
+        });
+      },
       onLog: this.handlers.onLog,
     });
   }

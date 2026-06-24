@@ -285,7 +285,12 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   }
 
   request(request: ServerRequest): void {
-    this.handlers.onServerRequest(request);
+    this.handlers.onServerRequest(request, {
+      respond: () => undefined,
+      reject: (code, message) => {
+        this.rejectServerRequest(request.id, code, message);
+      },
+    });
   }
 }
 

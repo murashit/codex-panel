@@ -6,7 +6,7 @@ import {
   type AppServerStartStructuredTurnOptions,
 } from "../connection/client";
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
-import type { RequestId, ServerNotification } from "../connection/rpc-messages";
+import type { ServerNotification } from "../connection/rpc-messages";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
 import { abortableOperation, throwIfSignalAborted } from "./abortable-operation";
 
@@ -31,7 +31,6 @@ const DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS: EphemeralStructuredTurnTimers = 
 export interface EphemeralStructuredTurnClient {
   connect(): Promise<unknown>;
   disconnect(): void;
-  rejectServerRequest(requestId: RequestId, code: number, message: string): void;
   startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<{ thread: { id: string } }>;
   startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<{ turn: TurnRecord }>;
 }
@@ -103,8 +102,9 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     onNotification: (notification) => {
       handleNotification(notification);
     },
-    onServerRequest: (request) => {
-      client.rejectServerRequest(request.id, -32601, options.serverRequests.message);
+    onServerRequest: (request, responder) => {
+      void request;
+      responder.reject(-32601, options.serverRequests.message);
     },
     onLog: () => undefined,
     onExit: () => {
