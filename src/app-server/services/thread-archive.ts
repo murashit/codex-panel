@@ -1,13 +1,13 @@
-import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
+import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { AppServerClient } from "../connection/client";
 import { readThreadForArchiveExport } from "../threads";
-import { exportArchivedThreadMarkdown } from "./thread-archive-markdown";
+import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "./thread-archive-markdown";
 
 export interface ArchiveThreadOptions {
   settings: ArchiveExportSettings;
   vaultPath: string;
   vaultConfigDir: string;
-  archiveAdapter: () => ArchiveExportAdapter;
+  archiveDestination: () => ArchiveExportDestination;
   saveMarkdown: boolean;
 }
 
@@ -25,7 +25,7 @@ export async function archiveThreadOnAppServer(
     const result = await exportArchivedThreadMarkdown(
       await readThreadForArchiveExport(client, threadId),
       { ...options.settings, vaultPath: options.vaultPath, vaultConfigDir: options.vaultConfigDir },
-      options.archiveAdapter(),
+      options.archiveDestination(),
     );
     exportedPath = result.path;
   }

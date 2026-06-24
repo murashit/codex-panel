@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { exportArchivedThreadMarkdown } from "../../src/app-server/services/thread-archive-markdown";
-import type { ArchiveExportAdapter, ArchiveThreadInput } from "../../src/domain/threads/archive-markdown";
+import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "../../src/app-server/services/thread-archive-markdown";
+import type { ArchiveThreadInput } from "../../src/domain/threads/archive-markdown";
 import type { ThreadTranscriptEntry } from "../../src/domain/threads/transcript";
 
 describe("thread archive markdown export service", () => {
   it("expands templates, sanitizes paths, creates folders, and preserves existing files", async () => {
-    const adapter = new MemoryAdapter(["Codex Archives/2026-05-18/My-Thread- abcdef12.md"]);
+    const destination = new MemoryDestination(["Codex Archives/2026-05-18/My-Thread- abcdef12.md"]);
 
     const result = await exportArchivedThreadMarkdown(
       thread({ id: "abcdef12-9999", name: "My/Thread?" }),
@@ -15,29 +15,52 @@ describe("thread archive markdown export service", () => {
         archiveExportFilenameTemplate: "{{title}} {{shortId}}",
         archiveExportTags: "codex, archive",
       },
-      adapter,
+      destination,
       new Date(2026, 4, 18, 9, 8, 7),
     );
 
     expect(result.path).toBe("Codex Archives/2026-05-18/My-Thread- abcdef12 2.md");
-    expect(adapter.folders).toContain("Codex Archives");
-    expect(adapter.folders).toContain("Codex Archives/2026-05-18");
-    expect(adapter.files.get(result.path)).toContain('thread_id: "abcdef12-9999"');
-    expect(adapter.files.get(result.path)).toContain('tags: ["codex", "archive"]');
+    expect(destination.folders).toContain("Codex Archives");
+    expect(destination.folders).toContain("Codex Archives/2026-05-18");
+    expect(destination.files.get(result.path)).toContain('thread_id: "abcdef12-9999"');
+    expect(destination.files.get(result.path)).toContain('tags: ["codex", "archive"]');
   });
 
   it("rejects vault-external or empty export paths", async () => {
-    const adapter = new MemoryAdapter();
+    const destination = new MemoryDestination();
     await expect(
       exportArchivedThreadMarkdown(
         thread(),
         { archiveExportFolderTemplate: "../outside", archiveExportFilenameTemplate: "{{title}}.md" },
-        adapter,
+        destination,
       ),
     ).rejects.toThrow("relative path segments");
     await expect(
-      exportArchivedThreadMarkdown(thread(), { archiveExportFolderTemplate: "Exports", archiveExportFilenameTemplate: "   " }, adapter),
+      exportArchivedThreadMarkdown(thread(), { archiveExportFolderTemplate: "Exports", archiveExportFilenameTemplate: "   " }, destination),
     ).rejects.toThrow("empty filename");
+  });
+
+  it("normalizes generated vault paths through the archive destination", async () => {
+    const destination = new MemoryDestination([], (path) =>
+      path
+        .replace(/\u00a0/g, " ")
+        .replace(/\/+/g, "/")
+        .normalize(),
+    );
+
+    const result = await exportArchivedThreadMarkdown(
+      thread({ name: "Thread\u00a0Cafe\u0301" }),
+      {
+        archiveExportFolderTemplate: "Codex\u00a0Archives/Cafe\u0301",
+        archiveExportFilenameTemplate: "{{title}}",
+      },
+      destination,
+      new Date(2026, 4, 18, 9, 8, 7),
+    );
+
+    expect(result.path).toBe("Codex Archives/Café/Thread Café.md");
+    expect(destination.folders).toContain("Codex Archives/Café");
+    expect(destination.files.has(result.path)).toBe(true);
   });
 });
 
@@ -58,11 +81,13 @@ function transcriptEntry(kind: ThreadTranscriptEntry["kind"], text: string, time
   return { kind, text, timestamp };
 }
 
-class MemoryAdapter implements ArchiveExportAdapter {
+class MemoryDestination implements ArchiveExportDestination {
   readonly files = new Map<string, string>();
   readonly folders = new Set<string>();
+  readonly normalizePath: (path: string) => string;
 
-  constructor(existingFiles: string[] = []) {
+  constructor(existingFiles: string[] = [], normalizePath?: (path: string) => string) {
+    this.normalizePath = normalizePath ?? ((path) => path);
     for (const file of existingFiles) {
       this.files.set(file, "");
       const parts = file.split("/");
@@ -76,11 +101,11 @@ class MemoryAdapter implements ArchiveExportAdapter {
     return this.files.has(path) || this.folders.has(path);
   }
 
-  async mkdir(path: string): Promise<void> {
+  async createFolder(path: string): Promise<void> {
     this.folders.add(path);
   }
 
-  async write(path: string, data: string): Promise<void> {
+  async createMarkdownFile(path: string, data: string): Promise<void> {
     this.files.set(path, data);
   }
 }

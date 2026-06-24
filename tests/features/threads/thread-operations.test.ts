@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../src/app-server/connection/client";
 import type { ArchiveThreadResult } from "../../../src/app-server/services/thread-archive";
-import type { ArchiveExportAdapter } from "../../../src/domain/threads/archive-markdown";
+import type { ArchiveExportDestination } from "../../../src/app-server/services/thread-archive-markdown";
 import { createThreadOperations, type ThreadOperationsHost } from "../../../src/features/threads/thread-operations";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 
@@ -116,7 +116,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
       vaultPath: "/vault",
       vaultConfigDir: "vault-config",
     },
-    archiveAdapter: () => archiveAdapterMock(),
+    archiveDestination: () => archiveDestinationMock(),
     catalog,
     notice,
   };
@@ -132,10 +132,11 @@ function clientMock() {
   };
 }
 
-function archiveAdapterMock(): ArchiveExportAdapter {
+function archiveDestinationMock(): ArchiveExportDestination {
   return {
+    normalizePath: (path) => path,
     exists: vi.fn().mockResolvedValue(false),
-    mkdir: vi.fn().mockResolvedValue(undefined),
-    write: vi.fn().mockResolvedValue(undefined),
+    createFolder: vi.fn().mockResolvedValue(undefined),
+    createMarkdownFile: vi.fn().mockResolvedValue(undefined),
   };
 }

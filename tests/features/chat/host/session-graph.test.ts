@@ -266,7 +266,7 @@ describe("createChatPanelSessionGraph actions", () => {
         viewId: "codex-test-view",
         registerEvent: vi.fn(),
         registerPointerDown: vi.fn(),
-        archiveAdapter: vi.fn(),
+        archiveDestination: vi.fn(),
         requestWorkspaceLayoutSave: vi.fn(),
         ...overrides.obsidian,
       },

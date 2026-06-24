@@ -26,12 +26,6 @@ export interface ArchiveExportSettings {
   vaultConfigDir?: string;
 }
 
-export interface ArchiveExportAdapter {
-  exists(path: string): Promise<boolean>;
-  mkdir(path: string): Promise<void>;
-  write(path: string, data: string): Promise<void>;
-}
-
 export interface ArchiveThreadInput extends Thread {
   transcriptEntries: readonly ThreadTranscriptEntry[];
 }

@@ -1,9 +1,9 @@
 import type { App, Component, EventRef } from "obsidian";
 
+import type { ArchiveExportDestination } from "../../../app-server/services/thread-archive-markdown";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { ObservedDataListener } from "../../../domain/observed-data";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
-import type { ArchiveExportAdapter } from "../../../domain/threads/archive-markdown";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../../workspace/thread-catalog";
 import type { ChatTurnDiffViewState } from "../domain/turn-diff";
@@ -47,7 +47,7 @@ export interface ChatPanelEnvironment {
     viewId: string;
     registerEvent: (eventRef: EventRef) => void;
     registerPointerDown: (handler: (event: PointerEvent) => void) => void;
-    archiveAdapter: () => ArchiveExportAdapter;
+    archiveDestination: () => ArchiveExportDestination;
     requestWorkspaceLayoutSave: () => void;
   };
   plugin: CodexChatHost;

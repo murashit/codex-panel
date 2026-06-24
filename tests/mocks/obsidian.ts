@@ -86,6 +86,14 @@ export function parseLinktext(linktext: string): { path: string; subpath: string
     : { path: linktext.slice(0, subpathStart), subpath: linktext.slice(subpathStart) };
 }
 
+export function normalizePath(path: string): string {
+  return path
+    .replace(/\u00a0/g, " ")
+    .replace(/[\\/]+/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .normalize();
+}
+
 export class Modal {
   readonly contentEl: HTMLElement;
 

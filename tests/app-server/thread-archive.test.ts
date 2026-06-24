@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import { archiveThreadOnAppServer } from "../../src/app-server/services/thread-archive";
-import type { ArchiveExportAdapter } from "../../src/domain/threads/archive-markdown";
+import type { ArchiveExportDestination } from "../../src/app-server/services/thread-archive-markdown";
 import { DEFAULT_SETTINGS } from "../../src/settings/model";
 
 describe("thread archive operation", () => {
   it("exports markdown before archiving when requested", async () => {
     const client = fakeClient();
-    const adapter = archiveAdapter();
+    const destination = archiveDestination();
 
     const result = await archiveThreadOnAppServer(client, "thread", {
       settings: {
@@ -19,36 +19,36 @@ describe("thread archive operation", () => {
       },
       vaultPath: "/vault",
       vaultConfigDir: "vault-config",
-      archiveAdapter: () => adapter,
+      archiveDestination: () => destination,
       saveMarkdown: true,
     });
 
     expect(client.readThread).toHaveBeenCalledWith("thread", true);
-    expect(adapter.write).toHaveBeenCalledWith(
+    expect(destination.createMarkdownFile).toHaveBeenCalledWith(
       "Archive/Archived Thread abcdef12.md",
       expect.stringContaining('thread_id: "abcdef12-9999"'),
     );
     expect(client.archiveThread).toHaveBeenCalledWith("thread");
     expect(result).toEqual({ exportedPath: "Archive/Archived Thread abcdef12.md" });
-    expect(callOrder(adapter.write)).toBeLessThan(callOrder(client.archiveThread));
+    expect(callOrder(destination.createMarkdownFile)).toBeLessThan(callOrder(client.archiveThread));
   });
 
   it("archives without reading transcript history when markdown export is disabled", async () => {
     const client = fakeClient();
-    const archiveAdapterFactory = vi.fn(() => archiveAdapter());
+    const archiveDestinationFactory = vi.fn(() => archiveDestination());
 
     await expect(
       archiveThreadOnAppServer(client, "thread", {
         settings: DEFAULT_SETTINGS,
         vaultPath: "/vault",
         vaultConfigDir: "vault-config",
-        archiveAdapter: archiveAdapterFactory,
+        archiveDestination: archiveDestinationFactory,
         saveMarkdown: false,
       }),
     ).resolves.toEqual({ exportedPath: null });
 
     expect(client.readThread).not.toHaveBeenCalled();
-    expect(archiveAdapterFactory).not.toHaveBeenCalled();
+    expect(archiveDestinationFactory).not.toHaveBeenCalled();
     expect(client.archiveThread).toHaveBeenCalledWith("thread");
   });
 });
@@ -66,15 +66,16 @@ function fakeClient(): AppServerClient & {
   };
 }
 
-function archiveAdapter(): ArchiveExportAdapter & {
-  exists: ReturnType<typeof vi.fn<ArchiveExportAdapter["exists"]>>;
-  mkdir: ReturnType<typeof vi.fn<ArchiveExportAdapter["mkdir"]>>;
-  write: ReturnType<typeof vi.fn<ArchiveExportAdapter["write"]>>;
+function archiveDestination(): ArchiveExportDestination & {
+  exists: ReturnType<typeof vi.fn<ArchiveExportDestination["exists"]>>;
+  createFolder: ReturnType<typeof vi.fn<ArchiveExportDestination["createFolder"]>>;
+  createMarkdownFile: ReturnType<typeof vi.fn<ArchiveExportDestination["createMarkdownFile"]>>;
 } {
   return {
-    exists: vi.fn<ArchiveExportAdapter["exists"]>().mockResolvedValue(false),
-    mkdir: vi.fn<ArchiveExportAdapter["mkdir"]>().mockResolvedValue(undefined),
-    write: vi.fn<ArchiveExportAdapter["write"]>().mockResolvedValue(undefined),
+    normalizePath: (path) => path,
+    exists: vi.fn<ArchiveExportDestination["exists"]>().mockResolvedValue(false),
+    createFolder: vi.fn<ArchiveExportDestination["createFolder"]>().mockResolvedValue(undefined),
+    createMarkdownFile: vi.fn<ArchiveExportDestination["createMarkdownFile"]>().mockResolvedValue(undefined),
   };
 }
 

@@ -1,5 +1,4 @@
 import {
-  type ArchiveExportAdapter,
   type ArchiveExportSettings,
   type ArchiveThreadInput,
   archivedThreadMarkdown,
@@ -9,6 +8,13 @@ import { shortThreadId } from "../../shared/id/thread-id";
 
 export interface ArchiveExportResult {
   path: string;
+}
+
+export interface ArchiveExportDestination {
+  normalizePath(path: string): string;
+  exists(path: string): Promise<boolean>;
+  createFolder(path: string): Promise<void>;
+  createMarkdownFile(path: string, data: string): Promise<void>;
 }
 
 interface TemplateContext {
@@ -22,16 +28,17 @@ interface TemplateContext {
 export async function exportArchivedThreadMarkdown(
   thread: ArchiveThreadInput,
   settings: ArchiveExportSettings,
-  adapter: ArchiveExportAdapter,
+  destination: ArchiveExportDestination,
   now = new Date(),
 ): Promise<ArchiveExportResult> {
   const context = templateContext(thread, now);
-  const folder = folderPathFromTemplate(settings.archiveExportFolderTemplate, context);
-  const filename = filenameFromTemplate(settings.archiveExportFilenameTemplate, context);
-  await ensureFolder(adapter, folder);
+  const normalizePath = destination.normalizePath;
+  const folder = folderPathFromTemplate(settings.archiveExportFolderTemplate, context, normalizePath);
+  const filename = filenameFromTemplate(settings.archiveExportFilenameTemplate, context, normalizePath);
+  await ensureFolder(destination, folder);
 
-  const path = await uniqueMarkdownPath(adapter, folder, filename);
-  await adapter.write(path, archivedThreadMarkdown(thread, now, settings));
+  const path = await uniqueMarkdownPath(destination, folder, filename, normalizePath);
+  await destination.createMarkdownFile(path, archivedThreadMarkdown(thread, now, settings));
   return { path };
 }
 
@@ -50,7 +57,7 @@ function expandTemplate(template: string, context: TemplateContext): string {
   return template.replace(/{{\s*(date|time|title|id|shortId)\s*}}/g, (_match, key: keyof TemplateContext) => context[key]);
 }
 
-function folderPathFromTemplate(template: string, context: TemplateContext): string {
+function folderPathFromTemplate(template: string, context: TemplateContext, normalizePath: (path: string) => string): string {
   const expanded = expandTemplate(template, context).trim().replaceAll("\\", "/");
   if (!expanded) throw new Error("Archive export folder template produced an empty path.");
   if (expanded.startsWith("/") || /^[A-Za-z]:\//.test(expanded)) {
@@ -65,38 +72,48 @@ function folderPathFromTemplate(template: string, context: TemplateContext): str
   if (segments.some((segment) => segment === "." || segment === "..")) {
     throw new Error("Archive export folder cannot contain relative path segments.");
   }
-  return segments.map(sanitizePathSegment).join("/");
+  const folder = normalizePath(segments.map(sanitizePathSegment).join("/"));
+  if (!folder) throw new Error("Archive export folder template produced an empty path.");
+  if (folder.split("/").some((segment) => segment === "." || segment === "..")) {
+    throw new Error("Archive export folder cannot contain relative path segments.");
+  }
+  return folder;
 }
 
-function filenameFromTemplate(template: string, context: TemplateContext): string {
+function filenameFromTemplate(template: string, context: TemplateContext, normalizePath: (path: string) => string): string {
   const expanded = expandTemplate(template, context)
     .trim()
     .replace(/[\\/]+/g, "-");
-  const filename = sanitizePathSegment(expanded);
+  const filename = normalizePath(sanitizePathSegment(expanded));
   if (!filename || filename === "." || filename === "..") {
     throw new Error("Archive export filename template produced an empty filename.");
   }
   return filename.toLowerCase().endsWith(".md") ? filename : `${filename}.md`;
 }
 
-async function ensureFolder(adapter: ArchiveExportAdapter, folder: string): Promise<void> {
+async function ensureFolder(destination: ArchiveExportDestination, folder: string): Promise<void> {
   const segments = folder.split("/");
   for (let index = 0; index < segments.length; index += 1) {
     const path = segments.slice(0, index + 1).join("/");
-    if (!(await adapter.exists(path))) {
-      await adapter.mkdir(path);
+    if (!(await destination.exists(path))) {
+      await destination.createFolder(path);
     }
   }
 }
 
-async function uniqueMarkdownPath(adapter: ArchiveExportAdapter, folder: string, filename: string): Promise<string> {
+async function uniqueMarkdownPath(
+  destination: ArchiveExportDestination,
+  folder: string,
+  filename: string,
+  normalizePath: (path: string) => string,
+): Promise<string> {
   const dotIndex = filename.toLowerCase().endsWith(".md") ? filename.length - 3 : filename.length;
   const stem = filename.slice(0, dotIndex);
   const extension = filename.slice(dotIndex);
-  let candidate = `${folder}/${filename}`;
+  let candidate = normalizePath(`${folder}/${filename}`);
   let suffix = 2;
-  while (await adapter.exists(candidate)) {
-    candidate = `${folder}/${stem} ${String(suffix)}${extension}`;
+  while (await destination.exists(candidate)) {
+    candidate = normalizePath(`${folder}/${stem} ${String(suffix)}${extension}`);
     suffix += 1;
   }
   return candidate;

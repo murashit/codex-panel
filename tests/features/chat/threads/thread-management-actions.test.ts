@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import { archiveThreadOnAppServer } from "../../../../src/app-server/services/thread-archive";
-import type { ArchiveExportAdapter } from "../../../../src/domain/threads/archive-markdown";
+import type { ArchiveExportDestination } from "../../../../src/app-server/services/thread-archive-markdown";
 import { normalizeExplicitThreadName } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import {
@@ -17,10 +17,10 @@ import { deferred, waitForAsyncWork } from "../../../support/async";
 import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../support/message-stream";
 import { chatStateFixture } from "../support/state";
 
-type MockArchiveExportAdapter = ArchiveExportAdapter & {
-  exists: ReturnType<typeof vi.fn<ArchiveExportAdapter["exists"]>>;
-  mkdir: ReturnType<typeof vi.fn<ArchiveExportAdapter["mkdir"]>>;
-  write: ReturnType<typeof vi.fn<ArchiveExportAdapter["write"]>>;
+type MockArchiveExportDestination = ArchiveExportDestination & {
+  exists: ReturnType<typeof vi.fn<ArchiveExportDestination["exists"]>>;
+  createFolder: ReturnType<typeof vi.fn<ArchiveExportDestination["createFolder"]>>;
+  createMarkdownFile: ReturnType<typeof vi.fn<ArchiveExportDestination["createMarkdownFile"]>>;
 };
 
 describe("thread management actions", () => {
@@ -108,12 +108,12 @@ describe("thread management actions", () => {
 
   it("saves archive markdown before archiving and notifying shared surfaces", async () => {
     const client = clientMock();
-    const adapter = archiveAdapterMock();
+    const destination = archiveDestinationMock();
     client.readThread.mockResolvedValue({ thread: archivedThread() });
     const host = hostMock({
       client,
       items: [],
-      archiveAdapter: adapter,
+      archiveDestination: destination,
       settings: {
         archiveExportEnabled: true,
         archiveExportFolderTemplate: "Archive",
@@ -126,26 +126,26 @@ describe("thread management actions", () => {
 
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(client.readThread).toHaveBeenCalledWith("source", true);
-    expect(adapter.write).toHaveBeenCalledWith(
+    expect(destination.createMarkdownFile).toHaveBeenCalledWith(
       "Archive/Archived Thread abcdef12.md",
       expect.stringContaining('thread_id: "abcdef12-9999"'),
     );
     expect(client.archiveThread).toHaveBeenCalledWith("source");
     expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
     expect(host.showNotice).toHaveBeenCalledWith("Saved archived thread to Archive/Archived Thread abcdef12.md.");
-    expect(callOrder(adapter.write)).toBeLessThan(callOrder(client.archiveThread));
+    expect(callOrder(destination.createMarkdownFile)).toBeLessThan(callOrder(client.archiveThread));
     expect(callOrder(host.ensureConnected)).toBeLessThan(callOrder(client.readThread));
     expect(callOrder(client.archiveThread)).toBeLessThan(callOrder(host.notifyThreadArchived));
   });
 
   it("does not archive or notify surfaces when archive markdown export fails", async () => {
     const client = clientMock();
-    const adapter = archiveAdapterMock({ write: vi.fn().mockRejectedValue(new Error("disk full")) });
+    const destination = archiveDestinationMock({ createMarkdownFile: vi.fn().mockRejectedValue(new Error("disk full")) });
     client.readThread.mockResolvedValue({ thread: archivedThread() });
     const host = hostMock({
       client,
       items: [],
-      archiveAdapter: adapter,
+      archiveDestination: destination,
       settings: {
         archiveExportEnabled: true,
         archiveExportFolderTemplate: "Archive",
@@ -182,12 +182,12 @@ describe("thread management actions", () => {
 
   it("saves the source before replacing the panel during fork and archive", async () => {
     const client = clientMock();
-    const adapter = archiveAdapterMock();
+    const destination = archiveDestinationMock();
     client.readThread.mockResolvedValue({ thread: archivedThread() });
     const host = hostMock({
       client,
       items: turnItems(),
-      archiveAdapter: adapter,
+      archiveDestination: destination,
       settings: {
         archiveExportEnabled: true,
         archiveExportFolderTemplate: "Archive",
@@ -200,11 +200,11 @@ describe("thread management actions", () => {
 
     expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
     expect(client.readThread).toHaveBeenCalledWith("source", true);
-    expect(adapter.write).toHaveBeenCalledWith("Archive/Archived Thread abcdef12.md", expect.any(String));
+    expect(destination.createMarkdownFile).toHaveBeenCalledWith("Archive/Archived Thread abcdef12.md", expect.any(String));
     expect(client.archiveThread).toHaveBeenCalledWith("source");
     expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(host.notifyThreadArchived).toHaveBeenCalledWith("source");
-    expect(callOrder(adapter.write)).toBeLessThan(callOrder(client.archiveThread));
+    expect(callOrder(destination.createMarkdownFile)).toBeLessThan(callOrder(client.archiveThread));
     expect(callOrder(client.archiveThread)).toBeLessThan(callOrder(host.notifyThreadArchived));
     expect(callOrder(host.notifyThreadArchived)).toBeLessThan(callOrder(host.openThreadInCurrentPanel));
   });
@@ -503,13 +503,13 @@ function threadManagementActions(host: ThreadManagementActionsHost): ThreadManag
 function hostMock({
   client,
   items,
-  archiveAdapter = archiveAdapterMock(),
+  archiveDestination = archiveDestinationMock(),
   settings = {},
   currentClient,
 }: {
   client: ReturnType<typeof clientMock>;
   items: MessageStreamItem[];
-  archiveAdapter?: ArchiveExportAdapter;
+  archiveDestination?: ArchiveExportDestination;
   settings?: Partial<typeof DEFAULT_SETTINGS>;
   currentClient?: () => AppServerClient | null;
 }) {
@@ -541,7 +541,7 @@ function hostMock({
           settings: { ...DEFAULT_SETTINGS, ...settings },
           vaultPath: "/vault",
           vaultConfigDir: "vault-config",
-          archiveAdapter: () => archiveAdapter,
+          archiveDestination: () => archiveDestination,
           saveMarkdown: options.saveMarkdown ?? settings.archiveExportEnabled ?? DEFAULT_SETTINGS.archiveExportEnabled,
         });
         if (result.exportedPath) showNotice(`Saved archived thread to ${result.exportedPath}.`);
@@ -566,11 +566,12 @@ function hostMock({
   };
 }
 
-function archiveAdapterMock(overrides: Partial<MockArchiveExportAdapter> = {}): MockArchiveExportAdapter {
+function archiveDestinationMock(overrides: Partial<MockArchiveExportDestination> = {}): MockArchiveExportDestination {
   return {
-    exists: vi.fn<ArchiveExportAdapter["exists"]>().mockResolvedValue(false),
-    mkdir: vi.fn<ArchiveExportAdapter["mkdir"]>().mockResolvedValue(undefined),
-    write: vi.fn<ArchiveExportAdapter["write"]>().mockResolvedValue(undefined),
+    normalizePath: (path) => path,
+    exists: vi.fn<ArchiveExportDestination["exists"]>().mockResolvedValue(false),
+    createFolder: vi.fn<ArchiveExportDestination["createFolder"]>().mockResolvedValue(undefined),
+    createMarkdownFile: vi.fn<ArchiveExportDestination["createMarkdownFile"]>().mockResolvedValue(undefined),
     ...overrides,
   };
 }

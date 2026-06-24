@@ -543,7 +543,7 @@ function createSessionThreadOperations(environment: ChatPanelEnvironment, curren
       vaultPath: environment.plugin.settingsRef.vaultPath,
       vaultConfigDir: environment.obsidian.app.vault.configDir,
     },
-    archiveAdapter: environment.obsidian.archiveAdapter,
+    archiveDestination: environment.obsidian.archiveDestination,
     catalog: environment.plugin.threadCatalog,
     notice: (text) => {
       new Notice(text);

@@ -1,6 +1,7 @@
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import { type ArchiveThreadResult, archiveThreadOnAppServer } from "../../app-server/services/thread-archive";
-import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
+import type { ArchiveExportDestination } from "../../app-server/services/thread-archive-markdown";
+import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../domain/threads/model";
 import type { ThreadCatalogEventSink } from "../../workspace/thread-catalog";
 
@@ -12,7 +13,7 @@ export interface ThreadOperationsHost {
     vaultPath: string;
     vaultConfigDir: string;
   };
-  archiveAdapter(): ArchiveExportAdapter;
+  archiveDestination(): ArchiveExportDestination;
   catalog: ThreadCatalogEventSink;
   notice(message: string): void;
 }
@@ -65,7 +66,7 @@ async function archiveThread(
       settings: archiveSettings,
       vaultPath: host.archiveExport.vaultPath,
       vaultConfigDir: host.archiveExport.vaultConfigDir,
-      archiveAdapter: () => host.archiveAdapter(),
+      archiveDestination: () => host.archiveDestination(),
       saveMarkdown: options.saveMarkdown ?? host.archiveExport.enabled(),
     }),
   );

@@ -2,10 +2,11 @@ import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
+import type { ArchiveExportDestination } from "../../app-server/services/thread-archive-markdown";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ObservedDataResult } from "../../domain/observed-data";
 import { observedData, observedInitialError, observedInitialLoading } from "../../domain/observed-data";
-import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
+import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../workspace/thread-catalog";
@@ -51,7 +52,7 @@ export interface CodexThreadsSessionEnvironment {
   root: HTMLElement;
   host: CodexThreadsHost;
   registerPointerDown(handler: (event: PointerEvent) => void): void;
-  archiveAdapter(): ArchiveExportAdapter;
+  archiveDestination(): ArchiveExportDestination;
   vaultConfigDir(): string;
   viewWindow(): Window | null;
 }
@@ -86,7 +87,7 @@ export class CodexThreadsSession {
         vaultPath: this.host.vaultPath,
         vaultConfigDir: this.environment.vaultConfigDir(),
       },
-      archiveAdapter: () => this.environment.archiveAdapter(),
+      archiveDestination: () => this.environment.archiveDestination(),
       catalog: this.host.threadCatalog,
       notice: (message) => {
         new Notice(message);
