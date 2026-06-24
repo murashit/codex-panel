@@ -417,7 +417,7 @@ function ComposerMetaChoicePopover({
     "--codex-panel-composer-meta-popover-left": `${String(Math.round(left))}px`,
   };
   return (
-    <div className={`codex-panel__composer-meta-popover codex-panel__composer-meta-popover--${kind}`} style={style}>
+    <div className="codex-panel__composer-meta-popover" data-codex-panel-composer-meta-kind={kind} style={style}>
       {choices.map((choice) => (
         <ComposerMetaChoice key={choice.label} choice={choice} onClose={onClose} />
       ))}

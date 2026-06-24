@@ -46,7 +46,7 @@ describe("chat panel surface projections", () => {
       h(ChatPanelToolbar, { surface: toolbarSurfaceFixture({ archiveExportEnabled: true }), actions: toolbarActionsFixture() }),
     );
 
-    expect(parent.querySelector(".codex-panel__toolbar-panel--history")).not.toBeNull();
+    expect(parent.querySelector('[data-codex-panel-toolbar-panel="history"]')).not.toBeNull();
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat")?.disabled).toBe(true);
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-row--selected .codex-panel__thread-rename-input")?.value).toBe(
       "Active",

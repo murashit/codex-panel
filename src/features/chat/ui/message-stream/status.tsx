@@ -20,7 +20,7 @@ export function createStatusMessageClassName(className: string, tone?: "warning"
     "codex-panel__message--tool",
     "codex-panel__status-message",
     className,
-    tone ? `codex-panel__status-message--${tone}` : "",
+    tone === "warning" ? "codex-panel__status-message--warning" : "",
   ]
     .filter(Boolean)
     .join(" ");

@@ -149,6 +149,35 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("codex-panel__unused");
   });
 
+  it("reports dynamic CSS prefix exemptions on demand", async () => {
+    const cwd = await cssUsageFixture({
+      "src/styles/10-component.css": ".codex-panel__task-step--completed { display: block; }\n",
+      "src/component.ts": "export const className = `codex-panel__task-step--${status}`;\n",
+    });
+
+    const result = runNodeScript("scripts/lint/check-css-usage.mjs", ["--report-dynamic-prefixes"], cwd);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("Dynamic CSS class prefix exemptions:");
+    expect(result.stdout).toContain("codex-panel__task-step--");
+    expect(result.stdout).toContain("codex-panel__task-step--completed");
+  });
+
+  it("does not let dynamic CSS prefixes hide unconfigured class candidates", async () => {
+    const cwd = await cssUsageFixture({
+      "src/styles/10-component.css": ".codex-panel__task-step--stale { display: block; }\n",
+      "src/component.ts": "export const className = `codex-panel__task-step--${status}`;\n",
+    });
+
+    const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("CSS usage check failed.");
+    expect(result.stderr).toContain("codex-panel__task-step--stale");
+  });
+
   it("fails release prepare before changing version files when release notes already exist", async () => {
     const cwd = await tempWorkspace();
     await mkdir(path.join(cwd, ".github", "release-notes"), { recursive: true });

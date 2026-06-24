@@ -158,7 +158,7 @@ function agentDetailView(item: AgentMessageStreamItem): DetailView {
 function genericToolDetailView(item: ToolCallMessageStreamItem | HookMessageStreamItem, workspaceRoot?: string | null): DetailView {
   return detailViewBase(
     item,
-    `codex-panel__detail-item codex-panel__detail-item--${item.kind}`,
+    detailItemClassName(item.kind),
     item.toolName ?? item.kind,
     messageDetailKey(item.id, "details"),
     [...genericToolDetails(item), ...outputSection(item.kind === "hook" ? "Hook output" : "Output", item.output)],
@@ -187,7 +187,7 @@ function approvalDetailView(item: ApprovalResultMessageStreamItem): DetailView {
 function genericDetailView(item: MessageStreamItem, workspaceRoot?: string | null): DetailView {
   return detailViewBase(
     item,
-    `codex-panel__detail-item codex-panel__detail-item--${item.kind}`,
+    detailItemClassName(item.kind),
     detailLabel(item),
     messageDetailKey(item.id, "details"),
     genericDetailSections(item, workspaceRoot),
@@ -197,6 +197,10 @@ function genericDetailView(item: MessageStreamItem, workspaceRoot?: string | nul
 
 function messageDetailKey(itemId: string, suffix: string): string {
   return `${itemId}:${suffix}`;
+}
+
+function detailItemClassName(kind: MessageStreamItem["kind"]): string {
+  return kind === "hook" ? "codex-panel__detail-item codex-panel__detail-item--hook" : "codex-panel__detail-item";
 }
 
 function resultDetailView(

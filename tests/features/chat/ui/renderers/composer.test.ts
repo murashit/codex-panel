@@ -215,7 +215,7 @@ describe("ComposerShell decisions", () => {
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     await waitForAsyncWork(() => {
-      expect(parent.querySelector(".codex-panel__composer-meta-popover--model")?.textContent).toBe("gpt-5.5gpt-5.4");
+      expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')?.textContent).toBe("gpt-5.5gpt-5.4");
     });
     const metaOptions = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-option"));
     expect(metaOptions.map((option) => option.getAttribute("role"))).toEqual([null, null]);
@@ -227,8 +227,8 @@ describe("ComposerShell decisions", () => {
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-effort")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     await waitForAsyncWork(() => {
-      expect(parent.querySelector(".codex-panel__composer-meta-popover--model")).toBeNull();
-      expect(parent.querySelector(".codex-panel__composer-meta-popover--effort")?.textContent).toBe("mediumhigh");
+      expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')).toBeNull();
+      expect(parent.querySelector('[data-codex-panel-composer-meta-kind="effort"]')?.textContent).toBe("mediumhigh");
     });
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-option")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
@@ -239,7 +239,7 @@ describe("ComposerShell decisions", () => {
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     await waitForAsyncWork(() => {
-      expect(parent.querySelector(".codex-panel__composer-meta-popover--model")).not.toBeNull();
+      expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')).not.toBeNull();
     });
     parent
       .querySelectorAll<HTMLElement>(".codex-panel__composer-meta-option")[1]
@@ -251,7 +251,7 @@ describe("ComposerShell decisions", () => {
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     await waitForAsyncWork(() => {
-      expect(parent.querySelector(".codex-panel__composer-meta-popover--model")).not.toBeNull();
+      expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')).not.toBeNull();
     });
     document.dispatchEvent(new Event("mousedown", { bubbles: true }));
     await waitForAsyncWork(() => {

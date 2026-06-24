@@ -128,7 +128,12 @@ function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: To
 function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   if (!model.openPanel) return null;
   return (
-    <div className={`codex-panel__toolbar-panel codex-panel__toolbar-panel--${model.openPanel}`}>
+    <div
+      className={["codex-panel__toolbar-panel", model.openPanel === "status" ? "codex-panel__toolbar-panel--status" : ""]
+        .filter(Boolean)
+        .join(" ")}
+      data-codex-panel-toolbar-panel={model.openPanel}
+    >
       {model.openPanel === "history" ? <ThreadList threads={model.threads} actions={actions} /> : null}
       {model.openPanel === "chat-actions" ? <ChatActionsPanel model={model} actions={actions} /> : null}
       {model.openPanel === "status" ? <StatusPanel model={model} actions={actions} /> : null}
@@ -182,7 +187,7 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
 function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): UiNode {
   if (!rateLimit) return null;
   return (
-    <div className={`codex-panel__limit-panel codex-panel__limit-panel--${rateLimit.level}`}>
+    <div className="codex-panel__limit-panel">
       <div className="codex-panel__limit-panel-title">Usage limit</div>
       <div className="codex-panel__limit-panel-list">
         {rateLimit.rows.map((row) => (
