@@ -47,7 +47,7 @@ function lintCommands({ ciMode, namePrefix = "" }) {
   const eslintCacheArgs = ciMode ? "" : " --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache";
 
   return [
-    { name: `${namePrefix}biome`, command: "biome lint --no-errors-on-unmatched --diagnostic-level=error" },
+    { name: `${namePrefix}biome`, command: "biome lint --no-errors-on-unmatched --diagnostic-level=warn --error-on-warnings" },
     {
       name: `${namePrefix}eslint`,
       command: `eslint src tests scripts "*.config.ts" "*.config.mjs" --max-warnings=0${eslintCacheArgs}`,

@@ -47,6 +47,8 @@ interface ComposerContextMeterViewModel {
   percent: string;
 }
 
+const COMPOSER_CONTEXT_METER_CELL_IDS = ["context-0", "context-1", "context-2", "context-3"] as const;
+
 export interface ComposerCallbacks {
   onInput: (value: string) => void;
   onUpdateSuggestions: () => void;
@@ -341,14 +343,18 @@ function ComposerContextMeter({ context }: { context: ComposerMetaViewModel["con
   return (
     <span className="codex-panel__composer-meta-context">
       <span className="codex-panel__composer-meta-context-dots">
-        {context.cells.map((cell, index) => (
-          <span
-            key={index}
-            className={["codex-panel__composer-meta-context-dot", cell.placeholder ? "is-placeholder" : ""].filter(Boolean).join(" ")}
-          >
-            {cell.text}
-          </span>
-        ))}
+        {COMPOSER_CONTEXT_METER_CELL_IDS.map((id, index) => {
+          const cell = context.cells[index];
+          if (!cell) return null;
+          return (
+            <span
+              key={id}
+              className={["codex-panel__composer-meta-context-dot", cell.placeholder ? "is-placeholder" : ""].filter(Boolean).join(" ")}
+            >
+              {cell.text}
+            </span>
+          );
+        })}
       </span>
       <span className="codex-panel__composer-meta-context-percent">{context.percent}</span>
     </span>

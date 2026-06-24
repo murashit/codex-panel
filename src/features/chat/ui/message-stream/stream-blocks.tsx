@@ -1,9 +1,9 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 
-import {
-  type MessageStreamActivityItemView,
-  type MessageStreamRenderedItemView,
-  type MessageStreamViewBlock,
+import type {
+  MessageStreamActivityItemView,
+  MessageStreamRenderedItemView,
+  MessageStreamViewBlock,
 } from "../../presentation/message-stream/view-model";
 import type { MessageStreamContext, PendingRequestBlockContext } from "./context";
 import { detailNode } from "./detail";

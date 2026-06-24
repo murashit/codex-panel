@@ -312,11 +312,11 @@ function serverRequestScope(request: ServerRequest): MessageScope {
 }
 
 function isServerRequest(message: ServerNotification | ServerRequest): message is ServerRequest {
-  return Object.prototype.hasOwnProperty.call(SERVER_REQUEST_SCOPE_EXTRACTORS, message.method);
+  return Object.hasOwn(SERVER_REQUEST_SCOPE_EXTRACTORS, message.method);
 }
 
 function isServerNotification(message: ServerNotification | ServerRequest): message is ServerNotification {
-  return Object.prototype.hasOwnProperty.call(SERVER_NOTIFICATION_SCOPE_EXTRACTORS, message.method);
+  return Object.hasOwn(SERVER_NOTIFICATION_SCOPE_EXTRACTORS, message.method);
 }
 
 function threadTurnRequestScope(request: { params: { threadId: string; turnId: string | null } }): MessageScope {

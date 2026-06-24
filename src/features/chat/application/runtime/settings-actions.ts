@@ -263,7 +263,7 @@ function threadSettingsValueEqual(left: unknown, right: unknown): boolean {
   const rightKeys = Object.keys(right);
   return (
     leftKeys.length === rightKeys.length &&
-    leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && threadSettingsValueEqual(left[key], right[key]))
+    leftKeys.every((key) => Object.hasOwn(right, key) && threadSettingsValueEqual(left[key], right[key]))
   );
 }
 

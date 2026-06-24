@@ -90,7 +90,7 @@ async function readTexts(files) {
 function locationsInTexts(texts, needle) {
   const locations = [];
   for (const { file, text } of texts) {
-    let offset = text.indexOf(needle);
+    const offset = text.indexOf(needle);
     if (offset === -1) continue;
     const line = text.slice(0, offset).split("\n").length;
     locations.push(`${relative(file)}:${line}`);

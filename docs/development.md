@@ -10,9 +10,11 @@ npm run format
 npm run check
 ```
 
-Run `npm run format` after edits and before `npm run check` so Biome formatting and import organization issues are fixed upfront. `npm run check` runs TypeScript type checking, unit tests, lint checks, Biome format and assist checks, CSS verification, and the production esbuild bundle. `npm run check:ci` uses the same checks with CI cache settings for TypeScript, tests, and ESLint. Use `npm run build` when you need to refresh Obsidian-loaded assets without running the full check.
+Use this as the normal edit loop. `npm run format` applies Biome formatting and import organization; `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, CSS checks, and the production bundle.
 
-Formatting, import organization, general JavaScript/TypeScript/JSON linting, and JavaScript/TypeScript/CSS/JSON formatting are handled by Biome. The Biome lint configuration explicitly uses the recommended preset, with accessibility diagnostics downgraded to info while the Obsidian-specific UI semantics are reviewed rule by rule. Biome also owns floating Promise, import cycle, and Preact hook dependency/order checks. CSS is formatted by Biome but excluded from Biome linting so CSS lint policy stays centralized in Stylelint and the project CSS usage script. ESLint remains for unsafe-any TypeScript parser-service checks, Obsidian plugin API/text policy checks, and Codex Panel responsibility-boundary checks.
+Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run lint`, or `npm run build`. The `*:ci` variants match CI cache behavior.
+
+Biome owns formatting, import organization, and general JavaScript/TypeScript/JSON linting. Biome warnings fail `npm run lint` and `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. CSS lint policy stays in Stylelint and the CSS usage script. ESLint remains for typed unsafe-any checks, Obsidian plugin policy, and Codex Panel responsibility-boundary rules.
 
 ## Generated and Loaded Files
 

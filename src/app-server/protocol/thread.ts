@@ -39,7 +39,7 @@ function finiteTimestamp(value: number): number {
 }
 
 function recencyAtPatch(thread: ThreadRecord): { recencyAt: number | null } | Record<string, never> {
-  if (!Object.prototype.hasOwnProperty.call(thread, "recencyAt")) return {};
+  if (!Object.hasOwn(thread, "recencyAt")) return {};
   const value = thread.recencyAt;
   return { recencyAt: typeof value === "number" && Number.isFinite(value) ? value : null };
 }

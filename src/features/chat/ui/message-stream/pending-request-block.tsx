@@ -3,12 +3,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../../domain/pending-requests/aggregate";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
-import {
-  type PendingApprovalViewModel,
-  type PendingMcpElicitationFieldViewModel,
-  type PendingMcpElicitationViewModel,
-  type PendingUserInputQuestionViewModel,
-  type PendingUserInputViewModel,
+import type {
+  PendingApprovalViewModel,
+  PendingMcpElicitationFieldViewModel,
+  PendingMcpElicitationViewModel,
+  PendingUserInputQuestionViewModel,
+  PendingUserInputViewModel,
 } from "../../presentation/pending-requests/view-model";
 import type { PendingRequestBlockActions } from "./context";
 import { createStatusMessageClassName } from "./status";

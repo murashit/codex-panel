@@ -2,7 +2,7 @@ import type { ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { renderRawDiffLines } from "../../../../shared/diff/render";
-import { type DetailSection, type DetailView } from "../../presentation/message-stream/detail-view";
+import type { DetailSection, DetailView } from "../../presentation/message-stream/detail-view";
 import type { MessageStreamDisclosureState } from "./context";
 
 export interface DetailRenderContext {

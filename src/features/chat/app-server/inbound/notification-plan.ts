@@ -155,7 +155,7 @@ const STREAM_UPDATE_PLANNERS = {
   "item/reasoning/summaryPartAdded": (state, notification) =>
     appendToolTextPlan(state, notification.params.itemId, notification.params.turnId, "reasoning", "", "reasoning"),
   "item/started": (_state, notification) => startedItemPlan(notification.params.item, notification.params.turnId),
-  "item/completed": (state, notification) => completedItemPlan(state, notification.params.item, notification.params.turnId),
+  "item/completed": (_state, notification) => completedItemPlan(notification.params.item, notification.params.turnId),
   "item/commandExecution/outputDelta": (_state, notification) =>
     actionPlan({
       type: "message-stream/item-output-appended",
@@ -433,7 +433,7 @@ function startedItemPlan(item: TurnItem, turnId: string): ChatNotificationPlan {
   return streamItem ? actionPlan({ type: "message-stream/item-upserted", item: streamItem }) : EMPTY_PLAN;
 }
 
-function completedItemPlan(state: ChatState, item: TurnItem, turnId: string): ChatNotificationPlan {
+function completedItemPlan(item: TurnItem, turnId: string): ChatNotificationPlan {
   if (item.type === "userMessage") return EMPTY_PLAN;
   const streamItem = messageStreamItemFromTurnItem(item, turnId);
   if (!streamItem) return EMPTY_PLAN;

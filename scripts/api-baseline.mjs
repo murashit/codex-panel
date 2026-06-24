@@ -67,7 +67,7 @@ function readMarkdownTableValues(markdown) {
     const header = splitMarkdownTableRow(lines[index]);
     if (!header) continue;
     const separator = splitMarkdownTableRow(lines[index + 1]);
-    if (!separator || !separator.every((cell) => /^:?-{3,}:?$/.test(cell))) continue;
+    if (!separator?.every((cell) => /^:?-{3,}:?$/.test(cell))) continue;
 
     const keyColumn = header.findIndex((cell) => normalizeTableHeader(cell) === "key");
     const versionColumn = header.findIndex((cell) => normalizeTableHeader(cell) === "version");
