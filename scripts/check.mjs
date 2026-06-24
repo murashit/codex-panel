@@ -54,7 +54,6 @@ function lintCommands({ ciMode, namePrefix = "" }) {
     },
     { name: `${namePrefix}css`, command: 'stylelint "src/**/*.css" --max-warnings=0' },
     { name: `${namePrefix}css-usage`, command: "node scripts/lint/check-css-usage.mjs" },
-    { name: `${namePrefix}deps`, command: "node scripts/lint/check-import-cycles.mjs" },
     { name: `${namePrefix}unused`, command: "knip --no-progress" },
   ];
 }

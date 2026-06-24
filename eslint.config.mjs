@@ -1,6 +1,5 @@
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
-import reactHooks from "eslint-plugin-react-hooks";
 import codexPanelEslintPlugin from "./scripts/lint/eslint-plugin-codex-panel.mjs";
 import tseslint from "typescript-eslint";
 
@@ -8,17 +7,11 @@ const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
 const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs"];
 const typeScriptConfigFiles = ["*.config.ts"];
 const lintedTypeScriptFiles = [...typeScriptFiles, ...typeScriptConfigFiles];
-const unsafeTypeScriptRules = {
+const unsafeAnyTypeScriptRules = {
   "@typescript-eslint/no-unsafe-argument": "error",
   "@typescript-eslint/no-unsafe-assignment": "error",
   "@typescript-eslint/no-unsafe-call": "error",
   "@typescript-eslint/no-unsafe-member-access": "error",
-};
-const projectTypeScriptRules = {
-  "@typescript-eslint/no-floating-promises": "error",
-  ...unsafeTypeScriptRules,
-  "react-hooks/exhaustive-deps": "error",
-  "react-hooks/rules-of-hooks": "error",
 };
 const testTypeScriptRelaxations = {
   "@typescript-eslint/no-unsafe-assignment": "off",
@@ -236,19 +229,33 @@ function restrictedSyntaxRule(restrictions) {
   };
 }
 
+function obsidianRecommendedConfig(config) {
+  const rules = Object.fromEntries(Object.entries(config.rules ?? {}).filter(([ruleName]) => ruleName.startsWith("obsidianmd/")));
+  if (Object.keys(rules).length === 0) return null;
+  const obsidianConfig = {
+    basePath: "src",
+    rules,
+  };
+  if (config.files) obsidianConfig.files = config.files;
+  if (config.ignores) obsidianConfig.ignores = config.ignores;
+  return obsidianConfig;
+}
+
 export default defineConfig([
   {
     ignores: ["main.js", "node_modules/**", "src/generated/**"],
   },
-  ...obsidianmd.configs.recommended.map((config) => ({
-    ...config,
+  {
     basePath: "src",
-  })),
+    plugins: {
+      obsidianmd,
+    },
+  },
+  ...obsidianmd.configs.recommended.map(obsidianRecommendedConfig).filter(Boolean),
   {
     files: lintedTypeScriptFiles,
     plugins: {
       "@typescript-eslint": tseslint.plugin,
-      "react-hooks": reactHooks,
     },
     languageOptions: {
       parser: tseslint.parser,
@@ -272,7 +279,7 @@ export default defineConfig([
       },
     },
     rules: {
-      ...projectTypeScriptRules,
+      ...unsafeAnyTypeScriptRules,
     },
   },
   {

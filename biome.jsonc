@@ -25,7 +25,22 @@
   "linter": {
     "rules": {
       "preset": "recommended",
-      "a11y": "info"
+      "a11y": "info",
+      "correctness": {
+        "useExhaustiveDependencies": {
+          "level": "error",
+          "options": {
+            "reportUnnecessaryDependencies": false
+          }
+        },
+        "useHookAtTopLevel": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error"
+      },
+      "suspicious": {
+        "noImportCycles": "error"
+      }
     }
   },
   "css": {

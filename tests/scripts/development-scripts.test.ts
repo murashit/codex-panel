@@ -116,34 +116,6 @@ describe("development scripts", () => {
     expect(report.failures).toEqual([]);
   });
 
-  it("detects runtime import cycles", async () => {
-    const cwd = await tempWorkspace();
-    await writeImportCycleFixture(cwd, {
-      "src/a.ts": 'import { b } from "./b";\nexport const a = b;\n',
-      "src/b.ts": 'import { a } from "./a";\nexport const b = a;\n',
-    });
-
-    const result = runNodeScript("scripts/lint/check-import-cycles.mjs", [], cwd);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("found 1 cycle");
-    expect(result.stderr).toContain("src/a.ts -> src/b.ts -> src/a.ts");
-  });
-
-  it("ignores type-only import cycles", async () => {
-    const cwd = await tempWorkspace();
-    await writeImportCycleFixture(cwd, {
-      "src/a.ts": 'import type { B } from "./b";\nexport interface A { b?: B }\n',
-      "src/b.ts": 'import type { A } from "./a";\nexport interface B { a?: A }\n',
-    });
-
-    const result = runNodeScript("scripts/lint/check-import-cycles.mjs", [], cwd);
-
-    expect(result.status).toBe(0);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("");
-  });
-
   it("keeps CSS usage checks quiet when every class is used", async () => {
     const cwd = await cssUsageFixture({
       "src/styles/10-component.css": ".codex-panel__used { display: block; }\n",
@@ -175,20 +147,6 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("CSS usage check failed.");
     expect(result.stderr).toContain("codex-panel__test-only");
     expect(result.stderr).toContain("codex-panel__unused");
-  });
-
-  it("detects import cycles when mixed imports include runtime values", async () => {
-    const cwd = await tempWorkspace();
-    await writeImportCycleFixture(cwd, {
-      "src/a.ts": 'import { type B, b } from "./b";\nexport interface A { b?: B }\nexport const a = b;\n',
-      "src/b.ts": 'import { a, type A } from "./a";\nexport interface B { a?: A }\nexport const b = a;\n',
-    });
-
-    const result = runNodeScript("scripts/lint/check-import-cycles.mjs", [], cwd);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("found 1 cycle");
-    expect(result.stderr).toContain("src/a.ts -> src/b.ts -> src/a.ts");
   });
 
   it("fails release prepare before changing version files when release notes already exist", async () => {
@@ -242,24 +200,6 @@ async function cssUsageFixture(files: Record<string, string>): Promise<string> {
   }
 
   return cwd;
-}
-
-async function writeImportCycleFixture(cwd: string, files: Record<string, string>): Promise<void> {
-  await writeJson(path.join(cwd, "tsconfig.json"), {
-    compilerOptions: {
-      target: "ES2022",
-      module: "ESNext",
-      moduleResolution: "Bundler",
-      verbatimModuleSyntax: true,
-      strict: true,
-    },
-    include: ["src/**/*.ts"],
-  });
-
-  for (const [file, source] of Object.entries(files)) {
-    await mkdir(path.dirname(path.join(cwd, file)), { recursive: true });
-    await writeFile(path.join(cwd, file), source);
-  }
 }
 
 function runNodeScript(script: string, args: string[] = [], cwd = repoRoot, env: NodeJS.ProcessEnv = {}) {
