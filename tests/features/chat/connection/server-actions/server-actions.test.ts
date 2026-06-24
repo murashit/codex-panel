@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
+import {
+  type CatalogModel,
+  type CatalogSkillMetadata,
+  modelMetadataFromCatalogModels,
+} from "../../../../../src/app-server/protocol/catalog";
+import { threadFromThreadRecord } from "../../../../../src/app-server/protocol/thread";
 import { StaleAppServerSharedQueryContextError } from "../../../../../src/app-server/query/shared-queries";
+import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
+import type { RateLimitSnapshot } from "../../../../../src/domain/runtime/metrics";
 import {
   createServerDiagnostics,
   diagnosticProbeError,
@@ -10,20 +18,12 @@ import {
   type McpServerStatus,
 } from "../../../../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../../src/domain/server/metadata";
-import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
-import type { RateLimitSnapshot } from "../../../../../src/domain/runtime/metrics";
-import { threadFromThreadRecord } from "../../../../../src/app-server/protocol/thread";
 import { createChatServerDiagnosticsActions } from "../../../../../src/features/chat/app-server/actions/diagnostics";
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/app-server/actions/metadata";
 import { createChatServerThreadActions } from "../../../../../src/features/chat/app-server/actions/threads";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/application/connection/tool-inventory-display";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import {
-  modelMetadataFromCatalogModels,
-  type CatalogModel,
-  type CatalogSkillMetadata,
-} from "../../../../../src/app-server/protocol/catalog";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startThread"]>>;

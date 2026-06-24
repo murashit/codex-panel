@@ -1,7 +1,7 @@
 import type { Thread } from "../../../../domain/threads/model";
 import { chatTurnBusy } from "../conversation/turn-state";
-import type { ChatState } from "../state/root-reducer";
 import { messageStreamIsEmpty } from "../state/message-stream";
+import type { ChatState } from "../state/root-reducer";
 
 export function activeThreadId(state: ChatState): string | null {
   return state.activeThread.id;

@@ -1,8 +1,8 @@
+import type { ServerInitialization } from "../../domain/server/initialization";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-import type { ServerInitialization } from "../../domain/server/initialization";
-import { AppServerClient, type AppServerClientHandlers } from "./client";
 import { appServerInitializationFromResponse } from "../protocol/initialization";
+import { AppServerClient, type AppServerClientHandlers } from "./client";
 
 export interface ConnectionManagerHandlers {
   onNotification: (notification: ServerNotification) => void;

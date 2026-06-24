@@ -1,6 +1,6 @@
 import type { Thread } from "../../../../domain/threads/model";
-import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
+import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { ThreadTitleService } from "../../../threads/thread-title-service";
 import type { ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";

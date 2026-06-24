@@ -5,26 +5,26 @@ import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ObservedDataResult } from "../../domain/observed-data";
 import { observedData, observedInitialError, observedInitialLoading } from "../../domain/observed-data";
+import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../workspace/thread-catalog";
-import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
 import { renderThreadsView, unmountThreadsView } from "./renderer";
 import {
-  threadRows,
-  transitionThreadsRenameState,
   type ThreadsGeneratingRenameState,
   type ThreadsRenameLifecycleEvent,
   type ThreadsRenameState,
+  threadRows,
+  transitionThreadsRenameState,
 } from "./state";
 import {
-  createThreadsViewDeferredTasks,
-  transitionThreadsViewRefreshLifecycle,
   type ActiveThreadsViewRefresh,
+  createThreadsViewDeferredTasks,
   type ThreadsViewDeferredTasks,
   type ThreadsViewRefreshLifecycleState,
+  transitionThreadsViewRefreshLifecycle,
 } from "./view-lifecycle";
 
 export interface CodexThreadsHost {

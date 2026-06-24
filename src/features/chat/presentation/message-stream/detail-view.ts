@@ -1,7 +1,7 @@
 import { shortThreadId } from "../../../../shared/id/thread-id";
+import { pathRelativeToRoot } from "../../../../shared/path/file-paths";
 import { truncate } from "../../../../shared/text/preview";
 import { failedStatusLabel } from "../../domain/message-stream/execution-state";
-import { pathRelativeToRoot } from "../../../../shared/path/file-paths";
 import type {
   AgentMessageStreamItem,
   ApprovalResultMessageStreamItem,

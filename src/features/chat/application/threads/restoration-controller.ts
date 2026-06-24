@@ -1,8 +1,8 @@
 import {
-  transitionRestoredThreadLifecycle,
   type RestoredThreadLifecycleState,
   type RestoredThreadPlaceholderState,
   type RestoredThreadState,
+  transitionRestoredThreadLifecycle,
 } from "../lifecycle";
 
 const STATUS_THREAD_READY_TO_RESUME = "Thread ready to resume.";

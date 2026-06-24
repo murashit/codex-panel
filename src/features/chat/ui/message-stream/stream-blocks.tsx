@@ -5,11 +5,11 @@ import {
   type MessageStreamRenderedItemView,
   type MessageStreamViewBlock,
 } from "../../presentation/message-stream/view-model";
+import type { MessageStreamContext, PendingRequestBlockContext } from "./context";
+import { detailNode } from "./detail";
 import { MessageStreamFlowFrame, type MessageStreamScrollControllerBinding } from "./flow-scroll";
 import { pendingRequestBlockNode } from "./pending-request-block";
-import { detailNode } from "./detail";
 import { agentRunSummaryNode, statusNode } from "./status";
-import type { MessageStreamContext, PendingRequestBlockContext } from "./context";
 import { textNode } from "./text";
 
 export interface MessageStreamViewportState {

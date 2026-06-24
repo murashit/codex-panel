@@ -1,5 +1,5 @@
-import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import type { AppServerClient } from "../../../../app-server/connection/client";
+import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ActiveConnectionWork, ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";

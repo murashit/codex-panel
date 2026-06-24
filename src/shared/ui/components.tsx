@@ -1,5 +1,5 @@
-import { ButtonComponent, DropdownComponent, ExtraButtonComponent, TextComponent, ToggleComponent, setIcon } from "obsidian";
-import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact";
+import { ButtonComponent, DropdownComponent, ExtraButtonComponent, setIcon, TextComponent, ToggleComponent } from "obsidian";
+import type { ButtonHTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 interface ObsidianIconProps {

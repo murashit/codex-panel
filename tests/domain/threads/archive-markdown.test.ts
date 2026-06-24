@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { archivedThreadMarkdown, type ArchiveExportSettings } from "../../../src/domain/threads/archive-markdown";
+import { type ArchiveExportSettings, archivedThreadMarkdown } from "../../../src/domain/threads/archive-markdown";
 import type { Thread } from "../../../src/domain/threads/model";
 import { referencedThreadPromptBundle } from "../../../src/domain/threads/reference";
 import type { ThreadTranscriptEntry } from "../../../src/domain/threads/transcript";

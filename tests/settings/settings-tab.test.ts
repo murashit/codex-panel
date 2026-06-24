@@ -1,18 +1,17 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
-import type { ObservedDataResult } from "../../src/domain/observed-data";
 import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
+import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
+import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
-import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
-import { SettingsDynamicDataController, type SettingsDynamicDataSnapshot } from "../../src/settings/dynamic-data-controller";
-import { CodexPanelSettingTab } from "../../src/settings/tab";
-import type { CodexPanelSettingTabHost } from "../../src/settings/host";
+import type { ObservedDataResult } from "../../src/domain/observed-data";
 import type { Thread } from "../../src/domain/threads/model";
 import { threadArchiveDisplayTitle } from "../../src/domain/threads/title";
+import { SettingsDynamicDataController, type SettingsDynamicDataSnapshot } from "../../src/settings/dynamic-data-controller";
+import type { CodexPanelSettingTabHost } from "../../src/settings/host";
+import { CodexPanelSettingTab } from "../../src/settings/tab";
 import { notices } from "../mocks/obsidian";
 import { deferred } from "../support/async";
 import { installObsidianDomShims } from "../support/dom";

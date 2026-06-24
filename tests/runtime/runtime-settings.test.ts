@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { runtimeConfigSnapshotFromAppServerConfig, type ConfigReadResult } from "../../src/app-server/protocol/runtime-config";
-import type { RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
+import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
+import type { RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import {
-  compactReasoningEffortLabel,
-  modelOverrideMessage,
-  reasoningEffortOverrideMessage,
-} from "../../src/features/chat/domain/runtime/labels";
+  pendingRuntimeSettingsPatch,
+  serviceTierRequestForThreadStart,
+} from "../../src/features/chat/app-server/runtime/thread-settings-update";
 import {
   autoReviewActive,
   currentModel,
@@ -18,13 +17,14 @@ import {
   runtimeConfigOrDefault,
   supportedReasoningEfforts,
 } from "../../src/features/chat/domain/runtime/effective";
-import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
 import { resetRuntimeIntentToConfig, setRuntimeIntentValue } from "../../src/features/chat/domain/runtime/intent";
-import { resolveRuntimeControls } from "../../src/features/chat/domain/runtime/resolution";
 import {
-  pendingRuntimeSettingsPatch,
-  serviceTierRequestForThreadStart,
-} from "../../src/features/chat/app-server/runtime/thread-settings-update";
+  compactReasoningEffortLabel,
+  modelOverrideMessage,
+  reasoningEffortOverrideMessage,
+} from "../../src/features/chat/domain/runtime/labels";
+import { resolveRuntimeControls } from "../../src/features/chat/domain/runtime/resolution";
+import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
 import { contextSummary, rateLimitSummary } from "../../src/features/chat/presentation/runtime/status";
 
 describe("runtime settings", () => {

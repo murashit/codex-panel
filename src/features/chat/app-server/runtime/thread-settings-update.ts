@@ -1,12 +1,12 @@
+import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import {
   applyRuntimeSettingsPatchValue,
-  runtimeCollaborationModeSettings,
   type RuntimeServiceTierRequest,
   type RuntimeSettingsPatch,
+  runtimeCollaborationModeSettings,
 } from "../../../../domain/runtime/thread-settings";
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import { resolveRuntimeControls, type RuntimeControlsResolution } from "../../domain/runtime/resolution";
 import type { PendingRuntimeIntent } from "../../domain/runtime/intent";
+import { type RuntimeControlsResolution, resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 
 type TurnCollaborationModeWarning = "missing-model";

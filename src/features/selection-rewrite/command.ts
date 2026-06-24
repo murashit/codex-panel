@@ -1,8 +1,7 @@
-import { MarkdownView, Notice, type Editor, type Plugin } from "obsidian";
-
+import { type Editor, MarkdownView, Notice, type Plugin } from "obsidian";
+import type { SendShortcut } from "../../shared/ui/keyboard";
 import type { SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
 import { SelectionRewritePopover } from "./popover";
-import type { SendShortcut } from "../../shared/ui/keyboard";
 
 export interface SelectionRewriteCommandHost extends Plugin {
   settings: {

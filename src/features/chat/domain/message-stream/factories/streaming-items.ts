@@ -1,5 +1,5 @@
-import type { MessageStreamItem, MessageStreamItemKind } from "../items";
 import { RUNNING_EXECUTION_STATE } from "../execution-state";
+import type { MessageStreamItem, MessageStreamItemKind } from "../items";
 
 export const STREAMED_COMMAND_RUNNING_TEXT = "Command running";
 export const STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT = "File change inProgress";

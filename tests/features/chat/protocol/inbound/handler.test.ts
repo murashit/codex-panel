@@ -1,20 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-
-import {
-  createChatInboundHandler,
-  type ChatInboundHandler,
-  type ChatInboundHandlerActions,
-} from "../../../../../src/features/chat/app-server/inbound/handler";
-import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
-import { chatReducer, type ChatAction, type ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
-import { pendingTurnStart } from "../../../../../src/features/chat/application/conversation/turn-state";
-import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { appServerApprovalRequest, appServerUserInputRequest } from "../../../../../src/app-server/protocol/server-requests";
-import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
-import type { ThreadCatalogEvent } from "../../../../../src/workspace/thread-catalog";
+import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
+import {
+  type ChatInboundHandler,
+  type ChatInboundHandlerActions,
+  createChatInboundHandler,
+} from "../../../../../src/features/chat/app-server/inbound/handler";
+import { pendingTurnStart } from "../../../../../src/features/chat/application/conversation/turn-state";
+import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
 import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
+import type { ThreadCatalogEvent } from "../../../../../src/workspace/thread-catalog";
 import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 

@@ -1,34 +1,47 @@
-import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { Thread } from "../../../../domain/threads/model";
-import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
-import type { ThreadGoal } from "../../../../domain/threads/goal";
-import type { Diagnostics } from "../../../../domain/server/diagnostics";
-import { createServerDiagnostics } from "../../../../domain/server/diagnostics";
+import type { ModelMetadata, ReasoningEffort, SkillMetadata } from "../../../../domain/catalog/metadata";
+import type { PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import type { CollaborationModeSelection } from "../../domain/runtime/intent";
+import type { Diagnostics } from "../../../../domain/server/diagnostics";
+import { createServerDiagnostics } from "../../../../domain/server/diagnostics";
+import type { ServerInitialization } from "../../../../domain/server/initialization";
+import type { ThreadGoal } from "../../../../domain/threads/goal";
+import type { Thread } from "../../../../domain/threads/model";
+import type { MessageStreamItem } from "../../domain/message-stream/items";
+import type { CollaborationModeSelection, RequestedFastMode } from "../../domain/runtime/intent";
 import {
-  commitAppliedRuntimeSettingsPatchState,
+  type ChatRuntimeState,
   clearRequestedApprovalsReviewerRuntimeState,
   clearRequestedFastModeRuntimeState,
+  commitAppliedRuntimeSettingsPatchState,
   initialActiveChatRuntimeState,
   initialChatRuntimeState,
   requestApprovalsReviewerRuntimeState,
+  requestFastModeRuntimeState,
   requestModelRuntimeState,
   requestReasoningEffortRuntimeState,
-  requestFastModeRuntimeState,
   resetModelToConfigRuntimeState,
   resetReasoningEffortToConfigRuntimeState,
   setSelectedCollaborationModeRuntimeState,
-  type ChatRuntimeState,
 } from "../../domain/runtime/state";
-import type { RequestedFastMode } from "../../domain/runtime/intent";
-import type { PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { ComposerSuggestion } from "../composer/suggestions";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
+import {
+  type ChatTurnState,
+  initialChatTurnState,
+  type PendingTurnStart,
+  STATUS_TURN_RUNNING,
+  transitionChatTurnLifecycleState,
+} from "../conversation/turn-state";
+import {
+  type ChatRequestState,
+  initialChatRequestState,
+  isRequestAction,
+  type RequestAction,
+  reduceRequestSlice,
+  resolveChatRequest,
+} from "../pending-requests/state";
 import type {
   ActiveThreadResumedAction,
   ActiveThreadSettingsAppliedAction,
@@ -42,42 +55,27 @@ import type {
   TurnStartFailedAction,
 } from "./actions";
 import {
+  type ChatMessageStreamState,
   initialChatMessageStreamState,
   isMessageStreamAction,
+  type MessageStreamAction,
   messageStreamItems,
   messageStreamStartActiveSegment,
   messageStreamWithActiveTurnItems,
   messageStreamWithItems,
   reduceMessageStreamSlice,
-  type ChatMessageStreamState,
-  type MessageStreamAction,
 } from "./message-stream";
+import { definedPatch, patchObject } from "./patch";
 import {
-  initialChatRequestState,
-  isRequestAction,
-  reduceRequestSlice,
-  resolveChatRequest,
-  type ChatRequestState,
-  type RequestAction,
-} from "../pending-requests/state";
-import {
-  STATUS_TURN_RUNNING,
-  initialChatTurnState,
-  transitionChatTurnLifecycleState,
-  type ChatTurnState,
-  type PendingTurnStart,
-} from "../conversation/turn-state";
-import {
+  type ChatUiState,
   clearAllRequestDisclosures,
   clearResolvedRequestDisclosures,
   initialUiState,
   isUiAction,
   maybeClearGoalObjectiveExpansion,
   reduceUiSlice,
-  type ChatUiState,
   type UiAction,
 } from "./ui-state";
-import { definedPatch, patchObject } from "./patch";
 
 export type ChatConnectionPhase =
   | { kind: "idle" }

@@ -22,6 +22,14 @@
     "indentStyle": "space",
     "lineWidth": 140
   },
+  "assist": {
+    "actions": {
+      "source": {
+        "noDuplicateClasses": "on",
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "rules": {
       "preset": "recommended",

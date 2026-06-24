@@ -1,7 +1,7 @@
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
-import codexPanelEslintPlugin from "./scripts/lint/eslint-plugin-codex-panel.mjs";
 import tseslint from "typescript-eslint";
+import codexPanelEslintPlugin from "./scripts/lint/eslint-plugin-codex-panel.mjs";
 
 const typeScriptFiles = ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"];
 const nodeJavaScriptFiles = ["*.mjs", "scripts/**/*.mjs"];

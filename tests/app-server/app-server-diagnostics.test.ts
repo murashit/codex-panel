@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createServerDiagnostics,
   DIAGNOSTIC_PROBE_METHODS,
-  serverIdentity,
-  serverPlatform,
   diagnosticProbeError,
   diagnosticProbeOk,
-  createServerDiagnostics,
+  serverIdentity,
+  serverPlatform,
   upsertMcpServerDiagnostic,
 } from "../../src/domain/server/diagnostics";
 import type { ServerInitialization } from "../../src/domain/server/initialization";

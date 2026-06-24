@@ -3,9 +3,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  type ActiveThreadsViewRefresh,
   createThreadsViewDeferredTasks,
   transitionThreadsViewRefreshLifecycle,
-  type ActiveThreadsViewRefresh,
 } from "../../../src/features/threads-view/view-lifecycle";
 
 describe("createThreadsViewDeferredTasks", () => {

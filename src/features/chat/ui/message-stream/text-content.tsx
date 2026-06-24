@@ -1,4 +1,4 @@
-import { type ComponentChild as UiNode, type Ref } from "preact";
+import { type Ref, type ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { MessageStreamTextView } from "../../presentation/message-stream/text-view";

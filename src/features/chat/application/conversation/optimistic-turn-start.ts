@@ -1,11 +1,11 @@
-import type { PendingTurnStart } from "./turn-state";
-import type { MessageStreamFileMention, MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
-import type { MessageStreamItemProvenance } from "../../domain/message-stream/provenance";
+import type { CodexInput } from "../../../../domain/chat/input";
+import { isLocalSteerMessageClientId } from "../../domain/local-message-ids";
 import { fileMentionsFromInput } from "../../domain/message-stream/format/file-mentions";
 import { userMessageDisplayText } from "../../domain/message-stream/format/user-message-text";
+import type { MessageStreamFileMention, MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
+import type { MessageStreamItemProvenance } from "../../domain/message-stream/provenance";
 import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
-import { isLocalSteerMessageClientId } from "../../domain/local-message-ids";
-import type { CodexInput } from "../../../../domain/chat/input";
+import type { PendingTurnStart } from "./turn-state";
 
 interface LocalUserMessageParams {
   id: string;

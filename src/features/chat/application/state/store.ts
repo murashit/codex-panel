@@ -1,6 +1,6 @@
-import { cloneDisclosureUiState } from "./ui-state";
 import type { ChatMessageStreamActiveSegment, ChatMessageStreamState } from "./message-stream";
-import { chatReducer, createChatState, type ChatAction, type ChatState } from "./root-reducer";
+import { type ChatAction, type ChatState, chatReducer, createChatState } from "./root-reducer";
+import { cloneDisclosureUiState } from "./ui-state";
 
 export interface ChatStateStore {
   getState(): ChatState;

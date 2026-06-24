@@ -1,4 +1,4 @@
-import { TFile, type App } from "obsidian";
+import { type App, TFile } from "obsidian";
 
 import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, parseFileHref, vaultRelativePath } from "../path/file-paths";
 

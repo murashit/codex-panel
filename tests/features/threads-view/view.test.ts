@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { ObservedDataResult } from "../../../src/domain/observed-data";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
-import type { Thread } from "../../../src/domain/threads/model";
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
+import type { ObservedDataResult } from "../../../src/domain/observed-data";
+import type { Thread } from "../../../src/domain/threads/model";
+import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 

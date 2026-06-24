@@ -1,12 +1,12 @@
+import { type App, FileSystemAdapter } from "obsidian";
 import { describe, expect, it } from "vitest";
-import { FileSystemAdapter, type App } from "obsidian";
 
 import {
+  type CodexPanelSettings,
   DEFAULT_SETTINGS,
   getVaultPath,
   normalizeSettings,
   settingsMatchNormalizedData,
-  type CodexPanelSettings,
 } from "../../src/settings/model";
 
 describe("settings", () => {

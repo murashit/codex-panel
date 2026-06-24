@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
-import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   implementPlan,
   implementPlanTargetFromState,
   type PlanImplementationHost,
 } from "../../../../../src/features/chat/application/conversation/plan-implementation";
+import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 
 const planItem = (id: string): MessageStreamItem => ({

@@ -1,11 +1,10 @@
-import type { Thread } from "../../../../domain/threads/model";
+import { prepareFuzzySearch, type SearchResult, sortSearchResults } from "obsidian";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
-import { prepareFuzzySearch, sortSearchResults, type SearchResult } from "obsidian";
-import { findModelMetadataByIdOrName, sortedModelMetadata } from "../../../../domain/catalog/metadata";
-import { supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
-import { SLASH_COMMANDS, slashCommandSubcommands, type SlashCommandName } from "./slash-commands";
+import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
+import type { Thread } from "../../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import { shortThreadId } from "../../../../shared/id/thread-id";
+import { SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
 
 export interface ComposerSuggestion {
   display: string;

@@ -1,10 +1,10 @@
-import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
 import {
   conversationSummaryFromTranscriptEntries,
   nonEmptyConversationSummaries,
   type ThreadConversationSummary,
   type ThreadTranscriptEntry,
 } from "../../domain/threads/transcript";
+import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
 
 export type TurnItem = GeneratedTurnItem;
 

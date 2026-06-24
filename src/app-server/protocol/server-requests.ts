@@ -1,4 +1,3 @@
-import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import type {
   ApprovalAction,
   ApprovalActionIntent,
@@ -12,6 +11,7 @@ import type {
   PendingMcpElicitationOption,
   PendingUserInput,
 } from "../../domain/pending-requests/model";
+import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import { pathRelativeToRoot } from "../../shared/path/file-paths";
 import { jsonPreview } from "../../shared/text/preview";
 

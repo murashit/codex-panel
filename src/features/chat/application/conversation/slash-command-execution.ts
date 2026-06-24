@@ -1,24 +1,24 @@
-import type { CodexInput } from "../../../../domain/chat/input";
-import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { normalizeReasoningEffort } from "../../../../domain/catalog/metadata";
+import type { CodexInput } from "../../../../domain/chat/input";
+import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
-import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import { threadDisplayTitle } from "../../../../domain/threads/title";
 import { shortThreadId } from "../../../../shared/id/thread-id";
-import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
-import type { GoalActions } from "../threads/goal-actions";
-import type { ThreadManagementActions } from "../threads/thread-management-actions";
+import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import {
+  type SlashCommandName,
+  type SlashCommandSubcommandDefinition,
   slashCommandDefinition,
   slashCommandHelpSections,
   slashCommandSubcommandDefinition,
   slashCommandSubcommands,
-  type SlashCommandName,
-  type SlashCommandSubcommandDefinition,
 } from "../composer/slash-commands";
-import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
+import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
+import type { GoalActions } from "../threads/goal-actions";
+import type { ThreadManagementActions } from "../threads/thread-management-actions";
 
 const DEFAULT_RUNTIME_SETTING_ALIASES = new Set(["default", "reset", "clear", "off"]);
 

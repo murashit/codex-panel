@@ -4,12 +4,12 @@ import { h } from "preact";
 import { CLIENT_VERSION } from "../../../../constants";
 import type { Thread } from "../../../../domain/threads/model";
 import { threadRowCoreProjection } from "../../../threads/row-projection";
-import { rateLimitSummary } from "../../presentation/runtime/status";
 import { connectionDiagnosticSectionsModel } from "../../application/connection/diagnostics-display";
 import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-display";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { toolbarStateFromShellState, useChatPanelShellState, type ChatPanelToolbarShellState } from "../shell-state";
+import { rateLimitSummary } from "../../presentation/runtime/status";
 import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
+import { type ChatPanelToolbarShellState, toolbarStateFromShellState, useChatPanelShellState } from "../shell-state";
 
 export interface ChatPanelToolbarSurface {
   state: {

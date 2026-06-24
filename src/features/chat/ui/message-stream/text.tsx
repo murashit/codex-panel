@@ -1,6 +1,7 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
-
+import { IconButton } from "../../../../shared/ui/components";
+import { listenDomEvent } from "../../../../shared/ui/dom-events";
 import type {
   EditedFilesTextView,
   MentionedFileTextView,
@@ -8,8 +9,6 @@ import type {
   ReferencedThreadTextView,
   TextItemDetailSectionView,
 } from "../../presentation/message-stream/text-view";
-import { IconButton } from "../../../../shared/ui/components";
-import { listenDomEvent } from "../../../../shared/ui/dom-events";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
 import { CollapsibleTextContent, TextContent } from "./text-content";
 

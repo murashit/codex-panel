@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
 import { MarkdownView, TFile } from "obsidian";
+import { describe, expect, it, vi } from "vitest";
 
 import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command";
 import type { SelectionRewritePopoverOptions } from "../../../src/features/selection-rewrite/popover";

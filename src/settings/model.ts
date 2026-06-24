@@ -1,4 +1,4 @@
-import { FileSystemAdapter, type App } from "obsidian";
+import { type App, FileSystemAdapter } from "obsidian";
 
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";

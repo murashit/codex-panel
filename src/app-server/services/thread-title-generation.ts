@@ -1,18 +1,18 @@
-import {
-  runEphemeralStructuredTurn,
-  type EphemeralStructuredTurnClientFactory,
-  type StructuredTurnOutputSchema,
-} from "./ephemeral-structured-turn";
-import type { ModelMetadataClient } from "../catalog";
-import { resolvedRuntimeOverrideForClient } from "./runtime-overrides";
-import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../protocol/turn";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import {
   THREAD_TITLE_MAX_CHARS,
+  type ThreadTitleContext,
   threadTitleFromGeneratedText,
   threadTitlePrompt,
-  type ThreadTitleContext,
 } from "../../domain/threads/title-generation-model";
+import type { ModelMetadataClient } from "../catalog";
+import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../protocol/turn";
+import {
+  type EphemeralStructuredTurnClientFactory,
+  runEphemeralStructuredTurn,
+  type StructuredTurnOutputSchema,
+} from "./ephemeral-structured-turn";
+import { resolvedRuntimeOverrideForClient } from "./runtime-overrides";
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
 const THREAD_TITLE_TIMEOUT_MS = 60_000;

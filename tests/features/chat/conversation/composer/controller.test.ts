@@ -1,17 +1,16 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
-
-import { ChatComposerController, type ChatComposerRenderActions } from "../../../../../src/features/chat/panel/composer-controller";
-import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
-import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { describe, expect, it, vi } from "vitest";
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
-import { installObsidianDomShims } from "../../../../support/dom";
-import type { ChatPanelComposerShellState } from "../../../../../src/features/chat/panel/shell-state";
 import type { NoteCandidateProvider } from "../../../../../src/features/chat/application/composer/note-context";
+import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { ChatComposerController, type ChatComposerRenderActions } from "../../../../../src/features/chat/panel/composer-controller";
+import type { ChatPanelComposerShellState } from "../../../../../src/features/chat/panel/shell-state";
+import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { installObsidianDomShims } from "../../../../support/dom";
 import { composerShellStateFromChatState } from "../../support/shell-state";
 
 installObsidianDomShims();

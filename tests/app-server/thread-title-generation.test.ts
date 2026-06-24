@@ -3,17 +3,17 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../src/app-server/connection/client";
-import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
 import type { RequestId, ServerNotification } from "../../src/app-server/connection/rpc-messages";
-import type { ServerInitialization } from "../../src/domain/server/initialization";
-import { generateThreadTitleWithCodex } from "../../src/app-server/services/thread-title-generation";
+import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
 import type {
   EphemeralStructuredTurnClient,
   EphemeralStructuredTurnClientFactory,
 } from "../../src/app-server/services/ephemeral-structured-turn";
+import { generateThreadTitleWithCodex } from "../../src/app-server/services/thread-title-generation";
+import type { ServerInitialization } from "../../src/domain/server/initialization";
 import {
-  THREAD_TITLE_MAX_CHARS,
   findThreadTitleContext,
+  THREAD_TITLE_MAX_CHARS,
   threadTitleContextFromConversationSummary,
   threadTitleFromGeneratedText,
   threadTitlePrompt,

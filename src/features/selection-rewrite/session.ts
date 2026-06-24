@@ -1,9 +1,9 @@
 import type { TextareaCaretBoundaryDirection } from "../../shared/ui/textarea-caret";
 import {
-  transitionSelectionRewriteState,
   type SelectionRewriteLifecycleEvent,
   type SelectionRewriteRuntimeSettings,
   type SelectionRewriteState,
+  transitionSelectionRewriteState,
 } from "./model";
 import { SelectionRewriteOutputError } from "./output";
 import { buildSelectionRewritePrompt } from "./prompt";

@@ -1,21 +1,20 @@
+import { batch, computed, type ReadonlySignal, type Signal, signal } from "@preact/signals";
 import { createContext } from "preact";
 import { useContext } from "preact/hooks";
-import { batch, computed, signal, type ReadonlySignal, type Signal } from "@preact/signals";
-
-import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
-import { messageItemsHaveThreadTurns, runtimeSnapshotForChatSlices } from "../application/runtime/snapshot";
 import { implementPlanTargetFromState } from "../application/conversation/plan-implementation";
 import { activeTurnId, chatTurnBusy } from "../application/conversation/turn-state";
-import type { ChatState } from "../application/state/root-reducer";
+import { messageItemsHaveThreadTurns, runtimeSnapshotForChatSlices } from "../application/runtime/snapshot";
 import {
+  type MessageStreamRollbackCandidate,
   messageStreamActiveItems,
   messageStreamItems,
   messageStreamRollbackCandidateFromItems,
   messageStreamStableItems,
-  type MessageStreamRollbackCandidate,
 } from "../application/state/message-stream";
+import type { ChatState } from "../application/state/root-reducer";
 import type { MessageStreamItem } from "../domain/message-stream/items";
-import { forkCandidatesFromItems, type ForkCandidate, type PlanImplementationTarget } from "../domain/message-stream/selectors";
+import { type ForkCandidate, forkCandidatesFromItems, type PlanImplementationTarget } from "../domain/message-stream/selectors";
+import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 
 export interface ChatPanelShellState {
   connection: Signal<ChatState["connection"]>;

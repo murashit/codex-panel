@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-
+import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import {
-  appServerApprovalRequest as toPendingApproval,
   appServerApprovalResponse as approvalResponse,
+  appServerApprovalRequest as toPendingApproval,
 } from "../../../../../src/app-server/protocol/server-requests";
 import { createApprovalResultItem } from "../../../../../src/features/chat/domain/pending-requests/result-items";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
-import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

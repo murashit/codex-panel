@@ -1,23 +1,23 @@
 import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret";
-import type { ChatAction, ChatState } from "../application/state/root-reducer";
-import type { ChatStateStore } from "../application/state/store";
-import type { ComposerShellProps } from "../ui/composer";
-import { syncComposerHeight, type ComposerCallbacks } from "../ui/composer";
-import type { ChatPanelComposerShellState } from "./shell-state";
-import { composerBoundaryScrollDirection, type ComposerBoundaryScrollAction } from "../application/composer/boundary-scroll";
+import { type ComposerBoundaryScrollAction, composerBoundaryScrollDirection } from "../application/composer/boundary-scroll";
 import type { NoteCandidateProvider } from "../application/composer/note-context";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
+  type ComposerSuggestion,
   composerSuggestionNavigationDirection,
   composerSuggestionSignature,
-  nextComposerSuggestionIndex,
-  type ComposerSuggestion,
   type NoteCandidate,
+  nextComposerSuggestionIndex,
 } from "../application/composer/suggestions";
 import { userInputWithWikiLinkMentionsAndSkills } from "../application/composer/wikilink-context";
+import type { ChatAction, ChatState } from "../application/state/root-reducer";
+import type { ChatStateStore } from "../application/state/store";
+import type { ComposerShellProps } from "../ui/composer";
+import { type ComposerCallbacks, syncComposerHeight } from "../ui/composer";
+import type { ChatPanelComposerShellState } from "./shell-state";
 import type { ChatPanelComposerProjection } from "./surface/composer-projection";
 
 export interface ChatComposerControllerOptions {

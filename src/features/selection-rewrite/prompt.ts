@@ -1,4 +1,4 @@
-import { selectionRewriteTextRangeOffsets, type SelectionRewriteState } from "./model";
+import { type SelectionRewriteState, selectionRewriteTextRangeOffsets } from "./model";
 
 const MAX_NOTE_CONTEXT_CHARS = 20_000;
 

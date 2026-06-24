@@ -4,10 +4,10 @@ import { VIEW_TYPE_CODEX_TURN_DIFF } from "../../../../constants";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
 import { unmountUiRoot } from "../../../../shared/ui/ui-root";
 import {
-  isPersistedChatTurnDiffViewState,
-  persistedChatTurnDiffViewState,
-  type PersistedChatTurnDiffViewState,
   type ChatTurnDiffViewState,
+  isPersistedChatTurnDiffViewState,
+  type PersistedChatTurnDiffViewState,
+  persistedChatTurnDiffViewState,
 } from "../../domain/turn-diff";
 import { renderChatTurnDiffView } from "./render";
 

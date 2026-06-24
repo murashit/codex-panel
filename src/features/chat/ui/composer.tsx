@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ComponentChild as UiNode, Ref } from "preact";
+import type { ButtonHTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { IconButton } from "../../../shared/ui/components";

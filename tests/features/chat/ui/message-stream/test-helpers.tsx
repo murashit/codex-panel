@@ -1,24 +1,24 @@
-import { vi } from "vitest";
 import type { ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
+import { vi } from "vitest";
 
 import type { PendingApproval, PendingUserInput } from "../../../../../src/domain/pending-requests/model";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import type { MessageStreamTextActionTargets } from "../../../../../src/features/chat/presentation/message-stream/text-view";
+import {
+  type MessageStreamViewBlock,
+  messageStreamViewBlocks,
+} from "../../../../../src/features/chat/presentation/message-stream/view-model";
 import { pendingRequestBlockSnapshotFromState } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
-import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
 import type {
   MessageStreamContext,
   MessageStreamDisclosureState,
   PendingRequestBlockActions,
   PendingRequestBlockContext,
 } from "../../../../../src/features/chat/ui/message-stream/context";
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
-import {
-  messageStreamViewBlocks,
-  type MessageStreamViewBlock,
-} from "../../../../../src/features/chat/presentation/message-stream/view-model";
-import type { MessageStreamTextActionTargets } from "../../../../../src/features/chat/presentation/message-stream/text-view";
-import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import type { MessageStreamScrollControllerBinding } from "../../../../../src/features/chat/ui/message-stream/flow-scroll";
+import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
+import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 
 export function messageStreamBlocks(context: TestMessageStreamContext): [MessageStreamViewBlock, ...MessageStreamViewBlock[]] {

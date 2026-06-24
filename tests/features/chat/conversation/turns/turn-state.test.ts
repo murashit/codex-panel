@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  transitionChatTurnLifecycleState,
   type ChatTurnLifecycleEvent,
   type ChatTurnLifecycleState,
   type PendingTurnStart,
+  transitionChatTurnLifecycleState,
 } from "../../../../../src/features/chat/application/conversation/turn-state";
 
 describe("chat turn lifecycle state machine", () => {

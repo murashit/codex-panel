@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { slashCommandHelpSections } from "../../../../../src/features/chat/application/composer/slash-commands";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { slashCommandHelpSections } from "../../../../../src/features/chat/application/composer/slash-commands";
 import {
   executeSlashCommand,
   type SlashCommandExecutionContext,

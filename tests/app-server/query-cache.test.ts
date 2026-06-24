@@ -1,18 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-
+import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
+import { AppServerQueryCache } from "../../src/app-server/query/cache";
+import type { AppServerQueryContext } from "../../src/app-server/query/keys";
+import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
+import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
+import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import {
   createServerDiagnostics,
   diagnosticProbeError,
   diagnosticProbeOk,
   diagnosticsWithProbe,
 } from "../../src/domain/server/diagnostics";
-import { AppServerQueryCache } from "../../src/app-server/query/cache";
-import type { AppServerQueryContext } from "../../src/app-server/query/keys";
-import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
-import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
-import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
-import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
 
 describe("AppServerQueryCache", () => {
   it("stores metadata snapshots without replacing failed resource values with stale data", () => {

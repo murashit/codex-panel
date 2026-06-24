@@ -1,19 +1,18 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import { appServerQueryContextMatches, appServerQueryContextRawEquals, type AppServerQueryContext } from "../../../app-server/query/keys";
-
+import { type AppServerQueryContext, appServerQueryContextMatches, appServerQueryContextRawEquals } from "../../../app-server/query/keys";
+import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
-import { createChatViewDeferredTasks } from "./lifecycle";
 import { ChatResumeWorkTracker, type ChatViewDeferredTasks, type RestoredThreadPlaceholderState } from "../application/lifecycle";
-import { openPanelTurnLifecycle, parseRestoredThreadState, type ChatPanelSnapshot } from "../panel/snapshot";
 import type { ChatState } from "../application/state/root-reducer";
-import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
+import { type ChatStateStore, createChatStateStore } from "../application/state/store";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell";
-import { createChatStateStore, type ChatStateStore } from "../application/state/store";
-import { createChatMessageScrollController, type ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
-import type { ChatSurfaceHandle } from "./surface-handle";
+import { type ChatPanelSnapshot, openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
+import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/surface/message-stream-scroll";
+import { createChatViewDeferredTasks } from "./lifecycle";
 import type { ChatPanelEnvironment } from "./runtime";
-import { createChatPanelSessionGraph, type ChatPanelSessionGraph } from "./session-graph";
+import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
+import type { ChatSurfaceHandle } from "./surface-handle";
 
 export class ChatPanelSession implements ChatSurfaceHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();

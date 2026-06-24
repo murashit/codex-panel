@@ -1,26 +1,25 @@
 import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
-
-import type { AppServerClient } from "../connection/client";
-import type { AppServerClientAccessOptions } from "../connection/client-access";
-import { listModelMetadata } from "../catalog";
-import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
-import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
-import { listThreads } from "../threads";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { ObservedDataListener, ObservedDataResult } from "../../domain/observed-data";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
+import { listModelMetadata } from "../catalog";
+import type { AppServerClient } from "../connection/client";
+import type { AppServerClientAccessOptions } from "../connection/client-access";
+import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
+import { listThreads } from "../threads";
 import {
+  type AppServerQueryContext,
   activeThreadsQueryKey,
-  archivedThreadsQueryKey,
   appServerMetadataQueryKey,
   appServerModelsQueryKey,
   appServerQueriesFilter,
   appServerQueryContextIsComplete,
+  archivedThreadsQueryKey,
   cloneAppServerQueryContext,
-  type AppServerQueryContext,
 } from "./keys";
+import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
 import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads } from "./snapshots";
 
 const THREAD_LIST_STALE_TIME_MS = 10_000;

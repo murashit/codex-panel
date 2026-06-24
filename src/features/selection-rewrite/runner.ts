@@ -1,14 +1,14 @@
+import type { ModelMetadataClient } from "../../app-server/catalog";
+import type { AppServerClientHandlers } from "../../app-server/connection/client";
 import {
   type EphemeralStructuredTurnClient,
   runEphemeralStructuredTurnForLastAgentText,
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
-import type { ModelMetadataClient } from "../../app-server/catalog";
-import type { AppServerClientHandlers } from "../../app-server/connection/client";
 import { resolvedRuntimeOverrideForClient } from "../../app-server/services/runtime-overrides";
 import type { SelectionRewriteRuntimeSettings } from "./model";
+import { type SelectionRewriteOutput, SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText } from "./output";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
-import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText, type SelectionRewriteOutput } from "./output";
 
 const SELECTION_REWRITE_TIMEOUT_MS = 120_000;
 

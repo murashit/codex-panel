@@ -1,8 +1,7 @@
-import type { ButtonHTMLAttributes, ComponentChild as UiNode, TargetedKeyboardEvent } from "preact";
+import type { ButtonHTMLAttributes, TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
-
-import type { RateLimitSummary } from "../presentation/runtime/status";
 import { IconButton } from "../../../shared/ui/components";
+import type { RateLimitSummary } from "../presentation/runtime/status";
 
 type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;

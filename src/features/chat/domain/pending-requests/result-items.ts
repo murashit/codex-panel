@@ -1,6 +1,6 @@
 import {
-  approvalActionKind,
   type ApprovalAction,
+  approvalActionKind,
   type McpElicitationAction,
   type McpElicitationContentValue,
   type PendingApproval,

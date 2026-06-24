@@ -3,18 +3,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StaleAppServerSharedQueryContextError } from "../../../../src/app-server/query/shared-queries";
-import { createChatStateStore, type ChatStateStore } from "../../../../src/features/chat/application/state/store";
+import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
+import type { Thread } from "../../../../src/domain/threads/model";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
+import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
+import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/runtime";
+import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
-import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/lifecycle";
 import { createChatMessageScrollController } from "../../../../src/features/chat/panel/surface/message-stream-scroll";
-import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
-import type { Thread } from "../../../../src/domain/threads/model";
-import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
-import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/runtime";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();

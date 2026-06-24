@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  composerBoundaryScrollDirection,
   type ComposerBoundaryScrollAction,
+  composerBoundaryScrollDirection,
 } from "../../../../../src/features/chat/application/composer/boundary-scroll";
 
 describe("composer boundary scroll shortcuts", () => {

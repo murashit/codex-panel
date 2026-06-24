@@ -1,5 +1,5 @@
+import { type App, TFile } from "obsidian";
 import { describe, expect, it } from "vitest";
-import { TFile, type App } from "obsidian";
 
 import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "../../../src/shared/obsidian/file-links";
 

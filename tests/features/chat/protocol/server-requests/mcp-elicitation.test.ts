@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-
-import {
-  appServerMcpElicitationRequest as toPendingMcpElicitation,
-  appServerMcpElicitationResponse as mcpElicitationResponse,
-} from "../../../../../src/app-server/protocol/server-requests";
 import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import {
+  appServerMcpElicitationResponse as mcpElicitationResponse,
+  appServerMcpElicitationRequest as toPendingMcpElicitation,
+} from "../../../../../src/app-server/protocol/server-requests";
 import { contentForPendingMcpElicitation, mcpElicitationDraftKey } from "../../../../../src/domain/pending-requests/model";
 
 function expectPresent<T>(value: T | null | undefined): T {

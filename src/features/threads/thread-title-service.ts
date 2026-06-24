@@ -1,14 +1,14 @@
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import { generateThreadTitleWithCodex } from "../../app-server/services/thread-title-generation";
 import { readCompletedConversationSummariesPage } from "../../app-server/threads";
-import type { ThreadConversationSummary } from "../../domain/threads/transcript";
+import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import {
   findThreadTitleContext,
   THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE,
-  threadTitleContextFromConversationSummary,
   type ThreadTitleContext,
+  threadTitleContextFromConversationSummary,
 } from "../../domain/threads/title-generation-model";
-import type { ReasoningEffort } from "../../domain/catalog/metadata";
+import type { ThreadConversationSummary } from "../../domain/threads/transcript";
 
 export interface ThreadTitleServiceHost {
   codexPath: () => string;

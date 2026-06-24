@@ -1,8 +1,8 @@
 import type { Thread } from "../../../../domain/threads/model";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
-import { activeTurnId, chatTurnBusy, pendingTurnStart, type PendingTurnStart } from "./turn-state";
-import type { ChatState } from "../state/root-reducer";
 import { messageStreamItems } from "../state/message-stream";
+import type { ChatState } from "../state/root-reducer";
+import { activeTurnId, chatTurnBusy, type PendingTurnStart, pendingTurnStart } from "./turn-state";
 
 export interface SubmissionStateSnapshot {
   activeThreadId: string | null;

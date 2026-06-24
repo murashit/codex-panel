@@ -1,5 +1,5 @@
-import type { RestorationController } from "./restoration-controller";
 import type { ChatStateStore } from "../state/store";
+import type { RestorationController } from "./restoration-controller";
 import { activeThreadId } from "./state-selectors";
 
 export interface ActiveThreadIdentitySyncHost {

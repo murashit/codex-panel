@@ -1,12 +1,12 @@
-import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
+import { copyTextWithNotice } from "../../../shared/ui/clipboard";
+import type { ChatConnectionController } from "../application/connection/connection-controller";
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
-import type { ChatConnectionController } from "../application/connection/connection-controller";
 import type { GoalActions } from "../application/threads/goal-actions";
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
 import type { SelectionActions } from "../application/threads/selection-actions";
+import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
 import type { ToolbarActions } from "../ui/toolbar";
-import { copyTextWithNotice } from "../../../shared/ui/clipboard";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;

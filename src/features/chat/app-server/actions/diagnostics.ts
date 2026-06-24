@@ -1,18 +1,18 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
+import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
+import { readToolInventory } from "../../../../app-server/tool-inventory";
 import {
   cloneServerDiagnostics,
-  diagnosticsWithToolInventory,
-  diagnosticsWithProbe,
+  type DiagnosticProbeMethod,
+  type Diagnostics,
   diagnosticProbeError,
   diagnosticProbeOk,
+  diagnosticsWithProbe,
+  diagnosticsWithToolInventory,
   upsertMcpServerStatusDiagnostics,
-  type Diagnostics,
-  type DiagnosticProbeMethod,
 } from "../../../../domain/server/diagnostics";
-import { readToolInventory } from "../../../../app-server/tool-inventory";
-import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
-import { captureChatServerActionClientScope, type ChatServerActionHost } from "./host";
+import { type ChatServerActionHost, captureChatServerActionClientScope } from "./host";
 
 interface RefreshServerDiagnosticsOptions {
   appServerMetadataSnapshot?: boolean;

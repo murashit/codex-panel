@@ -1,8 +1,8 @@
-import type { ChatState } from "../state/root-reducer";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { activeThreadRuntimeState, pendingRuntimeIntentState } from "../../domain/runtime/state";
 import { messageStreamItems } from "../state/message-stream";
+import type { ChatState } from "../state/root-reducer";
 
 interface RuntimeSnapshotInput {
   runtimeConfig: ChatState["connection"]["runtimeConfig"];

@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-
-import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ModelMetadata, ReasoningEffort } from "../../../../../src/domain/catalog/metadata";
+import type { Thread } from "../../../../../src/domain/threads/model";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
-  composerSuggestionSignature,
   composerSuggestionNavigationDirection,
+  composerSuggestionSignature,
   nextComposerSuggestionIndex,
   parseSlashCommand,
 } from "../../../../../src/features/chat/application/composer/suggestions";

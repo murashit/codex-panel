@@ -1,5 +1,4 @@
-import type { ButtonHTMLAttributes, TargetedKeyboardEvent } from "preact";
-import type { ComponentChild as UiNode } from "preact";
+import type { ButtonHTMLAttributes, TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { IconButton } from "../../shared/ui/components";

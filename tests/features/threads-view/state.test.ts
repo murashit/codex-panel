@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
-import { threadRows, transitionThreadsRenameState, type ThreadsRenameState } from "../../../src/features/threads-view/state";
+import { type ThreadsRenameState, threadRows, transitionThreadsRenameState } from "../../../src/features/threads-view/state";
 import type { OpenCodexPanelSnapshot } from "../../../src/workspace/panel-coordinator";
 
 describe("threads view rename state", () => {

@@ -1,8 +1,8 @@
-import { serverIdentity, serverPlatform, type DiagnosticProbeMethod } from "../../../../domain/server/diagnostics";
 import { CLIENT_VERSION } from "../../../../constants";
-import type { ChatState } from "../state/root-reducer";
+import type { DiagnosticProbeResult, Diagnostics } from "../../../../domain/server/diagnostics";
+import { type DiagnosticProbeMethod, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { Diagnostics, DiagnosticProbeResult } from "../../../../domain/server/diagnostics";
+import type { ChatState } from "../state/root-reducer";
 
 const RUNTIME_CHECK_PROBE_METHODS: readonly DiagnosticProbeMethod[] = ["model/list", "account/rateLimits/read"];
 

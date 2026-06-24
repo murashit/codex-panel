@@ -4,10 +4,10 @@ import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { AppServerQueryCache } from "./cache";
 import {
+  type AppServerQueryContext,
   appServerQueryContextMatches,
   appServerQueryContextRawEquals,
   cloneAppServerQueryContext,
-  type AppServerQueryContext,
 } from "./keys";
 
 export interface AppServerSharedQueriesOptions {

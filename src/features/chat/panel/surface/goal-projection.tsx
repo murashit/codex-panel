@@ -1,10 +1,10 @@
-import type { GoalActions } from "../../application/threads/goal-actions";
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
 import type { SendShortcut } from "../../../../shared/ui/keyboard";
+import type { GoalActions } from "../../application/threads/goal-actions";
 import type { GoalPanelActions, GoalPanelDisplayState, GoalPanelEditorState, GoalPanelOptions } from "../../ui/goal";
 import { GoalPanel } from "../../ui/goal";
-import { goalStateFromShellState, useChatPanelShellState, type ChatPanelGoalShellState } from "../shell-state";
+import { type ChatPanelGoalShellState, goalStateFromShellState, useChatPanelShellState } from "../shell-state";
 
 interface ChatPanelGoalActions {
   saveObjective: (objective: string, tokenBudget: number | null) => Promise<boolean>;

@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import { normalizeExplicitThreadName, type Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import {
   createThreadRenameEditorActions,
   type ThreadRenameEditorActions,
   type ThreadRenameEditorActionsHost,
 } from "../../../../src/features/chat/application/threads/rename-editor-actions";
-import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import { normalizeExplicitThreadName, type Thread } from "../../../../src/domain/threads/model";
-import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import { deferred } from "../../../support/async";
 
 describe("ThreadRenameEditorActions", () => {

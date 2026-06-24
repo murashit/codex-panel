@@ -2,20 +2,6 @@
 
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
-import {
-  canApplySelectionRewrite,
-  transitionSelectionRewriteState,
-  type SelectionRewriteLifecycleEvent,
-  type SelectionRewriteState,
-} from "../../../src/features/selection-rewrite/model";
-import { selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
-import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
-import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position";
-import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
-import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
-import { runSelectionRewrite } from "../../../src/features/selection-rewrite/runner";
 import type {
   AppServerClient,
   AppServerClientHandlers,
@@ -25,6 +11,19 @@ import type { RequestId, ServerNotification } from "../../../src/app-server/conn
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
 import type { ServerInitialization } from "../../../src/domain/server/initialization";
+import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
+import {
+  canApplySelectionRewrite,
+  type SelectionRewriteLifecycleEvent,
+  type SelectionRewriteState,
+  transitionSelectionRewriteState,
+} from "../../../src/features/selection-rewrite/model";
+import { selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
+import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover";
+import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position";
+import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
+import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
+import { runSelectionRewrite } from "../../../src/features/selection-rewrite/runner";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 

@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerQueryCache } from "../../src/app-server/query/cache";
 import { AppServerSharedQueries, StaleAppServerSharedQueryContextError } from "../../src/app-server/query/shared-queries";
-import type { ObservedDataResult } from "../../src/domain/observed-data";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
+import type { ObservedDataResult } from "../../src/domain/observed-data";
 import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 import type { Thread } from "../../src/domain/threads/model";

@@ -5,9 +5,9 @@ import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import type { ThreadOperations } from "../../../threads/thread-operations";
 import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
+import { chatTurnBusy } from "../conversation/turn-state";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
-import { chatTurnBusy } from "../conversation/turn-state";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 

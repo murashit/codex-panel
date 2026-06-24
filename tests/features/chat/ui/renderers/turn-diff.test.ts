@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
 import type { WorkspaceLeaf } from "obsidian";
+import { describe, expect, it, vi } from "vitest";
 
 import { persistedChatTurnDiffViewState } from "../../../../../src/features/chat/domain/turn-diff";
 import { renderChatTurnDiffView } from "../../../../../src/features/chat/ui/turn-diff/render";

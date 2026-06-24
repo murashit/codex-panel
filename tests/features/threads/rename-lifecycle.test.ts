@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   initialThreadRenameLifecycleState,
-  transitionThreadRenameLifecycleState,
   type ThreadRenameGeneratingState,
   type ThreadRenameLifecycleState,
+  transitionThreadRenameLifecycleState,
 } from "../../../src/features/threads/rename-lifecycle";
 
 describe("thread rename lifecycle", () => {

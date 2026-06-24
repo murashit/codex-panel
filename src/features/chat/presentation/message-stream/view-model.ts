@@ -1,12 +1,12 @@
-import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics/types";
 import type { AgentRunSummary, MessageStreamItem, TaskProgressMessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamItemsEmpty } from "../../domain/message-stream/selectors";
 import { activeTurnLiveItems, messageStreamItemsWithoutActiveTaskProgress } from "../../domain/message-stream/semantics/active-turn";
-import { messageStreamLayoutBlocks, type MessageStreamItemAnnotations, type MessageStreamLayoutBlock } from "./layout";
-import { detailView, type DetailView } from "./detail-view";
-import { messageStreamTextView, type MessageStreamTextActionTargets, type MessageStreamTextView } from "./text-view";
-import { agentRunSummaryView, messageStreamStatusView, type AgentRunSummaryView, type MessageStreamStatusView } from "./status-view";
+import type { MessageStreamSemanticClassification } from "../../domain/message-stream/semantics/types";
 import type { PendingRequestBlockSnapshot } from "../pending-requests/view-model";
+import { type DetailView, detailView } from "./detail-view";
+import { type MessageStreamItemAnnotations, type MessageStreamLayoutBlock, messageStreamLayoutBlocks } from "./layout";
+import { type AgentRunSummaryView, agentRunSummaryView, type MessageStreamStatusView, messageStreamStatusView } from "./status-view";
+import { type MessageStreamTextActionTargets, type MessageStreamTextView, messageStreamTextView } from "./text-view";
 
 interface PendingRequestMessageStreamBlockInput {
   signature: string;

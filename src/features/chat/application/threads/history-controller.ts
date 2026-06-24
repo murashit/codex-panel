@@ -1,8 +1,8 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { readChatThreadHistoryPage, type ChatThreadHistoryPage } from "../../app-server/threads/projection";
+import { type ChatThreadHistoryPage, readChatThreadHistoryPage } from "../../app-server/threads/projection";
+import { messageStreamItems } from "../state/message-stream";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { messageStreamItems } from "../state/message-stream";
 
 export interface HistoryControllerHost {
   stateStore: ChatStateStore;

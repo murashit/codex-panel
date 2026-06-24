@@ -1,6 +1,6 @@
-import { threadTitleContextPromptText, type ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
-import { isCompletedTurnOutcomeMessage } from "../../domain/message-stream/selectors";
+import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title-generation-model";
 import type { MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
+import { isCompletedTurnOutcomeMessage } from "../../domain/message-stream/selectors";
 
 export function threadTitleContextFromMessageStreamItems(turnId: string, items: readonly MessageStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);

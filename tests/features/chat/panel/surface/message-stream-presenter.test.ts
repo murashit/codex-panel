@@ -1,30 +1,30 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MarkdownRenderer, TFile } from "obsidian";
 import { h } from "preact";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { chatReducer, type ChatAction, type ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
-import { createChatStateStore, type ChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
   type ChatMessageStreamSurfaceContext,
   messageStreamSurfaceProjectionFromState,
 } from "../../../../../src/features/chat/panel/surface/message-stream-projection";
 import {
-  createChatMessageScrollController,
   type ChatMessageScrollController,
+  createChatMessageScrollController,
 } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
-import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
-import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
+import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
+import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
-import { installMessageViewportMetrics, pendingApproval } from "../../ui/message-stream/test-helpers";
 import { withChatStateMessageStreamItems } from "../../support/message-stream";
-import { chatStateFixture, chatStateWith } from "../../support/state";
 import { messageStreamShellStateFromChatState } from "../../support/shell-state";
+import { chatStateFixture, chatStateWith } from "../../support/state";
+import { installMessageViewportMetrics, pendingApproval } from "../../ui/message-stream/test-helpers";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 

@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-
-import type { AppServerClient } from "../../src/app-server/connection/client";
 import { listHookData, listSkillCatalog } from "../../src/app-server/catalog";
+import type { AppServerClient } from "../../src/app-server/connection/client";
 import {
   appServerHookOperationFromHookItem,
   hookItemsFromCatalogHooks,

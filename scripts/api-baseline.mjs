@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 
 const args = new Set(process.argv.slice(2));
 const asJson = args.has("--json");

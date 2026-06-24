@@ -4,31 +4,31 @@ import {
   appServerMcpElicitationResponse,
   appServerUserInputResponse,
 } from "../../../../app-server/protocol/server-requests";
-import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
-import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
-import type { AppServerResourceEvent } from "../actions/metadata";
-import type { LocalIdSource } from "../../../../shared/id/local-id";
-import { classifyAppServerLog } from "./app-server-logs";
-import { activeTurnId } from "../../application/conversation/turn-state";
-import type { ChatAction, ChatState } from "../../application/state/root-reducer";
-import type { ChatStateStore } from "../../application/state/store";
-import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
-import { createStructuredSystemItem, createSystemItem } from "../../domain/message-stream/factories/system-items";
 import {
-  contentForPendingMcpElicitation,
   type ApprovalAction,
+  contentForPendingMcpElicitation,
   type McpElicitationAction,
   type PendingApproval,
   type PendingMcpElicitation,
   type PendingRequestId,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
+import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
+import type { LocalIdSource } from "../../../../shared/id/local-id";
+import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
+import { activeTurnId } from "../../application/conversation/turn-state";
+import type { ChatAction, ChatState } from "../../application/state/root-reducer";
+import type { ChatStateStore } from "../../application/state/store";
+import { createStructuredSystemItem, createSystemItem } from "../../domain/message-stream/factories/system-items";
+import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import {
   createApprovalResultItem,
   createMcpElicitationResultItem,
   createUserInputResultItem,
 } from "../../domain/pending-requests/result-items";
-import { planChatNotification, type ChatNotificationEffect } from "./notification-plan";
+import type { AppServerResourceEvent } from "../actions/metadata";
+import { classifyAppServerLog } from "./app-server-logs";
+import { type ChatNotificationEffect, planChatNotification } from "./notification-plan";
 import { routeServerRequest } from "./routing";
 
 function cannotSendApprovalResponseMessage(): string {

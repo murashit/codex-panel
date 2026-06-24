@@ -1,5 +1,5 @@
+import { type App, type EventRef, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
-import { TFile, type App, type EventRef } from "obsidian";
 
 import { VaultNoteCandidateProvider } from "../../../../src/features/chat/panel/vault-note-candidate-provider";
 

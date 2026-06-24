@@ -1,11 +1,11 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import { resumeChatThread, type ChatThreadResumeSnapshot } from "../../app-server/threads/projection";
+import { type ChatThreadResumeSnapshot, resumeChatThread } from "../../app-server/threads/projection";
+import type { ActiveChatResume, ChatResumeWorkTracker } from "../lifecycle";
 import { resumedThreadAction } from "../state/actions";
 import type { ChatStateStore } from "../state/store";
-import type { RestorationController } from "./restoration-controller";
 import type { HistoryController } from "./history-controller";
-import type { ChatResumeWorkTracker, ActiveChatResume } from "../lifecycle";
+import type { RestorationController } from "./restoration-controller";
 import { activeThreadId, canSwitchToThread, listedThreads, messageStreamItemsEmpty } from "./state-selectors";
 
 export interface ResumeActionsHost {

@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-
+import { type ChatReconnectActionsHost, reconnectPanel } from "../../../../src/features/chat/application/connection/reconnect-actions";
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { reconnectPanel, type ChatReconnectActionsHost } from "../../../../src/features/chat/application/connection/reconnect-actions";
 
 function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
   const stateStore = createChatStateStore(createChatState());

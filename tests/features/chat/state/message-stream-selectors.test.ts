@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-
-import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import {
   initialChatMessageStreamState,
   messageStreamRollbackCandidate,
   messageStreamTurnsAfterTurnId,
   messageStreamWithActiveTurnItems,
 } from "../../../../src/features/chat/application/state/message-stream";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 
 describe("message stream selectors", () => {
   it("counts turns after a turn id from message stream state", () => {

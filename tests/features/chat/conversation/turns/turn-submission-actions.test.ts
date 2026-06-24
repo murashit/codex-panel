@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { CodexInput } from "../../../../../src/domain/chat/input";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
-import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import type { Thread } from "../../../../../src/domain/threads/model";
+import { optimisticTurnStart } from "../../../../../src/features/chat/application/conversation/optimistic-turn-start";
 import {
   createTurnSubmissionActions,
   type TurnSubmissionActionsHost,
 } from "../../../../../src/features/chat/application/conversation/turn-submission-actions";
-import { optimisticTurnStart } from "../../../../../src/features/chat/application/conversation/optimistic-turn-start";
-import type { Thread } from "../../../../../src/domain/threads/model";
+import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { chatStateMessageStreamItems } from "../../support/message-stream";
 

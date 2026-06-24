@@ -1,6 +1,6 @@
 import { normalizeReasoningEffort } from "../../domain/catalog/metadata";
-import { approvalsReviewerOrNull, parseServiceTier } from "../../domain/runtime/policy";
 import type { ReasoningSummary, RuntimeConfigSnapshot, Verbosity } from "../../domain/runtime/config";
+import { approvalsReviewerOrNull, parseServiceTier } from "../../domain/runtime/policy";
 
 interface ConfigLayerRecord {
   name: { type: string; profile?: unknown; [key: string]: unknown };

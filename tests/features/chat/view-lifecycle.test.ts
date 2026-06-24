@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { ConnectionWorkTracker } from "../../../src/shared/lifecycle/connection-work";
 import { ChatResumeWorkTracker, transitionRestoredThreadLifecycle } from "../../../src/features/chat/application/lifecycle";
 import { createChatViewDeferredTasks } from "../../../src/features/chat/host/lifecycle";
+import { ConnectionWorkTracker } from "../../../src/shared/lifecycle/connection-work";
 
 describe("createChatViewDeferredTasks", () => {
   beforeEach(() => {

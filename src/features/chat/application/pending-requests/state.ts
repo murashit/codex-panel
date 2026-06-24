@@ -1,11 +1,11 @@
 import {
   mcpElicitationDraftKey,
-  userInputDraftKey,
-  userInputOtherDraftKey,
   type PendingApproval,
   type PendingMcpElicitation,
   type PendingRequestId,
   type PendingUserInput,
+  userInputDraftKey,
+  userInputOtherDraftKey,
 } from "../../../../domain/pending-requests/model";
 import { patchObject } from "../state/patch";
 

@@ -1,5 +1,4 @@
 import { shortThreadId } from "../../../../shared/id/thread-id";
-import { messageStreamReasoningIsActive } from "../../domain/message-stream/semantics/active-turn";
 import type {
   AgentRunSummary,
   AgentRunSummaryAgent,
@@ -8,6 +7,7 @@ import type {
   ReasoningMessageStreamItem,
   TaskProgressMessageStreamItem,
 } from "../../domain/message-stream/items";
+import { messageStreamReasoningIsActive } from "../../domain/message-stream/semantics/active-turn";
 
 export type StatusChecklistItem = TaskProgressMessageStreamItem["steps"][number];
 

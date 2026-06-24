@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
+import { describe, expect, it, vi } from "vitest";
 
 import { Toolbar, type ToolbarActions, type ToolbarViewModel } from "../../../../../src/features/chat/ui/toolbar";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";

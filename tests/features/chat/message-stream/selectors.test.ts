@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-
-import { forkCandidatesFromItems } from "../../../../src/features/chat/domain/message-stream/selectors";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
+import { forkCandidatesFromItems } from "../../../../src/features/chat/domain/message-stream/selectors";
 
 describe("message stream item selectors", () => {
   it("selects final assistant messages as fork candidates", () => {

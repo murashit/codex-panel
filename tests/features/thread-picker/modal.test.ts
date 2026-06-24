@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from "vitest";
 import { SuggestModal } from "obsidian";
+import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
 import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal";

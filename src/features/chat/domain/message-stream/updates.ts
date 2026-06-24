@@ -1,6 +1,6 @@
+import type { MessageStreamFileChange, MessageStreamItem } from "./items";
 import { messageStreamSemanticClassifications } from "./semantics/classify";
 import { messageStreamIsTurnInitiator } from "./semantics/predicates";
-import type { MessageStreamFileChange, MessageStreamItem } from "./items";
 
 export function upsertMessageStreamItemById(items: readonly MessageStreamItem[], next: MessageStreamItem): MessageStreamItem[] {
   const index = items.findIndex((item) => item.id === next.id);

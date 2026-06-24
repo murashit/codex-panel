@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
+import type { Thread } from "../../../../../src/domain/threads/model";
+import { submitComposer } from "../../../../../src/features/chat/application/conversation/composer-submit-actions";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { submitComposer } from "../../../../../src/features/chat/application/conversation/composer-submit-actions";
-import type { Thread } from "../../../../../src/domain/threads/model";
 
 function thread(id: string): Thread {
   return {

@@ -6,9 +6,9 @@ import {
   completedConversationSummaryFromTurnRecord,
   conversationAssistantTextFromTurnRecord,
   lastAgentMessageTextFromTurnRecord,
-  transcriptEntriesFromTurnRecords,
   type TurnItem,
   type TurnRecord,
+  transcriptEntriesFromTurnRecords,
 } from "../../src/app-server/protocol/turn";
 
 describe("app-server turn records", () => {

@@ -1,28 +1,27 @@
 // @vitest-environment jsdom
 
+import { type ComponentChild, h } from "preact";
 import { describe, expect, it, vi } from "vitest";
-import { h, type ComponentChild } from "preact";
-
-import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
-import { runtimeConfigSnapshotFromAppServerConfig, type ConfigReadResult } from "../../../../../src/app-server/protocol/runtime-config";
-import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
-import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
-import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../../../src/features/chat/presentation/runtime/status";
-import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
-import { ChatPanelToolbar } from "../../../../../src/features/chat/panel/surface/toolbar-projection";
-import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../../../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../../../../src/domain/catalog/metadata";
-import type { Thread } from "../../../../../src/domain/threads/model";
-import type { ChatPanelComposerSurface } from "../../../../../src/features/chat/panel/surface/composer-projection";
-import { ChatPanelGoal, type ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/goal-projection";
+import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
+import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
-import { withChatStateMessageStreamItems } from "../../support/message-stream";
-import { chatStateFixture, chatStateWith } from "../../support/state";
+import type { Thread } from "../../../../../src/domain/threads/model";
+import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
+import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { ChatPanelShellStateContext, createChatPanelShellState } from "../../../../../src/features/chat/panel/shell-state";
+import type { ChatPanelComposerSurface } from "../../../../../src/features/chat/panel/surface/composer-projection";
+import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
+import { ChatPanelGoal, type ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/goal-projection";
+import { ChatPanelToolbar } from "../../../../../src/features/chat/panel/surface/toolbar-projection";
+import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../../../src/features/chat/presentation/runtime/status";
 import type { ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../../support/dom";
+import { withChatStateMessageStreamItems } from "../../support/message-stream";
 import { composerShellStateFromChatState } from "../../support/shell-state";
+import { chatStateFixture, chatStateWith } from "../../support/state";
 
 installObsidianDomShims();
 

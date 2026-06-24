@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import type { Thread } from "../../../../src/domain/threads/model";
+import type { ThreadTitleContext } from "../../../../src/domain/threads/title-generation-model";
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import {
-  createAutoTitleCoordinator,
   type AutoTitleCoordinator,
   type AutoTitleCoordinatorHost,
+  createAutoTitleCoordinator,
 } from "../../../../src/features/chat/application/threads/auto-title-coordinator";
 import { threadTitleContextFromMessageStreamItems } from "../../../../src/features/chat/application/threads/title-context";
 import { createThreadTitleService } from "../../../../src/features/threads/thread-title-service";
-import type { Thread } from "../../../../src/domain/threads/model";
-import type { ThreadTitleContext } from "../../../../src/domain/threads/title-generation-model";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { deferred } from "../../../support/async";
 

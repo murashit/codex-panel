@@ -1,5 +1,5 @@
-import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../domain/pending-requests/model";
 import { hasPendingRequests, pendingRequestCountsFromQueues } from "../../../../domain/pending-requests/aggregate";
+import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../domain/pending-requests/model";
 
 export function pendingRequestsSignature(
   approvals: readonly PendingApproval[],

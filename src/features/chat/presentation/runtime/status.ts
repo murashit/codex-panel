@@ -2,9 +2,9 @@ import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { jsonPreview } from "../../../../shared/text/preview";
 import { currentServiceTier, runtimeConfigOrDefault } from "../../domain/runtime/effective";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { pendingRuntimeSettingLabel, serviceTierLabel as formatServiceTierLabel } from "../../domain/runtime/labels";
+import { serviceTierLabel as formatServiceTierLabel, pendingRuntimeSettingLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
+import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 
 export interface ContextSummary {
   label: string;

@@ -4,9 +4,9 @@ import {
   explicitThreadName,
   inheritedForkThreadName,
   normalizeExplicitThreadName,
+  type Thread,
   threadRecencyAt,
   upsertThread,
-  type Thread,
 } from "../../../src/domain/threads/model";
 import {
   threadArchiveDisplayTitle,

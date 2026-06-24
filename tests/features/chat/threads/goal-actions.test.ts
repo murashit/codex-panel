@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadGoal } from "../../../../src/domain/threads/goal";
-import { createGoalActions } from "../../../../src/features/chat/application/threads/goal-actions";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { createGoalActions } from "../../../../src/features/chat/application/threads/goal-actions";
 import { createLocalIdSource } from "../../../../src/shared/id/local-id";
 import { deferred } from "../../../support/async";
 import { chatStateFixture, chatStateWith } from "../support/state";

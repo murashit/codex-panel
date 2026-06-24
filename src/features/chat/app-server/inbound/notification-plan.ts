@@ -1,44 +1,43 @@
-import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
-import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
-import { threadFromAppServerRecord } from "../../../../app-server/threads";
-import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
+import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
+import { threadFromAppServerRecord } from "../../../../app-server/threads";
+import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
-import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import { jsonPreview } from "../../../../shared/text/preview";
+import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "../../application/conversation/turn-state";
+import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
+import { messageStreamItems } from "../../application/state/message-stream";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
-import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/updates";
+import { reconcileCompletedTurnItems } from "../../domain/message-stream/completed-turn-reconciliation";
+import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
+import {
+  STREAMED_COMMAND_RUNNING_TEXT,
+  STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
+  STREAMED_MCP_PROGRESS_LABEL,
+} from "../../domain/message-stream/factories/streaming-items";
+import { createSystemItem } from "../../domain/message-stream/factories/system-items";
+import type { MessageStreamItem, MessageStreamItemKind } from "../../domain/message-stream/items";
+import { attachHookRunsToTurn, completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/updates";
+import type { AppServerResourceEvent } from "../actions/metadata";
+import {
+  type AppServerFileChange,
+  normalizeFileChanges,
+  streamingFileChangeMessageStreamItem,
+} from "../mappers/message-stream/file-changes";
+import { hookRunMessageStreamItem } from "../mappers/message-stream/hook-run-items";
+import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/message-stream/review-result-items";
+import { taskProgressMessageStreamItem } from "../mappers/message-stream/task-progress";
 import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
 } from "../mappers/message-stream/turn-items";
 import {
-  normalizeFileChanges,
-  streamingFileChangeMessageStreamItem,
-  type AppServerFileChange,
-} from "../mappers/message-stream/file-changes";
-import { taskProgressMessageStreamItem } from "../mappers/message-stream/task-progress";
-import type { MessageStreamItem, MessageStreamItemKind } from "../../domain/message-stream/items";
-import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
-import { hookRunMessageStreamItem } from "../mappers/message-stream/hook-run-items";
-import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/message-stream/review-result-items";
-import { createSystemItem } from "../../domain/message-stream/factories/system-items";
-import {
-  STREAMED_COMMAND_RUNNING_TEXT,
-  STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
-  STREAMED_MCP_PROGRESS_LABEL,
-} from "../../domain/message-stream/factories/streaming-items";
-import { attachHookRunsToTurn } from "../../domain/message-stream/updates";
-import { messageStreamItems } from "../../application/state/message-stream";
-import { reconcileCompletedTurnItems } from "../../domain/message-stream/completed-turn-reconciliation";
-import type { AppServerResourceEvent } from "../actions/metadata";
-import {
-  routeServerNotification,
   type DiagnosticStatusNotification,
   type DiagnosticStatusNotificationMethod,
+  routeServerNotification,
   type StreamUpdateNotification,
   type StreamUpdateNotificationMethod,
   type ThreadLifecycleNotification,

@@ -1,16 +1,15 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
-
+import { describe, expect, it, vi } from "vitest";
+import type { ComposerMetaViewModel } from "../../../../../src/features/chat/ui/composer";
 import {
-  ComposerShell,
-  syncComposerHeight,
   type ComposerCallbacks,
+  ComposerShell,
   type ComposerSuggestion,
+  syncComposerHeight,
 } from "../../../../../src/features/chat/ui/composer";
 import { scrollComposerSuggestionIntoView } from "../../../../../src/features/chat/ui/composer-dom";
-import type { ComposerMetaViewModel } from "../../../../../src/features/chat/ui/composer";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";

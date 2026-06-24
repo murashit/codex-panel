@@ -1,6 +1,6 @@
-import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
 import { chatTurnBusy } from "../conversation/turn-state";
 import type { ChatStateStore } from "../state/store";
+import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
 
 export interface StartNewThreadActions {
   startNewThread(): Promise<void>;

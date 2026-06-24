@@ -1,10 +1,10 @@
 import type { App, WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
-import { CodexChatView } from "../features/chat/host/view";
-import type { ChatWorkspacePanelSurface } from "../features/chat/host/surface-handle";
-import type { ChatPanelSnapshot } from "../features/chat/panel/snapshot";
 import { hasPendingRequests, pendingRequestCounts } from "../domain/pending-requests/aggregate";
+import type { ChatWorkspacePanelSurface } from "../features/chat/host/surface-handle";
+import { CodexChatView } from "../features/chat/host/view";
+import type { ChatPanelSnapshot } from "../features/chat/panel/snapshot";
 
 type ThreadPanelTarget =
   | {

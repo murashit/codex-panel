@@ -1,17 +1,17 @@
 import {
+  type RateLimitMetadataProbeResult,
   readRateLimitMetadataProbe,
   readSkillMetadataProbe,
-  type RateLimitMetadataProbeResult,
 } from "../../../../app-server/query/metadata-probes";
 import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import {
   cloneServerDiagnostics,
   diagnosticsWithProbe,
-  upsertMcpServerDiagnostic,
   type McpServerStartupStatus,
+  upsertMcpServerDiagnostic,
 } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
-import { captureChatServerActionClientScope, type ChatServerActionHost } from "./host";
+import { type ChatServerActionHost, captureChatServerActionClientScope } from "./host";
 
 export type AppServerResourceEvent =
   | { type: "skills-changed"; forceReload: boolean }

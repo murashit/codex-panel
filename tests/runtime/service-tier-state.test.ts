@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-
-import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
+import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import { fastModeActive } from "../../src/features/chat/domain/runtime/effective";
 import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
 

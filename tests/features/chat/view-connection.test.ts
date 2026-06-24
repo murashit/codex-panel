@@ -1,19 +1,18 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { DEFAULT_SETTINGS } from "../../../src/settings/model";
-import type { CodexChatHost } from "../../../src/features/chat/host/runtime";
-import { StaleAppServerSharedQueryContextError } from "../../../src/app-server/query/shared-queries";
-import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
-import type { ObservedDataResult } from "../../../src/domain/observed-data";
-import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
-import type { Thread } from "../../../src/domain/threads/model";
-import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
-import type { SharedServerMetadata } from "../../../src/domain/server/metadata";
-import { emptyRuntimeConfigSnapshot } from "../../../src/domain/runtime/config";
-import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
+import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
+import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
+import { StaleAppServerSharedQueryContextError } from "../../../src/app-server/query/shared-queries";
+import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
+import type { ObservedDataResult } from "../../../src/domain/observed-data";
+import { emptyRuntimeConfigSnapshot } from "../../../src/domain/runtime/config";
+import { createServerDiagnostics } from "../../../src/domain/server/diagnostics";
+import type { SharedServerMetadata } from "../../../src/domain/server/metadata";
+import type { Thread } from "../../../src/domain/threads/model";
+import type { CodexChatHost } from "../../../src/features/chat/host/runtime";
+import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import type { ThreadCatalogEvent } from "../../../src/workspace/thread-catalog";
 import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";

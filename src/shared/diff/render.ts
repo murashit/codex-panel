@@ -1,4 +1,4 @@
-import { diffLineClass, diffLineClassFromText, displayDiffLineText, type DiffLineClass, type DisplayDiffLine } from "./unified";
+import { type DiffLineClass, type DisplayDiffLine, diffLineClass, diffLineClassFromText, displayDiffLineText } from "./unified";
 
 const MAX_INLINE_DIFF_CHARS = 4000;
 const MAX_INLINE_DIFF_TOKENS = 500;

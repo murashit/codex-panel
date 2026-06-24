@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-
+import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { appServerUserInputRequest as toPendingUserInput } from "../../../../../src/app-server/protocol/server-requests";
+import { createPendingRequestActions } from "../../../../../src/features/chat/application/pending-requests/pending-request-actions";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createPendingRequestActions } from "../../../../../src/features/chat/application/pending-requests/pending-request-actions";
-import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

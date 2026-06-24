@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
-import { act } from "preact/test-utils";
 import { MarkdownRenderer } from "obsidian";
-
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import { act } from "preact/test-utils";
+import { describe, expect, it, vi } from "vitest";
 import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/conversation/plan-implementation";
+import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { deferred } from "../../../../support/async";

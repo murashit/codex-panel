@@ -1,9 +1,9 @@
 import {
-  archivedThreadMarkdown,
-  archivedThreadTitle,
   type ArchiveExportAdapter,
   type ArchiveExportSettings,
   type ArchiveThreadInput,
+  archivedThreadMarkdown,
+  archivedThreadTitle,
 } from "../../domain/threads/archive-markdown";
 import { shortThreadId } from "../../shared/id/thread-id";
 

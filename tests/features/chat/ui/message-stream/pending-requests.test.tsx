@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-
-import {
-  pendingRequestBlockSnapshotFromState,
-  type PendingRequestBlockSnapshot,
-} from "../../../../../src/features/chat/presentation/pending-requests/view-model";
 import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../../src/domain/pending-requests/model";
-import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import {
+  type PendingRequestBlockSnapshot,
+  pendingRequestBlockSnapshotFromState,
+} from "../../../../../src/features/chat/presentation/pending-requests/view-model";
+import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import { changeInputValue, textContents } from "../../../../support/dom";
 import "./setup";
 import {

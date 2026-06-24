@@ -1,14 +1,14 @@
-import { parseServiceTier, type ApprovalsReviewer, type ServiceTier } from "../../../../domain/runtime/policy";
-import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { type ApprovalsReviewer, parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
+import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import {
-  resetRuntimeIntentToConfig,
-  setRuntimeIntentValue,
-  unchangedRuntimeIntent,
   type ActiveCollaborationMode,
   type CollaborationModeSelection,
   type PendingRuntimeIntent,
   type RequestedFastMode,
+  resetRuntimeIntentToConfig,
+  setRuntimeIntentValue,
+  unchangedRuntimeIntent,
 } from "./intent";
 
 export interface ChatRuntimeState {

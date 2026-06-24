@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, type Mock } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import { AppServerSharedQueries } from "../../src/app-server/query/shared-queries";

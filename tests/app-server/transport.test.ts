@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { StdioAppServerTransport, type AppServerTransportHandlers } from "../../src/app-server/connection/transport";
+import { type AppServerTransportHandlers, StdioAppServerTransport } from "../../src/app-server/connection/transport";
 
 interface TestableTransport {
   handleStderr(text: string): void;

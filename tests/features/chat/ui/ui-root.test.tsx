@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
 import { useLayoutEffect } from "preact/hooks";
+import { describe, expect, it, vi } from "vitest";
 
 import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/ui-root";
 

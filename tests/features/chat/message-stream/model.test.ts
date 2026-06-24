@@ -1,25 +1,24 @@
 import { describe, expect, it } from "vitest";
-
-import { collabAgentStateExecutionState } from "../../../../src/features/chat/domain/message-stream/execution-state";
-import { activeTurnLiveItems } from "../../../../src/features/chat/domain/message-stream/semantics/active-turn";
-import { messageStreamLayoutBlocks } from "../../../../src/features/chat/presentation/message-stream/layout";
-import { upsertMessageStreamItemById } from "../../../../src/features/chat/domain/message-stream/updates";
-import { taskProgressMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/task-progress";
-import { pathRelativeToRoot } from "../../../../src/shared/path/file-paths";
-import { permissionRows } from "../../../../src/features/chat/domain/message-stream/format/permission-rows";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import type { Thread } from "../../../../src/domain/threads/model";
+import { referencedThreadPromptBundle } from "../../../../src/domain/threads/reference";
+import { hookRunMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/hook-run-items";
 import {
   createAutoReviewResultItem,
   createReviewResultItem,
 } from "../../../../src/features/chat/app-server/mappers/message-stream/review-result-items";
-import { hookRunMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/hook-run-items";
+import { taskProgressMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/task-progress";
 import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
 } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
-import { referencedThreadPromptBundle } from "../../../../src/domain/threads/reference";
+import { collabAgentStateExecutionState } from "../../../../src/features/chat/domain/message-stream/execution-state";
+import { permissionRows } from "../../../../src/features/chat/domain/message-stream/format/permission-rows";
 import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
-import type { Thread } from "../../../../src/domain/threads/model";
-import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import { activeTurnLiveItems } from "../../../../src/features/chat/domain/message-stream/semantics/active-turn";
+import { upsertMessageStreamItemById } from "../../../../src/features/chat/domain/message-stream/updates";
+import { messageStreamLayoutBlocks } from "../../../../src/features/chat/presentation/message-stream/layout";
+import { pathRelativeToRoot } from "../../../../src/shared/path/file-paths";
 
 function commandItem(id: string, text: string, turnId: string): MessageStreamItem {
   return {

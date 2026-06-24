@@ -1,7 +1,6 @@
 import { parseLinktext } from "obsidian";
-
-import { codexTextInputWithMentions, type RequestAdditionalContext, type RequestMention } from "../../../../domain/chat/input";
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
+import { codexTextInputWithMentions, type RequestAdditionalContext, type RequestMention } from "../../../../domain/chat/input";
 
 export interface ParsedWikiLink {
   raw: string;

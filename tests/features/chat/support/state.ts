@@ -1,4 +1,4 @@
-import { createChatState, type ChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { type ChatState, createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 
 interface RuntimePatch {
   active?: Partial<ChatState["runtime"]["active"]>;

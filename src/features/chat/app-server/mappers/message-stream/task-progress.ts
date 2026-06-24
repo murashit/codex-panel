@@ -1,9 +1,9 @@
-import type { ExecutionState, MessageStreamItem } from "../../../domain/message-stream/items";
 import {
+  type ExecutionStateByStatus,
   executionStateFromStatus,
   RUNNING_EXECUTION_STATE,
-  type ExecutionStateByStatus,
 } from "../../../domain/message-stream/execution-state";
+import type { ExecutionState, MessageStreamItem } from "../../../domain/message-stream/items";
 
 const TASK_STATES = {
   pending: RUNNING_EXECUTION_STATE,

@@ -1,12 +1,12 @@
-import { runtimeSnapshotForChatState } from "../../../../src/features/chat/application/runtime/snapshot";
 import { activeTurnId, chatTurnBusy } from "../../../../src/features/chat/application/conversation/turn-state";
-import type { ChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { runtimeSnapshotForChatState } from "../../../../src/features/chat/application/runtime/snapshot";
 import {
   messageStreamActiveItems,
   messageStreamItems,
   messageStreamRollbackCandidateFromItems,
   messageStreamStableItems,
 } from "../../../../src/features/chat/application/state/message-stream";
+import type { ChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import {
   forkCandidatesFromItems,
   latestImplementablePlanTargetFromItems,

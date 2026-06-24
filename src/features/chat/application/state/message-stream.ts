@@ -1,13 +1,13 @@
-import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/updates";
-import type { MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
-import { normalizeProposedPlanMarkdown } from "../../domain/message-stream/format/proposed-plan";
-import { messageStreamSemanticClassifications } from "../../domain/message-stream/semantics/classify";
-import { messageStreamIsTurnInitiator } from "../../domain/message-stream/semantics/predicates";
 import {
   streamedItemOutputMessageStreamItem,
   streamedTextMessageStreamItem,
   streamedToolOutputMessageStreamItem,
 } from "../../domain/message-stream/factories/streaming-items";
+import { normalizeProposedPlanMarkdown } from "../../domain/message-stream/format/proposed-plan";
+import type { MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
+import { messageStreamSemanticClassifications } from "../../domain/message-stream/semantics/classify";
+import { messageStreamIsTurnInitiator } from "../../domain/message-stream/semantics/predicates";
+import { completeReasoningItems, upsertMessageStreamItemById } from "../../domain/message-stream/updates";
 import { definedPatch, patchObject } from "./patch";
 
 export interface ChatMessageStreamActiveSegment {

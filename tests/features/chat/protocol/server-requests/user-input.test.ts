@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
-
+import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import {
-  appServerUserInputRequest as toPendingUserInput,
   appServerUserInputResponse,
+  appServerUserInputRequest as toPendingUserInput,
 } from "../../../../../src/app-server/protocol/server-requests";
 import { answersForPendingUserInput, questionDefaultAnswer } from "../../../../../src/domain/pending-requests/model";
 import {
   pendingRequestFocusSignature,
   pendingRequestsSignature,
 } from "../../../../../src/features/chat/domain/pending-requests/signatures";
-import type { ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");

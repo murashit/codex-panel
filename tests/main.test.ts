@@ -1,17 +1,17 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FileSystemAdapter } from "obsidian";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../src/constants";
-import { DEFAULT_SETTINGS } from "../src/settings/model";
-import type CodexPanelPlugin from "../src/main";
-import type { CodexChatView } from "../src/features/chat/host/view";
-import type { CodexChatHost } from "../src/features/chat/host/runtime";
 import type { Thread } from "../src/domain/threads/model";
+import type { CodexChatHost } from "../src/features/chat/host/runtime";
+import type { CodexChatView } from "../src/features/chat/host/view";
+import type CodexPanelPlugin from "../src/main";
+import { DEFAULT_SETTINGS } from "../src/settings/model";
 import { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
-import { installObsidianDomShims } from "./support/dom";
 import { waitForAsyncWork } from "./support/async";
+import { installObsidianDomShims } from "./support/dom";
 
 installObsidianDomShims();
 

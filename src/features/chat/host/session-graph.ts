@@ -1,31 +1,39 @@
 import { Notice } from "obsidian";
-
-import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import type { ObservedDataResult } from "../../../domain/observed-data";
-import { observedData } from "../../../domain/observed-data";
+import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
-import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
+import type { ObservedDataResult } from "../../../domain/observed-data";
+import { observedData } from "../../../domain/observed-data";
+import type { SharedServerMetadata } from "../../../domain/server/metadata";
+import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
+import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
+import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../threads/thread-title-service";
-import { createPendingRequestActions, type PendingRequestActions } from "../application/pending-requests/pending-request-actions";
-import {
-  createConversationTurnActions,
-  type ConversationTurnActions as ChatPanelConversationTurnActions,
-} from "../application/conversation/composition";
+import type { ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
+import type { ChatServerMetadataActions } from "../app-server/actions/metadata";
+import type { ChatServerThreadActions } from "../app-server/actions/threads";
+import type { ChatInboundHandler } from "../app-server/inbound/handler";
+import { connectionDiagnosticSectionsModel } from "../application/connection/diagnostics-display";
+import { type ChatReconnectActionsHost, reconnectPanel } from "../application/connection/reconnect-actions";
+import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-display";
 import type { ComposerSubmitActions } from "../application/conversation/composer-submit-actions";
-import { reconnectPanel, type ChatReconnectActionsHost } from "../application/connection/reconnect-actions";
-import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
-import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
-import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
-import { messageStreamItems } from "../application/state/message-stream";
-import type { ChatStateStore } from "../application/state/store";
+import {
+  type ConversationTurnActions as ChatPanelConversationTurnActions,
+  createConversationTurnActions,
+} from "../application/conversation/composition";
 import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
-import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
-import { createAutoTitleCoordinator, type AutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
-import { HistoryController } from "../application/threads/history-controller";
+import { createPendingRequestActions, type PendingRequestActions } from "../application/pending-requests/pending-request-actions";
+import { createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
+import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
+import { messageStreamItems } from "../application/state/message-stream";
+import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
+import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
+import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
+import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
+import { HistoryController } from "../application/threads/history-controller";
 import { createThreadLifecycleParts } from "../application/threads/lifecycle-parts";
 import {
   activeThreadRenameTitleContext,
@@ -37,37 +45,28 @@ import type { ResumeActions } from "../application/threads/resume-actions";
 import { createSelectionActions } from "../application/threads/selection-actions";
 import { createStartNewThreadActions } from "../application/threads/start-new-thread-actions";
 import { createThreadManagementActions, type ThreadManagementActionsHost } from "../application/threads/thread-management-actions";
-import type { ChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
-import type { ChatServerMetadataActions } from "../app-server/actions/metadata";
-import type { ChatServerThreadActions } from "../app-server/actions/threads";
-import type { ChatInboundHandler } from "../app-server/inbound/handler";
+import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
+import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
+import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
+import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effective";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
+import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { ChatComposerController } from "../panel/composer-controller";
-import { chatPanelComposerProjection, type ChatPanelComposerSurface } from "../panel/surface/composer-projection";
-import { createChatPanelGoalSurface, type ChatPanelGoalSurface } from "../panel/surface/goal-projection";
+import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../panel/surface/composer-projection";
+import { type ChatPanelGoalSurface, createChatPanelGoalSurface } from "../panel/surface/goal-projection";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
 import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
-import type { ToolbarActions } from "../ui/toolbar";
-import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effective";
-import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
-import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
-import type { SharedServerMetadata } from "../../../domain/server/metadata";
-import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
+import { VaultNoteCandidateProvider } from "../panel/vault-note-candidate-provider";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
   statusSummaryLines as buildStatusSummaryLines,
 } from "../presentation/runtime/status";
-import { connectionDiagnosticSectionsModel } from "../application/connection/diagnostics-display";
-import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-display";
-import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
-import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
-import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
+import type { ToolbarActions } from "../ui/toolbar";
+import { type ChatPanelConnectionBundle, type CurrentAppServerClient, createConnectionBundle } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./runtime";
-import { createConnectionBundle, type ChatPanelConnectionBundle, type CurrentAppServerClient } from "./connection-bundle";
-import { VaultNoteCandidateProvider } from "../panel/vault-note-candidate-provider";
 
 export interface ChatPanelSessionGraph {
   connection: {

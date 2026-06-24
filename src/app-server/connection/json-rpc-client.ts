@@ -1,3 +1,4 @@
+import type { RequestId } from "../../generated/app-server/RequestId";
 import type {
   ClientRequestMethod,
   ClientRequestParams,
@@ -5,9 +6,9 @@ import type {
   RpcError,
   RpcInboundMessage,
   RpcOutboundMessage,
+  ServerNotification,
+  ServerRequest,
 } from "./rpc-messages";
-import type { ServerNotification, ServerRequest } from "./rpc-messages";
-import type { RequestId } from "../../generated/app-server/RequestId";
 
 const MAX_SUPPRESSED_ORPHAN_RESPONSES = 256;
 

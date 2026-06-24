@@ -1,22 +1,22 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { codexTextInputWithAttachments, type CodexInput } from "../../../../domain/chat/input";
 import { readReferencedThreadConversationSummaries } from "../../../../app-server/threads";
-import { referencedThreadPromptBundle, REFERENCED_THREAD_TURN_LIMIT } from "../../../../domain/threads/reference";
+import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
+import { type CodexInput, codexTextInputWithAttachments } from "../../../../domain/chat/input";
 import type { Thread } from "../../../../domain/threads/model";
+import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadPromptBundle } from "../../../../domain/threads/reference";
 import { shortThreadId } from "../../../../shared/id/thread-id";
+import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
+import { resolveRuntimeControls } from "../../domain/runtime/resolution";
+import type { SlashCommandName } from "../composer/slash-commands";
+import { runtimeSnapshotForChatState } from "../runtime/snapshot";
+import type { ChatStateStore } from "../state/store";
 import {
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionPorts,
   type SlashCommandExecutionResult,
   type ThreadReferenceInput,
 } from "./slash-command-execution";
-import type { SlashCommandName } from "../composer/slash-commands";
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
-import type { ChatStateStore } from "../state/store";
-import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
-import { resolveRuntimeControls } from "../../domain/runtime/resolution";
-import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import { submissionStateSnapshot } from "./submission-state";
 
 export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {

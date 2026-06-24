@@ -3,9 +3,9 @@ import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { renderDisplayDiffLines } from "../../../../shared/diff/render";
 import { displayDiffLines } from "../../../../shared/diff/unified";
+import { shortThreadId } from "../../../../shared/id/thread-id";
 import { IconButton } from "../../../../shared/ui/components";
 import { renderUiRoot } from "../../../../shared/ui/ui-root";
-import { shortThreadId } from "../../../../shared/id/thread-id";
 import type { ChatTurnDiffViewState, PersistedChatTurnDiffViewState } from "../../domain/turn-diff";
 
 export interface ChatTurnDiffViewActions {

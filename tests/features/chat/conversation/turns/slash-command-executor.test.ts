@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import type { CodexInput } from "../../../../../src/domain/chat/input";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
-import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import type { CodexInput } from "../../../../../src/domain/chat/input";
+import type { Thread } from "../../../../../src/domain/threads/model";
 import {
   executeSlashCommandWithState,
   type SlashCommandExecutorHost,
 } from "../../../../../src/features/chat/application/conversation/slash-command-executor";
-import type { Thread } from "../../../../../src/domain/threads/model";
+import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 

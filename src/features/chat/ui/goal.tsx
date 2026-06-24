@@ -2,9 +2,9 @@ import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ThreadGoal, ThreadGoalStatus } from "../../../domain/threads/goal";
-import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { IconButton } from "../../../shared/ui/components";
 import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events";
+import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
 
 export interface GoalPanelActions {

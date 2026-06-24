@@ -1,14 +1,8 @@
-import type { CommandMessageStreamTarget, MessageStreamDiagnosticSection, MessageStreamItem } from "../../../domain/message-stream/items";
-import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
-import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import type { TurnItem } from "../../../../../app-server/protocol/turn";
-import { jsonPreview } from "../../../../../shared/text/preview";
-import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
 import { turnUserItemText } from "../../../../../app-server/protocol/turn";
-import { agentMessageStreamItem } from "./agent-items";
-import { fileMentionsFromInput } from "../../../domain/message-stream/format/file-mentions";
-import { normalizeProposedPlanMarkdown } from "../../../domain/message-stream/format/proposed-plan";
-import { userMessageDisplayText } from "../../../domain/message-stream/format/user-message-text";
+import type { HistoricalTurn } from "../../../../../domain/threads/history";
+import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
+import { jsonPreview } from "../../../../../shared/text/preview";
 import {
   commandExecutionState,
   dynamicToolCallExecutionState,
@@ -17,6 +11,12 @@ import {
   mcpToolCallExecutionState,
   patchApplyExecutionState,
 } from "../../../domain/message-stream/execution-state";
+import { fileMentionsFromInput } from "../../../domain/message-stream/format/file-mentions";
+import { normalizeProposedPlanMarkdown } from "../../../domain/message-stream/format/proposed-plan";
+import { userMessageDisplayText } from "../../../domain/message-stream/format/user-message-text";
+import type { CommandMessageStreamTarget, MessageStreamDiagnosticSection, MessageStreamItem } from "../../../domain/message-stream/items";
+import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
+import { agentMessageStreamItem } from "./agent-items";
 import { normalizeFileChanges } from "./file-changes";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;

@@ -1,19 +1,19 @@
+import type { App, Component } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
-import type { App, Component } from "obsidian";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
+import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
+import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/flow-scroll";
 import { MarkdownMessageRenderer, renderStreamMarkdown } from "../../ui/message-stream/markdown-renderer";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/stream-blocks";
-import { messageStreamStateFromShellState, useChatPanelShellState, type ChatPanelMessageStreamShellState } from "../shell-state";
-import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
-import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
+import { type ChatPanelMessageStreamShellState, messageStreamStateFromShellState, useChatPanelShellState } from "../shell-state";
 import {
+  type ChatMessageStreamSurfaceContext,
   createMessageStreamSurfaceContext,
   messageStreamSurfaceProjectionFromState,
-  type ChatMessageStreamSurfaceContext,
 } from "./message-stream-projection";
 
 export interface ChatPanelMessageStreamPresenter {

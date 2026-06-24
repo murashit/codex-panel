@@ -1,7 +1,7 @@
-import { cloneRuntimeConfigSnapshot, emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "./snapshot";
+import { cloneRuntimeConfigSnapshot, emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import { resolveRuntimeControls } from "./resolution";
+import type { RuntimeSnapshot } from "./snapshot";
 
 export function runtimeConfigOrDefault(runtimeConfig: RuntimeConfigSnapshot | null): RuntimeConfigSnapshot {
   return runtimeConfig ? cloneRuntimeConfigSnapshot(runtimeConfig) : emptyRuntimeConfigSnapshot();

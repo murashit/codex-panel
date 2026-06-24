@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-
+import type { TurnItem } from "../../../../src/app-server/protocol/turn";
 import { streamingFileChangeMessageStreamItem } from "../../../../src/features/chat/app-server/mappers/message-stream/file-changes";
 import { messageStreamItemFromTurnItem } from "../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
+import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
 import { messageStreamReasoningIsActive } from "../../../../src/features/chat/domain/message-stream/semantics/active-turn";
 import { messageStreamSemanticClassifications } from "../../../../src/features/chat/domain/message-stream/semantics/classify";
 import { messageStreamIsAutoReviewDecision } from "../../../../src/features/chat/domain/message-stream/semantics/predicates";
-import type { MessageStreamItem } from "../../../../src/features/chat/domain/message-stream/items";
-import type { TurnItem } from "../../../../src/app-server/protocol/turn";
 
 describe("message stream semantic classification", () => {
   it("separates dialogue meaning from turn placement", () => {

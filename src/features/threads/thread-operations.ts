@@ -1,5 +1,5 @@
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
-import { archiveThreadOnAppServer, type ArchiveThreadResult } from "../../app-server/services/thread-archive";
+import { type ArchiveThreadResult, archiveThreadOnAppServer } from "../../app-server/services/thread-archive";
 import type { ArchiveExportAdapter, ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../domain/threads/model";
 import type { ThreadCatalogEventSink } from "../../workspace/thread-catalog";

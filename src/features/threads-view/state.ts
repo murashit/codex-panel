@@ -1,15 +1,15 @@
-import { threadRecencyAt, type Thread } from "../../domain/threads/model";
-import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import { hasPendingRequests, pendingRequestCounts } from "../../domain/pending-requests/aggregate";
-import { threadRowCoreProjection, type ThreadRowCoreProjection } from "../threads/row-projection";
+import { type Thread, threadRecencyAt } from "../../domain/threads/model";
+import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import {
   initialThreadRenameLifecycleState,
-  transitionThreadRenameLifecycleState,
-  type ThreadRenameActiveState,
-  type ThreadRenameGeneratingState,
   type ThreadRenameLifecycleEvent as SharedThreadRenameLifecycleEvent,
   type ThreadRenameLifecycleState as SharedThreadRenameLifecycleState,
+  type ThreadRenameActiveState,
+  type ThreadRenameGeneratingState,
+  transitionThreadRenameLifecycleState,
 } from "../threads/rename-lifecycle";
+import { type ThreadRowCoreProjection, threadRowCoreProjection } from "../threads/row-projection";
 
 type ThreadsLiveStatus = "pending" | "running" | "open";
 

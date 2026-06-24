@@ -1,3 +1,4 @@
+import type { ModelMetadataClient } from "../catalog";
 import {
   AppServerClient,
   type AppServerClientHandlers,
@@ -6,7 +7,6 @@ import {
 } from "../connection/client";
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import type { RequestId, ServerNotification } from "../connection/rpc-messages";
-import type { ModelMetadataClient } from "../catalog";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
 import { abortableOperation, throwIfSignalAborted } from "./abortable-operation";
 

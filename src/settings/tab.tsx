@@ -6,8 +6,8 @@ import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root";
 import { ArchivedThreadSection } from "./archived-section";
 import { SettingsDynamicDataController, type SettingsDynamicDataDisplayTarget } from "./dynamic-data-controller";
 import { HelperSettingsSection } from "./helper-section";
-import type { CodexPanelSettingTabHost } from "./host";
 import { HookSection } from "./hook-section";
+import type { CodexPanelSettingTabHost } from "./host";
 import type { SettingsSectionsState } from "./section-state";
 
 const SETTINGS_INTRO_TEXT = "Codex Panel stores panel preferences only. Runtime settings still come from Codex.";

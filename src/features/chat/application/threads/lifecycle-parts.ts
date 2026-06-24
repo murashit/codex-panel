@@ -2,11 +2,11 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import type { ChatResumeWorkTracker } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
+import { createActiveThreadIdentitySync } from "./active-thread-identity-sync";
 import type { GoalActions } from "./goal-actions";
 import type { HistoryController } from "./history-controller";
-import { createActiveThreadIdentitySync } from "./active-thread-identity-sync";
-import { createResumeActions, type ResumeActions } from "./resume-actions";
 import { RestorationController } from "./restoration-controller";
+import { createResumeActions, type ResumeActions } from "./resume-actions";
 
 export interface ThreadLifecyclePartsContext {
   settingsRef: { readonly vaultPath: string };

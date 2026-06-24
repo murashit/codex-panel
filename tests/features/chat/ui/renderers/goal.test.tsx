@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
-import { act } from "preact/test-utils";
 import { useState } from "preact/hooks";
+import { act } from "preact/test-utils";
+import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { GoalPanel, type GoalPanelActions, type GoalPanelEditorState } from "../../../../../src/features/chat/ui/goal";

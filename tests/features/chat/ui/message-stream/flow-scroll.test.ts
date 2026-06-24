@@ -1,16 +1,15 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { h, type ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
-
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import {
   MessageStreamFlowFrame,
   type MessageStreamScrollCommand,
   type MessageStreamScrollControllerBinding,
   type MessageStreamScrollPort,
 } from "../../../../../src/features/chat/ui/message-stream/flow-scroll";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
 import { installObsidianDomShims } from "../../../../support/dom";
 

@@ -1,12 +1,12 @@
+import type { SkillMetadata } from "../domain/catalog/metadata";
 import {
+  type DiagnosticProbeResult,
   diagnosticProbeError,
   diagnosticProbeOk,
-  mcpServerStatusSummariesFromStatuses,
-  type DiagnosticProbeResult,
   type McpServerDiagnostic,
   type McpServerStatusSummary,
+  mcpServerStatusSummariesFromStatuses,
 } from "../domain/server/diagnostics";
-import type { SkillMetadata } from "../domain/catalog/metadata";
 import type {
   ToolInventoryApp,
   ToolInventoryMarketplaceError,

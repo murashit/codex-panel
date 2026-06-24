@@ -1,5 +1,5 @@
-import type { ChatState } from "../application/state/root-reducer";
 import type { RestoredThreadState } from "../application/lifecycle";
+import type { ChatState } from "../application/state/root-reducer";
 
 type OpenCodexPanelTurnLifecycle = { kind: "idle" } | { kind: "starting" } | { kind: "running"; turnId: string };
 

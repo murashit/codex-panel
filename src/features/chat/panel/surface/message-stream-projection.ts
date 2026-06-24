@@ -1,15 +1,15 @@
+import { type PendingRequestBlockActions, pendingRequestBlockStateFromChatState } from "../../application/pending-requests/block";
+import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatDisclosureBucket, ChatDisclosureUiState } from "../../application/state/ui-state";
-import { messageStreamViewBlocks, type MessageStreamViewBlock } from "../../presentation/message-stream/view-model";
-import { messageStreamSegmentsEmpty, type ForkCandidate, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
-import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";
-import type { MessageStreamContext } from "../../ui/message-stream/context";
-import type { ChatPanelMessageStreamShellState } from "../shell-state";
-import { pendingRequestBlockSnapshotFromState, type PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
-import { pendingRequestBlockStateFromChatState, type PendingRequestBlockActions } from "../../application/pending-requests/block";
+import { type ForkCandidate, messageStreamSegmentsEmpty, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
+import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import type { MessageStreamTextActionTargets } from "../../presentation/message-stream/text-view";
-import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
+import { type MessageStreamViewBlock, messageStreamViewBlocks } from "../../presentation/message-stream/view-model";
+import { type PendingRequestBlockSnapshot, pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/view-model";
+import type { MessageStreamContext } from "../../ui/message-stream/context";
+import type { ChatPanelMessageStreamShellState } from "../shell-state";
 
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;

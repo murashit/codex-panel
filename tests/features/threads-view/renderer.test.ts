@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-
-import { renderThreadsView } from "../../../src/features/threads-view/renderer";
-import { threadRows, type ThreadsRowModel } from "../../../src/features/threads-view/state";
 import type { Thread } from "../../../src/domain/threads/model";
+import { renderThreadsView } from "../../../src/features/threads-view/renderer";
+import { type ThreadsRowModel, threadRows } from "../../../src/features/threads-view/state";
 import type { OpenCodexPanelSnapshot } from "../../../src/workspace/panel-coordinator";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 

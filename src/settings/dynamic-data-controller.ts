@@ -1,6 +1,6 @@
+import { type HookData, listHookData, setHookItemEnabled, trustHookItem } from "../app-server/catalog";
 import type { AppServerClient } from "../app-server/connection/client";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
-import { listHookData, setHookItemEnabled, trustHookItem, type HookData } from "../app-server/catalog";
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
@@ -11,8 +11,8 @@ import { threadArchiveDisplayTitle } from "../domain/threads/title";
 import type { SettingsDynamicDataHost } from "./host";
 import {
   createSettingsDynamicSectionLifecycle,
-  transitionSettingsDynamicSectionLifecycle,
   type SettingsDynamicSectionLifecycleState,
+  transitionSettingsDynamicSectionLifecycle,
 } from "./lifecycle";
 
 function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: string): string {

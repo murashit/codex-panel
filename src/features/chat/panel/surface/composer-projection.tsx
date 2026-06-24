@@ -1,16 +1,15 @@
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
-
-import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
-import { resolveRuntimeControls } from "../../domain/runtime/resolution";
-import { contextSummary } from "../../presentation/runtime/status";
-import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
-import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
-import { composerStateFromShellState, useChatPanelShellState, type ChatPanelComposerShellState } from "../shell-state";
+import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import { explicitThreadName } from "../../../../domain/threads/model";
+import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
+import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
+import { resolveRuntimeControls } from "../../domain/runtime/resolution";
+import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import { contextSummary } from "../../presentation/runtime/status";
+import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
+import { type ChatPanelComposerShellState, composerStateFromShellState, useChatPanelShellState } from "../shell-state";
 
 interface RestoredThreadTitleSnapshot {
   threadId: string;

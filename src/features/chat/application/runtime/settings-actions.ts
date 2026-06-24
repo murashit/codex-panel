@@ -1,18 +1,18 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
+import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import { autoReviewActive, fastModeActive, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
 } from "../../app-server/runtime/thread-settings-update";
+import { autoReviewActive, fastModeActive, runtimeConfigOrDefault } from "../../domain/runtime/effective";
+import { type CollaborationModeSelection, nextCollaborationMode, type RequestedFastMode } from "../../domain/runtime/intent";
+import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { nextCollaborationMode, type CollaborationModeSelection, type RequestedFastMode } from "../../domain/runtime/intent";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 
 interface RuntimeSettingsCommitResult {
   ok: boolean;

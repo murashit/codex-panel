@@ -1,16 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
+import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
 import {
-  createChatRuntimeSettingsActions,
   type ChatRuntimeSettingsActions,
+  createChatRuntimeSettingsActions,
 } from "../../../../src/features/chat/application/runtime/settings-actions";
-import type { ChatState } from "../../../../src/features/chat/application/state/root-reducer";
-import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { runtimeSnapshotForChatState } from "../../../../src/features/chat/application/runtime/snapshot";
 import type { ActiveThreadSettingsAppliedAction } from "../../../../src/features/chat/application/state/actions";
-import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
-import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
+import type { ChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { chatStateFixture, chatStateWith } from "../support/state";
 
 describe("createChatRuntimeSettingsActions", () => {

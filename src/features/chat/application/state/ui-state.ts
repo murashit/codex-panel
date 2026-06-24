@@ -1,12 +1,12 @@
+import { type PendingRequestId, pendingRequestDerivedKeyPrefix } from "../../../../domain/pending-requests/model";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
-import { pendingRequestDerivedKeyPrefix, type PendingRequestId } from "../../../../domain/pending-requests/model";
 import {
-  threadRenameGenerationStillActive,
-  transitionThreadRenameLifecycleState,
   type ThreadRenameActiveState,
   type ThreadRenameGeneratingState,
   type ThreadRenameLifecycleEvent,
   type ThreadRenameLifecycleState,
+  threadRenameGenerationStillActive,
+  transitionThreadRenameLifecycleState,
 } from "../../../threads/rename-lifecycle";
 import type { DisclosureSetAction } from "./actions";
 import { patchObject } from "./patch";

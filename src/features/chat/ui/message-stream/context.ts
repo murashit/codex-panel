@@ -1,8 +1,8 @@
 import type { ApprovalAction, McpElicitationAction, PendingRequestId } from "../../../../domain/pending-requests/model";
-import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
-import type { MessageStreamForkTarget } from "../../presentation/message-stream/text-view";
 import type { PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
+import type { MessageStreamForkTarget } from "../../presentation/message-stream/text-view";
+import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
 
 type MessageStreamDisclosureBucket =
   | "details"

@@ -1,7 +1,3 @@
-import type { Thread } from "./model";
-import { referencedThreadMetadataFromPrompt } from "./reference";
-import { threadArchiveTitle } from "./title";
-import type { ThreadTranscriptEntry } from "./transcript";
 import {
   isExternalFileHref,
   isFilesystemAbsolutePath,
@@ -10,6 +6,10 @@ import {
   parseFileHref,
   vaultRelativePath,
 } from "../../shared/path/file-paths";
+import type { Thread } from "./model";
+import { referencedThreadMetadataFromPrompt } from "./reference";
+import { threadArchiveTitle } from "./title";
+import type { ThreadTranscriptEntry } from "./transcript";
 
 interface ParsedMarkdownLink {
   raw: string;

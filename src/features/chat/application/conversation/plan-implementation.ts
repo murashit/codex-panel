@@ -1,10 +1,10 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
-import type { ChatStateStore } from "../state/store";
-import { chatTurnBusy, type ChatTurnState } from "./turn-state";
+import { type ChatMessageStreamState, messageStreamItems } from "../state/message-stream";
 import type { ChatActiveThreadState, ChatState } from "../state/root-reducer";
-import { messageStreamItems, type ChatMessageStreamState } from "../state/message-stream";
+import type { ChatStateStore } from "../state/store";
+import { type ChatTurnState, chatTurnBusy } from "./turn-state";
 
 const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 

@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-
+import type { Thread } from "../../../../src/domain/threads/model";
+import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/application/lifecycle";
 import { createChatState } from "../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createActiveThreadIdentitySync } from "../../../../src/features/chat/application/threads/active-thread-identity-sync";
 import type { RestorationController } from "../../../../src/features/chat/application/threads/restoration-controller";
-import type { RestoredThreadPlaceholderState } from "../../../../src/features/chat/application/lifecycle";
-import type { Thread } from "../../../../src/domain/threads/model";
 
 function thread(id: string, name: string | null = null): Thread {
   return {

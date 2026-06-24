@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createServerDiagnostics,
   diagnosticProbeError,
   diagnosticProbeOk,
   diagnosticsWithProbe,
-  createServerDiagnostics,
   upsertMcpServerDiagnostic,
   upsertMcpServerStatusDiagnostics,
 } from "../../../src/domain/server/diagnostics";

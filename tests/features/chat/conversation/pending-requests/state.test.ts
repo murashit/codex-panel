@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type ChatRequestState,
   initialChatRequestState,
   resolveChatRequest,
-  type ChatRequestState,
 } from "../../../../../src/features/chat/application/pending-requests/state";
 
 describe("chat pending request state", () => {

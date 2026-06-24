@@ -1,13 +1,13 @@
 import type { App } from "obsidian";
-
-import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
-import { AppServerQueryCache } from "./app-server/query/cache";
-import { AppServerSharedQueries } from "./app-server/query/shared-queries";
 import type { AppServerClient } from "./app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
-import { appServerQueryContextIsComplete, type AppServerQueryContext } from "./app-server/query/keys";
+import { AppServerQueryCache } from "./app-server/query/cache";
+import { type AppServerQueryContext, appServerQueryContextIsComplete } from "./app-server/query/keys";
+import { AppServerSharedQueries } from "./app-server/query/shared-queries";
+import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
+import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import type { CodexChatHost, PluginSettingsRef } from "./features/chat/host/runtime";
 import type {
   ChatPanelClientSurface,
@@ -15,7 +15,6 @@ import type {
   ChatViewLifecycleSurface,
   ChatWorkspacePanelSurface,
 } from "./features/chat/host/surface-handle";
-import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
 import type { CodexThreadsHost, CodexThreadsSettingsAccess } from "./features/threads-view/session";

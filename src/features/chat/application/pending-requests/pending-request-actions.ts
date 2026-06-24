@@ -1,8 +1,6 @@
-import type { ChatStateStore } from "../state/store";
-import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import {
-  answersForPendingUserInput,
   type ApprovalAction,
+  answersForPendingUserInput,
   type McpElicitationAction,
   type PendingApproval,
   type PendingMcpElicitation,
@@ -10,7 +8,9 @@ import {
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
-import { pendingRequestBlockStateFromChatState, type PendingRequestBlockActions, type PendingRequestBlockState } from "./block";
+import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
+import type { ChatStateStore } from "../state/store";
+import { type PendingRequestBlockActions, type PendingRequestBlockState, pendingRequestBlockStateFromChatState } from "./block";
 
 interface PendingRequestResponder {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
