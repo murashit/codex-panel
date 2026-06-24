@@ -149,19 +149,22 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("codex-panel__unused");
   });
 
-  it("reports dynamic CSS prefix exemptions on demand", async () => {
+  it("fails CSS usage checks when source contains dynamic class prefixes", async () => {
     const cwd = await cssUsageFixture({
-      "src/styles/10-component.css": ".codex-panel__task-step--completed { display: block; }\n",
-      "src/component.ts": "export const className = `codex-panel__task-step--${status}`;\n",
+      "src/styles/10-component.css": ".codex-panel__used { display: block; }\n",
+      "src/component.ts": [
+        'export const used = "codex-panel__used";',
+        "export const dynamicClassName = `codex-panel__task-step--${status}`;",
+      ].join("\n"),
     });
 
-    const result = runNodeScript("scripts/lint/check-css-usage.mjs", ["--report-dynamic-prefixes"], cwd);
+    const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
 
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(result.stdout).toContain("Dynamic CSS class prefix exemptions:");
-    expect(result.stdout).toContain("codex-panel__task-step--");
-    expect(result.stdout).toContain("codex-panel__task-step--completed");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("CSS usage check failed.");
+    expect(result.stderr).toContain("Dynamic CSS class prefixes are not allowed:");
+    expect(result.stderr).toContain("codex-panel__task-step--");
   });
 
   it("does not let dynamic CSS prefixes hide unconfigured class candidates", async () => {

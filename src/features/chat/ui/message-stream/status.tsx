@@ -44,7 +44,7 @@ function TaskProgress({ view }: { view: Extract<MessageStreamStatusView, { kind:
       ) : (
         <ul className="codex-panel__task-list">
           {view.checklist.map((step) => (
-            <li key={`${step.status}\n${step.step}`} className={`codex-panel__task-step codex-panel__task-step--${step.status}`}>
+            <li key={`${step.status}\n${step.step}`} className={taskStepClassName(step.status)}>
               <span className="codex-panel__task-marker">{taskStatusMarker(step.status)}</span>
               <span className="codex-panel__task-text">{step.step}</span>
             </li>
@@ -59,6 +59,12 @@ function taskStatusMarker(status: StatusChecklistItem["status"]): string {
   if (status === "completed") return "[x]";
   if (status === "inProgress") return "[>]";
   return "[ ]";
+}
+
+function taskStepClassName(status: StatusChecklistItem["status"]): string {
+  if (status === "completed") return "codex-panel__task-step codex-panel__task-step--completed";
+  if (status === "inProgress") return "codex-panel__task-step codex-panel__task-step--inProgress";
+  return "codex-panel__task-step";
 }
 
 function ContextCompaction({ view }: { view: Extract<MessageStreamStatusView, { kind: "contextCompaction" }> }): UiNode {
@@ -106,15 +112,20 @@ function StatusMessage({
   state: ExecutionState;
   children: UiNode;
 }): UiNode {
-  const classes = [createStatusMessageClassName(className), state ? `codex-panel__execution codex-panel__execution--${state}` : ""]
-    .filter(Boolean)
-    .join(" ");
+  const classes = [createStatusMessageClassName(className), executionClassName(state)].filter(Boolean).join(" ");
   return (
     <div className={classes}>
       <div className="codex-panel__message-role">{label}</div>
       {children}
     </div>
   );
+}
+
+function executionClassName(state: ExecutionState): string {
+  if (state === "completed") return "codex-panel__execution codex-panel__execution--completed";
+  if (state === "failed") return "codex-panel__execution codex-panel__execution--failed";
+  if (state === "running") return "codex-panel__execution codex-panel__execution--running";
+  return "";
 }
 
 function AgentSummaryRows({ view }: { view: AgentRunSummaryView }): UiNode {

@@ -77,7 +77,7 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
   const mainClassName = [
     "codex-panel-ui__nav-item",
     "codex-panel-threads__row-main",
-    row.live ? `codex-panel-threads__row--${row.live.status}` : "",
+    row.live ? liveStatusClassName(row.live.status) : "",
     row.selected ? "codex-panel-threads__row--selected" : "",
   ]
     .filter(Boolean)
@@ -254,6 +254,12 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
       </div>
     </>
   );
+}
+
+function liveStatusClassName(status: NonNullable<ThreadsRowModel["live"]>["status"]): string {
+  if (status === "open") return "codex-panel-threads__row--open";
+  if (status === "pending") return "codex-panel-threads__row--pending";
+  return "codex-panel-threads__row--running";
 }
 
 function ThreadsToolbarButton({

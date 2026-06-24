@@ -22,7 +22,7 @@ function Detail({ view, context }: { view: DetailView; context: DetailRenderCont
     view.className,
     "codex-panel__detail",
     view.sections.length === 0 ? "codex-panel__detail--plain" : "",
-    view.state ? `codex-panel__execution codex-panel__execution--${view.state}` : "",
+    executionClassName(view.state),
     open ? "is-open" : "",
   ]
     .filter(Boolean)
@@ -54,6 +54,13 @@ function Detail({ view, context }: { view: DetailView; context: DetailRenderCont
       {hasSummary ? <DetailSummary text={view.summary} /> : null}
     </div>
   );
+}
+
+function executionClassName(state: DetailView["state"]): string {
+  if (state === "completed") return "codex-panel__execution codex-panel__execution--completed";
+  if (state === "failed") return "codex-panel__execution codex-panel__execution--failed";
+  if (state === "running") return "codex-panel__execution codex-panel__execution--running";
+  return "";
 }
 
 function DetailHeader({ view }: { view: DetailView }): UiNode {

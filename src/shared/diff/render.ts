@@ -136,18 +136,32 @@ function oppositeChangeLineClass(className: ChangeLineClass): ChangeLineClass {
 }
 
 function renderLine(parent: HTMLElement, line: RenderDiffLine, inlineParts: InlineDiffPart[] | null = null): void {
-  const lineEl = parent.createEl("span", { cls: `codex-panel-diff__line codex-panel-diff__line--${line.className}` });
+  const lineEl = parent.createEl("span", { cls: diffLineClassName(line.className) });
   if (!inlineParts) {
     lineEl.textContent = displayDiffLineText(line.text, line.className);
     return;
   }
   for (const part of inlineParts) {
     if (part.changed) {
-      lineEl.createSpan({ cls: `codex-panel-diff__word codex-panel-diff__word--${line.className}`, text: part.text });
+      lineEl.createSpan({ cls: diffWordClassName(line.className), text: part.text });
     } else {
       lineEl.createSpan({ text: part.text });
     }
   }
+}
+
+function diffLineClassName(className: DiffLineClass): string {
+  if (className === "added") return "codex-panel-diff__line codex-panel-diff__line--added";
+  if (className === "context") return "codex-panel-diff__line codex-panel-diff__line--context";
+  if (className === "file") return "codex-panel-diff__line codex-panel-diff__line--file";
+  if (className === "hunk") return "codex-panel-diff__line codex-panel-diff__line--hunk";
+  return "codex-panel-diff__line codex-panel-diff__line--removed";
+}
+
+function diffWordClassName(className: DiffLineClass): string {
+  if (className === "added") return "codex-panel-diff__word codex-panel-diff__word--added";
+  if (className === "removed") return "codex-panel-diff__word codex-panel-diff__word--removed";
+  return "codex-panel-diff__word";
 }
 
 function inlineDiff(removedText: string, addedText: string): InlineDiff | null {

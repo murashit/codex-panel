@@ -50,10 +50,6 @@
   border-left-color: var(--codex-panel-color-danger);
 }
 
-.codex-panel__detail-item--hook:not(.codex-panel__execution) {
-  border-left-color: var(--text-accent);
-}
-
 .codex-panel__detail-header {
   display: flex;
   align-items: center;

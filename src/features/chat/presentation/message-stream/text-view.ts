@@ -162,7 +162,10 @@ function userInputQuestionDetailViews(questions: readonly MessageStreamUserInput
 }
 
 function executionClassName(state: ExecutionState): string {
-  return state ? ` codex-panel__execution codex-panel__execution--${state}` : "";
+  if (state === "completed") return " codex-panel__execution codex-panel__execution--completed";
+  if (state === "failed") return " codex-panel__execution codex-panel__execution--failed";
+  if (state === "running") return " codex-panel__execution codex-panel__execution--running";
+  return "";
 }
 
 function textItemClass(item: MessageStreamItem): string {

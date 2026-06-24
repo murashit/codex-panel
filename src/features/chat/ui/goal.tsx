@@ -126,7 +126,7 @@ export function GoalPanel({
   };
 
   return (
-    <div ref={goalRef} className={`codex-panel__goal codex-panel__goal--${goal?.status ?? "draft"}${terminal ? " is-terminal" : ""}`}>
+    <div ref={goalRef} className={goalClassName(goal?.status ?? null, terminal)}>
       <div className="codex-panel__goal-main">
         <div className="codex-panel__goal-role">
           <span>Goal</span>
@@ -239,6 +239,20 @@ export function GoalPanel({
 
 function terminalGoalStatus(status: ThreadGoalStatus): boolean {
   return status === "complete" || status === "blocked" || status === "usageLimited" || status === "budgetLimited";
+}
+
+function goalClassName(status: ThreadGoalStatus | null, terminal: boolean): string {
+  return ["codex-panel__goal", goalStatusClassName(status), terminal ? "is-terminal" : ""].filter(Boolean).join(" ");
+}
+
+function goalStatusClassName(status: ThreadGoalStatus | null): string {
+  if (status === "active") return "codex-panel__goal--active";
+  if (status === "blocked") return "codex-panel__goal--blocked";
+  if (status === "budgetLimited") return "codex-panel__goal--budgetLimited";
+  if (status === "complete") return "codex-panel__goal--complete";
+  if (status === "paused") return "codex-panel__goal--paused";
+  if (status === "usageLimited") return "codex-panel__goal--usageLimited";
+  return "";
 }
 
 function syncGoalObjectiveHeight(textarea: HTMLTextAreaElement | null): void {

@@ -263,7 +263,7 @@ describe("message stream item renderer decisions", () => {
 
     expect(element).toBeDefined();
     expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details");
-    expect(element.querySelector(".codex-panel__detail-item--hook")?.classList.contains("codex-panel__execution--completed")).toBe(true);
+    expect(element.querySelector(".codex-panel__detail-item")?.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
