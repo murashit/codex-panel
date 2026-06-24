@@ -146,7 +146,7 @@ describe("composer suggestions", () => {
   });
 
   it("uses recent files only for empty wikilink suggestions", () => {
-    expect(wikiLinkSuggestions("", notes).map((suggestion) => suggestion.replacement)).toEqual([
+    expect(suggestionReplacements(wikiLinkSuggestions("", notes))).toEqual([
       "[[projects/Alpha]]",
       "[[thoughts/Alpha]]",
       "[[Assets/Diagram.png]]",
@@ -195,7 +195,7 @@ describe("composer suggestions", () => {
   it("suggests headings inside a completed wikilink without suggesting block references", () => {
     const heading = expectPresent(activeComposerSuggestions("[[Beta Note#impl", notes, [])[0]);
 
-    expect(activeComposerSuggestions("[[Beta Note#", notes, []).map((suggestion) => suggestion.replacement)).toEqual([
+    expect(suggestionReplacements(activeComposerSuggestions("[[Beta Note#", notes, []))).toEqual([
       "[[Beta Note#Overview]]",
       "[[Beta Note#Implementation Details]]",
     ]);
@@ -298,17 +298,21 @@ describe("composer suggestions", () => {
     ];
 
     expect(
-      activeComposerSuggestions("/archive ", notes, [], threads, [], null, { activeThreadId: "019abcde-0000-7000-8000-000000000002" }).map(
-        (suggestion) => suggestion.replacement,
+      suggestionReplacements(
+        activeComposerSuggestions("/archive ", notes, [], threads, [], null, {
+          activeThreadId: "019abcde-0000-7000-8000-000000000002",
+        }),
       ),
     ).toEqual(["019abcde-0000-7000-8000-000000000002", "019abcde-0000-7000-8000-000000000001", "019abcde-0000-7000-8000-000000000003"]);
     expect(
       activeComposerSuggestions("/rename ", notes, [], threads, [], null, { activeThreadId: "019abcde-0000-7000-8000-000000000002" })[0]
         ?.replacement,
     ).toBe("019abcde-0000-7000-8000-000000000002");
-    expect(
-      activeComposerSuggestions("/archive ", notes, [], threads, [], null, { activeThreadId: null }).map((item) => item.replacement),
-    ).toEqual(["019abcde-0000-7000-8000-000000000001", "019abcde-0000-7000-8000-000000000002", "019abcde-0000-7000-8000-000000000003"]);
+    expect(suggestionReplacements(activeComposerSuggestions("/archive ", notes, [], threads, [], null, { activeThreadId: null }))).toEqual([
+      "019abcde-0000-7000-8000-000000000001",
+      "019abcde-0000-7000-8000-000000000002",
+      "019abcde-0000-7000-8000-000000000003",
+    ]);
     expect(
       activeComposerSuggestions("/archive latest", notes, [], threads, [], null, {
         activeThreadId: "019abcde-0000-7000-8000-000000000002",
@@ -324,9 +328,10 @@ describe("composer suggestions", () => {
     ];
     const activeThreadId = "019abcde-0000-7000-8000-000000000002";
 
-    expect(activeComposerSuggestions("/resume ", notes, [], threads, [], null, { activeThreadId }).map((item) => item.replacement)).toEqual(
-      ["019abcde-0000-7000-8000-000000000001", "019abcde-0000-7000-8000-000000000003"],
-    );
+    expect(suggestionReplacements(activeComposerSuggestions("/resume ", notes, [], threads, [], null, { activeThreadId }))).toEqual([
+      "019abcde-0000-7000-8000-000000000001",
+      "019abcde-0000-7000-8000-000000000003",
+    ]);
     expect(activeComposerSuggestions("/refer current", notes, [], threads, [], null, { activeThreadId })).toEqual([]);
     expect(activeComposerSuggestions("/archive current", notes, [], threads, [], null, { activeThreadId })[0]?.replacement).toBe(
       activeThreadId,
@@ -348,13 +353,7 @@ describe("composer suggestions", () => {
   });
 
   it("suggests slash subcommands from command definitions", () => {
-    expect(activeComposerSuggestions("/goal ", notes, []).map((suggestion) => suggestion.replacement)).toEqual([
-      "set",
-      "edit",
-      "pause",
-      "resume",
-      "clear",
-    ]);
+    expect(suggestionReplacements(activeComposerSuggestions("/goal ", notes, []))).toEqual(["set", "edit", "pause", "resume", "clear"]);
     expect(activeComposerSuggestions("/goal p", notes, [])[0]).toMatchObject({
       display: "pause",
       detail: "/goal pause - Pause the current thread goal.",
@@ -385,7 +384,7 @@ describe("composer suggestions", () => {
       replacement: "gpt-5.4-mini",
       appendSpaceOnInsert: true,
     });
-    expect(activeComposerSuggestions("/model ", notes, [], [], models).map((suggestion) => suggestion.replacement)).toEqual([
+    expect(suggestionReplacements(activeComposerSuggestions("/model ", notes, [], [], models))).toEqual([
       "default",
       "gpt-5.4-mini",
       "gpt-5.5",
@@ -404,9 +403,12 @@ describe("composer suggestions", () => {
       replacement: "high",
       appendSpaceOnInsert: true,
     });
-    expect(
-      activeComposerSuggestions("/reasoning ", notes, [], [], models, "gpt-5.4-mini").map((suggestion) => suggestion.replacement),
-    ).toEqual(["default", "minimal", "low", "medium"]);
+    expect(suggestionReplacements(activeComposerSuggestions("/reasoning ", notes, [], [], models, "gpt-5.4-mini"))).toEqual([
+      "default",
+      "minimal",
+      "low",
+      "medium",
+    ]);
     expect(activeComposerSuggestions("/reasoning x", notes, [], [], models, "gpt-5.4-mini")).toEqual([]);
     expect(activeComposerSuggestions("/reasoning high", notes, [], [], models, "gpt-5.5")).toEqual([]);
     expect(activeComposerSuggestions("/reasoning high ", notes, [], [], models, "gpt-5.5")).toEqual([]);
@@ -480,3 +482,7 @@ describe("composer suggestions", () => {
     expect(composerSuggestionSignature("/stat", 5)).not.toBe(dismissed);
   });
 });
+
+function suggestionReplacements(suggestions: readonly { replacement: string }[]): string[] {
+  return suggestions.map((suggestion) => suggestion.replacement);
+}

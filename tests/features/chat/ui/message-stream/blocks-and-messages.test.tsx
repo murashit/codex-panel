@@ -9,7 +9,7 @@ import { implementPlanTargetFromState } from "../../../../../src/features/chat/a
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
 import { deferred } from "../../../../support/async";
-import { topLevelDetailsSummaries } from "../../../../support/dom";
+import { attributeValues, textContents, topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
   expectPresent,
@@ -71,11 +71,11 @@ describe("message stream rendering and message action menu", () => {
       }),
     );
 
-    expect(
-      [...parent.querySelectorAll<HTMLElement>("[data-codex-panel-block-key]")].map((element) =>
-        element.getAttribute("data-codex-panel-block-key"),
-      ),
-    ).toEqual(["item:u1", "activity:turn-t1-activity", "item:a1"]);
+    expect(attributeValues(parent, "[data-codex-panel-block-key]", "data-codex-panel-block-key")).toEqual([
+      "item:u1",
+      "activity:turn-t1-activity",
+      "item:a1",
+    ]);
     const activitySummary = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="activity:turn-t1-activity"] summary');
     expect(activitySummary?.textContent).toBe("Work details");
     expect(activitySummary?.tabIndex).toBe(-1);
@@ -205,13 +205,13 @@ describe("message stream rendering and message action menu", () => {
 
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(topLevelDetailsSummaries(element)).toEqual(["auto-review"]);
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["auto-review"]);
+    expect(textContents(element, "details summary")).toEqual(["auto-review"]);
     expect(element.textContent).not.toContain("Details");
     expect(element.textContent).not.toContain("▶Review");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusapproved");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("actionapply patch");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("filessrc/ui/detail-view.ts\nsrc/ui/message-stream.ts");
-    expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([]);
+    expect(textContents(element, ".codex-panel__output-title")).toEqual([]);
   });
 
   it("renders structured system result details as visible selectable meta rows", () => {
@@ -251,10 +251,7 @@ describe("message stream rendering and message action menu", () => {
     expect(element.querySelector(".codex-panel__output-title")).toBeNull();
     expect(element.querySelector(".codex-panel__meta-grid")).toBeNull();
     expect(element.querySelectorAll(".codex-panel__system-result-grid")).toHaveLength(1);
-    expect([...element.querySelectorAll(".codex-panel__system-result-heading")].map((heading) => heading.textContent)).toEqual([
-      "Thread",
-      "Runtime",
-    ]);
+    expect(textContents(element, ".codex-panel__system-result-heading")).toEqual(["Thread", "Runtime"]);
     expect(element.querySelector(".codex-panel__system-result-grid")?.textContent).toContain("/helpShow available Codex slash commands.");
     expect(element.querySelector(".codex-panel__system-result-grid")?.textContent).toContain(
       "/resume [thread]Resume a recent Codex thread.",
@@ -985,9 +982,9 @@ describe("message stream rendering and message action menu", () => {
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("npm run check (exit 1)");
     expect(element.querySelector(".codex-panel__stream-summary")?.getAttribute("title")).toBeNull();
     expect(topLevelDetailsSummaries(element)).toEqual(["command"]);
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["command"]);
+    expect(textContents(element, "details summary")).toEqual(["command"]);
     expect(element.textContent).not.toContain("Details");
-    expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual(["Output"]);
+    expect(textContents(element, ".codex-panel__output-title")).toEqual(["Output"]);
     expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("stderr details");
     expect(element.querySelector("details")?.hasAttribute("open")).toBe(false);
   });
@@ -1043,7 +1040,7 @@ describe("message stream rendering and message action menu", () => {
 
     const element = renderMessageBlockElement(block);
 
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["read"]);
+    expect(textContents(element, "details summary")).toEqual(["read"]);
   });
 
   it("derives command summaries from semantic command targets instead of item text", () => {
@@ -1091,12 +1088,9 @@ describe("message stream rendering and message action menu", () => {
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("src/main.ts");
     expect(topLevelDetailsSummaries(element)).toEqual(["file change"]);
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["file change"]);
+    expect(textContents(element, "details summary")).toEqual(["file change"]);
     expect(element.textContent).not.toContain("Details");
-    expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([
-      "update src/main.ts",
-      "Patch output",
-    ]);
+    expect(textContents(element, ".codex-panel__output-title")).toEqual(["update src/main.ts", "Patch output"]);
   });
 
   it("derives file change summaries from changes and status instead of item text", () => {

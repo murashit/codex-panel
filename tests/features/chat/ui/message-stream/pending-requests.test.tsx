@@ -9,7 +9,7 @@ import {
 import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../../src/domain/pending-requests/model";
 import type { PendingRequestBlockContext } from "../../../../../src/features/chat/ui/message-stream/context";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
-import { changeInputValue } from "../../../../support/dom";
+import { changeInputValue, textContents } from "../../../../support/dom";
 import "./setup";
 import {
   actEvent,
@@ -210,7 +210,7 @@ describe("pending request renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__approval-details summary")?.textContent).toBe("Request details");
     expect(parent.querySelector<HTMLElement>(".codex-panel__approval-details summary")?.tabIndex).toBe(-1);
     expect(parent.querySelector(".codex-panel__user-input .codex-panel__pending-request-title")?.textContent).toBe("Codex needs input");
-    expect([...parent.querySelectorAll(".codex-panel__pending-request-button")].map((button) => button.textContent)).toEqual([
+    expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual([
       "Allow",
       "Allow session",
       "Deny",
@@ -352,7 +352,7 @@ describe("pending request renderer decisions", () => {
     );
 
     const buttons = [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")];
-    expect(buttons.map((button) => button.textContent)).toEqual(["Allow network rule", "Deny"]);
+    expect(textContents(parent, ".codex-panel__pending-request-button")).toEqual(["Allow network rule", "Deny"]);
     const allowButton = buttons.at(0);
     if (!allowButton) throw new Error("Missing allow button");
     actEvent(() => {

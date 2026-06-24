@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
-import { topLevelDetailsSummaries } from "../../../../support/dom";
+import { textContents, topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
   expectPresent,
@@ -40,13 +40,10 @@ describe("message stream item renderer decisions", () => {
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("123");
     expect(topLevelDetailsSummaries(element)).toEqual(["github.pull_request_read"]);
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["github.pull_request_read"]);
+    expect(textContents(element, "details summary")).toEqual(["github.pull_request_read"]);
     expect(element.querySelector<HTMLElement>("details summary")?.tabIndex).toBe(-1);
     expect(element.textContent).not.toContain("Details");
-    expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual([
-      "Arguments JSON",
-      "Result JSON",
-    ]);
+    expect(textContents(element, ".codex-panel__output-title")).toEqual(["Arguments JSON", "Result JSON"]);
   });
 
   it("renders steering activity as a compact two-line tool summary", () => {
@@ -220,13 +217,13 @@ describe("message stream item renderer decisions", () => {
 
     expect(topLevelDetailsSummaries(element)).toEqual(["hook"]);
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["hook"]);
+    expect(textContents(element, "details summary")).toEqual(["hook"]);
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("postToolUse: Formatted 1 file.");
     expect(element.textContent).not.toContain("Details");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statuscompleted");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("eventpostToolUse");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("messageFormatted 1 file.");
-    expect([...element.querySelectorAll(".codex-panel__output-title")].map((title) => title.textContent)).toEqual(["Hook output"]);
+    expect(textContents(element, ".codex-panel__output-title")).toEqual(["Hook output"]);
     expect(element.querySelector(".codex-panel__output pre")?.textContent).toBe("feedback: ok");
   });
 
@@ -497,7 +494,7 @@ describe("message stream item renderer decisions", () => {
     expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("agent");
     const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__stream-summary"));
     expect(summary.textContent).toBe("spawn child: Inspect the renderer. (completed)");
-    expect([...element.querySelectorAll("details summary")].map((detailsSummary) => detailsSummary.textContent)).toEqual(["agent"]);
+    expect(textContents(element, "details summary")).toEqual(["agent"]);
     expect(element.textContent).toContain("targetchild");
     expect(element.textContent).toContain("PromptInspect the renderer.");
     expect(element.textContent).toContain("childcompleted: Done");
@@ -559,13 +556,11 @@ describe("message stream item renderer decisions", () => {
 
     const element = renderMessageBlockElement(block);
 
-    const agentRows = [...element.querySelectorAll(".codex-panel__meta-grid dt, .codex-panel__meta-grid dd")].map(
-      (node) => node.textContent,
-    );
+    const agentRows = textContents(element, ".codex-panel__meta-grid dt, .codex-panel__meta-grid dd");
     expect(agentRows).toContain("019e061e");
     expect(agentRows).toContain("completed: Done");
     expect(agentRows.join("")).not.toContain("a".repeat(180));
-    expect([...element.querySelectorAll("details summary")].map((summary) => summary.textContent)).toEqual(["agent"]);
+    expect(textContents(element, "details summary")).toEqual(["agent"]);
     expect(element.querySelector<HTMLElement>("details summary")?.tabIndex).toBe(-1);
     expect(element.textContent).toContain("Agent output 019e061e");
     expect(element.textContent).toContain(longMessage);

@@ -26,6 +26,15 @@ function approvalActionOptions(approval: NonNullable<ReturnType<typeof toPending
   ).actions;
 }
 
+function approvalActionLabels(approval: NonNullable<ReturnType<typeof toPendingApproval>>): (string | null)[] {
+  return approvalActionOptions(approval).map((option) => option.label);
+}
+
+function approvalResponseAt(approval: NonNullable<ReturnType<typeof toPendingApproval>>, index: number): unknown {
+  const option = expectPresent(approvalActionOptions(approval)[index]);
+  return approvalResponse(approval, option.action);
+}
+
 describe("approval model", () => {
   it("classifies command approvals and builds v2 decisions", () => {
     const request: ServerRequest = {
@@ -50,8 +59,8 @@ describe("approval model", () => {
 
     expect(approval.title).toBe("Command approval");
     expect(approval.summary).toBe("npm run build");
-    expect(approvalActionOptions(approval).map((option) => option.label)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
-    expect(approvalResponse(approval, expectPresent(approvalActionOptions(approval)[1]).action)).toEqual({ decision: "acceptForSession" });
+    expect(approvalActionLabels(approval)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
+    expect(approvalResponseAt(approval, 1)).toEqual({ decision: "acceptForSession" });
   });
 
   it("builds permission grants only for accept actions", () => {
@@ -129,9 +138,9 @@ describe("approval model", () => {
     expect(options.map((option) => option.label)).toEqual(["Allow network rule", "Allow network rule", "Deny"]);
     expect(options.map((option) => option.className)).toEqual(["", "", "mod-warning"]);
     expect(new Set(options.map((option) => option.id)).size).toBe(options.length);
-    expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual({ decision: allowRegistryDecision });
-    expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual({ decision: allowApiDecision });
-    expect(approvalResponse(approval, expectPresent(options[2]).action)).toEqual({ decision: "decline" });
+    expect(approvalResponseAt(approval, 0)).toEqual({ decision: allowRegistryDecision });
+    expect(approvalResponseAt(approval, 1)).toEqual({ decision: allowApiDecision });
+    expect(approvalResponseAt(approval, 2)).toEqual({ decision: "decline" });
     expect(createApprovalResultItem(approval, expectPresent(options[0]).action)).toMatchObject({
       approval: { status: "allowed for session" },
     });
@@ -171,7 +180,7 @@ describe("approval model", () => {
         className: "mod-warning",
       },
     ]);
-    expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual({ decision: futureDecision });
+    expect(approvalResponseAt(approval, 0)).toEqual({ decision: futureDecision });
   });
 
   it("falls back to generic command approval actions when app-server omits decisions", () => {
@@ -195,7 +204,7 @@ describe("approval model", () => {
       }),
     );
 
-    expect(approvalActionOptions(approval).map((option) => option.label)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
+    expect(approvalActionLabels(approval)).toEqual(["Allow", "Allow session", "Deny", "Cancel"]);
     expect(approvalResponse(approval, "accept-session")).toEqual({ decision: "acceptForSession" });
   });
 
@@ -431,10 +440,9 @@ describe("approval model", () => {
     ({ request, acceptSession, cancel }) => {
       const approval = expectPresent(toPendingApproval(request));
       if (approval.kind === "command") {
-        const options = approvalActionOptions(approval);
-        expect(approvalResponse(approval, expectPresent(options[0]).action)).toEqual(acceptSession);
-        expect(approvalResponse(approval, expectPresent(options[1]).action)).toEqual(cancel);
-        expect(approvalResponse(approval, expectPresent(options[2]).action)).toEqual({ decision: "decline" });
+        expect(approvalResponseAt(approval, 0)).toEqual(acceptSession);
+        expect(approvalResponseAt(approval, 1)).toEqual(cancel);
+        expect(approvalResponseAt(approval, 2)).toEqual({ decision: "decline" });
         return;
       }
       expect(approvalResponse(approval, "accept-session")).toEqual(acceptSession);
