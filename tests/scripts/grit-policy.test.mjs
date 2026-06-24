@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
 const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
+const workspaceByPlugins = new Map();
 
 describe("GritQL source policy", () => {
   it("can report hand-written re-export barrels as Biome plugin diagnostics", async () => {
@@ -23,7 +24,7 @@ export { local };
 
     const report = biomeLint(["reexports.ts"], cwd);
 
-    expect(pluginDiagnostics(report)).toEqual([
+    expect(pluginDiagnostics(report, "reexports.ts")).toEqual([
       { line: 1, column: 8, endLine: 1, endColumn: 33 },
       { line: 2, column: 8, endLine: 2, endColumn: 26 },
     ]);
@@ -48,8 +49,10 @@ export const status = signal("idle");
 `.trimStart(),
     );
 
-    expect(pluginDiagnostics(biomeLint(["src/features/chat/panel/shell-state.tsx"], cwd, { expectErrors: false }))).toEqual([]);
-    expect(pluginMessages(biomeLint(["src/shared/ui/components.tsx"], cwd))).toEqual([
+    const report = biomeLint(["src/features/chat/panel/shell-state.tsx", "src/shared/ui/components.tsx"], cwd);
+
+    expect(pluginDiagnostics(report, "src/features/chat/panel/shell-state.tsx")).toEqual([]);
+    expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual([
       "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
     ]);
   });
@@ -63,7 +66,9 @@ export const actionType = "state/patched";
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/application/state/root-reducer.ts"], cwd))).toEqual([
+    const report = biomeLint(["src/features/chat/application/state/root-reducer.ts"], cwd);
+
+    expect(pluginMessages(report, "src/features/chat/application/state/root-reducer.ts")).toEqual([
       "Use a named ChatAction instead of reintroducing the generic state patch escape hatch.",
     ]);
   });
@@ -89,11 +94,16 @@ export type Item = MessageStreamItem;
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/domain/message-stream/selectors.ts"], cwd))).toEqual([
+    const report = biomeLint(
+      ["src/features/chat/domain/message-stream/selectors.ts", "src/features/chat/domain/message-stream/items.ts"],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/domain/message-stream/selectors.ts")).toEqual([
       "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
       "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/features/chat/domain/message-stream/items.ts"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/domain/message-stream/items.ts")).toEqual([]);
   });
 
   it("blocks generated app-server imports outside app-server boundaries", async () => {
@@ -125,14 +135,24 @@ export type GeneratedThread = import("../../src/generated/app-server/v2/Thread")
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/domain/generated-thread.ts"], cwd))).toEqual([
+    const report = biomeLint(
+      [
+        "src/features/chat/domain/generated-thread.ts",
+        "src/features/chat/domain/generated-thread-import.ts",
+        "src/app-server/connection/generated-thread.ts",
+        "tests/app-server/generated-thread.test.ts",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/domain/generated-thread.ts")).toEqual([
       "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
     ]);
-    expect(pluginMessages(biomeLint(["src/features/chat/domain/generated-thread-import.ts"], cwd))).toEqual([
+    expect(pluginMessages(report, "src/features/chat/domain/generated-thread-import.ts")).toEqual([
       "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/app-server/connection/generated-thread.ts"], cwd, { expectErrors: false }))).toEqual([]);
-    expect(pluginDiagnostics(biomeLint(["tests/app-server/generated-thread.test.ts"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/app-server/connection/generated-thread.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "tests/app-server/generated-thread.test.ts")).toEqual([]);
   });
 
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
@@ -170,18 +190,26 @@ export type Item = TurnItem;
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/application/pending-requests/pending-request-actions.ts"], cwd))).toEqual([
+    const report = biomeLint(
+      [
+        "src/features/chat/application/pending-requests/pending-request-actions.ts",
+        "src/features/chat/application/threads/history-controller.ts",
+        "src/features/chat/app-server/inbound/notification-plan.ts",
+        "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/application/pending-requests/pending-request-actions.ts")).toEqual([
       "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
     ]);
-    expect(pluginMessages(biomeLint(["src/features/chat/application/threads/history-controller.ts"], cwd))).toEqual([
+    expect(pluginMessages(report, "src/features/chat/application/threads/history-controller.ts")).toEqual([
       "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
     ]);
-    expect(pluginMessages(biomeLint(["src/features/chat/app-server/inbound/notification-plan.ts"], cwd))).toEqual([
+    expect(pluginMessages(report, "src/features/chat/app-server/inbound/notification-plan.ts")).toEqual([
       "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
     ]);
-    expect(
-      pluginDiagnostics(biomeLint(["src/features/chat/app-server/mappers/message-stream/turn-items.ts"], cwd, { expectErrors: false })),
-    ).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/app-server/mappers/message-stream/turn-items.ts")).toEqual([]);
   });
 
   it("keeps server request protocol imports in chat request boundaries only", async () => {
@@ -211,13 +239,22 @@ export const response = appServerUserInputResponse;
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/panel/surface/message-stream-presenter.ts"], cwd))).toEqual([
+    const report = biomeLint(
+      [
+        "src/features/chat/panel/surface/message-stream-presenter.ts",
+        "src/features/chat/app-server/inbound/app-server-logs.ts",
+        "src/features/chat/app-server/inbound/routing.ts",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/panel/surface/message-stream-presenter.ts")).toEqual([
       "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
     ]);
-    expect(pluginMessages(biomeLint(["src/features/chat/app-server/inbound/app-server-logs.ts"], cwd))).toEqual([
+    expect(pluginMessages(report, "src/features/chat/app-server/inbound/app-server-logs.ts")).toEqual([
       "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/features/chat/app-server/inbound/routing.ts"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/app-server/inbound/routing.ts")).toEqual([]);
   });
 
   it("keeps generated app-server bindings behind explicit exceptions", async () => {
@@ -249,13 +286,18 @@ export type TurnItem = GeneratedTurnItem;
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/app-server/protocol/request-input.ts"], cwd))).toEqual([
+    const report = biomeLint(
+      ["src/app-server/protocol/request-input.ts", "src/app-server/services/runtime-overrides.ts", "src/app-server/protocol/turn.ts"],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/app-server/protocol/request-input.ts")).toEqual([
       "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
     ]);
-    expect(pluginMessages(biomeLint(["src/app-server/services/runtime-overrides.ts"], cwd))).toEqual([
+    expect(pluginMessages(report, "src/app-server/services/runtime-overrides.ts")).toEqual([
       "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/app-server/protocol/turn.ts"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/app-server/protocol/turn.ts")).toEqual([]);
   });
 
   it("keeps lower-level source independent from connection and feature layers", async () => {
@@ -285,13 +327,15 @@ export const format = formatDate;
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/app-server/protocol/catalog.ts"], cwd))).toEqual([
+    const report = biomeLint(["src/app-server/protocol/catalog.ts", "src/app-server/protocol/diagnostics.ts", "src/shared/date.ts"], cwd);
+
+    expect(pluginMessages(report, "src/app-server/protocol/catalog.ts")).toEqual([
       "Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.",
     ]);
-    expect(pluginMessages(biomeLint(["src/app-server/protocol/diagnostics.ts"], cwd))).toEqual([
+    expect(pluginMessages(report, "src/app-server/protocol/diagnostics.ts")).toEqual([
       "Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/shared/date.ts"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/shared/date.ts")).toEqual([]);
   });
 
   it("keeps generated app-server import shapes behind narrow aliases and protocol exceptions", async () => {
@@ -333,14 +377,24 @@ export type Params = ToolRequestUserInputParams;
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/app-server/connection/thread.ts"], cwd))).toEqual([
+    const report = biomeLint(
+      [
+        "src/app-server/connection/thread.ts",
+        "src/app-server/connection/aliased-thread.ts",
+        "src/app-server/protocol/turn.ts",
+        "src/app-server/protocol/server-requests.ts",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/app-server/connection/thread.ts")).toEqual([
       "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/app-server/connection/aliased-thread.ts"], cwd, { expectErrors: false }))).toEqual([]);
-    expect(pluginMessages(biomeLint(["src/app-server/protocol/turn.ts"], cwd))).toEqual([
+    expect(pluginDiagnostics(report, "src/app-server/connection/aliased-thread.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
       "Only generated ThreadItem is allowed in the turn protocol exception. Model other turn payload shapes locally.",
     ]);
-    expect(pluginMessages(biomeLint(["src/app-server/protocol/server-requests.ts"], cwd))).toEqual([
+    expect(pluginMessages(report, "src/app-server/protocol/server-requests.ts")).toEqual([
       "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
     ]);
   });
@@ -363,11 +417,13 @@ export type { ThreadPickerOptions } from "./types";
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/index.ts"], cwd))).toEqual([
+    const report = biomeLint(["src/features/chat/index.ts", "src/features/thread-picker/index.ts"], cwd);
+
+    expect(pluginMessages(report, "src/features/chat/index.ts")).toEqual([
       "Keep src index files as re-export-only boundaries.",
       "Keep src index files as re-export-only boundaries.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/features/thread-picker/index.ts"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/thread-picker/index.ts")).toEqual([]);
   });
 
   it("keeps chat application app-server projection RPCs behind facades", async () => {
@@ -401,11 +457,16 @@ type Resume = AppServerClient["resumeThread"];
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/application/threads/history.ts"], cwd))).toEqual([
+    const report = biomeLint(
+      ["src/features/chat/application/threads/history.ts", "src/app-server/threads.ts", "src/features/chat/host/connection-bundle.ts"],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/application/threads/history.ts")).toEqual([
       "Keep app-server projection RPCs behind app-server facades; chat application code should consume Panel-owned snapshots or view models.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/app-server/threads.ts"], cwd, { expectErrors: false }))).toEqual([]);
-    expect(pluginMessages(biomeLint(["src/features/chat/host/connection-bundle.ts"], cwd))).toEqual([
+    expect(pluginDiagnostics(report, "src/app-server/threads.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/host/connection-bundle.ts")).toEqual([
       "Do not expose app-server projection RPC signatures through AppServerClient indexed access types; define a Panel-owned projection type instead.",
     ]);
   });
@@ -429,10 +490,12 @@ export const render = renderUiRoot;
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/ui/composer.tsx"], cwd))).toEqual([
+    const report = biomeLint(["src/features/chat/ui/composer.tsx", "src/features/chat/panel/shell.tsx"], cwd);
+
+    expect(pluginMessages(report, "src/features/chat/ui/composer.tsx")).toEqual([
       "Import the Preact root adapter only from explicit root bridge files.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/features/chat/panel/shell.tsx"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/panel/shell.tsx")).toEqual([]);
   });
 
   it("keeps chat state transforms pure and catches global scheduling calls", async () => {
@@ -456,13 +519,16 @@ export function timestamp(): number {
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/application/state/message-stream.ts"], cwd))).toEqual([
+    const report = biomeLint(
+      ["src/features/chat/application/state/message-stream.ts", "src/features/chat/application/threads/resume-actions.ts"],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/application/state/message-stream.ts")).toEqual([
       "Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
       "Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/features/chat/application/threads/resume-actions.ts"], cwd, { expectErrors: false }))).toEqual(
-      [],
-    );
+    expect(pluginDiagnostics(report, "src/features/chat/application/threads/resume-actions.ts")).toEqual([]);
   });
 
   it("reports unsafe iterator value reads", async () => {
@@ -476,7 +542,9 @@ export function first<T>(iterator: Iterator<T>): T | undefined {
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/shared/iterator.ts"], cwd))).toEqual([
+    const report = biomeLint(["src/shared/iterator.ts"], cwd);
+
+    expect(pluginMessages(report, "src/shared/iterator.ts")).toEqual([
       "Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.",
     ]);
   });
@@ -505,11 +573,13 @@ export function Composer(): JSX.Element {
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/features/chat/ui/composer.tsx"], cwd))).toEqual([
+    const report = biomeLint(["src/features/chat/ui/composer.tsx", "src/features/chat/ui/controlled-composer.tsx"], cwd);
+
+    expect(pluginMessages(report, "src/features/chat/ui/composer.tsx")).toEqual([
       "Keep Preact form state explicit with controlled value or checked props.",
       "Keep Preact form state explicit with controlled value or checked props.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/features/chat/ui/controlled-composer.tsx"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/ui/controlled-composer.tsx")).toEqual([]);
   });
 
   it("keeps initializer callbacks from capturing their own variable", async () => {
@@ -548,13 +618,15 @@ runner = new Runner(() => runner.stop());
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/plugin-runtime.ts"], cwd))).toEqual([
+    const report = biomeLint(["src/plugin-runtime.ts", "src/plugin-runtime-function.ts", "src/plugin-runtime-declared.ts"], cwd);
+
+    expect(pluginMessages(report, "src/plugin-runtime.ts")).toEqual([
       "Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.",
     ]);
-    expect(pluginMessages(biomeLint(["src/plugin-runtime-function.ts"], cwd))).toEqual([
+    expect(pluginMessages(report, "src/plugin-runtime-function.ts")).toEqual([
       "Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/plugin-runtime-declared.ts"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/plugin-runtime-declared.ts")).toEqual([]);
   });
 
   it("keeps CSS on design tokens and scoped selectors", async () => {
@@ -606,7 +678,9 @@ runner = new Runner(() => runner.stop());
 `.trimStart(),
     );
 
-    expect(pluginMessages(biomeLint(["src/styles/bad.css"], cwd))).toEqual([
+    const report = biomeLint(["src/styles/bad.css", "src/styles/good.css"], cwd);
+
+    expect(pluginMessages(report, "src/styles/bad.css")).toEqual([
       "Avoid :has() because it can cause broad selector invalidation.",
       "Use Obsidian or Codex Panel design tokens instead of hardcoded colors.",
       "Prefer Obsidian or Codex Panel spacing and size tokens for layout dimensions.",
@@ -616,11 +690,15 @@ runner = new Runner(() => runner.stop());
       "Use Obsidian or Codex Panel typography tokens instead of hardcoded font weights.",
       "Prefix keyframes with codex-panel-.",
     ]);
-    expect(pluginDiagnostics(biomeLint(["src/styles/good.css"], cwd, { expectErrors: false }))).toEqual([]);
+    expect(pluginDiagnostics(report, "src/styles/good.css")).toEqual([]);
   });
 });
 
 async function tempBiomeWorkspace(plugins) {
+  const cacheKey = plugins.join("\0");
+  const cached = workspaceByPlugins.get(cacheKey);
+  if (cached) return cached;
+
   const cwd = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
   await mkdir(cwd, { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/domain/message-stream"), { recursive: true });
@@ -650,6 +728,7 @@ async function tempBiomeWorkspace(plugins) {
       css: { linter: { enabled: true } },
     }),
   );
+  workspaceByPlugins.set(cacheKey, cwd);
   return cwd;
 }
 
@@ -660,6 +739,7 @@ function biomeLint(files, cwd, options = {}) {
     encoding: "utf8",
   });
   const report = parseBiomeJsonReport(result.stdout, result.stderr);
+  report.cwd = cwd;
   if (expectErrors && (result.status !== 1 || report.summary.errors === 0)) {
     throw new Error([result.stdout, result.stderr].filter(Boolean).join("\n"));
   }
@@ -669,9 +749,9 @@ function biomeLint(files, cwd, options = {}) {
   return report;
 }
 
-function pluginDiagnostics(report) {
+function pluginDiagnostics(report, filePath) {
   return report.diagnostics
-    .filter((diagnostic) => diagnostic.category === "plugin")
+    .filter((diagnostic) => diagnostic.category === "plugin" && diagnosticMatchesFile(report, diagnostic, filePath))
     .map((diagnostic) => ({
       line: diagnostic.location.start.line,
       column: diagnostic.location.start.column,
@@ -680,8 +760,25 @@ function pluginDiagnostics(report) {
     }));
 }
 
-function pluginMessages(report) {
-  return report.diagnostics.filter((diagnostic) => diagnostic.category === "plugin").map((diagnostic) => diagnostic.message);
+function pluginMessages(report, filePath) {
+  return report.diagnostics
+    .filter((diagnostic) => diagnostic.category === "plugin" && diagnosticMatchesFile(report, diagnostic, filePath))
+    .map((diagnostic) => diagnostic.message);
+}
+
+function diagnosticMatchesFile(report, diagnostic, filePath) {
+  if (!filePath) return true;
+  return normalizeDiagnosticPath(report, diagnostic) === normalizeRelativePath(filePath);
+}
+
+function normalizeDiagnosticPath(report, diagnostic) {
+  const diagnosticPath = diagnostic.location?.path ?? "";
+  const relativePath = path.isAbsolute(diagnosticPath) ? path.relative(report.cwd, diagnosticPath) : diagnosticPath;
+  return normalizeRelativePath(relativePath);
+}
+
+function normalizeRelativePath(filePath) {
+  return filePath.split(path.sep).join("/");
 }
 
 function parseBiomeJsonReport(stdout, stderr) {
