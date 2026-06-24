@@ -16,6 +16,8 @@ const concurrentOptions = {
   padPrefix: true,
   prefix: "name",
 };
+const biomeLintCommand = "biome lint --no-errors-on-unmatched --diagnostic-level=warn --error-on-warnings";
+const biomeCheckCommand = "biome check --no-errors-on-unmatched --diagnostic-level=warn --error-on-warnings";
 
 try {
   if (lintOnly) {
@@ -38,16 +40,19 @@ function checkCommands({ ciMode }) {
   return [
     { name: "typecheck", command: `npm run --silent typecheck${suffix}` },
     { name: "test", command: `npm run --silent test${suffix}` },
-    ...lintCommands({ ciMode, namePrefix: "lint:" }),
-    { name: "format:check", command: "npm run --silent format:check" },
+    { name: "lint:biome", command: biomeCheckCommand },
+    ...nonBiomeLintCommands({ ciMode, namePrefix: "lint:" }),
   ];
 }
 
 function lintCommands({ ciMode, namePrefix = "" }) {
+  return [{ name: `${namePrefix}biome`, command: biomeLintCommand }, ...nonBiomeLintCommands({ ciMode, namePrefix })];
+}
+
+function nonBiomeLintCommands({ ciMode, namePrefix = "" }) {
   const eslintCacheArgs = ciMode ? "" : " --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache";
 
   return [
-    { name: `${namePrefix}biome`, command: "biome lint --no-errors-on-unmatched --diagnostic-level=warn --error-on-warnings" },
     {
       name: `${namePrefix}eslint`,
       command: `eslint src tests scripts "*.config.ts" "*.config.mjs" --max-warnings=0${eslintCacheArgs}`,
