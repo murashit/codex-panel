@@ -68,7 +68,6 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   throwIfAborted(options.signal, options.abortMessage);
   let state = createEphemeralStructuredTurnState();
   const timers = options.timers ?? DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS;
-  let timeout: ReturnType<Window["setTimeout"]> | undefined;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
   let operationAbortError: Error | null = null;
   const operationAbort = new AbortController();
@@ -84,7 +83,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
       () => operationAbortError ?? ephemeralStructuredTurnAbortError(options.abortMessage),
     );
 
-  timeout = timers.setTimeout(() => {
+  const timeout = timers.setTimeout(() => {
     if (state.lifecycle.kind === "completed") return;
     state = completeEphemeralStructuredTurnState(state);
     abortOperation(new Error(options.timedOutMessage));
@@ -99,9 +98,8 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     };
   });
 
-  let client!: EphemeralStructuredTurnRuntimeCapableClient;
   const clientFactory = options.clientFactory ?? ((codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers));
-  client = clientFactory(options.codexPath, options.cwd, {
+  const client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {
       handleNotification(notification);
     },

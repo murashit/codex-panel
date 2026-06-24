@@ -468,7 +468,8 @@ export function shouldSuppressLifecycleItem(item: TurnItem): boolean {
   return item.type === "agentMessage" || item.type === "userMessage";
 }
 
-function ignoredUnsupportedTurnItem(_item: never): null {
+function ignoredUnsupportedTurnItem(item: never): null {
+  void item;
   return null;
 }
 

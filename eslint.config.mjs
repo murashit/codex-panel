@@ -4,12 +4,7 @@ import ts from "typescript";
 import tseslint from "typescript-eslint";
 
 const sourceTypeScriptFiles = ["src/**/*.{ts,tsx}"];
-const unsafeAnyTypeScriptRules = {
-  "@typescript-eslint/no-unsafe-argument": "error",
-  "@typescript-eslint/no-unsafe-assignment": "error",
-  "@typescript-eslint/no-unsafe-call": "error",
-  "@typescript-eslint/no-unsafe-member-access": "error",
-};
+const strictTypeCheckedTypeScriptRules = Object.assign({}, ...tseslint.configs.strictTypeChecked.map((config) => config.rules ?? {}));
 const codexPanelRuleIds = {
   chatStateDirectMutation: "codex-panel/no-chat-state-direct-mutation",
   imperativeDom: "codex-panel/no-imperative-dom",
@@ -133,7 +128,10 @@ export default defineConfig([
         setTimeout: "readonly",
       },
     },
-    rules: unsafeAnyTypeScriptRules,
+    rules: {
+      ...strictTypeCheckedTypeScriptRules,
+      "@typescript-eslint/require-await": "off",
+    },
   },
   {
     files: sourceTypeScriptFiles,

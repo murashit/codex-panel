@@ -32,7 +32,7 @@ export async function exportArchivedThreadMarkdown(
   now = new Date(),
 ): Promise<ArchiveExportResult> {
   const context = templateContext(thread, now);
-  const normalizePath = destination.normalizePath;
+  const normalizePath = (path: string): string => destination.normalizePath(path);
   const folder = folderPathFromTemplate(settings.archiveExportFolderTemplate, context, normalizePath);
   const filename = filenameFromTemplate(settings.archiveExportFilenameTemplate, context, normalizePath);
   await ensureFolder(destination, folder);

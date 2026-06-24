@@ -199,7 +199,8 @@ function autoReviewToggleMessage(state: AutoReviewState): string {
   return state === "enabled" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.";
 }
 
-function collaborationModeWarningMessage(_warning: NonNullable<PendingRuntimeSettingsPatch["collaborationModeWarning"]>): string {
+function collaborationModeWarningMessage(warning: NonNullable<PendingRuntimeSettingsPatch["collaborationModeWarning"]>): string {
+  void warning;
   return "No effective model is available. Sending without a mode override.";
 }
 

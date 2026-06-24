@@ -7,8 +7,7 @@ export async function withShortLivedAppServerClient<T>(
   operation: (client: AppServerClient) => Promise<T>,
   options: AppServerClientAccessOptions = {},
 ): Promise<T> {
-  let client!: AppServerClient;
-  client = new AppServerClient(codexPath, cwd, {
+  const client = new AppServerClient(codexPath, cwd, {
     onNotification: () => undefined,
     onServerRequest: (request) => {
       client.rejectServerRequest(
