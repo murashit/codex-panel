@@ -164,7 +164,7 @@ export async function loadSignals() {
   return import("@preact/signals");
 }
 
-const signals = require("@preact/signals");
+const signals = await import("@preact/signals");
 export const loadedSignals = signals;
 `.trimStart(),
     );
@@ -196,7 +196,7 @@ export async function loadComposer() {
   return import("src/features/chat/ui/composer");
 }
 
-const host = require("../../host/session");
+const host = await import("../../host/session");
 export const outerHost = host;
 `.trimStart(),
     );
@@ -252,7 +252,7 @@ export async function loadRoot() {
   return import("../../../shared/ui/ui-root.dom");
 }
 
-const root = require("../../../shared/ui/ui-root.dom");
+const root = await import("../../../shared/ui/ui-root.dom");
 export const loadedRoot = root;
 `.trimStart(),
     );
@@ -500,7 +500,7 @@ export const response = appServerUserInputResponse;
       `
 import { toolInventoryAppsFromAppInfos } from "../../../../app-server/protocol/tool-inventory";
 
-const toolInventory = require("../../../../app-server/protocol/tool-inventory");
+const toolInventory = await import("../../../../app-server/protocol/tool-inventory");
 
 export const convert = [toolInventoryAppsFromAppInfos, toolInventory];
 `.trimStart(),
@@ -531,7 +531,7 @@ export type Item = TurnItem;
     await writeFile(
       path.join(cwd, "src/features/chat/app-server/inbound/handler.ts"),
       `
-const runtimeMetrics = require("../../../../app-server/protocol/runtime-metrics");
+const runtimeMetrics = await import("../../../../app-server/protocol/runtime-metrics");
 
 export const response = runtimeMetrics;
 `.trimStart(),
@@ -727,7 +727,7 @@ export async function loadParams() {
   return import("../../generated/app-server/v2/ToolRequestUserInputParams");
 }
 
-const params = require("../../generated/app-server/v2/ToolRequestUserInputParams");
+const params = await import("../../generated/app-server/v2/ToolRequestUserInputParams");
 export const loadedParams = params;
 `.trimStart(),
     );

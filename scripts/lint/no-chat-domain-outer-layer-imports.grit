@@ -10,15 +10,9 @@ private pattern js_module_reference() {
   }
 }
 
-or {
-  js_module_reference() as $stmt where {
-    $stmt <: contains `$source` where {
-      $source <: r"^[\"'](?:(?:\.\./)+|src/features/chat/)(?:app-server|application|host|panel|presentation|ui)(?:/.*)?[\"']$"
-    },
-    register_diagnostic(span=$stmt, message="Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.", severity="error")
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where {
+    $source <: r"^[\"'](?:(?:\.\./)+|src/features/chat/)(?:app-server|application|host|panel|presentation|ui)(?:/.*)?[\"']$"
   },
-  `require($source)` as $stmt where {
-    $source <: r"^[\"'](?:(?:\.\./)+|src/features/chat/)(?:app-server|application|host|panel|presentation|ui)(?:/.*)?[\"']$",
-    register_diagnostic(span=$stmt, message="Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.", severity="error")
-  }
+  register_diagnostic(span=$stmt, message="Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.", severity="error")
 }

@@ -173,6 +173,9 @@
           }
         }
       },
+      "style": {
+        "noCommonJs": "error"
+      },
       "suspicious": {
         "noImportCycles": "error"
       }
