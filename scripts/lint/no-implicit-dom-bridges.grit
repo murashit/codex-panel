@@ -13,7 +13,6 @@ or {
   `$target.addEventListener($...)` as $stmt,
   `$target.removeEventListener($...)` as $stmt
 } where {
-  $filename <: r".*/src/.*\.tsx?$",
   not { $filename <: r".*\.(?:dom|obsidian|measure)\.tsx?$" },
   not { $target <: `signal` },
   register_diagnostic(span=$stmt, message="Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.", severity="error")

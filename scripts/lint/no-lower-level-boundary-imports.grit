@@ -22,7 +22,6 @@ or {
     register_diagnostic(span=$stmt, message="Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.", severity="error")
   },
   js_module_reference() as $stmt where {
-    $filename <: r".*/src/(?:app-server|domain|shared)/.*",
     $stmt <: contains `$source` where { $source <: r"^[\"'](?:(?:\.\./)+features|src/features)(?:/.*)?[\"']$" },
     register_diagnostic(span=$stmt, message="Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.", severity="error")
   },
@@ -42,7 +41,6 @@ or {
     register_diagnostic(span=$stmt, message="Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.", severity="error")
   },
   `require($source)` as $stmt where {
-    $filename <: r".*/src/(?:app-server|domain|shared)/.*",
     $source <: r"^[\"'](?:(?:\.\./)+features|src/features)(?:/.*)?[\"']$",
     register_diagnostic(span=$stmt, message="Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.", severity="error")
   },

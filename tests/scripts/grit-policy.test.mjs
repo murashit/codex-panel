@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -7,6 +8,12 @@ import { describe, expect, it } from "vitest";
 const repoRoot = process.cwd();
 const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
 const workspaceByPlugins = new Map();
+const projectPluginByName = new Map(
+  parseJsonc(readFileSync(path.join(repoRoot, "biome.jsonc"), "utf8")).plugins.map((plugin) => {
+    const pluginPath = typeof plugin === "string" ? plugin : plugin.path;
+    return [path.basename(pluginPath), plugin];
+  }),
+);
 
 describe("GritQL source policy", () => {
   it("keeps project-wide source-shape policies enforceable as Biome plugin diagnostics", async () => {
@@ -410,21 +417,21 @@ export type Request = ServerRequest;
     );
 
     expect(pluginMessages(report, "src/features/chat/domain/generated-thread.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
     expect(pluginMessages(report, "src/features/chat/domain/generated-thread-import.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/connection/generated-thread.ts")).toEqual([]);
     expect(pluginDiagnostics(report, "tests/app-server/generated-thread.test.ts")).toEqual([]);
     expect(pluginMessages(report, "src/app-server/protocol/request-input.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
     expect(pluginMessages(report, "src/app-server/services/runtime-overrides.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
     expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/protocol/server-requests.ts")).toEqual([]);
   });
@@ -836,7 +843,7 @@ async function tempBiomeWorkspace(plugins) {
     JSON.stringify({
       $schema: "https://biomejs.dev/schemas/2.5.1/schema.json",
       vcs: { enabled: false },
-      plugins: plugins.map((plugin) => path.join(repoRoot, "scripts", "lint", plugin)),
+      plugins: plugins.map((plugin) => projectPluginConfig(plugin)),
       css: { linter: { enabled: true } },
     }),
   );
@@ -859,6 +866,18 @@ function biomeLint(files, cwd, options = {}) {
     throw new Error([result.stdout, result.stderr].filter(Boolean).join("\n"));
   }
   return report;
+}
+
+function projectPluginConfig(plugin) {
+  const projectPlugin = projectPluginByName.get(plugin);
+  if (!projectPlugin) {
+    throw new Error(`Missing ${plugin} in biome.jsonc plugins`);
+  }
+  const pluginPath = path.join(repoRoot, "scripts", "lint", plugin);
+  if (typeof projectPlugin === "string") {
+    return pluginPath;
+  }
+  return { ...projectPlugin, path: pluginPath };
 }
 
 function pluginDiagnostics(report, filePath) {
@@ -899,4 +918,8 @@ function parseBiomeJsonReport(stdout, stderr) {
     throw new Error(`Biome did not print a JSON report:\n${[stdout, stderr].filter(Boolean).join("\n")}`);
   }
   return JSON.parse(stdout.slice(jsonStart));
+}
+
+function parseJsonc(source) {
+  return JSON.parse(source.replace(/^\s*\/\/.*$/gm, ""));
 }

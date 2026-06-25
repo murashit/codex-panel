@@ -7,6 +7,5 @@ or {
   `$client.rollbackThread($...)` as $stmt
 } where {
   $client <: r"^(?:client|[A-Za-z_$][A-Za-z0-9_$]*Client)$",
-  $filename <: r".*/src/features/chat/application/.*",
   register_diagnostic(span=$stmt, message="Keep app-server projection RPCs behind app-server facades; chat application code should consume Panel-owned snapshots or view models.", severity="error")
 }

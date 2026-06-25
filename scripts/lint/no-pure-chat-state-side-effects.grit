@@ -14,6 +14,5 @@ or {
   `localStorage.$property` as $stmt,
   `sessionStorage.$property` as $stmt
 } where {
-  $filename <: r".*/src/features/chat/application/state/.*",
   register_diagnostic(span=$stmt, message="Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.", severity="error")
 }
