@@ -13,27 +13,7 @@
     },
     {
       "path": "./scripts/lint/no-app-server-protocol-boundary-imports.grit",
-      "includes": [
-        "**/src/**/*.ts",
-        "**/src/**/*.tsx",
-        "!**/src/app-server/**/*.ts",
-        "!**/src/app-server/**/*.tsx",
-        "!**/src/features/chat/app-server/inbound/notification-plan.ts",
-        "!**/src/features/chat/app-server/mappers/message-stream/turn-items.ts",
-        "!**/src/features/chat/app-server/inbound/handler.ts",
-        "!**/src/features/chat/app-server/inbound/routing.ts"
-      ]
-    },
-    {
-      "path": "./scripts/lint/no-chat-app-server-turn-protocol-imports.grit",
-      "includes": [
-        "**/src/features/chat/app-server/inbound/notification-plan.ts",
-        "**/src/features/chat/app-server/mappers/message-stream/turn-items.ts"
-      ]
-    },
-    {
-      "path": "./scripts/lint/no-chat-app-server-request-protocol-imports.grit",
-      "includes": ["**/src/features/chat/app-server/inbound/handler.ts", "**/src/features/chat/app-server/inbound/routing.ts"]
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/**/*.ts", "!**/src/app-server/**/*.tsx"]
     },
     {
       "path": "./scripts/lint/no-generated-app-server-boundary-imports.grit",

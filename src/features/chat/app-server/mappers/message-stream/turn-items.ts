@@ -1,7 +1,12 @@
-import type { TurnItem } from "../../../../../app-server/protocol/turn";
-import { turnUserItemText } from "../../../../../app-server/protocol/turn";
+import {
+  completedConversationSummaryFromTurnRecord,
+  type TurnItem,
+  type TurnRecord,
+  turnUserItemText,
+} from "../../../../../app-server/protocol/turn";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
+import type { ThreadConversationSummary } from "../../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../../shared/text/preview";
 import {
   commandExecutionState,
@@ -39,6 +44,12 @@ interface TurnItemSourceFields {
   id: string;
   turnId?: string;
   sourceItemId: string;
+}
+
+export type AppServerTurnItem = TurnItem;
+
+export function completedConversationSummaryFromAppServerTurn(turn: TurnRecord): ThreadConversationSummary | null {
+  return completedConversationSummaryFromTurnRecord(turn);
 }
 
 export function messageStreamItemsFromTurns(turns: readonly HistoricalTurn[]): MessageStreamItem[] {

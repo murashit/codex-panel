@@ -1,27 +1,13 @@
-import type { ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import {
-  appServerApprovalRequest,
-  appServerMcpElicitationRequest,
-  appServerUserInputRequest,
-} from "../../../../app-server/protocol/server-requests";
-import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../domain/pending-requests/model";
-
-export interface ActiveRouteScope {
-  activeThreadId: string | null;
-  activeTurnId: string | null;
-}
-
-export type ServerRequestRoute =
-  | { kind: "approval"; request: ServerRequest; approval: PendingApproval }
-  | { kind: "userInput"; request: ServerRequest; input: PendingUserInput }
-  | { kind: "mcpElicitation"; request: ServerRequest; elicitation: PendingMcpElicitation }
-  | { kind: "currentTime"; request: Extract<ServerRequest, { method: "currentTime/read" }> }
-  | { kind: "unsupported"; request: ServerRequest }
-  | { kind: "unknown"; request: ServerRequest }
-  | { kind: "inactive"; request: ServerRequest };
+  type ActiveRouteScope,
+  fallbackMessageScope,
+  isMessageScopeInActiveRouteScope,
+  isTurnScopedMessageForIdleActiveThread,
+  type MessageScope,
+} from "./route-scope";
 
 type ServerNotificationMethod = ServerNotification["method"];
-type ServerRequestMethod = ServerRequest["method"];
 type RoutedNotification<M extends ServerNotificationMethod> = Extract<ServerNotification, { method: M }>;
 export type StreamUpdateNotification = RoutedNotification<StreamUpdateNotificationMethod>;
 export type TurnLifecycleNotification = RoutedNotification<TurnLifecycleNotificationMethod>;
@@ -40,17 +26,8 @@ export type ServerNotificationRoute =
   | { kind: "unhandled"; notification: ServerNotification }
   | { kind: "inactive"; notification: ServerNotification };
 
-interface MessageScope {
-  threadId: string | null;
-  turnId: string | null;
-}
-
-type ServerRequestRouteKindByMethod = Record<ServerRequestMethod, Exclude<ServerRequestRoute["kind"], "inactive" | "unknown">>;
 type ServerNotificationScopeExtractors = {
   [Method in ServerNotificationMethod]: (notification: Extract<ServerNotification, { method: Method }>) => MessageScope;
-};
-type ServerRequestScopeExtractors = {
-  [Method in ServerRequestMethod]: (request: Extract<ServerRequest, { method: Method }>) => MessageScope;
 };
 
 const GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS = [
@@ -202,70 +179,11 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
   "account/login/completed": unscopedNotificationScope,
 };
 
-const SERVER_REQUEST_SCOPE_EXTRACTORS: ServerRequestScopeExtractors = {
-  "item/commandExecution/requestApproval": threadTurnRequestScope,
-  "item/fileChange/requestApproval": threadTurnRequestScope,
-  "item/tool/requestUserInput": threadTurnRequestScope,
-  "mcpServer/elicitation/request": threadTurnRequestScope,
-  "item/permissions/requestApproval": threadTurnRequestScope,
-  "item/tool/call": threadTurnRequestScope,
-  "account/chatgptAuthTokens/refresh": unscopedRequestScope,
-  "attestation/generate": unscopedRequestScope,
-  "currentTime/read": threadOnlyRequestScope,
-  applyPatchApproval: unscopedRequestScope,
-  execCommandApproval: unscopedRequestScope,
-};
-
-const SERVER_REQUEST_ROUTE_KIND_BY_METHOD: ServerRequestRouteKindByMethod = {
-  "item/commandExecution/requestApproval": "approval",
-  "item/fileChange/requestApproval": "approval",
-  "item/permissions/requestApproval": "approval",
-  "item/tool/requestUserInput": "userInput",
-  "mcpServer/elicitation/request": "mcpElicitation",
-  "item/tool/call": "unsupported",
-  "account/chatgptAuthTokens/refresh": "unsupported",
-  "attestation/generate": "unsupported",
-  "currentTime/read": "currentTime",
-  applyPatchApproval: "unsupported",
-  execCommandApproval: "unsupported",
-};
-
-export function routeServerRequest(request: ServerRequest, scope: ActiveRouteScope): ServerRequestRoute {
-  if (!isServerRequest(request)) {
-    if (!isMessageInActiveScope(request, scope)) return { kind: "inactive", request };
-    if (isTurnScopedMessageForIdleActiveThread(request, scope)) return { kind: "inactive", request };
-    return { kind: "unknown", request };
-  }
-  if (!isMessageInActiveScope(request, scope)) return { kind: "inactive", request };
-  if (isTurnScopedMessageForIdleActiveThread(request, scope)) return { kind: "inactive", request };
-
-  switch (SERVER_REQUEST_ROUTE_KIND_BY_METHOD[request.method]) {
-    case "approval": {
-      const approval = appServerApprovalRequest(request);
-      if (approval) return { kind: "approval", request, approval };
-      return { kind: "unsupported", request };
-    }
-    case "userInput": {
-      const input = appServerUserInputRequest(request);
-      if (input) return { kind: "userInput", request, input };
-      return { kind: "unsupported", request };
-    }
-    case "mcpElicitation": {
-      const elicitation = appServerMcpElicitationRequest(request);
-      if (elicitation) return { kind: "mcpElicitation", request, elicitation };
-      return { kind: "unsupported", request };
-    }
-    case "currentTime":
-      return { kind: "currentTime", request: request as Extract<ServerRequest, { method: "currentTime/read" }> };
-    case "unsupported":
-      return { kind: "unsupported", request };
-  }
-}
-
 export function routeServerNotification(notification: ServerNotification, scope: ActiveRouteScope): ServerNotificationRoute {
   if (isThreadCatalogNotification(notification)) return { kind: "threadLifecycle", notification };
-  if (!isMessageInActiveScope(notification, scope)) return { kind: "inactive", notification };
-  if (isIdleThreadStreamUpdate(notification, scope)) return { kind: "inactive", notification };
+  const messageScope = serverNotificationScope(notification);
+  if (!isMessageScopeInActiveRouteScope(messageScope, scope)) return { kind: "inactive", notification };
+  if (isIdleThreadStreamUpdate(notification, messageScope, scope)) return { kind: "inactive", notification };
 
   if (isStreamUpdateNotification(notification)) return { kind: "streamUpdate", notification };
   if (isTurnLifecycleNotification(notification)) return { kind: "turnLifecycle", notification };
@@ -276,59 +194,14 @@ export function routeServerNotification(notification: ServerNotification, scope:
   return { kind: "unhandled", notification };
 }
 
-function isMessageInActiveScope(message: ServerNotification | ServerRequest, scope: ActiveRouteScope): boolean {
-  const threadId = messageThreadId(message);
-  // Scope identifiers are filters only when both the notification and the
-  // active panel have one. Thread catalog and idle-thread notifications often
-  // omit active turn scope, so missing ids stay eligible for the active route.
-  if (threadId && scope.activeThreadId && threadId !== scope.activeThreadId) return false;
-
-  const turnId = messageTurnId(message);
-  if (turnId && scope.activeTurnId && turnId !== scope.activeTurnId) return false;
-
-  return true;
-}
-
-function messageThreadId(message: ServerNotification | ServerRequest): string | null {
-  if (isServerRequest(message)) return serverRequestScope(message).threadId;
-  if (isServerNotification(message)) return serverNotificationScope(message).threadId;
-  return fallbackMessageScope(message).threadId;
-}
-
-function messageTurnId(message: ServerNotification | ServerRequest): string | null {
-  if (isServerRequest(message)) return serverRequestScope(message).turnId;
-  if (isServerNotification(message)) return serverNotificationScope(message).turnId;
-  return fallbackMessageScope(message).turnId;
-}
-
 function serverNotificationScope(notification: ServerNotification): MessageScope {
+  if (!isServerNotification(notification)) return fallbackMessageScope(notification);
   const extractor = SERVER_NOTIFICATION_SCOPE_EXTRACTORS[notification.method] as (notification: ServerNotification) => MessageScope;
   return extractor(notification);
 }
 
-function serverRequestScope(request: ServerRequest): MessageScope {
-  const extractor = SERVER_REQUEST_SCOPE_EXTRACTORS[request.method] as (request: ServerRequest) => MessageScope;
-  return extractor(request);
-}
-
-function isServerRequest(message: ServerNotification | ServerRequest): message is ServerRequest {
-  return Object.hasOwn(SERVER_REQUEST_SCOPE_EXTRACTORS, message.method);
-}
-
-function isServerNotification(message: ServerNotification | ServerRequest): message is ServerNotification {
-  return Object.hasOwn(SERVER_NOTIFICATION_SCOPE_EXTRACTORS, message.method);
-}
-
-function threadTurnRequestScope(request: { params: { threadId: string; turnId: string | null } }): MessageScope {
-  return { threadId: request.params.threadId, turnId: request.params.turnId };
-}
-
-function threadOnlyRequestScope(request: { params: { threadId: string | null } }): MessageScope {
-  return { threadId: request.params.threadId, turnId: null };
-}
-
-function unscopedRequestScope(): MessageScope {
-  return { threadId: null, turnId: null };
+function isServerNotification(notification: ServerNotification): boolean {
+  return Object.hasOwn(SERVER_NOTIFICATION_SCOPE_EXTRACTORS, notification.method);
 }
 
 function threadStartedNotificationScope(notification: { params: { thread: { id: string } } }): MessageScope {
@@ -351,24 +224,6 @@ function unscopedNotificationScope(): MessageScope {
   return { threadId: null, turnId: null };
 }
 
-function fallbackMessageScope(message: ServerNotification | ServerRequest): MessageScope {
-  const params = messageParams(message);
-  return {
-    threadId: stringParam(params, "threadId"),
-    turnId: stringParam(params, "turnId"),
-  };
-}
-
-function messageParams(message: { params?: unknown }): Record<string, unknown> | null {
-  const params = message.params;
-  return params !== null && typeof params === "object" && !Array.isArray(params) ? (params as Record<string, unknown>) : null;
-}
-
-function stringParam(params: Record<string, unknown> | null, key: string): string | null {
-  const value = params?.[key];
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
 function isThreadCatalogNotification(notification: ServerNotification): notification is ThreadLifecycleNotification {
   return notificationMethodIn(notification.method, GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS);
 }
@@ -377,12 +232,8 @@ function isStreamUpdateNotification(notification: ServerNotification): notificat
   return notificationMethodIn(notification.method, STREAM_UPDATE_NOTIFICATION_METHODS);
 }
 
-function isIdleThreadStreamUpdate(notification: ServerNotification, scope: ActiveRouteScope): boolean {
-  return isTurnScopedMessageForIdleActiveThread(notification, scope) && isStreamUpdateNotification(notification);
-}
-
-function isTurnScopedMessageForIdleActiveThread(message: ServerNotification | ServerRequest, scope: ActiveRouteScope): boolean {
-  return scope.activeThreadId !== null && scope.activeTurnId === null && messageTurnId(message) !== null;
+function isIdleThreadStreamUpdate(notification: ServerNotification, messageScope: MessageScope, scope: ActiveRouteScope): boolean {
+  return isTurnScopedMessageForIdleActiveThread(messageScope, scope) && isStreamUpdateNotification(notification);
 }
 
 function isTurnLifecycleNotification(notification: ServerNotification): notification is TurnLifecycleNotification {

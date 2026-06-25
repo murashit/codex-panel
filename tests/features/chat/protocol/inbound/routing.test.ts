@@ -7,8 +7,8 @@ import {
 import {
   ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND,
   routeServerNotification,
-  routeServerRequest,
-} from "../../../../../src/features/chat/app-server/inbound/routing";
+} from "../../../../../src/features/chat/app-server/inbound/notification-routing";
+import { routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/server-requests/routing";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };

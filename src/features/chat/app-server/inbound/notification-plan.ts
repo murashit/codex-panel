@@ -1,5 +1,4 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
-import { completedConversationSummaryFromTurnRecord, type TurnItem } from "../../../../app-server/protocol/turn";
 import { threadFromAppServerRecord } from "../../../../app-server/threads";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
@@ -30,6 +29,8 @@ import { hookRunMessageStreamItem } from "../mappers/message-stream/hook-run-ite
 import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/message-stream/review-result-items";
 import { taskProgressMessageStreamItem } from "../mappers/message-stream/task-progress";
 import {
+  type AppServerTurnItem,
+  completedConversationSummaryFromAppServerTurn,
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
@@ -46,7 +47,7 @@ import {
   type TurnLifecycleNotificationMethod,
   type UserVisibleNoticeNotification,
   type UserVisibleNoticeNotificationMethod,
-} from "./routing";
+} from "./notification-routing";
 
 export type ChatNotificationEffect =
   | { type: "refresh-threads" }
@@ -243,7 +244,7 @@ const TURN_LIFECYCLE_PLANNERS = {
           type: "maybe-name-thread",
           threadId: notification.params.threadId,
           turnId: notification.params.turn.id,
-          completedSummary: completedConversationSummaryFromTurnRecord(notification.params.turn),
+          completedSummary: completedConversationSummaryFromAppServerTurn(notification.params.turn),
         },
         { type: "refresh-threads" },
       ],
@@ -427,13 +428,13 @@ function autoApprovalReviewPlan(
   });
 }
 
-function startedItemPlan(item: TurnItem, turnId: string): ChatNotificationPlan {
+function startedItemPlan(item: AppServerTurnItem, turnId: string): ChatNotificationPlan {
   if (shouldSuppressLifecycleItem(item)) return EMPTY_PLAN;
   const streamItem = messageStreamItemFromTurnItem(item, turnId);
   return streamItem ? actionPlan({ type: "message-stream/item-upserted", item: streamItem }) : EMPTY_PLAN;
 }
 
-function completedItemPlan(item: TurnItem, turnId: string): ChatNotificationPlan {
+function completedItemPlan(item: AppServerTurnItem, turnId: string): ChatNotificationPlan {
   if (item.type === "userMessage") return EMPTY_PLAN;
   const streamItem = messageStreamItemFromTurnItem(item, turnId);
   if (!streamItem) return EMPTY_PLAN;
