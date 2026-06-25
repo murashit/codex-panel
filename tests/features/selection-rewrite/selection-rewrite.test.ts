@@ -31,9 +31,9 @@ type InitializeResponse = ServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
 type Turn = TurnRecord;
-type TurnStartResponse = Awaited<ReturnType<AppServerClient["startStructuredTurn"]>>;
 type SelectionRewriteClientFactory = NonNullable<Parameters<typeof runSelectionRewrite>[0]["clientFactory"]>;
 type SelectionRewriteClient = ReturnType<SelectionRewriteClientFactory>;
+type TurnStartResponse = Awaited<ReturnType<SelectionRewriteClient["startStructuredTurn"]>>;
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -900,16 +900,18 @@ function agentDeltaNotification(threadId: string, turnId: string, delta: string)
 }
 
 function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {
+  type ItemCompletedNotification = Extract<ServerNotification, { method: "item/completed" }>;
   return {
     method: "item/completed",
-    params: { threadId, turnId, item, completedAtMs: 1 },
+    params: { threadId, turnId, item, completedAtMs: 1 } as unknown as ItemCompletedNotification["params"],
   };
 }
 
 function turnCompletedNotification(threadId: string, completedTurn: Turn): ServerNotification {
+  type TurnCompletedNotification = Extract<ServerNotification, { method: "turn/completed" }>;
   return {
     method: "turn/completed",
-    params: { threadId, turn: completedTurn },
+    params: { threadId, turn: completedTurn } as unknown as TurnCompletedNotification["params"],
   };
 }
 

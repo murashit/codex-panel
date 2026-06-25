@@ -1,16 +1,20 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
-import { type ChatThreadHistoryPage, readChatThreadHistoryPage } from "../../app-server/threads/projection";
+import { type ChatThreadHistoryClient, type ChatThreadHistoryPage, readChatThreadHistoryPage } from "../../app-server/threads/projection";
 import { messageStreamItems } from "../state/message-stream";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 export interface HistoryControllerHost {
   stateStore: ChatStateStore;
-  currentClient: () => AppServerClient | null;
+  currentClient: () => ChatThreadHistoryClient | null;
   addSystemMessage: (text: string) => void;
   showLatestPageAtBottom: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
-  readHistoryPage?: (client: AppServerClient, threadId: string, cursor: string | null, limit: number) => Promise<ChatThreadHistoryPage>;
+  readHistoryPage?: (
+    client: ChatThreadHistoryClient,
+    threadId: string,
+    cursor: string | null,
+    limit: number,
+  ) => Promise<ChatThreadHistoryPage>;
 }
 
 type ThreadHistoryLoadLifecycleState = { kind: "idle" } | { kind: "loading"; threadId: string; mode: "latest" | "older" };
@@ -110,7 +114,12 @@ export class HistoryController {
     return this.lifecycle !== load || this.state.activeThread.id !== load.threadId;
   }
 
-  private readHistoryPage(client: AppServerClient, threadId: string, cursor: string | null, limit: number): Promise<ChatThreadHistoryPage> {
+  private readHistoryPage(
+    client: ChatThreadHistoryClient,
+    threadId: string,
+    cursor: string | null,
+    limit: number,
+  ): Promise<ChatThreadHistoryPage> {
     return (this.host.readHistoryPage ?? readChatThreadHistoryPage)(client, threadId, cursor, limit);
   }
 }

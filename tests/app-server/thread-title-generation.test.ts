@@ -23,7 +23,7 @@ type InitializeResponse = ServerInitialization;
 type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
 type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
 type Turn = TurnRecord;
-type TurnStartResponse = Awaited<ReturnType<AppServerClient["startStructuredTurn"]>>;
+type TurnStartResponse = Awaited<ReturnType<EphemeralStructuredTurnClient["startStructuredTurn"]>>;
 
 describe("thread title", () => {
   it("builds title context from a conversation summary", () => {
@@ -325,16 +325,18 @@ function assistantMessage(id: string, text: string): TurnItem {
 }
 
 function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {
+  type ItemCompletedNotification = Extract<ServerNotification, { method: "item/completed" }>;
   return {
     method: "item/completed",
-    params: { threadId, turnId, item, completedAtMs: 1 },
+    params: { threadId, turnId, item, completedAtMs: 1 } as unknown as ItemCompletedNotification["params"],
   };
 }
 
 function turnCompletedNotification(threadId: string, completedTurn: Turn): ServerNotification {
+  type TurnCompletedNotification = Extract<ServerNotification, { method: "turn/completed" }>;
   return {
     method: "turn/completed",
-    params: { threadId, turn: completedTurn },
+    params: { threadId, turn: completedTurn } as unknown as TurnCompletedNotification["params"],
   };
 }
 

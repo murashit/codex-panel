@@ -1,5 +1,4 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
-import { readReferencedThreadConversationSummaries } from "../../../../app-server/threads";
+import { readReferencedThreadConversationSummaries, type ThreadConversationSummaryClient } from "../../../../app-server/threads";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import { type CodexInput, codexTextInputWithAttachments } from "../../../../domain/chat/input";
@@ -21,7 +20,7 @@ import { submissionStateSnapshot } from "./submission-state";
 
 export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;
-  currentClient: () => AppServerClient | null;
+  currentClient: () => ThreadConversationSummaryClient | null;
   codexInput: (text: string) => CodexInput;
   setStatus: (status: string) => void;
 }
@@ -65,7 +64,7 @@ function supportedReasoningEfforts(state: ReturnType<ChatStateStore["getState"]>
 
 async function referencedThreadInput(
   host: SlashCommandExecutorHost,
-  client: AppServerClient,
+  client: ThreadConversationSummaryClient,
   thread: Thread,
   message: string,
 ): Promise<ThreadReferenceInput | null> {

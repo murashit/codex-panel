@@ -17,14 +17,14 @@ describe("generated app-server import boundary", () => {
     expect(generatedImportPattern.test('export * from "../../src/generated/app-server/v2/Thread";')).toBe(true);
   });
 
-  it("keeps generated app-server types behind the app-server boundary", async () => {
+  it("keeps generated app-server types behind explicit app-server adapters", async () => {
     const files = await sourceFiles(sourceRoot);
     const offenders: string[] = [];
 
     for (const file of files) {
       const relativePath = slashPath(path.relative(repoRoot, file));
       if (relativePath.startsWith("src/generated/")) continue;
-      if (relativePath.startsWith("src/app-server/")) continue;
+      if (allowsGeneratedAppServerImport(relativePath)) continue;
       if (generatedImportPattern.test(await readFile(file, "utf8"))) offenders.push(relativePath);
     }
 
@@ -60,4 +60,8 @@ async function sourceFiles(directory: string): Promise<string[]> {
 
 function slashPath(value: string): string {
   return value.split(path.sep).join("/");
+}
+
+function allowsGeneratedAppServerImport(relativePath: string): boolean {
+  return relativePath.startsWith("src/app-server/connection/") || relativePath === "src/app-server/protocol/server-requests.ts";
 }

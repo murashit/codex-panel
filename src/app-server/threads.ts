@@ -20,6 +20,10 @@ import {
 const THREAD_LIST_PAGE_LIMIT = 100;
 
 export type ThreadTurnSortDirection = "asc" | "desc";
+export type ThreadConversationSummaryClient = Pick<AppServerClient, "threadTurnsList">;
+export type ThreadForkClient = Pick<AppServerClient, "forkThread">;
+export type ThreadRollbackClient = Pick<AppServerClient, "rollbackThread">;
+export type ThreadCompactionClient = Pick<AppServerClient, "compactThread">;
 
 interface ThreadConversationSummaryPage {
   data: ThreadConversationSummary[];
@@ -73,7 +77,7 @@ export async function readThreadForArchiveExport(client: AppServerClient, thread
 }
 
 export async function readCompletedConversationSummariesPage(
-  client: AppServerClient,
+  client: ThreadConversationSummaryClient,
   threadId: string,
   cursor: string | null,
   limit: number,
@@ -87,7 +91,7 @@ export async function readCompletedConversationSummariesPage(
 }
 
 export async function readReferencedThreadConversationSummaries(
-  client: AppServerClient,
+  client: ThreadConversationSummaryClient,
   threadId: string,
   limit = REFERENCED_THREAD_TURN_LIMIT,
 ): Promise<ThreadConversationSummary[]> {
@@ -116,14 +120,18 @@ function threadRollbackSnapshotFromAppServerResponse(response: ThreadRollbackRes
   };
 }
 
-export async function rollbackThread(client: AppServerClient, threadId: string, numTurns?: number): Promise<ThreadRollbackSnapshot> {
+export async function rollbackThread(client: ThreadRollbackClient, threadId: string, numTurns?: number): Promise<ThreadRollbackSnapshot> {
   const response = numTurns === undefined ? await client.rollbackThread(threadId) : await client.rollbackThread(threadId, numTurns);
   return threadRollbackSnapshotFromAppServerResponse(response);
 }
 
-export async function forkThread(client: AppServerClient, threadId: string, cwd: string): Promise<Thread> {
+export async function forkThread(client: ThreadForkClient, threadId: string, cwd: string): Promise<Thread> {
   const response = await client.forkThread(threadId, cwd);
   return threadFromThreadRecord(response.thread);
+}
+
+export async function compactThread(client: ThreadCompactionClient, threadId: string): Promise<void> {
+  await client.compactThread(threadId);
 }
 
 export async function restoreArchivedThread(client: AppServerClient, threadId: string): Promise<Thread> {

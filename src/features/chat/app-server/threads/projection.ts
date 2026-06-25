@@ -5,6 +5,9 @@ import type { ThreadTurnsPage } from "../../../../domain/threads/history";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { messageStreamItemsFromTurns } from "../mappers/message-stream/turn-items";
 
+export type ChatThreadHistoryClient = Pick<AppServerClient, "threadTurnsList">;
+export type ChatThreadResumeClient = Pick<AppServerClient, "resumeThread">;
+
 export interface ChatThreadHistoryPage {
   items: MessageStreamItem[];
   nextCursor: string | null;
@@ -18,7 +21,7 @@ export interface ChatThreadResumeSnapshot {
 }
 
 export async function readChatThreadHistoryPage(
-  client: AppServerClient,
+  client: ChatThreadHistoryClient,
   threadId: string,
   cursor: string | null,
   limit = 20,
@@ -34,7 +37,7 @@ function chatThreadHistoryPageFromTurnsPage(page: ThreadTurnsPage): ChatThreadHi
   };
 }
 
-export async function resumeChatThread(client: AppServerClient, threadId: string, cwd: string): Promise<ChatThreadResumeSnapshot> {
+export async function resumeChatThread(client: ChatThreadResumeClient, threadId: string, cwd: string): Promise<ChatThreadResumeSnapshot> {
   const response = await client.resumeThread(threadId, cwd);
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),

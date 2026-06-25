@@ -1,6 +1,5 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import { type ChatThreadResumeSnapshot, resumeChatThread } from "../../app-server/threads/projection";
+import { type ChatThreadResumeClient, type ChatThreadResumeSnapshot, resumeChatThread } from "../../app-server/threads/projection";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "../lifecycle";
 import { resumedThreadAction } from "../state/actions";
 import type { ChatStateStore } from "../state/store";
@@ -14,7 +13,7 @@ export interface ResumeActionsHost {
   resumeWork: ChatResumeWorkTracker;
   history: HistoryController;
   restoration: RestorationController;
-  currentClient: () => AppServerClient | null;
+  currentClient: () => ChatThreadResumeClient | null;
   ensureConnected: () => Promise<void>;
   closing: () => boolean;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
@@ -23,7 +22,7 @@ export interface ResumeActionsHost {
   refreshLiveState: () => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
-  resumeFromAppServer?: (client: AppServerClient, threadId: string, cwd: string) => Promise<ChatThreadResumeSnapshot>;
+  resumeFromAppServer?: (client: ChatThreadResumeClient, threadId: string, cwd: string) => Promise<ChatThreadResumeSnapshot>;
 }
 
 export interface ResumeActions {

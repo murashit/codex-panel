@@ -57,7 +57,7 @@ Within `src/features/chat/`:
 
 Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. Feature-neutral behavior belongs in `src/shared/`, `src/domain/`, or `src/app-server/`.
 
-Generated app-server types should stay behind `src/app-server/` or chat-local app-server integration modules. If a domain, shared, settings, workspace, or UI module needs app-server data, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
+Generated app-server types should stay behind app-server connection and protocol adapter modules. Chat-local app-server integration modules may consume app-server protocol projections, but not raw generated bindings. If a domain, shared, settings, workspace, or UI module needs app-server data, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
 
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only in `src/features/chat/panel/shell-state.tsx`; lint enforces this boundary. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
 

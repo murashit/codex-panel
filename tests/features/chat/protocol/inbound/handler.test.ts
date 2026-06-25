@@ -1557,7 +1557,10 @@ describe("ChatInboundHandler", () => {
 
       handler.handleNotification({
         method: "turn/completed",
-        params: { threadId: "thread-active", turn },
+        params: {
+          threadId: "thread-active",
+          turn: turn as unknown as Extract<ServerNotification, { method: "turn/completed" }>["params"]["turn"],
+        },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
       expect(maybeNameThread).toHaveBeenCalledWith("thread-active", "turn-active", {

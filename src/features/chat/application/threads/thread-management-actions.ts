@@ -1,5 +1,11 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
-import { forkThread as forkThreadOnAppServer, rollbackThread as rollbackThreadOnAppServer } from "../../../../app-server/threads";
+import {
+  compactThread as compactThreadOnAppServer,
+  forkThread as forkThreadOnAppServer,
+  rollbackThread as rollbackThreadOnAppServer,
+  type ThreadCompactionClient,
+  type ThreadForkClient,
+  type ThreadRollbackClient,
+} from "../../../../app-server/threads";
 import { inheritedForkThreadName } from "../../../../domain/threads/model";
 import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import type { ThreadOperations } from "../../../threads/thread-operations";
@@ -20,8 +26,8 @@ export interface ThreadManagementActionsHost {
   stateStore: ChatStateStore;
   vaultPath: string;
   operations: ThreadOperations;
-  connectedClient: () => Promise<AppServerClient | null>;
-  currentClient: () => AppServerClient | null;
+  connectedClient: () => Promise<ThreadManagementClient | null>;
+  currentClient: () => ThreadManagementClient | null;
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
@@ -43,10 +49,12 @@ export interface ThreadManagementActions {
 }
 
 interface ThreadManagementActionScope {
-  client: AppServerClient;
+  client: ThreadManagementClient;
   targetThreadId: string;
   initialActiveThreadId: string | null;
 }
+
+type ThreadManagementClient = ThreadCompactionClient & ThreadForkClient & ThreadRollbackClient;
 
 export function createThreadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
   return {
@@ -113,7 +121,7 @@ async function compactThread(host: ThreadManagementActionsHost, threadId: string
   const scope = await captureThreadManagementActionScope(host, threadId);
   if (!scope) return;
   try {
-    await scope.client.compactThread(threadId);
+    await compactThreadOnAppServer(scope.client, threadId);
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(STATUS_COMPACTION_REQUESTED);
     host.setStatus(STATUS_COMPACTION_REQUESTED);
