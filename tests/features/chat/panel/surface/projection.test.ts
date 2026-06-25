@@ -47,14 +47,17 @@ describe("chat panel surface projections", () => {
     );
 
     expect(parent.querySelector('[data-codex-panel-toolbar-panel="history"]')).not.toBeNull();
-    expect(parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat")?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.tagName).toBe("DIV");
+    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.classList.contains("is-disabled")).toBe(true);
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-row--selected .codex-panel__thread-rename-input")?.value).toBe(
       "Active",
     );
     expect(parent.querySelector(".codex-panel__thread-row--archive-confirming .codex-panel__toolbar-panel-label")?.textContent).toBe(
       "Other",
     );
-    expect(parent.querySelectorAll<HTMLElement>(".codex-panel__thread")[1]?.getAttribute("aria-disabled")).toBe("true");
+    const archivedThread = parent.querySelectorAll<HTMLElement>(".codex-panel__thread")[1];
+    expect(archivedThread?.tagName).toBe("DIV");
+    expect(archivedThread?.classList.contains("is-disabled")).toBe(true);
     unmountUiRoot(parent);
   });
 

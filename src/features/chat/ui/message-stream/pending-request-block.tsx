@@ -397,14 +397,27 @@ function McpElicitationField({
   actions: PendingRequestBlockActions;
 }): UiNode {
   const current = drafts.get(field.draftKey) ?? field.defaultDraft;
+  const labelId = mcpElicitationFieldElementId("label", field.draftKey);
+  const controlId = mcpElicitationFieldElementId("control", field.draftKey);
+  const labelContent = (
+    <>
+      <span>{field.title}</span>
+      {field.required ? <span className="codex-panel__mcp-elicitation-required">Required</span> : null}
+    </>
+  );
   return (
     <div className="codex-panel__mcp-elicitation-field">
-      <label className="codex-panel__mcp-elicitation-label">
-        <span>{field.title}</span>
-        {field.required ? <span className="codex-panel__mcp-elicitation-required">Required</span> : null}
-      </label>
+      {mcpElicitationFieldHasSingleControl(field) ? (
+        <label id={labelId} className="codex-panel__mcp-elicitation-label" htmlFor={controlId}>
+          {labelContent}
+        </label>
+      ) : (
+        <div id={labelId} className="codex-panel__mcp-elicitation-label">
+          {labelContent}
+        </div>
+      )}
       {field.description ? <div className="codex-panel__mcp-elicitation-description">{field.description}</div> : null}
-      <McpElicitationFieldControl field={field} current={current} actions={actions} />
+      <McpElicitationFieldControl field={field} current={current} actions={actions} controlId={controlId} labelId={labelId} />
     </div>
   );
 }
@@ -413,16 +426,21 @@ function McpElicitationFieldControl({
   field,
   current,
   actions,
+  controlId,
+  labelId,
 }: {
   field: PendingMcpElicitationFieldViewModel;
   current: string;
   actions: PendingRequestBlockActions;
+  controlId: string;
+  labelId: string;
 }): UiNode {
   switch (field.type) {
     case "boolean":
       return (
         <label className="codex-panel__mcp-elicitation-option">
           <input
+            id={controlId}
             className="codex-panel__mcp-elicitation-checkbox"
             type="checkbox"
             checked={current === "true"}
@@ -435,7 +453,7 @@ function McpElicitationFieldControl({
       );
     case "single-select":
       return (
-        <div className="codex-panel__mcp-elicitation-options">
+        <fieldset className="codex-panel__mcp-elicitation-options" aria-labelledby={labelId}>
           {field.options?.map((option) => (
             <label key={option.value} className="codex-panel__mcp-elicitation-option">
               <input
@@ -452,11 +470,11 @@ function McpElicitationFieldControl({
               <span>{option.label}</span>
             </label>
           ))}
-        </div>
+        </fieldset>
       );
     case "multi-select":
       return (
-        <div className="codex-panel__mcp-elicitation-options">
+        <fieldset className="codex-panel__mcp-elicitation-options" aria-labelledby={labelId}>
           {field.options?.map((option) => {
             const selected = selectedMcpElicitationValues(current);
             return (
@@ -481,12 +499,13 @@ function McpElicitationFieldControl({
               </label>
             );
           })}
-        </div>
+        </fieldset>
       );
     case "number":
     case "integer":
       return (
         <input
+          id={controlId}
           className="codex-panel__mcp-elicitation-input"
           type="number"
           step={field.type === "integer" ? "1" : "any"}
@@ -502,6 +521,7 @@ function McpElicitationFieldControl({
     default:
       return (
         <input
+          id={controlId}
           className="codex-panel__mcp-elicitation-input"
           type={field.format === "email" ? "email" : field.format === "uri" ? "url" : field.format === "date" ? "date" : "text"}
           minLength={field.minLength ?? undefined}
@@ -514,6 +534,14 @@ function McpElicitationFieldControl({
         />
       );
   }
+}
+
+function mcpElicitationFieldHasSingleControl(field: PendingMcpElicitationFieldViewModel): boolean {
+  return field.type !== "single-select" && field.type !== "multi-select";
+}
+
+function mcpElicitationFieldElementId(kind: "control" | "label", draftKey: string): string {
+  return `codex-panel-mcp-${kind}-${encodeURIComponent(draftKey)}`;
 }
 
 function selectedMcpElicitationValues(draft: string): Set<string> {

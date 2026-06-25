@@ -1,7 +1,7 @@
-import type { ButtonHTMLAttributes, TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
+import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { IconButton } from "../../shared/ui/components.obsidian";
+import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../shared/ui/components.obsidian";
 import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root.dom";
 import type { ThreadsRowModel } from "./state";
 
@@ -46,7 +46,7 @@ function ThreadsView({ model, actions }: { model: ThreadsViewModel; actions: Thr
           <ThreadsToolbarButton icon="refresh-cw" label="Refresh threads" onClick={actions.refresh} />
         </div>
       </div>
-      <div className="codex-panel-threads__list" role="list">
+      <div className="codex-panel-threads__list">
         {model.rows.length === 0 ? (
           <div className="codex-panel-threads__empty">{model.status ?? (model.loading ? "Loading threads..." : "No threads")}</div>
         ) : (
@@ -87,27 +87,14 @@ function ThreadRow({ row, actions }: { row: ThreadsRowModel; actions: ThreadsVie
     if (row.rename.active || archiveConfirm.active) return;
     actions.openThread(row.threadId);
   };
-  const openFromKeyboard = (event: TargetedKeyboardEvent<HTMLDivElement>) => {
-    if (row.rename.active || archiveConfirm.active) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    actions.openThread(row.threadId);
-  };
-
   return (
     <div className={rowClassName}>
       {row.rename.active ? (
         <RenameRow row={row} actions={actions} className={mainClassName} />
       ) : (
         <>
-          <div
-            className={mainClassName}
-            role="button"
-            tabIndex={0}
-            aria-current={row.selected ? "true" : undefined}
-            onClick={open}
-            onKeyDown={openFromKeyboard}
-          >
+          {/* biome-ignore lint/a11y: Thread rows intentionally follow Obsidian's native file explorer nav rows: pointer-first div items with selection represented by classes, while row actions stay as real icon buttons. */}
+          <div className={mainClassName} onClick={open}>
             <span className="codex-panel-threads__row-title">{row.title}</span>
           </div>
           <div
@@ -204,12 +191,7 @@ function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions:
 
   return (
     <>
-      <div
-        className={`${className} codex-panel-threads__rename-form`}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-      >
+      <div className={`${className} codex-panel-threads__rename-form`}>
         <div className="codex-panel-threads__rename-field">
           <input
             ref={inputRef}
@@ -269,9 +251,9 @@ function ThreadsToolbarButton({
 }: {
   icon: string;
   label: string;
-} & Omit<ButtonProps, "className" | "type">): UiNode {
+} & Omit<ObsidianToolbarActionProps, "className" | "icon" | "label">): UiNode {
   return (
-    <IconButton
+    <ObsidianToolbarAction
       {...props}
       icon={icon}
       label={label}

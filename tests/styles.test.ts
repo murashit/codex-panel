@@ -77,6 +77,16 @@ describe("chat toolbar CSS", () => {
     expect(hoverSelectors).toEqual([":hover, :focus-visible, :active", ":hover, :focus-visible, :active"]);
   });
 
+  it("keeps toolbar panel rows aligned to Obsidian nav items", () => {
+    const toolbarPanelNavItem =
+      /\.codex-panel-ui__nav-item\.codex-panel__toolbar-panel-item \{(?<body>[^}]+)\}/.exec(styles)?.groups?.["body"] ?? "";
+
+    expect(toolbarPanelNavItem).toContain("justify-content: flex-start");
+    expect(toolbarPanelNavItem).toContain("height: auto");
+    expect(toolbarPanelNavItem).toContain("background: transparent");
+    expect(toolbarPanelNavItem).toContain("box-shadow: none");
+  });
+
   it("uses the shared active state for toolbar actions", () => {
     const toolbarActionActive =
       /\.codex-panel-ui__toolbar-action\.is-active,\n\.codex-panel-ui__toolbar-action\.is-active:hover,\n\.codex-panel-ui__toolbar-action\.is-active:focus-visible,\n\.codex-panel-ui__toolbar-action\.is-active:active \{(?<body>[^}]+)\}/.exec(
@@ -339,9 +349,9 @@ describe("threads view CSS", () => {
 
   it("keeps toolbar action hover color separate from row action hover color", () => {
     const toolbarHover =
-      /\.codex-panel-ui__toolbar-action:hover,\n\.codex-panel-ui__toolbar-action:focus-visible \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
-        "body"
-      ] ?? "";
+      /\.codex-panel-ui__toolbar-action:hover:not\(\.is-disabled\),\n\.codex-panel-ui__toolbar-action:focus-visible:not\(\.is-disabled\) \{(?<body>[^}]+)\}/.exec(
+        styles,
+      )?.groups?.["body"] ?? "";
     const toolbarMouseFocus =
       /\.codex-panel-ui__toolbar-action:where\(:focus:not\(:hover\):not\(:focus-visible\)\) \{(?<body>[^}]+)\}/.exec(styles)?.groups?.[
         "body"

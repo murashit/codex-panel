@@ -1,6 +1,6 @@
-import type { ButtonHTMLAttributes, TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
+import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { IconButton } from "../../../shared/ui/components.obsidian";
+import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../../shared/ui/components.obsidian";
 import type { RateLimitSummary } from "../presentation/runtime/status";
 
 type ButtonProps = ButtonHTMLAttributes & {
@@ -74,7 +74,6 @@ export function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: 
             icon="history"
             label={model.historyOpen ? "Hide thread list" : "Show thread list"}
             className={["codex-panel__history-toggle", model.historyOpen ? "is-active" : ""].filter(Boolean).join(" ")}
-            aria-pressed={model.historyOpen ? "true" : "false"}
             onClick={actions.toggleHistory}
           />
           <ToolbarIconButton
@@ -82,7 +81,6 @@ export function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: 
             label={model.chatActionsOpen ? "Hide chat actions" : "Show chat actions"}
             className={["codex-panel__new-chat", model.chatActionsOpen ? "is-active" : ""].filter(Boolean).join(" ")}
             disabled={model.newChatDisabled}
-            aria-expanded={model.chatActionsOpen ? "true" : "false"}
             onClick={actions.toggleChatActions}
           />
           <StatusButton model={model} actions={actions} />
@@ -102,9 +100,9 @@ function ToolbarIconButton({
   icon: string;
   label: string;
   className?: string;
-} & Omit<ButtonProps, "className" | "type">): UiNode {
+} & Omit<ObsidianToolbarActionProps, "className" | "icon" | "label">): UiNode {
   return (
-    <IconButton
+    <ObsidianToolbarAction
       {...props}
       icon={icon}
       label={label}
@@ -119,7 +117,6 @@ function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: To
       icon="waypoints"
       label={model.statusPanelOpen ? "Hide status" : "Show status"}
       className={["codex-panel__status-menu-toggle", model.statusPanelOpen ? "is-active" : ""].filter(Boolean).join(" ")}
-      aria-expanded={model.statusPanelOpen ? "true" : "false"}
       onClick={actions.toggleStatusPanel}
     />
   );
@@ -143,21 +140,19 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
 
 function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
-    <div className="codex-panel__chat-actions-panel-items" role="menu">
+    <div className="codex-panel__chat-actions-panel-items">
       <ToolbarPanelItem
         label="Start new chat"
         onClick={actions.startNewThread}
         className="codex-panel__chat-actions-panel-item"
         disabled={model.newChatDisabled}
-        role="menuitem"
       />
       <ToolbarPanelItem
         label="Compact conversation"
         onClick={actions.compactConversation}
         className="codex-panel__chat-actions-panel-item"
-        role="menuitem"
       />
-      <ToolbarPanelItem label="Set goal..." onClick={actions.setGoal} className="codex-panel__chat-actions-panel-item" role="menuitem" />
+      <ToolbarPanelItem label="Set goal..." onClick={actions.setGoal} className="codex-panel__chat-actions-panel-item" />
     </div>
   );
 }
@@ -165,16 +160,15 @@ function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions
 function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
   return (
     <>
-      <div className="codex-panel__status-panel-items" role="menu">
-        <ToolbarPanelItem label={model.connectLabel} onClick={actions.connect} className="codex-panel__status-panel-item" role="menuitem" />
-        <ToolbarPanelItem label="Refresh" onClick={actions.refreshStatus} className="codex-panel__status-panel-item" role="menuitem" />
+      <div className="codex-panel__status-panel-items">
+        <ToolbarPanelItem label={model.connectLabel} onClick={actions.connect} className="codex-panel__status-panel-item" />
+        <ToolbarPanelItem label="Refresh" onClick={actions.refreshStatus} className="codex-panel__status-panel-item" />
         <ToolbarPanelItem
           label="Copy debug details"
           onClick={() => {
             actions.copyDebugDetails(model.debugDetails());
           }}
           className="codex-panel__status-panel-item"
-          role="menuitem"
         />
       </div>
       <RateLimitPanel rateLimit={model.rateLimit} />
@@ -471,7 +465,6 @@ function ToolbarPanelItem({
   meta,
   className = "",
   interactive = true,
-  role = "button",
   renderContent,
   onClick,
 }: {
@@ -482,48 +475,42 @@ function ToolbarPanelItem({
   meta?: string | undefined;
   className?: string | undefined;
   interactive?: boolean | undefined;
-  role?: "button" | "menuitem" | "option";
   renderContent?: () => UiNode;
   onClick?: () => void;
 }): UiNode {
-  const onKeyDown = (event: TargetedKeyboardEvent<HTMLElement>) => {
-    if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
-    event.preventDefault();
-    onClick?.();
-  };
+  const itemClassName = [
+    "codex-panel-ui__nav-item",
+    "codex-panel__toolbar-panel-item",
+    className,
+    selected && selectionStyle === "item" ? "is-selected" : "",
+    disabled ? "is-disabled" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const content = renderContent ? (
+    renderContent()
+  ) : (
+    <>
+      <span className="codex-panel__toolbar-panel-label">{label}</span>
+      {meta ? <span className="codex-panel__toolbar-panel-meta">{meta}</span> : null}
+    </>
+  );
+  if (!interactive) {
+    return <div className={itemClassName}>{content}</div>;
+  }
   return (
+    // biome-ignore lint/a11y: Toolbar panel rows intentionally match Obsidian's native file explorer nav rows: pointer-first div items with state expressed by classes, while row icon actions remain real buttons.
     <div
-      className={[
-        "codex-panel-ui__nav-item",
-        "codex-panel__toolbar-panel-item",
-        className,
-        selected && selectionStyle === "item" ? "is-selected" : "",
-        disabled ? "is-disabled" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      role={interactive ? role : undefined}
-      tabIndex={interactive ? (disabled ? -1 : 0) : undefined}
-      aria-disabled={interactive ? (disabled ? "true" : "false") : undefined}
-      aria-selected={interactive && role === "option" ? (selected ? "true" : "false") : undefined}
-      aria-current={interactive && role === "button" && selected ? "true" : undefined}
+      className={itemClassName}
       onClick={
-        interactive
-          ? () => {
-              if (!disabled) onClick?.();
+        disabled
+          ? undefined
+          : () => {
+              onClick?.();
             }
-          : undefined
       }
-      onKeyDown={interactive ? onKeyDown : undefined}
     >
-      {renderContent ? (
-        renderContent()
-      ) : (
-        <>
-          <span className="codex-panel__toolbar-panel-label">{label}</span>
-          {meta ? <span className="codex-panel__toolbar-panel-meta">{meta}</span> : null}
-        </>
-      )}
+      {content}
     </div>
   );
 }

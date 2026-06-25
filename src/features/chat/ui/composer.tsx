@@ -395,6 +395,7 @@ function ComposerMetaPickerButton({
   onMouseDown: () => void;
 }): UiNode {
   return (
+    // biome-ignore lint/a11y: Composer meta triggers are visual pointer shortcuts; screen readers get the status summary and full runtime controls remain available through the toolbar and slash commands.
     <span
       ref={triggerRef}
       className={`codex-panel__composer-meta-trigger codex-panel__composer-meta-value codex-panel__composer-meta-${kind}`}
@@ -438,6 +439,7 @@ function ComposerMetaChoice({ choice, onClose }: { choice: RuntimeChoice; onClos
     onClose();
   };
   return (
+    // biome-ignore lint/a11y: Composer meta choices belong to the visual shortcut popover instead of the accessible control path.
     <div
       className={["codex-panel__composer-meta-option", choice.disabled ? "is-disabled" : ""].filter(Boolean).join(" ")}
       onMouseDown={(event) => {

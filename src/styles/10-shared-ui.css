@@ -47,11 +47,15 @@
   --icon-stroke: var(--icon-m-stroke-width, 1.75px);
 }
 
-.codex-panel-ui__toolbar-action:hover,
-.codex-panel-ui__toolbar-action:focus-visible {
+.codex-panel-ui__toolbar-action:hover:not(.is-disabled),
+.codex-panel-ui__toolbar-action:focus-visible:not(.is-disabled) {
   background: var(--background-modifier-hover);
   box-shadow: none;
   color: var(--icon-color);
+}
+
+.codex-panel-ui__toolbar-action.is-disabled {
+  opacity: 0.45;
 }
 
 .codex-panel-ui__icon-button svg,

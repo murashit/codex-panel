@@ -388,7 +388,7 @@ function SelectionRewritePopoverView({
       </div>
       {debugText ? (
         <details className="codex-panel-selection-rewrite__debug">
-          <summary>Debug output</summary>
+          <summary tabIndex={-1}>Debug output</summary>
           <pre>{debugText}</pre>
         </details>
       ) : null}

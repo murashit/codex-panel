@@ -1,5 +1,5 @@
 import { ButtonComponent, DropdownComponent, ExtraButtonComponent, setIcon, TextComponent, ToggleComponent } from "obsidian";
-import type { ButtonHTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
+import type { ButtonHTMLAttributes, JSX, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 interface ObsidianIconProps {
@@ -57,6 +57,49 @@ export function IconButton({ icon, label, buttonRef, className, children, ...pro
       {children ? <ObsidianIcon icon={icon} /> : null}
       {children}
     </button>
+  );
+}
+
+export type ObsidianToolbarActionProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, "className"> & {
+  icon: string;
+  label: string;
+  actionRef?: Ref<HTMLDivElement>;
+  className?: string | undefined;
+  disabled?: boolean | undefined;
+};
+
+export function ObsidianToolbarAction({
+  icon,
+  label,
+  actionRef,
+  className,
+  disabled,
+  onClick,
+  ...props
+}: ObsidianToolbarActionProps): UiNode {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const action = ref.current;
+    if (!action) return;
+    action.replaceChildren();
+    setIcon(action, icon);
+  }, [icon]);
+  return (
+    // biome-ignore lint/a11y: Obsidian core toolbar icons are div.clickable-icon nav-action-button elements with aria-label tooltips, not native buttons.
+    <div
+      {...props}
+      ref={(element) => {
+        ref.current = element;
+        if (typeof actionRef === "function") {
+          actionRef(element);
+        } else if (actionRef) {
+          actionRef.current = element;
+        }
+      }}
+      className={[className, disabled ? "is-disabled" : ""].filter(Boolean).join(" ")}
+      aria-label={label}
+      onClick={disabled ? undefined : onClick}
+    />
   );
 }
 

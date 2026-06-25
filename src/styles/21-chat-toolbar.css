@@ -24,6 +24,14 @@
   text-align: left;
 }
 
+.codex-panel-ui__nav-item.codex-panel__toolbar-panel-item {
+  justify-content: flex-start;
+  height: auto;
+  background: transparent;
+  box-shadow: none;
+  color: var(--nav-item-color, var(--text-muted));
+}
+
 .codex-panel__toolbar-panel-label,
 .codex-panel__toolbar-panel-meta {
   min-width: 0;

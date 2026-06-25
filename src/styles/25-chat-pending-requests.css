@@ -179,6 +179,10 @@
 .codex-panel__mcp-elicitation-options {
   display: grid;
   gap: var(--codex-panel-control-gap);
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
 }
 
 .codex-panel__mcp-elicitation-option {

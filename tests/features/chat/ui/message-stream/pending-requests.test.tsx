@@ -499,7 +499,11 @@ describe("pending request renderer decisions", () => {
     );
 
     expect(parent.querySelector(".codex-panel__pending-request-title")?.textContent).toBe("MCP request from github");
-    changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "Updated");
+    const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input"));
+    const label = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-label"));
+    expect(label.tagName).toBe("LABEL");
+    expect(label.getAttribute("for")).toBe(input.id);
+    changeInputValue(input, "Updated");
     actEvent(() => {
       expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
     });
@@ -564,6 +568,10 @@ describe("pending request renderer decisions", () => {
       }),
     );
 
+    const options = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-options"));
+    const label = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-label"));
+    expect(options.tagName).toBe("FIELDSET");
+    expect(options.getAttribute("aria-labelledby")).toBe(label.id);
     actEvent(() => {
       expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
     });

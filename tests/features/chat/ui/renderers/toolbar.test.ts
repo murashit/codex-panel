@@ -36,24 +36,30 @@ describe("Toolbar decisions", () => {
       "Show chat actions",
       "Show status",
     ]);
+    expect([...expectPresent(navButtons).children].map((button) => button.tagName)).toEqual(["DIV", "DIV", "DIV"]);
+    expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("role"))).toEqual([null, null, null]);
     expect(parent.querySelector(".codex-panel__plan-toggle")).toBeNull();
     expect(parent.querySelector(".codex-panel__auto-review-toggle")).toBeNull();
     expect(parent.querySelector(".codex-panel__runtime-model")).toBeNull();
-    const newChatButton = parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat");
+    const newChatButton = parent.querySelector<HTMLElement>(".codex-panel__new-chat");
     expect(newChatButton?.getAttribute("aria-label")).toBe("Show chat actions");
-    expect(newChatButton?.disabled).toBe(false);
+    expect(newChatButton?.getAttribute("aria-expanded")).toBeNull();
+    expect(newChatButton?.classList.contains("is-disabled")).toBe(false);
     newChatButton?.click();
     expect(toggleChatActions).toHaveBeenCalled();
     expect(startNewThread).not.toHaveBeenCalled();
     const statusButton = parent.querySelector(".codex-panel__status-menu-toggle");
     expect(statusButton?.getAttribute("aria-label")).toBe("Show status");
-    const historyButton = parent.querySelector<HTMLButtonElement>(".codex-panel__history-toggle");
+    expect(statusButton?.getAttribute("aria-expanded")).toBeNull();
+    const historyButton = parent.querySelector<HTMLElement>(".codex-panel__history-toggle");
     expect(historyButton?.getAttribute("aria-label")).toBe("Show thread list");
+    expect(historyButton?.getAttribute("aria-pressed")).toBeNull();
     historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
     parent.empty();
     mountToolbar(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
-    expect(parent.querySelector<HTMLButtonElement>(".codex-panel__new-chat")?.disabled).toBe(true);
+    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.tagName).toBe("DIV");
+    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.classList.contains("is-disabled")).toBe(true);
 
     parent.empty();
     mountToolbar(parent, toolbarModel({ chatActionsOpen: true, historyOpen: true, statusPanelOpen: true }), toolbarActions());
@@ -78,8 +84,11 @@ describe("Toolbar decisions", () => {
     );
 
     const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
+    expect(parent.querySelector(".codex-panel__chat-actions-panel-items")?.tagName).toBe("DIV");
+    expect(parent.querySelector(".codex-panel__chat-actions-panel-items")?.getAttribute("aria-label")).toBeNull();
     expect(items.map((item) => item.textContent)).toEqual(["Start new chat", "Compact conversation", "Set goal..."]);
-    expect(items.map((item) => item.getAttribute("role"))).toEqual(["menuitem", "menuitem", "menuitem"]);
+    expect(items.map((item) => item.tagName)).toEqual(["DIV", "DIV", "DIV"]);
+    expect(items.map((item) => item.getAttribute("role"))).toEqual([null, null, null]);
     items[0]?.click();
     items[1]?.click();
     items[2]?.click();
@@ -168,7 +177,10 @@ describe("Toolbar decisions", () => {
     expect(parent.textContent).toContain("codex-cli/1.2.3");
     expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")?.textContent).toContain("model/list failed");
     const statusItems = [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")];
-    expect(statusItems.map((item) => item.getAttribute("role"))).toEqual(["menuitem", "menuitem", "menuitem"]);
+    expect(parent.querySelector(".codex-panel__status-panel-items")?.tagName).toBe("DIV");
+    expect(parent.querySelector(".codex-panel__status-panel-items")?.getAttribute("aria-label")).toBeNull();
+    expect(statusItems.map((item) => item.tagName)).toEqual(["DIV", "DIV", "DIV"]);
+    expect(statusItems.map((item) => item.getAttribute("role"))).toEqual([null, null, null]);
     expect(statusItems.every((item) => item.getAttribute("aria-selected") === null)).toBe(true);
     statusItems.find((item) => item.textContent.includes("Refresh"))?.click();
     expect(refreshStatus).toHaveBeenCalled();
