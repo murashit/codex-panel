@@ -1,0 +1,26 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsExportNamedFromClause(),
+    JsExportFromClause(),
+    TsImportType(),
+    JsImportCallExpression()
+  }
+}
+
+or {
+  js_module_reference() as $stmt where {
+    $stmt <: contains `$source` where {
+      $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol|src/app-server/protocol)/[^/\"']+(?:/.*)?[\"']$",
+      not { $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol/turn|src/app-server/protocol/turn)(?:/.*)?[\"']$" }
+    },
+    register_diagnostic(span=$stmt, message="Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.", severity="error")
+  },
+  `require($source)` as $stmt where {
+    $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol|src/app-server/protocol)/[^/\"']+(?:/.*)?[\"']$",
+    not { $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol/turn|src/app-server/protocol/turn)(?:/.*)?[\"']$" },
+    register_diagnostic(span=$stmt, message="Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.", severity="error")
+  }
+}

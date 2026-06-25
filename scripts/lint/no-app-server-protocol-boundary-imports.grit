@@ -15,40 +15,10 @@ or {
     $stmt <: contains `$source` where {
       $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol|src/app-server/protocol)/[^/\"']+(?:/.*)?[\"']$"
     },
-    or {
-      {
-        not { $filename <: r".*/src/features/chat/app-server/(?:inbound/notification-plan|mappers/message-stream/turn-items)\.ts$" },
-        not { $filename <: r".*/src/features/chat/app-server/inbound/(?:handler|routing)\.ts$" },
-        register_diagnostic(span=$stmt, message="Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.", severity="error")
-      },
-      {
-        $filename <: r".*/src/features/chat/app-server/(?:inbound/notification-plan|mappers/message-stream/turn-items)\.ts$",
-        not { $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol/turn|src/app-server/protocol/turn)(?:/.*)?[\"']$" },
-        register_diagnostic(span=$stmt, message="Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.", severity="error")
-      },
-      {
-        $filename <: r".*/src/features/chat/app-server/inbound/(?:handler|routing)\.ts$",
-        not { $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol/server-requests|src/app-server/protocol/server-requests)(?:/.*)?[\"']$" },
-        register_diagnostic(span=$stmt, message="Chat app-server request handling may consume server request protocol projections only. Convert app-server payloads to chat pending request domain models at this boundary.", severity="error")
-      }
-    }
-  },
-  `require($source)` as $stmt where {
-    $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol|src/app-server/protocol)/[^/\"']+(?:/.*)?[\"']$",
-    not { $filename <: r".*/src/features/chat/app-server/(?:inbound/notification-plan|mappers/message-stream/turn-items)\.ts$" },
-    not { $filename <: r".*/src/features/chat/app-server/inbound/(?:handler|routing)\.ts$" },
     register_diagnostic(span=$stmt, message="Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.", severity="error")
   },
   `require($source)` as $stmt where {
     $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol|src/app-server/protocol)/[^/\"']+(?:/.*)?[\"']$",
-    $filename <: r".*/src/features/chat/app-server/(?:inbound/notification-plan|mappers/message-stream/turn-items)\.ts$",
-    not { $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol/turn|src/app-server/protocol/turn)(?:/.*)?[\"']$" },
-    register_diagnostic(span=$stmt, message="Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.", severity="error")
-  },
-  `require($source)` as $stmt where {
-    $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol|src/app-server/protocol)/[^/\"']+(?:/.*)?[\"']$",
-    $filename <: r".*/src/features/chat/app-server/inbound/(?:handler|routing)\.ts$",
-    not { $source <: r"^[\"'](?:(?:\.\./)+app-server/protocol/server-requests|src/app-server/protocol/server-requests)(?:/.*)?[\"']$" },
-    register_diagnostic(span=$stmt, message="Chat app-server request handling may consume server request protocol projections only. Convert app-server payloads to chat pending request domain models at this boundary.", severity="error")
+    register_diagnostic(span=$stmt, message="Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.", severity="error")
   }
 }

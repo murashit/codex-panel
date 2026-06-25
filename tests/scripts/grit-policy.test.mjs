@@ -453,6 +453,49 @@ export type Item = TurnItem;
 `.trimStart(),
     );
     await writeFile(
+      path.join(cwd, "src/features/chat/panel/surface/message-stream-presenter.ts"),
+      `
+import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/app-server/inbound/app-server-logs.ts"),
+      `
+import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      [
+        "src/features/chat/application/pending-requests/pending-request-actions.ts",
+        "src/features/chat/application/threads/history-controller.ts",
+        "src/features/chat/panel/surface/message-stream-presenter.ts",
+        "src/features/chat/app-server/inbound/app-server-logs.ts",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/application/pending-requests/pending-request-actions.ts")).toEqual([
+      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
+    ]);
+    expect(pluginMessages(report, "src/features/chat/application/threads/history-controller.ts")).toEqual([
+      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
+    ]);
+    expect(pluginMessages(report, "src/features/chat/panel/surface/message-stream-presenter.ts")).toEqual([
+      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
+    ]);
+    expect(pluginMessages(report, "src/features/chat/app-server/inbound/app-server-logs.ts")).toEqual([
+      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
+    ]);
+  });
+
+  it("keeps chat app-server ingestion on app-server turn protocol only", async () => {
+    const cwd = await tempBiomeWorkspace(["no-chat-app-server-turn-protocol-imports.grit"]);
+    await writeFile(
       path.join(cwd, "src/features/chat/app-server/inbound/notification-plan.ts"),
       `
 import { toolInventoryAppsFromAppInfos } from "../../../../app-server/protocol/tool-inventory";
@@ -470,22 +513,21 @@ import type { TurnItem } from "../../../../../app-server/protocol/turn";
 export type Item = TurnItem;
 `.trimStart(),
     );
-    await writeFile(
-      path.join(cwd, "src/features/chat/panel/surface/message-stream-presenter.ts"),
-      `
-import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
 
-export const response = appServerUserInputResponse;
-`.trimStart(),
+    const report = biomeLint(
+      ["src/features/chat/app-server/inbound/notification-plan.ts", "src/features/chat/app-server/mappers/message-stream/turn-items.ts"],
+      cwd,
     );
-    await writeFile(
-      path.join(cwd, "src/features/chat/app-server/inbound/app-server-logs.ts"),
-      `
-import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
 
-export const response = appServerUserInputResponse;
-`.trimStart(),
-    );
+    expect(pluginMessages(report, "src/features/chat/app-server/inbound/notification-plan.ts")).toEqual([
+      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
+      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/app-server/mappers/message-stream/turn-items.ts")).toEqual([]);
+  });
+
+  it("keeps chat app-server request handling on server request protocol only", async () => {
+    const cwd = await tempBiomeWorkspace(["no-chat-app-server-request-protocol-imports.grit"]);
     await writeFile(
       path.join(cwd, "src/features/chat/app-server/inbound/handler.ts"),
       `
@@ -503,37 +545,8 @@ export const response = appServerUserInputResponse;
 `.trimStart(),
     );
 
-    const report = biomeLint(
-      [
-        "src/features/chat/application/pending-requests/pending-request-actions.ts",
-        "src/features/chat/application/threads/history-controller.ts",
-        "src/features/chat/app-server/inbound/notification-plan.ts",
-        "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
-        "src/features/chat/panel/surface/message-stream-presenter.ts",
-        "src/features/chat/app-server/inbound/app-server-logs.ts",
-        "src/features/chat/app-server/inbound/handler.ts",
-        "src/features/chat/app-server/inbound/routing.ts",
-      ],
-      cwd,
-    );
+    const report = biomeLint(["src/features/chat/app-server/inbound/handler.ts", "src/features/chat/app-server/inbound/routing.ts"], cwd);
 
-    expect(pluginMessages(report, "src/features/chat/application/pending-requests/pending-request-actions.ts")).toEqual([
-      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
-    ]);
-    expect(pluginMessages(report, "src/features/chat/application/threads/history-controller.ts")).toEqual([
-      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
-    ]);
-    expect(pluginMessages(report, "src/features/chat/app-server/inbound/notification-plan.ts")).toEqual([
-      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
-      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
-    ]);
-    expect(pluginDiagnostics(report, "src/features/chat/app-server/mappers/message-stream/turn-items.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/panel/surface/message-stream-presenter.ts")).toEqual([
-      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
-    ]);
-    expect(pluginMessages(report, "src/features/chat/app-server/inbound/app-server-logs.ts")).toEqual([
-      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
-    ]);
     expect(pluginMessages(report, "src/features/chat/app-server/inbound/handler.ts")).toEqual([
       "Chat app-server request handling may consume server request protocol projections only. Convert app-server payloads to chat pending request domain models at this boundary.",
     ]);
