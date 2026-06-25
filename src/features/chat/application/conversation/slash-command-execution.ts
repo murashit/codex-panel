@@ -327,6 +327,7 @@ async function executeGoalCommand(args: string, context: SlashCommandExecutionCo
     return;
   }
   await context.goals.clear(threadId);
+  return;
 }
 
 type GoalArgs =
