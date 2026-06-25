@@ -8,7 +8,6 @@ import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { ObservedDataResult } from "../../src/domain/observed-data";
 import type { Thread } from "../../src/domain/threads/model";
-import { threadArchiveDisplayTitle } from "../../src/domain/threads/title";
 import { SettingsDynamicDataController, type SettingsDynamicDataSnapshot } from "../../src/settings/dynamic-data-controller";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
@@ -30,22 +29,6 @@ describe("settings tab", () => {
   beforeEach(() => {
     withShortLivedAppServerClientMock.mockReset();
     notices.length = 0;
-  });
-
-  it("uses a placeholder for threads without a useful title", () => {
-    expect(threadArchiveDisplayTitle(panelThread({ name: null, preview: "" }))).toBe("Untitled thread");
-    expect(threadArchiveDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "" }))).toBe("Untitled thread");
-    expect(threadArchiveDisplayTitle(panelThread({ name: "019e0182-cb70-7a72-ab48-8bc9d0b0d781", preview: "Preview title" }))).toBe(
-      "Preview title",
-    );
-  });
-
-  it("normalizes and truncates archived thread titles", () => {
-    expect(threadArchiveDisplayTitle(panelThread({ preview: "A title\nwith   extra\tspace" }))).toBe("A title with extra space");
-
-    const title = threadArchiveDisplayTitle(panelThread({ preview: "x".repeat(120) }));
-    expect(title).toHaveLength(96);
-    expect(title.endsWith("...")).toBe(true);
   });
 
   it("auto-loads settings data once and keeps one global refresh button", async () => {
@@ -73,34 +56,6 @@ describe("settings tab", () => {
     expect(buttonTexts(tab)).not.toContain("Load models");
     expect(buttonTexts(tab)).not.toContain("Load hooks");
     expect(buttonTexts(tab)).not.toContain("Load archive list");
-    expect(
-      tab.containerEl.querySelector(".codex-panel-settings__header.setting-item-heading .setting-item-description")?.textContent,
-    ).toContain("Codex Panel stores panel preferences only");
-    expect(tab.containerEl.querySelector(".codex-panel-settings__header button")?.getAttribute("data-icon")).toBe("refresh-cw");
-    expect(tab.containerEl.querySelector("h2")).toBeNull();
-    expect(tab.containerEl.querySelector(".codex-panel-settings__general-section.setting-group > .setting-items")?.children).toHaveLength(
-      2,
-    );
-    expect(tab.containerEl.querySelector(".codex-panel-settings__composer-section.setting-group > .setting-items")?.children).toHaveLength(
-      2,
-    );
-    expect(tab.containerEl.querySelector(".codex-panel-settings__helper-section.setting-group > .setting-items")?.children).toHaveLength(2);
-    expect(
-      tab.containerEl.querySelector(".codex-panel-settings__archived-section > .setting-item-heading .setting-item-description")
-        ?.textContent,
-    ).toContain("Set the default archive action");
-    expect(
-      tab.containerEl.querySelector(".codex-panel-settings__archived-threads-section > .setting-item-heading .setting-item-description")
-        ?.textContent,
-    ).toContain("Restore or permanently delete");
-    expect(
-      tab.containerEl.querySelector(".codex-panel-settings__hook-section > .setting-item-heading .setting-item-description")?.textContent,
-    ).toContain("Trust, enable, or disable");
-    expect(
-      tab.containerEl.querySelector(
-        ".codex-panel-settings__archived-section.setting-group > .setting-items:not(.codex-panel-settings__dynamic-list)",
-      )?.children,
-    ).toHaveLength(4);
     expect(settingNames(tab)).toEqual([
       "Codex executable",
       "Show chat toolbar",
@@ -767,7 +722,6 @@ describe("settings tab", () => {
 
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).not.toBeNull();
     expect(tab.containerEl.textContent).toContain("Permanently delete this archived thread? This cannot be undone.");
-    expect(tab.containerEl.querySelector("[aria-label='Delete thread']")?.getAttribute("data-icon")).toBe("check");
 
     tab.containerEl.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
 

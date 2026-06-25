@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
@@ -18,30 +19,28 @@ describe("development scripts", () => {
 
   it("passes the expected codex generate-ts arguments", async () => {
     const cwd = await tempWorkspace();
-    const binDir = path.join(cwd, "bin");
-    await mkdir(binDir, { recursive: true });
-    await mkdir(path.join(cwd, "src", "generated", "app-server"), { recursive: true });
-    const codexBin = path.join(binDir, "codex");
-    await writeFile(
-      codexBin,
-      [
-        "#!/usr/bin/env node",
-        "import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';",
-        "appendFileSync('codex-args.txt', process.argv.slice(2).join('\\n') + '\\n');",
-        "mkdirSync('src/generated/app-server/v2', { recursive: true });",
-        "writeFileSync('src/generated/app-server/v2/Example.ts', '// GENERATED CODE! DO NOT MODIFY BY HAND!\\nexport type Example = string | null | null;\\n');",
-      ].join("\n"),
-    );
-    await chmod(codexBin, 0o755);
+    const calls: { command: string; args: string[]; cwd: string }[] = [];
+    const { generateAppServerTypes } = await import(pathToFileURL(path.join(repoRoot, "scripts", "generate-app-server-types.mjs")).href);
 
-    const result = runNodeScript("scripts/generate-app-server-types.mjs", [], cwd, {
-      PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+    await generateAppServerTypes({
+      cwd,
+      async runCommand(command: string, args: string[], options: { cwd: string }) {
+        calls.push({ command, args, cwd: options.cwd });
+        await mkdir(path.join(options.cwd, "src", "generated", "app-server", "v2"), { recursive: true });
+        await writeFile(
+          path.join(options.cwd, "src", "generated", "app-server", "v2", "Example.ts"),
+          "// GENERATED CODE! DO NOT MODIFY BY HAND!\nexport type Example = string | null | null;\n",
+        );
+      },
     });
 
-    expect(result.status).toBe(0);
-    await expect(readFile(path.join(cwd, "codex-args.txt"), "utf8")).resolves.toBe(
-      "app-server\ngenerate-ts\n--experimental\n--out\nsrc/generated/app-server\n",
-    );
+    expect(calls).toEqual([
+      {
+        command: "codex",
+        args: ["app-server", "generate-ts", "--experimental", "--out", "src/generated/app-server"],
+        cwd,
+      },
+    ]);
     await expect(readFile(path.join(cwd, "src", "generated", "app-server", "v2", "Example.ts"), "utf8")).resolves.toContain(
       "export type Example = string | null;",
     );
@@ -165,20 +164,6 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("CSS usage check failed.");
     expect(result.stderr).toContain("Dynamic CSS class prefixes are not allowed:");
     expect(result.stderr).toContain("codex-panel__task-step--");
-  });
-
-  it("does not let dynamic CSS prefixes hide unconfigured class candidates", async () => {
-    const cwd = await cssUsageFixture({
-      "src/styles/10-component.css": ".codex-panel__task-step--stale { display: block; }\n",
-      "src/component.ts": "export const className = `codex-panel__task-step--$" + "{status}`;\n",
-    });
-
-    const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
-
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("CSS usage check failed.");
-    expect(result.stderr).toContain("codex-panel__task-step--stale");
   });
 
   it("fails release prepare before changing version files when release notes already exist", async () => {

@@ -239,31 +239,34 @@ describe("selection rewrite lifecycle", () => {
     });
   });
 
-  it.each([
-    { status: "editing-prompt", event: previewUpdatedEvent() },
-    { status: "editing-prompt", event: generationSucceededEvent() },
-    { status: "editing-prompt", event: generationFailedEvent() },
-    { status: "preview", event: previewUpdatedEvent() },
-    { status: "preview", event: generationSucceededEvent() },
-    { status: "preview", event: generationFailedEvent() },
-    { status: "failed", event: previewUpdatedEvent() },
-    { status: "failed", event: generationSucceededEvent() },
-    { status: "failed", event: generationFailedEvent() },
-    { status: "cancelled", event: { type: "generation-started", instruction: "late" } },
-    { status: "cancelled", event: previewUpdatedEvent() },
-    { status: "cancelled", event: generationSucceededEvent() },
-    { status: "cancelled", event: generationFailedEvent() },
-    { status: "applied", event: { type: "generation-started", instruction: "late" } },
-    { status: "applied", event: previewUpdatedEvent() },
-    { status: "applied", event: generationSucceededEvent() },
-    { status: "applied", event: generationFailedEvent() },
-  ] satisfies {
-    status: SelectionRewriteState["status"];
-    event: SelectionRewriteLifecycleEvent;
-  }[])("preserves state identity for ignored transition from $status via $event.type", ({ status, event }) => {
-    const state = selectionRewriteStateWithStatus(status);
+  it("preserves state identity for ignored transitions", () => {
+    const ignoredTransitions = [
+      { status: "editing-prompt", event: previewUpdatedEvent() },
+      { status: "editing-prompt", event: generationSucceededEvent() },
+      { status: "editing-prompt", event: generationFailedEvent() },
+      { status: "preview", event: previewUpdatedEvent() },
+      { status: "preview", event: generationSucceededEvent() },
+      { status: "preview", event: generationFailedEvent() },
+      { status: "failed", event: previewUpdatedEvent() },
+      { status: "failed", event: generationSucceededEvent() },
+      { status: "failed", event: generationFailedEvent() },
+      { status: "cancelled", event: { type: "generation-started", instruction: "late" } },
+      { status: "cancelled", event: previewUpdatedEvent() },
+      { status: "cancelled", event: generationSucceededEvent() },
+      { status: "cancelled", event: generationFailedEvent() },
+      { status: "applied", event: { type: "generation-started", instruction: "late" } },
+      { status: "applied", event: previewUpdatedEvent() },
+      { status: "applied", event: generationSucceededEvent() },
+      { status: "applied", event: generationFailedEvent() },
+    ] satisfies {
+      status: SelectionRewriteState["status"];
+      event: SelectionRewriteLifecycleEvent;
+    }[];
 
-    expect(transitionSelectionRewriteState(state, event)).toBe(state);
+    for (const { status, event } of ignoredTransitions) {
+      const state = selectionRewriteStateWithStatus(status);
+      expect(transitionSelectionRewriteState(state, event), `${status} via ${event.type}`).toBe(state);
+    }
   });
 });
 

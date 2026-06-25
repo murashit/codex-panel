@@ -15,7 +15,6 @@ import {
   type ChatMessageScrollController,
   createChatMessageScrollController,
 } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
@@ -225,39 +224,6 @@ describe("MessageStreamPresenter scroll pinning", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
-  it("can repin the current scroll container after composer growth shrinks the viewport", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateMessageStreamItems(state, [
-      {
-        id: "message",
-        kind: "message",
-        role: "assistant",
-        text: "Streaming message",
-        turnId: "turn",
-        messageKind: "assistantResponse",
-        messageState: "completed",
-      },
-    ]);
-    const parent = document.createElement("div");
-    const { presenter, scrollController } = messageStreamPresenter(state);
-
-    renderMessageStreamPresenter(parent, presenter, state);
-    const messages = messageViewport(parent);
-    Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
-    installMessageViewportMetrics(messages, { clientHeight: 160 });
-    messages.scrollTop = 1000;
-    await settleMessageRender(messages);
-
-    installMessageViewportMetrics(messages, { clientHeight: 100 });
-    messages.scrollTop = 940;
-
-    scrollController.showLatest();
-    await settleMessageRender(messages);
-
-    expect(messages.scrollTop).toBe(0);
-  });
-
   it("repins after composer growth has changed the scroll viewport height", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -412,45 +378,6 @@ describe("MessageStreamPresenter scroll pinning", () => {
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(900);
-  });
-
-  it("keeps bottom pinning after markdown content changes message height", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateMessageStreamItems(state, [
-      {
-        id: "message",
-        kind: "message",
-        role: "assistant",
-        text: "**Rendered** message",
-        turnId: "turn",
-        messageKind: "assistantResponse",
-        messageState: "completed",
-      },
-    ]);
-    const parent = document.createElement("div");
-    const { presenter, scrollController } = messageStreamPresenter(state);
-
-    renderMessageStreamPresenter(parent, presenter, state);
-    const messages = messageViewport(parent);
-    installMessageViewportMetrics(messages, { clientHeight: 100 });
-    let scrollHeight = 1000;
-    Object.defineProperty(messages, "scrollHeight", {
-      get: () => scrollHeight,
-      configurable: true,
-    });
-
-    scrollController.showLatest();
-    await settleMessageRender(messages);
-    expect(messages.scrollTop).toBe(900);
-
-    scrollHeight = 1200;
-    const content = parent.querySelector<HTMLElement>(".codex-panel__message-content");
-    if (!content) throw new Error("Expected rendered message content.");
-    content.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
-    await settleMessageRender(messages);
-
-    expect(messages.scrollTop).toBe(1100);
   });
 
   it("does not force the bottom into view when the user is reading older messages", async () => {

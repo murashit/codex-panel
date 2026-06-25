@@ -1,21 +1,31 @@
 import { spawnSync } from "node:child_process";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const generatedDir = path.resolve("src/generated/app-server");
+const generatedRelativeDir = "src/generated/app-server";
 const generatedHeader = "// GENERATED CODE! DO NOT MODIFY BY HAND!";
 const normalizationNotice = "// This file was mechanically normalized after generation by scripts/generate-app-server-types.mjs.";
 
-await cleanGeneratedTypes();
-run("codex", ["app-server", "generate-ts", "--experimental", "--out", "src/generated/app-server"]);
-await normalizeGeneratedTypes();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await generateAppServerTypes();
+}
 
-async function cleanGeneratedTypes() {
+export async function generateAppServerTypes(options = {}) {
+  const cwd = options.cwd ?? process.cwd();
+  const generatedDir = path.resolve(cwd, generatedRelativeDir);
+  const runCommand = options.runCommand ?? run;
+  await cleanGeneratedTypes(generatedDir);
+  await runCommand("codex", ["app-server", "generate-ts", "--experimental", "--out", generatedRelativeDir], { cwd });
+  await normalizeGeneratedTypes(generatedDir);
+}
+
+async function cleanGeneratedTypes(generatedDir) {
   await rm(generatedDir, { recursive: true, force: true });
   await mkdir(generatedDir, { recursive: true });
 }
 
-async function normalizeGeneratedTypes() {
+async function normalizeGeneratedTypes(generatedDir) {
   const files = await listTypeScriptFiles(generatedDir);
 
   await Promise.all(
@@ -55,8 +65,9 @@ function addNormalizationNotice(source) {
   return source.replace(generatedHeader, `${generatedHeader}\n${normalizationNotice}`);
 }
 
-function run(command, args) {
+function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
+    cwd: options.cwd ?? process.cwd(),
     stdio: "inherit",
     shell: false,
   });

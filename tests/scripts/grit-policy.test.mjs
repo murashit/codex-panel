@@ -9,8 +9,13 @@ const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
 const workspaceByPlugins = new Map();
 
 describe("GritQL source policy", () => {
-  it("can report hand-written re-export barrels as Biome plugin diagnostics", async () => {
-    const cwd = await tempBiomeWorkspace(["no-handwritten-reexports.grit"]);
+  it("keeps project-wide source-shape policies enforceable as Biome plugin diagnostics", async () => {
+    const cwd = await tempBiomeWorkspace([
+      "no-handwritten-reexports.grit",
+      "no-self-referential-initializer-callback.grit",
+      "no-unsafe-iterator-value.grit",
+      "no-uncontrolled-preact-form-state.grit",
+    ]);
     await writeFile(
       path.join(cwd, "reexports.ts"),
       `
@@ -21,17 +26,111 @@ const local = 1;
 export { local };
 `.trimStart(),
     );
+    await writeFile(
+      path.join(cwd, "src/shared/iterator.ts"),
+      `
+export function first<T>(iterator: Iterator<T>): T | undefined {
+  return iterator.next().value;
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/form-state.tsx"),
+      `
+export function Composer(): JSX.Element {
+  return (
+    <>
+      <input defaultValue="draft" />
+      <input defaultChecked={true} />
+    </>
+  );
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/controlled-form-state.tsx"),
+      `
+export function Composer(): JSX.Element {
+  return <input value="draft" />;
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/plugin-runtime.ts"),
+      `
+class Runner {
+  constructor(readonly stop: () => void) {}
+}
 
-    const report = biomeLint(["reexports.ts"], cwd);
+const runner = new Runner(() => runner.stop());
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/plugin-runtime-function.ts"),
+      `
+class Runner {
+  constructor(readonly stop: () => void) {}
+}
+
+const runner = new Runner(function() {
+  return runner.stop();
+});
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/plugin-runtime-declared.ts"),
+      `
+class Runner {
+  constructor(readonly stop: () => void) {}
+}
+
+let runner: Runner;
+runner = new Runner(() => runner.stop());
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      [
+        "reexports.ts",
+        "src/shared/iterator.ts",
+        "src/features/chat/ui/form-state.tsx",
+        "src/features/chat/ui/controlled-form-state.tsx",
+        "src/plugin-runtime.ts",
+        "src/plugin-runtime-function.ts",
+        "src/plugin-runtime-declared.ts",
+      ],
+      cwd,
+    );
 
     expect(pluginDiagnostics(report, "reexports.ts")).toEqual([
       { line: 1, column: 8, endLine: 1, endColumn: 33 },
       { line: 2, column: 8, endLine: 2, endColumn: 26 },
     ]);
+    expect(pluginMessages(report, "src/shared/iterator.ts")).toEqual([
+      "Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.",
+    ]);
+    expect(pluginMessages(report, "src/features/chat/ui/form-state.tsx")).toEqual([
+      "Keep Preact form state explicit with controlled value or checked props.",
+      "Keep Preact form state explicit with controlled value or checked props.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/ui/controlled-form-state.tsx")).toEqual([]);
+    expect(pluginMessages(report, "src/plugin-runtime.ts")).toEqual([
+      "Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.",
+    ]);
+    expect(pluginMessages(report, "src/plugin-runtime-function.ts")).toEqual([
+      "Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.",
+    ]);
+    expect(pluginDiagnostics(report, "src/plugin-runtime-declared.ts")).toEqual([]);
   });
 
-  it("keeps Preact signals behind the chat shell-state adapter", async () => {
-    const cwd = await tempBiomeWorkspace(["no-chat-signal-imports.grit"]);
+  it("keeps chat architecture policies behind their intended boundaries", async () => {
+    const cwd = await tempBiomeWorkspace([
+      "no-chat-domain-outer-layer-imports.grit",
+      "no-chat-signal-imports.grit",
+      "no-implicit-dom-bridges.grit",
+      "no-pure-chat-state-side-effects.grit",
+      "no-ui-root-imports.grit",
+    ]);
     await writeFile(
       path.join(cwd, "src/features/chat/panel/shell-state.tsx"),
       `
@@ -62,26 +161,6 @@ const signals = require("@preact/signals");
 export const loadedSignals = signals;
 `.trimStart(),
     );
-
-    const report = biomeLint(
-      ["src/features/chat/panel/shell-state.tsx", "src/shared/ui/components.tsx", "src/shared/ui/signal-escapes.tsx"],
-      cwd,
-    );
-
-    expect(pluginDiagnostics(report, "src/features/chat/panel/shell-state.tsx")).toEqual([]);
-    expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual([
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-    ]);
-    expect(pluginMessages(report, "src/shared/ui/signal-escapes.tsx")).toEqual([
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-    ]);
-  });
-
-  it("keeps chat domain independent from outer chat layers", async () => {
-    const cwd = await tempBiomeWorkspace(["no-chat-domain-outer-layer-imports.grit"]);
     await writeFile(
       path.join(cwd, "src/features/chat/domain/message-stream/selectors.ts"),
       `
@@ -114,16 +193,111 @@ const host = require("../../host/session");
 export const outerHost = host;
 `.trimStart(),
     );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/dom-bridge-escape.tsx"),
+      `
+export function render(container: HTMLElement): void {
+  container.createDiv();
+  container.addEventListener("click", () => undefined);
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/dom-bridge.dom.tsx"),
+      `
+export function render(container: HTMLElement): void {
+  container.createDiv();
+  container.addEventListener("click", () => undefined);
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/app-server/services/abortable-operation.ts"),
+      `
+export function onAbort(signal: AbortSignal): void {
+  signal.addEventListener("abort", () => undefined);
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/root-import.tsx"),
+      `
+import { renderUiRoot } from '../../../shared/ui/ui-root.dom';
+
+export const render = renderUiRoot;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/panel/shell.dom.tsx"),
+      `
+import { renderUiRoot } from "../../../shared/ui/ui-root.dom";
+
+export const render = renderUiRoot;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/root-escapes.tsx"),
+      `
+export { renderUiRoot } from "../../../shared/ui/ui-root.dom";
+export type RootRenderer = import("../../../shared/ui/ui-root.dom").RootRenderer;
+
+export async function loadRoot() {
+  return import("../../../shared/ui/ui-root.dom");
+}
+
+const root = require("../../../shared/ui/ui-root.dom");
+export const loadedRoot = root;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/application/state/message-stream.ts"),
+      `
+export function timestamp(): number {
+  setTimeout(() => undefined, 1);
+  return Date.now();
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/application/threads/resume-actions.ts"),
+      `
+export function timestamp(): number {
+  setTimeout(() => undefined, 1);
+  return Date.now();
+}
+`.trimStart(),
+    );
 
     const report = biomeLint(
       [
+        "src/features/chat/panel/shell-state.tsx",
+        "src/shared/ui/components.tsx",
+        "src/shared/ui/signal-escapes.tsx",
         "src/features/chat/domain/message-stream/selectors.ts",
         "src/features/chat/domain/message-stream/items.ts",
         "src/features/chat/domain/message-stream/outer-shapes.ts",
+        "src/features/chat/ui/dom-bridge-escape.tsx",
+        "src/features/chat/ui/dom-bridge.dom.tsx",
+        "src/app-server/services/abortable-operation.ts",
+        "src/features/chat/ui/root-import.tsx",
+        "src/features/chat/panel/shell.dom.tsx",
+        "src/features/chat/ui/root-escapes.tsx",
+        "src/features/chat/application/state/message-stream.ts",
+        "src/features/chat/application/threads/resume-actions.ts",
       ],
       cwd,
     );
 
+    expect(pluginDiagnostics(report, "src/features/chat/panel/shell-state.tsx")).toEqual([]);
+    expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual([
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+    ]);
+    expect(pluginMessages(report, "src/shared/ui/signal-escapes.tsx")).toEqual([
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+    ]);
     expect(pluginMessages(report, "src/features/chat/domain/message-stream/selectors.ts")).toEqual([
       "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
       "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
@@ -135,9 +309,30 @@ export const outerHost = host;
       "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
       "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
     ]);
+    expect(pluginMessages(report, "src/features/chat/ui/dom-bridge-escape.tsx")).toEqual([
+      "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
+      "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/ui/dom-bridge.dom.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/app-server/services/abortable-operation.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/ui/root-import.tsx")).toEqual([
+      "Import the Preact root adapter only from explicit root bridge files.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/panel/shell.dom.tsx")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/ui/root-escapes.tsx")).toEqual([
+      "Import the Preact root adapter only from explicit root bridge files.",
+      "Import the Preact root adapter only from explicit root bridge files.",
+      "Import the Preact root adapter only from explicit root bridge files.",
+      "Import the Preact root adapter only from explicit root bridge files.",
+    ]);
+    expect(pluginMessages(report, "src/features/chat/application/state/message-stream.ts")).toEqual([
+      "Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
+      "Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/application/threads/resume-actions.ts")).toEqual([]);
   });
 
-  it("blocks generated app-server imports outside app-server boundaries", async () => {
+  it("keeps generated app-server imports behind explicit app-server boundaries", async () => {
     const cwd = await tempBiomeWorkspace(["no-generated-app-server-boundary-imports.grit"]);
     await writeFile(
       path.join(cwd, "src/features/chat/domain/generated-thread.ts"),
@@ -165,6 +360,40 @@ export type GeneratedThread = import("../../generated/app-server/v2/Thread").Thr
 export type GeneratedThread = import("../../src/generated/app-server/v2/Thread").Thread;
 `.trimStart(),
     );
+    await writeFile(
+      path.join(cwd, "src/app-server/protocol/request-input.ts"),
+      `
+import type { UserInput } from "../../generated/app-server/v2/UserInput";
+
+export type Input = UserInput;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/app-server/services/runtime-overrides.ts"),
+      `
+import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
+
+export interface RuntimeOverrideModelClient {
+  listModels(includeHidden: boolean): Promise<ModelListResponse>;
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/app-server/protocol/turn.ts"),
+      `
+import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
+
+export type TurnItem = GeneratedTurnItem;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/app-server/protocol/server-requests.ts"),
+      `
+import type { ServerRequest } from "../../generated/app-server/ServerRequest";
+
+export type Request = ServerRequest;
+`.trimStart(),
+    );
 
     const report = biomeLint(
       [
@@ -172,6 +401,10 @@ export type GeneratedThread = import("../../src/generated/app-server/v2/Thread")
         "src/features/chat/domain/generated-thread-import.ts",
         "src/app-server/connection/generated-thread.ts",
         "tests/app-server/generated-thread.test.ts",
+        "src/app-server/protocol/request-input.ts",
+        "src/app-server/services/runtime-overrides.ts",
+        "src/app-server/protocol/turn.ts",
+        "src/app-server/protocol/server-requests.ts",
       ],
       cwd,
     );
@@ -184,6 +417,16 @@ export type GeneratedThread = import("../../src/generated/app-server/v2/Thread")
     ]);
     expect(pluginDiagnostics(report, "src/app-server/connection/generated-thread.ts")).toEqual([]);
     expect(pluginDiagnostics(report, "tests/app-server/generated-thread.test.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/app-server/protocol/request-input.ts")).toEqual([
+      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
+    ]);
+    expect(pluginMessages(report, "src/app-server/services/runtime-overrides.ts")).toEqual([
+      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
+    ]);
+    expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
+      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
+    ]);
+    expect(pluginDiagnostics(report, "src/app-server/protocol/server-requests.ts")).toEqual([]);
   });
 
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
@@ -222,32 +465,6 @@ import type { TurnItem } from "../../../../../app-server/protocol/turn";
 export type Item = TurnItem;
 `.trimStart(),
     );
-
-    const report = biomeLint(
-      [
-        "src/features/chat/application/pending-requests/pending-request-actions.ts",
-        "src/features/chat/application/threads/history-controller.ts",
-        "src/features/chat/app-server/inbound/notification-plan.ts",
-        "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
-      ],
-      cwd,
-    );
-
-    expect(pluginMessages(report, "src/features/chat/application/pending-requests/pending-request-actions.ts")).toEqual([
-      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
-    ]);
-    expect(pluginMessages(report, "src/features/chat/application/threads/history-controller.ts")).toEqual([
-      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
-    ]);
-    expect(pluginMessages(report, "src/features/chat/app-server/inbound/notification-plan.ts")).toEqual([
-      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
-      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
-    ]);
-    expect(pluginDiagnostics(report, "src/features/chat/app-server/mappers/message-stream/turn-items.ts")).toEqual([]);
-  });
-
-  it("keeps server request protocol imports in chat request boundaries only", async () => {
-    const cwd = await tempBiomeWorkspace(["no-app-server-protocol-boundary-imports.grit"]);
     await writeFile(
       path.join(cwd, "src/features/chat/panel/surface/message-stream-presenter.ts"),
       `
@@ -283,6 +500,10 @@ export const response = appServerUserInputResponse;
 
     const report = biomeLint(
       [
+        "src/features/chat/application/pending-requests/pending-request-actions.ts",
+        "src/features/chat/application/threads/history-controller.ts",
+        "src/features/chat/app-server/inbound/notification-plan.ts",
+        "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
         "src/features/chat/panel/surface/message-stream-presenter.ts",
         "src/features/chat/app-server/inbound/app-server-logs.ts",
         "src/features/chat/app-server/inbound/handler.ts",
@@ -291,6 +512,17 @@ export const response = appServerUserInputResponse;
       cwd,
     );
 
+    expect(pluginMessages(report, "src/features/chat/application/pending-requests/pending-request-actions.ts")).toEqual([
+      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
+    ]);
+    expect(pluginMessages(report, "src/features/chat/application/threads/history-controller.ts")).toEqual([
+      "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
+    ]);
+    expect(pluginMessages(report, "src/features/chat/app-server/inbound/notification-plan.ts")).toEqual([
+      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
+      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/app-server/mappers/message-stream/turn-items.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/panel/surface/message-stream-presenter.ts")).toEqual([
       "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
     ]);
@@ -301,65 +533,6 @@ export const response = appServerUserInputResponse;
       "Chat app-server request handling may consume server request protocol projections only. Convert app-server payloads to chat pending request domain models at this boundary.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/app-server/inbound/routing.ts")).toEqual([]);
-  });
-
-  it("keeps generated app-server bindings behind explicit exceptions", async () => {
-    const cwd = await tempBiomeWorkspace(["no-generated-app-server-boundary-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/request-input.ts"),
-      `
-import type { UserInput } from "../../generated/app-server/v2/UserInput";
-
-export type Input = UserInput;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/services/runtime-overrides.ts"),
-      `
-import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
-
-export interface RuntimeOverrideModelClient {
-  listModels(includeHidden: boolean): Promise<ModelListResponse>;
-}
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/turn.ts"),
-      `
-import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
-
-export type TurnItem = GeneratedTurnItem;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/server-requests.ts"),
-      `
-import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-
-export type Request = ServerRequest;
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      [
-        "src/app-server/protocol/request-input.ts",
-        "src/app-server/services/runtime-overrides.ts",
-        "src/app-server/protocol/turn.ts",
-        "src/app-server/protocol/server-requests.ts",
-      ],
-      cwd,
-    );
-
-    expect(pluginMessages(report, "src/app-server/protocol/request-input.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
-    ]);
-    expect(pluginMessages(report, "src/app-server/services/runtime-overrides.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
-    ]);
-    expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server and tests/app-server; expose Panel-owned models outside raw app-server adapters.",
-    ]);
-    expect(pluginDiagnostics(report, "src/app-server/protocol/server-requests.ts")).toEqual([]);
   });
 
   it("keeps lower-level source independent from connection and feature layers", async () => {
@@ -566,229 +739,6 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
     ]);
     expect(pluginDiagnostics(report, "src/app-server/threads.ts")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/chat/host/connection-bundle.ts")).toEqual([]);
-  });
-
-  it("keeps imperative DOM bridges behind filename suffixes", async () => {
-    const cwd = await tempBiomeWorkspace(["no-implicit-dom-bridges.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/ui/composer.tsx"),
-      `
-export function render(container: HTMLElement): void {
-  container.createDiv();
-  container.addEventListener("click", () => undefined);
-}
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/ui/composer.dom.tsx"),
-      `
-export function render(container: HTMLElement): void {
-  container.createDiv();
-  container.addEventListener("click", () => undefined);
-}
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/services/abortable-operation.ts"),
-      `
-export function onAbort(signal: AbortSignal): void {
-  signal.addEventListener("abort", () => undefined);
-}
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      ["src/features/chat/ui/composer.tsx", "src/features/chat/ui/composer.dom.tsx", "src/app-server/services/abortable-operation.ts"],
-      cwd,
-    );
-
-    expect(pluginMessages(report, "src/features/chat/ui/composer.tsx")).toEqual([
-      "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
-      "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
-    ]);
-    expect(pluginDiagnostics(report, "src/features/chat/ui/composer.dom.tsx")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/app-server/services/abortable-operation.ts")).toEqual([]);
-  });
-
-  it("keeps the Preact root adapter in explicit root bridge files", async () => {
-    const cwd = await tempBiomeWorkspace(["no-ui-root-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/ui/composer.tsx"),
-      `
-import { renderUiRoot } from '../../../shared/ui/ui-root.dom';
-
-export const render = renderUiRoot;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/panel/shell.dom.tsx"),
-      `
-import { renderUiRoot } from "../../../shared/ui/ui-root.dom";
-
-export const render = renderUiRoot;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/ui/root-escapes.tsx"),
-      `
-export { renderUiRoot } from "../../../shared/ui/ui-root.dom";
-export type RootRenderer = import("../../../shared/ui/ui-root.dom").RootRenderer;
-
-export async function loadRoot() {
-  return import("../../../shared/ui/ui-root.dom");
-}
-
-const root = require("../../../shared/ui/ui-root.dom");
-export const loadedRoot = root;
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      ["src/features/chat/ui/composer.tsx", "src/features/chat/panel/shell.dom.tsx", "src/features/chat/ui/root-escapes.tsx"],
-      cwd,
-    );
-
-    expect(pluginMessages(report, "src/features/chat/ui/composer.tsx")).toEqual([
-      "Import the Preact root adapter only from explicit root bridge files.",
-    ]);
-    expect(pluginDiagnostics(report, "src/features/chat/panel/shell.dom.tsx")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/ui/root-escapes.tsx")).toEqual([
-      "Import the Preact root adapter only from explicit root bridge files.",
-      "Import the Preact root adapter only from explicit root bridge files.",
-      "Import the Preact root adapter only from explicit root bridge files.",
-      "Import the Preact root adapter only from explicit root bridge files.",
-    ]);
-  });
-
-  it("keeps chat state transforms pure and catches global scheduling calls", async () => {
-    const cwd = await tempBiomeWorkspace(["no-pure-chat-state-side-effects.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/application/state/message-stream.ts"),
-      `
-export function timestamp(): number {
-  setTimeout(() => undefined, 1);
-  return Date.now();
-}
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/application/threads/resume-actions.ts"),
-      `
-export function timestamp(): number {
-  setTimeout(() => undefined, 1);
-  return Date.now();
-}
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      ["src/features/chat/application/state/message-stream.ts", "src/features/chat/application/threads/resume-actions.ts"],
-      cwd,
-    );
-
-    expect(pluginMessages(report, "src/features/chat/application/state/message-stream.ts")).toEqual([
-      "Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
-      "Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
-    ]);
-    expect(pluginDiagnostics(report, "src/features/chat/application/threads/resume-actions.ts")).toEqual([]);
-  });
-
-  it("reports unsafe iterator value reads", async () => {
-    const cwd = await tempBiomeWorkspace(["no-unsafe-iterator-value.grit"]);
-    await writeFile(
-      path.join(cwd, "src/shared/iterator.ts"),
-      `
-export function first<T>(iterator: Iterator<T>): T | undefined {
-  return iterator.next().value;
-}
-`.trimStart(),
-    );
-
-    const report = biomeLint(["src/shared/iterator.ts"], cwd);
-
-    expect(pluginMessages(report, "src/shared/iterator.ts")).toEqual([
-      "Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.",
-    ]);
-  });
-
-  it("reports uncontrolled Preact form state attributes", async () => {
-    const cwd = await tempBiomeWorkspace(["no-uncontrolled-preact-form-state.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/ui/composer.tsx"),
-      `
-export function Composer(): JSX.Element {
-  return (
-    <>
-      <input defaultValue="draft" />
-      <input defaultChecked={true} />
-    </>
-  );
-}
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/ui/controlled-composer.tsx"),
-      `
-export function Composer(): JSX.Element {
-  return <input value="draft" />;
-}
-`.trimStart(),
-    );
-
-    const report = biomeLint(["src/features/chat/ui/composer.tsx", "src/features/chat/ui/controlled-composer.tsx"], cwd);
-
-    expect(pluginMessages(report, "src/features/chat/ui/composer.tsx")).toEqual([
-      "Keep Preact form state explicit with controlled value or checked props.",
-      "Keep Preact form state explicit with controlled value or checked props.",
-    ]);
-    expect(pluginDiagnostics(report, "src/features/chat/ui/controlled-composer.tsx")).toEqual([]);
-  });
-
-  it("keeps initializer callbacks from capturing their own variable", async () => {
-    const cwd = await tempBiomeWorkspace(["no-self-referential-initializer-callback.grit"]);
-    await writeFile(
-      path.join(cwd, "src/plugin-runtime.ts"),
-      `
-class Runner {
-  constructor(readonly stop: () => void) {}
-}
-
-const runner = new Runner(() => runner.stop());
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/plugin-runtime-function.ts"),
-      `
-class Runner {
-  constructor(readonly stop: () => void) {}
-}
-
-const runner = new Runner(function() {
-  return runner.stop();
-});
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/plugin-runtime-declared.ts"),
-      `
-class Runner {
-  constructor(readonly stop: () => void) {}
-}
-
-let runner: Runner;
-runner = new Runner(() => runner.stop());
-`.trimStart(),
-    );
-
-    const report = biomeLint(["src/plugin-runtime.ts", "src/plugin-runtime-function.ts", "src/plugin-runtime-declared.ts"], cwd);
-
-    expect(pluginMessages(report, "src/plugin-runtime.ts")).toEqual([
-      "Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.",
-    ]);
-    expect(pluginMessages(report, "src/plugin-runtime-function.ts")).toEqual([
-      "Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.",
-    ]);
-    expect(pluginDiagnostics(report, "src/plugin-runtime-declared.ts")).toEqual([]);
   });
 
   it("keeps CSS on design tokens and scoped selectors", async () => {

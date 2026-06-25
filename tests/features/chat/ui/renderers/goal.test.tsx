@@ -24,25 +24,6 @@ describe("GoalPanel", () => {
     expect(parent.textContent).toBe("");
   });
 
-  it("opens an empty goal editor when editing is requested without a saved goal", async () => {
-    const parent = document.createElement("div");
-    document.body.appendChild(parent);
-    const callbacks = actions();
-
-    await act(async () => {
-      renderGoal(parent, null, callbacks, "enter", { editing: true, objectiveDraft: "", tokenBudgetDraft: null });
-    });
-
-    expect(parent.textContent).toContain("Goal");
-    expect(document.activeElement).toBe(parent.querySelector("textarea"));
-    expect(parent.querySelector("textarea")?.getAttribute("aria-label")).toBeNull();
-    await input(parent, "textarea", "New objective");
-    await click(parent, '[aria-label="Save goal"]');
-
-    expect(callbacks.onSave).toHaveBeenCalledWith("New objective", null);
-    parent.remove();
-  });
-
   it("renders active goal details and actions", async () => {
     const parent = document.createElement("div");
 

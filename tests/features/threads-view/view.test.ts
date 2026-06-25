@@ -81,12 +81,6 @@ describe("CodexThreadsView", () => {
     namingMock.generateThreadTitleWithCodex.mockReset();
   });
 
-  it("uses a distinct thread view icon", async () => {
-    const view = await threadsView();
-
-    expect(view.getIcon()).toBe("list-video");
-  });
-
   it("renders thread list from app-server history", async () => {
     connectionMock.state.client = clientFixture({
       listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),

@@ -44,6 +44,8 @@ describe("thread helpers", () => {
     expect(threadRenameDraftTitle(uuidNamed)).toBe("Useful preview");
     expect(threadArchiveTitle(uuidNamed)).toBe("Useful preview");
     expect(threadArchiveDisplayTitle(uuidNamed)).toBe("Useful preview");
+    expect(threadArchiveDisplayTitle(thread({ preview: "A title\nwith   extra\tspace" }))).toBe("A title with extra space");
+    expect(threadArchiveDisplayTitle(thread({ preview: "x".repeat(120) }))).toMatch(/^x{93}\.\.\.$/);
   });
 
   it("builds window titles from loaded threads, restored titles, then short ids", () => {

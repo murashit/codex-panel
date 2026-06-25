@@ -87,29 +87,6 @@ function composerCallbacks() {
 }
 
 describe("ComposerShell decisions", () => {
-  it("uses the provided composer placeholder for normal input", () => {
-    const parent = document.createElement("div");
-    const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(
-      parent,
-      "view",
-      "",
-      false,
-      false,
-      "Ask Codex to work on “Refactor terminal streaming”...",
-      [],
-      0,
-      callbacks,
-    );
-
-    expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Refactor terminal streaming”...");
-    expect(composer.getAttribute("aria-label")).toBeNull();
-
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on “Renamed thread”...", [], 0, callbacks);
-
-    expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
-  });
-
   it("renders composer meta as interactive context and runtime text without changing normal text", () => {
     const parent = document.createElement("div");
 

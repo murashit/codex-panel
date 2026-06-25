@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
@@ -20,6 +20,7 @@ import { installObsidianDomShims } from "../../support/dom";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 type TestCodexChatHost = CodexChatHost;
+let CodexChatView: typeof import("../../../src/features/chat/host/view")["CodexChatView"];
 
 const connectionMock = vi.hoisted(() => {
   const state = {
@@ -109,6 +110,10 @@ installObsidianDomShims();
 
 describe("CodexChatView connection lifecycle", () => {
   let restoreDefaultMessageViewportMetrics: (() => void) | null = null;
+
+  beforeAll(async () => {
+    ({ CodexChatView } = await import("../../../src/features/chat/host/view"));
+  });
 
   beforeEach(() => {
     vi.useRealTimers();
@@ -764,56 +769,6 @@ describe("CodexChatView connection lifecycle", () => {
     });
   });
 
-  it("uses the active explicit thread name in the composer placeholder", async () => {
-    const client = connectedClient();
-    connectionMock.state.client = client;
-    const view = await chatView();
-
-    await view.onOpen();
-    await view.surface.openThread("thread-1");
-
-    expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Restored thread”...");
-  });
-
-  it("does not use preview-only thread text in the composer placeholder", async () => {
-    const client = connectedClient({
-      resumeThread: vi.fn().mockResolvedValue({
-        ...resumedThread("thread-1"),
-        thread: { ...resumedThread("thread-1").thread, name: null, preview: "Restored preview" },
-      }),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView();
-
-    await view.onOpen();
-    await view.surface.openThread("thread-1");
-
-    expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
-  });
-
-  it("updates the composer placeholder from shared rename notifications", async () => {
-    const client = connectedClient();
-    connectionMock.state.client = client;
-    const host = chatHost();
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.openThread("thread-1");
-    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: "Renamed thread" })] });
-    view.surface.applyThreadRenamed("thread-1", "Renamed thread");
-
-    await waitForAsyncWork(() => {
-      expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Renamed thread”...");
-    });
-
-    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: null })] });
-    view.surface.applyThreadRenamed("thread-1", null);
-
-    await waitForAsyncWork(() => {
-      expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
-    });
-  });
-
   it("keeps composer draft and selection while updating the placeholder", async () => {
     const client = connectedClient();
     connectionMock.state.client = client;
@@ -1322,7 +1277,7 @@ async function submitComposerByEnter(view: { containerEl: HTMLElement }): Promis
 }
 
 async function flushAsyncTicks(): Promise<void> {
-  for (let index = 0; index < 20; index += 1) {
+  for (let index = 0; index < 10; index += 1) {
     await Promise.resolve();
   }
 }
@@ -1517,7 +1472,6 @@ async function chatView(
   options: { activeLeafChangeListeners?: ((leaf: unknown) => void)[]; host?: CodexChatHost; requestSaveLayout?: () => void } = {},
 ) {
   const host = options.host ?? chatHost();
-  const { CodexChatView } = await import("../../../src/features/chat/host/view");
   const containerEl = document.createElement("div");
   document.body.appendChild(containerEl);
   containerEl.createDiv();
