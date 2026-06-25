@@ -52,14 +52,14 @@ export interface PendingUserInputQuestionViewModel {
   defaultAnswer: string;
   draftKey: string;
   otherDraftKey: string;
-  options: PendingUserInputOptionViewModel[] | null;
+  options: readonly PendingUserInputOptionViewModel[] | null;
 }
 
 export interface PendingUserInputViewModel {
   requestId: PendingRequestId;
   title: string;
   body: string;
-  questions: PendingUserInputQuestionViewModel[];
+  questions: readonly PendingUserInputQuestionViewModel[];
 }
 
 interface PendingMcpElicitationOptionViewModel {

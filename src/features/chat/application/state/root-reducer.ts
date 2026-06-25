@@ -118,17 +118,19 @@ interface ChatComposerState {
   readonly suggestionsDismissedSignature: string | null;
 }
 
-export interface ChatState {
-  readonly connection: ChatConnectionState;
-  readonly threadList: ChatThreadListState;
-  readonly activeThread: ChatActiveThreadState;
-  readonly runtime: ChatRuntimeState;
-  readonly turn: ChatTurnState;
-  readonly messageStream: ChatMessageStreamState;
-  readonly requests: ChatRequestState;
-  readonly composer: ChatComposerState;
-  readonly ui: ChatUiState;
+interface ChatStateData {
+  connection: ChatConnectionState;
+  threadList: ChatThreadListState;
+  activeThread: ChatActiveThreadState;
+  runtime: ChatRuntimeState;
+  turn: ChatTurnState;
+  messageStream: ChatMessageStreamState;
+  requests: ChatRequestState;
+  composer: ChatComposerState;
+  ui: ChatUiState;
 }
+
+export type ChatState = DeepReadonly<ChatStateData>;
 
 type ConnectionAction =
   | { type: "connection/status-set"; statusText: string; phase?: ChatConnectionPhase }
@@ -691,3 +693,15 @@ function composerSuggestionsEqual(left: readonly ComposerSuggestion[], right: re
 function patchChatState(state: ChatState, patch: Partial<ChatState>): ChatState {
   return patchObject(state, patch);
 }
+
+type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends ReadonlyMap<infer Key, infer Value>
+    ? ReadonlyMap<DeepReadonly<Key>, DeepReadonly<Value>>
+    : T extends ReadonlySet<infer Value>
+      ? ReadonlySet<DeepReadonly<Value>>
+      : T extends readonly (infer Value)[]
+        ? readonly DeepReadonly<Value>[]
+        : T extends object
+          ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+          : T;

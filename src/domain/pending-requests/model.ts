@@ -54,14 +54,14 @@ export interface PendingUserInputQuestion {
   question: string;
   isOther: boolean;
   isSecret: boolean;
-  options: PendingUserInputOption[] | null;
+  options: readonly PendingUserInputOption[] | null;
 }
 
 interface PendingUserInputParams {
   threadId: string;
   turnId: string;
   itemId: string;
-  questions: PendingUserInputQuestion[];
+  questions: readonly PendingUserInputQuestion[];
   autoResolutionMs: number | null;
 }
 

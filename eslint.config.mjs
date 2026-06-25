@@ -5,11 +5,7 @@ import tseslint from "typescript-eslint";
 
 const sourceTypeScriptFiles = ["src/**/*.{ts,tsx}"];
 const strictTypeCheckedTypeScriptRules = Object.assign({}, ...tseslint.configs.strictTypeChecked.map((config) => config.rules ?? {}));
-const codexPanelRuleIds = {
-  chatStateDirectMutation: "codex-panel/no-chat-state-direct-mutation",
-  imperativeDom: "codex-panel/no-imperative-dom",
-};
-// These local rules need TypeScript type information. Keep them validated by
+// This local rule needs TypeScript type information. Keep it validated by
 // eslint over real source files instead of synthetic Vitest fixtures, which
 // would start the TypeScript project service during the test suite.
 const chatExternalDomBridgeFiles = [
@@ -153,28 +149,14 @@ export default defineConfig([
     files: sourceTypeScriptFiles,
     ignores: ["src/features/chat/**/*.{ts,tsx}", ...nonChatImperativeDomBridgeFiles],
     rules: {
-      [codexPanelRuleIds.imperativeDom]: "error",
+      "codex-panel/no-imperative-dom": "error",
     },
   },
   {
     files: ["src/features/chat/**/*.{ts,tsx}"],
-    ignores: ["src/features/chat/panel/shell-state.tsx", ...chatImperativeDomBridgeFiles],
+    ignores: chatImperativeDomBridgeFiles,
     rules: {
-      [codexPanelRuleIds.imperativeDom]: "error",
-      [codexPanelRuleIds.chatStateDirectMutation]: "error",
-    },
-  },
-  {
-    files: ["src/features/chat/panel/shell-state.tsx"],
-    rules: {
-      [codexPanelRuleIds.imperativeDom]: "error",
-      [codexPanelRuleIds.chatStateDirectMutation]: "error",
-    },
-  },
-  {
-    files: chatImperativeDomBridgeFiles,
-    rules: {
-      [codexPanelRuleIds.chatStateDirectMutation]: "error",
+      "codex-panel/no-imperative-dom": "error",
     },
   },
 ]);
@@ -194,78 +176,7 @@ function obsidianRecommendedConfig(config) {
 function codexPanelEslintPlugin() {
   return {
     rules: {
-      [localRuleName(codexPanelRuleIds.chatStateDirectMutation)]: chatStateDirectMutationRule(),
-      [localRuleName(codexPanelRuleIds.imperativeDom)]: imperativeDomRule(),
-    },
-  };
-}
-
-function localRuleName(ruleId) {
-  return ruleId.replace("codex-panel/", "");
-}
-
-function chatStateDirectMutationRule() {
-  return {
-    meta: {
-      type: "problem",
-      docs: {
-        description: "Disallow direct ChatState mutation in chat modules.",
-      },
-      messages: {
-        assign: "Route ChatState updates through ChatStateStore.dispatch().",
-        mutateCollection: "Clone ChatState collections and update them through ChatStateStore.dispatch().",
-      },
-      schema: [],
-    },
-    create(context) {
-      const typed = typedContext(context);
-      const mutatingCollectionMethods = new Set(["add", "clear", "delete", "push", "set"]);
-      const chatStateAliasVariables = new WeakSet();
-      const variableForIdentifier = (node) => {
-        let scope = context.sourceCode.getScope(node);
-        while (scope) {
-          const variable = scope.variables.find((item) => item.name === node.name);
-          if (variable) return variable;
-          scope = scope.upper;
-        }
-        return null;
-      };
-      const markChatStateAlias = (node) => {
-        const variable = variableForIdentifier(node);
-        if (variable) chatStateAliasVariables.add(variable);
-      };
-      const isChatStateAlias = (node) => {
-        if (node?.type !== "Identifier") return false;
-        const variable = variableForIdentifier(node);
-        return Boolean(variable && chatStateAliasVariables.has(variable));
-      };
-      const isChatStateValue = (node) => typeIncludesChatState(typed.typeAt(node), typed.typeChecker());
-      const isChatStateAliasSource = (node) =>
-        (isChatStateTarget(node) || isChatStateValue(node)) && typeCanCarryChatStateMutation(typed.typeAt(node));
-      const isChatStateTarget = (node) => {
-        if (isChatStateAlias(node)) return true;
-        if (!isMemberExpression(node)) return false;
-        if (isChatStateMember(node)) return true;
-        const root = rootMemberObject(node);
-        if (!root) return false;
-        if (isChatStateAlias(root)) return true;
-        return typeIncludesChatState(typed.typeAt(root), typed.typeChecker());
-      };
-      return {
-        VariableDeclarator(node) {
-          if (node.id.type !== "Identifier" || !node.init) return;
-          if (isChatStateAliasSource(node.init)) markChatStateAlias(node.id);
-        },
-        AssignmentExpression(node) {
-          if (isMemberExpression(node.left) && isChatStateTarget(node.left)) context.report({ node: node.left, messageId: "assign" });
-        },
-        CallExpression(node) {
-          if (!isMemberExpression(node.callee)) return;
-          const method = staticPropertyName(node.callee.property);
-          if (!method || !mutatingCollectionMethods.has(method)) return;
-          if (isChatStateTarget(node.callee.object)) context.report({ node: node.callee, messageId: "mutateCollection" });
-        },
-      };
+      "no-imperative-dom": imperativeDomRule(),
     },
   };
 }
@@ -336,35 +247,8 @@ function typedContext(context) {
   };
 }
 
-function isChatStateMember(node) {
-  if (!isMemberExpression(node)) return false;
-
-  let current = node;
-  while (isMemberExpression(current)) {
-    if (isIdentifier(current.object, "state")) return true;
-    if (isThisStateMember(current.object)) return true;
-    current = current.object;
-  }
-  return false;
-}
-
-function isThisStateMember(node) {
-  return isMemberExpression(node) && node.object?.type === "ThisExpression" && staticPropertyName(node.property) === "state";
-}
-
-function rootMemberObject(node) {
-  if (!isMemberExpression(node)) return null;
-  let current = node;
-  while (isMemberExpression(current)) current = current.object;
-  return current;
-}
-
 function isMemberExpression(node) {
   return node?.type === "MemberExpression";
-}
-
-function isIdentifier(node, name) {
-  return node?.type === "Identifier" && node.name === name;
 }
 
 function staticPropertyName(node) {
@@ -399,49 +283,6 @@ function typeIncludesDom(type, checker, seen = new Set()) {
   return bases.some((base) => typeIncludesDom(base, checker, seen));
 }
 
-function typeIncludesChatState(type, checker, seen = new Set()) {
-  if (!type || seen.has(type.id)) return false;
-  seen.add(type.id);
-
-  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never)) return false;
-  if (type.isUnionOrIntersection()) return type.types.some((item) => typeIncludesChatState(item, checker, seen));
-
-  const typeName = checker.typeToString(type);
-  if (chatStateTypeName(typeName)) return true;
-
-  const symbolName = type.getSymbol()?.getName() ?? type.aliasSymbol?.getName() ?? "";
-  if (chatStateTypeName(symbolName)) return true;
-
-  const apparent = checker.getApparentType(type);
-  if (apparent !== type && typeIncludesChatState(apparent, checker, seen)) return true;
-
-  const bases = typeof type.getBaseTypes === "function" ? (type.getBaseTypes() ?? []) : [];
-  return bases.some((base) => typeIncludesChatState(base, checker, seen));
-}
-
-function typeCanCarryChatStateMutation(type, seen = new Set()) {
-  if (!type || seen.has(type.id)) return false;
-  seen.add(type.id);
-
-  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never)) return false;
-  if (type.isUnionOrIntersection()) return type.types.some((item) => typeCanCarryChatStateMutation(item, seen));
-
-  const primitiveLikeFlags =
-    ts.TypeFlags.StringLike |
-    ts.TypeFlags.NumberLike |
-    ts.TypeFlags.BooleanLike |
-    ts.TypeFlags.BigIntLike |
-    ts.TypeFlags.ESSymbolLike |
-    ts.TypeFlags.Null |
-    ts.TypeFlags.Undefined |
-    ts.TypeFlags.Void;
-  return (type.flags & primitiveLikeFlags) === 0;
-}
-
 function domTypeName(name) {
   return /\b(?:Document|Element|HTML[A-Za-z]*Element|HTMLElement|Node|SVG[A-Za-z]*Element|SVGElement|Window)\b/.test(name);
-}
-
-function chatStateTypeName(name) {
-  return /\bChatState\b/.test(name);
 }
