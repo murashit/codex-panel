@@ -10,11 +10,11 @@ npm run format
 npm run check
 ```
 
-Use this as the normal edit loop. `npm run format` applies Biome formatting and import organization; `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, CSS checks, and the production bundle.
+Use this as the normal edit loop. `npm run format` applies Biome formatting and import organization without lint fixes; `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, CSS checks, and the production bundle.
 
 Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run build`, or the targeted `npm run check:*` scripts. CI and release preflight run the same `npm run check` command as local development.
 
-Biome owns formatting, import organization, general JavaScript/TypeScript/JSON/CSS linting, GritQL source-shape plugins, GritQL import-boundary restrictions, imperative-DOM bridge naming, and GritQL CSS source policy. Biome warnings fail `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. The CSS usage script still checks dead authored classes. TypeScript owns strict type checking, unused locals and parameters, implicit return coverage, switch fallthrough prevention, and deep-readonly `ChatState` snapshots. ESLint remains for typed strict TypeScript rules that are not compiler options and Obsidian plugin policy. The typed strict preset is used with `@typescript-eslint/require-await` disabled because Obsidian and panel-owned async-shaped boundaries sometimes return already-complete work.
+Biome owns formatting, import organization, general JavaScript/TypeScript/JSON/CSS linting, Preact-compatible React domain rules, GritQL source-shape plugins, GritQL import-boundary restrictions, imperative-DOM bridge naming, and GritQL CSS source policy. Biome warnings fail `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. The CSS usage script still checks dead authored classes. TypeScript provides compiler-backed checks such as strict type checking, unused locals and parameters, implicit return coverage, switch fallthrough prevention, and deep-readonly `ChatState` snapshots. ESLint runs the TypeScript ESLint strict type-checked preset over source files, plus Obsidian plugin policy for `manifest.json` and `LICENSE`. Tests are covered by TypeScript, Vitest, and Biome rather than typed ESLint so local preflight stays responsive. Some checks intentionally overlap between Biome, TypeScript, and ESLint so the configuration stays simple.
 
 ## Generated and Loaded Files
 

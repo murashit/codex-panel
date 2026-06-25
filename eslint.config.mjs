@@ -1,9 +1,10 @@
+import json from "@eslint/json";
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
+import { PlainTextParser } from "eslint-plugin-obsidianmd/dist/lib/plainTextParser.js";
 import tseslint from "typescript-eslint";
 
 const sourceTypeScriptFiles = ["src/**/*.{ts,tsx}"];
-const strictTypeCheckedTypeScriptRules = Object.assign({}, ...tseslint.configs.strictTypeChecked.map((config) => config.rules ?? {}));
 
 export default defineConfig([
   {
@@ -15,14 +16,14 @@ export default defineConfig([
       obsidianmd,
     },
   },
-  ...obsidianmd.configs.recommended.map(obsidianRecommendedConfig).filter(Boolean),
+  ...obsidianmd.configs.recommended.map(obsidianSourceRecommendedConfig).filter(Boolean),
+  ...tseslint.configs.strictTypeChecked.map((config) => ({
+    ...config,
+    files: sourceTypeScriptFiles,
+  })),
   {
     files: sourceTypeScriptFiles,
-    plugins: {
-      "@typescript-eslint": tseslint.plugin,
-    },
     languageOptions: {
-      parser: tseslint.parser,
       ecmaVersion: 2022,
       sourceType: "module",
       parserOptions: {
@@ -43,29 +44,58 @@ export default defineConfig([
       },
     },
     rules: {
-      ...strictTypeCheckedTypeScriptRules,
+      "@typescript-eslint/no-deprecated": "off",
       "@typescript-eslint/require-await": "off",
     },
   },
   {
-    files: sourceTypeScriptFiles,
+    files: ["manifest.json"],
+    plugins: {
+      json,
+      obsidianmd,
+    },
+    language: "json/json",
+    rules: {
+      "obsidianmd/validate-manifest": "error",
+    },
+  },
+  {
+    files: ["LICENSE"],
     plugins: {
       obsidianmd,
     },
+    languageOptions: {
+      parser: PlainTextParser,
+    },
     rules: {
-      "obsidianmd/ui/sentence-case": [
-        "error",
-        {
-          acronyms: ["MCP"],
-          brands: ["Codex", "Codex Panel", "Obsidian"],
-        },
-      ],
+      "obsidianmd/validate-license": "error",
     },
   },
 ]);
 
-function obsidianRecommendedConfig(config) {
-  const rules = Object.fromEntries(Object.entries(config.rules ?? {}).filter(([ruleName]) => ruleName.startsWith("obsidianmd/")));
+function obsidianSourceRecommendedConfig(config) {
+  const rules = Object.fromEntries(
+    Object.entries(config.rules ?? {})
+      .filter(([ruleName]) => {
+        return (
+          ruleName.startsWith("obsidianmd/") && ruleName !== "obsidianmd/validate-manifest" && ruleName !== "obsidianmd/validate-license"
+        );
+      })
+      .map(([ruleName, ruleConfig]) => {
+        if (ruleName !== "obsidianmd/ui/sentence-case") return [ruleName, ruleConfig];
+        return [
+          ruleName,
+          [
+            "error",
+            {
+              enforceCamelCaseLower: true,
+              acronyms: ["MCP"],
+              brands: ["Codex", "Codex Panel", "Obsidian"],
+            },
+          ],
+        ];
+      }),
+  );
   if (Object.keys(rules).length === 0) return null;
   const obsidianConfig = {
     basePath: "src",

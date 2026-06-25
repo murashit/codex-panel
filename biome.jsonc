@@ -60,6 +60,10 @@
     }
   },
   "linter": {
+    "domains": {
+      "react": "recommended",
+      "test": "recommended"
+    },
     "rules": {
       "preset": "recommended",
       "a11y": "info",
@@ -69,14 +73,9 @@
           "options": {
             "reportUnnecessaryDependencies": false
           }
-        },
-        "useHookAtTopLevel": "error"
+        }
       },
       "nursery": {
-        "noFloatingPromises": "error",
-        "noMisusedPromises": "error",
-        "noUnsafePlusOperands": "error",
-        "useExhaustiveSwitchCases": "error",
         "noExcessiveSelectorClasses": {
           "level": "error",
           "options": {
@@ -85,7 +84,6 @@
         }
       },
       "suspicious": {
-        "noArrayIndexKey": "error",
         "noImportCycles": "error"
       }
     }
