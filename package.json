@@ -24,7 +24,7 @@
     "check:test": "node --run test",
     "check:typecheck": "node --run typecheck",
     "check:unused": "knip --no-progress",
-    "format": "biome check --write --linter-enabled=false",
+    "fix": "biome check --fix --diagnostic-level=warn --error-on-warnings",
     "generate:app-server-types": "node scripts/generate-app-server-types.mjs",
     "release:check": "node scripts/release/check.mjs",
     "release:preflight": "node scripts/release/preflight.mjs",

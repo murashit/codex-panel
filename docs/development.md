@@ -6,11 +6,11 @@ Use this document for day-to-day implementation mechanics: commands, generated f
 
 ```sh
 npm ci
-npm run format
+npm run fix
 npm run check
 ```
 
-Use this as the normal edit loop. `npm run format` applies Biome formatting and import organization without lint fixes; `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, CSS checks, and the production bundle.
+Use this as the normal edit loop. `npm run fix` applies Biome formatting, import organization, and safe lint fixes; `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, CSS checks, and the production bundle.
 
 Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run build`, or the targeted `npm run check:*` scripts. CI and release preflight run the same `npm run check` command as local development.
 

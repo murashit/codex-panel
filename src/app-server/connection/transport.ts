@@ -1,5 +1,5 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "child_process";
-import * as readline from "readline";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import * as readline from "node:readline";
 
 import type { RpcOutboundMessage } from "./rpc-messages";
 

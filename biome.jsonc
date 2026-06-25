@@ -67,6 +67,9 @@
     "rules": {
       "preset": "recommended",
       "a11y": "info",
+      "complexity": {
+        "useLiteralKeys": "off"
+      },
       "correctness": {
         "useExhaustiveDependencies": {
           "level": "error",
