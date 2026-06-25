@@ -1,14 +1,7 @@
 language js
 
-or {
-  `const $name = new $constructor($callback)` as $stmt where {
-    $callback <: `() => $body`,
-    $body <: contains `$name`,
-    register_diagnostic(span=$stmt, message="Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.", severity="error")
-  },
-  `const $name = new $constructor($callback)` as $stmt where {
-    $callback <: `function() { $body }`,
-    $body <: contains `$name`,
-    register_diagnostic(span=$stmt, message="Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.", severity="error")
-  }
+`const $name = new $constructor($callback)` as $stmt where {
+  or { $callback <: `() => $body`, $callback <: `function() { $body }` },
+  $body <: contains `$name`,
+  register_diagnostic(span=$stmt, message="Avoid referencing a variable from a callback inside its own initializer; declare it first with an explicit type.", severity="error")
 }

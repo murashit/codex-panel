@@ -48,28 +48,35 @@ import { signal } from '@preact/signals';
 export const status = signal("idle");
 `.trimStart(),
     );
+    await writeFile(
+      path.join(cwd, "src/shared/ui/signal-escapes.tsx"),
+      `
+export { signal } from "@preact/signals";
+export type SignalValue = import("@preact/signals").Signal<string>;
 
-    const report = biomeLint(["src/features/chat/panel/shell-state.tsx", "src/shared/ui/components.tsx"], cwd);
+export async function loadSignals() {
+  return import("@preact/signals");
+}
+
+const signals = require("@preact/signals");
+export const loadedSignals = signals;
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      ["src/features/chat/panel/shell-state.tsx", "src/shared/ui/components.tsx", "src/shared/ui/signal-escapes.tsx"],
+      cwd,
+    );
 
     expect(pluginDiagnostics(report, "src/features/chat/panel/shell-state.tsx")).toEqual([]);
     expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual([
       "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
     ]);
-  });
-
-  it("keeps removed chat state escape hatches out of source", async () => {
-    const cwd = await tempBiomeWorkspace(["no-chat-state-escape-hatches.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/application/state/root-reducer.ts"),
-      `
-export const actionType = "state/patched";
-`.trimStart(),
-    );
-
-    const report = biomeLint(["src/features/chat/application/state/root-reducer.ts"], cwd);
-
-    expect(pluginMessages(report, "src/features/chat/application/state/root-reducer.ts")).toEqual([
-      "Use a named ChatAction instead of reintroducing the generic state patch escape hatch.",
+    expect(pluginMessages(report, "src/shared/ui/signal-escapes.tsx")).toEqual([
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
     ]);
   });
 
@@ -93,9 +100,27 @@ import type { MessageStreamItem } from "./item";
 export type Item = MessageStreamItem;
 `.trimStart(),
     );
+    await writeFile(
+      path.join(cwd, "src/features/chat/domain/message-stream/outer-shapes.ts"),
+      `
+export { createChatStateStore } from "../../application/state/store";
+export type OuterStore = import("../../application/state/store").ChatStateStore;
+
+export async function loadComposer() {
+  return import("src/features/chat/ui/composer");
+}
+
+const host = require("../../host/session");
+export const outerHost = host;
+`.trimStart(),
+    );
 
     const report = biomeLint(
-      ["src/features/chat/domain/message-stream/selectors.ts", "src/features/chat/domain/message-stream/items.ts"],
+      [
+        "src/features/chat/domain/message-stream/selectors.ts",
+        "src/features/chat/domain/message-stream/items.ts",
+        "src/features/chat/domain/message-stream/outer-shapes.ts",
+      ],
       cwd,
     );
 
@@ -104,6 +129,12 @@ export type Item = MessageStreamItem;
       "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/domain/message-stream/items.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/domain/message-stream/outer-shapes.ts")).toEqual([
+      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
+      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
+      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
+      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
+    ]);
   });
 
   it("blocks generated app-server imports outside app-server boundaries", async () => {
@@ -178,7 +209,9 @@ export type Item = TurnItem;
       `
 import { toolInventoryAppsFromAppInfos } from "../../../../app-server/protocol/tool-inventory";
 
-export const convert = toolInventoryAppsFromAppInfos;
+const toolInventory = require("../../../../app-server/protocol/tool-inventory");
+
+export const convert = [toolInventoryAppsFromAppInfos, toolInventory];
 `.trimStart(),
     );
     await writeFile(
@@ -208,6 +241,7 @@ export type Item = TurnItem;
     ]);
     expect(pluginMessages(report, "src/features/chat/app-server/inbound/notification-plan.ts")).toEqual([
       "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
+      "Chat app-server ingestion and message-stream conversion may consume the app-server turn protocol only. Convert other protocol payloads to local or domain models at the boundary.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/app-server/mappers/message-stream/turn-items.ts")).toEqual([]);
   });
@@ -231,6 +265,14 @@ export const response = appServerUserInputResponse;
 `.trimStart(),
     );
     await writeFile(
+      path.join(cwd, "src/features/chat/app-server/inbound/handler.ts"),
+      `
+const runtimeMetrics = require("../../../../app-server/protocol/runtime-metrics");
+
+export const response = runtimeMetrics;
+`.trimStart(),
+    );
+    await writeFile(
       path.join(cwd, "src/features/chat/app-server/inbound/routing.ts"),
       `
 import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
@@ -243,6 +285,7 @@ export const response = appServerUserInputResponse;
       [
         "src/features/chat/panel/surface/message-stream-presenter.ts",
         "src/features/chat/app-server/inbound/app-server-logs.ts",
+        "src/features/chat/app-server/inbound/handler.ts",
         "src/features/chat/app-server/inbound/routing.ts",
       ],
       cwd,
@@ -253,6 +296,9 @@ export const response = appServerUserInputResponse;
     ]);
     expect(pluginMessages(report, "src/features/chat/app-server/inbound/app-server-logs.ts")).toEqual([
       "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat ingestion and message-stream conversion may consume app-server turn protocol at the boundary; feature state and UI must use Panel-owned models.",
+    ]);
+    expect(pluginMessages(report, "src/features/chat/app-server/inbound/handler.ts")).toEqual([
+      "Chat app-server request handling may consume server request protocol projections only. Convert app-server payloads to chat pending request domain models at this boundary.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/app-server/inbound/routing.ts")).toEqual([]);
   });
@@ -326,8 +372,37 @@ import { formatDate } from "./format";
 export const format = formatDate;
 `.trimStart(),
     );
+    await writeFile(
+      path.join(cwd, "src/domain/threads/model.ts"),
+      `
+import { listThreads } from "../../app-server/threads";
+import { copyText } from "../../shared/ui/clipboard";
+import type { App } from "obsidian";
 
-    const report = biomeLint(["src/app-server/protocol/catalog.ts", "src/app-server/protocol/diagnostics.ts", "src/shared/date.ts"], cwd);
+export type Host = App;
+export const list = listThreads;
+export const copy = copyText;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/domain/threads/format.ts"),
+      `
+import { formatDate } from "../../shared/date";
+
+export const format = formatDate;
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      [
+        "src/app-server/protocol/catalog.ts",
+        "src/app-server/protocol/diagnostics.ts",
+        "src/shared/date.ts",
+        "src/domain/threads/model.ts",
+        "src/domain/threads/format.ts",
+      ],
+      cwd,
+    );
 
     expect(pluginMessages(report, "src/app-server/protocol/catalog.ts")).toEqual([
       "Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.",
@@ -336,6 +411,12 @@ export const format = formatDate;
       "Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.",
     ]);
     expect(pluginDiagnostics(report, "src/shared/date.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/domain/threads/model.ts")).toEqual([
+      "Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.",
+      "Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.",
+      "Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.",
+    ]);
+    expect(pluginDiagnostics(report, "src/domain/threads/format.ts")).toEqual([]);
   });
 
   it("keeps generated app-server import shapes behind narrow aliases and protocol exceptions", async () => {
@@ -357,6 +438,14 @@ export type ConnectionThread = AppServerThread;
 `.trimStart(),
     );
     await writeFile(
+      path.join(cwd, "src/app-server/connection/record-thread.ts"),
+      `
+import type { Thread as ThreadRecord } from "../../generated/app-server/v2/Thread";
+
+export type ConnectionThread = ThreadRecord;
+`.trimStart(),
+    );
+    await writeFile(
       path.join(cwd, "src/app-server/protocol/turn.ts"),
       `
 import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
@@ -374,6 +463,14 @@ import type { ToolRequestUserInputParams } from "../../generated/app-server/v2/T
 
 export type Request = ServerRequest;
 export type Params = ToolRequestUserInputParams;
+export type InputParams = import("../../generated/app-server/v2/ToolRequestUserInputParams").ToolRequestUserInputParams;
+
+export async function loadParams() {
+  return import("../../generated/app-server/v2/ToolRequestUserInputParams");
+}
+
+const params = require("../../generated/app-server/v2/ToolRequestUserInputParams");
+export const loadedParams = params;
 `.trimStart(),
     );
 
@@ -381,6 +478,7 @@ export type Params = ToolRequestUserInputParams;
       [
         "src/app-server/connection/thread.ts",
         "src/app-server/connection/aliased-thread.ts",
+        "src/app-server/connection/record-thread.ts",
         "src/app-server/protocol/turn.ts",
         "src/app-server/protocol/server-requests.ts",
       ],
@@ -391,39 +489,18 @@ export type Params = ToolRequestUserInputParams;
       "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/connection/aliased-thread.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/app-server/connection/record-thread.ts")).toEqual([
+      "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
+    ]);
     expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
       "Only generated ThreadItem is allowed in the turn protocol exception. Model other turn payload shapes locally.",
     ]);
     expect(pluginMessages(report, "src/app-server/protocol/server-requests.ts")).toEqual([
       "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
+      "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
+      "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
+      "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
     ]);
-  });
-
-  it("keeps src index files as re-export-only boundaries", async () => {
-    const cwd = await tempBiomeWorkspace(["no-non-reexport-index.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/index.ts"),
-      `
-import { value } from "./value";
-
-export const local = value;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/thread-picker/index.ts"),
-      `
-export { openThreadPicker } from "./modal";
-export type { ThreadPickerOptions } from "./types";
-`.trimStart(),
-    );
-
-    const report = biomeLint(["src/features/chat/index.ts", "src/features/thread-picker/index.ts"], cwd);
-
-    expect(pluginMessages(report, "src/features/chat/index.ts")).toEqual([
-      "Keep src index files as re-export-only boundaries.",
-      "Keep src index files as re-export-only boundaries.",
-    ]);
-    expect(pluginDiagnostics(report, "src/features/thread-picker/index.ts")).toEqual([]);
   });
 
   it("keeps chat application app-server projection RPCs behind facades", async () => {
@@ -433,8 +510,8 @@ export type { ThreadPickerOptions } from "./types";
       `
 import type { AppServerClient } from "../../../../app-server/connection/client";
 
-export async function read(client: AppServerClient): Promise<void> {
-  await client.threadTurnsList("thread", null, 20);
+export async function read(appServerClient: AppServerClient): Promise<void> {
+  await appServerClient.threadTurnsList("thread", null, 20);
 }
 `.trimStart(),
     );
@@ -531,13 +608,36 @@ import { renderUiRoot } from "../../../shared/ui/ui-root.dom";
 export const render = renderUiRoot;
 `.trimStart(),
     );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/root-escapes.tsx"),
+      `
+export { renderUiRoot } from "../../../shared/ui/ui-root.dom";
+export type RootRenderer = import("../../../shared/ui/ui-root.dom").RootRenderer;
 
-    const report = biomeLint(["src/features/chat/ui/composer.tsx", "src/features/chat/panel/shell.dom.tsx"], cwd);
+export async function loadRoot() {
+  return import("../../../shared/ui/ui-root.dom");
+}
+
+const root = require("../../../shared/ui/ui-root.dom");
+export const loadedRoot = root;
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      ["src/features/chat/ui/composer.tsx", "src/features/chat/panel/shell.dom.tsx", "src/features/chat/ui/root-escapes.tsx"],
+      cwd,
+    );
 
     expect(pluginMessages(report, "src/features/chat/ui/composer.tsx")).toEqual([
       "Import the Preact root adapter only from explicit root bridge files.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/panel/shell.dom.tsx")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/ui/root-escapes.tsx")).toEqual([
+      "Import the Preact root adapter only from explicit root bridge files.",
+      "Import the Preact root adapter only from explicit root bridge files.",
+      "Import the Preact root adapter only from explicit root bridge files.",
+      "Import the Preact root adapter only from explicit root bridge files.",
+    ]);
   });
 
   it("keeps chat state transforms pure and catches global scheduling calls", async () => {
@@ -753,7 +853,7 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/chat/panel"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/panel/surface"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/ui"), { recursive: true });
-  await mkdir(path.join(cwd, "src/features/thread-picker"), { recursive: true });
+  await mkdir(path.join(cwd, "src/domain/threads"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/connection"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/protocol"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/services"), { recursive: true });

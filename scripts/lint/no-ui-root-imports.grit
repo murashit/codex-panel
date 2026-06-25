@@ -1,10 +1,26 @@
 language js
 
-JsImport() as $stmt where {
-  $filename <: r".*/src/.*",
-  $stmt <: contains `$source` where { $source <: r"^[\"'].*shared/ui/ui-root\.dom[\"']$" },
-  not { $filename <: r".*\.dom\.tsx?$" },
-  not { $filename <: r".*\.obsidian\.tsx?$" },
-  not { $filename <: r".*\.measure\.tsx?$" },
-  register_diagnostic(span=$stmt, message="Import the Preact root adapter only from explicit root bridge files.", severity="error")
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsExportNamedFromClause(),
+    JsExportFromClause(),
+    TsImportType(),
+    JsImportCallExpression()
+  }
+}
+
+or {
+  js_module_reference() as $stmt where {
+    $filename <: r".*/src/.*",
+    $stmt <: contains `$source` where { $source <: r"^[\"'].*shared/ui/ui-root\.dom[\"']$" },
+    not { $filename <: r".*\.(?:dom|obsidian|measure)\.tsx?$" },
+    register_diagnostic(span=$stmt, message="Import the Preact root adapter only from explicit root bridge files.", severity="error")
+  },
+  `require($source)` as $stmt where {
+    $filename <: r".*/src/.*",
+    $source <: r"^[\"'].*shared/ui/ui-root\.dom[\"']$",
+    not { $filename <: r".*\.(?:dom|obsidian|measure)\.tsx?$" },
+    register_diagnostic(span=$stmt, message="Import the Preact root adapter only from explicit root bridge files.", severity="error")
+  }
 }

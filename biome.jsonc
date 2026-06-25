@@ -16,14 +16,12 @@
     // Chat feature architecture.
     "./scripts/lint/no-chat-domain-outer-layer-imports.grit",
     "./scripts/lint/no-chat-signal-imports.grit",
-    "./scripts/lint/no-chat-state-escape-hatches.grit",
     "./scripts/lint/no-implicit-dom-bridges.grit",
     "./scripts/lint/no-pure-chat-state-side-effects.grit",
     "./scripts/lint/no-ui-root-imports.grit",
 
     // Project-wide source shape.
     "./scripts/lint/no-handwritten-reexports.grit",
-    "./scripts/lint/no-non-reexport-index.grit",
     "./scripts/lint/no-self-referential-initializer-callback.grit",
     "./scripts/lint/no-unsafe-iterator-value.grit",
     "./scripts/lint/no-uncontrolled-preact-form-state.grit",

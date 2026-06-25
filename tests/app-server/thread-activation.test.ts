@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { threadActivationSnapshotFromAppServerResponse } from "../../src/app-server/threads";
-import type { Thread as ThreadRecord } from "../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
 import type { ThreadResumeResponse } from "../../src/generated/app-server/v2/ThreadResumeResponse";
 
 describe("app-server thread activation", () => {
@@ -21,7 +21,7 @@ describe("app-server thread activation", () => {
   });
 });
 
-function responseFixture(thread: ThreadRecord): ThreadResumeResponse {
+function responseFixture(thread: AppServerThread): ThreadResumeResponse {
   return {
     thread,
     model: "gpt-5.5",
@@ -40,7 +40,7 @@ function responseFixture(thread: ThreadRecord): ThreadResumeResponse {
   };
 }
 
-function threadFixture(id: string, name: string): ThreadRecord {
+function threadFixture(id: string, name: string): AppServerThread {
   return {
     id,
     sessionId: "session",

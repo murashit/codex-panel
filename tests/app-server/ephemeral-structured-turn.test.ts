@@ -17,7 +17,7 @@ import type { RequestId } from "../../src/generated/app-server/RequestId";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
 import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelListResponse";
-import type { Thread as ThreadRecord } from "../../src/generated/app-server/v2/Thread";
+import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
 import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
 import type { TurnStartResponse } from "../../src/generated/app-server/v2/TurnStartResponse";
 
@@ -331,7 +331,7 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
   };
 }
 
-function thread(id: string): ThreadRecord {
+function thread(id: string): AppServerThread {
   return {
     id,
     sessionId: "session",

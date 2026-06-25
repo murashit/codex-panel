@@ -1,7 +1,24 @@
 language js
 
-JsImport() as $stmt where {
-  $stmt <: contains `$source` where { $source <: r"^[\"']@preact/signals[\"']$" },
-  not { $filename <: r".*/src/features/chat/panel/shell-state\.tsx$" },
-  register_diagnostic(span=$stmt, message="Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.", severity="error")
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsExportNamedFromClause(),
+    JsExportFromClause(),
+    TsImportType(),
+    JsImportCallExpression()
+  }
+}
+
+or {
+  js_module_reference() as $stmt where {
+    $stmt <: contains `$source` where { $source <: r"^[\"']@preact/signals[\"']$" },
+    not { $filename <: r".*/src/features/chat/panel/shell-state\.tsx$" },
+    register_diagnostic(span=$stmt, message="Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.", severity="error")
+  },
+  `require($source)` as $stmt where {
+    $source <: r"^[\"']@preact/signals[\"']$",
+    not { $filename <: r".*/src/features/chat/panel/shell-state\.tsx$" },
+    register_diagnostic(span=$stmt, message="Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.", severity="error")
+  }
 }
