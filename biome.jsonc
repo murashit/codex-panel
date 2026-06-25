@@ -17,28 +17,10 @@
     },
     {
       "path": "./scripts/lint/no-generated-app-server-boundary-imports.grit",
-      "includes": [
-        "**/src/**/*.ts",
-        "**/src/**/*.tsx",
-        "!**/src/app-server/connection/**",
-        "!**/src/app-server/protocol/turn.ts",
-        "!**/src/app-server/protocol/server-requests.ts"
-      ]
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/connection/**"]
     },
 
     // Shared source layering boundaries.
-    {
-      "path": "./scripts/lint/no-generated-app-server-thread-alias-imports.grit",
-      "includes": ["**/src/app-server/connection/**/*.ts", "**/src/app-server/connection/**/*.tsx"]
-    },
-    {
-      "path": "./scripts/lint/no-generated-app-server-turn-protocol-imports.grit",
-      "includes": ["**/src/app-server/protocol/turn.ts"]
-    },
-    {
-      "path": "./scripts/lint/no-generated-app-server-server-request-imports.grit",
-      "includes": ["**/src/app-server/protocol/server-requests.ts"]
-    },
     {
       "path": "./scripts/lint/no-lower-level-boundary-imports.grit",
       "includes": [

@@ -399,8 +399,10 @@ export type TurnItem = GeneratedTurnItem;
       path.join(cwd, "src/app-server/protocol/server-requests.ts"),
       `
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
+import type { ToolRequestUserInputParams } from "../../generated/app-server/v2/ToolRequestUserInputParams";
 
 export type Request = ServerRequest;
+export type Params = ToolRequestUserInputParams;
 `.trimStart(),
     );
 
@@ -432,8 +434,12 @@ export type Request = ServerRequest;
     expect(pluginMessages(report, "src/app-server/services/runtime-overrides.ts")).toEqual([
       "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
-    expect(pluginDiagnostics(report, "src/app-server/protocol/turn.ts")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/app-server/protocol/server-requests.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
+    ]);
+    expect(pluginMessages(report, "src/app-server/protocol/server-requests.ts")).toEqual([
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
+    ]);
   });
 
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
@@ -597,122 +603,6 @@ export const format = formatDate;
       "Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.",
     ]);
     expect(pluginDiagnostics(report, "src/domain/threads/format.ts")).toEqual([]);
-  });
-
-  it("keeps generated app-server Thread imports behind the app-server alias", async () => {
-    const cwd = await tempBiomeWorkspace(["no-generated-app-server-thread-alias-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/app-server/connection/thread.ts"),
-      `
-import type { Thread } from "../../generated/app-server/v2/Thread";
-
-export type ConnectionThread = Thread;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/connection/aliased-thread.ts"),
-      `
-import type { Thread as AppServerThread } from "../../generated/app-server/v2/Thread";
-
-export type ConnectionThread = AppServerThread;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/connection/record-thread.ts"),
-      `
-import type { Thread as ThreadRecord } from "../../generated/app-server/v2/Thread";
-
-export type ConnectionThread = ThreadRecord;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/connection/import-type-thread.ts"),
-      `
-export type ConnectionThread = import("../../generated/app-server/v2/Thread").Thread;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/connection/export-thread.ts"),
-      `
-export type { Thread } from "../../generated/app-server/v2/Thread";
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      [
-        "src/app-server/connection/thread.ts",
-        "src/app-server/connection/aliased-thread.ts",
-        "src/app-server/connection/record-thread.ts",
-        "src/app-server/connection/import-type-thread.ts",
-        "src/app-server/connection/export-thread.ts",
-      ],
-      cwd,
-    );
-
-    expect(pluginMessages(report, "src/app-server/connection/thread.ts")).toEqual([
-      "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
-    ]);
-    expect(pluginDiagnostics(report, "src/app-server/connection/aliased-thread.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/app-server/connection/record-thread.ts")).toEqual([
-      "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
-    ]);
-    expect(pluginMessages(report, "src/app-server/connection/import-type-thread.ts")).toEqual([
-      "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
-    ]);
-    expect(pluginMessages(report, "src/app-server/connection/export-thread.ts")).toEqual([
-      "Import generated app-server Thread as AppServerThread, or use the Panel-owned domain Thread model.",
-    ]);
-  });
-
-  it("keeps generated app-server turn protocol imports behind the ThreadItem exception", async () => {
-    const cwd = await tempBiomeWorkspace(["no-generated-app-server-turn-protocol-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/turn.ts"),
-      `
-import type { ThreadItem } from "../../generated/app-server/v2/ThreadItem";
-import type { Thread } from "../../generated/app-server/v2/Thread";
-
-export type TurnItem = ThreadItem;
-export type TurnThread = Thread;
-`.trimStart(),
-    );
-
-    const report = biomeLint(["src/app-server/protocol/turn.ts"], cwd);
-
-    expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
-      "Only generated ThreadItem is allowed in the turn protocol exception. Model other turn payload shapes locally.",
-    ]);
-  });
-
-  it("keeps generated app-server server request imports behind narrow exceptions", async () => {
-    const cwd = await tempBiomeWorkspace(["no-generated-app-server-server-request-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/server-requests.ts"),
-      `
-import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-import type { ToolRequestUserInputParams } from "../../generated/app-server/v2/ToolRequestUserInputParams";
-
-export type Request = ServerRequest;
-export type Params = ToolRequestUserInputParams;
-export type InputParams = import("../../generated/app-server/v2/ToolRequestUserInputParams").ToolRequestUserInputParams;
-
-export async function loadParams() {
-  return import("../../generated/app-server/v2/ToolRequestUserInputParams");
-}
-
-const params = await import("../../generated/app-server/v2/ToolRequestUserInputParams");
-export const loadedParams = params;
-`.trimStart(),
-    );
-
-    const report = biomeLint(["src/app-server/protocol/server-requests.ts"], cwd);
-
-    expect(pluginMessages(report, "src/app-server/protocol/server-requests.ts")).toEqual([
-      "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
-      "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
-      "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
-      "Only generated RequestId and ServerRequest are allowed in the server request protocol exception.",
-    ]);
   });
 
   it("keeps chat application app-server projection RPCs behind facades", async () => {
