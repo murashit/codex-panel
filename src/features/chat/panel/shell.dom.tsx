@@ -1,5 +1,5 @@
 import type { ComponentChild as UiNode } from "preact";
-import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root";
+import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root.dom";
 import type { ChatStateStore } from "../application/state/store";
 import type { ToolbarActions } from "../ui/toolbar";
 import { type ChatPanelShellState, ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState } from "./shell-state";

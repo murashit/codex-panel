@@ -17,7 +17,7 @@ import { ChatPanelGoal, type ChatPanelGoalSurface } from "../../../../../src/fea
 import { ChatPanelToolbar } from "../../../../../src/features/chat/panel/surface/toolbar-projection";
 import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../../../src/features/chat/presentation/runtime/status";
 import type { ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { withChatStateMessageStreamItems } from "../../support/message-stream";
 import { composerShellStateFromChatState } from "../../support/shell-state";

@@ -15,8 +15,8 @@ import type {
   ChatViewLifecycleSurface,
   ChatWorkspacePanelSurface,
 } from "./features/chat/host/surface-handle";
-import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
-import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal";
+import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidian";
+import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
 import type { CodexThreadsHost, CodexThreadsSettingsAccess } from "./features/threads-view/session";
 import { CodexThreadsView } from "./features/threads-view/view";
 import type { CodexPanelSettingTabHost } from "./settings/host";

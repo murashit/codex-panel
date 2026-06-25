@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { textareaCursorAtVisualBoundary } from "../../../src/shared/ui/textarea-caret";
+import { textareaCursorAtVisualBoundary } from "../../../src/shared/ui/textarea-caret.measure";
 import { installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();

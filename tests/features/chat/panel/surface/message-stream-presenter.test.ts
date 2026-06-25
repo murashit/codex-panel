@@ -16,9 +16,9 @@ import {
   createChatMessageScrollController,
 } from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
-import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer";
+import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { withChatStateMessageStreamItems } from "../../support/message-stream";

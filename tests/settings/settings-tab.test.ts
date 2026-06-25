@@ -11,7 +11,7 @@ import type { Thread } from "../../src/domain/threads/model";
 import { threadArchiveDisplayTitle } from "../../src/domain/threads/title";
 import { SettingsDynamicDataController, type SettingsDynamicDataSnapshot } from "../../src/settings/dynamic-data-controller";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
-import { CodexPanelSettingTab } from "../../src/settings/tab";
+import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
 import { notices } from "../mocks/obsidian";
 import { deferred } from "../support/async";
 import { installObsidianDomShims } from "../support/dom";

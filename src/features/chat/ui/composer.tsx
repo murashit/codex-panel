@@ -1,10 +1,10 @@
 import type { ButtonHTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { IconButton } from "../../../shared/ui/components";
-import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events";
-import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
-import { renderComposerMetaIcon, scrollComposerSuggestionIntoView, updateComposerMetaStatusOverflow } from "./composer-dom";
+import { IconButton } from "../../../shared/ui/components.obsidian";
+import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events.dom";
+import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow.measure";
+import { renderComposerMetaIcon, scrollComposerSuggestionIntoView, updateComposerMetaStatusOverflow } from "./composer.dom";
 
 export interface ComposerSuggestion {
   display: string;

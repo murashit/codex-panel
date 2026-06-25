@@ -48,7 +48,7 @@ Chat-visible state belongs in `ChatStateStore` and named reducer actions. Signal
 
 Preact Signals are a shell-local projection adapter, not a second state system. Surface projections should read narrow shell-state contracts instead of making components or presenters depend on broad reducer slices. Domain, application, host, presentation, and component modules should keep using pure selectors, reducer actions, and explicit props rather than importing signals directly.
 
-Imperative DOM bridges are allowed when an external API or measurement problem requires an `HTMLElement`. They should not become a second UI composition system inside Preact-owned surfaces.
+Imperative DOM bridges are allowed when an external API or measurement problem requires an `HTMLElement`. They should be named as `.dom`, `.obsidian`, or `.measure` files and should not become a second UI composition system inside Preact-owned surfaces.
 
 ## Interaction Principles
 

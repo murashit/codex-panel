@@ -12,7 +12,7 @@ import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../workspace/thread-catalog";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
-import { renderThreadsView, unmountThreadsView } from "./renderer";
+import { renderThreadsView, unmountThreadsView } from "./renderer.dom";
 import {
   type ThreadsGeneratingRenameState,
   type ThreadsRenameLifecycleEvent,

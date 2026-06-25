@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { IconButton } from "../../../shared/ui/components";
+import { IconButton } from "../../../shared/ui/components.obsidian";
 import type { RateLimitSummary } from "../presentation/runtime/status";
 
 type ButtonProps = ButtonHTMLAttributes & {

@@ -16,10 +16,10 @@ import type {
   PendingRequestBlockActions,
   PendingRequestBlockContext,
 } from "../../../../../src/features/chat/ui/message-stream/context";
-import type { MessageStreamScrollControllerBinding } from "../../../../../src/features/chat/ui/message-stream/flow-scroll";
+import type { MessageStreamScrollControllerBinding } from "../../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
 
 export function messageStreamBlocks(context: TestMessageStreamContext): [MessageStreamViewBlock, ...MessageStreamViewBlock[]] {
   const normalized = normalizeMessageStreamContext(context);

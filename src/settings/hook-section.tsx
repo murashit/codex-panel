@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import type { HookItem } from "../domain/catalog/metadata";
-import { ObsidianButton } from "../shared/ui/components";
+import { ObsidianButton } from "../shared/ui/components.obsidian";
 import type { HookSectionState } from "./section-state";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./setting-components";
 

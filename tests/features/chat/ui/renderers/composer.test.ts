@@ -9,8 +9,8 @@ import {
   type ComposerSuggestion,
   syncComposerHeight,
 } from "../../../../../src/features/chat/ui/composer";
-import { scrollComposerSuggestionIntoView } from "../../../../../src/features/chat/ui/composer-dom";
-import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { scrollComposerSuggestionIntoView } from "../../../../../src/features/chat/ui/composer.dom";
+import { renderUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
 import { waitForAsyncWork } from "../../../../support/async";
 import { changeInputValue, composerSuggestionScrollFixture, installObsidianDomShims } from "../../../../support/dom";
 

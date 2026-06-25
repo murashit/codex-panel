@@ -6,7 +6,7 @@ import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work
 import { ChatResumeWorkTracker, type ChatViewDeferredTasks, type RestoredThreadPlaceholderState } from "../application/lifecycle";
 import type { ChatState } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
-import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell";
+import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatPanelSnapshot, openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
 import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import { createChatViewDeferredTasks } from "./lifecycle";

@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { GoalPanel, type GoalPanelActions, type GoalPanelEditorState } from "../../../../../src/features/chat/ui/goal";
 import type { SendShortcut } from "../../../../../src/shared/ui/keyboard";
-import { renderUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { renderUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();

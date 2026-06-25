@@ -1,0 +1,22 @@
+language js
+
+or {
+  `$target.createElement($...)` as $stmt,
+  `$target.createTextNode($...)` as $stmt,
+  `$target.createEl($...)` as $stmt,
+  `$target.createDiv($...)` as $stmt,
+  `$target.createSpan($...)` as $stmt,
+  `$target.empty()` as $stmt,
+  `$target.appendChild($...)` as $stmt,
+  `$target.replaceChildren($...)` as $stmt,
+  `$target.insertAdjacentHTML($...)` as $stmt,
+  `$target.addEventListener($...)` as $stmt,
+  `$target.removeEventListener($...)` as $stmt
+} where {
+  $filename <: r".*/src/.*\.tsx?$",
+  not { $filename <: r".*\.dom\.tsx?$" },
+  not { $filename <: r".*\.obsidian\.tsx?$" },
+  not { $filename <: r".*\.measure\.tsx?$" },
+  not { $target <: `signal` },
+  register_diagnostic(span=$stmt, message="Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.", severity="error")
+}

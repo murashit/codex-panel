@@ -2,7 +2,7 @@ import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } fro
 
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
-import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root";
+import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root.dom";
 import { ArchivedThreadSection } from "./archived-section";
 import { SettingsDynamicDataController, type SettingsDynamicDataDisplayTarget } from "./dynamic-data-controller";
 import { HelperSettingsSection } from "./helper-section";

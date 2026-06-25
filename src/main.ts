@@ -2,12 +2,12 @@ import { Plugin } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { CodexChatView } from "./features/chat/host/view";
-import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view";
+import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidian";
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
 import { CodexThreadsView } from "./features/threads-view/view";
 import { CodexPanelRuntime } from "./plugin-runtime";
 import { type CodexPanelSettings, DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData } from "./settings/model";
-import { CodexPanelSettingTab } from "./settings/tab";
+import { CodexPanelSettingTab } from "./settings/tab.obsidian";
 
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;

@@ -2,13 +2,13 @@ import { type Editor, Notice } from "obsidian";
 import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { renderDisplayDiffLines } from "../../shared/diff/render";
+import { renderDisplayDiffLines } from "../../shared/diff/render.dom";
 import { displayDiffLines } from "../../shared/diff/unified";
-import { IconButton } from "../../shared/ui/components";
+import { IconButton } from "../../shared/ui/components.obsidian";
 import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
-import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow";
-import { type TextareaCaretBoundaryDirection, textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret";
-import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root";
+import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow.measure";
+import { type TextareaCaretBoundaryDirection, textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret.measure";
+import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root.dom";
 import { buildSelectionUnifiedDiff } from "./diff";
 import { canApplySelectionRewrite, type SelectionRewriteRuntimeSettings, type SelectionRewriteState } from "./model";
 

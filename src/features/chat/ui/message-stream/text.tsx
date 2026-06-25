@@ -1,7 +1,7 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
-import { IconButton } from "../../../../shared/ui/components";
-import { listenDomEvent } from "../../../../shared/ui/dom-events";
+import { IconButton } from "../../../../shared/ui/components.obsidian";
+import { listenDomEvent } from "../../../../shared/ui/dom-events.dom";
 import type {
   EditedFilesTextView,
   MentionedFileTextView,
@@ -10,7 +10,7 @@ import type {
   TextItemDetailSectionView,
 } from "../../presentation/message-stream/text-view";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
-import { CollapsibleTextContent, TextContent } from "./text-content";
+import { CollapsibleTextContent, TextContent } from "./text-content.dom";
 
 export function textNode(view: MessageStreamTextView, context: TextItemContext): UiNode {
   return <Text view={view} context={context} />;

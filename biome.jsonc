@@ -17,6 +17,7 @@
     "./scripts/lint/no-chat-domain-outer-layer-imports.grit",
     "./scripts/lint/no-chat-signal-imports.grit",
     "./scripts/lint/no-chat-state-escape-hatches.grit",
+    "./scripts/lint/no-implicit-dom-bridges.grit",
     "./scripts/lint/no-pure-chat-state-side-effects.grit",
     "./scripts/lint/no-ui-root-imports.grit",
 

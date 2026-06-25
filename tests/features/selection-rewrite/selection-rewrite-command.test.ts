@@ -4,7 +4,7 @@ import { MarkdownView, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
 import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command";
-import type { SelectionRewritePopoverOptions } from "../../../src/features/selection-rewrite/popover";
+import type { SelectionRewritePopoverOptions } from "../../../src/features/selection-rewrite/popover.dom";
 
 const popoverMock = vi.hoisted(() => {
   const instances: { options: SelectionRewritePopoverOptions; open: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }[] = [];
@@ -16,7 +16,7 @@ const popoverMock = vi.hoisted(() => {
   };
 });
 
-vi.mock("../../../src/features/selection-rewrite/popover", () => {
+vi.mock("../../../src/features/selection-rewrite/popover.dom", () => {
   class SelectionRewritePopover {
     readonly open = vi.fn();
     readonly close = vi.fn();

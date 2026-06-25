@@ -1,4 +1,4 @@
-import type { TextareaCaretBoundaryDirection } from "../../shared/ui/textarea-caret";
+import type { TextareaCaretBoundaryDirection } from "../../shared/ui/textarea-caret.measure";
 import {
   type SelectionRewriteLifecycleEvent,
   type SelectionRewriteRuntimeSettings,

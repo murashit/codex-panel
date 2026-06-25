@@ -4,7 +4,7 @@ import { SuggestModal } from "obsidian";
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
-import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal";
+import { openThreadPicker, type ThreadPickerHost } from "../../../src/features/thread-picker/modal.obsidian";
 
 describe("threadPickerSuggestions", () => {
   it("orders title and id prefix matches before looser matches", async () => {

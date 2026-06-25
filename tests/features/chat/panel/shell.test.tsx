@@ -4,13 +4,13 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell";
+import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell.dom";
 import type { ChatPanelComposerSurface } from "../../../../src/features/chat/panel/surface/composer-projection";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import { messageStreamViewBlocks } from "../../../../src/features/chat/presentation/message-stream/view-model";
 import type { MessageStreamContext } from "../../../../src/features/chat/ui/message-stream/context";
-import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/flow-scroll";
+import type { MessageStreamScrollControllerBinding } from "../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();

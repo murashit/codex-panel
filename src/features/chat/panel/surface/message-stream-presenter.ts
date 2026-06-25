@@ -6,8 +6,8 @@ import type { PendingRequestBlockActions } from "../../application/pending-reque
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
-import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/flow-scroll";
-import { MarkdownMessageRenderer, renderStreamMarkdown } from "../../ui/message-stream/markdown-renderer";
+import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/flow-scroll.measure";
+import { MarkdownMessageRenderer, renderStreamMarkdown } from "../../ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/stream-blocks";
 import { type ChatPanelMessageStreamShellState, messageStreamStateFromShellState, useChatPanelShellState } from "../shell-state";
 import {

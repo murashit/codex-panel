@@ -2,10 +2,10 @@ import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ThreadGoal, ThreadGoalStatus } from "../../../domain/threads/goal";
-import { IconButton } from "../../../shared/ui/components";
-import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events";
+import { IconButton } from "../../../shared/ui/components.obsidian";
+import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events.dom";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
-import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow";
+import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow.measure";
 
 export interface GoalPanelActions {
   onSave: (objective: string, tokenBudget: number | null) => void;

@@ -14,7 +14,7 @@ Use this as the normal edit loop. `npm run format` applies Biome formatting and 
 
 Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run build`, or the targeted `npm run check:*` scripts. CI and release preflight run the same `npm run check` command as local development.
 
-Biome owns formatting, import organization, general JavaScript/TypeScript/JSON/CSS linting, GritQL source-shape plugins, GritQL import-boundary restrictions, and GritQL CSS source policy. Biome warnings fail `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. The CSS usage script still checks dead authored classes. TypeScript owns strict type checking, unused locals and parameters, implicit return coverage, switch fallthrough prevention, and deep-readonly `ChatState` snapshots. ESLint remains for typed strict TypeScript rules that are not compiler options, Obsidian plugin policy, and the imperative-DOM responsibility-boundary rule that needs TypeScript type information. The typed strict preset is used with `@typescript-eslint/require-await` disabled because Obsidian and panel-owned async-shaped boundaries sometimes return already-complete work.
+Biome owns formatting, import organization, general JavaScript/TypeScript/JSON/CSS linting, GritQL source-shape plugins, GritQL import-boundary restrictions, imperative-DOM bridge naming, and GritQL CSS source policy. Biome warnings fail `npm run check`; info diagnostics stay advisory, including accessibility while Obsidian-specific UI semantics are reviewed rule by rule. The CSS usage script still checks dead authored classes. TypeScript owns strict type checking, unused locals and parameters, implicit return coverage, switch fallthrough prevention, and deep-readonly `ChatState` snapshots. ESLint remains for typed strict TypeScript rules that are not compiler options and Obsidian plugin policy. The typed strict preset is used with `@typescript-eslint/require-await` disabled because Obsidian and panel-owned async-shaped boundaries sometimes return already-complete work.
 
 ## Generated and Loaded Files
 
@@ -61,7 +61,7 @@ Generated app-server types should stay behind `src/app-server/` or chat-local ap
 
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only in `src/features/chat/panel/shell-state.tsx`; lint enforces this boundary. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
 
-Use imperative DOM writes only for explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components.
+Use imperative DOM writes only for explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Name those files with a `.dom`, `.obsidian`, or `.measure` suffix so Biome can enforce the boundary without file-specific allowlists.
 
 ## CSS Rules
 

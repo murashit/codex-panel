@@ -1,6 +1,6 @@
 import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
-import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret";
+import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret.measure";
 import { type ComposerBoundaryScrollAction, composerBoundaryScrollDirection } from "../application/composer/boundary-scroll";
 import type { NoteCandidateProvider } from "../application/composer/note-context";
 import {

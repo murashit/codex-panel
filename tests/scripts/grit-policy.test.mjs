@@ -471,31 +471,73 @@ type Resume = AppServerClient["resumeThread"];
     ]);
   });
 
+  it("keeps imperative DOM bridges behind filename suffixes", async () => {
+    const cwd = await tempBiomeWorkspace(["no-implicit-dom-bridges.grit"]);
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/composer.tsx"),
+      `
+export function render(container: HTMLElement): void {
+  container.createDiv();
+  container.addEventListener("click", () => undefined);
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/composer.dom.tsx"),
+      `
+export function render(container: HTMLElement): void {
+  container.createDiv();
+  container.addEventListener("click", () => undefined);
+}
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/app-server/services/abortable-operation.ts"),
+      `
+export function onAbort(signal: AbortSignal): void {
+  signal.addEventListener("abort", () => undefined);
+}
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      ["src/features/chat/ui/composer.tsx", "src/features/chat/ui/composer.dom.tsx", "src/app-server/services/abortable-operation.ts"],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/ui/composer.tsx")).toEqual([
+      "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
+      "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/ui/composer.dom.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/app-server/services/abortable-operation.ts")).toEqual([]);
+  });
+
   it("keeps the Preact root adapter in explicit root bridge files", async () => {
     const cwd = await tempBiomeWorkspace(["no-ui-root-imports.grit"]);
     await writeFile(
       path.join(cwd, "src/features/chat/ui/composer.tsx"),
       `
-import { renderUiRoot } from '../../../shared/ui/ui-root';
+import { renderUiRoot } from '../../../shared/ui/ui-root.dom';
 
 export const render = renderUiRoot;
 `.trimStart(),
     );
     await writeFile(
-      path.join(cwd, "src/features/chat/panel/shell.tsx"),
+      path.join(cwd, "src/features/chat/panel/shell.dom.tsx"),
       `
-import { renderUiRoot } from "../../../shared/ui/ui-root";
+import { renderUiRoot } from "../../../shared/ui/ui-root.dom";
 
 export const render = renderUiRoot;
 `.trimStart(),
     );
 
-    const report = biomeLint(["src/features/chat/ui/composer.tsx", "src/features/chat/panel/shell.tsx"], cwd);
+    const report = biomeLint(["src/features/chat/ui/composer.tsx", "src/features/chat/panel/shell.dom.tsx"], cwd);
 
     expect(pluginMessages(report, "src/features/chat/ui/composer.tsx")).toEqual([
       "Import the Preact root adapter only from explicit root bridge files.",
     ]);
-    expect(pluginDiagnostics(report, "src/features/chat/panel/shell.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/panel/shell.dom.tsx")).toEqual([]);
   });
 
   it("keeps chat state transforms pure and catches global scheduling calls", async () => {

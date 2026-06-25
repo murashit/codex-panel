@@ -9,7 +9,7 @@ import { createChatStateStore } from "../../../../../src/features/chat/applicati
 import { ChatComposerController, type ChatComposerRenderActions } from "../../../../../src/features/chat/panel/composer-controller";
 import type { ChatPanelComposerShellState } from "../../../../../src/features/chat/panel/shell-state";
 import { ComposerShell } from "../../../../../src/features/chat/ui/composer";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { composerShellStateFromChatState } from "../../support/shell-state";
 

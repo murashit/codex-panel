@@ -1,8 +1,8 @@
 import type { ButtonHTMLAttributes, TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { IconButton } from "../../shared/ui/components";
-import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root";
+import { IconButton } from "../../shared/ui/components.obsidian";
+import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root.dom";
 import type { ThreadsRowModel } from "./state";
 
 type ButtonProps = ButtonHTMLAttributes & {
