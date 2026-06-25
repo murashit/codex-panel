@@ -1,7 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { renderRawDiffLines } from "../../../../shared/diff/render.dom";
+import { RawDiffLines } from "../../../../shared/diff/render";
 import type { DetailSection, DetailView } from "../../presentation/message-stream/detail-view";
 import type { MessageStreamDisclosureState } from "./context";
 
@@ -142,12 +141,5 @@ function OutputSection({ title, className, children }: { title: string; classNam
 }
 
 function DiffLines({ diff }: { diff: string }): UiNode {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.replaceChildren();
-    renderRawDiffLines(element, diff);
-  }, [diff]);
-  return <div ref={ref} />;
+  return <RawDiffLines diff={diff} />;
 }

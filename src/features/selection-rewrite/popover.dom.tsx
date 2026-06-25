@@ -1,8 +1,7 @@
 import { type Editor, Notice } from "obsidian";
 import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { renderDisplayDiffLines } from "../../shared/diff/render.dom";
+import { DisplayDiffLines } from "../../shared/diff/render";
 import { displayDiffLines } from "../../shared/diff/unified";
 import { IconButton } from "../../shared/ui/components.obsidian";
 import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
@@ -415,20 +414,10 @@ function SelectionRewriteStatus({ status }: { status: SelectionRewriteSessionSta
 }
 
 function SelectionRewriteDiff({ diff }: { diff: string }): UiNode {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.replaceChildren();
-    renderSelectionRewriteDiff(element, diff);
-  }, [diff]);
-  return <div ref={ref} />;
-}
-
-function renderSelectionRewriteDiff(parent: HTMLElement, diff: string): void {
-  renderDisplayDiffLines(
-    parent,
-    displayDiffLines(diff).filter((line) => line.kind !== "file" && !line.text.startsWith("@@")),
-    { className: "codex-panel-selection-rewrite__diff-body" },
+  return (
+    <DisplayDiffLines
+      lines={displayDiffLines(diff).filter((line) => line.kind !== "file" && !line.text.startsWith("@@"))}
+      className="codex-panel-selection-rewrite__diff-body"
+    />
   );
 }

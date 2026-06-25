@@ -1,7 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { renderDisplayDiffLines } from "../../../../shared/diff/render.dom";
+import { DisplayDiffLines } from "../../../../shared/diff/render";
 import { displayDiffLines } from "../../../../shared/diff/unified";
 import { shortThreadId } from "../../../../shared/id/thread-id";
 import { IconButton } from "../../../../shared/ui/components.obsidian";
@@ -88,18 +87,7 @@ function ChangedFiles({ files }: { files: string[] }): UiNode {
 }
 
 function UnifiedDiff({ diff }: { diff: string }): UiNode {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    element.replaceChildren();
-    renderUnifiedDiff(element, diff);
-  }, [diff]);
-  return <div ref={ref} />;
-}
-
-function renderUnifiedDiff(parent: HTMLElement, diff: string): HTMLElement {
-  return renderDisplayDiffLines(parent, displayDiffLines(diff), { className: "codex-panel-chat-turn-diff__diff" });
+  return <DisplayDiffLines lines={displayDiffLines(diff)} className="codex-panel-chat-turn-diff__diff" />;
 }
 
 function fileCountLabel(files: string[]): string {

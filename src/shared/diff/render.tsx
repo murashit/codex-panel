@@ -1,3 +1,5 @@
+import type { ComponentChild as UiNode } from "preact";
+
 import { type DiffLineClass, type DisplayDiffLine, diffLineClass, diffLineClassFromText, displayDiffLineText } from "./unified";
 
 const MAX_INLINE_DIFF_CHARS = 4000;
@@ -18,60 +20,63 @@ interface RenderDiffLine {
   className: DiffLineClass;
 }
 
+interface DiffLineView extends RenderDiffLine {
+  inlineParts: InlineDiffPart[] | null;
+}
+
 type ChangeLineClass = "added" | "removed";
 
-export interface RenderDiffLinesOptions {
-  className?: string;
+export function DisplayDiffLines({ lines, className }: { lines: readonly DisplayDiffLine[]; className?: string | undefined }): UiNode {
+  return <DiffLines lines={lines.map((line) => ({ text: line.text, className: diffLineClass(line) }))} className={className} />;
 }
 
-export function renderDisplayDiffLines(parent: HTMLElement, lines: DisplayDiffLine[], options: RenderDiffLinesOptions = {}): HTMLElement {
-  return renderDiffLines(
-    parent,
-    lines.map((line) => ({ text: line.text, className: diffLineClass(line) })),
-    options,
+export function RawDiffLines({ diff, className }: { diff: string; className?: string | undefined }): UiNode {
+  return (
+    <DiffLines lines={diff.split("\n").map((line) => ({ text: line, className: diffLineClassFromText(line) }))} className={className} />
   );
 }
 
-export function renderRawDiffLines(parent: HTMLElement, diff: string, options: RenderDiffLinesOptions = {}): HTMLElement {
-  return renderDiffLines(
-    parent,
-    diff.split("\n").map((line) => ({ text: line, className: diffLineClassFromText(line) })),
-    options,
+function DiffLines({ lines, className }: { lines: readonly RenderDiffLine[]; className?: string | undefined }): UiNode {
+  const preClassName = ["codex-panel-diff", className].filter(Boolean).join(" ");
+  return (
+    <pre className={preClassName}>
+      {diffLineViews(lines).map((line, index) => (
+        <DiffLine key={`${String(index)}:${line.className}:${line.text}`} line={line} />
+      ))}
+    </pre>
   );
 }
 
-function renderDiffLines(parent: HTMLElement, lines: RenderDiffLine[], options: RenderDiffLinesOptions): HTMLElement {
-  const className = ["codex-panel-diff", options.className].filter(Boolean).join(" ");
-  const pre = parent.createEl("pre", { cls: className });
-
+function diffLineViews(lines: readonly RenderDiffLine[]): DiffLineView[] {
+  const views: DiffLineView[] = [];
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     if (!line) continue;
     const changeClass = changeLineClass(line.className);
     if (!changeClass) {
-      renderLine(pre, line);
+      views.push({ ...line, inlineParts: null });
       continue;
     }
 
     const firstRun = collectChangeRun(lines, index, changeClass);
     const secondRun = collectChangeRun(lines, firstRun.endIndex, oppositeChangeLineClass(changeClass));
     if (secondRun.lines.length > 0) {
-      renderChangeRuns(pre, firstRun.lines, secondRun.lines);
+      views.push(...changeRunViews(firstRun.lines, secondRun.lines));
       index = secondRun.endIndex - 1;
       continue;
     }
 
     for (const runLine of firstRun.lines) {
-      renderLine(pre, runLine);
+      views.push({ ...runLine, inlineParts: null });
     }
     index = firstRun.endIndex - 1;
   }
 
-  return pre;
+  return views;
 }
 
 function collectChangeRun(
-  lines: RenderDiffLine[],
+  lines: readonly RenderDiffLine[],
   startIndex: number,
   className: ChangeLineClass,
 ): { lines: RenderDiffLine[]; endIndex: number } {
@@ -85,18 +90,20 @@ function collectChangeRun(
   return { lines: run, endIndex: index };
 }
 
-function renderChangeRuns(parent: HTMLElement, firstRun: RenderDiffLine[], secondRun: RenderDiffLine[]): void {
+function changeRunViews(firstRun: RenderDiffLine[], secondRun: RenderDiffLine[]): DiffLineView[] {
   const inlineDiffs = pairedInlineDiffs(firstRun, secondRun);
+  const views: DiffLineView[] = [];
   for (let index = 0; index < firstRun.length; index += 1) {
     const line = firstRun[index];
     if (!line) continue;
-    renderLine(parent, line, inlinePartsForLine(line.className, inlineDiffs[index] ?? null));
+    views.push({ ...line, inlineParts: inlinePartsForLine(line.className, inlineDiffs[index] ?? null) });
   }
   for (let index = 0; index < secondRun.length; index += 1) {
     const line = secondRun[index];
     if (!line) continue;
-    renderLine(parent, line, inlinePartsForLine(line.className, inlineDiffs[index] ?? null));
+    views.push({ ...line, inlineParts: inlinePartsForLine(line.className, inlineDiffs[index] ?? null) });
   }
+  return views;
 }
 
 function pairedInlineDiffs(firstRun: RenderDiffLine[], secondRun: RenderDiffLine[]): (InlineDiff | null)[] {
@@ -135,19 +142,21 @@ function oppositeChangeLineClass(className: ChangeLineClass): ChangeLineClass {
   return className === "added" ? "removed" : "added";
 }
 
-function renderLine(parent: HTMLElement, line: RenderDiffLine, inlineParts: InlineDiffPart[] | null = null): void {
-  const lineEl = parent.createEl("span", { cls: diffLineClassName(line.className) });
-  if (!inlineParts) {
-    lineEl.textContent = displayDiffLineText(line.text, line.className);
-    return;
-  }
-  for (const part of inlineParts) {
-    if (part.changed) {
-      lineEl.createSpan({ cls: diffWordClassName(line.className), text: part.text });
-    } else {
-      lineEl.createSpan({ text: part.text });
-    }
-  }
+function DiffLine({ line }: { line: DiffLineView }): UiNode {
+  return (
+    <span className={diffLineClassName(line.className)}>
+      {line.inlineParts
+        ? line.inlineParts.map((part, index) => (
+            <span
+              key={`${String(index)}:${part.changed ? "changed" : "same"}:${part.text}`}
+              className={part.changed ? diffWordClassName(line.className) : undefined}
+            >
+              {part.text}
+            </span>
+          ))
+        : displayDiffLineText(line.text, line.className)}
+    </span>
+  );
 }
 
 function diffLineClassName(className: DiffLineClass): string {

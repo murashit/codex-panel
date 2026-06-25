@@ -6,7 +6,7 @@ import type {
   MessageStreamViewBlock,
 } from "../../presentation/message-stream/view-model";
 import type { MessageStreamContext, PendingRequestBlockContext } from "./context";
-import { detailNode } from "./detail.dom";
+import { detailNode } from "./detail";
 import { MessageStreamFlowFrame, type MessageStreamScrollControllerBinding } from "./flow-scroll.measure";
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { agentRunSummaryNode, statusNode } from "./status";
