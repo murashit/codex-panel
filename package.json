@@ -29,7 +29,7 @@
     "release:check": "node scripts/release/check.mjs",
     "release:preflight": "node scripts/release/preflight.mjs",
     "release:prepare": "node scripts/release/prepare.mjs",
-    "test": "vitest run --pool threads",
+    "test": "vitest run --pool threads --maxWorkers 6",
     "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo"
   },
   "devDependencies": {
