@@ -393,6 +393,61 @@ export type Params = ToolRequestUserInputParams;
     expect(pluginDiagnostics(report, "src/app-server/protocol/server-requests.ts")).toEqual([]);
   });
 
+  it("keeps TSX files in rendering-owned source folders", async () => {
+    const cwd = await tempBiomeWorkspace(["no-misplaced-tsx.grit"]);
+    await writeFile(
+      path.join(cwd, "src/features/chat/application/state/view.tsx"),
+      `
+export const value = <div />;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/domain/threads/view.tsx"),
+      `
+export const value = <span />;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/message.tsx"),
+      `
+export const value = <article />;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/settings/section.tsx"),
+      `
+export const value = <section />;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/shared/ui/diff.tsx"),
+      `
+export const value = <pre />;
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      [
+        "src/features/chat/application/state/view.tsx",
+        "src/domain/threads/view.tsx",
+        "src/features/chat/ui/message.tsx",
+        "src/settings/section.tsx",
+        "src/shared/ui/diff.tsx",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/application/state/view.tsx")).toEqual([
+      "Keep TSX files in UI, panel, settings, or explicit render bridge modules; non-rendering source should use .ts.",
+    ]);
+    expect(pluginMessages(report, "src/domain/threads/view.tsx")).toEqual([
+      "Keep TSX files in UI, panel, settings, or explicit render bridge modules; non-rendering source should use .ts.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/ui/message.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/settings/section.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/shared/ui/diff.tsx")).toEqual([]);
+  });
+
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
     const cwd = await tempBiomeWorkspace(["no-app-server-protocol-boundary-imports.grit"]);
     await writeFile(
@@ -792,6 +847,7 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/chat/panel"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/panel/surface"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/ui"), { recursive: true });
+  await mkdir(path.join(cwd, "src/settings"), { recursive: true });
   await mkdir(path.join(cwd, "src/domain/threads"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/connection"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/protocol"), { recursive: true });

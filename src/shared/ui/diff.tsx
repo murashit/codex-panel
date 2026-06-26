@@ -1,9 +1,14 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { type DiffLineClass, type DisplayDiffLine, diffLineClass, diffLineClassFromText, displayDiffLineText } from "./unified";
-
 const MAX_INLINE_DIFF_CHARS = 4000;
 const MAX_INLINE_DIFF_TOKENS = 500;
+
+export interface DiffDisplayLine {
+  text: string;
+  kind?: "file";
+}
+
+type DiffLineClass = "added" | "removed" | "hunk" | "context" | "file";
 
 interface InlineDiffPart {
   text: string;
@@ -26,17 +31,61 @@ interface DiffLineView extends RenderDiffLine {
 
 type ChangeLineClass = "added" | "removed";
 
-export function DisplayDiffLines({ lines, className }: { lines: readonly DisplayDiffLine[]; className?: string | undefined }): UiNode {
-  return <DiffLines lines={lines.map((line) => ({ text: line.text, className: diffLineClass(line) }))} className={className} />;
+export function unifiedDiffDisplayLines(diff: string): DiffDisplayLine[] {
+  const displayLines: DiffDisplayLine[] = [];
+  let inFileHeader = false;
+  for (const line of diff.split("\n")) {
+    const file = filePathFromGitDiffHeader(line);
+    if (file) {
+      displayLines.push({ text: file, kind: "file" });
+      inFileHeader = true;
+      continue;
+    }
+    if (line.startsWith("@@")) inFileHeader = false;
+    if (inFileHeader && (line.startsWith("index ") || line.startsWith("--- ") || line.startsWith("+++ "))) continue;
+    displayLines.push({ text: line });
+  }
+  return displayLines;
 }
 
-export function RawDiffLines({ diff, className }: { diff: string; className?: string | undefined }): UiNode {
+export function UnifiedDiffView({ diff, className }: { diff: string; className?: string | undefined }): UiNode {
+  return <DiffLineList lines={unifiedDiffDisplayLines(diff)} className={className} />;
+}
+
+export function DiffLineList({ lines, className }: { lines: readonly DiffDisplayLine[]; className?: string | undefined }): UiNode {
+  return <DiffLineFrame lines={lines.map((line) => ({ text: line.text, className: diffLineClass(line) }))} className={className} />;
+}
+
+export function RawDiffView({ diff, className }: { diff: string; className?: string | undefined }): UiNode {
   return (
-    <DiffLines lines={diff.split("\n").map((line) => ({ text: line, className: diffLineClassFromText(line) }))} className={className} />
+    <DiffLineFrame lines={diff.split("\n").map((line) => ({ text: line, className: diffLineClassFromText(line) }))} className={className} />
   );
 }
 
-function DiffLines({ lines, className }: { lines: readonly RenderDiffLine[]; className?: string | undefined }): UiNode {
+function diffLineClass(line: DiffDisplayLine): DiffLineClass {
+  if (line.kind === "file") return "file";
+  return diffLineClassFromText(line.text);
+}
+
+function diffLineClassFromText(text: string): Exclude<DiffLineClass, "file"> {
+  if (text.startsWith("+") && !text.startsWith("+++")) return "added";
+  if (text.startsWith("-") && !text.startsWith("---")) return "removed";
+  if (text.startsWith("@@")) return "hunk";
+  return "context";
+}
+
+function displayDiffLineText(text: string, lineClass: DiffLineClass): string {
+  const displayText = lineClass === "added" || lineClass === "removed" ? text.slice(1) : text;
+  return displayText || " ";
+}
+
+function filePathFromGitDiffHeader(line: string): string | null {
+  const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
+  if (!match) return null;
+  return match[2] ?? null;
+}
+
+function DiffLineFrame({ lines, className }: { lines: readonly RenderDiffLine[]; className?: string | undefined }): UiNode {
   const preClassName = ["codex-panel-diff", className].filter(Boolean).join(" ");
   return (
     <pre className={preClassName}>

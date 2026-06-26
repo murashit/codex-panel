@@ -1,9 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { DisplayDiffLines } from "../../../../shared/diff/render";
-import { displayDiffLines } from "../../../../shared/diff/unified";
 import { shortThreadId } from "../../../../shared/id/thread-id";
 import { IconButton } from "../../../../shared/ui/components.obsidian";
+import { UnifiedDiffView } from "../../../../shared/ui/diff";
 import { renderUiRoot } from "../../../../shared/ui/ui-root.dom";
 import type { ChatTurnDiffViewState, PersistedChatTurnDiffViewState } from "../../domain/turn-diff";
 
@@ -46,7 +45,7 @@ function ChatTurnDiffView({
     <>
       <TurnDiffHeader state={state} copyDiff={actions.copyDiff ?? null} />
       {state.files.length > 0 ? <ChangedFiles files={state.files} /> : null}
-      <UnifiedDiff diff={state.diff} />
+      <UnifiedDiffView diff={state.diff} className="codex-panel-chat-turn-diff__diff" />
     </>
   );
 }
@@ -84,10 +83,6 @@ function ChangedFiles({ files }: { files: string[] }): UiNode {
       </ul>
     </details>
   );
-}
-
-function UnifiedDiff({ diff }: { diff: string }): UiNode {
-  return <DisplayDiffLines lines={displayDiffLines(diff)} className="codex-panel-chat-turn-diff__diff" />;
 }
 
 function fileCountLabel(files: string[]): string {

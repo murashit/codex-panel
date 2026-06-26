@@ -63,6 +63,8 @@ Chat panel-visible state belongs in `ChatStateStore` and should flow through nam
 
 Use imperative DOM writes only for explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Name those files with a `.dom`, `.obsidian`, or `.measure` suffix so Biome can enforce the boundary without file-specific allowlists.
 
+Use `.tsx` only in rendering-owned source folders: chat panel and UI modules, Obsidian/settings surfaces, selection rewrite and threads view renderers, and shared UI components. Non-rendering source should use `.ts`; Biome enforces this so lower-level app-server, domain, application, presentation, workspace, and generic shared modules do not grow JSX dependencies.
+
 ## CSS Rules
 
 CSS should stay native to Obsidian. Prefer Obsidian variables and Codex Panel tokens for color, typography, spacing, and layout dimensions instead of hardcoded values.

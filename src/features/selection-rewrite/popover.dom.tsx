@@ -1,9 +1,8 @@
 import { type Editor, Notice } from "obsidian";
 import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 
-import { DisplayDiffLines } from "../../shared/diff/render";
-import { displayDiffLines } from "../../shared/diff/unified";
 import { IconButton } from "../../shared/ui/components.obsidian";
+import { DiffLineList, unifiedDiffDisplayLines } from "../../shared/ui/diff";
 import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow.measure";
 import { type TextareaCaretBoundaryDirection, textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret.measure";
@@ -415,8 +414,8 @@ function SelectionRewriteStatus({ status }: { status: SelectionRewriteSessionSta
 
 function SelectionRewriteDiff({ diff }: { diff: string }): UiNode {
   return (
-    <DisplayDiffLines
-      lines={displayDiffLines(diff).filter((line) => line.kind !== "file" && !line.text.startsWith("@@"))}
+    <DiffLineList
+      lines={unifiedDiffDisplayLines(diff).filter((line) => line.kind !== "file" && !line.text.startsWith("@@"))}
       className="codex-panel-selection-rewrite__diff-body"
     />
   );

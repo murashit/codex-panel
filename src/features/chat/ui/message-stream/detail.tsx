@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { RawDiffLines } from "../../../../shared/diff/render";
+import { RawDiffView } from "../../../../shared/ui/diff";
 import type { DetailSection, DetailView } from "../../presentation/message-stream/detail-view";
 import type { MessageStreamDisclosureState } from "./context";
 
@@ -84,7 +84,7 @@ function DetailSectionView({ section }: { section: DetailSection }): UiNode {
   if (section.kind === "diff") {
     return (
       <OutputSection title={section.title} className="codex-panel-diff-file">
-        <DiffLines diff={section.diff} />
+        <RawDiffView diff={section.diff} />
       </OutputSection>
     );
   }
@@ -138,8 +138,4 @@ function OutputSection({ title, className, children }: { title: string; classNam
       {children}
     </div>
   );
-}
-
-function DiffLines({ diff }: { diff: string }): UiNode {
-  return <RawDiffLines diff={diff} />;
 }
