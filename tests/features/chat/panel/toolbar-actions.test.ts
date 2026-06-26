@@ -46,9 +46,18 @@ describe("createToolbarPanelActions", () => {
 });
 
 describe("createChatPanelToolbarActions", () => {
+  it("starts a new thread through thread navigation", () => {
+    const deps = toolbarActionDeps();
+    const actions = createChatPanelToolbarActions(deps);
+
+    actions.startNewThread();
+
+    expect(vi.mocked(deps.navigation.startNewThread)).toHaveBeenCalledOnce();
+  });
+
   it("delegates compacting the active thread", () => {
     const deps = toolbarActionDeps();
-    const actions = createChatPanelToolbarActions({ startNewThread: vi.fn() }, deps);
+    const actions = createChatPanelToolbarActions(deps);
 
     actions.compactConversation();
 
@@ -57,7 +66,7 @@ describe("createChatPanelToolbarActions", () => {
 
   it("starts the goal editor from the active goal", () => {
     const deps = toolbarActionDeps();
-    const actions = createChatPanelToolbarActions({ startNewThread: vi.fn() }, deps);
+    const actions = createChatPanelToolbarActions(deps);
 
     actions.setGoal();
 
@@ -65,11 +74,11 @@ describe("createChatPanelToolbarActions", () => {
   });
 });
 
-function toolbarActionDeps(): Parameters<typeof createChatPanelToolbarActions>[1] {
+function toolbarActionDeps(): Parameters<typeof createChatPanelToolbarActions>[0] {
   return {
     connectionController: { refreshStatusPanel: vi.fn() } as unknown as Parameters<
       typeof createChatPanelToolbarActions
-    >[1]["connectionController"],
+    >[0]["connectionController"],
     reconnectPanel: vi.fn(),
     threadActions: {
       archiveThread: vi.fn().mockResolvedValue(undefined),
@@ -78,23 +87,24 @@ function toolbarActionDeps(): Parameters<typeof createChatPanelToolbarActions>[1
     } as unknown as ThreadManagementActions,
     goals: {
       startEditingCurrent: vi.fn(),
-    } as unknown as Parameters<typeof createChatPanelToolbarActions>[1]["goals"],
+    } as unknown as Parameters<typeof createChatPanelToolbarActions>[0]["goals"],
     toolbarPanels: {
       toggleChatActions: vi.fn(),
       toggleHistory: vi.fn(),
       toggleStatus: vi.fn(),
       startArchive: vi.fn(),
       archiveThread: vi.fn().mockResolvedValue(undefined),
-    } as unknown as Parameters<typeof createChatPanelToolbarActions>[1]["toolbarPanels"],
+    } as unknown as Parameters<typeof createChatPanelToolbarActions>[0]["toolbarPanels"],
     rename: {
       start: vi.fn(),
       updateDraft: vi.fn(),
       save: vi.fn().mockResolvedValue(undefined),
       cancel: vi.fn(),
       autoNameDraft: vi.fn().mockResolvedValue(undefined),
-    } as unknown as Parameters<typeof createChatPanelToolbarActions>[1]["rename"],
-    selection: { selectThreadFromToolbar: vi.fn().mockResolvedValue(undefined) } as unknown as Parameters<
-      typeof createChatPanelToolbarActions
-    >[1]["selection"],
+    } as unknown as Parameters<typeof createChatPanelToolbarActions>[0]["rename"],
+    navigation: {
+      startNewThread: vi.fn().mockResolvedValue(undefined),
+      selectThreadFromToolbar: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Parameters<typeof createChatPanelToolbarActions>[0]["navigation"],
   };
 }

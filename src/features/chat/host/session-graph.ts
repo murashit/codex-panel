@@ -39,9 +39,8 @@ import {
 } from "../application/threads/rename-editor-actions";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeActions } from "../application/threads/resume-actions";
-import { createSelectionActions } from "../application/threads/selection-actions";
-import { createStartNewThreadActions } from "../application/threads/start-new-thread-actions";
 import { createThreadManagementActions, type ThreadManagementActionsHost } from "../application/threads/thread-management-actions";
+import { createThreadNavigationActions } from "../application/threads/thread-navigation-actions";
 import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
@@ -135,12 +134,12 @@ type ChatPanelRuntimeSettingsActions = ReturnType<typeof createChatRuntimeSettin
 type ChatPanelGoalActions = ReturnType<typeof createGoalActions>;
 type ChatPanelThreadLifecycle = ReturnType<typeof createThreadLifecycleParts>;
 type ChatPanelThreadActions = ReturnType<typeof createThreadManagementActions>;
-type ChatPanelSelectionActions = ReturnType<typeof createSelectionActions>;
+type ChatPanelThreadNavigationActions = ReturnType<typeof createThreadNavigationActions>;
 
 interface ChatPanelThreadActionParts {
   actions: ChatPanelThreadActions;
   toolbarPanels: ToolbarPanelActions;
-  selection: ChatPanelSelectionActions;
+  navigation: ChatPanelThreadNavigationActions;
 }
 
 interface ChatPanelComposerAndTurnParts {
@@ -167,14 +166,13 @@ interface ChatPanelComposerAndTurnInput {
   inboundHandler: ChatInboundHandler;
   threadLifecycle: ChatPanelThreadLifecycle;
   threadActions: ChatPanelThreadActions;
-  selection: ChatPanelSelectionActions;
+  navigation: ChatPanelThreadNavigationActions;
   composerController: ChatComposerController;
   runtimeSettings: ChatPanelRuntimeSettingsActions;
   serverThreads: ChatServerThreadActions;
   goals: ChatPanelGoalActions;
   autoTitleCoordinator: AutoTitleCoordinator;
   invalidateThreadWork: () => void;
-  startNewThread: () => Promise<void>;
   runtimeProjection: ChatPanelRuntimeProjection;
 }
 
@@ -248,20 +246,13 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
 
   const composerSurface = createSessionComposerSurface(threadLifecycle, runtimeSettings);
   const composerController = createSessionComposerController(host, composerSurface, runtimeSettings);
-  const newThreadActions = createStartNewThreadActions({
-    stateStore,
-    identity,
-    focusComposer: () => {
-      composerController.focus();
-    },
-  });
-  const startNewThread = () => newThreadActions.startNewThread();
   const threadActionParts = createThreadActionParts(host, {
     operations: threadOperations,
     connectedClient,
     currentClient,
     status,
     composerController,
+    identity,
     resume,
     refreshActiveThreads,
   });
@@ -275,14 +266,13 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     inboundHandler,
     threadLifecycle,
     threadActions: threadActionParts.actions,
-    selection: threadActionParts.selection,
+    navigation: threadActionParts.navigation,
     composerController,
     runtimeSettings,
     serverThreads,
     goals,
     autoTitleCoordinator,
     invalidateThreadWork,
-    startNewThread,
     runtimeProjection: createSessionRuntimeProjection(host, connection),
   });
   const surfaces = createChatPanelSurfaces(host, {
@@ -292,12 +282,11 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     rename,
     threadActions: threadActionParts.actions,
     toolbarPanels: threadActionParts.toolbarPanels,
-    selection: threadActionParts.selection,
+    navigation: threadActionParts.navigation,
     reconnect: composerAndTurn.reconnect,
     history,
     pendingRequests: composerAndTurn.pendingRequests,
     turnActions: composerAndTurn.turnActions,
-    startNewThread,
   });
   const refreshSharedThreads = async (): Promise<void> => {
     try {
@@ -353,7 +342,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     actions: {
       invalidateThreadWork,
       refreshSharedThreads,
-      startNewThread,
+      startNewThread: () => threadActionParts.navigation.startNewThread(),
       dispose,
     },
     runtime: {
@@ -647,11 +636,12 @@ function createThreadActionParts(
     currentClient: CurrentAppServerClient;
     status: ChatPanelSessionStatus;
     composerController: ChatComposerController;
+    identity: ActiveThreadIdentitySync;
     resume: ResumeActions;
     refreshActiveThreads: () => Promise<void>;
   },
 ): ChatPanelThreadActionParts {
-  const { operations, connectedClient, currentClient, status, composerController, resume, refreshActiveThreads } = input;
+  const { operations, connectedClient, currentClient, status, composerController, identity, resume, refreshActiveThreads } = input;
   const { environment, stateStore } = host;
   const threadManagementHost: ThreadManagementActionsHost = {
     stateStore,
@@ -681,16 +671,20 @@ function createThreadActionParts(
     stateStore,
     threadActions: actions,
   });
-  const selection = createSelectionActions({
+  const navigation = createThreadNavigationActions({
     stateStore,
+    identity,
     closeForThreadSelection: () => {
       toolbarPanels.closeForThreadSelection();
     },
     focusThreadInOpenView: (threadId) => environment.plugin.workspace.focusThreadInOpenView(threadId),
     resumeThread: (threadId) => resume.resumeThread(threadId),
     addSystemMessage: status.addSystemMessage,
+    focusComposer: () => {
+      composerController.focus();
+    },
   });
-  return { actions, toolbarPanels, selection };
+  return { actions, toolbarPanels, navigation };
 }
 
 function createComposerAndTurnActions(
@@ -707,14 +701,13 @@ function createComposerAndTurnActions(
     inboundHandler,
     threadLifecycle,
     threadActions,
-    selection,
+    navigation,
     composerController,
     runtimeSettings,
     serverThreads,
     goals,
     autoTitleCoordinator,
     invalidateThreadWork,
-    startNewThread,
     runtimeProjection,
   } = input;
   const pendingRequests = createPendingRequestActions({
@@ -772,8 +765,8 @@ function createComposerAndTurnActions(
       thread: {
         ensureRestoredThreadLoaded: () =>
           threadLifecycle.restoration.ensureLoaded((threadId) => threadLifecycle.resume.resumeThread(threadId)),
-        startNewThread,
-        selectThread: (threadId) => selection.selectThread(threadId),
+        startNewThread: () => navigation.startNewThread(),
+        selectThread: (threadId) => navigation.selectThread(threadId),
         notifyIdentityChanged: () => {
           notifyActiveThreadIdentityChanged(host);
         },

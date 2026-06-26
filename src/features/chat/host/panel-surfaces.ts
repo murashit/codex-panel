@@ -5,8 +5,8 @@ import type { ChatStateStore } from "../application/state/store";
 import type { createGoalActions } from "../application/threads/goal-actions";
 import type { HistoryController } from "../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
-import type { createSelectionActions } from "../application/threads/selection-actions";
 import type { createThreadManagementActions } from "../application/threads/thread-management-actions";
+import type { createThreadNavigationActions } from "../application/threads/thread-navigation-actions";
 import type { ChatPanelGoalSurface } from "../panel/surface/goal-projection";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
@@ -18,7 +18,7 @@ import type { ChatPanelEnvironment } from "./environment";
 
 type ChatPanelGoalActions = ReturnType<typeof createGoalActions>;
 type ChatPanelThreadActions = ReturnType<typeof createThreadManagementActions>;
-type ChatPanelSelectionActions = ReturnType<typeof createSelectionActions>;
+type ChatPanelThreadNavigationActions = ReturnType<typeof createThreadNavigationActions>;
 type ChatPanelConversationTurnActions = ConversationTurnActions;
 
 export interface ChatPanelSurfacesHost {
@@ -34,12 +34,11 @@ export interface ChatPanelSurfacesInput {
   rename: ThreadRenameEditorActions;
   threadActions: ChatPanelThreadActions;
   toolbarPanels: ToolbarPanelActions;
-  selection: ChatPanelSelectionActions;
+  navigation: ChatPanelThreadNavigationActions;
   reconnect: () => Promise<void>;
   history: HistoryController;
   pendingRequests: PendingRequestActions;
   turnActions: ChatPanelConversationTurnActions;
-  startNewThread: () => Promise<void>;
 }
 
 export interface ChatPanelSurfaces {
@@ -57,28 +56,22 @@ export function createChatPanelSurfaces(host: ChatPanelSurfacesHost, input: Chat
     rename,
     threadActions,
     toolbarPanels,
-    selection,
+    navigation,
     reconnect,
     history,
     pendingRequests,
     turnActions,
-    startNewThread,
   } = input;
   const { environment, stateStore } = host;
-  const toolbarActions = createChatPanelToolbarActions(
-    {
-      startNewThread,
-    },
-    {
-      connectionController,
-      reconnectPanel: reconnect,
-      threadActions,
-      goals,
-      toolbarPanels,
-      rename,
-      selection,
-    },
-  );
+  const toolbarActions = createChatPanelToolbarActions({
+    connectionController,
+    reconnectPanel: reconnect,
+    threadActions,
+    goals,
+    toolbarPanels,
+    rename,
+    navigation,
+  });
   const toolbarSurface: ChatPanelToolbarSurface = {
     state: {
       connected: () => connection.isConnected(),

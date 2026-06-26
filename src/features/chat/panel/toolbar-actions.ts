@@ -4,8 +4,8 @@ import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { GoalActions } from "../application/threads/goal-actions";
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
-import type { SelectionActions } from "../application/threads/selection-actions";
 import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
+import type { ThreadNavigationActions } from "../application/threads/thread-navigation-actions";
 import type { ToolbarActions } from "../ui/toolbar";
 
 export interface ToolbarPanelActionsHost {
@@ -25,10 +25,6 @@ export interface ToolbarPanelActions {
   closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void;
 }
 
-export interface ChatPanelToolbarActionsHost {
-  startNewThread: () => Promise<void>;
-}
-
 export interface ChatPanelToolbarActionDependencies {
   connectionController: ChatConnectionController;
   reconnectPanel: () => Promise<void>;
@@ -36,7 +32,7 @@ export interface ChatPanelToolbarActionDependencies {
   goals: GoalActions;
   toolbarPanels: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;
-  selection: SelectionActions;
+  navigation: ThreadNavigationActions;
 }
 
 interface ToolbarOutsidePointerContext {
@@ -124,10 +120,10 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
   };
 }
 
-export function createChatPanelToolbarActions(host: ChatPanelToolbarActionsHost, deps: ChatPanelToolbarActionDependencies): ToolbarActions {
+export function createChatPanelToolbarActions(deps: ChatPanelToolbarActionDependencies): ToolbarActions {
   return {
     startNewThread: () => {
-      void host.startNewThread();
+      void deps.navigation.startNewThread();
     },
     toggleChatActions: () => {
       deps.toolbarPanels.toggleChatActions();
@@ -154,7 +150,7 @@ export function createChatPanelToolbarActions(host: ChatPanelToolbarActionsHost,
       void copyTextWithNotice(details, "Copied debug details.", "Could not copy debug details.");
     },
     resumeThread: (threadId) => {
-      void deps.selection.selectThreadFromToolbar(threadId);
+      void deps.navigation.selectThreadFromToolbar(threadId);
     },
     startArchiveThread: (threadId) => {
       deps.toolbarPanels.startArchive(threadId);
