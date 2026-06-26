@@ -16,6 +16,7 @@ const projectPluginByName = new Map(
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
+const DOM_BOUNDARY_MESSAGE = "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.";
 let appServerBoundaryPolicyReportPromise;
 let renderingAndCssPolicyReportPromise;
 
@@ -175,8 +176,20 @@ export const loadedSignals = signals;
       path.join(cwd, "src/features/chat/ui/dom-bridge-escape.tsx"),
       `
 export function render(container: HTMLElement): void {
+  const child = document.body;
   container.createDiv();
+  container.append(child);
+  container.setAttribute("role", "region");
+  container.setAttr("aria-label", "Chat");
+  container.addClass("codex-panel-chat");
+  container.removeClass("codex-panel-chat--hidden");
+  container.toggleClass("codex-panel-chat--active", true);
+  container.setText("Ready");
+  container.classList.add("codex-panel-chat--ready");
+  container.classList.remove("codex-panel-chat--stale");
+  container.classList.toggle("codex-panel-chat--busy", false);
   container.addEventListener("click", () => undefined);
+  child.remove();
 }
 `.trimStart(),
     );
@@ -184,8 +197,20 @@ export function render(container: HTMLElement): void {
       path.join(cwd, "src/features/chat/ui/dom-bridge.dom.tsx"),
       `
 export function render(container: HTMLElement): void {
+  const child = document.body;
   container.createDiv();
+  container.append(child);
+  container.setAttribute("role", "region");
+  container.setAttr("aria-label", "Chat");
+  container.addClass("codex-panel-chat");
+  container.removeClass("codex-panel-chat--hidden");
+  container.toggleClass("codex-panel-chat--active", true);
+  container.setText("Ready");
+  container.classList.add("codex-panel-chat--ready");
+  container.classList.remove("codex-panel-chat--stale");
+  container.classList.toggle("codex-panel-chat--busy", false);
   container.addEventListener("click", () => undefined);
+  child.remove();
 }
 `.trimStart(),
     );
@@ -271,10 +296,9 @@ export function timestamp(): number {
       "Do not import @preact/signals from this module.",
       "Do not import @preact/signals from this module.",
     ]);
-    expect(pluginMessages(report, "src/features/chat/ui/dom-bridge-escape.tsx")).toEqual([
-      "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
-      "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
-    ]);
+    expect(pluginMessages(report, "src/features/chat/ui/dom-bridge-escape.tsx")).toEqual(
+      Array.from({ length: 13 }, () => DOM_BOUNDARY_MESSAGE),
+    );
     expect(pluginDiagnostics(report, "src/features/chat/ui/dom-bridge.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/app-server/services/abortable-operation.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/ui/root-import.tsx")).toEqual([
