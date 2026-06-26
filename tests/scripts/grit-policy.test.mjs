@@ -351,7 +351,7 @@ export function timestamp(): number {
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
-    expect(pluginMessages(report, "src/features/chat/app-server/inbound/server-requests/responses.ts")).toEqual([
+    expect(pluginMessages(report, "src/features/chat/app-server/inbound/server-requests/adapter.ts")).toEqual([
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
   });
@@ -661,7 +661,7 @@ export type Item = TurnItem;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/chat/app-server/inbound/server-requests/responses.ts"),
+    path.join(cwd, "src/features/chat/app-server/inbound/server-requests/adapter.ts"),
     `
 import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
 
@@ -825,7 +825,7 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
       "src/features/chat/ui/protocol-leak.tsx",
       "src/features/chat/app-server/inbound/app-server-logs.ts",
       "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
-      "src/features/chat/app-server/inbound/server-requests/responses.ts",
+      "src/features/chat/app-server/inbound/server-requests/adapter.ts",
       "src/domain/threads/model.ts",
       "src/domain/threads/format.ts",
       "src/features/chat/domain/message-stream/selectors.ts",

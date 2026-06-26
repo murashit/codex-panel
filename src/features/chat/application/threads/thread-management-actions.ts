@@ -173,12 +173,13 @@ async function forkThreadFromTurn(
 
   try {
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
-    const forkedThread = await forkThreadOnAppServer(scope.client, threadId, host.vaultPath);
+    let forkedThread = await forkThreadOnAppServer(scope.client, threadId, host.vaultPath);
     if (threadManagementScopeClientStale(host, scope)) return;
     const forkedThreadId = forkedThread.id;
     if (turnsToDrop > 0) {
-      await rollbackThreadOnAppServer(scope.client, forkedThreadId, turnsToDrop);
+      const snapshot = await rollbackThreadOnAppServer(scope.client, forkedThreadId, turnsToDrop);
       if (threadManagementScopeClientStale(host, scope)) return;
+      forkedThread = snapshot.thread;
     }
     host.applyThreadCatalogEvent({ type: "thread-forked", thread: forkedThread });
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;

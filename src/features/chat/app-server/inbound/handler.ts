@@ -25,11 +25,12 @@ import type { AppServerResourceEvent } from "../actions/metadata";
 import { classifyAppServerLog } from "./app-server-logs";
 import { type ChatNotificationEffect, planChatNotification } from "./notification-plan";
 import {
+  routeServerRequest,
   serverRequestApprovalResponse,
+  serverRequestCurrentTimeResponse,
   serverRequestMcpElicitationResponse,
   serverRequestUserInputResponse,
-} from "./server-requests/responses";
-import { routeServerRequest } from "./server-requests/routing";
+} from "./server-requests/adapter";
 
 function cannotSendApprovalResponseMessage(): string {
   return "Could not send approval response because Codex app-server is not connected.";
@@ -235,7 +236,7 @@ function respondToCurrentTimeRequest(
   context: ChatInboundHandlerContext,
   request: Extract<ServerRequest, { method: "currentTime/read" }>,
 ): void {
-  if (!context.actions.respondToServerRequest(request.id, { currentTimeAt: Math.floor(Date.now() / 1000) })) {
+  if (!context.actions.respondToServerRequest(request.id, serverRequestCurrentTimeResponse(Date.now()))) {
     addSystemMessage(context, cannotSendCurrentTimeMessage());
   }
 }

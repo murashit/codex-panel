@@ -1,10 +1,20 @@
 import type { ServerRequest } from "../../../../../app-server/connection/rpc-messages";
 import {
   appServerApprovalRequest,
+  appServerApprovalResponse,
   appServerMcpElicitationRequest,
+  appServerMcpElicitationResponse,
   appServerUserInputRequest,
+  appServerUserInputResponse,
 } from "../../../../../app-server/protocol/server-requests";
-import type { PendingApproval, PendingMcpElicitation, PendingUserInput } from "../../../../../domain/pending-requests/model";
+import type {
+  ApprovalAction,
+  McpElicitationAction,
+  McpElicitationContentValue,
+  PendingApproval,
+  PendingMcpElicitation,
+  PendingUserInput,
+} from "../../../../../domain/pending-requests/model";
 import {
   type ActiveRouteScope,
   fallbackMessageScope,
@@ -87,6 +97,25 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
     case "unsupported":
       return { kind: "unsupported", request };
   }
+}
+
+export function serverRequestApprovalResponse(approval: PendingApproval, action: ApprovalAction): unknown {
+  return appServerApprovalResponse(approval, action);
+}
+
+export function serverRequestUserInputResponse(questions: readonly { id: string }[], answers: Record<string, string>): unknown {
+  return appServerUserInputResponse(questions, answers);
+}
+
+export function serverRequestMcpElicitationResponse(
+  action: McpElicitationAction,
+  content: Record<string, McpElicitationContentValue> | null,
+): unknown {
+  return appServerMcpElicitationResponse(action, content);
+}
+
+export function serverRequestCurrentTimeResponse(currentTimeMs: number): unknown {
+  return { currentTimeAt: Math.floor(currentTimeMs / 1000) };
 }
 
 function serverRequestScope(request: ServerRequest): MessageScope {

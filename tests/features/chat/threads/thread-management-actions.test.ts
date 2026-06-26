@@ -164,6 +164,19 @@ describe("thread management actions", () => {
 
   it("forks from a selected turn by dropping later turns on the fork", async () => {
     const client = clientMock();
+    client.forkThread.mockResolvedValue({
+      thread: {
+        ...archivedThread(),
+        id: "forked",
+        sessionId: "forked",
+        name: "Fork before rollback",
+        preview: "Pre-rollback",
+        updatedAt: 10,
+      },
+    });
+    client.rollbackThread.mockResolvedValue({
+      thread: { ...rollbackThread(), preview: "Post-rollback", updatedAt: 20 },
+    });
     const host = hostMock({ client, items: turnItems() });
     const controller = threadManagementActions(host);
 
@@ -173,7 +186,12 @@ describe("thread management actions", () => {
     expect(client.rollbackThread).toHaveBeenCalledWith("forked", 2);
     expect(host.applyThreadCatalogEvent).toHaveBeenCalledWith({
       type: "thread-forked",
-      thread: expect.objectContaining({ id: "forked" }),
+      thread: expect.objectContaining({
+        id: "forked",
+        name: "Rolled Back Thread",
+        preview: "Post-rollback",
+        updatedAt: 20,
+      }),
     });
     expect(host.openThreadInNewView).toHaveBeenCalledWith("forked");
     expect(client.archiveThread).not.toHaveBeenCalled();

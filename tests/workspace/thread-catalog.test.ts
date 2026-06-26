@@ -176,6 +176,23 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
   });
 
+  it("keeps rollback fork metadata until active snapshots catch up to the rollback version", () => {
+    const { catalog } = catalogFixture();
+    const forkBeforeRollback = thread("forked", false, { name: "Before", preview: "Before rollback", updatedAt: 20 });
+    const forkAfterRollback = thread("forked", false, { name: "After", preview: "After rollback", updatedAt: 20 });
+    const forkAfterFutureUpdate = thread("forked", false, { name: "Future", preview: "Future update", updatedAt: 21 });
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("existing")] });
+
+    catalog.apply({ type: "thread-forked", thread: forkAfterRollback });
+    catalog.apply({ type: "active-list-snapshot-received", threads: [forkBeforeRollback, thread("existing")] });
+
+    expect(catalog.activeSnapshot()).toEqual([forkAfterRollback, thread("existing")]);
+
+    catalog.apply({ type: "active-list-snapshot-received", threads: [forkAfterFutureUpdate, thread("existing")] });
+
+    expect(catalog.activeSnapshot()).toEqual([forkAfterFutureUpdate, thread("existing")]);
+  });
+
   it("keeps app-server rename facts when an older active list resolves later", async () => {
     const staleRefresh = deferred<readonly Thread[]>();
     const fetchThreads = vi

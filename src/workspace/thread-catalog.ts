@@ -123,8 +123,10 @@ function applyThreadCatalogEvent(
       store.setArchivedThreads(event.threads);
       return;
     case "thread-started":
-    case "thread-forked":
       upsertActiveThread(store, activeFacts, event.thread, acknowledgeByThreadId);
+      return;
+    case "thread-forked":
+      upsertActiveThread(store, activeFacts, event.thread, acknowledgedByThreadVersion(event.thread));
       return;
     case "thread-touched":
       applyThreadTouchedEvent(store, activeFacts, event.threadId, event.recencyAt);
@@ -327,6 +329,15 @@ function acknowledgeByThreadId(): boolean {
 
 function acknowledgedByName(name: string | null): (thread: Thread) => boolean {
   return (thread) => thread.name === name;
+}
+
+function acknowledgedByThreadVersion(reference: Thread): (thread: Thread) => boolean {
+  return (thread) =>
+    thread.updatedAt > reference.updatedAt ||
+    (thread.updatedAt === reference.updatedAt &&
+      thread.preview === reference.preview &&
+      thread.name === reference.name &&
+      thread.recencyAt === reference.recencyAt);
 }
 
 function acknowledgedByRecency(recencyAt: number | null): (thread: Thread) => boolean {
