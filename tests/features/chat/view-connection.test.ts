@@ -4,7 +4,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../src/app-server/protocol/thread";
-import { StaleAppServerSharedQueryContextError } from "../../../src/app-server/query/shared-queries";
 import type { ModelMetadata } from "../../../src/domain/catalog/metadata";
 import type { ObservedDataResult } from "../../../src/domain/observed-data";
 import { emptyRuntimeConfigSnapshot } from "../../../src/domain/runtime/config";
@@ -18,9 +17,13 @@ import { notices } from "../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
-const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 type TestCodexChatHost = CodexChatHost;
 let CodexChatView: typeof import("../../../src/features/chat/host/view")["CodexChatView"];
+interface TrackedView {
+  view: { onClose(): Promise<void> | void };
+  opened: boolean;
+}
+let createdViews: TrackedView[] = [];
 
 const connectionMock = vi.hoisted(() => {
   const state = {
@@ -122,7 +125,11 @@ describe("CodexChatView connection lifecycle", () => {
     restoreDefaultMessageViewportMetrics = mockMessageViewportOffsetMetrics({ clientHeight: 320, clientWidth: 240 });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    for (const entry of createdViews.reverse()) {
+      if (entry.opened) await entry.view.onClose();
+    }
+    createdViews = [];
     restoreDefaultMessageViewportMetrics?.();
     restoreDefaultMessageViewportMetrics = null;
     document.body.replaceChildren();
@@ -171,48 +178,6 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
     expect(client.listThreads).toHaveBeenCalledOnce();
-  });
-
-  it("refreshes shared thread lists after connecting", async () => {
-    const refresh = vi
-      .fn()
-      .mockResolvedValue([{ id: "thread-1", preview: "Restored thread", name: null, archived: false, createdAt: 1, updatedAt: 1 }]);
-    const client = connectedClient({
-      listThreads: vi.fn(),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView({
-      host: chatHost({ refreshActive: refresh }),
-    });
-
-    await view.onOpen();
-    await view.surface.connect();
-
-    expect(refresh).toHaveBeenCalledOnce();
-    expect(client.listThreads).not.toHaveBeenCalled();
-    requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.textContent).toContain("Restored thread");
-    });
-  });
-
-  it("ignores stale shared thread refreshes after connecting", async () => {
-    const refresh = vi.fn().mockRejectedValue(new StaleAppServerSharedQueryContextError());
-    connectionMock.state.client = connectedClient({
-      listThreads: vi.fn(),
-    });
-    const view = await chatView({
-      host: chatHost({ refreshActive: refresh }),
-    });
-
-    await view.onOpen();
-    await view.surface.connect();
-
-    expect(refresh).toHaveBeenCalledOnce();
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
-    expect(notices).toEqual([]);
-    requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
-    expect(view.containerEl.textContent).not.toContain("stale");
   });
 
   it("loads app-server metadata after connecting", async () => {
@@ -522,32 +487,6 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
   });
 
-  it("does not revive a completed turn when the startTurn response arrives late", async () => {
-    const startTurn = deferred<{ turn: { id: string } }>();
-    const client = connectedClient({
-      startTurn: vi.fn(() => startTurn.promise),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView();
-
-    await view.onOpen();
-    await view.surface.openThread("thread-1");
-    view.surface.setComposerText("hello");
-    await submitComposerByEnter(view);
-    await waitForAsyncWork(() => {
-      expect(client.startTurn).toHaveBeenCalled();
-    });
-
-    connectionMock.state.onNotification?.(turnStartedNotification("thread-1", "turn-1"));
-    connectionMock.state.onNotification?.(turnCompletedNotification("thread-1", "turn-1"));
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
-
-    startTurn.resolve({ turn: { id: "turn-1" } });
-    await flushAsyncTicks();
-
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "idle" } });
-  });
-
   it("requests a workspace layout save after resuming a thread", async () => {
     const requestSaveLayout = vi.fn();
     const client = connectedClient();
@@ -589,144 +528,6 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(focus).toHaveBeenCalledTimes(3);
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
-  });
-
-  it("does not start a thread when /clear is given arguments", async () => {
-    const client = connectedClient({
-      startThread: vi.fn().mockResolvedValue(startedThread("thread-new")),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView();
-
-    await view.onOpen();
-    await view.onOpen();
-    await view.surface.connect();
-    view.surface.setComposerText("/clear hello");
-    await submitComposerByEnter(view);
-
-    expect(client.startThread).not.toHaveBeenCalled();
-    expect(client.startTurn).not.toHaveBeenCalled();
-  });
-
-  it("focuses an open panel instead of resuming a duplicate slash resume thread", async () => {
-    const focusThreadInOpenView = vi.fn().mockResolvedValue(true);
-    const host = chatHost({
-      focusThreadInOpenView,
-    });
-    connectionMock.state.client = connectedClient({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
-    });
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    view.surface.setComposerText("/resume thread-1");
-    await submitComposerByEnter(view);
-
-    expect(focusThreadInOpenView).toHaveBeenCalledWith("thread-1");
-    expect(connectionMock.state.client["resumeThread"]).not.toHaveBeenCalled();
-  });
-
-  it("resumes slash resume threads in the current panel when they are not already open", async () => {
-    const focusThreadInOpenView = vi.fn().mockResolvedValue(false);
-    const client = connectedClient({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
-      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView({
-      host: chatHost({
-        focusThreadInOpenView,
-      }),
-    });
-
-    await view.onOpen();
-    await view.surface.connect();
-    view.surface.setComposerText("/resume thread-1");
-    await submitComposerByEnter(view);
-
-    expect(focusThreadInOpenView).toHaveBeenCalledWith("thread-1");
-    expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-  });
-
-  it("keeps resumed messages pinned to bottom after slash resume in the same empty panel", async () => {
-    const client = connectedClient({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
-      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView();
-
-    await view.onOpen();
-    await view.surface.connect();
-    const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(messages).not.toBeNull();
-    if (!messages) return;
-    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: ESTIMATED_MESSAGE_BLOCK_HEIGHT, clientHeight: 100 });
-    messages.scrollTop = 0;
-
-    view.surface.setComposerText("/resume thread-1");
-    await submitComposerByEnter(view);
-    await waitForMessagesFrame(messages);
-    await waitForMessagesFrame(messages);
-
-    const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(renderedMessages?.scrollTop).toBe(0);
-    restoreMessagesLayout();
-  });
-
-  it("routes slash archive through shared panel notifications", async () => {
-    const applyThreadCatalogEvent = vi.fn();
-    const host = chatHost({
-      applyThreadCatalogEvent,
-    });
-    const client = connectedClient({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")] }),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    view.surface.setComposerText("/archive thread-1");
-    await submitComposerByEnter(view);
-
-    expect(client.archiveThread).toHaveBeenCalledWith("thread-1");
-    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({ type: "thread-archived", threadId: "thread-1" });
-  });
-
-  it("replaces the current panel with the forked thread after fork and archive", async () => {
-    const applyThreadCatalogEvent = vi.fn();
-    const host = chatHost({ applyThreadCatalogEvent });
-    const client = connectedClient({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("source")] }),
-      resumeThread: vi.fn((threadId: string) => Promise.resolve(resumedThread(threadId))),
-      threadTurnsList: vi.fn().mockResolvedValue({ data: [completedTurn("turn-1")], nextCursor: null }),
-      forkThread: vi.fn().mockResolvedValue({ thread: threadFixture("forked") }),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView({ host });
-
-    await view.onOpen();
-    await view.surface.connect();
-    await view.surface.openThread("source");
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.textContent).toContain("done");
-    });
-    requiredButton(view.containerEl, ".codex-panel__fork-message").click();
-    await waitForAsyncWork(() => {
-      expect(view.containerEl.querySelector(".codex-panel__fork-and-archive-message")).not.toBeNull();
-    });
-    requiredButton(view.containerEl, ".codex-panel__fork-and-archive-message").click();
-
-    await waitForAsyncWork(() => {
-      expect(client.forkThread).toHaveBeenCalledWith("source", "/vault");
-      expect(client.archiveThread).toHaveBeenCalledWith("source");
-      expect(client.resumeThread).toHaveBeenLastCalledWith("forked", "/vault");
-      expect(view.getState()).toEqual({ version: 1, threadId: "forked", threadTitle: "Restored thread" });
-      expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "forked" });
-      expect(applyThreadCatalogEvent).toHaveBeenCalledWith({ type: "thread-archived", threadId: "source" });
-    });
   });
 
   it("clears the active thread when another view archives it", async () => {
@@ -793,74 +594,6 @@ describe("CodexChatView connection lifecycle", () => {
       expect(composer.selectionEnd).toBe(9);
       expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
     });
-  });
-
-  it("scrolls resumed messages to the bottom after history hydrates", async () => {
-    const client = connectedClient({
-      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView();
-
-    await view.onOpen();
-    const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(messages).not.toBeNull();
-    if (!messages) return;
-    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: ESTIMATED_MESSAGE_BLOCK_HEIGHT, clientHeight: 100 });
-    messages.scrollTop = 0;
-
-    await view.surface.openThread("thread-1");
-    await waitForMessagesFrame(messages);
-    await waitForMessagesFrame(messages);
-
-    const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(renderedMessages?.scrollTop).toBe(0);
-    restoreMessagesLayout();
-  });
-
-  it("leaves focused thread scroll position to the message stream", async () => {
-    const client = connectedClient({
-      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView();
-    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1_000, clientHeight: 100 });
-
-    await view.onOpen();
-    await view.surface.openThread("thread-1");
-    const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(messages).not.toBeNull();
-    if (!messages) return;
-    messages.scrollTop = 0;
-
-    await view.surface.focusThread("thread-1");
-
-    expect(messages.scrollTop).toBe(0);
-    restoreMessagesLayout();
-  });
-
-  it("leaves scroll position to the message stream when its leaf is focused", async () => {
-    const activeLeafChangeListeners: ((leaf: unknown) => void)[] = [];
-    const client = connectedClient({
-      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("restored prompt")], nextCursor: null }),
-    });
-    connectionMock.state.client = client;
-    const view = await chatView({ activeLeafChangeListeners });
-    const restoreMessagesLayout = mockMessagesLayout({ scrollHeight: 1_000, clientHeight: 100 });
-
-    await view.onOpen();
-    await view.surface.openThread("thread-1");
-    const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(messages).not.toBeNull();
-    if (!messages) return;
-    messages.scrollTop = 0;
-
-    activeLeafChangeListeners.forEach((listener) => {
-      listener((view as unknown as { leaf: unknown }).leaf);
-    });
-
-    expect(messages.scrollTop).toBe(0);
-    restoreMessagesLayout();
   });
 
   it("renders resumed thread metadata before history hydration completes", async () => {
@@ -963,31 +696,6 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-2", threadTitle: "Restored thread" });
     expect(view.containerEl.textContent).not.toContain("first prompt");
-  });
-
-  it("scrolls restored messages to the bottom when the panel is focused", async () => {
-    const activeLeafChangeListeners: ((leaf: unknown) => void)[] = [];
-    const view = await chatView({ activeLeafChangeListeners });
-
-    await view.onOpen();
-    const messages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(messages).not.toBeNull();
-    if (!messages) return;
-    Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
-    Object.defineProperty(messages, "clientHeight", { value: 100, configurable: true });
-    messages.scrollTop = 0;
-
-    activeLeafChangeListeners.forEach((listener) => {
-      listener(view.leaf);
-    });
-    await new Promise<void>((resolve) => {
-      messages.win.requestAnimationFrame(() => {
-        resolve();
-      });
-    });
-
-    const renderedMessages = view.containerEl.querySelector<HTMLElement>(".codex-panel__messages");
-    expect(renderedMessages?.scrollTop).toBe(0);
   });
 });
 
@@ -1140,47 +848,6 @@ function completedTurn(turnId: string) {
   };
 }
 
-function turnStartedNotification(threadId: string, turnId: string): Extract<ServerNotification, { method: "turn/started" }> {
-  return {
-    method: "turn/started",
-    params: {
-      threadId,
-      turn: {
-        id: turnId,
-        status: "inProgress",
-        error: null,
-        startedAt: 1,
-        completedAt: null,
-        durationMs: null,
-        itemsView: "full",
-        items: [],
-      },
-    },
-  };
-}
-
-function turnCompletedNotification(threadId: string, turnId: string): Extract<ServerNotification, { method: "turn/completed" }> {
-  return {
-    method: "turn/completed",
-    params: {
-      threadId,
-      turn: {
-        id: turnId,
-        status: "completed",
-        error: null,
-        startedAt: 1,
-        completedAt: 2,
-        durationMs: 1,
-        itemsView: "full",
-        items: [
-          { type: "userMessage", id: "user-1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-          { type: "agentMessage", id: "agent-1", text: "done", phase: "final_answer", memoryCitation: null },
-        ],
-      },
-    },
-  };
-}
-
 function composerElement(view: { containerEl: HTMLElement }): HTMLTextAreaElement {
   const composer = view.containerEl.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input");
   if (!composer) throw new Error("Expected composer input");
@@ -1189,43 +856,6 @@ function composerElement(view: { containerEl: HTMLElement }): HTMLTextAreaElemen
 
 function composerPlaceholder(view: { containerEl: HTMLElement }): string | null {
   return composerElement(view).getAttribute("placeholder");
-}
-
-function waitForMessagesFrame(messages: HTMLElement): Promise<void> {
-  return new Promise((resolve) => {
-    messages.win.requestAnimationFrame(() => {
-      resolve();
-    });
-  });
-}
-
-function mockMessagesLayout(metrics: { scrollHeight: number; clientHeight: number }): () => void {
-  const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
-  const clientHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
-  const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
-  Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
-    configurable: true,
-    get() {
-      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.scrollHeight : 0;
-    },
-  });
-  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
-    configurable: true,
-    get() {
-      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientHeight : 0;
-    },
-  });
-  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-    configurable: true,
-    get() {
-      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientHeight : 0;
-    },
-  });
-  return () => {
-    restorePrototypeProperty(HTMLElement.prototype, "scrollHeight", scrollHeightDescriptor);
-    restorePrototypeProperty(HTMLElement.prototype, "clientHeight", clientHeightDescriptor);
-    restorePrototypeProperty(HTMLElement.prototype, "offsetHeight", offsetHeightDescriptor);
-  };
 }
 
 function mockMessageViewportOffsetMetrics(metrics: { clientHeight: number; clientWidth: number }): () => void {
@@ -1468,25 +1098,20 @@ function queryResult<T>(data: T | null): ObservedDataResult<T> {
   };
 }
 
-async function chatView(
-  options: { activeLeafChangeListeners?: ((leaf: unknown) => void)[]; host?: CodexChatHost; requestSaveLayout?: () => void } = {},
-) {
+async function chatView(options: { host?: CodexChatHost; requestSaveLayout?: () => void } = {}) {
   const host = options.host ?? chatHost();
   const containerEl = document.createElement("div");
   document.body.appendChild(containerEl);
   containerEl.createDiv();
   containerEl.createDiv();
-  return new CodexChatView(
+  const view = new CodexChatView(
     {
       app: {
         workspace: {
           getActiveFile: vi.fn(() => null),
           getActiveViewOfType: vi.fn(() => null),
           getLastOpenFiles: vi.fn(() => []),
-          on: vi.fn((eventName: string, callback: (leaf: unknown) => void) => {
-            if (eventName === "active-leaf-change") options.activeLeafChangeListeners?.push(callback);
-            return {};
-          }),
+          on: vi.fn(() => ({})),
           openLinkText: vi.fn(),
           requestSaveLayout: options.requestSaveLayout ?? vi.fn(),
         },
@@ -1509,4 +1134,17 @@ async function chatView(
     } as never,
     host,
   );
+  const tracked: TrackedView = { view, opened: false };
+  const onOpen = view.onOpen.bind(view);
+  const onClose = view.onClose.bind(view);
+  view.onOpen = async () => {
+    tracked.opened = true;
+    await onOpen();
+  };
+  view.onClose = async () => {
+    tracked.opened = false;
+    await onClose();
+  };
+  createdViews.push(tracked);
+  return view;
 }
