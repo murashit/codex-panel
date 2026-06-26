@@ -7,5 +7,5 @@ or {
   `$client.rollbackThread($...)` as $stmt
 } where {
   $client <: r"^(?:client|[A-Za-z_$][A-Za-z0-9_$]*Client)$",
-  register_diagnostic(span=$stmt, message="Keep app-server projection RPCs behind app-server facades; chat application code should consume Panel-owned snapshots or view models.", severity="error")
+  register_diagnostic(span=$stmt, message="Keep app-server projection RPCs behind app-server facades; consume Panel-owned snapshots or view models here.", severity="error")
 }

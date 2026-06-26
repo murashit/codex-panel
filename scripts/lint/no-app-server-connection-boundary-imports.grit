@@ -28,5 +28,5 @@ private pattern app_server_connection_boundary_source() {
 
 js_module_reference() as $stmt where {
   $stmt <: contains `$source` where { $source <: app_server_connection_boundary_source() },
-  register_diagnostic(span=$stmt, message="App-server protocol, domain, and shared modules must not import app-server connection internals. Keep connection usage at app-server adapters.", severity="error")
+  register_diagnostic(span=$stmt, message="Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.", severity="error")
 }

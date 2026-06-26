@@ -13,16 +13,7 @@
     },
     {
       "path": "./scripts/lint/no-app-server-protocol-boundary-imports.grit",
-      "includes": [
-        "**/src/**/*.ts",
-        "!**/src/app-server/**/*.ts",
-        "**/src/features/chat/panel/**/*.tsx",
-        "**/src/features/chat/ui/**/*.tsx",
-        "**/src/features/selection-rewrite/**/*.tsx",
-        "**/src/features/threads-view/**/*.tsx",
-        "**/src/settings/**/*.tsx",
-        "**/src/shared/ui/**/*.tsx"
-      ]
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/**"]
     },
     {
       "path": "./scripts/lint/no-generated-app-server-boundary-imports.grit",
@@ -50,11 +41,11 @@
 
     // Chat feature architecture.
     {
-      "path": "./scripts/lint/no-chat-signal-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
+      "path": "./scripts/lint/no-preact-signal-imports.grit",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/features/chat/panel/shell-state.tsx"]
     },
     {
-      "path": "./scripts/lint/no-pure-chat-state-side-effects.grit",
+      "path": "./scripts/lint/no-state-module-side-effects.grit",
       "includes": ["**/src/features/chat/application/state/**/*.ts"]
     },
 

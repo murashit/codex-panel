@@ -15,7 +15,7 @@ const projectPluginByName = new Map(
   }),
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
-  "Source modules outside app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol, and chat request handling may consume server request protocol at their app-server boundaries; feature state and UI must use Panel-owned models.";
+  "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol, and chat request handling may consume server request protocol at their app-server boundaries; feature state and UI must use Panel-owned models.";
 
 describe("GritQL source policy", () => {
   it("keeps project-wide source-shape policies enforceable as Biome plugin diagnostics", async () => {
@@ -134,9 +134,9 @@ runner = new Runner(() => runner.stop());
 
   it("keeps chat architecture policies behind their intended boundaries", async () => {
     const cwd = await tempBiomeWorkspace([
-      "no-chat-signal-imports.grit",
       "no-implicit-dom-bridges.grit",
-      "no-pure-chat-state-side-effects.grit",
+      "no-preact-signal-imports.grit",
+      "no-state-module-side-effects.grit",
       "no-ui-root-imports.grit",
     ]);
     await writeFile(
@@ -262,14 +262,12 @@ export function timestamp(): number {
     );
 
     expect(pluginDiagnostics(report, "src/features/chat/panel/shell-state.tsx")).toEqual([]);
-    expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual([
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-    ]);
+    expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual(["Do not import @preact/signals from this module."]);
     expect(pluginMessages(report, "src/shared/ui/signal-escapes.tsx")).toEqual([
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-      "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
+      "Do not import @preact/signals from this module.",
+      "Do not import @preact/signals from this module.",
+      "Do not import @preact/signals from this module.",
+      "Do not import @preact/signals from this module.",
     ]);
     expect(pluginMessages(report, "src/features/chat/ui/dom-bridge-escape.tsx")).toEqual([
       "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
@@ -288,8 +286,8 @@ export function timestamp(): number {
       "Import the Preact root adapter only from explicit root bridge files.",
     ]);
     expect(pluginMessages(report, "src/features/chat/application/state/message-stream.ts")).toEqual([
-      "Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
-      "Keep chat state transforms deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
+      "Keep this state module deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
+      "Keep this state module deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/application/threads/resume-actions.ts")).toEqual([]);
   });
@@ -333,7 +331,7 @@ export type Input = UserInput;
     await writeFile(
       path.join(cwd, "src/app-server/services/runtime-overrides.ts"),
       `
-import type { ModelListResponse } from "../generated/app-server/v2/ModelListResponse";
+import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
 
 export interface RuntimeOverrideModelClient {
   listModels(includeHidden: boolean): Promise<ModelListResponse>;
@@ -438,10 +436,10 @@ export const value = <pre />;
     );
 
     expect(pluginMessages(report, "src/features/chat/application/state/view.tsx")).toEqual([
-      "Keep TSX files in UI, panel, settings, or explicit render bridge modules; non-rendering source should use .ts.",
+      "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
     ]);
     expect(pluginMessages(report, "src/domain/threads/view.tsx")).toEqual([
-      "Keep TSX files in UI, panel, settings, or explicit render bridge modules; non-rendering source should use .ts.",
+      "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/ui/message.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/settings/section.tsx")).toEqual([]);
@@ -472,6 +470,14 @@ export type Item = TurnItem;
 import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
 
 export const response = appServerUserInputResponse;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/protocol-leak.tsx"),
+      `
+import { threadTokenUsageFromAppServerUsage } from "../../../app-server/protocol/runtime-metrics";
+
+export const value = <div>{String(threadTokenUsageFromAppServerUsage)}</div>;
 `.trimStart(),
     );
     await writeFile(
@@ -510,6 +516,7 @@ export const response = [appServerUserInputResponse, runtimeMetrics] satisfies u
         "src/features/chat/application/pending-requests/pending-request-actions.ts",
         "src/features/chat/application/threads/history-controller.ts",
         "src/features/chat/panel/surface/message-stream-presenter.ts",
+        "src/features/chat/ui/protocol-leak.tsx",
         "src/features/chat/app-server/inbound/app-server-logs.ts",
         "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
         "src/features/chat/app-server/inbound/server-requests/responses.ts",
@@ -526,6 +533,7 @@ export const response = [appServerUserInputResponse, runtimeMetrics] satisfies u
     expect(pluginMessages(report, "src/features/chat/panel/surface/message-stream-presenter.ts")).toEqual([
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
+    expect(pluginMessages(report, "src/features/chat/ui/protocol-leak.tsx")).toEqual([APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE]);
     expect(pluginMessages(report, "src/features/chat/app-server/inbound/app-server-logs.ts")).toEqual([
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
@@ -656,10 +664,10 @@ export const format = formatDate;
     const report = biomeLint(["src/app-server/protocol/diagnostics.ts", "src/shared/thread-picker.ts", "src/shared/date.ts"], cwd);
 
     expect(pluginMessages(report, "src/app-server/protocol/diagnostics.ts")).toEqual([
-      "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, or app-server adapters.",
+      "Do not import feature modules from this layer. Move shared behavior to shared, domain, or app-server adapters.",
     ]);
     expect(pluginMessages(report, "src/shared/thread-picker.ts")).toEqual([
-      "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, or app-server adapters.",
+      "Do not import feature modules from this layer. Move shared behavior to shared, domain, or app-server adapters.",
     ]);
     expect(pluginDiagnostics(report, "src/shared/date.ts")).toEqual([]);
   });
@@ -710,14 +718,14 @@ export type Client = AppServerClient;
     );
 
     expect(pluginMessages(report, "src/app-server/protocol/catalog.ts")).toEqual([
-      "App-server protocol, domain, and shared modules must not import app-server connection internals. Keep connection usage at app-server adapters.",
+      "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/services/catalog.ts")).toEqual([]);
     expect(pluginMessages(report, "src/domain/connection-client.ts")).toEqual([
-      "App-server protocol, domain, and shared modules must not import app-server connection internals. Keep connection usage at app-server adapters.",
+      "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
     expect(pluginMessages(report, "src/shared/connection-client.ts")).toEqual([
-      "App-server protocol, domain, and shared modules must not import app-server connection internals. Keep connection usage at app-server adapters.",
+      "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
   });
 
@@ -758,7 +766,7 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
     );
 
     expect(pluginMessages(report, "src/features/chat/application/threads/history.ts")).toEqual([
-      "Keep app-server projection RPCs behind app-server facades; chat application code should consume Panel-owned snapshots or view models.",
+      "Keep app-server projection RPCs behind app-server facades; consume Panel-owned snapshots or view models here.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/threads.ts")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/chat/host/connection-bundle.ts")).toEqual([]);
