@@ -2,11 +2,7 @@ import { Notice } from "obsidian";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
-import type { ModelMetadata } from "../../../domain/catalog/metadata";
-import type { ObservedDataResult } from "../../../domain/observed-data";
-import { observedData } from "../../../domain/observed-data";
-import type { SharedServerMetadata } from "../../../domain/server/metadata";
-import { normalizeExplicitThreadName, type Thread } from "../../../domain/threads/model";
+import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
@@ -53,11 +49,11 @@ import { collaborationModeLabel as formatCollaborationModeLabel } from "../domai
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { ChatComposerController } from "../panel/composer-controller";
 import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../panel/surface/composer-projection";
-import { type ChatPanelGoalSurface, createChatPanelGoalSurface } from "../panel/surface/goal-projection";
-import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
+import type { ChatPanelGoalSurface } from "../panel/surface/goal-projection";
+import type { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
-import { createChatPanelToolbarActions, createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
+import { createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import { VaultNoteCandidateProvider } from "../panel/vault-note-candidate-provider";
 import {
   effortStatusLines as buildEffortStatusLines,
@@ -66,7 +62,9 @@ import {
 } from "../presentation/runtime/status";
 import type { ToolbarActions } from "../ui/toolbar";
 import { type ChatPanelConnectionBundle, type CurrentAppServerClient, createConnectionBundle } from "./connection-bundle";
-import type { ChatPanelEnvironment } from "./runtime";
+import type { ChatPanelEnvironment } from "./environment";
+import { createChatPanelSurfaces } from "./panel-surfaces";
+import { type ChatPanelSharedStateBinding, createChatPanelSharedStateBinding } from "./shared-state-binding";
 
 export interface ChatPanelSessionGraph {
   connection: {
@@ -112,12 +110,6 @@ export interface ChatPanelSessionGraph {
     refreshLiveState(): void;
     deferLiveStateRefresh(): void;
   };
-}
-
-interface ChatPanelSharedStateBinding {
-  applyCached(): void;
-  subscribe(): void;
-  unsubscribe(): void;
 }
 
 interface ChatPanelSessionStatus {
@@ -183,28 +175,6 @@ interface ChatPanelComposerAndTurnInput {
   invalidateThreadWork: () => void;
   startNewThread: () => Promise<void>;
   runtimeProjection: ChatPanelRuntimeProjection;
-}
-
-interface ChatPanelSurfacePresenterInput {
-  connection: ConnectionManager;
-  connectionController: ChatPanelConnectionBundle["connection"]["controller"];
-  goals: ChatPanelGoalActions;
-  rename: ThreadRenameEditorActions;
-  threadActions: ChatPanelThreadActions;
-  toolbarPanels: ToolbarPanelActions;
-  selection: ChatPanelSelectionActions;
-  reconnect: () => Promise<void>;
-  history: HistoryController;
-  pendingRequests: PendingRequestActions;
-  turnActions: ChatPanelConversationTurnActions;
-  startNewThread: () => Promise<void>;
-}
-
-interface ChatPanelSurfacePresenterParts {
-  toolbarActions: ToolbarActions;
-  toolbarSurface: ChatPanelToolbarSurface;
-  goalSurface: ChatPanelGoalSurface;
-  messageStreamPresenter: MessageStreamPresenter;
 }
 
 export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): ChatPanelSessionGraph {
@@ -314,7 +284,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     startNewThread,
     runtimeProjection: createSessionRuntimeProjection(host, connection),
   });
-  const surfaceParts = createSurfacesAndPresenter(host, {
+  const surfaces = createChatPanelSurfaces(host, {
     connection,
     connectionController,
     goals,
@@ -337,10 +307,18 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     }
   };
   const dispose = (): void => {
-    surfaceParts.messageStreamPresenter.dispose();
+    surfaces.messageStreamPresenter.dispose();
     composerController.dispose();
   };
-  const sharedState = createChatPanelSharedStateBinding(host, connectionBundle.serverActions);
+  const sharedState = createChatPanelSharedStateBinding({
+    stateStore: host.stateStore,
+    threadCatalog: host.environment.plugin.threadCatalog,
+    appServerData: host.environment.plugin.appServerData,
+    serverActions: connectionBundle.serverActions,
+    refreshTabHeader: () => {
+      refreshTabHeader(host);
+    },
+  });
 
   return {
     connection: {
@@ -357,18 +335,18 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     },
     toolbar: {
       panels: threadActionParts.toolbarPanels,
-      actions: surfaceParts.toolbarActions,
+      actions: surfaces.toolbarActions,
     },
     composer: {
       controller: composerController,
       submission: composerAndTurn.turnActions.composerSubmit,
     },
     render: {
-      messageStreamPresenter: surfaceParts.messageStreamPresenter,
+      messageStreamPresenter: surfaces.messageStreamPresenter,
     },
     surface: {
-      toolbar: surfaceParts.toolbarSurface,
-      goal: surfaceParts.goalSurface,
+      toolbar: surfaces.toolbarSurface,
+      goal: surfaces.goalSurface,
       composer: composerSurface,
     },
     actions: {
@@ -391,63 +369,6 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
 
 function createConnectionManager(environment: ChatPanelEnvironment): ConnectionManager {
   return new ConnectionManager(() => environment.plugin.settingsRef.settings.codexPath, environment.plugin.settingsRef.vaultPath);
-}
-
-function createChatPanelSharedStateBinding(
-  host: ChatPanelSessionGraphHost,
-  serverActions: ChatPanelConnectionBundle["serverActions"],
-): ChatPanelSharedStateBinding {
-  const unsubscribers: (() => void)[] = [];
-
-  const receiveThreads = (threads: readonly Thread[]): void => {
-    serverActions.threads.applyThreadList(threads);
-    refreshTabHeader(host);
-  };
-  const receiveThreadResult = (result: ObservedDataResult<readonly Thread[]>): void => {
-    const data = observedData(result);
-    if (data) receiveThreads(data);
-  };
-  const receiveAppServerMetadata = (metadata: SharedServerMetadata): void => {
-    serverActions.metadata.applyAppServerMetadata(metadata);
-  };
-  const receiveAppServerMetadataResult = (result: ObservedDataResult<SharedServerMetadata>): void => {
-    const data = observedData(result);
-    if (data) receiveAppServerMetadata(data);
-  };
-  const receiveModels = (models: readonly ModelMetadata[]): void => {
-    dispatch(host.stateStore, { type: "connection/metadata-applied", availableModels: models });
-  };
-  const receiveModelsResult = (result: ObservedDataResult<readonly ModelMetadata[]>): void => {
-    const data = observedData(result);
-    if (data) receiveModels(data);
-  };
-  const unsubscribe = (): void => {
-    while (unsubscribers.length > 0) {
-      unsubscribers.pop()?.();
-    }
-  };
-  const applyCached = (): void => {
-    const threads = host.environment.plugin.threadCatalog.activeSnapshot();
-    if (threads) serverActions.threads.applyThreadList(threads);
-    const metadata = host.environment.plugin.appServerData.appServerMetadataSnapshot();
-    if (metadata) serverActions.metadata.applyAppServerMetadata(metadata);
-    const models = host.environment.plugin.appServerData.modelsSnapshot();
-    if (models) receiveModels(models);
-  };
-
-  return {
-    applyCached,
-    subscribe: () => {
-      unsubscribe();
-      applyCached();
-      unsubscribers.push(
-        host.environment.plugin.threadCatalog.observeActive(receiveThreadResult, { emitCurrent: false }),
-        host.environment.plugin.appServerData.observeAppServerMetadataResult(receiveAppServerMetadataResult, { emitCurrent: false }),
-        host.environment.plugin.appServerData.observeModelsResult(receiveModelsResult, { emitCurrent: false }),
-      );
-    },
-    unsubscribe,
-  };
 }
 
 function createSessionThreadTitleService(host: ChatPanelSessionGraphHost, currentClient: CurrentAppServerClient): ThreadTitleService {
@@ -884,98 +805,6 @@ function createComposerAndTurnActions(
     pendingRequests,
     reconnect,
     turnActions,
-  };
-}
-
-function createSurfacesAndPresenter(
-  host: ChatPanelSessionGraphHost,
-  input: ChatPanelSurfacePresenterInput,
-): ChatPanelSurfacePresenterParts {
-  const {
-    connection,
-    connectionController,
-    goals,
-    rename,
-    threadActions,
-    toolbarPanels,
-    selection,
-    reconnect,
-    history,
-    pendingRequests,
-    turnActions,
-    startNewThread,
-  } = input;
-  const { environment, stateStore } = host;
-  const toolbarActions = createChatPanelToolbarActions(
-    {
-      startNewThread,
-    },
-    {
-      connectionController,
-      reconnectPanel: reconnect,
-      threadActions,
-      goals,
-      toolbarPanels,
-      rename,
-      selection,
-    },
-  );
-  const toolbarSurface: ChatPanelToolbarSurface = {
-    state: {
-      connected: () => connection.isConnected(),
-      nowMs: () => Date.now(),
-    },
-    settings: {
-      vaultPath: () => environment.plugin.settingsRef.vaultPath,
-      configuredCommand: () => environment.plugin.settingsRef.settings.codexPath,
-      archiveExportEnabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled,
-    },
-  };
-  const goalSurface = createChatPanelGoalSurface(
-    {
-      sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
-    },
-    {
-      goals,
-    },
-  );
-  const messageStreamPresenter = new MessageStreamPresenter({
-    obsidian: {
-      app: environment.obsidian.app,
-      owner: environment.obsidian.owner,
-    },
-    state: {
-      store: stateStore,
-    },
-    workspace: {
-      vaultPath: environment.plugin.settingsRef.vaultPath,
-    },
-    scroll: {
-      controller: host.messageScrollController,
-      dispose: () => {
-        host.messageScrollController.dispose();
-      },
-    },
-    history: {
-      loadOlderTurns: () => void history.loadOlder(),
-    },
-    actions: {
-      rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),
-      forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
-      implementPlan: (itemId) => void turnActions.planImplementation.implement(itemId),
-      openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
-    },
-    requests: {
-      pendingActions: () => pendingRequests.actions(),
-      consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
-    },
-  });
-
-  return {
-    toolbarActions,
-    toolbarSurface,
-    goalSurface,
-    messageStreamPresenter,
   };
 }
 

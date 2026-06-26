@@ -9,8 +9,8 @@ import { type ChatStateStore, createChatStateStore } from "../application/state/
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatPanelSnapshot, openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
 import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/surface/message-stream-scroll";
-import { createChatViewDeferredTasks } from "./lifecycle";
-import type { ChatPanelEnvironment } from "./runtime";
+import { createChatViewDeferredTasks } from "./deferred-tasks";
+import type { ChatPanelEnvironment } from "./environment";
 import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
 import type { ChatSurfaceHandle } from "./surface-handle";
 

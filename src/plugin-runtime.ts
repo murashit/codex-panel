@@ -8,7 +8,7 @@ import { AppServerSharedQueries } from "./app-server/query/shared-queries";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
-import type { CodexChatHost, PluginSettingsRef } from "./features/chat/host/runtime";
+import type { CodexChatHost, PluginSettingsRef } from "./features/chat/host/environment";
 import type {
   ChatPanelClientSurface,
   ChatSharedThreadSurface,

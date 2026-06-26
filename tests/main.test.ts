@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
-import type { CodexChatHost } from "../src/features/chat/host/runtime";
+import type { CodexChatHost } from "../src/features/chat/host/environment";
 import type { CodexChatView } from "../src/features/chat/host/view";
 import type CodexPanelPlugin from "../src/main";
 import { DEFAULT_SETTINGS } from "../src/settings/model";

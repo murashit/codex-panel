@@ -23,6 +23,7 @@ export type ServerNotificationRoute =
   | { kind: "requestResolved"; notification: RequestResolvedNotification }
   | { kind: "diagnosticStatus"; notification: DiagnosticStatusNotification }
   | { kind: "userVisibleNotice"; notification: UserVisibleNoticeNotification }
+  | { kind: "ignored"; notification: ServerNotification }
   | { kind: "unhandled"; notification: ServerNotification }
   | { kind: "inactive"; notification: ServerNotification };
 
@@ -82,6 +83,8 @@ const DIAGNOSTIC_STATUS_NOTIFICATION_METHODS = [
   "thread/tokenUsage/updated",
   "account/rateLimits/updated",
   "skills/changed",
+  "app/list/updated",
+  "mcpServer/oauthLogin/completed",
   "mcpServer/startupStatus/updated",
 ] as const;
 
@@ -94,9 +97,42 @@ const USER_VISIBLE_NOTICE_NOTIFICATION_METHODS = [
   "error",
   "warning",
   "configWarning",
+  "windows/worldWritableWarning",
+  "windowsSandbox/setupCompleted",
 ] as const;
 
 export type UserVisibleNoticeNotificationMethod = (typeof USER_VISIBLE_NOTICE_NOTIFICATION_METHODS)[number];
+
+export const IGNORED_SERVER_NOTIFICATION_METHODS = [
+  "thread/status/changed",
+  "thread/closed",
+  "rawResponseItem/completed",
+  "command/exec/outputDelta",
+  "process/outputDelta",
+  "process/exited",
+  "item/commandExecution/terminalInteraction",
+  "account/updated",
+  "remoteControl/status/changed",
+  "externalAgentConfig/import/progress",
+  "externalAgentConfig/import/completed",
+  "fs/changed",
+  "model/verification",
+  "turn/moderationMetadata",
+  "model/safetyBuffering/updated",
+  "fuzzyFileSearch/sessionUpdated",
+  "fuzzyFileSearch/sessionCompleted",
+  "thread/realtime/started",
+  "thread/realtime/itemAdded",
+  "thread/realtime/transcript/delta",
+  "thread/realtime/transcript/done",
+  "thread/realtime/outputAudio/delta",
+  "thread/realtime/sdp",
+  "thread/realtime/error",
+  "thread/realtime/closed",
+  "account/login/completed",
+] as const satisfies readonly ServerNotificationMethod[];
+
+type IgnoredServerNotificationMethod = (typeof IGNORED_SERVER_NOTIFICATION_METHODS)[number];
 
 export const ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND = {
   streamUpdate: STREAM_UPDATE_NOTIFICATION_METHODS,
@@ -105,7 +141,7 @@ export const ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND = {
   requestResolved: ["serverRequest/resolved"],
   diagnosticStatus: DIAGNOSTIC_STATUS_NOTIFICATION_METHODS,
   userVisibleNotice: USER_VISIBLE_NOTICE_NOTIFICATION_METHODS,
-} satisfies Record<Exclude<ServerNotificationRoute["kind"], "inactive" | "unhandled">, readonly ServerNotificationMethod[]>;
+} satisfies Record<Exclude<ServerNotificationRoute["kind"], "inactive" | "unhandled" | "ignored">, readonly ServerNotificationMethod[]>;
 
 const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = {
   error: threadTurnNotificationScope,
@@ -191,6 +227,7 @@ export function routeServerNotification(notification: ServerNotification, scope:
   if (notification.method === "serverRequest/resolved") return { kind: "requestResolved", notification };
   if (isDiagnosticStatusNotification(notification)) return { kind: "diagnosticStatus", notification };
   if (isUserVisibleNoticeNotification(notification)) return { kind: "userVisibleNotice", notification };
+  if (isIgnoredServerNotification(notification)) return { kind: "ignored", notification };
   return { kind: "unhandled", notification };
 }
 
@@ -250,6 +287,12 @@ function isDiagnosticStatusNotification(notification: ServerNotification): notif
 
 function isUserVisibleNoticeNotification(notification: ServerNotification): notification is UserVisibleNoticeNotification {
   return notificationMethodIn(notification.method, USER_VISIBLE_NOTICE_NOTIFICATION_METHODS);
+}
+
+function isIgnoredServerNotification(
+  notification: ServerNotification,
+): notification is RoutedNotification<IgnoredServerNotificationMethod> {
+  return notificationMethodIn(notification.method, IGNORED_SERVER_NOTIFICATION_METHODS);
 }
 
 function notificationMethodIn<M extends ServerNotificationMethod>(method: ServerNotificationMethod, methods: readonly M[]): method is M {

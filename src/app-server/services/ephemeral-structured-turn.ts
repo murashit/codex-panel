@@ -16,6 +16,8 @@ type StructuredTurnRuntimeOverride = NonNullable<AppServerStartStructuredTurnOpt
 
 type StructuredTurnProgressEvent = { type: "agent-message-delta"; delta: string } | { type: "reasoning-activity" };
 
+const EPHEMERAL_THREAD_CLEANUP_TIMEOUT_MS = 5_000;
+
 interface EphemeralStructuredTurnTimers {
   setTimeout(callback: () => void, delayMs: number): ReturnType<Window["setTimeout"]>;
   clearTimeout(timer: ReturnType<Window["setTimeout"]>): void;
@@ -33,6 +35,7 @@ export interface EphemeralStructuredTurnClient {
   disconnect(): void;
   startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<{ thread: { id: string } }>;
   startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<{ turn: TurnRecord }>;
+  deleteThread(threadId: string, options?: { timeoutMs?: number }): Promise<unknown>;
 }
 
 type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient & ModelMetadataClient;
@@ -98,6 +101,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   });
 
   const clientFactory = options.clientFactory ?? ((codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers));
+  let threadId: string | null = null;
   const client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {
       handleNotification(notification);
@@ -124,16 +128,17 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
         developerInstructions: options.developerInstructions,
       }),
     );
+    threadId = threadResponse.thread.id;
     state = {
       ...state,
       lifecycle: transitionEphemeralStructuredTurnLifecycle(state.lifecycle, {
         type: "thread-started",
-        threadId: threadResponse.thread.id,
+        threadId,
       }),
     };
     const turnResponse = await abortableOperation(
       client.startStructuredTurn({
-        threadId: threadResponse.thread.id,
+        threadId,
         cwd: options.cwd,
         text: options.prompt,
         outputSchema: options.outputSchema,
@@ -144,7 +149,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
       ...state,
       lifecycle: transitionEphemeralStructuredTurnLifecycle(state.lifecycle, {
         type: "turn-started",
-        threadId: threadResponse.thread.id,
+        threadId,
         turnId: turnResponse.turn.id,
       }),
     };
@@ -154,6 +159,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   } finally {
     state = completeEphemeralStructuredTurnState(state);
     timers.clearTimeout(timeout);
+    await deleteEphemeralStructuredTurnThread(client, threadId);
     client.disconnect();
   }
 }
@@ -254,6 +260,15 @@ function ephemeralStructuredTurnMatches(state: EphemeralStructuredTurnLifecycleS
 function turnWithCollectedItems(turn: TurnRecord, completedItems: readonly TurnItem[]): TurnRecord {
   if (turn.items.length > 0 || completedItems.length === 0) return turn;
   return { ...turn, items: [...completedItems], itemsView: "full" };
+}
+
+async function deleteEphemeralStructuredTurnThread(client: EphemeralStructuredTurnClient, threadId: string | null): Promise<void> {
+  if (!threadId) return;
+  try {
+    await client.deleteThread(threadId, { timeoutMs: EPHEMERAL_THREAD_CLEANUP_TIMEOUT_MS });
+  } catch {
+    // Ephemeral helpers must not fail visible workflows because cleanup raced app-server shutdown.
+  }
 }
 
 function throwIfAborted(signal: AbortSignal | undefined, message: string | undefined): void {

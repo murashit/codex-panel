@@ -242,6 +242,8 @@ class FakeThreadTitleClient implements EphemeralStructuredTurnClient {
 
   disconnect(): void {}
 
+  async deleteThread(): Promise<void> {}
+
   async listModels(): Promise<ModelListResponse> {
     return { data: this.modelList, nextCursor: null };
   }

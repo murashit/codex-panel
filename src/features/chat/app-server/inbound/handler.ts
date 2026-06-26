@@ -62,6 +62,7 @@ function cannotRejectServerRequestMessage(): string {
 
 export interface ChatInboundHandlerActions {
   refreshActiveThreads: () => void;
+  refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
   applyAppServerResourceEvent: (event: AppServerResourceEvent) => void;
   maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
   applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
@@ -313,6 +314,9 @@ function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatN
   switch (effect.type) {
     case "refresh-threads":
       context.actions.refreshActiveThreads();
+      return;
+    case "refresh-server-diagnostics":
+      context.actions.refreshServerDiagnostics({ forceResourceProbes: effect.forceResourceProbes === true });
       return;
     case "apply-app-server-resource-event":
       context.actions.applyAppServerResourceEvent(effect.event);

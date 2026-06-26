@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatResumeWorkTracker, transitionRestoredThreadLifecycle } from "../../../src/features/chat/application/lifecycle";
-import { createChatViewDeferredTasks } from "../../../src/features/chat/host/lifecycle";
+import { createChatViewDeferredTasks } from "../../../src/features/chat/host/deferred-tasks";
 import { ConnectionWorkTracker } from "../../../src/shared/lifecycle/connection-work";
 
 describe("createChatViewDeferredTasks", () => {

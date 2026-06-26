@@ -51,6 +51,7 @@ import {
 
 export type ChatNotificationEffect =
   | { type: "refresh-threads" }
+  | { type: "refresh-server-diagnostics"; forceResourceProbes?: boolean }
   | { type: "apply-app-server-resource-event"; event: AppServerResourceEvent }
   | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ThreadConversationSummary | null }
   | { type: "apply-thread-catalog-event"; event: ThreadCatalogEvent };
@@ -99,6 +100,14 @@ const DIAGNOSTIC_STATUS_PLANNERS = {
     actions: [],
     effects: [{ type: "apply-app-server-resource-event", event: { type: "skills-changed", forceReload: true } }],
   }),
+  "app/list/updated": () => ({
+    actions: [],
+    effects: [{ type: "refresh-server-diagnostics" }],
+  }),
+  "mcpServer/oauthLogin/completed": () => ({
+    actions: [],
+    effects: [{ type: "refresh-server-diagnostics", forceResourceProbes: true }],
+  }),
   "mcpServer/startupStatus/updated": (notification) => ({
     actions: [],
     effects: [
@@ -122,6 +131,9 @@ const USER_VISIBLE_NOTICE_PLANNERS = {
   error: jsonNoticePlan,
   warning: jsonNoticePlan,
   configWarning: jsonNoticePlan,
+  "windows/worldWritableWarning": jsonNoticePlan,
+  "windowsSandbox/setupCompleted": (notification, localItemId) =>
+    notification.params.success ? EMPTY_PLAN : jsonNoticePlan(notification, localItemId),
 } satisfies ServerNotificationLocalPlannerMap<UserVisibleNoticeNotificationMethod>;
 
 const STREAM_UPDATE_PLANNERS = {
@@ -312,7 +324,7 @@ export const PLANNED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND = {
   diagnosticStatus: plannerMethods(DIAGNOSTIC_STATUS_PLANNERS),
   userVisibleNotice: plannerMethods(USER_VISIBLE_NOTICE_PLANNERS),
 } satisfies Record<
-  Exclude<ReturnType<typeof routeServerNotification>["kind"], "inactive" | "unhandled">,
+  Exclude<ReturnType<typeof routeServerNotification>["kind"], "inactive" | "unhandled" | "ignored">,
   readonly ServerNotification["method"][]
 >;
 
@@ -327,6 +339,7 @@ export function planChatNotification(
   });
   switch (route.kind) {
     case "inactive":
+    case "ignored":
     case "unhandled":
       return EMPTY_PLAN;
     case "streamUpdate":

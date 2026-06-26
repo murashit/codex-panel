@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { routeServerRequest } from "../../../../../src/app-server/server-requests";
@@ -6,6 +8,7 @@ import {
   planChatNotification,
 } from "../../../../../src/features/chat/app-server/inbound/notification-plan";
 import {
+  IGNORED_SERVER_NOTIFICATION_METHODS,
   ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND,
   routeServerNotification,
 } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
@@ -21,6 +24,14 @@ describe("chat inbound routing", () => {
     expect(sortedMethods(PLANNED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND)).toEqual(
       sortedMethods(ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND),
     );
+  });
+
+  it("keeps generated app-server notifications explicitly routed or ignored", () => {
+    const routed = flattenedMethods(ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND);
+    const ignored = [...IGNORED_SERVER_NOTIFICATION_METHODS];
+
+    expect(intersection(routed, ignored)).toEqual([]);
+    expect([...new Set([...routed, ...ignored])].sort()).toEqual(generatedServerNotificationMethods());
   });
 
   it("routes turn-scoped app-server messages for the active scope", () => {
@@ -187,7 +198,7 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, kind);
   });
 
-  it("leaves unhandled app-server notifications explicit", () => {
+  it("keeps ignored app-server notifications explicit", () => {
     const route = routeServerNotification(
       {
         method: "account/updated",
@@ -196,7 +207,7 @@ describe("chat inbound routing", () => {
       activeScope,
     );
 
-    expect(route.kind).toBe("unhandled");
+    expect(route.kind).toBe("ignored");
   });
 
   it("routes unknown runtime notifications to the unhandled fallback", () => {
@@ -232,8 +243,8 @@ describe("chat inbound routing", () => {
     { name: "turn moderation metadata", notification: turnModerationMetadataNotification },
     { name: "terminal interaction", notification: terminalInteractionNotification },
     { name: "model verification", notification: modelVerificationNotification },
-  ])("still scopes unhandled turn notification $name", ({ notification }) => {
-    expectNotificationRouteKind(notification("thread-active", "turn-active"), "unhandled");
+  ])("still scopes ignored turn notification $name", ({ notification }) => {
+    expectNotificationRouteKind(notification("thread-active", "turn-active"), "ignored");
     expectNotificationRouteKind(notification("thread-other", "turn-active"), "inactive");
     expectNotificationRouteKind(notification("thread-active", "turn-other"), "inactive");
   });
@@ -241,8 +252,8 @@ describe("chat inbound routing", () => {
   it.each([
     { name: "thread status changed", notification: threadStatusChangedNotification },
     { name: "thread closed", notification: threadClosedNotification },
-  ])("still scopes unhandled thread lifecycle notification $name", ({ notification }) => {
-    expectNotificationRouteKind(notification("thread-active"), "unhandled");
+  ])("still scopes ignored thread lifecycle notification $name", ({ notification }) => {
+    expectNotificationRouteKind(notification("thread-active"), "ignored");
     expectNotificationRouteKind(notification("thread-other"), "inactive");
   });
 
@@ -433,6 +444,26 @@ function turnStartedNotification(): ServerNotification {
 
 function sortedMethods(methodsByRouteKind: Record<string, readonly string[]>): Record<string, readonly string[]> {
   return Object.fromEntries(Object.entries(methodsByRouteKind).map(([kind, methods]) => [kind, [...methods].sort()]));
+}
+
+function flattenedMethods(methodsByRouteKind: Record<string, readonly string[]>): string[] {
+  return Object.values(methodsByRouteKind).flat().sort();
+}
+
+function intersection(left: readonly string[], right: readonly string[]): string[] {
+  const rightSet = new Set(right);
+  return left.filter((method) => rightSet.has(method)).sort();
+}
+
+function generatedServerNotificationMethods(): string[] {
+  const generated = readFileSync(path.join(process.cwd(), "src/generated/app-server/ServerNotification.ts"), "utf8");
+  return [...generated.matchAll(/"method": "([^"]+)"/g)]
+    .map((match) => {
+      const method = match[1];
+      if (!method) throw new Error("Expected generated notification method match.");
+      return method;
+    })
+    .sort();
 }
 
 function threadArchivedNotification(threadId = "thread-active"): ServerNotification {

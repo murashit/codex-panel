@@ -29,6 +29,7 @@ function handlerForState(
       store,
       {
         refreshActiveThreads: vi.fn(),
+        refreshServerDiagnostics: vi.fn(),
         applyAppServerResourceEvent: vi.fn(),
         maybeNameThread: vi.fn(),
         applyThreadCatalogEvent: vi.fn(),
@@ -717,6 +718,32 @@ describe("ChatInboundHandler", () => {
       });
       expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
     });
+
+    it("refreshes tool inventory diagnostics when the app list changes", () => {
+      const refreshServerDiagnostics = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { refreshServerDiagnostics });
+
+      handler.handleNotification({
+        method: "app/list/updated",
+        params: { data: [] },
+      } satisfies Extract<ServerNotification, { method: "app/list/updated" }>);
+
+      expect(refreshServerDiagnostics).toHaveBeenCalledWith({ forceResourceProbes: false });
+      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+    });
+
+    it("refreshes resource probes after MCP OAuth login completes", () => {
+      const refreshServerDiagnostics = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { refreshServerDiagnostics });
+
+      handler.handleNotification({
+        method: "mcpServer/oauthLogin/completed",
+        params: { name: "github", success: true },
+      } satisfies Extract<ServerNotification, { method: "mcpServer/oauthLogin/completed" }>);
+
+      expect(refreshServerDiagnostics).toHaveBeenCalledWith({ forceResourceProbes: true });
+      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+    });
   });
 
   describe("interactive server requests", () => {
@@ -1195,6 +1222,59 @@ describe("ChatInboundHandler", () => {
           text: 'warning: {\n  "threadId": null,\n  "message": "careful"\n}',
         }),
       ]);
+    });
+
+    it("keeps Windows world-writable warnings in the message stream", () => {
+      const handler = handlerForState(chatStateFixture());
+
+      handler.handleNotification({
+        method: "windows/worldWritableWarning",
+        params: { samplePaths: ["C:\\tmp\\open"], extraCount: 2, failedScan: false },
+      } satisfies Extract<ServerNotification, { method: "windows/worldWritableWarning" }>);
+
+      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([
+        expect.objectContaining({
+          kind: "system",
+          text: expect.stringContaining("windows/worldWritableWarning"),
+        }),
+      ]);
+      expect(chatStateMessageStreamItems(handler.currentState())[0]).toEqual(
+        expect.objectContaining({
+          text: expect.stringContaining("open"),
+        }),
+      );
+    });
+
+    it("keeps failed Windows sandbox setup notices in the message stream", () => {
+      const handler = handlerForState(chatStateFixture());
+
+      handler.handleNotification({
+        method: "windowsSandbox/setupCompleted",
+        params: { mode: "unelevated", success: false, error: "setup failed" },
+      } satisfies Extract<ServerNotification, { method: "windowsSandbox/setupCompleted" }>);
+
+      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([
+        expect.objectContaining({
+          kind: "system",
+          text: expect.stringContaining("windowsSandbox/setupCompleted"),
+        }),
+      ]);
+      expect(chatStateMessageStreamItems(handler.currentState())[0]).toEqual(
+        expect.objectContaining({
+          text: expect.stringContaining("setup failed"),
+        }),
+      );
+    });
+
+    it("suppresses successful Windows sandbox setup notices", () => {
+      const handler = handlerForState(chatStateFixture());
+
+      handler.handleNotification({
+        method: "windowsSandbox/setupCompleted",
+        params: { mode: "unelevated", success: true, error: null },
+      } satisfies Extract<ServerNotification, { method: "windowsSandbox/setupCompleted" }>);
+
+      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("clears all active-thread scoped state when the active thread is archived", () => {

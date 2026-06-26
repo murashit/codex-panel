@@ -812,6 +812,8 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
     this.disconnected = true;
   }
 
+  async deleteThread(): Promise<void> {}
+
   async listModels(): Promise<ModelListResponse> {
     return this.modelList;
   }

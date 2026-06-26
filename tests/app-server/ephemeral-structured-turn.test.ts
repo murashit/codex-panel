@@ -109,6 +109,50 @@ describe("runEphemeralStructuredTurn", () => {
     expect(timers.clearTimeout).toHaveBeenCalledWith(123);
   });
 
+  it("deletes the ephemeral thread before disconnecting after a completed turn", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await runEphemeralStructuredTurn(runOptions(clientFactory));
+
+    const fake = expectPresent(client.current);
+    expect(fake.deleteThread).toHaveBeenCalledWith("thread", { timeoutMs: 5_000 });
+    expect(expectPresent(fake.disconnect.mock.invocationCallOrder[0])).toBeGreaterThan(
+      expectPresent(fake.deleteThread.mock.invocationCallOrder[0]),
+    );
+  });
+
+  it("does not try to delete when no ephemeral thread was started", async () => {
+    const timers = timerHarness();
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.connectImpl = () => new Promise<InitializeResponse>(() => undefined);
+    });
+
+    const running = runEphemeralStructuredTurn({
+      ...runOptions(clientFactory),
+      timers,
+    });
+    await Promise.resolve();
+
+    timers.fireTimeout();
+
+    await expect(running).rejects.toThrow("Structured test timed out.");
+    expect(expectPresent(client.current).deleteThread).not.toHaveBeenCalled();
+  });
+
+  it("keeps the completed turn result when deleting the ephemeral thread fails", async () => {
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.deleteThread.mockRejectedValueOnce(new Error("delete failed"));
+      fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
+    });
+
+    await expect(runEphemeralStructuredTurn(runOptions(clientFactory))).resolves.toMatchObject({
+      items: [agentMessage("answer", '{"ok":true}')],
+    });
+    expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
+  });
+
   it("rejects server requests with the configured message", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.connectImpl = async () => {
@@ -215,6 +259,24 @@ describe("runEphemeralStructuredTurn", () => {
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
     expect(timers.clearTimeout).toHaveBeenCalledWith(123);
   });
+
+  it("deletes a started ephemeral thread when structured turn startup times out", async () => {
+    const timers = timerHarness();
+    const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.startStructuredTurnImpl = () => new Promise<TurnStartResponse>(() => undefined);
+    });
+
+    const running = runEphemeralStructuredTurn({
+      ...runOptions(clientFactory),
+      timers,
+    });
+    await expectPresent(client.current).structuredTurnStarted;
+
+    timers.fireTimeout();
+
+    await expect(running).rejects.toThrow("Structured test timed out.");
+    expect(expectPresent(client.current).deleteThread).toHaveBeenCalledWith("thread", { timeoutMs: 5_000 });
+  });
 });
 
 function runOptions(clientFactory: EphemeralStructuredTurnClientFactory): Parameters<typeof runEphemeralStructuredTurn>[0] {
@@ -256,6 +318,7 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
   readonly listModels = vi.fn(async (): Promise<ModelListResponse> => ({ data: [], nextCursor: null }));
   readonly rejectServerRequest = vi.fn();
+  readonly deleteThread = vi.fn(async () => undefined);
   readonly disconnect = vi.fn();
   readonly structuredTurnStarted: Promise<void>;
   private resolveStructuredTurnStarted!: () => void;

@@ -379,8 +379,8 @@ export class AppServerClient {
     return this.request("thread/archive", { threadId });
   }
 
-  deleteThread(threadId: string): Promise<ThreadDeleteResponse> {
-    return this.request("thread/delete", { threadId });
+  deleteThread(threadId: string, options: { timeoutMs?: number } = {}): Promise<ThreadDeleteResponse> {
+    return this.request("thread/delete", { threadId }, options);
   }
 
   readThread(threadId: string, includeTurns = true): Promise<ThreadReadResponse> {
