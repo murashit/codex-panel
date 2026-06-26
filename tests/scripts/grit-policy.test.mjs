@@ -390,9 +390,7 @@ export type Params = ToolRequestUserInputParams;
     expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
       "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
-    expect(pluginMessages(report, "src/app-server/protocol/server-requests.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
-    ]);
+    expect(pluginDiagnostics(report, "src/app-server/protocol/server-requests.ts")).toEqual([]);
   });
 
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
