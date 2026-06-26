@@ -63,5 +63,5 @@ function slashPath(value: string): string {
 }
 
 function allowsGeneratedAppServerImport(relativePath: string): boolean {
-  return relativePath.startsWith("src/app-server/connection/") || relativePath === "src/app-server/protocol/server-requests.ts";
+  return relativePath.startsWith("src/app-server/connection/");
 }

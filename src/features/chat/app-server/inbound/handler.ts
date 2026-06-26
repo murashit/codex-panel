@@ -1,5 +1,12 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
 import {
+  routeServerRequest,
+  serverRequestApprovalResponse,
+  serverRequestCurrentTimeResponse,
+  serverRequestMcpElicitationResponse,
+  serverRequestUserInputResponse,
+} from "../../../../app-server/server-requests";
+import {
   type ApprovalAction,
   contentForPendingMcpElicitation,
   type McpElicitationAction,
@@ -24,13 +31,6 @@ import {
 import type { AppServerResourceEvent } from "../actions/metadata";
 import { classifyAppServerLog } from "./app-server-logs";
 import { type ChatNotificationEffect, planChatNotification } from "./notification-plan";
-import {
-  routeServerRequest,
-  serverRequestApprovalResponse,
-  serverRequestCurrentTimeResponse,
-  serverRequestMcpElicitationResponse,
-  serverRequestUserInputResponse,
-} from "./server-requests/adapter";
 
 function cannotSendApprovalResponseMessage(): string {
   return "Could not send approval response because Codex app-server is not connected.";

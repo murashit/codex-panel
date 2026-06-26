@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
+import { routeServerRequest } from "../../../../../src/app-server/server-requests";
 import {
   PLANNED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND,
   planChatNotification,
@@ -8,7 +9,6 @@ import {
   ROUTED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND,
   routeServerNotification,
 } from "../../../../../src/features/chat/app-server/inbound/notification-routing";
-import { routeServerRequest } from "../../../../../src/features/chat/app-server/inbound/server-requests/adapter";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 const activeScope = { activeThreadId: "thread-active", activeTurnId: "turn-active" };

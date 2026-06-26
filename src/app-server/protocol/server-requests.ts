@@ -10,12 +10,10 @@ import type {
   PendingMcpElicitationField,
   PendingMcpElicitationOption,
   PendingUserInput,
+  PendingUserInputQuestion,
 } from "../../domain/pending-requests/model";
-import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import { pathRelativeToRoot } from "../../shared/path/file-paths";
 import { jsonPreview } from "../../shared/text/preview";
-
-type AppServerRequestByMethod<Method extends ServerRequest["method"]> = Extract<ServerRequest, { method: Method }>;
 
 interface AppServerGrantedPermissionProfile {
   network?: unknown;
@@ -23,11 +21,92 @@ interface AppServerGrantedPermissionProfile {
 }
 
 type SimpleApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
-type CommandApprovalRequest = AppServerRequestByMethod<"item/commandExecution/requestApproval">;
-type CommandApprovalParams = CommandApprovalRequest["params"];
-type CommandApprovalDecision = NonNullable<CommandApprovalParams["availableDecisions"]>[number];
-type FileChangeApprovalParams = AppServerRequestByMethod<"item/fileChange/requestApproval">["params"];
-type PermissionsApprovalParams = AppServerRequestByMethod<"item/permissions/requestApproval">["params"];
+type CommandApprovalDecision =
+  | SimpleApprovalDecision
+  | { acceptWithExecpolicyAmendment: unknown }
+  | { applyNetworkPolicyAmendment: { network_policy_amendment: { action?: unknown; host?: unknown } } };
+
+type AppServerRequest = {
+  method: string;
+  id: PendingApproval["requestId"];
+  params: unknown;
+};
+
+interface CommandApprovalParams {
+  command?: unknown;
+  cwd?: unknown;
+  turnId?: unknown;
+  reason?: unknown;
+  networkApprovalContext?: unknown;
+  commandActions?: unknown;
+  additionalPermissions?: unknown;
+  proposedExecpolicyAmendment?: unknown;
+  proposedNetworkPolicyAmendments?: unknown;
+  availableDecisions?: unknown;
+}
+
+interface FileChangeApprovalParams {
+  turnId?: unknown;
+  reason?: unknown;
+  grantRoot?: unknown;
+}
+
+interface PermissionsApprovalParams {
+  cwd?: unknown;
+  turnId?: unknown;
+  reason?: unknown;
+  environmentId?: unknown;
+  permissions?: unknown;
+}
+
+type AppServerMcpElicitationPrimitiveSchema =
+  | {
+      type: "boolean";
+      title?: unknown;
+      description?: unknown;
+      default?: unknown;
+    }
+  | {
+      type: "number" | "integer";
+      title?: unknown;
+      description?: unknown;
+      default?: unknown;
+      minimum?: unknown;
+      maximum?: unknown;
+    }
+  | {
+      type: "array";
+      title?: unknown;
+      description?: unknown;
+      default?: unknown;
+      minItems?: unknown;
+      maxItems?: unknown;
+      items?: unknown;
+    }
+  | {
+      type: "string";
+      title?: unknown;
+      description?: unknown;
+      default?: unknown;
+      format?: unknown;
+      minLength?: unknown;
+      maxLength?: unknown;
+      oneOf?: unknown;
+      enum?: unknown;
+      enumNames?: unknown;
+    };
+
+interface NormalizedMcpElicitationParams {
+  threadId: string;
+  turnId: string | null;
+  serverName: string;
+  mode: "form" | "url";
+  message: string;
+  meta: unknown;
+  requestedSchema?: unknown;
+  url: string;
+  elicitationId: string;
+}
 
 export type AppServerApprovalResponse =
   | { decision: CommandApprovalDecision }
@@ -37,27 +116,20 @@ export interface AppServerUserInputResponse {
   answers: Record<string, { answers: string[] }>;
 }
 
-type AppServerMcpElicitationRequest = AppServerRequestByMethod<"mcpServer/elicitation/request">;
-type AppServerMcpElicitationFormParams = Extract<AppServerMcpElicitationRequest["params"], { mode: "form" }>;
-type AppServerMcpElicitationSchema = NonNullable<AppServerMcpElicitationFormParams["requestedSchema"]>;
-type AppServerMcpElicitationPrimitiveSchema = NonNullable<
-  Extract<AppServerMcpElicitationSchema, { properties: unknown }>["properties"][string]
->;
-
 export interface AppServerMcpElicitationResponse {
   action: McpElicitationAction;
   content: unknown;
   _meta: unknown;
 }
 
-export function appServerApprovalRequest(request: ServerRequest): PendingApproval | null {
+export function appServerApprovalRequest(request: AppServerRequest): PendingApproval | null {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
-      return commandApprovalRequest(request.id, request.params);
+      return commandApprovalRequest(request.id, asRecordOrEmpty(request.params));
     case "item/fileChange/requestApproval":
-      return fileChangeApprovalRequest(request.id, request.params);
+      return fileChangeApprovalRequest(request.id, asRecordOrEmpty(request.params));
     case "item/permissions/requestApproval":
-      return permissionsApprovalRequest(request.id, request.params);
+      return permissionsApprovalRequest(request.id, asRecordOrEmpty(request.params));
     default:
       return null;
   }
@@ -68,11 +140,13 @@ export function appServerApprovalResponse(approval: PendingApproval, action: App
   return approvalResponseForIntent(approval, action);
 }
 
-export function appServerUserInputRequest(request: ServerRequest): PendingUserInput | null {
+export function appServerUserInputRequest(request: AppServerRequest): PendingUserInput | null {
   if (request.method !== "item/tool/requestUserInput") return null;
+  const params = pendingUserInputParams(request.params);
+  if (!params) return null;
   return {
     requestId: request.id,
-    params: request.params,
+    params,
   };
 }
 
@@ -92,9 +166,10 @@ export function appServerUserInputResponse(
   };
 }
 
-export function appServerMcpElicitationRequest(request: ServerRequest): PendingMcpElicitation | null {
+export function appServerMcpElicitationRequest(request: AppServerRequest): PendingMcpElicitation | null {
   if (request.method !== "mcpServer/elicitation/request") return null;
-  const params = request.params;
+  const params = mcpElicitationParams(request.params);
+  if (!params) return null;
   if (params.mode === "url") {
     return {
       requestId: request.id,
@@ -104,7 +179,7 @@ export function appServerMcpElicitationRequest(request: ServerRequest): PendingM
         serverName: params.serverName,
         mode: "url",
         message: params.message,
-        meta: params._meta,
+        meta: params.meta,
         url: params.url,
         elicitationId: params.elicitationId,
       },
@@ -118,7 +193,7 @@ export function appServerMcpElicitationRequest(request: ServerRequest): PendingM
       serverName: params.serverName,
       mode: "form",
       message: params.message,
-      meta: params._meta,
+      meta: params.meta,
       fields: mcpElicitationFieldsFromRequestedSchema(params.requestedSchema),
     },
   };
@@ -140,7 +215,7 @@ function commandApprovalRequest(requestId: PendingApproval["requestId"], params:
   return {
     requestId,
     kind: "command",
-    turnId: params.turnId,
+    turnId: nullableString(params.turnId),
     title: "Command approval",
     summary: approvalSummary(params.reason, params.command, "Command execution requested."),
     resultSummary: approvalResultSummary(params.reason, params.command, "Command execution requested."),
@@ -152,11 +227,11 @@ function commandApprovalRequest(requestId: PendingApproval["requestId"], params:
 
 function fileChangeApprovalRequest(requestId: PendingApproval["requestId"], params: FileChangeApprovalParams): PendingApproval {
   const reason = params.reason ?? null;
-  const grantRoot = params.grantRoot ?? null;
+  const grantRoot = nonEmptyString(params.grantRoot);
   return {
     requestId,
     kind: "fileChange",
-    turnId: params.turnId,
+    turnId: nullableString(params.turnId),
     title: "File change approval",
     summary: approvalSummary(reason, grantRoot ? `grant root: ${grantRoot}` : null, "Allow file changes?"),
     resultSummary: approvalResultSummary(reason, grantRoot ? `grant root: ${grantRoot}` : null, "Allow file changes?"),
@@ -168,6 +243,8 @@ function fileChangeApprovalRequest(requestId: PendingApproval["requestId"], para
 
 function permissionsApprovalRequest(requestId: PendingApproval["requestId"], params: PermissionsApprovalParams): PendingApproval {
   const details: ApprovalDetailRow[] = [];
+  const cwd = stringValue(params.cwd);
+  const cwdSummary = cwd ? `cwd: ${cwd}` : null;
   addOptional(details, "reason", params.reason);
   addOptional(details, "cwd", params.cwd);
   addOptional(details, "environment", params.environmentId);
@@ -175,10 +252,10 @@ function permissionsApprovalRequest(requestId: PendingApproval["requestId"], par
   return {
     requestId,
     kind: "permission",
-    turnId: params.turnId,
+    turnId: nullableString(params.turnId),
     title: "Permission approval",
-    summary: approvalSummary(params.reason, `cwd: ${params.cwd}`, "Permission change requested."),
-    resultSummary: approvalResultSummary(params.reason, `cwd: ${params.cwd}`, "Permission change requested."),
+    summary: approvalSummary(params.reason, cwdSummary, "Permission change requested."),
+    resultSummary: approvalResultSummary(params.reason, cwdSummary, "Permission change requested."),
     details,
     responses: {
       accept: { scope: "turn", permissions: grantedPermissions(params.permissions) },
@@ -224,10 +301,11 @@ function fileChangeDecision(intent: ApprovalActionIntent): SimpleApprovalDecisio
   return "decline";
 }
 
-function grantedPermissions(requested: { network?: unknown; fileSystem?: unknown }): AppServerGrantedPermissionProfile {
+function grantedPermissions(requested: unknown): AppServerGrantedPermissionProfile {
+  const profile = asRecordOrNull(requested);
   const granted: AppServerGrantedPermissionProfile = {};
-  if (requested.network) granted.network = requested.network;
-  if (requested.fileSystem) granted.fileSystem = requested.fileSystem;
+  if (profile?.["network"]) granted.network = profile["network"];
+  if (profile?.["fileSystem"]) granted.fileSystem = profile["fileSystem"];
   return granted;
 }
 
@@ -246,11 +324,12 @@ interface NetworkApprovalContext {
 
 function commandApprovalDetails(params: CommandApprovalParams): ApprovalDetailRow[] {
   const rows: ApprovalDetailRow[] = [];
+  const cwd = nullableString(params.cwd);
   addOptional(rows, "reason", params.reason);
   addOptional(rows, "command", params.command);
   addOptional(rows, "cwd", params.cwd);
   addOptional(rows, "network", networkApprovalContextLabel(params.networkApprovalContext));
-  rows.push(...commandActionRows(params.commandActions, params.cwd));
+  rows.push(...commandActionRows(params.commandActions, cwd));
   rows.push(...prefixedPermissionRows("additional", params.additionalPermissions));
   addOptional(rows, "future command rule", params.proposedExecpolicyAmendment);
   addOptional(rows, "future network rules", networkPolicyAmendmentsLabel(params.proposedNetworkPolicyAmendments));
@@ -258,8 +337,9 @@ function commandApprovalDetails(params: CommandApprovalParams): ApprovalDetailRo
 }
 
 function commandApprovalActionOptions(decisions: CommandApprovalParams["availableDecisions"]): PendingApprovalOption[] | null {
-  if (!decisions || decisions.length === 0) return null;
-  return decisions.map((decision, index) => {
+  const availableDecisions = commandApprovalDecisions(decisions);
+  if (availableDecisions.length === 0) return null;
+  return availableDecisions.map((decision, index) => {
     const intent = commandDecisionIntent(decision);
     return {
       id: `approval-option:${String(index)}:${commandDecisionKey(decision)}`,
@@ -272,6 +352,20 @@ function commandApprovalActionOptions(decisions: CommandApprovalParams["availabl
       },
     };
   });
+}
+
+function commandApprovalDecisions(value: unknown): CommandApprovalDecision[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isCommandApprovalDecision);
+}
+
+function isCommandApprovalDecision(value: unknown): value is CommandApprovalDecision {
+  if (typeof value === "string") return true;
+  const decision = asRecordOrNull(value);
+  if (!decision) return false;
+  if ("acceptWithExecpolicyAmendment" in decision) return true;
+  const networkDecision = asRecordOrNull(decision["applyNetworkPolicyAmendment"]);
+  return Boolean(asRecordOrNull(networkDecision?.["network_policy_amendment"]));
 }
 
 function commandDecisionIntent(decision: CommandApprovalDecision): ApprovalActionIntent {
@@ -313,7 +407,7 @@ function commandDecisionKey(decision: CommandApprovalDecision): string {
   if ("applyNetworkPolicyAmendment" in decision) {
     const amendment = decision.applyNetworkPolicyAmendment.network_policy_amendment;
     const host = amendment.host;
-    return `applyNetworkPolicyAmendment:${amendment.action}:${typeof host === "string" ? host : ""}`;
+    return `applyNetworkPolicyAmendment:${stringValue(amendment.action)}:${typeof host === "string" ? host : ""}`;
   }
   return "unknown";
 }
@@ -462,27 +556,89 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
 function asRecordOrNull(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
+function asRecordOrEmpty(value: unknown): Record<string, unknown> {
+  return asRecordOrNull(value) ?? {};
+}
+
+function pendingUserInputParams(value: unknown): PendingUserInput["params"] | null {
+  const params = asRecordOrNull(value);
+  const questions = params?.["questions"];
+  if (!params || !Array.isArray(questions)) return null;
+  return {
+    threadId: stringValue(params["threadId"]),
+    turnId: stringValue(params["turnId"]),
+    itemId: stringValue(params["itemId"]),
+    questions: questions.map(pendingUserInputQuestion),
+    autoResolutionMs: numberOrNull(params["autoResolutionMs"]),
+  };
+}
+
+function pendingUserInputQuestion(value: unknown): PendingUserInputQuestion {
+  const question = asRecordOrEmpty(value);
+  const options = question["options"];
+  return {
+    id: stringValue(question["id"]),
+    header: stringValue(question["header"]),
+    question: stringValue(question["question"]),
+    isOther: question["isOther"] === true,
+    isSecret: question["isSecret"] === true,
+    options: Array.isArray(options)
+      ? options.map((option) => {
+          const record = asRecordOrEmpty(option);
+          return { label: stringValue(record["label"]), description: stringValue(record["description"]) };
+        })
+      : null,
+  };
+}
+
+function mcpElicitationParams(value: unknown): NormalizedMcpElicitationParams | null {
+  const params = asRecordOrNull(value);
+  if (!params) return null;
+  const mode = params["mode"];
+  if (mode !== "form" && mode !== "url") return null;
+  return {
+    threadId: stringValue(params["threadId"]),
+    turnId: nullableString(params["turnId"]),
+    serverName: stringValue(params["serverName"]),
+    mode,
+    message: stringValue(params["message"]),
+    meta: params["_meta"] ?? null,
+    requestedSchema: params["requestedSchema"],
+    url: stringValue(params["url"]),
+    elicitationId: stringValue(params["elicitationId"]),
+  };
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function mcpElicitationFieldsFromRequestedSchema(schema: unknown): PendingMcpElicitationField[] {
-  if (!isMcpElicitationObjectSchema(schema)) return [];
-  return mcpElicitationFieldsFromSchema(schema.properties, new Set(schema.required ?? []));
-}
-
-function isMcpElicitationObjectSchema(schema: unknown): schema is Extract<AppServerMcpElicitationSchema, { properties: unknown }> {
-  return Boolean(schema && typeof schema === "object" && "properties" in schema && typeof schema.properties === "object");
-}
-
-function mcpElicitationFieldsFromSchema(
-  properties: Record<string, AppServerMcpElicitationPrimitiveSchema | undefined>,
-  required: ReadonlySet<string>,
-): PendingMcpElicitationField[] {
-  return Object.entries(properties).flatMap(([id, schema]) => {
-    if (!schema) return [];
-    return [mcpElicitationFieldFromSchema(id, schema, required.has(id))];
+  const record = asRecordOrNull(schema);
+  const properties = asRecordOrNull(record?.["properties"]);
+  if (!properties) return [];
+  const required = new Set(
+    Array.isArray(record?.["required"]) ? record["required"].filter((item): item is string => typeof item === "string") : [],
+  );
+  return Object.entries(properties).flatMap(([id, fieldSchema]) => {
+    if (!isMcpElicitationPrimitiveSchema(fieldSchema)) return [];
+    return [mcpElicitationFieldFromSchema(id, fieldSchema, required.has(id))];
   });
+}
+
+function isMcpElicitationPrimitiveSchema(schema: unknown): schema is AppServerMcpElicitationPrimitiveSchema {
+  const record = asRecordOrNull(schema);
+  if (!record) return false;
+  const type = record["type"];
+  return type === "boolean" || type === "number" || type === "integer" || type === "array" || type === "string";
 }
 
 function mcpElicitationFieldFromSchema(
@@ -492,68 +648,100 @@ function mcpElicitationFieldFromSchema(
 ): PendingMcpElicitationField {
   const base = {
     id,
-    title: schema.title ?? id,
-    description: schema.description ?? null,
+    title: nonEmptyString(schema.title) ?? id,
+    description: nonEmptyString(schema.description),
     required,
   };
-  if (schema.type === "boolean") {
-    return { ...base, type: "boolean", defaultValue: schema.default ?? false };
+  switch (schema.type) {
+    case "boolean":
+      return { ...base, type: "boolean", defaultValue: schema.default === true };
+    case "number":
+    case "integer":
+      return {
+        ...base,
+        type: schema.type,
+        minimum: numberOrNull(schema.minimum),
+        maximum: numberOrNull(schema.maximum),
+        defaultValue: numberOrNull(schema.default),
+      };
+    case "array":
+      return {
+        ...base,
+        type: "multi-select",
+        options: multiSelectOptions(schema),
+        minItems: bigintToNumberOrNull(schema.minItems),
+        maxItems: bigintToNumberOrNull(schema.maxItems),
+        defaultValue: stringArrayOrEmpty(schema.default),
+      };
+    case "string": {
+      const options = singleSelectOptions(schema);
+      if (options.length > 0) {
+        return {
+          ...base,
+          type: "single-select",
+          options,
+          defaultValue: typeof schema.default === "string" ? schema.default : (options[0]?.value ?? ""),
+        };
+      }
+      return {
+        ...base,
+        type: "string",
+        format: nullableString(schema.format),
+        minLength: numberOrNull(schema.minLength),
+        maxLength: numberOrNull(schema.maxLength),
+        defaultValue: typeof schema.default === "string" ? schema.default : "",
+      };
+    }
   }
-  if (schema.type === "number" || schema.type === "integer") {
-    return {
-      ...base,
-      type: schema.type,
-      minimum: schema.minimum ?? null,
-      maximum: schema.maximum ?? null,
-      defaultValue: schema.default ?? null,
-    };
-  }
-  if (schema.type === "array") {
-    return {
-      ...base,
-      type: "multi-select",
-      options: multiSelectOptions(schema),
-      minItems: bigintToNumberOrNull(schema.minItems),
-      maxItems: bigintToNumberOrNull(schema.maxItems),
-      defaultValue: schema.default ?? [],
-    };
-  }
-  if ("oneOf" in schema || "enum" in schema) {
-    const options = singleSelectOptions(schema);
-    return {
-      ...base,
-      type: "single-select",
-      options,
-      defaultValue: schema.default ?? options[0]?.value ?? "",
-    };
-  }
-  const stringSchema = schema as Extract<AppServerMcpElicitationPrimitiveSchema, { type: "string" }>;
-  return {
-    ...base,
-    type: "string",
-    format: "format" in stringSchema ? (stringSchema.format ?? null) : null,
-    minLength: "minLength" in stringSchema ? (stringSchema.minLength ?? null) : null,
-    maxLength: "maxLength" in stringSchema ? (stringSchema.maxLength ?? null) : null,
-    defaultValue: typeof stringSchema.default === "string" ? stringSchema.default : "",
-  };
 }
 
 function singleSelectOptions(schema: Extract<AppServerMcpElicitationPrimitiveSchema, { type: "string" }>): PendingMcpElicitationOption[] {
-  if ("oneOf" in schema) return schema.oneOf.map((option) => ({ value: option.const, label: option.title }));
-  if ("enum" in schema) {
-    const enumNames = "enumNames" in schema ? schema.enumNames : undefined;
-    if (enumNames) return schema.enum.map((value, index) => ({ value, label: enumNames[index] ?? value }));
-    return schema.enum.map((value) => ({ value, label: value }));
+  if (Array.isArray(schema.oneOf)) {
+    const options = schema.oneOf.flatMap((option) => {
+      const selected = selectOption(option);
+      return selected ? [selected] : [];
+    });
+    if (options.length > 0) return options;
   }
-  return [];
+  return enumOptions(schema.enum, schema.enumNames);
 }
 
 function multiSelectOptions(schema: Extract<AppServerMcpElicitationPrimitiveSchema, { type: "array" }>): PendingMcpElicitationOption[] {
-  if ("anyOf" in schema.items) return schema.items.anyOf.map((option) => ({ value: option.const, label: option.title }));
-  return schema.items.enum.map((value) => ({ value, label: value }));
+  const items = asRecordOrNull(schema.items);
+  const anyOf = items?.["anyOf"];
+  if (Array.isArray(anyOf)) {
+    const options = anyOf.flatMap((option) => {
+      const selected = selectOption(option);
+      return selected ? [selected] : [];
+    });
+    if (options.length > 0) return options;
+  }
+  return enumOptions(items?.["enum"], null);
 }
 
-function bigintToNumberOrNull(value: bigint | number | undefined): number | null {
+function stringArrayOrEmpty(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  if (!value.every((item) => typeof item === "string")) return [];
+  return value;
+}
+
+function enumOptions(values: unknown, labels: unknown): PendingMcpElicitationOption[] {
+  if (!Array.isArray(values)) return [];
+  const labelValues = Array.isArray(labels) ? labels : [];
+  return values.flatMap((value, index) => {
+    if (typeof value !== "string") return [];
+    return [{ value, label: nonEmptyString(labelValues[index]) ?? value }];
+  });
+}
+
+function selectOption(value: unknown): PendingMcpElicitationOption | null {
+  const record = asRecordOrNull(value);
+  const optionValue = nullableString(record?.["const"]);
+  if (optionValue === null) return null;
+  return { value: optionValue, label: nonEmptyString(record?.["title"]) ?? optionValue };
+}
+
+function bigintToNumberOrNull(value: unknown): number | null {
   if (typeof value === "bigint") return Number(value);
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

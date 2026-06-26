@@ -90,6 +90,37 @@ describe("MCP elicitation request model", () => {
     });
     expect(contentForPendingMcpElicitation(input, new Map())).toBeNull();
   });
+
+  it("normalizes malformed schema fields without leaking invalid values", () => {
+    const input = expectPresent(toPendingMcpElicitation(malformedSchemaRequest()));
+    if (input.params.mode !== "form") throw new Error("Expected form mode");
+
+    expect(input.params.fields.map((field) => field.id)).toEqual(["badDefault", "brokenSelect", "enumSelect", "labels"]);
+    expect(input.params.fields.find((field) => field.id === "badDefault")).toMatchObject({
+      type: "boolean",
+      defaultValue: false,
+    });
+    expect(input.params.fields.find((field) => field.id === "brokenSelect")).toMatchObject({
+      type: "string",
+      format: null,
+      defaultValue: "",
+    });
+    expect(input.params.fields.find((field) => field.id === "enumSelect")).toMatchObject({
+      type: "single-select",
+      options: [
+        { value: "low", label: "Low" },
+        { value: "high", label: "High" },
+      ],
+    });
+    expect(input.params.fields.find((field) => field.id === "labels")).toMatchObject({
+      type: "multi-select",
+      defaultValue: [],
+      options: [
+        { value: "bug", label: "Bug" },
+        { value: "docs", label: "docs" },
+      ],
+    });
+  });
 });
 
 function formRequest(): ServerRequest {
@@ -154,4 +185,36 @@ function urlRequest(): ServerRequest {
       elicitationId: "elicit-1",
     },
   };
+}
+
+function malformedSchemaRequest(): ServerRequest {
+  return {
+    id: 44,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread",
+      turnId: null,
+      serverName: "github",
+      mode: "form",
+      _meta: null,
+      message: "Provide issue details",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          unsupported: { type: "object", title: "Unsupported" },
+          badDefault: { type: "boolean", title: "Bad default", default: "yes" },
+          brokenSelect: { type: "string", title: "Broken select", oneOf: { const: "low", title: "Low" }, format: 1 },
+          enumSelect: { type: "string", title: "Enum select", enum: ["low", 1, "high"], enumNames: ["Low", "One", "High"] },
+          labels: {
+            type: "array",
+            title: "Labels",
+            items: {
+              anyOf: [{ const: "bug", title: "Bug" }, { const: 1, title: "One" }, { const: "docs" }],
+            },
+            default: ["bug", 1],
+          },
+        },
+      },
+    },
+  } as unknown as ServerRequest;
 }

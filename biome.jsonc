@@ -17,12 +17,7 @@
     },
     {
       "path": "./scripts/lint/no-generated-app-server-boundary-imports.grit",
-      "includes": [
-        "**/src/**/*.ts",
-        "**/src/**/*.tsx",
-        "!**/src/app-server/connection/**",
-        "!**/src/app-server/protocol/server-requests.ts"
-      ]
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/connection/**"]
     },
 
     // Shared source layering boundaries.

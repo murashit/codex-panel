@@ -15,7 +15,7 @@ const projectPluginByName = new Map(
   }),
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
-  "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol, and chat request handling may consume server request protocol at their app-server boundaries; feature state and UI must use Panel-owned models.";
+  "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
 let appServerBoundaryPolicyReportPromise;
 let renderingAndCssPolicyReportPromise;
 
@@ -314,7 +314,10 @@ export function timestamp(): number {
     expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
       "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
-    expect(pluginDiagnostics(report, "src/app-server/protocol/server-requests.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/app-server/protocol/server-requests.ts")).toEqual([
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
+      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
+    ]);
   });
 
   it("keeps TSX files in rendering-owned source folders", async () => {
@@ -351,7 +354,8 @@ export function timestamp(): number {
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
-    expect(pluginMessages(report, "src/features/chat/app-server/inbound/server-requests/adapter.ts")).toEqual([
+    expect(pluginMessages(report, "src/features/chat/app-server/inbound/server-request-protocol-leak.ts")).toEqual([
+      APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
   });
@@ -398,10 +402,14 @@ export function timestamp(): number {
       "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/services/catalog.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/domain/connection-client.ts")).toEqual([
-      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-      "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
-    ]);
+    const domainConnectionMessages = pluginMessages(report, "src/domain/connection-client.ts");
+    expect(domainConnectionMessages).toHaveLength(2);
+    expect(domainConnectionMessages).toEqual(
+      expect.arrayContaining([
+        "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+        "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
+      ]),
+    );
     expect(pluginMessages(report, "src/shared/connection-client.ts")).toEqual([
       "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
@@ -661,7 +669,7 @@ export type Item = TurnItem;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/chat/app-server/inbound/server-requests/adapter.ts"),
+    path.join(cwd, "src/features/chat/app-server/inbound/server-request-protocol-leak.ts"),
     `
 import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
 
@@ -825,7 +833,7 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
       "src/features/chat/ui/protocol-leak.tsx",
       "src/features/chat/app-server/inbound/app-server-logs.ts",
       "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
-      "src/features/chat/app-server/inbound/server-requests/adapter.ts",
+      "src/features/chat/app-server/inbound/server-request-protocol-leak.ts",
       "src/domain/threads/model.ts",
       "src/domain/threads/format.ts",
       "src/features/chat/domain/message-stream/selectors.ts",
@@ -858,7 +866,6 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/chat/application/threads"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/application/pending-requests"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/app-server/inbound"), { recursive: true });
-  await mkdir(path.join(cwd, "src/features/chat/app-server/inbound/server-requests"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/app-server/mappers/message-stream"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/host"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/panel"), { recursive: true });
