@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -48,10 +48,9 @@ describe("development scripts", () => {
 
   it("reads app-server initialize flags from the connection client in API baseline checks", async () => {
     const cwd = await tempWorkspace();
-    const binDir = path.join(cwd, "bin");
-    await mkdir(binDir, { recursive: true });
     await mkdir(path.join(cwd, "scripts"), { recursive: true });
     await mkdir(path.join(cwd, "src", "app-server", "connection"), { recursive: true });
+    const { createApiBaselineReport } = await import(pathToFileURL(path.join(repoRoot, "scripts", "api-baseline.mjs")).href);
 
     await writeJson(path.join(cwd, "package.json"), {
       version: "1.0.0",
@@ -100,16 +99,11 @@ describe("development scripts", () => {
       ].join("\n"),
     );
 
-    const codexBin = path.join(binDir, "codex");
-    await writeFile(codexBin, "#!/usr/bin/env node\nconsole.log('codex 0.139.0');\n");
-    await chmod(codexBin, 0o755);
-
-    const result = runNodeScript("scripts/api-baseline.mjs", ["--json"], cwd, {
-      PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+    const report = await createApiBaselineReport({
+      cwd,
+      readCodexVersion: () => "0.139.0",
     });
 
-    expect(result.status).toBe(0);
-    const report = JSON.parse(result.stdout);
     expect(report.codex.initializeExperimentalApi).toBe(true);
     expect(report.codex.initializeRequestAttestationDisabled).toBe(true);
     expect(report.failures).toEqual([]);

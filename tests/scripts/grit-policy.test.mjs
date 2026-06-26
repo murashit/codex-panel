@@ -17,7 +17,7 @@ const projectPluginByName = new Map(
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol, and chat request handling may consume server request protocol at their app-server boundaries; feature state and UI must use Panel-owned models.";
 
-describe("GritQL source policy", () => {
+describe.concurrent("GritQL source policy", () => {
   it("keeps project-wide source-shape policies enforceable as Biome plugin diagnostics", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-handwritten-reexports.grit",

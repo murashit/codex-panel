@@ -1,19 +1,28 @@
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const args = new Set(process.argv.slice(2));
-const asJson = args.has("--json");
 const validArgs = new Set(["--json"]);
 
-for (const arg of args) {
-  if (!validArgs.has(arg)) {
-    console.error("Usage: node scripts/api-baseline.mjs [--json]");
-    process.exit(1);
+if (isMain()) {
+  const args = new Set(process.argv.slice(2));
+  const asJson = args.has("--json");
+  for (const arg of args) {
+    if (!validArgs.has(arg)) {
+      console.error("Usage: node scripts/api-baseline.mjs [--json]");
+      process.exit(1);
+    }
   }
-}
 
-function fail(message) {
-  failures.push(message);
+  const report = await createApiBaselineReport();
+  if (asJson) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printReport(report);
+  }
+
+  if (report.failures.length > 0) process.exit(1);
 }
 
 function parseSemver(value) {
@@ -39,6 +48,109 @@ function readCodexVersion() {
   });
   if (result.error || result.status !== 0) return null;
   return parseSemver(`${result.stdout}\n${result.stderr}`)?.version ?? null;
+}
+
+export async function createApiBaselineReport(options = {}) {
+  const failures = [];
+  const fail = (message) => {
+    failures.push(message);
+  };
+  const inputs = await readBaselineInputs(options.cwd ?? process.cwd());
+  const readmeBaselines = readCompatibilityBaselines(inputs.readme);
+
+  const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
+  const codexLocalVersion = options.readCodexVersion ? await options.readCodexVersion() : readCodexVersion();
+  const codexReadmeSemver = parseSemver(codexReadmeVersion);
+  const codexLocalSemver = parseSemver(codexLocalVersion);
+
+  const obsidianMinVersion = inputs.manifestJson.minAppVersion;
+  const obsidianReadmeApiTypesVersion = readmeBaselines.obsidianApiTypesVersion;
+  const obsidianReadmeMinVersion = readmeBaselines.obsidianMinAppVersion;
+  const obsidianVersionEntry = inputs.versionsJson[inputs.packageJson.version] ?? null;
+  const obsidianSpec = inputs.packageJson.devDependencies?.obsidian ?? null;
+  const obsidianLockVersion = inputs.packageLockJson.packages?.["node_modules/obsidian"]?.version ?? null;
+  const obsidianSpecSemver = parseSemver(obsidianSpec);
+  const obsidianLockSemver = parseSemver(obsidianLockVersion);
+  const obsidianMinSemver = parseSemver(obsidianMinVersion);
+
+  const appServerGenerationExperimental =
+    inputs.appServerGenerateSource.includes("app-server") &&
+    inputs.appServerGenerateSource.includes("generate-ts") &&
+    inputs.appServerGenerateSource.includes("--experimental");
+  const initializeExperimentalApi = /experimentalApi:\s*true/.test(inputs.clientSource);
+  const initializeRequestAttestationDisabled = /requestAttestation:\s*false/.test(inputs.clientSource);
+
+  if (!codexReadmeSemver) {
+    fail("README.md Compatibility table must define `codex.testedCliVersion` as X.Y.Z.");
+  }
+  if (!codexLocalSemver) {
+    fail("local codex --version could not be read.");
+  }
+  if (codexReadmeSemver && codexLocalSemver && minorKey(codexReadmeSemver) !== minorKey(codexLocalSemver)) {
+    fail(`local Codex CLI minor ${minorKey(codexLocalSemver)} does not match compatibility table minor ${minorKey(codexReadmeSemver)}.`);
+  }
+  if (!appServerGenerationExperimental) fail("generate:app-server-types must use codex app-server generate-ts --experimental.");
+  if (!initializeExperimentalApi) fail("app-server initialize must declare experimentalApi: true.");
+  if (!initializeRequestAttestationDisabled) fail("app-server initialize must declare requestAttestation: false.");
+
+  if (!obsidianMinSemver) fail("manifest.json minAppVersion must be X.Y.Z.");
+  if (obsidianMinSemver && obsidianMinSemver.patch !== 0) {
+    fail(`manifest.json minAppVersion should be the minor baseline patch 0, got ${obsidianMinVersion}.`);
+  }
+  if (!parseSemver(obsidianReadmeMinVersion)) {
+    fail("README.md Compatibility table must define `manifest.minAppVersion` as X.Y.Z.");
+  } else if (obsidianReadmeMinVersion !== obsidianMinVersion) {
+    fail(`README Obsidian baseline ${displayValue(obsidianReadmeMinVersion)} does not match manifest ${obsidianMinVersion}.`);
+  }
+  if (obsidianVersionEntry !== obsidianMinVersion) {
+    fail(`versions.json must map ${inputs.packageJson.version} to manifest minAppVersion ${obsidianMinVersion}.`);
+  }
+  if (!obsidianSpecSemver) fail("package.json devDependency obsidian must include an X.Y.Z version.");
+  if (!obsidianLockSemver) fail("package-lock.json must lock node_modules/obsidian to X.Y.Z.");
+  if (packageRangeKind(obsidianSpec) !== "patch") {
+    fail(`package.json devDependency obsidian should use a patch-only '~' range, got ${displayValue(obsidianSpec)}.`);
+  }
+  if (obsidianMinSemver && obsidianSpecSemver && minorKey(obsidianSpecSemver) !== minorKey(obsidianMinSemver)) {
+    fail(`obsidian devDependency minor ${minorKey(obsidianSpecSemver)} does not match minAppVersion minor ${minorKey(obsidianMinSemver)}.`);
+  }
+  if (obsidianMinSemver && obsidianLockSemver && minorKey(obsidianLockSemver) !== minorKey(obsidianMinSemver)) {
+    fail(`locked obsidian minor ${minorKey(obsidianLockSemver)} does not match minAppVersion minor ${minorKey(obsidianMinSemver)}.`);
+  }
+  if (!parseSemver(obsidianReadmeApiTypesVersion)) {
+    fail("README.md Compatibility table must define `obsidian` API types as X.Y.Z.");
+  } else if (obsidianReadmeApiTypesVersion !== obsidianLockVersion) {
+    fail(
+      `README Obsidian API types ${displayValue(obsidianReadmeApiTypesVersion)} does not match package-lock obsidian ${displayValue(obsidianLockVersion)}.`,
+    );
+  }
+
+  return {
+    codex: {
+      policy: "managed by minor version",
+      readmeTestedCliVersion: codexReadmeVersion,
+      readmeTestedMinor: minorKey(codexReadmeSemver),
+      localCliVersion: codexLocalVersion,
+      localCliMinor: minorKey(codexLocalSemver),
+      localCliMatchesTestedMinor: codexReadmeSemver && codexLocalSemver ? minorKey(codexReadmeSemver) === minorKey(codexLocalSemver) : null,
+      appServerGenerationExperimental,
+      initializeExperimentalApi,
+      initializeRequestAttestationDisabled,
+    },
+    obsidian: {
+      policy: "manifest declares the minimum app version; obsidian npm provides compile-time API types in the same minor",
+      minAppVersion: obsidianMinVersion,
+      minAppVersionMinor: minorKey(obsidianMinSemver),
+      readmeMinAppVersion: obsidianReadmeMinVersion,
+      versionsJsonCurrentMinAppVersion: obsidianVersionEntry,
+      readmeApiTypesVersion: obsidianReadmeApiTypesVersion,
+      packageDependency: obsidianSpec,
+      packageDependencyRange: packageRangeKind(obsidianSpec),
+      packageDependencyMinor: minorKey(obsidianSpecSemver),
+      lockedPackageVersion: obsidianLockVersion,
+      lockedPackageMinor: minorKey(obsidianLockSemver),
+    },
+    failures,
+  };
 }
 
 function readCompatibilityBaselines(readme) {
@@ -112,121 +224,15 @@ function displayValue(value) {
   return value ?? "(missing)";
 }
 
-const failures = [];
-const inputs = await readBaselineInputs();
-const readmeBaselines = readCompatibilityBaselines(inputs.readme);
-
-const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
-const codexLocalVersion = readCodexVersion();
-const codexReadmeSemver = parseSemver(codexReadmeVersion);
-const codexLocalSemver = parseSemver(codexLocalVersion);
-
-const obsidianMinVersion = inputs.manifestJson.minAppVersion;
-const obsidianReadmeApiTypesVersion = readmeBaselines.obsidianApiTypesVersion;
-const obsidianReadmeMinVersion = readmeBaselines.obsidianMinAppVersion;
-const obsidianVersionEntry = inputs.versionsJson[inputs.packageJson.version] ?? null;
-const obsidianSpec = inputs.packageJson.devDependencies?.obsidian ?? null;
-const obsidianLockVersion = inputs.packageLockJson.packages?.["node_modules/obsidian"]?.version ?? null;
-const obsidianSpecSemver = parseSemver(obsidianSpec);
-const obsidianLockSemver = parseSemver(obsidianLockVersion);
-const obsidianMinSemver = parseSemver(obsidianMinVersion);
-
-const appServerGenerationExperimental =
-  inputs.appServerGenerateSource.includes("app-server") &&
-  inputs.appServerGenerateSource.includes("generate-ts") &&
-  inputs.appServerGenerateSource.includes("--experimental");
-const initializeExperimentalApi = /experimentalApi:\s*true/.test(inputs.clientSource);
-const initializeRequestAttestationDisabled = /requestAttestation:\s*false/.test(inputs.clientSource);
-
-if (!codexReadmeSemver) {
-  fail("README.md Compatibility table must define `codex.testedCliVersion` as X.Y.Z.");
-}
-if (!codexLocalSemver) {
-  fail("local codex --version could not be read.");
-}
-if (codexReadmeSemver && codexLocalSemver && minorKey(codexReadmeSemver) !== minorKey(codexLocalSemver)) {
-  fail(`local Codex CLI minor ${minorKey(codexLocalSemver)} does not match compatibility table minor ${minorKey(codexReadmeSemver)}.`);
-}
-if (!appServerGenerationExperimental) fail("generate:app-server-types must use codex app-server generate-ts --experimental.");
-if (!initializeExperimentalApi) fail("app-server initialize must declare experimentalApi: true.");
-if (!initializeRequestAttestationDisabled) fail("app-server initialize must declare requestAttestation: false.");
-
-if (!obsidianMinSemver) fail("manifest.json minAppVersion must be X.Y.Z.");
-if (obsidianMinSemver && obsidianMinSemver.patch !== 0) {
-  fail(`manifest.json minAppVersion should be the minor baseline patch 0, got ${obsidianMinVersion}.`);
-}
-if (!parseSemver(obsidianReadmeMinVersion)) {
-  fail("README.md Compatibility table must define `manifest.minAppVersion` as X.Y.Z.");
-} else if (obsidianReadmeMinVersion !== obsidianMinVersion) {
-  fail(`README Obsidian baseline ${displayValue(obsidianReadmeMinVersion)} does not match manifest ${obsidianMinVersion}.`);
-}
-if (obsidianVersionEntry !== obsidianMinVersion) {
-  fail(`versions.json must map ${inputs.packageJson.version} to manifest minAppVersion ${obsidianMinVersion}.`);
-}
-if (!obsidianSpecSemver) fail("package.json devDependency obsidian must include an X.Y.Z version.");
-if (!obsidianLockSemver) fail("package-lock.json must lock node_modules/obsidian to X.Y.Z.");
-if (packageRangeKind(obsidianSpec) !== "patch") {
-  fail(`package.json devDependency obsidian should use a patch-only '~' range, got ${displayValue(obsidianSpec)}.`);
-}
-if (obsidianMinSemver && obsidianSpecSemver && minorKey(obsidianSpecSemver) !== minorKey(obsidianMinSemver)) {
-  fail(`obsidian devDependency minor ${minorKey(obsidianSpecSemver)} does not match minAppVersion minor ${minorKey(obsidianMinSemver)}.`);
-}
-if (obsidianMinSemver && obsidianLockSemver && minorKey(obsidianLockSemver) !== minorKey(obsidianMinSemver)) {
-  fail(`locked obsidian minor ${minorKey(obsidianLockSemver)} does not match minAppVersion minor ${minorKey(obsidianMinSemver)}.`);
-}
-if (!parseSemver(obsidianReadmeApiTypesVersion)) {
-  fail("README.md Compatibility table must define `obsidian` API types as X.Y.Z.");
-} else if (obsidianReadmeApiTypesVersion !== obsidianLockVersion) {
-  fail(
-    `README Obsidian API types ${displayValue(obsidianReadmeApiTypesVersion)} does not match package-lock obsidian ${displayValue(obsidianLockVersion)}.`,
-  );
-}
-
-const report = {
-  codex: {
-    policy: "managed by minor version",
-    readmeTestedCliVersion: codexReadmeVersion,
-    readmeTestedMinor: minorKey(codexReadmeSemver),
-    localCliVersion: codexLocalVersion,
-    localCliMinor: minorKey(codexLocalSemver),
-    localCliMatchesTestedMinor: codexReadmeSemver && codexLocalSemver ? minorKey(codexReadmeSemver) === minorKey(codexLocalSemver) : null,
-    appServerGenerationExperimental,
-    initializeExperimentalApi,
-    initializeRequestAttestationDisabled,
-  },
-  obsidian: {
-    policy: "manifest declares the minimum app version; obsidian npm provides compile-time API types in the same minor",
-    minAppVersion: obsidianMinVersion,
-    minAppVersionMinor: minorKey(obsidianMinSemver),
-    readmeMinAppVersion: obsidianReadmeMinVersion,
-    versionsJsonCurrentMinAppVersion: obsidianVersionEntry,
-    readmeApiTypesVersion: obsidianReadmeApiTypesVersion,
-    packageDependency: obsidianSpec,
-    packageDependencyRange: packageRangeKind(obsidianSpec),
-    packageDependencyMinor: minorKey(obsidianSpecSemver),
-    lockedPackageVersion: obsidianLockVersion,
-    lockedPackageMinor: minorKey(obsidianLockSemver),
-  },
-  failures,
-};
-
-if (asJson) {
-  console.log(JSON.stringify(report, null, 2));
-} else {
-  printReport(report);
-}
-
-if (failures.length > 0) process.exit(1);
-
-async function readBaselineInputs() {
+async function readBaselineInputs(cwd) {
   const [packageJson, packageLockJson, manifestJson, versionsJson, readme, clientSource, appServerGenerateSource] = await Promise.all([
-    readJson("package.json"),
-    readJson("package-lock.json"),
-    readJson("manifest.json"),
-    readJson("versions.json"),
-    readFile("README.md", "utf8"),
-    readFile("src/app-server/connection/client.ts", "utf8"),
-    readFile("scripts/generate-app-server-types.mjs", "utf8"),
+    readJson(cwd, "package.json"),
+    readJson(cwd, "package-lock.json"),
+    readJson(cwd, "manifest.json"),
+    readJson(cwd, "versions.json"),
+    readFile(path.join(cwd, "README.md"), "utf8"),
+    readFile(path.join(cwd, "src/app-server/connection/client.ts"), "utf8"),
+    readFile(path.join(cwd, "scripts/generate-app-server-types.mjs"), "utf8"),
   ]);
 
   return {
@@ -240,8 +246,12 @@ async function readBaselineInputs() {
   };
 }
 
-async function readJson(file) {
-  return JSON.parse(await readFile(file, "utf8"));
+async function readJson(cwd, file) {
+  return JSON.parse(await readFile(path.join(cwd, file), "utf8"));
+}
+
+function isMain() {
+  return process.argv[1] ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
 }
 
 function printReport(report) {
