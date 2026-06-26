@@ -16,6 +16,8 @@ const projectPluginByName = new Map(
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol, and chat request handling may consume server request protocol at their app-server boundaries; feature state and UI must use Panel-owned models.";
+let appServerBoundaryPolicyReportPromise;
+let renderingAndCssPolicyReportPromise;
 
 describe.concurrent("GritQL source policy", () => {
   it("keeps project-wide source-shape policies enforceable as Biome plugin diagnostics", async () => {
@@ -293,83 +295,7 @@ export function timestamp(): number {
   });
 
   it("keeps generated app-server imports behind explicit app-server boundaries", async () => {
-    const cwd = await tempBiomeWorkspace(["no-generated-app-server-boundary-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/domain/generated-thread.ts"),
-      `
-export type GeneratedThread = import('../../../generated/app-server/v2/Thread').Thread;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/domain/generated-thread-import.ts"),
-      `
-import type { Thread } from '../../../generated/app-server/v2/Thread';
-
-export type GeneratedThread = Thread;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/connection/generated-thread.ts"),
-      `
-export type GeneratedThread = import("../../generated/app-server/v2/Thread").Thread;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "tests/app-server/generated-thread.test.ts"),
-      `
-export type GeneratedThread = import("../../src/generated/app-server/v2/Thread").Thread;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/request-input.ts"),
-      `
-import type { UserInput } from "../../generated/app-server/v2/UserInput";
-
-export type Input = UserInput;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/services/runtime-overrides.ts"),
-      `
-import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
-
-export interface RuntimeOverrideModelClient {
-  listModels(includeHidden: boolean): Promise<ModelListResponse>;
-}
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/turn.ts"),
-      `
-import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
-
-export type TurnItem = GeneratedTurnItem;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/server-requests.ts"),
-      `
-import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-import type { ToolRequestUserInputParams } from "../../generated/app-server/v2/ToolRequestUserInputParams";
-
-export type Request = ServerRequest;
-export type Params = ToolRequestUserInputParams;
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      [
-        "src/features/chat/domain/generated-thread.ts",
-        "src/features/chat/domain/generated-thread-import.ts",
-        "src/app-server/connection/generated-thread.ts",
-        "tests/app-server/generated-thread.test.ts",
-        "src/app-server/protocol/request-input.ts",
-        "src/app-server/services/runtime-overrides.ts",
-        "src/app-server/protocol/turn.ts",
-        "src/app-server/protocol/server-requests.ts",
-      ],
-      cwd,
-    );
+    const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/domain/generated-thread.ts")).toEqual([
       "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
@@ -392,48 +318,7 @@ export type Params = ToolRequestUserInputParams;
   });
 
   it("keeps TSX files in rendering-owned source folders", async () => {
-    const cwd = await tempBiomeWorkspace(["no-misplaced-tsx.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/application/state/view.tsx"),
-      `
-export const value = <div />;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/domain/threads/view.tsx"),
-      `
-export const value = <span />;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/ui/message.tsx"),
-      `
-export const value = <article />;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/settings/section.tsx"),
-      `
-export const value = <section />;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/shared/ui/diff.tsx"),
-      `
-export const value = <pre />;
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      [
-        "src/features/chat/application/state/view.tsx",
-        "src/domain/threads/view.tsx",
-        "src/features/chat/ui/message.tsx",
-        "src/settings/section.tsx",
-        "src/shared/ui/diff.tsx",
-      ],
-      cwd,
-    );
+    const report = await renderingAndCssPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/application/state/view.tsx")).toEqual([
       "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
@@ -447,82 +332,7 @@ export const value = <pre />;
   });
 
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
-    const cwd = await tempBiomeWorkspace(["no-app-server-protocol-boundary-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/application/pending-requests/pending-request-actions.ts"),
-      `
-import { threadTokenUsageFromAppServerUsage } from '../../../../app-server/protocol/runtime-metrics';
-
-export const convert = threadTokenUsageFromAppServerUsage;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/application/threads/history-controller.ts"),
-      `
-import type { TurnItem } from "../../../../app-server/protocol/turn";
-
-export type Item = TurnItem;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/panel/surface/message-stream-presenter.ts"),
-      `
-import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
-
-export const response = appServerUserInputResponse;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/ui/protocol-leak.tsx"),
-      `
-import { threadTokenUsageFromAppServerUsage } from "../../../app-server/protocol/runtime-metrics";
-
-export const value = <div>{String(threadTokenUsageFromAppServerUsage)}</div>;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/app-server/inbound/app-server-logs.ts"),
-      `
-import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
-
-export const response = appServerUserInputResponse;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/app-server/mappers/message-stream/turn-items.ts"),
-      `
-import type { TurnItem } from "../../../../../app-server/protocol/turn";
-import { toolInventoryAppsFromAppInfos } from "../../../../../app-server/protocol/tool-inventory";
-
-const toolInventory = await import("../../../../../app-server/protocol/tool-inventory");
-
-export const convert = [toolInventoryAppsFromAppInfos, toolInventory] satisfies unknown[];
-export type Item = TurnItem;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/app-server/inbound/server-requests/responses.ts"),
-      `
-import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
-
-const runtimeMetrics = await import("../../../../../app-server/protocol/runtime-metrics");
-
-export const response = [appServerUserInputResponse, runtimeMetrics] satisfies unknown[];
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      [
-        "src/features/chat/application/pending-requests/pending-request-actions.ts",
-        "src/features/chat/application/threads/history-controller.ts",
-        "src/features/chat/panel/surface/message-stream-presenter.ts",
-        "src/features/chat/ui/protocol-leak.tsx",
-        "src/features/chat/app-server/inbound/app-server-logs.ts",
-        "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
-        "src/features/chat/app-server/inbound/server-requests/responses.ts",
-      ],
-      cwd,
-    );
+    const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/application/pending-requests/pending-request-actions.ts")).toEqual([
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
@@ -547,72 +357,7 @@ export const response = [appServerUserInputResponse, runtimeMetrics] satisfies u
   });
 
   it("keeps domain modules independent from outer layers", async () => {
-    const cwd = await tempBiomeWorkspace(["no-domain-outer-layer-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/domain/threads/model.ts"),
-      `
-import { listThreads } from "../../app-server/threads";
-import type { ThreadPickerModal } from "../../features/thread-picker/modal";
-import { copyText } from "../../shared/ui/clipboard";
-import type { App } from "obsidian";
-
-export type Host = App;
-export type Modal = ThreadPickerModal;
-export const list = listThreads;
-export const copy = copyText;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/domain/threads/format.ts"),
-      `
-import { formatDate } from "../../shared/date";
-
-export const format = formatDate;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/domain/message-stream/selectors.ts"),
-      `
-import type { ChatStateStore } from "../../application/state/store";
-import type { Presenter } from 'src/features/chat/presentation/view';
-
-export type Store = ChatStateStore;
-export type View = Presenter;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/domain/message-stream/items.ts"),
-      `
-import type { MessageStreamItem } from "./item";
-
-export type Item = MessageStreamItem;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/domain/message-stream/outer-shapes.ts"),
-      `
-export { createChatStateStore } from "../../application/state/store";
-export type OuterStore = import("../../application/state/store").ChatStateStore;
-
-export async function loadComposer() {
-  return import("src/features/chat/ui/composer");
-}
-
-const host = await import("../../host/session");
-export const outerHost = host;
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      [
-        "src/domain/threads/model.ts",
-        "src/domain/threads/format.ts",
-        "src/features/chat/domain/message-stream/selectors.ts",
-        "src/features/chat/domain/message-stream/items.ts",
-        "src/features/chat/domain/message-stream/outer-shapes.ts",
-      ],
-      cwd,
-    );
+    const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/domain/threads/model.ts")).toEqual([
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
@@ -635,33 +380,7 @@ export const outerHost = host;
   });
 
   it("keeps lower-level modules independent from feature modules", async () => {
-    const cwd = await tempBiomeWorkspace(["no-lower-level-feature-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/diagnostics.ts"),
-      `
-import type { ThreadPickerModal } from '../../features/thread-picker/modal';
-
-export type Modal = ThreadPickerModal;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/shared/thread-picker.ts"),
-      `
-import type { ThreadPickerModal } from "../features/thread-picker/modal";
-
-export type Modal = ThreadPickerModal;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/shared/date.ts"),
-      `
-import { formatDate } from "./format";
-
-export const format = formatDate;
-`.trimStart(),
-    );
-
-    const report = biomeLint(["src/app-server/protocol/diagnostics.ts", "src/shared/thread-picker.ts", "src/shared/date.ts"], cwd);
+    const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/app-server/protocol/diagnostics.ts")).toEqual([
       "Do not import feature modules from this layer. Move shared behavior to shared, domain, or app-server adapters.",
@@ -673,55 +392,14 @@ export const format = formatDate;
   });
 
   it("keeps app-server connection internals behind app-server adapters", async () => {
-    const cwd = await tempBiomeWorkspace(["no-app-server-connection-boundary-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/catalog.ts"),
-      `
-import type { AppServerClient } from "../connection/client";
-
-export type Client = AppServerClient;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/services/catalog.ts"),
-      `
-import type { AppServerClient } from "../connection/client";
-
-export type Client = AppServerClient;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/domain/connection-client.ts"),
-      `
-import type { AppServerClient } from "../app-server/connection/client";
-
-export type Client = AppServerClient;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/shared/connection-client.ts"),
-      `
-import type { AppServerClient } from "src/app-server/connection/client";
-
-export type Client = AppServerClient;
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      [
-        "src/app-server/protocol/catalog.ts",
-        "src/app-server/services/catalog.ts",
-        "src/domain/connection-client.ts",
-        "src/shared/connection-client.ts",
-      ],
-      cwd,
-    );
+    const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/app-server/protocol/catalog.ts")).toEqual([
       "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/services/catalog.ts")).toEqual([]);
     expect(pluginMessages(report, "src/domain/connection-client.ts")).toEqual([
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
       "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
     expect(pluginMessages(report, "src/shared/connection-client.ts")).toEqual([
@@ -730,40 +408,7 @@ export type Client = AppServerClient;
   });
 
   it("keeps chat application app-server projection RPCs behind facades", async () => {
-    const cwd = await tempBiomeWorkspace(["no-app-server-projection-rpcs.grit"]);
-    await writeFile(
-      path.join(cwd, "src/features/chat/application/threads/history.ts"),
-      `
-import type { AppServerClient } from "../../../../app-server/connection/client";
-
-export async function read(appServerClient: AppServerClient): Promise<void> {
-  await appServerClient.threadTurnsList("thread", null, 20);
-}
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/threads.ts"),
-      `
-import type { AppServerClient } from "./connection/client";
-
-export async function read(client: AppServerClient): Promise<void> {
-  await client.threadTurnsList("thread", null, 20);
-}
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/host/connection-bundle.ts"),
-      `
-import type { AppServerClient } from "../../../app-server/connection/client";
-
-export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
-`.trimStart(),
-    );
-
-    const report = biomeLint(
-      ["src/features/chat/application/threads/history.ts", "src/app-server/threads.ts", "src/features/chat/host/connection-bundle.ts"],
-      cwd,
-    );
+    const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/application/threads/history.ts")).toEqual([
       "Keep app-server projection RPCs behind app-server facades; consume Panel-owned snapshots or view models here.",
@@ -773,10 +418,62 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
   });
 
   it("keeps CSS on design tokens and scoped selectors", async () => {
-    const cwd = await tempBiomeWorkspace(["no-restricted-css-policy.grit"]);
-    await writeFile(
-      path.join(cwd, "src/styles/bad.css"),
-      `
+    const report = await renderingAndCssPolicyReport();
+
+    expect(pluginMessages(report, "src/styles/bad.css")).toEqual([
+      "Avoid :has() because it can cause broad selector invalidation.",
+      "Use Obsidian or Codex Panel design tokens instead of hardcoded colors.",
+      "Prefer Obsidian or Codex Panel spacing and size tokens for layout dimensions.",
+      "Do not hide class, id, or attribute selectors inside :where().",
+      "Use Obsidian or Codex Panel typography tokens instead of hardcoded font sizes.",
+      "Avoid ID selectors in Codex Panel CSS.",
+      "Use Obsidian or Codex Panel typography tokens instead of hardcoded font weights.",
+      "Prefix keyframes with codex-panel-.",
+    ]);
+    expect(pluginDiagnostics(report, "src/styles/good.css")).toEqual([]);
+  });
+});
+
+function renderingAndCssPolicyReport() {
+  renderingAndCssPolicyReportPromise ??= createRenderingAndCssPolicyReport();
+  return renderingAndCssPolicyReportPromise;
+}
+
+async function createRenderingAndCssPolicyReport() {
+  const cwd = await tempBiomeWorkspace(["no-misplaced-tsx.grit", "no-restricted-css-policy.grit"]);
+  await writeFile(
+    path.join(cwd, "src/features/chat/application/state/view.tsx"),
+    `
+export const value = <div />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/domain/threads/view.tsx"),
+    `
+export const value = <span />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/ui/message.tsx"),
+    `
+export const value = <article />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/settings/section.tsx"),
+    `
+export const value = <section />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/shared/ui/diff.tsx"),
+    `
+export const value = <pre />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/styles/bad.css"),
+    `
 .codex-panel:has(.codex-panel__item) {
   color: black;
   margin-top: 8px;
@@ -799,10 +496,10 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
   }
 }
 `.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/styles/good.css"),
-      `
+  );
+  await writeFile(
+    path.join(cwd, "src/styles/good.css"),
+    `
 .codex-panel__item:where(:hover, :focus-visible) {
   color: var(--text-normal);
   margin-top: var(--codex-panel-item-gap);
@@ -819,23 +516,335 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
   }
 }
 `.trimStart(),
-    );
+  );
 
-    const report = biomeLint(["src/styles/bad.css", "src/styles/good.css"], cwd);
+  return biomeLint(
+    [
+      "src/features/chat/application/state/view.tsx",
+      "src/domain/threads/view.tsx",
+      "src/features/chat/ui/message.tsx",
+      "src/settings/section.tsx",
+      "src/shared/ui/diff.tsx",
+      "src/styles/bad.css",
+      "src/styles/good.css",
+    ],
+    cwd,
+  );
+}
 
-    expect(pluginMessages(report, "src/styles/bad.css")).toEqual([
-      "Avoid :has() because it can cause broad selector invalidation.",
-      "Use Obsidian or Codex Panel design tokens instead of hardcoded colors.",
-      "Prefer Obsidian or Codex Panel spacing and size tokens for layout dimensions.",
-      "Do not hide class, id, or attribute selectors inside :where().",
-      "Use Obsidian or Codex Panel typography tokens instead of hardcoded font sizes.",
-      "Avoid ID selectors in Codex Panel CSS.",
-      "Use Obsidian or Codex Panel typography tokens instead of hardcoded font weights.",
-      "Prefix keyframes with codex-panel-.",
-    ]);
-    expect(pluginDiagnostics(report, "src/styles/good.css")).toEqual([]);
-  });
-});
+function appServerBoundaryPolicyReport() {
+  appServerBoundaryPolicyReportPromise ??= createAppServerBoundaryPolicyReport();
+  return appServerBoundaryPolicyReportPromise;
+}
+
+async function createAppServerBoundaryPolicyReport() {
+  const cwd = await tempBiomeWorkspace([
+    "no-generated-app-server-boundary-imports.grit",
+    "no-app-server-protocol-boundary-imports.grit",
+    "no-domain-outer-layer-imports.grit",
+    "no-lower-level-feature-imports.grit",
+    "no-app-server-connection-boundary-imports.grit",
+    "no-app-server-projection-rpcs.grit",
+  ]);
+  await writeFile(
+    path.join(cwd, "src/features/chat/domain/generated-thread.ts"),
+    `
+export type GeneratedThread = import('../../../generated/app-server/v2/Thread').Thread;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/domain/generated-thread-import.ts"),
+    `
+import type { Thread } from '../../../generated/app-server/v2/Thread';
+
+export type GeneratedThread = Thread;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/connection/generated-thread.ts"),
+    `
+export type GeneratedThread = import("../../generated/app-server/v2/Thread").Thread;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "tests/app-server/generated-thread.test.ts"),
+    `
+export type GeneratedThread = import("../../src/generated/app-server/v2/Thread").Thread;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/protocol/request-input.ts"),
+    `
+import type { UserInput } from "../../generated/app-server/v2/UserInput";
+
+export type Input = UserInput;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/services/runtime-overrides.ts"),
+    `
+import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
+
+export interface RuntimeOverrideModelClient {
+  listModels(includeHidden: boolean): Promise<ModelListResponse>;
+}
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/protocol/turn.ts"),
+    `
+import type { ThreadItem as GeneratedTurnItem } from "../../generated/app-server/v2/ThreadItem";
+
+export type TurnItem = GeneratedTurnItem;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/protocol/server-requests.ts"),
+    `
+import type { ServerRequest } from "../../generated/app-server/ServerRequest";
+import type { ToolRequestUserInputParams } from "../../generated/app-server/v2/ToolRequestUserInputParams";
+
+export type Request = ServerRequest;
+export type Params = ToolRequestUserInputParams;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/application/pending-requests/pending-request-actions.ts"),
+    `
+import { threadTokenUsageFromAppServerUsage } from '../../../../app-server/protocol/runtime-metrics';
+
+export const convert = threadTokenUsageFromAppServerUsage;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/application/threads/history-controller.ts"),
+    `
+import type { TurnItem } from "../../../../app-server/protocol/turn";
+
+export type Item = TurnItem;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/panel/surface/message-stream-presenter.ts"),
+    `
+import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/ui/protocol-leak.tsx"),
+    `
+import { threadTokenUsageFromAppServerUsage } from "../../../app-server/protocol/runtime-metrics";
+
+export const value = <div>{String(threadTokenUsageFromAppServerUsage)}</div>;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/app-server/inbound/app-server-logs.ts"),
+    `
+import { appServerUserInputResponse } from "../../../../app-server/protocol/server-requests";
+
+export const response = appServerUserInputResponse;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/app-server/mappers/message-stream/turn-items.ts"),
+    `
+import type { TurnItem } from "../../../../../app-server/protocol/turn";
+import { toolInventoryAppsFromAppInfos } from "../../../../../app-server/protocol/tool-inventory";
+
+const toolInventory = await import("../../../../../app-server/protocol/tool-inventory");
+
+export const convert = [toolInventoryAppsFromAppInfos, toolInventory] satisfies unknown[];
+export type Item = TurnItem;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/app-server/inbound/server-requests/responses.ts"),
+    `
+import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
+
+const runtimeMetrics = await import("../../../../../app-server/protocol/runtime-metrics");
+
+export const response = [appServerUserInputResponse, runtimeMetrics] satisfies unknown[];
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/domain/threads/model.ts"),
+    `
+import { listThreads } from "../../app-server/threads";
+import type { ThreadPickerModal } from "../../features/thread-picker/modal";
+import { copyText } from "../../shared/ui/clipboard";
+import type { App } from "obsidian";
+
+export type Host = App;
+export type Modal = ThreadPickerModal;
+export const list = listThreads;
+export const copy = copyText;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/domain/threads/format.ts"),
+    `
+import { formatDate } from "../../shared/date";
+
+export const format = formatDate;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/domain/message-stream/selectors.ts"),
+    `
+import type { ChatStateStore } from "../../application/state/store";
+import type { Presenter } from 'src/features/chat/presentation/view';
+
+export type Store = ChatStateStore;
+export type View = Presenter;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/domain/message-stream/items.ts"),
+    `
+import type { MessageStreamItem } from "./item";
+
+export type Item = MessageStreamItem;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/domain/message-stream/outer-shapes.ts"),
+    `
+export { createChatStateStore } from "../../application/state/store";
+export type OuterStore = import("../../application/state/store").ChatStateStore;
+
+export async function loadComposer() {
+  return import("src/features/chat/ui/composer");
+}
+
+const host = await import("../../host/session");
+export const outerHost = host;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/protocol/diagnostics.ts"),
+    `
+import type { ThreadPickerModal } from '../../features/thread-picker/modal';
+
+export type Modal = ThreadPickerModal;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/shared/thread-picker.ts"),
+    `
+import type { ThreadPickerModal } from "../features/thread-picker/modal";
+
+export type Modal = ThreadPickerModal;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/shared/date.ts"),
+    `
+import { formatDate } from "./format";
+
+export const format = formatDate;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/protocol/catalog.ts"),
+    `
+import type { AppServerClient } from "../connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/services/catalog.ts"),
+    `
+import type { AppServerClient } from "../connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/domain/connection-client.ts"),
+    `
+import type { AppServerClient } from "../app-server/connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/shared/connection-client.ts"),
+    `
+import type { AppServerClient } from "src/app-server/connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/application/threads/history.ts"),
+    `
+import type { AppServerClient } from "../../../../app-server/connection/client";
+
+export async function read(appServerClient: AppServerClient): Promise<void> {
+  await appServerClient.threadTurnsList("thread", null, 20);
+}
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/app-server/threads.ts"),
+    `
+import type { AppServerClient } from "./connection/client";
+
+export async function read(client: AppServerClient): Promise<void> {
+  await client.threadTurnsList("thread", null, 20);
+}
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/chat/host/connection-bundle.ts"),
+    `
+import type { AppServerClient } from "../../../app-server/connection/client";
+
+export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
+`.trimStart(),
+  );
+
+  return biomeLint(
+    [
+      "src/features/chat/domain/generated-thread.ts",
+      "src/features/chat/domain/generated-thread-import.ts",
+      "src/app-server/connection/generated-thread.ts",
+      "tests/app-server/generated-thread.test.ts",
+      "src/app-server/protocol/request-input.ts",
+      "src/app-server/services/runtime-overrides.ts",
+      "src/app-server/protocol/turn.ts",
+      "src/app-server/protocol/server-requests.ts",
+      "src/features/chat/application/pending-requests/pending-request-actions.ts",
+      "src/features/chat/application/threads/history-controller.ts",
+      "src/features/chat/panel/surface/message-stream-presenter.ts",
+      "src/features/chat/ui/protocol-leak.tsx",
+      "src/features/chat/app-server/inbound/app-server-logs.ts",
+      "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
+      "src/features/chat/app-server/inbound/server-requests/responses.ts",
+      "src/domain/threads/model.ts",
+      "src/domain/threads/format.ts",
+      "src/features/chat/domain/message-stream/selectors.ts",
+      "src/features/chat/domain/message-stream/items.ts",
+      "src/features/chat/domain/message-stream/outer-shapes.ts",
+      "src/app-server/protocol/diagnostics.ts",
+      "src/shared/thread-picker.ts",
+      "src/shared/date.ts",
+      "src/app-server/protocol/catalog.ts",
+      "src/app-server/services/catalog.ts",
+      "src/domain/connection-client.ts",
+      "src/shared/connection-client.ts",
+      "src/features/chat/application/threads/history.ts",
+      "src/app-server/threads.ts",
+      "src/features/chat/host/connection-bundle.ts",
+    ],
+    cwd,
+  );
+}
 
 async function tempBiomeWorkspace(plugins) {
   const cacheKey = plugins.join("\0");
