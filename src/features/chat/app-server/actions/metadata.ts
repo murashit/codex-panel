@@ -11,14 +11,14 @@ import {
   upsertMcpServerDiagnostic,
 } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
-import { type ChatServerActionHost, captureChatServerActionClientScope } from "./host";
+import { type ChatServerActionsHost, captureChatServerClientScope } from "./host";
 
 export type AppServerResourceEvent =
   | { type: "skills-changed"; forceReload: boolean }
   | { type: "rate-limits-updated"; preserveExistingOnFailure?: boolean }
   | { type: "mcp-startup-status-updated"; name: string; status: McpServerStartupStatus; message: string | null };
 
-export interface ChatServerMetadataActionsHost extends ChatServerActionHost {
+export interface ChatServerMetadataActionsHost extends ChatServerActionsHost {
   updateAppServerMetadata: (updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null) => SharedServerMetadata | null;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
   refreshAppServerMetadata: (options?: { forceSkills?: boolean }) => Promise<SharedServerMetadata | null>;
@@ -89,14 +89,14 @@ function applyCurrentAppServerMetadataSnapshot(host: ChatServerMetadataActionsHo
 }
 
 async function refreshSkillResource(host: ChatServerMetadataActionsHost, forceReload = false): Promise<SharedServerMetadata | null> {
-  const scope = captureChatServerActionClientScope(host);
+  const scope = captureChatServerClientScope(host);
   const skills = await readSkillMetadataProbe(scope.client, host.vaultPath, forceReload);
   if (scope.isStale()) return null;
   const next = host.updateAppServerMetadata((metadata) => {
     if (!metadata) return null;
     return {
       ...metadata,
-      availableSkills: skills.data,
+      availableSkills: skills.value,
       serverDiagnostics: diagnosticsWithProbe(cloneServerDiagnostics(metadata.serverDiagnostics), skills.probe),
     };
   });
@@ -107,7 +107,7 @@ async function refreshSkillResource(host: ChatServerMetadataActionsHost, forceRe
   const diagnostics = diagnosticsWithProbe(currentMetadataDiagnostics(host), skills.probe);
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
-    availableSkills: skills.data,
+    availableSkills: skills.value,
     serverDiagnostics: diagnostics,
   });
   return null;
@@ -117,7 +117,7 @@ async function refreshRateLimitResource(
   host: ChatServerMetadataActionsHost,
   options: { preserveExistingOnFailure?: boolean } = {},
 ): Promise<void> {
-  const scope = captureChatServerActionClientScope(host);
+  const scope = captureChatServerClientScope(host);
   const rateLimit = await readRateLimitMetadataProbe(scope.client);
   if (scope.isStale()) return;
   const preserveExistingOnFailure = options.preserveExistingOnFailure === true;
@@ -132,7 +132,7 @@ async function refreshRateLimitResource(
       ? { type: "connection/metadata-applied", serverDiagnostics: diagnostics }
       : {
           type: "connection/metadata-applied",
-          rateLimit: rateLimit.data,
+          rateLimit: rateLimit.value,
           serverDiagnostics: diagnostics,
         },
   );
@@ -148,7 +148,7 @@ function updateRateLimitMetadata(
     const diagnostics = diagnosticsWithProbe(cloneServerDiagnostics(metadata.serverDiagnostics), rateLimit.probe);
     return {
       ...metadata,
-      ...(rateLimit.probe.status === "ok" || !options.preserveRateLimitOnFailure ? { rateLimit: rateLimit.data } : {}),
+      ...(rateLimit.probe.status === "ok" || !options.preserveRateLimitOnFailure ? { rateLimit: rateLimit.value } : {}),
       serverDiagnostics: diagnostics,
     };
   });

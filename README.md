@@ -15,7 +15,7 @@ If your Codex CLI or Codex.app environment is already configured, Codex Panel gi
 
 Codex Panel runs `codex app-server` as a local child process and talks to it over stdio. Each open chat panel has its own app-server connection, active thread, pending requests, and composer draft. The vault root is passed to Codex as the working directory.
 
-Models, reasoning defaults, sandboxing, approvals, MCP servers, hooks, skills, providers, network access, and thread history continue to come from Codex configuration. Codex Panel stores panel preferences only, not API keys or provider credentials. Data sent from the panel is handled by the configured Codex CLI according to your Codex configuration.
+Models, reasoning defaults, sandboxing, approvals, MCP servers, hooks, skills, providers, network access, and thread history continue to come from Codex configuration. Codex Panel stores panel preferences only, not API keys or provider credentials. Content sent from the panel is handled by the configured Codex CLI according to your Codex configuration.
 
 ## Requirements
 

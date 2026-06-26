@@ -48,22 +48,24 @@ Within `src/features/chat/`:
 - `domain/` owns chat-local meaning models and pure derivations for message stream items, pending request display facts, runtime intent, local IDs, and turn diffs.
 - `application/` owns chat state transitions and workflow orchestration for composer input, turn submission, thread lifecycle, pending requests, runtime settings, connection status, and reducer state.
 - `app-server/` adapts app-server notifications, requests, thread payloads, diagnostics, and turn items into chat-owned actions, projections, and message stream models.
-- `host/` wires each chat session to Obsidian views, workspace services, app-server clients, plugin settings, shared runtime data, lifecycle cleanup, and cross-surface handles.
+- `host/` wires each chat session to Obsidian views, workspace services, app-server clients, plugin settings, shared runtime state, lifecycle cleanup, and cross-surface handles.
 - `panel/` owns the Preact shell, shell-state projection, panel controllers, toolbar/composer/message-stream surface adapters, and Obsidian-facing panel snapshots.
 - `presentation/` owns view-model projection, grouping, formatting, and status text for chat UI surfaces.
 - `ui/` owns Preact and explicit DOM bridge rendering pieces for the composer, toolbar, goal view, message stream, and turn diff view.
+
+Tests should mirror the ownership boundary of the code under test. Keep chat feature tests under `tests/features/chat/app-server/`, `application/`, `domain/`, `host/`, `panel/`, `presentation/`, or `ui/` instead of flattened shortcut folders such as `connection/`, `composer/`, `message-stream/`, `runtime/`, `threads/`, or `conversation/`. Feature-neutral tests belong under `tests/shared/`.
 
 ## Placement Rules
 
 Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. Feature-neutral behavior belongs in `src/shared/`, `src/domain/`, or `src/app-server/`.
 
-Generated app-server types should stay behind app-server connection and protocol adapter modules. Chat-local app-server integration modules may consume app-server protocol projections, but not raw generated bindings. If a domain, shared, settings, workspace, or UI module needs app-server data, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
+Generated app-server types should stay behind app-server connection and protocol adapter modules. Chat-local app-server integration modules may consume app-server protocol projections, but not raw generated bindings. If a domain, shared, settings, workspace, or UI module needs app-server payloads, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
 
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only in `src/features/chat/panel/shell-state.tsx`; lint enforces this boundary. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
 
 Use imperative DOM writes only for explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Name those files with a `.dom`, `.obsidian`, or `.measure` suffix so Biome can enforce the boundary without file-specific allowlists.
 
-Use `.tsx` only in rendering-owned source folders: chat panel and UI modules, Obsidian/settings surfaces, selection rewrite and threads view renderers, and shared UI components. Non-rendering source should use `.ts`; Biome enforces this so lower-level app-server, domain, application, presentation, workspace, and generic shared modules do not grow JSX dependencies.
+Use `.tsx` only in rendering-owned source folders: chat panel and UI modules, Obsidian/settings surfaces, shared UI components, and explicit `.dom.tsx` rendering boundaries such as the selection rewrite popover and threads view shell. Non-rendering source should use `.ts`; Biome enforces this so lower-level app-server, domain, application, presentation, workspace, and generic shared modules do not grow JSX dependencies.
 
 ## CSS Rules
 
@@ -73,7 +75,7 @@ Keep selectors shallow and specific to Codex Panel classes. Avoid broad invalida
 
 ## Naming Conventions
 
-Name modules by responsibility: use `Controller` only for stateful lifecycle/control surfaces, `Handler` for inbound event or request entrypoints, `Actions` for caller-facing command or callback bundles without lifecycle ownership, `Coordinator` for stateful background or cross-surface coordination, `Service` for reusable domain capabilities, `Presenter` for UI state projection, `Renderer` for render-only UI contracts, and `Host`/`Ports` for dependency boundary objects. Use `State`, `Snapshot`, `Projection`, `ViewModel`, `Options`, `Context`, `Result`, `Target`, `Capabilities`, or `ActionTargets` for data/value objects; do not use `Actions` for passive data. Use boundary/infrastructure nouns such as `Client`, `Transport`, `Cache`, `Store`, `Catalog`, `Manager`, `Bridge`, `Tracker`, `Session`, `Runtime`, `Provider`, or `Adapter` only when the object owns that concrete boundary or lifecycle role.
+Name modules by responsibility: use `Controller` only for stateful lifecycle/control surfaces, `Handler` for inbound event or request entrypoints, `Actions` for caller-facing command or callback bundles without lifecycle ownership, `Coordinator` for stateful background or cross-surface coordination, `Service` for reusable domain capabilities, `Presenter` for UI state projection, `Renderer` for render-only UI contracts, and `Host`/`Ports` for dependency boundary objects. Use `State`, `Snapshot`, `Projection`, `ViewModel`, `Options`, `Context`, `Result`, `Target`, `Capabilities`, or `ActionTargets` for passive value objects; do not use `Actions` for passive values. Use boundary/infrastructure nouns such as `Client`, `Transport`, `Cache`, `Store`, `Catalog`, `Manager`, `Bridge`, `Tracker`, `Session`, `Runtime`, `Provider`, or `Adapter` only when the object owns that concrete boundary or lifecycle role.
 
 Prefer functions and factory-created objects over classes. Use a class only when it owns mutable lifecycle/resource state, extends or implements an external class-based API such as Obsidian views/modals/tabs, or represents an `Error`; do not use a class merely to group pure functions or dependencies.
 

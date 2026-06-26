@@ -4,8 +4,8 @@ import { h } from "preact";
 import { CLIENT_VERSION } from "../../../../constants";
 import type { Thread } from "../../../../domain/threads/model";
 import { threadRowCoreProjection } from "../../../threads/row-projection";
-import { connectionDiagnosticSectionsModel } from "../../application/connection/diagnostics-display";
-import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-display";
+import { connectionDiagnosticSectionsFromState } from "../../application/connection/diagnostic-sections";
+import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-diagnostic-sections";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { rateLimitSummary } from "../../presentation/runtime/status";
 import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
@@ -75,7 +75,7 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
     openPanel: projection.openPanel,
     threads: projection.threads,
     connectLabel: input.connected ? "Reconnect" : "Connect",
-    diagnostics: connectionDiagnosticSectionsModel({
+    diagnostics: connectionDiagnosticSectionsFromState({
       state,
       connected: input.connected,
       configuredCommand: input.configuredCommand,

@@ -104,7 +104,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActio
       }),
     },
     composer: {
-      renderer: {
+      presenter: {
         renderState: () => ({
           viewId: "view",
           draft: "",

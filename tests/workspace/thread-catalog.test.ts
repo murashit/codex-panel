@@ -20,7 +20,7 @@ describe("ThreadCatalog", () => {
     catalog.apply({ type: "active-list-snapshot-received", threads });
 
     expect(catalog.activeSnapshot()).toEqual(threads);
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ data: threads }));
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ value: threads }));
   });
 
   it("applies archived thread snapshot events through the catalog boundary", () => {
@@ -32,7 +32,7 @@ describe("ThreadCatalog", () => {
     catalog.apply({ type: "archived-list-snapshot-received", threads });
 
     expect(catalog.archivedSnapshot()).toEqual(threads);
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ data: threads }));
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ value: threads }));
   });
 
   it("refreshes thread snapshots through the cache single-flight and notifies observers once", async () => {
@@ -48,8 +48,8 @@ describe("ThreadCatalog", () => {
     await expect(second).resolves.toEqual([thread("thread")]);
     expect(fetchThreads).toHaveBeenCalledOnce();
     expect(catalog.activeSnapshot()).toEqual([thread("thread")]);
-    expect(listener.mock.calls.filter(([result]) => result.data !== null)).toHaveLength(1);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("thread")] }));
+    expect(listener.mock.calls.filter(([result]) => result.value !== null)).toHaveLength(1);
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("thread")] }));
   });
 
   it("broadcasts rename mutations to open surfaces after updating the catalog cache", () => {
@@ -62,7 +62,7 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()).toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
     expect(listener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ data: [{ ...thread("thread"), name: "Renamed" }, thread("other")] }),
+      expect.objectContaining({ value: [{ ...thread("thread"), name: "Renamed" }, thread("other")] }),
     );
     expect(surfaces.applyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed");
   });
@@ -80,9 +80,9 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
     expect(catalog.archivedSnapshot()).toEqual([{ ...thread("thread"), archived: true }, thread("archived", true)]);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("other")] }));
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("other")] }));
     expect(archivedListener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ data: [{ ...thread("thread"), archived: true }, thread("archived", true)] }),
+      expect.objectContaining({ value: [{ ...thread("thread"), archived: true }, thread("archived", true)] }),
     );
     expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
   });
@@ -126,8 +126,8 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
     expect(catalog.archivedSnapshot()).toEqual([thread("archived", true)]);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("other")] }));
-    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("archived", true)] }));
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("other")] }));
+    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("archived", true)] }));
     expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
     expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
@@ -148,9 +148,9 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()?.map((item) => item.id)).toEqual(["restored", "forked", "started", "existing"]);
     expect(catalog.archivedSnapshot()?.map((item) => item.id)).toEqual(["archived"]);
     expect(listener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ data: [thread("restored"), thread("forked"), thread("started"), thread("existing")] }),
+      expect.objectContaining({ value: [thread("restored"), thread("forked"), thread("started"), thread("existing")] }),
     );
-    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("archived", true)] }));
+    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("archived", true)] }));
     expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
     expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
@@ -252,7 +252,7 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()).toEqual([]);
     expect(catalog.archivedSnapshot()).toEqual([thread("started", true)]);
-    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("started", true)] }));
+    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("started", true)] }));
     expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("started", undefined);
 
     await expect(catalog.refreshActive()).resolves.toEqual([thread("other")]);
@@ -290,7 +290,7 @@ describe("ThreadCatalog", () => {
     ]);
     expect(listener).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        data: [thread("active", false, { updatedAt: 1, recencyAt: 20 }), thread("other", false, { updatedAt: 10, recencyAt: 10 })],
+        value: [thread("active", false, { updatedAt: 1, recencyAt: 20 }), thread("other", false, { updatedAt: 10, recencyAt: 10 })],
       }),
     );
     expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
@@ -313,9 +313,9 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()).toEqual([{ ...thread("started"), name: "Started" }]);
     expect(catalog.archivedSnapshot()).toEqual([thread("existing", true, { recencyAt: 20 }), thread("archived", true)]);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [{ ...thread("started"), name: "Started" }] }));
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [{ ...thread("started"), name: "Started" }] }));
     expect(archivedListener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ data: [thread("existing", true, { recencyAt: 20 }), thread("archived", true)] }),
+      expect.objectContaining({ value: [thread("existing", true, { recencyAt: 20 }), thread("archived", true)] }),
     );
     expect(surfaces.applyThreadRenamed).toHaveBeenCalledWith("started", "Started");
     expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("existing", { closeOpenPanels: true });
@@ -344,8 +344,8 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()).toEqual([thread("known"), thread("active")]);
     expect(catalog.archivedSnapshot()).toEqual([]);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("known"), thread("active")] }));
-    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [] }));
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("known"), thread("active")] }));
+    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [] }));
 
     catalog.apply({ type: "thread-unarchived", threadId: "unknown" });
 
@@ -400,8 +400,8 @@ function surfaceActions(): MockSurfaceActions {
 function observedActiveThreadIds(listener: Mock): string[][] {
   return listener.mock.calls
     .map((call) => {
-      const result = call[0] as { data: readonly Thread[] | null };
-      return result.data?.map((item) => item.id) ?? null;
+      const result = call[0] as { value: readonly Thread[] | null };
+      return result.value?.map((item) => item.id) ?? null;
     })
     .filter((ids): ids is string[] => ids !== null);
 }

@@ -52,12 +52,12 @@ describe("thread title", () => {
         calls.push({ cursor, limit, sortDirection });
         if (cursor === null) {
           return {
-            data: [{ userText: "本文だけ", assistantText: null }],
+            summaries: [{ userText: "本文だけ", assistantText: null }],
             nextCursor: "cursor-2",
           };
         }
         return {
-          data: [{ userText: "古い履歴から命名したい", assistantText: "古いturnを使って候補を作ります。" }],
+          summaries: [{ userText: "古い履歴から命名したい", assistantText: "古いturnを使って候補を作ります。" }],
           nextCursor: null,
         };
       },

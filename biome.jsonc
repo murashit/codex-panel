@@ -65,8 +65,8 @@
         "**/src/**/*.tsx",
         "!**/src/features/chat/panel/**",
         "!**/src/features/chat/ui/**",
-        "!**/src/features/selection-rewrite/**",
-        "!**/src/features/threads-view/**",
+        "!**/src/features/selection-rewrite/*.dom.tsx",
+        "!**/src/features/threads-view/*.dom.tsx",
         "!**/src/settings/**",
         "!**/src/shared/ui/**"
       ]

@@ -17,7 +17,7 @@ import type {
 } from "./features/chat/host/surface-handle";
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidian";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
-import type { CodexThreadsHost, CodexThreadsSettingsAccess } from "./features/threads-view/session";
+import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import { CodexThreadsView } from "./features/threads-view/view";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
@@ -118,12 +118,12 @@ export class CodexPanelRuntime implements AppServerClientAccess {
           this.refreshThreadsViewLiveState();
         },
       },
-      appServerData: this.appServerSharedQueries,
+      appServerQueries: this.appServerSharedQueries,
       threadCatalog: this.threadCatalog,
     };
   }
 
-  threadsHost(): CodexThreadsHost {
+  threadsHost(): ThreadsViewHost {
     return {
       settings: this.threadsSettings(),
       vaultPath: this.options.settingsRef.vaultPath,
@@ -135,7 +135,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     };
   }
 
-  private threadsSettings(): CodexThreadsSettingsAccess {
+  private threadsSettings(): ThreadsViewSettingsAccess {
     return {
       archiveExportEnabled: () => this.options.settingsRef.settings.archiveExportEnabled,
       codexPath: () => this.options.settingsRef.settings.codexPath,
@@ -158,7 +158,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       refreshOpenViews: () => {
         this.refreshOpenViews();
       },
-      appServerData: this.appServerSharedQueries,
+      appServerQueries: this.appServerSharedQueries,
       threadCatalog: this.threadCatalog,
     };
   }

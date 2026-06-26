@@ -14,7 +14,7 @@ export interface ArchiveExportDestination {
   normalizePath(path: string): string;
   exists(path: string): Promise<boolean>;
   createFolder(path: string): Promise<void>;
-  createMarkdownFile(path: string, data: string): Promise<void>;
+  createMarkdownFile(path: string, content: string): Promise<void>;
 }
 
 interface TemplateContext {

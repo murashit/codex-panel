@@ -48,7 +48,7 @@ export interface ThreadManagementActions {
   rollbackThread: (threadId: string) => Promise<void>;
 }
 
-interface ThreadManagementActionScope {
+interface ThreadManagementOperationScope {
   client: ThreadManagementClient;
   targetThreadId: string;
   initialActiveThreadId: string | null;
@@ -118,7 +118,7 @@ async function compactActiveThread(host: ThreadManagementActionsHost): Promise<v
 }
 
 async function compactThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
-  const scope = await captureThreadManagementActionScope(host, threadId);
+  const scope = await captureThreadManagementOperationScope(host, threadId);
   if (!scope) return;
   try {
     await compactThreadOnAppServer(scope.client, threadId);
@@ -162,7 +162,7 @@ async function forkThreadFromTurn(
     host.addSystemMessage(finishBeforeForkingThreadsMessage());
     return;
   }
-  const scope = await captureThreadManagementActionScope(host, threadId);
+  const scope = await captureThreadManagementOperationScope(host, threadId);
   if (!scope) return;
 
   const turnsToDrop = turnId ? messageStreamTurnsAfterTurnId(threadManagementState(host).messageStream, turnId) : 0;
@@ -228,7 +228,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     host.addSystemMessage(interruptBeforeRollbackMessage());
     return;
   }
-  const scope = await captureThreadManagementActionScope(host, threadId);
+  const scope = await captureThreadManagementOperationScope(host, threadId);
   if (!scope) return;
 
   const candidate = messageStreamRollbackCandidate(threadManagementState(host).messageStream);
@@ -275,10 +275,10 @@ function threadManagementDispatch(host: ThreadManagementActionsHost, action: Cha
   host.stateStore.dispatch(action);
 }
 
-async function captureThreadManagementActionScope(
+async function captureThreadManagementOperationScope(
   host: ThreadManagementActionsHost,
   targetThreadId: string,
-): Promise<ThreadManagementActionScope | null> {
+): Promise<ThreadManagementOperationScope | null> {
   const client = await host.connectedClient();
   if (!client) return null;
   return {
@@ -288,15 +288,15 @@ async function captureThreadManagementActionScope(
   };
 }
 
-function threadManagementScopeClientStale(host: ThreadManagementActionsHost, scope: ThreadManagementActionScope): boolean {
+function threadManagementScopeClientStale(host: ThreadManagementActionsHost, scope: ThreadManagementOperationScope): boolean {
   return host.currentClient() !== scope.client;
 }
 
-function threadManagementScopeStillTargetsPanel(host: ThreadManagementActionsHost, scope: ThreadManagementActionScope): boolean {
+function threadManagementScopeStillTargetsPanel(host: ThreadManagementActionsHost, scope: ThreadManagementOperationScope): boolean {
   return !threadManagementScopeClientStale(host, scope) && threadManagementState(host).activeThread.id === scope.targetThreadId;
 }
 
-function threadManagementScopeStillTargetsOriginalPanel(host: ThreadManagementActionsHost, scope: ThreadManagementActionScope): boolean {
+function threadManagementScopeStillTargetsOriginalPanel(host: ThreadManagementActionsHost, scope: ThreadManagementOperationScope): boolean {
   if (threadManagementScopeClientStale(host, scope)) return false;
   if (!scope.initialActiveThreadId) return true;
   return scope.initialActiveThreadId === scope.targetThreadId && threadManagementState(host).activeThread.id === scope.targetThreadId;

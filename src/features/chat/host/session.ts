@@ -95,7 +95,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     if (!client) throw new Error("Codex app-server is not connected.");
     const result = await operation(client);
     if (this.graph.connection.manager.currentClient() !== client) {
-      throw new Error("Codex app-server connection changed while loading shared data.");
+      throw new Error("Codex app-server connection changed while loading shared queries.");
     }
     return result;
   }
@@ -199,7 +199,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
         goal: this.graph.surface.goal,
         messageStream: this.graph.render.messageStreamPresenter,
         composer: {
-          renderer: this.graph.composer.controller,
+          presenter: this.graph.composer.controller,
           actions: {
             submit: () => void this.graph.composer.submission.submit(),
           },

@@ -4,7 +4,7 @@ import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
 import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root.dom";
 import { ArchivedThreadSection } from "./archived-section";
-import { SettingsDynamicDataController, type SettingsDynamicDataDisplayTarget } from "./dynamic-data-controller";
+import { SettingsDynamicSectionsController, type SettingsDynamicSectionsDisplayTarget } from "./dynamic-sections-controller";
 import { HelperSettingsSection } from "./helper-section";
 import { HookSection } from "./hook-section";
 import type { CodexPanelSettingTabHost } from "./host";
@@ -36,7 +36,7 @@ function createSettingsItems(containerEl: HTMLElement): HTMLElement {
 }
 
 export class CodexPanelSettingTab extends PluginSettingTab {
-  private readonly dynamicData: SettingsDynamicDataController;
+  private readonly dynamicSections: SettingsDynamicSectionsController;
   private archivedDeleteConfirmThreadId: string | null = null;
   private dynamicSectionRoots: DynamicSectionRoots | null = null;
   private readonly cancelArchivedDeleteConfirmOnOutsidePointer = (event: PointerEvent): void => {
@@ -57,7 +57,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     private readonly plugin: CodexPanelSettingTabHost,
   ) {
     super(app, owner);
-    this.dynamicData = new SettingsDynamicDataController(plugin, {
+    this.dynamicSections = new SettingsDynamicSectionsController(plugin, {
       display: (target) => {
         this.renderDynamicSections(target);
       },
@@ -68,19 +68,19 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   display(): void {
-    this.dynamicData.activate();
-    this.renderSettingsTab({ autoLoadCodexData: true });
+    this.dynamicSections.activate();
+    this.renderSettingsTab({ autoLoadDynamicSections: true });
   }
 
   override hide(): void {
     this.containerEl.removeEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
     this.archivedDeleteConfirmThreadId = null;
-    this.dynamicData.dispose();
+    this.dynamicSections.dispose();
     this.unmountDynamicSectionRoots();
     super.hide();
   }
 
-  private renderSettingsTab(options: { autoLoadCodexData: boolean }): void {
+  private renderSettingsTab(options: { autoLoadDynamicSections: boolean }): void {
     const { containerEl } = this;
     this.unmountDynamicSectionRoots();
     containerEl.empty();
@@ -93,7 +93,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.createDynamicSectionRoots(containerEl);
     this.renderDynamicSections("all");
 
-    if (options.autoLoadCodexData) this.maybeAutoLoadSettingsData();
+    if (options.autoLoadDynamicSections) this.maybeAutoLoadDynamicSections();
   }
 
   private renderPanelPreferenceSections(containerEl: HTMLElement): void {
@@ -172,7 +172,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.dynamicSectionRoots = null;
   }
 
-  private renderDynamicSections(target: SettingsDynamicDataDisplayTarget): void {
+  private renderDynamicSections(target: SettingsDynamicSectionsDisplayTarget): void {
     const roots = this.dynamicSectionRoots;
     if (!roots) return;
     const state = this.dynamicSectionsState();
@@ -188,16 +188,16 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private dynamicSectionsState(): SettingsSectionsState {
-    const dynamicData = this.dynamicData.snapshot();
+    const dynamicSections = this.dynamicSections.snapshot();
     return {
       helper: {
         threadNamingModel: this.plugin.settings.threadNamingModel,
         threadNamingEffort: this.plugin.settings.threadNamingEffort,
         rewriteSelectionModel: this.plugin.settings.rewriteSelectionModel,
         rewriteSelectionEffort: this.plugin.settings.rewriteSelectionEffort,
-        models: this.dynamicData.modelMetadata(),
-        modelLoadFailed: dynamicData.modelsLifecycle.kind === "failed",
-        modelStatus: dynamicData.modelsLifecycle.status,
+        models: this.dynamicSections.modelMetadata(),
+        modelLoadFailed: dynamicSections.modelsLifecycle.kind === "failed",
+        modelStatus: dynamicSections.modelsLifecycle.status,
         onThreadNamingModelChange: (value) => void this.setThreadNamingModel(value),
         onThreadNamingEffortChange: (value) => void this.setThreadNamingEffort(value),
         onRewriteSelectionModelChange: (value) => void this.setRewriteSelectionModel(value),
@@ -208,13 +208,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         exportFolderTemplate: this.plugin.settings.archiveExportFolderTemplate,
         exportFilenameTemplate: this.plugin.settings.archiveExportFilenameTemplate,
         exportTags: this.plugin.settings.archiveExportTags,
-        threads: dynamicData.archivedThreads,
+        threads: dynamicSections.archivedThreads,
         contentAvailable:
-          dynamicData.archivedThreadsLifecycle.kind === "loaded" ||
-          (dynamicData.archivedThreadsLifecycle.kind === "loading" && dynamicData.archivedThreadsLoaded),
-        loaded: dynamicData.archivedThreadsLifecycle.kind === "loaded",
-        loading: dynamicData.archivedThreadsLifecycle.kind === "loading",
-        status: dynamicData.archivedThreadsLifecycle.status,
+          dynamicSections.archivedThreadsLifecycle.kind === "loaded" ||
+          (dynamicSections.archivedThreadsLifecycle.kind === "loading" && dynamicSections.archivedThreadsLoaded),
+        loaded: dynamicSections.archivedThreadsLifecycle.kind === "loaded",
+        loading: dynamicSections.archivedThreadsLifecycle.kind === "loading",
+        status: dynamicSections.archivedThreadsLifecycle.status,
         deleteConfirmThreadId: this.archivedDeleteConfirmThreadId,
         onExportEnabledChange: (enabled) => void this.setArchiveExportEnabled(enabled),
         onExportFolderTemplateChange: (value) => void this.setArchiveExportFolderTemplate(value),
@@ -223,7 +223,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         onRestore: (threadId) => {
           this.archivedDeleteConfirmThreadId = null;
           this.renderDynamicSections("archived");
-          void this.dynamicData.restoreArchivedThread(threadId);
+          void this.dynamicSections.restoreArchivedThread(threadId);
         },
         onStartDelete: (threadId) => {
           this.archivedDeleteConfirmThreadId = threadId;
@@ -232,20 +232,21 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         onDelete: (threadId) => {
           this.archivedDeleteConfirmThreadId = null;
           this.renderDynamicSections("archived");
-          void this.dynamicData.deleteArchivedThread(threadId);
+          void this.dynamicSections.deleteArchivedThread(threadId);
         },
       },
       hooks: {
-        hooks: dynamicData.hooks,
-        warnings: dynamicData.hookWarnings,
-        errors: dynamicData.hookErrors,
+        hooks: dynamicSections.hooks,
+        warnings: dynamicSections.hookWarnings,
+        errors: dynamicSections.hookErrors,
         contentAvailable:
-          dynamicData.hooksLifecycle.kind === "loaded" || (dynamicData.hooksLifecycle.kind === "loading" && dynamicData.hooksLoaded),
-        loaded: dynamicData.hooksLifecycle.kind === "loaded",
-        loading: dynamicData.hooksLifecycle.kind === "loading",
-        status: dynamicData.hooksLifecycle.status,
-        onTrust: (hook) => void this.dynamicData.trustHook(hook),
-        onToggleEnabled: (hook, enabled) => void this.dynamicData.setHookEnabled(hook, enabled),
+          dynamicSections.hooksLifecycle.kind === "loaded" ||
+          (dynamicSections.hooksLifecycle.kind === "loading" && dynamicSections.hooksLoaded),
+        loaded: dynamicSections.hooksLifecycle.kind === "loaded",
+        loading: dynamicSections.hooksLifecycle.kind === "loading",
+        status: dynamicSections.hooksLifecycle.status,
+        onTrust: (hook) => void this.dynamicSections.trustHook(hook),
+        onToggleEnabled: (hook, enabled) => void this.dynamicSections.setHookEnabled(hook, enabled),
       },
     };
   }
@@ -262,16 +263,16 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       cls: "clickable-icon codex-panel-settings__refresh-button",
     });
     button.type = "button";
-    button.disabled = this.dynamicData.settingsDataLoading();
-    button.ariaLabel = this.dynamicData.settingsDataLoading() ? "Refreshing Codex data" : "Refresh Codex data";
+    button.disabled = this.dynamicSections.isLoading();
+    button.ariaLabel = this.dynamicSections.isLoading() ? "Refreshing Codex details" : "Refresh Codex details";
     setIcon(button, "refresh-cw");
     button.addEventListener("click", () => {
-      void this.dynamicData.refreshSettingsData();
+      void this.dynamicSections.refreshDynamicSections();
     });
   }
 
-  private maybeAutoLoadSettingsData(): void {
-    this.dynamicData.maybeAutoLoadSettingsData();
+  private maybeAutoLoadDynamicSections(): void {
+    this.dynamicSections.maybeAutoLoadDynamicSections();
   }
 
   private async setCodexPath(value: string): Promise<void> {
@@ -279,10 +280,10 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     if (codexPath === this.plugin.settings.codexPath) return;
     this.plugin.settings.codexPath = codexPath;
     await this.plugin.saveSettings();
-    this.dynamicData.resetSettingsDataContext();
-    this.plugin.appServerData.notifyContextChanged();
+    this.dynamicSections.resetDynamicSectionContext();
+    this.plugin.appServerQueries.notifyContextChanged();
     this.plugin.refreshOpenViews();
-    this.renderSettingsTab({ autoLoadCodexData: false });
+    this.renderSettingsTab({ autoLoadDynamicSections: false });
   }
 
   private async setArchiveExportEnabled(enabled: boolean): Promise<void> {
@@ -308,7 +309,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async setThreadNamingModel(value: string | null): Promise<void> {
     this.plugin.settings.threadNamingModel = value;
-    if (!this.dynamicData.namingEffortSupported(this.plugin.settings.threadNamingEffort)) {
+    if (!this.dynamicSections.namingEffortSupported(this.plugin.settings.threadNamingEffort)) {
       this.plugin.settings.threadNamingEffort = null;
     }
     await this.plugin.saveSettings();
@@ -322,7 +323,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async setRewriteSelectionModel(value: string | null): Promise<void> {
     this.plugin.settings.rewriteSelectionModel = value;
-    if (!this.dynamicData.rewriteSelectionEffortSupported(this.plugin.settings.rewriteSelectionEffort)) {
+    if (!this.dynamicSections.rewriteSelectionEffortSupported(this.plugin.settings.rewriteSelectionEffort)) {
       this.plugin.settings.rewriteSelectionEffort = null;
     }
     await this.plugin.saveSettings();

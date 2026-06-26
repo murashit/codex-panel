@@ -26,7 +26,7 @@ export type ThreadRollbackClient = Pick<AppServerClient, "rollbackThread">;
 export type ThreadCompactionClient = Pick<AppServerClient, "compactThread">;
 
 interface ThreadConversationSummaryPage {
-  data: ThreadConversationSummary[];
+  summaries: ThreadConversationSummary[];
   nextCursor: string | null;
 }
 
@@ -85,7 +85,7 @@ export async function readCompletedConversationSummariesPage(
 ): Promise<ThreadConversationSummaryPage> {
   const response = await client.threadTurnsList(threadId, cursor, limit, sortDirection);
   return {
-    data: completedConversationSummariesFromTurnRecords(response.data),
+    summaries: completedConversationSummariesFromTurnRecords(response.data),
     nextCursor: response.nextCursor,
   };
 }

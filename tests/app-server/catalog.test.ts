@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { listHookData, listSkillCatalog } from "../../src/app-server/catalog";
+import { listHookCatalog, listSkillCatalog } from "../../src/app-server/catalog";
 import type { AppServerClient } from "../../src/app-server/connection/client";
 import {
   appServerHookOperationFromHookItem,
@@ -111,7 +111,7 @@ describe("app-server catalog adapters", () => {
       }),
     } as unknown as AppServerClient;
 
-    await expect(listHookData(client, "/vault")).resolves.toMatchObject({
+    await expect(listHookCatalog(client, "/vault")).resolves.toMatchObject({
       hooks: [{ key: "vault" }],
       warnings: ["warn"],
       errors: ['{"message":"err"}'],

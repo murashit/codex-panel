@@ -4,15 +4,15 @@ import type { AppServerClientAccess } from "../../app-server/connection/client-a
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
 import type { ArchiveExportDestination } from "../../app-server/services/thread-archive-markdown";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import type { ObservedDataResult } from "../../domain/observed-data";
-import { observedData, observedInitialError, observedInitialLoading } from "../../domain/observed-data";
+import type { ObservedResult } from "../../domain/observed-result";
+import { observedInitialError, observedInitialLoading, observedValue } from "../../domain/observed-result";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../workspace/thread-catalog";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
-import { renderThreadsView, unmountThreadsView } from "./renderer.dom";
+import { renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
 import {
   type ThreadsGeneratingRenameState,
   type ThreadsRenameLifecycleEvent,
@@ -28,19 +28,19 @@ import {
   transitionThreadsViewRefreshLifecycle,
 } from "./view-lifecycle";
 
-export interface CodexThreadsHost {
-  readonly settings: CodexThreadsSettingsAccess;
+export interface ThreadsViewHost {
+  readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
   readonly clientAccess: AppServerClientAccess;
-  readonly threadCatalog: ThreadsThreadCatalog;
+  readonly threadCatalog: ThreadsViewThreadCatalog;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
 }
 
-type ThreadsThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
+type ThreadsViewThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
 
-export interface CodexThreadsSettingsAccess {
+export interface ThreadsViewSettingsAccess {
   archiveExportEnabled(): boolean;
   codexPath(): string;
   threadNamingModel(): string | null;
@@ -48,9 +48,9 @@ export interface CodexThreadsSettingsAccess {
   archiveExportSettings(): ArchiveExportSettings;
 }
 
-export interface CodexThreadsSessionEnvironment {
+export interface ThreadsViewSessionEnvironment {
   root: HTMLElement;
-  host: CodexThreadsHost;
+  host: ThreadsViewHost;
   registerPointerDown(handler: (event: PointerEvent) => void): void;
   archiveDestination(): ArchiveExportDestination;
   vaultConfigDir(): string;
@@ -64,7 +64,7 @@ type ThreadsViewStatus =
   | { kind: "log"; message: string }
   | { kind: "error"; message: string };
 
-export class CodexThreadsSession {
+export class ThreadsViewSession {
   private readonly operations: ThreadOperations;
   private readonly titleService: ThreadTitleService;
   private readonly deferredTasks: ThreadsViewDeferredTasks;
@@ -77,7 +77,7 @@ export class CodexThreadsSession {
   private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
 
-  constructor(private readonly environment: CodexThreadsSessionEnvironment) {
+  constructor(private readonly environment: ThreadsViewSessionEnvironment) {
     this.deferredTasks = createThreadsViewDeferredTasks(() => this.viewWindow());
     this.operations = createThreadOperations({
       clientAccess: this.host.clientAccess,
@@ -123,12 +123,12 @@ export class CodexThreadsSession {
     this.deferredTasks.clearAll();
     this.unsubscribeThreads?.();
     this.unsubscribeThreads = null;
-    unmountThreadsView(this.environment.root);
+    unmountThreadsViewShell(this.environment.root);
   }
 
   async refresh(): Promise<void> {
     const refresh = this.startRefresh();
-    if (!this.currentThreadsData()) {
+    if (!this.currentThreadsSnapshot()) {
       this.status = { kind: "loading", message: "Loading threads..." };
     }
     this.render();
@@ -140,7 +140,7 @@ export class CodexThreadsSession {
       this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     } catch (error) {
       if (isStaleAppServerSharedQueryContextError(error)) return;
-      if (!this.currentThreadsData()) {
+      if (!this.currentThreadsSnapshot()) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       }
     } finally {
@@ -159,30 +159,30 @@ export class CodexThreadsSession {
     this.render();
   }
 
-  private receiveObservedThreadsResult(result: ObservedDataResult<readonly Thread[]>): void {
-    const data = observedData(result);
-    if (data) {
-      this.receiveObservedThreads(data);
+  private receiveObservedThreadsResult(result: ObservedResult<readonly Thread[]>): void {
+    const observedThreads = observedValue(result);
+    if (observedThreads) {
+      this.receiveObservedThreads(observedThreads);
       return;
     }
-    const currentData = this.currentThreadsData();
-    if (observedInitialLoading(result, currentData)) {
+    const currentValue = this.currentThreadsSnapshot();
+    if (observedInitialLoading(result, currentValue)) {
       this.status = { kind: "loading", message: "Loading threads..." };
       this.render();
       return;
     }
-    const initialError = observedInitialError(result, currentData);
+    const initialError = observedInitialError(result, currentValue);
     if (initialError) {
       this.status = { kind: "error", message: initialError.message };
       this.render();
     }
   }
 
-  private currentThreadsData(): readonly Thread[] | null {
+  private currentThreadsSnapshot(): readonly Thread[] | null {
     return this.threadsLoaded ? this.threads : null;
   }
 
-  private get host(): CodexThreadsHost {
+  private get host(): ThreadsViewHost {
     return this.environment.host;
   }
 
@@ -203,7 +203,7 @@ export class CodexThreadsSession {
   }
 
   private render(): void {
-    renderThreadsView(
+    renderThreadsViewShell(
       this.environment.root,
       {
         status: threadsViewStatusText(this.status),

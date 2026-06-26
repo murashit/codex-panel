@@ -12,7 +12,7 @@ import {
   upsertMcpServerStatusDiagnostics,
 } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
-import { type ChatServerActionHost, captureChatServerActionClientScope } from "./host";
+import { type ChatServerActionsHost, captureChatServerClientScope } from "./host";
 
 interface RefreshServerDiagnosticsOptions {
   appServerMetadataSnapshot?: boolean;
@@ -23,7 +23,7 @@ interface DiagnosticProbeSnapshot {
   probe: Diagnostics["probes"][DiagnosticProbeMethod];
 }
 
-export interface ChatServerDiagnosticsActionsHost extends ChatServerActionHost {
+export interface ChatServerDiagnosticsActionsHost extends ChatServerActionsHost {
   updateAppServerMetadata: (updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null) => SharedServerMetadata | null;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
 }
@@ -44,7 +44,7 @@ async function refreshServerDiagnostics(
   host: ChatServerDiagnosticsActionsHost,
   options: RefreshServerDiagnosticsOptions = {},
 ): Promise<boolean> {
-  const scope = captureChatServerActionClientScope(host);
+  const scope = captureChatServerClientScope(host);
   if (!scope.client) return false;
   const client = scope.client;
 

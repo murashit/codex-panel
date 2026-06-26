@@ -15,7 +15,7 @@ export interface ThreadTitleContext {
 }
 
 interface ThreadTitleContextPage {
-  data: ThreadConversationSummary[];
+  summaries: ThreadConversationSummary[];
   nextCursor: string | null;
 }
 
@@ -47,7 +47,7 @@ export async function findThreadTitleContext(options: {
 
   for (let page = 0; page < maxPages; page += 1) {
     const response = await options.readTurns(options.threadId, cursor, pageLimit, "asc");
-    for (const summary of response.data) {
+    for (const summary of response.summaries) {
       const context = threadTitleContextFromConversationSummary(summary);
       if (context) return context;
     }

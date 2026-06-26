@@ -1,18 +1,18 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ChatStateStore } from "../../application/state/store";
 
-export interface ChatServerActionHost {
+export interface ChatServerActionsHost {
   stateStore: ChatStateStore;
   vaultPath: string;
   currentClient: () => AppServerClient | null;
 }
 
-export interface ChatServerActionClientScope {
+export interface ChatServerClientScope {
   client: AppServerClient | null;
   isStale: () => boolean;
 }
 
-export function captureChatServerActionClientScope(host: ChatServerActionHost): ChatServerActionClientScope {
+export function captureChatServerClientScope(host: ChatServerActionsHost): ChatServerClientScope {
   const client = host.currentClient();
   return {
     client,

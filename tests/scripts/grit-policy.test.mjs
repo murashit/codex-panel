@@ -353,7 +353,15 @@ export function timestamp(): number {
     expect(pluginMessages(report, "src/domain/threads/view.tsx")).toEqual([
       "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
     ]);
+    expect(pluginMessages(report, "src/features/selection-rewrite/inline-popover.tsx")).toEqual([
+      "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
+    ]);
+    expect(pluginMessages(report, "src/features/threads-view/inline-row.tsx")).toEqual([
+      "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
+    ]);
     expect(pluginDiagnostics(report, "src/features/chat/ui/message.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/selection-rewrite/popover.dom.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/threads-view/shell.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/settings/section.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/shared/ui/diff.tsx")).toEqual([]);
   });
@@ -486,6 +494,30 @@ export const value = <span />;
 `.trimStart(),
   );
   await writeFile(
+    path.join(cwd, "src/features/selection-rewrite/inline-popover.tsx"),
+    `
+export const value = <aside />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/selection-rewrite/popover.dom.tsx"),
+    `
+export const value = <aside />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/threads-view/inline-row.tsx"),
+    `
+export const value = <li />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/threads-view/shell.dom.tsx"),
+    `
+export const value = <main />;
+`.trimStart(),
+  );
+  await writeFile(
     path.join(cwd, "src/features/chat/ui/message.tsx"),
     `
 export const value = <article />;
@@ -554,6 +586,10 @@ export const value = <pre />;
     [
       "src/features/chat/application/state/view.tsx",
       "src/domain/threads/view.tsx",
+      "src/features/selection-rewrite/inline-popover.tsx",
+      "src/features/selection-rewrite/popover.dom.tsx",
+      "src/features/threads-view/inline-row.tsx",
+      "src/features/threads-view/shell.dom.tsx",
       "src/features/chat/ui/message.tsx",
       "src/settings/section.tsx",
       "src/shared/ui/diff.tsx",
@@ -895,6 +931,8 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/chat/panel"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/panel/surface"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/ui"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/selection-rewrite"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/threads-view"), { recursive: true });
   await mkdir(path.join(cwd, "src/settings"), { recursive: true });
   await mkdir(path.join(cwd, "src/domain/threads"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/connection"), { recursive: true });

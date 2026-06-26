@@ -6,7 +6,7 @@ import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidia
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command";
 import { CodexThreadsView } from "./features/threads-view/view";
 import { CodexPanelRuntime } from "./plugin-runtime";
-import { type CodexPanelSettings, DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchNormalizedData } from "./settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchStoredSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab.obsidian";
 
 export default class CodexPanelPlugin extends Plugin {
@@ -80,9 +80,9 @@ export default class CodexPanelPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    const data: unknown = await this.loadData();
-    this.settings = normalizeSettings(data);
-    if (!settingsMatchNormalizedData(data, this.settings)) {
+    const storedSettings: unknown = await this.loadData();
+    this.settings = normalizeSettings(storedSettings);
+    if (!settingsMatchStoredSettings(storedSettings, this.settings)) {
       await this.saveSettings();
     }
   }

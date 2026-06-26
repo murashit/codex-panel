@@ -1,7 +1,7 @@
-import type { ObservedDataListener } from "../domain/observed-data";
+import type { ObservedResultListener } from "../domain/observed-result";
 import type { Thread } from "../domain/threads/model";
 
-type ThreadListObserver = ObservedDataListener<readonly Thread[]>;
+type ThreadListObserver = ObservedResultListener<readonly Thread[]>;
 
 interface ThreadCatalogStore {
   activeThreadsSnapshot(): readonly Thread[] | null;
@@ -90,7 +90,7 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
       store.observeActiveThreadsResult((result) => {
         observer({
           ...result,
-          data: threadListProjection(result.data, activeFacts),
+          value: threadListProjection(result.value, activeFacts),
         });
       }, observeOptions),
     archivedSnapshot: () => threadListProjection(store.archivedThreadsSnapshot(), archivedFacts),
@@ -100,7 +100,7 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
       store.observeArchivedThreadsResult((result) => {
         observer({
           ...result,
-          data: threadListProjection(result.data, archivedFacts),
+          value: threadListProjection(result.value, archivedFacts),
         });
       }, observeOptions),
   };

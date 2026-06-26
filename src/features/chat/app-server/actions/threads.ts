@@ -6,13 +6,13 @@ import type { ChatState } from "../../application/state/root-reducer";
 import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { serviceTierRequestForThreadStart } from "../runtime/thread-settings-update";
-import { type ChatServerActionHost, captureChatServerActionClientScope } from "./host";
+import { type ChatServerActionsHost, captureChatServerClientScope } from "./host";
 
 interface StartedThreadSummary {
   threadId: string;
 }
 
-export interface ChatServerThreadActionsHost extends ChatServerActionHost {
+export interface ChatServerThreadActionsHost extends ChatServerActionsHost {
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
   syncThreadGoal: (threadId: string) => void;
@@ -41,7 +41,7 @@ async function startThread(
   preview?: string,
   options: { syncGoal?: boolean } = {},
 ): Promise<StartedThreadSummary | null> {
-  const scope = captureChatServerActionClientScope(host);
+  const scope = captureChatServerClientScope(host);
   if (!scope.client) return null;
   const requestState = host.stateStore.getState();
   const serviceTier = serviceTierRequestForThreadStart(

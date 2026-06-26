@@ -118,7 +118,7 @@ interface ChatComposerState {
   readonly suggestionsDismissedSignature: string | null;
 }
 
-interface ChatStateData {
+interface ChatStateShape {
   connection: ChatConnectionState;
   threadList: ChatThreadListState;
   activeThread: ChatActiveThreadState;
@@ -130,7 +130,7 @@ interface ChatStateData {
   ui: ChatUiState;
 }
 
-export type ChatState = DeepReadonly<ChatStateData>;
+export type ChatState = DeepReadonly<ChatStateShape>;
 
 type ConnectionAction =
   | { type: "connection/status-set"; statusText: string; phase?: ChatConnectionPhase }

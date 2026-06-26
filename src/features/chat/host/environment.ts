@@ -2,7 +2,7 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { ArchiveExportDestination } from "../../../app-server/services/thread-archive-markdown";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
-import type { ObservedDataListener } from "../../../domain/observed-data";
+import type { ObservedResultListener } from "../../../domain/observed-result";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../../workspace/thread-catalog";
@@ -11,7 +11,7 @@ import type { ChatTurnDiffViewState } from "../domain/turn-diff";
 export interface CodexChatHost {
   readonly settingsRef: PluginSettingsRef;
   readonly workspace: WorkspacePanels;
-  readonly appServerData: ChatAppServerData;
+  readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
 }
 
@@ -29,15 +29,15 @@ interface WorkspacePanels {
 
 type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
 
-interface ChatAppServerData {
+interface ChatAppServerQueries {
   updateAppServerMetadata(updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null): SharedServerMetadata | null;
   appServerMetadataSnapshot(): SharedServerMetadata | null;
   refreshAppServerMetadata(options?: { forceSkills?: boolean }): Promise<SharedServerMetadata | null>;
-  observeAppServerMetadataResult(listener: ObservedDataListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void;
+  observeAppServerMetadataResult(listener: ObservedResultListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void;
   modelsSnapshot(): readonly ModelMetadata[] | null;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
-  observeModelsResult(listener: ObservedDataListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
+  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
 }
 
 export interface ChatPanelEnvironment {

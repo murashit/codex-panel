@@ -6,9 +6,9 @@ import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/pro
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
-import type { ObservedDataResult } from "../../src/domain/observed-data";
+import type { ObservedResult } from "../../src/domain/observed-result";
 import type { Thread } from "../../src/domain/threads/model";
-import { SettingsDynamicDataController, type SettingsDynamicDataSnapshot } from "../../src/settings/dynamic-data-controller";
+import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
 import { notices } from "../mocks/obsidian";
@@ -31,7 +31,7 @@ describe("settings tab", () => {
     notices.length = 0;
   });
 
-  it("auto-loads settings data once and keeps one global refresh button", async () => {
+  it("auto-loads dynamic sections once and keeps one global refresh button", async () => {
     const client = settingsClient();
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     withShortLivedAppServerClientMock.mockImplementation(
@@ -51,8 +51,8 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
-    expect(buttonLabels(tab)).toContain("Refresh Codex data");
-    expect(buttonTexts(tab)).not.toContain("Refresh Codex data");
+    expect(buttonLabels(tab)).toContain("Refresh Codex details");
+    expect(buttonTexts(tab)).not.toContain("Refresh Codex details");
     expect(buttonTexts(tab)).not.toContain("Load models");
     expect(buttonTexts(tab)).not.toContain("Load hooks");
     expect(buttonTexts(tab)).not.toContain("Load archive list");
@@ -181,7 +181,7 @@ describe("settings tab", () => {
 
     tab.display();
     await flushPromises();
-    clickButtonByLabel(tab, "Refresh Codex data");
+    clickButtonByLabel(tab, "Refresh Codex details");
     await flushPromises();
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
@@ -193,7 +193,7 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).not.toContain("Old");
   });
 
-  it("clears dynamic settings data when the Codex executable changes", async () => {
+  it("clears dynamic sections when the Codex executable changes", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const notifyContextChanged = vi.fn();
     const refreshOpenViews = vi.fn();
@@ -242,7 +242,7 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
     expect(tab.containerEl.textContent).not.toContain("Old archived");
 
-    clickButtonByLabel(tab, "Refresh Codex data");
+    clickButtonByLabel(tab, "Refresh Codex details");
     await flushPromises();
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
@@ -274,11 +274,11 @@ describe("settings tab", () => {
       throw new Error("Expected archived thread observer");
     };
     const display = vi.fn();
-    const controller = new SettingsDynamicDataController(
+    const controller = new SettingsDynamicSectionsController(
       settingsTabHost({
         observeArchived: (listener) => {
           emitArchived = (threads) => {
-            listener({ data: threads, error: null, isFetching: false } satisfies ObservedDataResult<readonly Thread[]>);
+            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
           };
           return () => undefined;
         },
@@ -294,7 +294,7 @@ describe("settings tab", () => {
     expect(display).toHaveBeenCalledWith("archived");
   });
 
-  it("ignores stale settings data refresh results after a newer refresh completes", async () => {
+  it("ignores stale dynamic sections refresh results after a newer refresh completes", async () => {
     const firstModels = deferred<ModelMetadata[]>();
     const firstClient = settingsClient();
     const secondClient = settingsClient({ models: [model("gpt-new")] });
@@ -313,14 +313,14 @@ describe("settings tab", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New", archived: true })]);
-    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshModels, refreshArchived }), {
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
 
-    const firstRefresh = controller.refreshSettingsData();
+    const firstRefresh = controller.refreshDynamicSections();
     await flushPromises();
-    await controller.refreshSettingsData();
+    await controller.refreshDynamicSections();
 
     expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
@@ -360,14 +360,14 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(newerClient),
       );
-    const controller = new SettingsDynamicDataController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
+    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
 
-    await controller.refreshSettingsData();
+    await controller.refreshDynamicSections();
     const initialHook = controller.snapshot().hooks[0];
     if (!initialHook) throw new Error("Expected initial hook to load");
     const staleReload = controller.trustHook(initialHook);
     await flushPromises();
-    await controller.refreshSettingsData();
+    await controller.refreshDynamicSections();
 
     expect(controller.snapshot().hooks.map((hook) => hook.currentHash)).toEqual(["newhash"]);
 
@@ -402,12 +402,12 @@ describe("settings tab", () => {
       );
     const refreshModels = vi.fn().mockReturnValue(models.promise);
     const refreshArchived = vi.fn().mockResolvedValue([panelThread({ id: "thread-full", preview: "Full archived", archived: true })]);
-    const controller = new SettingsDynamicDataController(settingsTabHost({ refreshModels, refreshArchived }), {
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
 
-    const fullRefresh = controller.refreshSettingsData();
+    const fullRefresh = controller.refreshDynamicSections();
     await flushPromises();
     await controller.trustHook(hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" }));
 
@@ -444,15 +444,15 @@ describe("settings tab", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const controller = new SettingsDynamicDataController(settingsTabHost({ applyThreadCatalogEvent, refreshArchived }), {
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadCatalogEvent, refreshArchived }), {
       display: vi.fn(),
       notify: vi.fn(),
     });
 
-    await controller.refreshSettingsData();
+    await controller.refreshDynamicSections();
     const restore = controller.restoreArchivedThread("thread-old");
     await flushPromises();
-    await controller.refreshSettingsData();
+    await controller.refreshDynamicSections();
 
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
 
@@ -477,7 +477,7 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(restoreClient),
       );
-    const controller = new SettingsDynamicDataController(
+    const controller = new SettingsDynamicSectionsController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
         applyThreadCatalogEvent,
@@ -485,7 +485,7 @@ describe("settings tab", () => {
       { display: vi.fn(), notify },
     );
 
-    await controller.refreshSettingsData();
+    await controller.refreshDynamicSections();
     await controller.restoreArchivedThread("thread-old");
 
     const snapshot = controller.snapshot();
@@ -499,7 +499,7 @@ describe("settings tab", () => {
   });
 
   it("displays restored archived thread state after recording the active catalog event", async () => {
-    const snapshots: SettingsDynamicDataSnapshot[] = [];
+    const snapshots: SettingsDynamicSectionsSnapshot[] = [];
     const initialClient = settingsClient();
     const restoreClient = {
       unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
@@ -511,14 +511,14 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(restoreClient),
       );
-    const controllerRef: { current: SettingsDynamicDataController | null } = { current: null };
+    const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
     let emitArchived = (_threads: readonly Thread[]): void => undefined;
-    const controller = new SettingsDynamicDataController(
+    const controller = new SettingsDynamicSectionsController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
         observeArchived: (listener) => {
           emitArchived = (threads) => {
-            listener({ data: threads, error: null, isFetching: false } satisfies ObservedDataResult<readonly Thread[]>);
+            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
           };
           return () => undefined;
         },
@@ -536,7 +536,7 @@ describe("settings tab", () => {
     );
     controllerRef.current = controller;
 
-    await controller.refreshSettingsData();
+    await controller.refreshDynamicSections();
     snapshots.length = 0;
     await controller.restoreArchivedThread("thread-old");
 
@@ -546,7 +546,7 @@ describe("settings tab", () => {
   });
 
   it("displays deleted archived thread status after recording the catalog event", async () => {
-    const snapshots: SettingsDynamicDataSnapshot[] = [];
+    const snapshots: SettingsDynamicSectionsSnapshot[] = [];
     const initialClient = settingsClient();
     const deleteClient = {
       deleteThread: vi.fn().mockResolvedValue({}),
@@ -558,14 +558,14 @@ describe("settings tab", () => {
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(deleteClient),
       );
-    const controllerRef: { current: SettingsDynamicDataController | null } = { current: null };
+    const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
     let emitArchived = (_threads: readonly Thread[]): void => undefined;
-    const controller = new SettingsDynamicDataController(
+    const controller = new SettingsDynamicSectionsController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
         observeArchived: (listener) => {
           emitArchived = (threads) => {
-            listener({ data: threads, error: null, isFetching: false } satisfies ObservedDataResult<readonly Thread[]>);
+            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
           };
           return () => undefined;
         },
@@ -583,7 +583,7 @@ describe("settings tab", () => {
     );
     controllerRef.current = controller;
 
-    await controller.refreshSettingsData();
+    await controller.refreshDynamicSections();
     snapshots.length = 0;
     await controller.deleteArchivedThread("thread-old");
 
@@ -656,7 +656,7 @@ describe("settings tab", () => {
     expect(selectForSetting(tab, "Selection rewrite")?.classList.contains("dropdown")).toBe(true);
   });
 
-  it("keeps successful sections when one settings data request fails", async () => {
+  it("keeps successful sections when one dynamic sections request fails", async () => {
     const client = settingsClient({
       models: [model("gpt-5.4")],
       hooksError: new Error("hooks unavailable"),
@@ -673,7 +673,7 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).toContain("Could not load hooks: hooks unavailable");
     expect(tab.containerEl.querySelector(".codex-panel-settings__refresh-status")).toBeNull();
     expect(tab.containerEl.textContent).toContain("Archived thread");
-    expect(notices).toEqual(["Could not refresh all Codex data."]);
+    expect(notices).toEqual(["Could not refresh all Codex details."]);
   });
 
   it("renders archived threads and hooks as dynamic setting rows", async () => {
@@ -952,7 +952,7 @@ function newSettingsTab(
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: CodexPanelSettingTabHost["appServerData"]["observeModelsResult"];
+    observeModels?: CodexPanelSettingTabHost["appServerQueries"]["observeModelsResult"];
     notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
     archivedThreads?: Thread[];
@@ -978,7 +978,7 @@ function settingsTabHost(
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: CodexPanelSettingTabHost["appServerData"]["observeModelsResult"];
+    observeModels?: CodexPanelSettingTabHost["appServerQueries"]["observeModelsResult"];
     notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
     archivedThreads?: Thread[];
@@ -1018,7 +1018,7 @@ function settingsTabHost(
     },
     saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
     refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
-    appServerData: {
+    appServerQueries: {
       modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
       fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
       refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),

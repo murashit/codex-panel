@@ -37,8 +37,8 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
 
 const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof CodexPanelSettings)[];
 
-export function normalizeSettings(data: unknown): CodexPanelSettings {
-  const record = asRecord(data);
+export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
+  const record = asRecord(storedSettings);
   return {
     codexPath: stringOrDefault(record["codexPath"], DEFAULT_CODEX_PATH).trim() || DEFAULT_CODEX_PATH,
     threadNamingModel: modelOrDefault(record["threadNamingModel"], DEFAULT_SETTINGS.threadNamingModel),
@@ -63,8 +63,8 @@ export function normalizeSettings(data: unknown): CodexPanelSettings {
   };
 }
 
-export function settingsMatchNormalizedData(data: unknown, settings: CodexPanelSettings): boolean {
-  const record = asRecord(data);
+export function settingsMatchStoredSettings(storedSettings: unknown, settings: CodexPanelSettings): boolean {
+  const record = asRecord(storedSettings);
   return Object.keys(record).length === SETTINGS_KEYS.length && SETTINGS_KEYS.every((key) => record[key] === settings[key]);
 }
 

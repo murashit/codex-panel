@@ -11,9 +11,9 @@ import type { ChatServerDiagnosticsActions } from "../app-server/actions/diagnos
 import type { ChatServerMetadataActions } from "../app-server/actions/metadata";
 import type { ChatServerThreadActions } from "../app-server/actions/threads";
 import type { ChatInboundHandler } from "../app-server/inbound/handler";
-import { connectionDiagnosticSectionsModel } from "../application/connection/diagnostics-display";
+import { connectionDiagnosticSectionsFromState } from "../application/connection/diagnostic-sections";
 import { type ChatReconnectActionsHost, reconnectPanel } from "../application/connection/reconnect-actions";
-import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-display";
+import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-diagnostic-sections";
 import type { ComposerSubmitActions } from "../application/conversation/composer-submit-actions";
 import {
   type ConversationTurnActions as ChatPanelConversationTurnActions,
@@ -313,7 +313,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const sharedState = createChatPanelSharedStateBinding({
     stateStore: host.stateStore,
     threadCatalog: host.environment.plugin.threadCatalog,
-    appServerData: host.environment.plugin.appServerData,
+    appServerQueries: host.environment.plugin.appServerQueries,
     serverActions: connectionBundle.serverActions,
     refreshTabHeader: () => {
       refreshTabHeader(host);
@@ -892,7 +892,7 @@ function effortStatusLines(host: ChatPanelSessionGraphHost): string[] {
 }
 
 function connectionDiagnosticDetails(host: ChatPanelSessionGraphHost, connection: ConnectionManager): MessageStreamNoticeSection[] {
-  const sections = connectionDiagnosticSectionsModel({
+  const sections = connectionDiagnosticSectionsFromState({
     state: host.stateStore.getState(),
     connected: connection.isConnected(),
     configuredCommand: host.environment.plugin.settingsRef.settings.codexPath,

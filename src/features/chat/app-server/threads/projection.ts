@@ -8,6 +8,11 @@ import { messageStreamItemsFromTurns } from "../mappers/message-stream/turn-item
 export type ChatThreadHistoryClient = Pick<AppServerClient, "threadTurnsList">;
 export type ChatThreadResumeClient = Pick<AppServerClient, "resumeThread">;
 
+interface AppServerThreadTurnsPage {
+  readonly data: ThreadTurnsPage["turns"];
+  readonly nextCursor: string | null;
+}
+
 export interface ChatThreadHistoryPage {
   items: MessageStreamItem[];
   nextCursor: string | null;
@@ -26,14 +31,14 @@ export async function readChatThreadHistoryPage(
   cursor: string | null,
   limit = 20,
 ): Promise<ChatThreadHistoryPage> {
-  return chatThreadHistoryPageFromTurnsPage(await client.threadTurnsList(threadId, cursor, limit));
+  return chatThreadHistoryPageFromTurnsPage(threadTurnsPageFromAppServerPage(await client.threadTurnsList(threadId, cursor, limit)));
 }
 
 function chatThreadHistoryPageFromTurnsPage(page: ThreadTurnsPage): ChatThreadHistoryPage {
   return {
-    items: messageStreamItemsFromTurns(page.data),
+    items: messageStreamItemsFromTurns(page.turns),
     nextCursor: page.nextCursor,
-    hadTurns: page.data.length > 0,
+    hadTurns: page.turns.length > 0,
   };
 }
 
@@ -42,6 +47,15 @@ export async function resumeChatThread(client: ChatThreadResumeClient, threadId:
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),
     rolloutPath: response.thread.path,
-    initialHistoryPage: response.initialTurnsPage ? chatThreadHistoryPageFromTurnsPage(response.initialTurnsPage) : null,
+    initialHistoryPage: response.initialTurnsPage
+      ? chatThreadHistoryPageFromTurnsPage(threadTurnsPageFromAppServerPage(response.initialTurnsPage))
+      : null,
+  };
+}
+
+function threadTurnsPageFromAppServerPage(page: AppServerThreadTurnsPage): ThreadTurnsPage {
+  return {
+    turns: page.data,
+    nextCursor: page.nextCursor,
   };
 }

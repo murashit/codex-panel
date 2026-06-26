@@ -219,7 +219,7 @@ export class Plugin {
     return Promise.resolve(null);
   }
 
-  saveData(_data: unknown): Promise<void> {
+  saveData(_storedValue: unknown): Promise<void> {
     return Promise.resolve();
   }
 }

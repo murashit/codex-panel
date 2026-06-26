@@ -26,7 +26,7 @@ Fast mode is a user-facing runtime intent, not a general service-tier editor. Co
 
 ## Code Boundaries
 
-Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before data reaches features, workspace coordination, settings, or UI.
+Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before payloads reach features, workspace coordination, settings, or UI.
 
 Turn stream conversion is the main exception: raw app-server stream payloads may be consumed at the conversion boundary because the event set is broad and changes with Codex. The converter should still reduce them into panel-owned display and diagnostic models before they reach chat state or UI.
 
@@ -54,7 +54,7 @@ Imperative DOM bridges are allowed when an external API or measurement problem r
 
 Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent connection, thread, turn state, composer, and pending requests.
 
-Thread history, archived state, forks, and catalog data should follow app-server semantics. The thread catalog is a read model over app-server list snapshots and lifecycle events; callers submit events instead of choosing cache mutations or refreshes themselves. One list response must not discard newer app-server state. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
+Thread history, archived state, forks, and catalog snapshots should follow app-server semantics. The thread catalog is a read model over app-server list snapshots and lifecycle events; callers submit events instead of choosing cache mutations or refreshes themselves. One list response must not discard newer app-server state. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
 
 Shared app-server resources should follow the same rule. Notifications should describe resource events such as skill changes, sparse rate-limit updates, or MCP startup status updates; the app-server resource actions decide whether to use cached metadata, refresh a probe, or update diagnostics.
 

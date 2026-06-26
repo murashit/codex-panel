@@ -1,26 +1,26 @@
 import type { AppServerClientAccess } from "../app-server/connection/client-access";
 import type { ModelMetadata } from "../domain/catalog/metadata";
-import type { ObservedDataListener } from "../domain/observed-data";
+import type { ObservedResultListener } from "../domain/observed-result";
 import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../workspace/thread-catalog";
 import type { CodexPanelSettings } from "./model";
 
-interface SettingsAppServerData {
+interface SettingsAppServerQueries {
   modelsSnapshot(): readonly ModelMetadata[] | null;
-  observeModelsResult(listener: ObservedDataListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
+  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
   notifyContextChanged(): void;
 }
 
-export interface SettingsDynamicDataHost {
+export interface SettingsDynamicSectionsHost {
   settings: CodexPanelSettings;
   vaultPath: string;
   clientAccess: AppServerClientAccess;
-  appServerData: SettingsAppServerData;
+  appServerQueries: SettingsAppServerQueries;
   threadCatalog: ThreadCatalogArchivedReader & ThreadCatalogEventSink;
 }
 
-export interface CodexPanelSettingTabHost extends SettingsDynamicDataHost {
+export interface CodexPanelSettingTabHost extends SettingsDynamicSectionsHost {
   saveSettings(): Promise<void>;
   refreshOpenViews(): void;
 }

@@ -52,19 +52,19 @@ export async function readToolInventory(
   return {
     inventory: {
       checkedAt,
-      apps: apps.data,
+      apps: apps.items,
       appsError: apps.error,
-      plugins: plugins.data,
+      plugins: plugins.items,
       pluginMarketplaceErrors: plugins.marketplaceErrors,
       pluginsError: plugins.error,
-      mcpServers: mcp.data,
+      mcpServers: mcp.items,
       mcpDiagnostics: options.mcpDiagnostics ?? [],
       mcpError: mcp.error,
-      skills: skills.data,
+      skills: skills.items,
       skillsError: skills.error,
     },
     probes: [apps.probe, plugins.probe, mcp.probe, skills.probe],
-    mcpServerStatuses: mcp.data,
+    mcpServerStatuses: mcp.items,
   };
 }
 
@@ -72,9 +72,9 @@ function readCachedSkills(
   skills: readonly SkillMetadata[],
   probe: DiagnosticProbeResult | undefined,
   checkedAt: number,
-): { data: ToolInventorySnapshot["skills"]; error: string | null; probe: DiagnosticProbeResult } {
+): { items: ToolInventorySnapshot["skills"]; error: string | null; probe: DiagnosticProbeResult } {
   return {
-    data: [...skills],
+    items: [...skills],
     error: null,
     probe: probe ?? diagnosticProbeOk("skills/list", `${String(skills.length)} skills`, checkedAt),
   };
@@ -84,16 +84,16 @@ async function readApps(
   client: AppServerClient,
   threadId: string | null,
   checkedAt: number,
-): Promise<{ data: ToolInventoryApp[] | null; error: string | null; probe: DiagnosticProbeResult }> {
+): Promise<{ items: ToolInventoryApp[] | null; error: string | null; probe: DiagnosticProbeResult }> {
   try {
     const apps = await listAllApps(client, threadId);
     return {
-      data: toolInventoryAppsFromAppInfos(apps),
+      items: toolInventoryAppsFromAppInfos(apps),
       error: null,
       probe: diagnosticProbeOk("app/list", `${String(apps.length)} apps`, checkedAt),
     };
   } catch (error) {
-    return { data: null, error: shortErrorMessage(error), probe: diagnosticProbeError("app/list", error, checkedAt) };
+    return { items: null, error: shortErrorMessage(error), probe: diagnosticProbeError("app/list", error, checkedAt) };
   }
 }
 
@@ -126,7 +126,7 @@ async function readPlugins(
   cwd: string,
   checkedAt: number,
 ): Promise<{
-  data: ToolInventoryPlugin[] | null;
+  items: ToolInventoryPlugin[] | null;
   marketplaceErrors: ToolInventoryMarketplaceError[];
   error: string | null;
   probe: DiagnosticProbeResult;
@@ -136,14 +136,14 @@ async function readPlugins(
     const { plugins, marketplaceErrors } = toolInventoryPluginsFromInstalledResponse(response);
     const pluginsWithDetails = await mapLimit(plugins, PLUGIN_DETAILS_CONCURRENCY, (plugin) => readPluginDetails(client, plugin));
     return {
-      data: pluginsWithDetails,
+      items: pluginsWithDetails,
       marketplaceErrors,
       error: null,
       probe: diagnosticProbeOk("plugin/installed", `${String(plugins.length)} plugins`, checkedAt),
     };
   } catch (error) {
     return {
-      data: null,
+      items: null,
       marketplaceErrors: [],
       error: shortErrorMessage(error),
       probe: diagnosticProbeError("plugin/installed", error, checkedAt),
@@ -209,22 +209,22 @@ async function readMcpServers(
   client: AppServerClient,
   threadId: string | null,
   checkedAt: number,
-): Promise<{ data: McpServerStatusSummary[] | null; error: string | null; probe: DiagnosticProbeResult }> {
+): Promise<{ items: McpServerStatusSummary[] | null; error: string | null; probe: DiagnosticProbeResult }> {
   try {
     const response = await client.listMcpServerStatus({
       detail: "toolsAndAuthOnly",
       limit: 100,
       ...(threadId ? { threadId } : {}),
     });
-    const data = mcpServerStatusSummariesFromStatuses(response.data);
+    const servers = mcpServerStatusSummariesFromStatuses(response.data);
     return {
-      data,
+      items: servers,
       error: null,
-      probe: diagnosticProbeOk("mcpServerStatus/list", mcpSummary(data), checkedAt),
+      probe: diagnosticProbeOk("mcpServerStatus/list", mcpSummary(servers), checkedAt),
     };
   } catch (error) {
     return {
-      data: null,
+      items: null,
       error: shortErrorMessage(error),
       probe: diagnosticProbeError("mcpServerStatus/list", error, checkedAt),
     };
@@ -240,16 +240,16 @@ async function readSkills(
   client: AppServerClient,
   cwd: string,
   checkedAt: number,
-): Promise<{ data: ToolInventorySnapshot["skills"]; error: string | null; probe: DiagnosticProbeResult }> {
+): Promise<{ items: ToolInventorySnapshot["skills"]; error: string | null; probe: DiagnosticProbeResult }> {
   try {
     const catalog = await listSkillCatalog(client, cwd, { enabledOnly: false });
     return {
-      data: catalog.skills,
+      items: catalog.skills,
       error: null,
       probe: diagnosticProbeOk("skills/list", `${String(catalog.totalCount)} skills`, checkedAt),
     };
   } catch (error) {
-    return { data: null, error: shortErrorMessage(error), probe: diagnosticProbeError("skills/list", error, checkedAt) };
+    return { items: null, error: shortErrorMessage(error), probe: diagnosticProbeError("skills/list", error, checkedAt) };
   }
 }
 

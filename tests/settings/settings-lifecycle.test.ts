@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { listHookData } from "../../src/app-server/catalog";
+import { listHookCatalog } from "../../src/app-server/catalog";
 import type { AppServerClient } from "../../src/app-server/connection/client";
 import { createSettingsDynamicSectionLifecycle, transitionSettingsDynamicSectionLifecycle } from "../../src/settings/lifecycle";
 
@@ -46,7 +46,7 @@ describe("settings lifecycle", () => {
       }),
     } as unknown as AppServerClient;
 
-    await expect(listHookData(client, "/vault")).resolves.toEqual({
+    await expect(listHookCatalog(client, "/vault")).resolves.toEqual({
       hooks: [{ key: "vault" }],
       warnings: ["warn"],
       errors: ['{"message":"err"}'],
@@ -60,7 +60,7 @@ describe("settings lifecycle", () => {
       }),
     } as unknown as AppServerClient;
 
-    await expect(listHookData(client, "/vault")).resolves.toEqual({
+    await expect(listHookCatalog(client, "/vault")).resolves.toEqual({
       hooks: [],
       warnings: [],
       errors: [],

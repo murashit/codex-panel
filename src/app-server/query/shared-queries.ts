@@ -1,5 +1,5 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
-import type { ObservedDataListener } from "../../domain/observed-data";
+import type { ObservedResultListener } from "../../domain/observed-result";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { AppServerQueryCache } from "./cache";
@@ -17,7 +17,7 @@ export interface AppServerSharedQueriesOptions {
 
 export class StaleAppServerSharedQueryContextError extends Error {
   constructor() {
-    super("Codex app-server query context changed while loading shared data.");
+    super("Codex app-server query context changed while loading shared queries.");
     this.name = "StaleAppServerSharedQueryContextError";
   }
 }
@@ -71,7 +71,7 @@ export class AppServerSharedQueries {
     return this.options.cache.updateArchivedThreads(this.context(), updater);
   }
 
-  observeActiveThreadsResult(listener: ObservedDataListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
+  observeActiveThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
       (context, contextListener, observeOptions) => this.options.cache.observeActiveThreadsResult(context, contextListener, observeOptions),
       listener,
@@ -79,7 +79,7 @@ export class AppServerSharedQueries {
     );
   }
 
-  observeArchivedThreadsResult(listener: ObservedDataListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
+  observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
       (context, contextListener, observeOptions) =>
         this.options.cache.observeArchivedThreadsResult(context, contextListener, observeOptions),
@@ -100,7 +100,7 @@ export class AppServerSharedQueries {
     return this.runForCurrentContext((context) => this.options.cache.refreshAppServerMetadata(context, options));
   }
 
-  observeAppServerMetadataResult(listener: ObservedDataListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void {
+  observeAppServerMetadataResult(listener: ObservedResultListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
       (context, contextListener, observeOptions) =>
         this.options.cache.observeAppServerMetadataResult(context, contextListener, observeOptions),
@@ -121,7 +121,7 @@ export class AppServerSharedQueries {
     return this.runForCurrentContext((context) => this.options.cache.refreshModels(context));
   }
 
-  observeModelsResult(listener: ObservedDataListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void {
+  observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
       (context, contextListener, observeOptions) => this.options.cache.observeModelsResult(context, contextListener, observeOptions),
       listener,

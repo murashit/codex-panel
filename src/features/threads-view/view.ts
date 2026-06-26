@@ -2,14 +2,14 @@ import { ItemView, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
 import { createObsidianArchiveExportDestination } from "../../shared/obsidian/archive-export-destination";
-import { type CodexThreadsHost, CodexThreadsSession } from "./session";
+import { type ThreadsViewHost, ThreadsViewSession } from "./session";
 
 export class CodexThreadsView extends ItemView {
-  private readonly session: CodexThreadsSession;
+  private readonly session: ThreadsViewSession;
 
-  constructor(leaf: WorkspaceLeaf, plugin: CodexThreadsHost) {
+  constructor(leaf: WorkspaceLeaf, plugin: ThreadsViewHost) {
     super(leaf);
-    this.session = new CodexThreadsSession({
+    this.session = new ThreadsViewSession({
       root: this.containerEl,
       host: plugin,
       registerPointerDown: (handler) => {

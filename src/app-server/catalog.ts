@@ -8,7 +8,7 @@ import {
   skillMetadataFromCatalogSkills,
 } from "./protocol/catalog";
 
-export interface HookData {
+export interface HookCatalog {
   hooks: HookItem[];
   warnings: string[];
   errors: string[];
@@ -36,7 +36,7 @@ export async function listSkillCatalog(
   };
 }
 
-export async function listHookData(client: AppServerClient, cwd: string): Promise<HookData> {
+export async function listHookCatalog(client: AppServerClient, cwd: string): Promise<HookCatalog> {
   const response = await client.listHooks(cwd);
   const entry = response.data.find((item) => item.cwd === cwd);
   if (!entry) return { hooks: [], warnings: [], errors: [] };

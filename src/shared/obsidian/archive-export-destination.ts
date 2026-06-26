@@ -7,8 +7,8 @@ export function createObsidianArchiveExportDestination(vault: Vault) {
     createFolder: async (path: string): Promise<void> => {
       await vault.createFolder(normalizePath(path));
     },
-    createMarkdownFile: async (path: string, data: string): Promise<void> => {
-      await vault.create(normalizePath(path), data);
+    createMarkdownFile: async (path: string, content: string): Promise<void> => {
+      await vault.create(normalizePath(path), content);
     },
   };
 }

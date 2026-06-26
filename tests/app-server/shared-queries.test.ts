@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerQueryCache } from "../../src/app-server/query/cache";
 import { AppServerSharedQueries, StaleAppServerSharedQueryContextError } from "../../src/app-server/query/shared-queries";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
-import type { ObservedDataResult } from "../../src/domain/observed-data";
+import type { ObservedResult } from "../../src/domain/observed-result";
 import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 import type { Thread } from "../../src/domain/threads/model";
@@ -73,7 +73,7 @@ describe("AppServerSharedQueries", () => {
       }),
       context: () => context,
     });
-    let observedThreadListener!: (result: ObservedDataResult<readonly Thread[]>) => void;
+    let observedThreadListener!: (result: ObservedResult<readonly Thread[]>) => void;
 
     queries.observeActiveThreadsResult(listener);
     context.codexPath = "codex-b";
@@ -84,7 +84,7 @@ describe("AppServerSharedQueries", () => {
 
   it("resubscribes observers when the app-server query context changes", () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const listeners = new Map<string, (result: ObservedDataResult<readonly Thread[]>) => void>();
+    const listeners = new Map<string, (result: ObservedResult<readonly Thread[]>) => void>();
     const queries = new AppServerSharedQueries({
       cache: cacheWith({
         observeActiveThreadsResult: (queryContext, listener) => {
@@ -102,7 +102,7 @@ describe("AppServerSharedQueries", () => {
     queries.notifyContextChanged();
     listeners.get("codex-b")?.(observedResult([thread("b")]));
 
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ data: [thread("b")] }));
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("b")] }));
   });
 
   it("publishes metadata and model snapshots to shared query observers", () => {
@@ -125,8 +125,8 @@ describe("AppServerSharedQueries", () => {
       }),
       context: () => ({ codexPath: "codex", vaultPath: "/vault" }),
     });
-    let metadataObserver!: (result: ObservedDataResult<SharedServerMetadata>) => void;
-    let modelObserver!: (result: ObservedDataResult<readonly ModelMetadata[]>) => void;
+    let metadataObserver!: (result: ObservedResult<SharedServerMetadata>) => void;
+    let modelObserver!: (result: ObservedResult<readonly ModelMetadata[]>) => void;
 
     queries.observeAppServerMetadataResult(metadataListener);
     queries.observeModelsResult(modelListener);
@@ -136,8 +136,8 @@ describe("AppServerSharedQueries", () => {
 
     expect(queries.appServerMetadataSnapshot()).toEqual(metadata);
     expect(queries.modelsSnapshot()).toEqual(metadata.availableModels);
-    expect(metadataListener).toHaveBeenLastCalledWith(expect.objectContaining({ data: metadata }));
-    expect(modelListener).toHaveBeenCalledWith(expect.objectContaining({ data: metadata.availableModels }));
+    expect(metadataListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: metadata }));
+    expect(modelListener).toHaveBeenCalledWith(expect.objectContaining({ value: metadata.availableModels }));
   });
 });
 
@@ -161,8 +161,8 @@ function cacheWith(overrides: Partial<AppServerQueryCache>): AppServerQueryCache
   } as unknown as AppServerQueryCache;
 }
 
-function observedResult<T>(data: T): ObservedDataResult<T> {
-  return { data, error: null, isFetching: false };
+function observedResult<T>(value: T): ObservedResult<T> {
+  return { value, error: null, isFetching: false };
 }
 
 function thread(id: string): Thread {

@@ -3,7 +3,7 @@ import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root.dom";
 import type { ChatStateStore } from "../application/state/store";
 import type { ToolbarActions } from "../ui/toolbar";
 import { type ChatPanelShellState, ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState } from "./shell-state";
-import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerRenderer } from "./surface/composer-projection";
+import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerPresenter } from "./surface/composer-projection";
 import { ChatPanelGoal, type ChatPanelGoalSurface } from "./surface/goal-projection";
 import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "./surface/message-stream-presenter";
 import { ChatPanelToolbar, type ChatPanelToolbarSurface } from "./surface/toolbar-projection";
@@ -16,7 +16,7 @@ export interface ChatPanelShellParts {
   goal: ChatPanelGoalSurface;
   messageStream: ChatPanelMessageStreamPresenter;
   composer: {
-    renderer: ChatPanelComposerRenderer;
+    presenter: ChatPanelComposerPresenter;
     actions: ChatPanelComposerActions;
   };
 }
@@ -117,7 +117,7 @@ function ChatPanelShell({ showToolbar, parts, shellState }: ChatPanelShellProps 
         </div>
         <ChatPanelMessageStream presenter={parts.messageStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
-          <ChatPanelComposer renderer={parts.composer.renderer} actions={parts.composer.actions} />
+          <ChatPanelComposer presenter={parts.composer.presenter} actions={parts.composer.actions} />
         </div>
       </div>
     </ChatPanelShellStateContext.Provider>

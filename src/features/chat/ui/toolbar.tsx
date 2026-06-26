@@ -334,14 +334,14 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
               }}
             />
           ) : null}
-          {thread.canArchive ? <ArchiveActions thread={thread} actions={actions} /> : null}
+          {thread.canArchive ? <ArchiveControls thread={thread} actions={actions} /> : null}
         </>
       )}
     </div>
   );
 }
 
-function ArchiveActions({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): UiNode {
+function ArchiveControls({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): UiNode {
   const archiveConfirm = archiveConfirmState(thread);
   if (!archiveConfirm.active) {
     return (

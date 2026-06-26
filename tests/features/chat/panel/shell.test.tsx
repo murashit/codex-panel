@@ -72,8 +72,8 @@ describe("ChatPanelShell", () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const parts = shellParts();
-    const renderComposerState = vi.fn(parts.composer.renderer.renderState.bind(parts.composer.renderer));
-    parts.composer.renderer.renderState = renderComposerState;
+    const renderComposerState = vi.fn(parts.composer.presenter.renderState.bind(parts.composer.presenter));
+    parts.composer.presenter.renderState = renderComposerState;
 
     await act(async () => {
       renderChatPanelShell(container, { ...shellProps(store), parts });
@@ -360,7 +360,7 @@ function shellParts(
       }),
     },
     composer: {
-      renderer: {
+      presenter: {
         renderState: (state) => ({
           viewId: "view",
           draft: state.composer.draft,

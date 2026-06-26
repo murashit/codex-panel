@@ -5,6 +5,6 @@ export interface HistoricalTurn<TItem = unknown> {
 }
 
 export interface ThreadTurnsPage<TItem = unknown> {
-  data: readonly HistoricalTurn<TItem>[];
+  turns: readonly HistoricalTurn<TItem>[];
   nextCursor: string | null;
 }

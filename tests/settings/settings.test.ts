@@ -6,16 +6,16 @@ import {
   DEFAULT_SETTINGS,
   getVaultPath,
   normalizeSettings,
-  settingsMatchNormalizedData,
+  settingsMatchStoredSettings,
 } from "../../src/settings/model";
 
 describe("settings", () => {
-  it("normalizes empty data", () => {
+  it("normalizes empty settings", () => {
     expect(normalizeSettings(null)).toEqual(DEFAULT_SETTINGS);
   });
 
   it("persists only panel-owned settings, not Codex runtime policy", () => {
-    const storedData = {
+    const storedSettings = {
       codexPath: "/usr/local/bin/codex",
       threadNamingModel: "gpt-5.4-mini",
       threadNamingEffort: "low",
@@ -48,8 +48,8 @@ describe("settings", () => {
       archiveExportTags: "codex, archive",
     };
 
-    expect(normalizeSettings(storedData)).toEqual(normalized);
-    expect(settingsMatchNormalizedData(storedData, normalized)).toBe(false);
+    expect(normalizeSettings(storedSettings)).toEqual(normalized);
+    expect(settingsMatchStoredSettings(storedSettings, normalized)).toBe(false);
   });
 
   it("uses the default codex path when the stored path is empty", () => {
@@ -71,9 +71,9 @@ describe("settings", () => {
       archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
       archiveExportTags: "codex, archive",
     });
-    expect(settingsMatchNormalizedData({ ...settings }, settings)).toBe(true);
-    expect(settingsMatchNormalizedData({ ...settings, extraPanelState: {} }, settings)).toBe(false);
-    expect(settingsMatchNormalizedData({ ...settings, codexPath: "   " }, settings)).toBe(false);
+    expect(settingsMatchStoredSettings({ ...settings }, settings)).toBe(true);
+    expect(settingsMatchStoredSettings({ ...settings, extraPanelState: {} }, settings)).toBe(false);
+    expect(settingsMatchStoredSettings({ ...settings, codexPath: "   " }, settings)).toBe(false);
   });
 
   it("normalizes thread naming helper preferences", () => {

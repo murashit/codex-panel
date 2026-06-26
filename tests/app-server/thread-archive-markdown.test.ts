@@ -105,7 +105,7 @@ class MemoryDestination implements ArchiveExportDestination {
     this.folders.add(path);
   }
 
-  async createMarkdownFile(path: string, data: string): Promise<void> {
-    this.files.set(path, data);
+  async createMarkdownFile(path: string, content: string): Promise<void> {
+    this.files.set(path, content);
   }
 }

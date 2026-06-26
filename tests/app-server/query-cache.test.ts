@@ -14,7 +14,7 @@ import {
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 
 describe("AppServerQueryCache", () => {
-  it("stores metadata snapshots without replacing failed resource values with stale data", () => {
+  it("stores metadata snapshots without replacing failed resource values with stale values", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
     const goodMetadata = metadata({

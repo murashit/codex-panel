@@ -102,16 +102,16 @@ export function createConnectionBundle(
     stateStore,
     vaultPath: environment.plugin.settingsRef.vaultPath,
     currentClient,
-    updateAppServerMetadata: (updater) => environment.plugin.appServerData.updateAppServerMetadata(updater),
-    appServerMetadataSnapshot: () => environment.plugin.appServerData.appServerMetadataSnapshot(),
-    refreshAppServerMetadata: (options) => environment.plugin.appServerData.refreshAppServerMetadata(options),
+    updateAppServerMetadata: (updater) => environment.plugin.appServerQueries.updateAppServerMetadata(updater),
+    appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
+    refreshAppServerMetadata: (options) => environment.plugin.appServerQueries.refreshAppServerMetadata(options),
   });
   const serverDiagnostics = createChatServerDiagnosticsActions({
     stateStore,
     vaultPath: environment.plugin.settingsRef.vaultPath,
     currentClient,
-    updateAppServerMetadata: (updater) => environment.plugin.appServerData.updateAppServerMetadata(updater),
-    appServerMetadataSnapshot: () => environment.plugin.appServerData.appServerMetadataSnapshot(),
+    updateAppServerMetadata: (updater) => environment.plugin.appServerQueries.updateAppServerMetadata(updater),
+    appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
   });
   const serverThreads = createChatServerThreadActions({
     stateStore,

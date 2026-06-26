@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
-import type { ObservedDataResult } from "../../../src/domain/observed-data";
+import type { ObservedResult } from "../../../src/domain/observed-result";
 import type { Thread } from "../../../src/domain/threads/model";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import { deferred, waitForAsyncWork } from "../../support/async";
@@ -262,8 +262,8 @@ describe("CodexThreadsView", () => {
     expect(view.containerEl.textContent).toContain("Cached thread");
   });
 
-  it("keeps successful empty thread lists as last-known-good observed data", async () => {
-    let observedThreads!: (result: ObservedDataResult<readonly Thread[]>) => void;
+  it("keeps successful empty thread lists as last-known-good observed values", async () => {
+    let observedThreads!: (result: ObservedResult<readonly Thread[]>) => void;
     const view = await threadsView(
       threadsHost({
         threadCatalog: {
@@ -273,7 +273,7 @@ describe("CodexThreadsView", () => {
                 // Keep the initial refresh pending; this test drives observed query results directly.
               }),
           ),
-          observeActive: vi.fn((listener: (result: ObservedDataResult<readonly Thread[]>) => void) => {
+          observeActive: vi.fn((listener: (result: ObservedResult<readonly Thread[]>) => void) => {
             observedThreads = listener;
             return () => undefined;
           }),
@@ -590,9 +590,9 @@ function threadFromRecord(record: Record<string, unknown>): Thread {
   };
 }
 
-function queryResult<T>(data: T | null, error: Error | null = null): ObservedDataResult<T> {
+function queryResult<T>(value: T | null, error: Error | null = null): ObservedResult<T> {
   return {
-    data,
+    value,
     error,
     isFetching: false,
   };

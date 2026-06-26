@@ -89,7 +89,7 @@ describe("createChatPanelSessionGraph actions", () => {
           threadCatalog: {
             activeSnapshot: vi.fn(() => [thread]),
           },
-          appServerData: {
+          appServerQueries: {
             modelsSnapshot: vi.fn(() => [model]),
           },
         },
@@ -115,7 +115,7 @@ describe("createChatPanelSessionGraph actions", () => {
           threadCatalog: {
             observeActive: observeThreads,
           },
-          appServerData: {
+          appServerQueries: {
             observeAppServerMetadataResult: observeMetadata,
             observeModelsResult: observeModels,
           },
@@ -228,7 +228,7 @@ describe("createChatPanelSessionGraph actions", () => {
     plugin?: {
       workspace?: Partial<ChatPanelEnvironment["plugin"]["workspace"]>;
       threadCatalog?: Partial<ChatPanelEnvironment["plugin"]["threadCatalog"]>;
-      appServerData?: Partial<ChatPanelEnvironment["plugin"]["appServerData"]>;
+      appServerQueries?: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]>;
       settingsRef?: Partial<ChatPanelEnvironment["plugin"]["settingsRef"]>;
     };
     view?: Partial<ChatPanelEnvironment["view"]>;
@@ -236,7 +236,7 @@ describe("createChatPanelSessionGraph actions", () => {
 
   function chatPanelEnvironmentFixture(overrides: PartialChatPanelEnvironment = {}): ChatPanelEnvironment {
     const threadCatalog = threadCatalogFixture(overrides.plugin?.threadCatalog);
-    const appServerData = appServerDataFixture(overrides.plugin?.appServerData);
+    const appServerQueries = appServerQueriesFixture(overrides.plugin?.appServerQueries);
     return {
       obsidian: {
         app: {
@@ -287,7 +287,7 @@ describe("createChatPanelSessionGraph actions", () => {
           refreshThreadsViewLiveState: vi.fn(),
           ...overrides.plugin?.workspace,
         },
-        appServerData,
+        appServerQueries,
         threadCatalog,
       },
       view: {
@@ -313,9 +313,9 @@ describe("createChatPanelSessionGraph actions", () => {
     };
   }
 
-  function appServerDataFixture(
-    overrides: Partial<ChatPanelEnvironment["plugin"]["appServerData"]> = {},
-  ): ChatPanelEnvironment["plugin"]["appServerData"] {
+  function appServerQueriesFixture(
+    overrides: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]> = {},
+  ): ChatPanelEnvironment["plugin"]["appServerQueries"] {
     return {
       updateAppServerMetadata: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),

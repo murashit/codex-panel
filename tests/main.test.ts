@@ -615,7 +615,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("second")]);
 
     resolveFirst([thread("first")]);
-    await expect(first).rejects.toThrow("Codex app-server query context changed while loading shared data.");
+    await expect(first).rejects.toThrow("Codex app-server query context changed while loading shared queries.");
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("second")]);
     plugin.settings.codexPath = "codex-a";
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("first")]);
@@ -822,7 +822,7 @@ function chatHostFixture(): CodexChatHost {
       openTurnDiff: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
     },
-    appServerData: {
+    appServerQueries: {
       updateAppServerMetadata: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
