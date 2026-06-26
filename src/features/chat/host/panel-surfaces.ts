@@ -7,7 +7,7 @@ import type { HistoryController } from "../application/threads/history-controlle
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
 import type { createSelectionActions } from "../application/threads/selection-actions";
 import type { createThreadManagementActions } from "../application/threads/thread-management-actions";
-import { type ChatPanelGoalSurface, createChatPanelGoalSurface } from "../panel/surface/goal-projection";
+import type { ChatPanelGoalSurface } from "../panel/surface/goal-projection";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
@@ -90,14 +90,10 @@ export function createChatPanelSurfaces(host: ChatPanelSurfacesHost, input: Chat
       archiveExportEnabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled,
     },
   };
-  const goalSurface = createChatPanelGoalSurface(
-    {
-      sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
-    },
-    {
-      goals,
-    },
-  );
+  const goalSurface: ChatPanelGoalSurface = {
+    sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
+    actions: goals,
+  };
   const messageStreamPresenter = new MessageStreamPresenter({
     obsidian: {
       app: environment.obsidian.app,

@@ -163,17 +163,15 @@ function surfaceFixture(
   return {
     toolbar: toolbarSurface(store, toolbarActions),
     goal: {
-      settings: { sendShortcut: () => "enter" },
+      sendShortcut: () => "enter",
       actions: {
-        goal: {
-          saveObjective: async () => true,
-          setStatus: async () => undefined,
-          clear: async () => undefined,
-          startEditing: () => undefined,
-          updateObjectiveDraft: () => undefined,
-          setObjectiveExpanded: () => undefined,
-          closeEditor: () => undefined,
-        },
+        saveObjective: async () => true,
+        setStatus: async () => undefined,
+        clear: async () => undefined,
+        startEditing: () => undefined,
+        updateObjectiveDraft: () => undefined,
+        setObjectiveExpanded: () => undefined,
+        closeEditor: () => undefined,
       },
     },
     composer: {

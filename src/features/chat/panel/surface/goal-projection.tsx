@@ -1,7 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
 import type { SendShortcut } from "../../../../shared/ui/keyboard";
-import type { GoalActions } from "../../application/threads/goal-actions";
 import type { GoalPanelActions, GoalPanelDisplayState, GoalPanelEditorState, GoalPanelOptions } from "../../ui/goal";
 import { GoalPanel } from "../../ui/goal";
 import { type ChatPanelGoalShellState, goalStateFromShellState, useChatPanelShellState } from "../shell-state";
@@ -17,20 +16,13 @@ interface ChatPanelGoalActions {
 }
 
 export interface ChatPanelGoalSurface {
-  settings: {
-    sendShortcut: () => SendShortcut;
-  };
-  actions: {
-    goal: ChatPanelGoalActions;
-  };
-}
-
-export interface ChatPanelGoalSurfaceHost {
   sendShortcut: () => SendShortcut;
+  actions: ChatPanelGoalActions;
 }
 
-export interface ChatPanelGoalSurfaceDependencies {
-  goals: GoalActions;
+export function ChatPanelGoal({ surface }: { surface: ChatPanelGoalSurface }): UiNode {
+  const props = chatPanelGoalViewModel(surface, goalStateFromShellState(useChatPanelShellState()));
+  return h(GoalPanel, props);
 }
 
 interface ChatPanelGoalProjection {
@@ -38,38 +30,6 @@ interface ChatPanelGoalProjection {
   goalThreadId: string | null;
   editor: GoalPanelEditorState;
   display: GoalPanelDisplayState;
-}
-
-export function createChatPanelGoalSurface(host: ChatPanelGoalSurfaceHost, deps: ChatPanelGoalSurfaceDependencies): ChatPanelGoalSurface {
-  return {
-    settings: {
-      sendShortcut: host.sendShortcut,
-    },
-    actions: {
-      goal: {
-        saveObjective: (objective, tokenBudget) => deps.goals.saveObjective(objective, tokenBudget),
-        setStatus: (threadId, status) => deps.goals.setStatus(threadId, status),
-        clear: (threadId) => deps.goals.clear(threadId),
-        startEditing: (threadId, objective, tokenBudget) => {
-          deps.goals.startEditing(threadId, objective, tokenBudget);
-        },
-        updateObjectiveDraft: (objective) => {
-          deps.goals.updateObjectiveDraft(objective);
-        },
-        setObjectiveExpanded: (threadId, expanded) => {
-          deps.goals.setObjectiveExpanded(threadId, expanded);
-        },
-        closeEditor: () => {
-          deps.goals.closeEditor();
-        },
-      },
-    },
-  };
-}
-
-export function ChatPanelGoal({ surface }: { surface: ChatPanelGoalSurface }): UiNode {
-  const props = chatPanelGoalViewModel(surface, goalStateFromShellState(useChatPanelShellState()));
-  return h(GoalPanel, props);
 }
 
 function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPanelGoalProjection {
@@ -105,42 +65,42 @@ function chatPanelGoalViewModel(
     goal: projection.goal,
     actions: {
       onSave: (objective, tokenBudget) => {
-        void surface.actions.goal.saveObjective(objective, tokenBudget).then((saved) => {
-          if (saved) surface.actions.goal.closeEditor();
+        void surface.actions.saveObjective(objective, tokenBudget).then((saved) => {
+          if (saved) surface.actions.closeEditor();
         });
       },
       onPause: () => {
         if (!projection.goalThreadId) return;
-        void surface.actions.goal.setStatus(projection.goalThreadId, "paused");
+        void surface.actions.setStatus(projection.goalThreadId, "paused");
       },
       onResume: () => {
         if (!projection.goalThreadId) return;
-        void surface.actions.goal.setStatus(projection.goalThreadId, "active");
+        void surface.actions.setStatus(projection.goalThreadId, "active");
       },
       onClear: () => {
         if (!projection.goalThreadId) return;
-        void surface.actions.goal.clear(projection.goalThreadId);
+        void surface.actions.clear(projection.goalThreadId);
       },
       onStartEditing: () => {
-        surface.actions.goal.startEditing(
+        surface.actions.startEditing(
           projection.goal?.threadId ?? null,
           projection.goal?.objective ?? "",
           projection.goal?.tokenBudget ?? null,
         );
       },
       onCancelEditing: () => {
-        surface.actions.goal.closeEditor();
+        surface.actions.closeEditor();
       },
       onObjectiveDraftChange: (objective) => {
-        surface.actions.goal.updateObjectiveDraft(objective);
+        surface.actions.updateObjectiveDraft(objective);
       },
       onObjectiveExpandedChange: (expanded) => {
         if (!projection.goalThreadId) return;
-        surface.actions.goal.setObjectiveExpanded(projection.goalThreadId, expanded);
+        surface.actions.setObjectiveExpanded(projection.goalThreadId, expanded);
       },
     },
     options: {
-      sendShortcut: surface.settings.sendShortcut(),
+      sendShortcut: surface.sendShortcut(),
     },
     editor: projection.editor,
     display: projection.display,

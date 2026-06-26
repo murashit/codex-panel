@@ -443,17 +443,15 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendSho
       },
     },
     goal: {
-      settings: { sendShortcut: options.goalSendShortcut ?? (() => "enter") },
+      sendShortcut: options.goalSendShortcut ?? (() => "enter"),
       actions: {
-        goal: {
-          saveObjective: async () => true,
-          setStatus: async () => undefined,
-          clear: async () => undefined,
-          startEditing: () => undefined,
-          updateObjectiveDraft: () => undefined,
-          setObjectiveExpanded: () => undefined,
-          closeEditor: () => undefined,
-        },
+        saveObjective: async () => true,
+        setStatus: async () => undefined,
+        clear: async () => undefined,
+        startEditing: () => undefined,
+        updateObjectiveDraft: () => undefined,
+        setObjectiveExpanded: () => undefined,
+        closeEditor: () => undefined,
       },
     },
     composer: {

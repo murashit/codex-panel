@@ -320,23 +320,19 @@ describe("chat panel surface projections", () => {
     const statuses: [string, string][] = [];
     const clears: string[] = [];
     const surface = {
-      settings: {
-        sendShortcut: () => "enter",
-      },
+      sendShortcut: () => "enter",
       actions: {
-        goal: {
-          saveObjective: async () => true,
-          setStatus: async (threadId, status) => {
-            statuses.push([threadId, status]);
-          },
-          clear: async (threadId) => {
-            clears.push(threadId);
-          },
-          startEditing: () => undefined,
-          updateObjectiveDraft: () => undefined,
-          setObjectiveExpanded: () => undefined,
-          closeEditor: () => undefined,
+        saveObjective: async () => true,
+        setStatus: async (threadId, status) => {
+          statuses.push([threadId, status]);
         },
+        clear: async (threadId) => {
+          clears.push(threadId);
+        },
+        startEditing: () => undefined,
+        updateObjectiveDraft: () => undefined,
+        setObjectiveExpanded: () => undefined,
+        closeEditor: () => undefined,
       },
     } satisfies ChatPanelGoalSurface;
 
@@ -474,19 +470,15 @@ function toolbarActionsFixture(overrides: Partial<ToolbarActions> = {}): Toolbar
 
 function goalSurfaceFixture(): ChatPanelGoalSurface {
   return {
-    settings: {
-      sendShortcut: () => "enter",
-    },
+    sendShortcut: () => "enter",
     actions: {
-      goal: {
-        saveObjective: async () => true,
-        setStatus: async () => undefined,
-        clear: async () => undefined,
-        startEditing: () => undefined,
-        updateObjectiveDraft: () => undefined,
-        setObjectiveExpanded: () => undefined,
-        closeEditor: () => undefined,
-      },
+      saveObjective: async () => true,
+      setStatus: async () => undefined,
+      clear: async () => undefined,
+      startEditing: () => undefined,
+      updateObjectiveDraft: () => undefined,
+      setObjectiveExpanded: () => undefined,
+      closeEditor: () => undefined,
     },
   };
 }
