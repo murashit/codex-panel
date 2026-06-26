@@ -2,10 +2,10 @@ import { readReferencedThreadConversationSummaries, type ThreadConversationSumma
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import { type CodexInput, codexTextInputWithAttachments } from "../../../../domain/chat/input";
+import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadPromptBundle } from "../../../../domain/threads/reference";
 import { shortThreadId } from "../../../../shared/id/thread-id";
-import { runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { SlashCommandName } from "../composer/slash-commands";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";

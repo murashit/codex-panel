@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
-import { fastModeActive } from "../../src/features/chat/domain/runtime/effective";
+import { resolveRuntimeControls } from "../../src/features/chat/domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
 
 describe("service tier runtime state", () => {
@@ -18,7 +18,7 @@ describe("service tier runtime state", () => {
 
 function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["serviceTiers"] = []): boolean {
   const config: RuntimeConfigSnapshot = { ...emptyRuntimeConfigSnapshot(), model: "gpt-5.5" };
-  return fastModeActive(
+  return resolveRuntimeControls(
     {
       runtimeConfig: config,
       activeThreadId: "thread",
@@ -58,5 +58,5 @@ function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["servi
       ],
     } satisfies RuntimeSnapshot,
     config,
-  );
+  ).fastMode.active;
 }

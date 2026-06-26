@@ -35,3 +35,7 @@ export function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
 export function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): RuntimeConfigSnapshot {
   return { ...config };
 }
+
+export function runtimeConfigOrDefault(runtimeConfig: RuntimeConfigSnapshot | null): RuntimeConfigSnapshot {
+  return runtimeConfig ? cloneRuntimeConfigSnapshot(runtimeConfig) : emptyRuntimeConfigSnapshot();
+}

@@ -2,10 +2,11 @@ import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { type ChatThreadResumeClient, type ChatThreadResumeSnapshot, resumeChatThread } from "../../app-server/threads/projection";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "../lifecycle";
 import { resumedThreadAction } from "../state/actions";
+import { messageStreamIsEmpty } from "../state/message-stream";
 import type { ChatStateStore } from "../state/store";
 import type { HistoryController } from "./history-controller";
 import type { RestorationController } from "./restoration-controller";
-import { activeThreadId, canSwitchToThread, listedThreads, messageStreamItemsEmpty } from "./state-selectors";
+import { canSwitchToThread } from "./thread-switching";
 
 export interface ResumeActionsHost {
   stateStore: ChatStateStore;
@@ -67,7 +68,7 @@ async function resumeThread(host: ResumeActionsHost, threadId: string): Promise<
     if (isStaleResume(host, resume)) return;
     await host.syncThreadGoal(response.activation.thread.id);
     if (isStaleResume(host, resume)) return;
-    const renderFallbackMessage = messageStreamItemsEmpty(host.stateStore.getState());
+    const renderFallbackMessage = messageStreamIsEmpty(host.stateStore.getState().messageStream);
     if (renderFallbackMessage) {
       host.addSystemMessage(resumedThreadMessage(response.activation.thread.id));
     }
@@ -82,7 +83,7 @@ function applyResumedThread(host: ResumeActionsHost, response: ChatThreadResumeS
   host.stateStore.dispatch(
     resumedThreadAction({
       response: response.activation,
-      listedThreads: listedThreads(host.stateStore.getState()),
+      listedThreads: host.stateStore.getState().threadList.listedThreads,
     }),
   );
   host.restoration.clear();
@@ -97,7 +98,7 @@ function recoverResumedThreadTokenUsage(host: ResumeActionsHost, threadId: strin
     .then((tokenUsage) => {
       if (!tokenUsage || isStaleResume(host, resume)) return;
       const state = host.stateStore.getState();
-      if (activeThreadId(state) !== threadId || state.activeThread.tokenUsage !== null) return;
+      if (state.activeThread.id !== threadId || state.activeThread.tokenUsage !== null) return;
       host.stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
       host.refreshLiveState();
     })

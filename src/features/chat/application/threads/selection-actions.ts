@@ -1,5 +1,5 @@
 import type { ChatStateStore } from "../state/store";
-import { canSwitchToThread } from "./state-selectors";
+import { canSwitchToThread } from "./thread-switching";
 
 export interface SelectionActionsHost {
   stateStore: ChatStateStore;

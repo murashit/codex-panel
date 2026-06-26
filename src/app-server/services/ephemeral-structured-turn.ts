@@ -8,7 +8,6 @@ import {
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import type { ServerNotification } from "../connection/rpc-messages";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
-import { abortableOperation, throwIfSignalAborted } from "./abortable-operation";
 
 export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["outputSchema"];
 
@@ -78,9 +77,9 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     operationAbortError = error;
     operationAbort.abort();
   };
-  const abortableOperation = <T>(promise: Promise<T>): Promise<T> =>
-    abortable(
-      abortable(promise, options.signal, () => ephemeralStructuredTurnAbortError(options.abortMessage)),
+  const runAbortable = <T>(promise: Promise<T>): Promise<T> =>
+    rejectOnAbort(
+      rejectOnAbort(promise, options.signal, () => ephemeralStructuredTurnAbortError(options.abortMessage)),
       operationAbort.signal,
       () => operationAbortError ?? ephemeralStructuredTurnAbortError(options.abortMessage),
     );
@@ -119,9 +118,9 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   });
 
   try {
-    await abortableOperation(client.connect());
-    const runtime = options.resolveRuntime ? await abortableOperation(options.resolveRuntime(client)) : (options.runtime ?? {});
-    const threadResponse = await abortableOperation(
+    await runAbortable(client.connect());
+    const runtime = options.resolveRuntime ? await runAbortable(options.resolveRuntime(client)) : (options.runtime ?? {});
+    const threadResponse = await runAbortable(
       client.startEphemeralThread({
         cwd: options.cwd,
         serviceName: options.serviceName,
@@ -136,7 +135,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
         threadId,
       }),
     };
-    const turnResponse = await abortableOperation(
+    const turnResponse = await runAbortable(
       client.startStructuredTurn({
         threadId,
         cwd: options.cwd,
@@ -155,7 +154,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     };
     return turnResponse.turn.status === "completed"
       ? turnWithCollectedItems(turnResponse.turn, state.completedItems)
-      : await abortableOperation(completedTurn);
+      : await runAbortable(completedTurn);
   } finally {
     state = completeEphemeralStructuredTurnState(state);
     timers.clearTimeout(timeout);
@@ -272,11 +271,21 @@ async function deleteEphemeralStructuredTurnThread(client: EphemeralStructuredTu
 }
 
 function throwIfAborted(signal: AbortSignal | undefined, message: string | undefined): void {
-  throwIfSignalAborted(signal, () => ephemeralStructuredTurnAbortError(message));
+  if (signal?.aborted) throw ephemeralStructuredTurnAbortError(message);
 }
 
-function abortable<T>(promise: Promise<T>, signal: AbortSignal | undefined, abortError: () => Error): Promise<T> {
-  return abortableOperation(promise, signal, abortError);
+function rejectOnAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined, abortError: () => Error): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) throw abortError();
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => {
+      reject(abortError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", onAbort);
+    });
+  });
 }
 
 function ephemeralStructuredTurnAbortError(message: string | undefined): Error {

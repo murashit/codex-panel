@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
+import { runtimeConfigOrDefault } from "../../../domain/runtime/config";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
@@ -44,8 +45,8 @@ import { createThreadManagementActions, type ThreadManagementActionsHost } from 
 import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
-import { currentModel, runtimeConfigOrDefault } from "../domain/runtime/effective";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
+import { resolveRuntimeControls } from "../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { ChatComposerController } from "../panel/composer-controller";
 import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../panel/surface/composer-projection";
@@ -622,7 +623,8 @@ function createSessionComposerController(
     composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
     currentModelForSuggestions: () => {
       const current = stateStore.getState();
-      return currentModel(runtimeSnapshotForChatState(current), runtimeConfigOrDefault(current.connection.runtimeConfig));
+      const config = runtimeConfigOrDefault(current.connection.runtimeConfig);
+      return resolveRuntimeControls(runtimeSnapshotForChatState(current), config).model.effective;
     },
     threadScrollFromComposer: (action) => {
       host.messageScrollController.scrollFromComposer(action);

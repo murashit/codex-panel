@@ -2,21 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
+import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../src/domain/runtime/config";
 import {
   pendingRuntimeSettingsPatch,
   serviceTierRequestForThreadStart,
 } from "../../src/features/chat/app-server/runtime/thread-settings-update";
-import {
-  autoReviewActive,
-  currentModel,
-  currentReasoningEffort,
-  currentServiceTier,
-  fastModeActive,
-  fastRuntimeServiceTierRequestValue,
-  runtimeConfigOrDefault,
-  supportedReasoningEfforts,
-} from "../../src/features/chat/domain/runtime/effective";
 import { resetRuntimeIntentToConfig, setRuntimeIntentValue } from "../../src/features/chat/domain/runtime/intent";
 import {
   compactReasoningEffortLabel,
@@ -723,6 +713,38 @@ function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot 
 
 function snapshotConfig(snapshot: RuntimeSnapshot): RuntimeConfigSnapshot {
   return runtimeConfigOrDefault(snapshot.runtimeConfig);
+}
+
+function runtimeControls(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot = snapshotConfig(snapshot)) {
+  return resolveRuntimeControls(snapshot, config);
+}
+
+function currentModel(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): string | null {
+  return runtimeControls(snapshot, config).model.effective;
+}
+
+function currentReasoningEffort(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): string | null {
+  return runtimeControls(snapshot, config).reasoningEffort.effective;
+}
+
+function currentServiceTier(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): string | null {
+  return runtimeControls(snapshot, config).serviceTier.effective;
+}
+
+function autoReviewActive(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): boolean {
+  return runtimeControls(snapshot, config).autoReview.active;
+}
+
+function fastModeActive(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): boolean {
+  return runtimeControls(snapshot, config).fastMode.active;
+}
+
+function fastRuntimeServiceTierRequestValue(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): string {
+  return runtimeControls(snapshot, config).fastMode.serviceTierRequestValue;
+}
+
+function supportedReasoningEfforts(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): readonly string[] {
+  return runtimeControls(snapshot, config).supportedReasoningEfforts;
 }
 
 function runtimeConfigFixture(config: Record<string, unknown>, layers: ConfigReadResult["layers"] = null): RuntimeConfigSnapshot {

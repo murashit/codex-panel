@@ -215,7 +215,7 @@ export function render(container: HTMLElement): void {
 `.trimStart(),
     );
     await writeFile(
-      path.join(cwd, "src/app-server/services/abortable-operation.ts"),
+      path.join(cwd, "src/app-server/services/runtime-overrides.ts"),
       `
 export function onAbort(signal: AbortSignal): void {
   signal.addEventListener("abort", () => undefined);
@@ -278,7 +278,7 @@ export function timestamp(): number {
         "src/shared/ui/signal-escapes.tsx",
         "src/features/chat/ui/dom-bridge-escape.tsx",
         "src/features/chat/ui/dom-bridge.dom.tsx",
-        "src/app-server/services/abortable-operation.ts",
+        "src/app-server/services/runtime-overrides.ts",
         "src/features/chat/ui/root-import.tsx",
         "src/features/chat/panel/shell.dom.tsx",
         "src/features/chat/ui/root-escapes.tsx",
@@ -300,7 +300,7 @@ export function timestamp(): number {
       Array.from({ length: 13 }, () => DOM_BOUNDARY_MESSAGE),
     );
     expect(pluginDiagnostics(report, "src/features/chat/ui/dom-bridge.dom.tsx")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/app-server/services/abortable-operation.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/app-server/services/runtime-overrides.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/ui/root-import.tsx")).toEqual([
       "Import the Preact root adapter only from explicit root bridge files.",
     ]);

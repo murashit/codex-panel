@@ -1,6 +1,5 @@
 import type { ChatStateStore } from "../state/store";
 import type { RestorationController } from "./restoration-controller";
-import { activeThreadId } from "./state-selectors";
 
 export interface ActiveThreadIdentitySyncHost {
   stateStore: ChatStateStore;
@@ -40,7 +39,7 @@ function clearActiveThreadIdentity(host: ActiveThreadIdentitySyncHost): void {
 }
 
 function applyThreadArchiveToActiveIdentity(host: ActiveThreadIdentitySyncHost, threadId: string): void {
-  if (activeThreadId(host.stateStore.getState()) !== threadId && !host.restoration.isPending(threadId)) return;
+  if (host.stateStore.getState().activeThread.id !== threadId && !host.restoration.isPending(threadId)) return;
   clearActiveThreadIdentity(host);
 }
 
@@ -51,7 +50,7 @@ function applyThreadRenameToActiveIdentity(host: ActiveThreadIdentitySyncHost, t
     host.restoration.rename(threadId, name);
     changed = true;
   }
-  const activeThreadChanged = activeThreadId(host.stateStore.getState()) === threadId || host.restoration.isPending(threadId);
+  const activeThreadChanged = host.stateStore.getState().activeThread.id === threadId || host.restoration.isPending(threadId);
   if (!changed && !activeThreadChanged) return;
   if (activeThreadChanged) {
     host.notifyActiveThreadIdentityChanged();

@@ -1,7 +1,6 @@
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
+import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { jsonPreview } from "../../../../shared/text/preview";
-import { currentServiceTier, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { serviceTierLabel as formatServiceTierLabel, pendingRuntimeSettingLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
@@ -51,7 +50,7 @@ export interface EffortStatusLinesInput {
 const CODEX_DEFAULT_LABEL = "(Codex default)";
 
 function serviceTierLabel(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string {
-  return formatServiceTierLabel(currentServiceTier(snapshot, config));
+  return formatServiceTierLabel(resolveRuntimeControls(snapshot, config).serviceTier.effective);
 }
 
 export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null {

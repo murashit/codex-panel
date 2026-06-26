@@ -1,15 +1,15 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
-import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
+import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
 } from "../../app-server/runtime/thread-settings-update";
-import { autoReviewActive, fastModeActive, runtimeConfigOrDefault } from "../../domain/runtime/effective";
 import { type CollaborationModeSelection, nextCollaborationMode, type RequestedFastMode } from "../../domain/runtime/intent";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
+import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
@@ -137,7 +137,7 @@ async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsActionsHo
 
 async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {
   const { snapshot, config } = runtimeProjection(host);
-  await setFastMode(host, fastModeActive(snapshot, config) ? "disabled" : "enabled");
+  await setFastMode(host, resolveRuntimeControls(snapshot, config).fastMode.active ? "disabled" : "enabled");
 }
 
 async function setFastMode(host: RuntimeSettingsActionsHost, mode: FastModeState): Promise<void> {
@@ -172,7 +172,7 @@ function requestDefaultCollaborationModeForNextTurn(host: RuntimeSettingsActions
 
 async function toggleAutoReview(host: RuntimeSettingsActionsHost): Promise<void> {
   const { snapshot, config } = runtimeProjection(host);
-  const nextState = nextAutoReviewState(autoReviewActive(snapshot, config));
+  const nextState = nextAutoReviewState(resolveRuntimeControls(snapshot, config).autoReview.active);
   await setAutoReview(host, nextState);
 }
 
