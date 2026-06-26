@@ -1,0 +1,32 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsExportNamedFromClause(),
+    JsExportFromClause(),
+    TsImportType(),
+    JsImportCallExpression()
+  }
+}
+
+private pattern app_server_protocol_connection_source() { r"^[\"'](?:\.\./)+connection(?:/.*)?[\"']$" }
+
+private pattern root_app_server_connection_source() {
+  or {
+    r"^[\"'](?:\.\./)+app-server/connection(?:/.*)?[\"']$",
+    r"^[\"']src/app-server/connection(?:/.*)?[\"']$"
+  }
+}
+
+private pattern app_server_connection_boundary_source() {
+  or {
+    app_server_protocol_connection_source(),
+    root_app_server_connection_source()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where { $source <: app_server_connection_boundary_source() },
+  register_diagnostic(span=$stmt, message="App-server protocol, domain, and shared modules must not import app-server connection internals. Keep connection usage at app-server adapters.", severity="error")
+}

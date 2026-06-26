@@ -1,0 +1,33 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsExportNamedFromClause(),
+    JsExportFromClause(),
+    TsImportType(),
+    JsImportCallExpression()
+  }
+}
+
+private pattern root_outer_layer_source() {
+  or {
+    r"^[\"'](?:\.\./)+(?:app-server|settings|workspace|shared/ui|features)(?:/.*)?[\"']$",
+    r"^[\"']src/(?:app-server|settings|workspace|shared/ui|features)(?:/.*)?[\"']$",
+    r"^[\"']obsidian[\"']$"
+  }
+}
+
+private pattern chat_domain_outer_layer_source() { r"^[\"'](?:\.\./)+(?:application|host|panel|presentation|ui)(?:/.*)?[\"']$" }
+
+private pattern domain_outer_layer_source() {
+  or {
+    root_outer_layer_source(),
+    chat_domain_outer_layer_source()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where { $source <: domain_outer_layer_source() },
+  register_diagnostic(span=$stmt, message="Domain modules must stay pure; outer layers may depend on domain, not the reverse.", severity="error")
+}

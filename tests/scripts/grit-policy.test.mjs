@@ -134,7 +134,6 @@ runner = new Runner(() => runner.stop());
 
   it("keeps chat architecture policies behind their intended boundaries", async () => {
     const cwd = await tempBiomeWorkspace([
-      "no-chat-domain-outer-layer-imports.grit",
       "no-chat-signal-imports.grit",
       "no-implicit-dom-bridges.grit",
       "no-pure-chat-state-side-effects.grit",
@@ -168,38 +167,6 @@ export async function loadSignals() {
 
 const signals = await import("@preact/signals");
 export const loadedSignals = signals;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/domain/message-stream/selectors.ts"),
-      `
-import type { ChatStateStore } from "../../application/state/store";
-import type { Presenter } from 'src/features/chat/presentation/view';
-
-export type Store = ChatStateStore;
-export type View = Presenter;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/domain/message-stream/items.ts"),
-      `
-import type { MessageStreamItem } from "./item";
-
-export type Item = MessageStreamItem;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/features/chat/domain/message-stream/outer-shapes.ts"),
-      `
-export { createChatStateStore } from "../../application/state/store";
-export type OuterStore = import("../../application/state/store").ChatStateStore;
-
-export async function loadComposer() {
-  return import("src/features/chat/ui/composer");
-}
-
-const host = await import("../../host/session");
-export const outerHost = host;
 `.trimStart(),
     );
     await writeFile(
@@ -282,9 +249,6 @@ export function timestamp(): number {
         "src/features/chat/panel/shell-state.tsx",
         "src/shared/ui/components.tsx",
         "src/shared/ui/signal-escapes.tsx",
-        "src/features/chat/domain/message-stream/selectors.ts",
-        "src/features/chat/domain/message-stream/items.ts",
-        "src/features/chat/domain/message-stream/outer-shapes.ts",
         "src/features/chat/ui/dom-bridge-escape.tsx",
         "src/features/chat/ui/dom-bridge.dom.tsx",
         "src/app-server/services/abortable-operation.ts",
@@ -306,17 +270,6 @@ export function timestamp(): number {
       "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
       "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
       "Use @preact/signals only in src/features/chat/panel/shell-state.tsx as the reducer-to-Preact derived projection adapter.",
-    ]);
-    expect(pluginMessages(report, "src/features/chat/domain/message-stream/selectors.ts")).toEqual([
-      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
-      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
-    ]);
-    expect(pluginDiagnostics(report, "src/features/chat/domain/message-stream/items.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/domain/message-stream/outer-shapes.ts")).toEqual([
-      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
-      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
-      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
-      "Keep chat/domain as Panel-owned meaning models and pure derivations; app-server, application, host, panel, presentation, and UI layers may depend on domain, not the reverse.",
     ]);
     expect(pluginMessages(report, "src/features/chat/ui/dom-bridge-escape.tsx")).toEqual([
       "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.",
@@ -532,40 +485,18 @@ export const response = [appServerUserInputResponse, runtimeMetrics] satisfies u
     ]);
   });
 
-  it("keeps lower-level source independent from connection and feature layers", async () => {
-    const cwd = await tempBiomeWorkspace(["no-lower-level-boundary-imports.grit"]);
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/catalog.ts"),
-      `
-import type { AppServerClient } from "../connection/client";
-
-export type Client = AppServerClient;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/app-server/protocol/diagnostics.ts"),
-      `
-import type { ThreadPickerModal } from '../../features/thread-picker/modal';
-
-export type Modal = ThreadPickerModal;
-`.trimStart(),
-    );
-    await writeFile(
-      path.join(cwd, "src/shared/date.ts"),
-      `
-import { formatDate } from "./format";
-
-export const format = formatDate;
-`.trimStart(),
-    );
+  it("keeps domain modules independent from outer layers", async () => {
+    const cwd = await tempBiomeWorkspace(["no-domain-outer-layer-imports.grit"]);
     await writeFile(
       path.join(cwd, "src/domain/threads/model.ts"),
       `
 import { listThreads } from "../../app-server/threads";
+import type { ThreadPickerModal } from "../../features/thread-picker/modal";
 import { copyText } from "../../shared/ui/clipboard";
 import type { App } from "obsidian";
 
 export type Host = App;
+export type Modal = ThreadPickerModal;
 export const list = listThreads;
 export const copy = copyText;
 `.trimStart(),
@@ -578,31 +509,163 @@ import { formatDate } from "../../shared/date";
 export const format = formatDate;
 `.trimStart(),
     );
+    await writeFile(
+      path.join(cwd, "src/features/chat/domain/message-stream/selectors.ts"),
+      `
+import type { ChatStateStore } from "../../application/state/store";
+import type { Presenter } from 'src/features/chat/presentation/view';
+
+export type Store = ChatStateStore;
+export type View = Presenter;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/domain/message-stream/items.ts"),
+      `
+import type { MessageStreamItem } from "./item";
+
+export type Item = MessageStreamItem;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/domain/message-stream/outer-shapes.ts"),
+      `
+export { createChatStateStore } from "../../application/state/store";
+export type OuterStore = import("../../application/state/store").ChatStateStore;
+
+export async function loadComposer() {
+  return import("src/features/chat/ui/composer");
+}
+
+const host = await import("../../host/session");
+export const outerHost = host;
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      [
+        "src/domain/threads/model.ts",
+        "src/domain/threads/format.ts",
+        "src/features/chat/domain/message-stream/selectors.ts",
+        "src/features/chat/domain/message-stream/items.ts",
+        "src/features/chat/domain/message-stream/outer-shapes.ts",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/domain/threads/model.ts")).toEqual([
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+    ]);
+    expect(pluginDiagnostics(report, "src/domain/threads/format.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/domain/message-stream/selectors.ts")).toEqual([
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/chat/domain/message-stream/items.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/domain/message-stream/outer-shapes.ts")).toEqual([
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
+    ]);
+  });
+
+  it("keeps lower-level modules independent from feature modules", async () => {
+    const cwd = await tempBiomeWorkspace(["no-lower-level-feature-imports.grit"]);
+    await writeFile(
+      path.join(cwd, "src/app-server/protocol/diagnostics.ts"),
+      `
+import type { ThreadPickerModal } from '../../features/thread-picker/modal';
+
+export type Modal = ThreadPickerModal;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/shared/thread-picker.ts"),
+      `
+import type { ThreadPickerModal } from "../features/thread-picker/modal";
+
+export type Modal = ThreadPickerModal;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/shared/date.ts"),
+      `
+import { formatDate } from "./format";
+
+export const format = formatDate;
+`.trimStart(),
+    );
+
+    const report = biomeLint(["src/app-server/protocol/diagnostics.ts", "src/shared/thread-picker.ts", "src/shared/date.ts"], cwd);
+
+    expect(pluginMessages(report, "src/app-server/protocol/diagnostics.ts")).toEqual([
+      "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, or app-server adapters.",
+    ]);
+    expect(pluginMessages(report, "src/shared/thread-picker.ts")).toEqual([
+      "Lower-level modules must not import feature modules. Move shared behavior to shared, domain, or app-server adapters.",
+    ]);
+    expect(pluginDiagnostics(report, "src/shared/date.ts")).toEqual([]);
+  });
+
+  it("keeps app-server connection internals behind app-server adapters", async () => {
+    const cwd = await tempBiomeWorkspace(["no-app-server-connection-boundary-imports.grit"]);
+    await writeFile(
+      path.join(cwd, "src/app-server/protocol/catalog.ts"),
+      `
+import type { AppServerClient } from "../connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/app-server/services/catalog.ts"),
+      `
+import type { AppServerClient } from "../connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/domain/connection-client.ts"),
+      `
+import type { AppServerClient } from "../app-server/connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/shared/connection-client.ts"),
+      `
+import type { AppServerClient } from "src/app-server/connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+    );
 
     const report = biomeLint(
       [
         "src/app-server/protocol/catalog.ts",
-        "src/app-server/protocol/diagnostics.ts",
-        "src/shared/date.ts",
-        "src/domain/threads/model.ts",
-        "src/domain/threads/format.ts",
+        "src/app-server/services/catalog.ts",
+        "src/domain/connection-client.ts",
+        "src/shared/connection-client.ts",
       ],
       cwd,
     );
 
     expect(pluginMessages(report, "src/app-server/protocol/catalog.ts")).toEqual([
-      "Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.",
+      "App-server protocol, domain, and shared modules must not import app-server connection internals. Keep connection usage at app-server adapters.",
     ]);
-    expect(pluginMessages(report, "src/app-server/protocol/diagnostics.ts")).toEqual([
-      "Lower-level modules must not import feature modules or app-server connection internals. Move shared behavior to shared, domain, or app-server adapters.",
+    expect(pluginDiagnostics(report, "src/app-server/services/catalog.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/domain/connection-client.ts")).toEqual([
+      "App-server protocol, domain, and shared modules must not import app-server connection internals. Keep connection usage at app-server adapters.",
     ]);
-    expect(pluginDiagnostics(report, "src/shared/date.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/domain/threads/model.ts")).toEqual([
-      "Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.",
-      "Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.",
-      "Domain modules must stay pure and generated-independent; keep app-server, settings, workspace, UI, and Obsidian dependencies at boundary callers.",
+    expect(pluginMessages(report, "src/shared/connection-client.ts")).toEqual([
+      "App-server protocol, domain, and shared modules must not import app-server connection internals. Keep connection usage at app-server adapters.",
     ]);
-    expect(pluginDiagnostics(report, "src/domain/threads/format.ts")).toEqual([]);
   });
 
   it("keeps chat application app-server projection RPCs behind facades", async () => {

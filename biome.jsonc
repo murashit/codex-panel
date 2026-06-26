@@ -22,10 +22,23 @@
 
     // Shared source layering boundaries.
     {
-      "path": "./scripts/lint/no-lower-level-boundary-imports.grit",
+      "path": "./scripts/lint/no-domain-outer-layer-imports.grit",
       "includes": [
-        "**/src/app-server/**/*.ts",
-        "**/src/app-server/**/*.tsx",
+        "**/src/domain/**/*.ts",
+        "**/src/domain/**/*.tsx",
+        "**/src/features/chat/domain/**/*.ts",
+        "**/src/features/chat/domain/**/*.tsx"
+      ]
+    },
+    {
+      "path": "./scripts/lint/no-lower-level-feature-imports.grit",
+      "includes": ["**/src/app-server/**/*.ts", "**/src/app-server/**/*.tsx", "**/src/shared/**/*.ts", "**/src/shared/**/*.tsx"]
+    },
+    {
+      "path": "./scripts/lint/no-app-server-connection-boundary-imports.grit",
+      "includes": [
+        "**/src/app-server/protocol/**/*.ts",
+        "**/src/app-server/protocol/**/*.tsx",
         "**/src/domain/**/*.ts",
         "**/src/domain/**/*.tsx",
         "**/src/shared/**/*.ts",
@@ -34,10 +47,6 @@
     },
 
     // Chat feature architecture.
-    {
-      "path": "./scripts/lint/no-chat-domain-outer-layer-imports.grit",
-      "includes": ["**/src/features/chat/domain/**/*.ts", "**/src/features/chat/domain/**/*.tsx"]
-    },
     {
       "path": "./scripts/lint/no-chat-signal-imports.grit",
       "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
