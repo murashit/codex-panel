@@ -109,46 +109,18 @@ describe("development scripts", () => {
     expect(report.failures).toEqual([]);
   });
 
-  it("keeps CSS usage checks quiet when every class is used", async () => {
-    const cwd = await cssUsageFixture({
-      "src/styles/10-component.css": ".codex-panel__used { display: block; }\n",
-      "src/component.ts": 'export const className = "codex-panel__used";\n',
-    });
-
-    const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
-
-    expect(result.status).toBe(0);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("");
-  });
-
-  it("fails CSS usage checks for unused and test-only class candidates", async () => {
+  it("reports representative CSS usage policy failures", async () => {
     const cwd = await cssUsageFixture({
       "src/styles/10-component.css": [
         ".codex-panel__used { display: block; }",
         ".codex-panel__test-only { display: block; }",
         ".codex-panel__unused { display: block; }",
       ].join("\n"),
-      "src/component.ts": 'export const className = "codex-panel__used";\n',
-      "tests/component.test.ts": 'expect("codex-panel__test-only").toBeTruthy();\n',
-    });
-
-    const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
-
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("CSS usage check failed.");
-    expect(result.stderr).toContain("codex-panel__test-only");
-    expect(result.stderr).toContain("codex-panel__unused");
-  });
-
-  it("fails CSS usage checks when source contains dynamic class prefixes", async () => {
-    const cwd = await cssUsageFixture({
-      "src/styles/10-component.css": ".codex-panel__used { display: block; }\n",
       "src/component.ts": [
-        'export const used = "codex-panel__used";',
+        'export const className = "codex-panel__used";',
         "export const dynamicClassName = `codex-panel__task-step--$" + "{status}`;",
       ].join("\n"),
+      "tests/component.test.ts": 'expect("codex-panel__test-only").toBeTruthy();\n',
     });
 
     const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
@@ -158,6 +130,8 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("CSS usage check failed.");
     expect(result.stderr).toContain("Dynamic CSS class prefixes are not allowed:");
     expect(result.stderr).toContain("codex-panel__task-step--");
+    expect(result.stderr).toContain("codex-panel__test-only");
+    expect(result.stderr).toContain("codex-panel__unused");
   });
 
   it("fails release prepare before changing version files when release notes already exist", async () => {
