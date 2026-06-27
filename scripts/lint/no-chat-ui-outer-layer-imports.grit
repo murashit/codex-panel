@@ -1,0 +1,18 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsExportNamedFromClause(),
+    JsExportFromClause(),
+    TsImportType(),
+    JsImportCallExpression()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where {
+    $source <: r"^[\"'](?:(?:\.\./)+(?:application|app-server|host|panel)|src/(?:app-server|features/chat/(?:application|app-server|host|panel)))(?:/.*)?[\"']$"
+  },
+  register_diagnostic(span=$stmt, message="Chat UI modules must not import application, app-server, host, or panel layers; pass render-ready props and actions through UI contracts.", severity="error")
+}

@@ -1,0 +1,18 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsExportNamedFromClause(),
+    JsExportFromClause(),
+    TsImportType(),
+    JsImportCallExpression()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where {
+    $source <: r"^[\"'](?:(?:\.\./)+(?:host|panel|presentation|ui)|src/features/chat/(?:host|panel|presentation|ui))(?:/.*)?[\"']$"
+  },
+  register_diagnostic(span=$stmt, message="Chat app-server adapters must not import chat host, panel, presentation, or UI layers.", severity="error")
+}

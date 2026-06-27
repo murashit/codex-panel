@@ -43,6 +43,26 @@
       "path": "./scripts/lint/no-state-module-side-effects.grit",
       "includes": ["**/src/features/chat/application/state/**/*.ts"]
     },
+    {
+      "path": "./scripts/lint/no-chat-application-outer-layer-imports.grit",
+      "includes": ["**/src/features/chat/application/**/*.ts"]
+    },
+    {
+      "path": "./scripts/lint/no-chat-app-server-outer-layer-imports.grit",
+      "includes": ["**/src/features/chat/app-server/**/*.ts"]
+    },
+    {
+      "path": "./scripts/lint/no-chat-panel-runtime-boundary-imports.grit",
+      "includes": ["**/src/features/chat/panel/**/*.ts", "**/src/features/chat/panel/**/*.tsx"]
+    },
+    {
+      "path": "./scripts/lint/no-chat-presentation-outer-layer-imports.grit",
+      "includes": ["**/src/features/chat/presentation/**/*.ts"]
+    },
+    {
+      "path": "./scripts/lint/no-chat-ui-outer-layer-imports.grit",
+      "includes": ["**/src/features/chat/ui/**/*.ts", "**/src/features/chat/ui/**/*.tsx"]
+    },
 
     // UI and DOM source boundaries.
     {

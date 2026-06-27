@@ -16,6 +16,14 @@ const projectPluginByName = new Map(
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
+const CHAT_APPLICATION_OUTER_LAYER_MESSAGE =
+  "Chat application modules must not import host, panel, presentation, or UI layers; expose state and workflow contracts instead.";
+const CHAT_APP_SERVER_OUTER_LAYER_MESSAGE = "Chat app-server adapters must not import chat host, panel, presentation, or UI layers.";
+const CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE = "Chat panel modules must not import app-server adapters or chat host internals.";
+const CHAT_PRESENTATION_OUTER_LAYER_MESSAGE =
+  "Chat presentation modules must stay pure view-model projection; keep application, app-server, host, panel, and UI dependencies outward.";
+const CHAT_UI_OUTER_LAYER_MESSAGE =
+  "Chat UI modules must not import application, app-server, host, or panel layers; pass render-ready props and actions through UI contracts.";
 const DOM_BOUNDARY_MESSAGE =
   "Keep DOM reads, writes, measurements, hit-tests, focus, and event wiring in files named with a .dom, .obsidian, or .measure suffix.";
 const DOM_EVENTS_IMPORT_MESSAGE = "Import DOM event listener helpers only from explicit .dom, .obsidian, or .measure bridge files.";
@@ -379,6 +387,159 @@ export function timestamp(): number {
       "Keep this state module deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/application/threads/resume-actions.ts")).toEqual([]);
+  });
+
+  it("keeps chat folder ownership boundaries explicit without filename-scoped Grit checks", async () => {
+    const cwd = await tempBiomeWorkspace([
+      "no-chat-application-outer-layer-imports.grit",
+      "no-chat-app-server-outer-layer-imports.grit",
+      "no-chat-panel-runtime-boundary-imports.grit",
+      "no-chat-presentation-outer-layer-imports.grit",
+      "no-chat-ui-outer-layer-imports.grit",
+    ]);
+    await writeFile(
+      path.join(cwd, "src/features/chat/application/outer.ts"),
+      `
+import type { Host } from "../host/contracts";
+import type { PanelSnapshot } from "../panel/snapshot";
+import { statusText } from "../presentation/runtime/status";
+import { Toolbar } from "../ui/toolbar";
+
+export type Escape = Host | PanelSnapshot;
+export const values = [statusText, Toolbar] satisfies unknown[];
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/application/allowed.ts"),
+      `
+import type { MessageStreamItem } from "../domain/message-stream/items";
+
+export type Item = MessageStreamItem;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/app-server/outer.ts"),
+      `
+import type { Host } from "../host/contracts";
+import type { PanelSnapshot } from "../panel/snapshot";
+import { statusText } from "../presentation/runtime/status";
+import { Toolbar } from "../ui/toolbar";
+
+export type Escape = Host | PanelSnapshot;
+export const values = [statusText, Toolbar] satisfies unknown[];
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/app-server/allowed.ts"),
+      `
+import type { AppServerClient } from "../../../app-server/connection/client";
+import type { ChatStateStore } from "../application/state/store";
+import type { MessageStreamItem } from "../domain/message-stream/items";
+
+export type Allowed = AppServerClient | ChatStateStore | MessageStreamItem;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/panel/outer.tsx"),
+      `
+import type { AppServerClient } from "../../../app-server/connection/client";
+import type { ChatServerActionsHost } from "../app-server/actions/host";
+import type { Host } from "../host/contracts";
+
+export type Escape = AppServerClient | ChatServerActionsHost | Host;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/panel/allowed.tsx"),
+      `
+import type { ChatStateStore } from "../application/state/store";
+import { Toolbar } from "../ui/toolbar";
+
+export type Allowed = ChatStateStore;
+export const toolbar = Toolbar;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/presentation/outer.ts"),
+      `
+import type { AppServerClient } from "../../../app-server/connection/client";
+import type { ChatStateStore } from "../application/state/store";
+import type { ChatServerActionsHost } from "../app-server/actions/host";
+import type { Host } from "../host/contracts";
+import type { PanelSnapshot } from "../panel/snapshot";
+import { Toolbar } from "../ui/toolbar";
+
+export type Escape = AppServerClient | ChatStateStore | ChatServerActionsHost | Host | PanelSnapshot;
+export const toolbar = Toolbar;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/presentation/allowed.ts"),
+      `
+import type { Thread } from "../../../domain/threads/model";
+import type { MessageStreamItem } from "../domain/message-stream/items";
+
+export type Allowed = Thread | MessageStreamItem;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/outer.tsx"),
+      `
+import type { AppServerClient } from "../../../app-server/connection/client";
+import type { ChatStateStore } from "../application/state/store";
+import type { ChatServerActionsHost } from "../app-server/actions/host";
+import type { Host } from "../host/contracts";
+import type { PanelSnapshot } from "../panel/snapshot";
+
+export type Escape = AppServerClient | ChatStateStore | ChatServerActionsHost | Host | PanelSnapshot;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/allowed.tsx"),
+      `
+import type { Thread } from "../../../domain/threads/model";
+import type { MessageStreamItem } from "../domain/message-stream/items";
+import { statusText } from "../presentation/runtime/status";
+
+export type Allowed = Thread | MessageStreamItem;
+export const value = statusText;
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      [
+        "src/features/chat/application/outer.ts",
+        "src/features/chat/application/allowed.ts",
+        "src/features/chat/app-server/outer.ts",
+        "src/features/chat/app-server/allowed.ts",
+        "src/features/chat/panel/outer.tsx",
+        "src/features/chat/panel/allowed.tsx",
+        "src/features/chat/presentation/outer.ts",
+        "src/features/chat/presentation/allowed.ts",
+        "src/features/chat/ui/outer.tsx",
+        "src/features/chat/ui/allowed.tsx",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/features/chat/application/outer.ts")).toEqual(
+      Array.from({ length: 4 }, () => CHAT_APPLICATION_OUTER_LAYER_MESSAGE),
+    );
+    expect(pluginDiagnostics(report, "src/features/chat/application/allowed.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/app-server/outer.ts")).toEqual(
+      Array.from({ length: 4 }, () => CHAT_APP_SERVER_OUTER_LAYER_MESSAGE),
+    );
+    expect(pluginDiagnostics(report, "src/features/chat/app-server/allowed.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/panel/outer.tsx")).toEqual(
+      Array.from({ length: 3 }, () => CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE),
+    );
+    expect(pluginDiagnostics(report, "src/features/chat/panel/allowed.tsx")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/presentation/outer.ts")).toEqual(
+      Array.from({ length: 6 }, () => CHAT_PRESENTATION_OUTER_LAYER_MESSAGE),
+    );
+    expect(pluginDiagnostics(report, "src/features/chat/presentation/allowed.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/ui/outer.tsx")).toEqual(Array.from({ length: 5 }, () => CHAT_UI_OUTER_LAYER_MESSAGE));
+    expect(pluginDiagnostics(report, "src/features/chat/ui/allowed.tsx")).toEqual([]);
   });
 
   it("keeps generated app-server imports behind explicit app-server boundaries", async () => {
@@ -993,6 +1154,7 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/chat/host"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/panel"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/panel/surface"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/chat/presentation"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/ui"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/selection-rewrite"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/threads-view"), { recursive: true });
