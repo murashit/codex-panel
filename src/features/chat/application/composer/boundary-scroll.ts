@@ -48,13 +48,11 @@ export function composerBoundaryScrollDirection(
   if (keyAction.kind === "scroll-to" || keyAction.amount === "page") return keyAction;
   if (composer.cursorStart !== composer.cursorEnd) return null;
 
-  return keyAction.direction === -1
-    ? composerCursorOnFirstLine(composer) && composerCursorAtVisualBoundary(keyAction.direction, composer, options)
-      ? keyAction
-      : null
-    : composerCursorOnLastLine(composer) && composerCursorAtVisualBoundary(keyAction.direction, composer, options)
-      ? keyAction
-      : null;
+  const cursorAtTextBoundary =
+    keyAction.direction === -1
+      ? !composer.value.slice(0, composer.cursorStart).includes("\n")
+      : !composer.value.slice(composer.cursorEnd).includes("\n");
+  return cursorAtTextBoundary && composerCursorAtVisualBoundary(keyAction.direction, composer, options) ? keyAction : null;
 }
 
 function composerBoundaryScrollKeyAction(event: ComposerBoundaryScrollKeyEvent): ComposerBoundaryScrollAction | null {
@@ -80,14 +78,6 @@ function composerBoundaryScrollByAction(
   repeat: boolean,
 ): ComposerBoundaryScrollByAction {
   return repeat ? { kind: "scroll-by", direction, amount, repeated: true } : { kind: "scroll-by", direction, amount };
-}
-
-function composerCursorOnFirstLine(composer: ComposerBoundaryScrollTextState): boolean {
-  return !composer.value.slice(0, composer.cursorStart).includes("\n");
-}
-
-function composerCursorOnLastLine(composer: ComposerBoundaryScrollTextState): boolean {
-  return !composer.value.slice(composer.cursorEnd).includes("\n");
 }
 
 function composerCursorAtVisualBoundary(

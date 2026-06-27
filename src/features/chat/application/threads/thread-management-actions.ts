@@ -68,50 +68,10 @@ export function createThreadManagementActions(host: ThreadManagementActionsHost)
   };
 }
 
-function finishBeforeArchivingThreadsMessage(): string {
-  return "Finish or interrupt the current turn before archiving threads.";
-}
-
-function finishBeforeForkingThreadsMessage(): string {
-  return "Finish or interrupt the current turn before forking threads.";
-}
-
-function selectedTurnNotFoundForForkMessage(): string {
-  return "Could not find the selected turn to fork.";
-}
-
-function forkNameCopyFailedMessage(threadId: string, message: string): string {
-  return `Forked thread ${threadId}, but could not copy the source thread name: ${message}`;
-}
-
-function archivedSourceOpenForkFailedMessage(sourceThreadId: string, forkedThreadId: string, message: string): string {
-  return `Archived thread ${sourceThreadId}, but could not open forked thread ${forkedThreadId}: ${message}`;
-}
-
-function openForkInNewPanelFailedMessage(forkedThreadId: string, message: string): string {
-  return `Forked thread ${forkedThreadId}, but could not open it in a new panel: ${message}`;
-}
-
-function interruptBeforeRollbackMessage(): string {
-  return "Interrupt the current turn before rolling back.";
-}
-
-function noCompletedTurnToRollbackMessage(): string {
-  return "No completed turn to roll back.";
-}
-
-function noActiveThreadToCompactMessage(): string {
-  return "No active thread to compact.";
-}
-
-function rollbackCompletedMessage(): string {
-  return "Rolled back the latest turn. Local file changes were not reverted.";
-}
-
 async function compactActiveThread(host: ThreadManagementActionsHost): Promise<void> {
   const threadId = threadManagementState(host).activeThread.id;
   if (!threadId) {
-    host.addSystemMessage(noActiveThreadToCompactMessage());
+    host.addSystemMessage("No active thread to compact.");
     return;
   }
   await compactThread(host, threadId);
@@ -136,7 +96,7 @@ async function archiveThread(host: ThreadManagementActionsHost, threadId: string
 
 async function archiveThreadFromPanel(host: ThreadManagementActionsHost, threadId: string, saveMarkdown?: boolean): Promise<boolean> {
   if (chatTurnBusy(threadManagementState(host))) {
-    host.addSystemMessage(finishBeforeArchivingThreadsMessage());
+    host.addSystemMessage("Finish or interrupt the current turn before archiving threads.");
     return false;
   }
   try {
@@ -159,7 +119,7 @@ async function forkThreadFromTurn(
   archiveSource: boolean,
 ): Promise<void> {
   if (chatTurnBusy(threadManagementState(host))) {
-    host.addSystemMessage(finishBeforeForkingThreadsMessage());
+    host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
     return;
   }
   const scope = await captureThreadManagementOperationScope(host, threadId);
@@ -167,7 +127,7 @@ async function forkThreadFromTurn(
 
   const turnsToDrop = turnId ? messageStreamTurnsAfterTurnId(threadManagementState(host).messageStream, turnId) : 0;
   if (turnsToDrop === null) {
-    host.addSystemMessage(selectedTurnNotFoundForForkMessage());
+    host.addSystemMessage("Could not find the selected turn to fork.");
     return;
   }
 
@@ -188,7 +148,7 @@ async function forkThreadFromTurn(
         if (!(await host.operations.renameThread(forkedThreadId, sourceName))) return;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        host.addSystemMessage(forkNameCopyFailedMessage(forkedThreadId, message));
+        host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
       }
     }
     if (archiveSource) {
@@ -197,7 +157,7 @@ async function forkThreadFromTurn(
         await host.openThreadInCurrentPanel(forkedThreadId);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        host.addSystemMessage(archivedSourceOpenForkFailedMessage(threadId, forkedThreadId, message));
+        host.addSystemMessage(`Archived thread ${threadId}, but could not open forked thread ${forkedThreadId}: ${message}`);
       }
       return;
     }
@@ -205,7 +165,7 @@ async function forkThreadFromTurn(
       await host.openThreadInNewView(forkedThreadId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      host.addSystemMessage(openForkInNewPanelFailedMessage(forkedThreadId, message));
+      host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in a new panel: ${message}`);
     }
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
@@ -225,7 +185,7 @@ async function renameThread(host: ThreadManagementActionsHost, threadId: string,
 
 async function rollbackThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
   if (chatTurnBusy(threadManagementState(host))) {
-    host.addSystemMessage(interruptBeforeRollbackMessage());
+    host.addSystemMessage("Interrupt the current turn before rolling back.");
     return;
   }
   const scope = await captureThreadManagementOperationScope(host, threadId);
@@ -233,7 +193,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
 
   const candidate = messageStreamRollbackCandidate(threadManagementState(host).messageStream);
   if (!candidate) {
-    host.addSystemMessage(noCompletedTurnToRollbackMessage());
+    host.addSystemMessage("No completed turn to roll back.");
     return;
   }
 
@@ -257,7 +217,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
       loadingHistory: false,
     });
     host.setComposerText(candidate.text);
-    host.addSystemMessage(rollbackCompletedMessage());
+    host.addSystemMessage("Rolled back the latest turn. Local file changes were not reverted.");
     host.setStatus(STATUS_ROLLBACK_COMPLETE);
     host.notifyActiveThreadIdentityChanged();
     await host.refreshAfterThreadMutation();

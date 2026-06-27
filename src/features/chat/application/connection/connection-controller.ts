@@ -165,11 +165,7 @@ async function initializeConnection(host: ChatConnectionControllerHost, connecti
 function connectionErrorMessage(error: unknown, configuredCommand: string): string {
   const message = error instanceof Error ? error.message : String(error);
   if (!isMissingCommandError(error)) return message;
-  return missingCommandConnectionErrorMessage(message, configuredCommand);
-}
-
-function missingCommandConnectionErrorMessage(errorMessage: string, configuredCommand: string): string {
-  return `Could not start Codex app-server because the configured command was not found: ${configuredCommand}. Check the Codex command path in settings. (${errorMessage})`;
+  return `Could not start Codex app-server because the configured command was not found: ${configuredCommand}. Check the Codex command path in settings. (${message})`;
 }
 
 function isMissingCommandError(error: unknown): boolean {

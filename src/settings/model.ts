@@ -46,7 +46,7 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
     rewriteSelectionModel: modelOrDefault(record["rewriteSelectionModel"], DEFAULT_SETTINGS.rewriteSelectionModel),
     rewriteSelectionEffort: reasoningEffortOrDefault(record["rewriteSelectionEffort"], DEFAULT_SETTINGS.rewriteSelectionEffort),
     showToolbar: booleanOrDefault(record["showToolbar"], DEFAULT_SETTINGS.showToolbar),
-    sendShortcut: sendShortcutOrDefault(record["sendShortcut"]),
+    sendShortcut: record["sendShortcut"] === "mod-enter" ? "mod-enter" : DEFAULT_SETTINGS.sendShortcut,
     scrollThreadFromComposerEdges: booleanOrDefault(
       record["scrollThreadFromComposerEdges"],
       DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
@@ -88,10 +88,6 @@ function modelOrDefault(value: unknown, fallback: string | null): string | null 
 
 function reasoningEffortOrDefault(value: unknown, fallback: ReasoningEffort | null): ReasoningEffort | null {
   return normalizeReasoningEffort(value) ?? fallback;
-}
-
-function sendShortcutOrDefault(value: unknown): SendShortcut {
-  return value === "mod-enter" ? "mod-enter" : DEFAULT_SETTINGS.sendShortcut;
 }
 
 export function getVaultPath(app: App): string {

@@ -25,14 +25,6 @@ export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   setStatus: (status: string) => void;
 }
 
-function referencedThreadStatus(thread: Thread, includedTurns: number): string {
-  return `Referencing ${shortThreadId(thread.id)} (${String(includedTurns)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`;
-}
-
-function referencedThreadUnreadableMessage(): string {
-  return "Referenced thread has no readable conversation turns.";
-}
-
 export async function executeSlashCommandWithState(
   host: SlashCommandExecutorHost,
   command: SlashCommandName,
@@ -71,12 +63,12 @@ async function referencedThreadInput(
   try {
     const turns = await readReferencedThreadConversationSummaries(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
     if (turns.length === 0) {
-      host.addSystemMessage(referencedThreadUnreadableMessage());
+      host.addSystemMessage("Referenced thread has no readable conversation turns.");
       return null;
     }
     const reference = referencedThreadPromptBundle(thread, turns, message);
     const messageInput = host.codexInput(message);
-    host.setStatus(referencedThreadStatus(thread, turns.length));
+    host.setStatus(`Referencing ${shortThreadId(thread.id)} (${String(turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`);
     return {
       input: codexTextInputWithAttachments(reference.prompt, messageInput),
       referencedThread: reference.referencedThread,

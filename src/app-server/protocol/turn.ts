@@ -154,12 +154,10 @@ export function completedConversationSummariesFromTurnRecords(turns: readonly Tu
   });
 }
 
-function conversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
-  return nonEmptyConversationSummaries(turns.map(conversationSummaryFromTurnRecord));
-}
-
 export function chronologicalConversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
-  return conversationSummariesFromTurnRecords(chronologicalTurnRecords(turns));
+  return nonEmptyConversationSummaries(
+    [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0)).map(conversationSummaryFromTurnRecord),
+  );
 }
 
 export function turnUserItemText(item: Extract<TurnItem, { type: "userMessage" }>): string {
@@ -205,8 +203,4 @@ function userInputText(content: readonly AppServerUserInput[]): string {
     })
     .filter(Boolean)
     .join("\n");
-}
-
-function chronologicalTurnRecords(turns: readonly TurnRecord[]): TurnRecord[] {
-  return [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
 }

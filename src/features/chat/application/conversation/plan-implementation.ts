@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../../app-server/connection/client";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { type ChatMessageStreamState, messageStreamItems } from "../state/message-stream";
-import type { ChatActiveThreadState, ChatState } from "../state/root-reducer";
+import type { ChatActiveThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { type ChatTurnState, chatTurnBusy } from "./turn-state";
 
@@ -13,10 +13,6 @@ export interface PlanImplementationHost {
   connectedClient(): Promise<AppServerClient | null>;
   sendTurnText(text: string): Promise<void>;
   requestDefaultCollaborationModeForNextTurn(): void;
-}
-
-function canImplementPlanItemId(state: ChatState, itemId: string): boolean {
-  return itemId === implementPlanTargetFromState(state)?.itemId;
 }
 
 export function implementPlanTargetFromState(state: {
@@ -32,7 +28,7 @@ export function implementPlanTargetFromState(state: {
 }
 
 export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
-  if (!canImplementPlanItemId(host.stateStore.getState(), itemId)) return;
+  if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId) return;
   if (!(await host.connectedClient()) || !host.stateStore.getState().activeThread.id) return;
 
   host.requestDefaultCollaborationModeForNextTurn();

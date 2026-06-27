@@ -55,7 +55,13 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
     timedOutMessage: "Timed out while rewriting the selection.",
     abortMessage: "Selection rewrite cancelled.",
     signal: options.signal,
-    resolveRuntime: runtimeSettings ? (client) => selectionRewriteRuntimeOverrideForClient(client, runtimeSettings) : undefined,
+    resolveRuntime: runtimeSettings
+      ? (client) =>
+          resolvedRuntimeOverrideForClient(client, {
+            model: runtimeSettings.rewriteSelectionModel,
+            effort: runtimeSettings.rewriteSelectionEffort,
+          })
+      : undefined,
     clientFactory: options.clientFactory,
     onProgress: (event) => {
       if (event.type === "reasoning-activity") {
@@ -70,8 +76,4 @@ export async function runSelectionRewrite(options: RunSelectionRewriteOptions): 
   const { output, rawText } = selectionRewriteOutputParseResultFromText(lastAgentText);
   if (!output) throw new SelectionRewriteOutputError("Codex did not return a valid selection rewrite response.", rawText);
   return output;
-}
-
-async function selectionRewriteRuntimeOverrideForClient(client: ModelMetadataClient, settings: SelectionRewriteRuntimeSettings) {
-  return resolvedRuntimeOverrideForClient(client, { model: settings.rewriteSelectionModel, effort: settings.rewriteSelectionEffort });
 }

@@ -1,6 +1,6 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import type { Diagnostics, McpServerDiagnostic, McpServerStatusSummary } from "../../../../domain/server/diagnostics";
-import type { ToolInventoryApp, ToolInventoryPlugin, ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
+import type { ToolInventoryPlugin, ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
 import type { DiagnosticRow, DiagnosticSection } from "./diagnostic-sections";
 
 const PERSONAL_SKILLS_LABEL = "Personal";
@@ -50,7 +50,7 @@ function pluginRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
   if (inventory.pluginsError) return [{ label: "Plugins", value: inventory.pluginsError, level: "error" }];
   if (!inventory.plugins) return [{ label: "Plugins", value: "not loaded", level: "warning" }];
 
-  const rows = inventory.plugins.filter(isUsablePlugin).map(pluginRow);
+  const rows = inventory.plugins.filter((plugin) => plugin.enabled && plugin.installed).map(pluginRow);
   return rows.length > 0 ? rows : [{ label: "Plugins", value: "(none)" }];
 }
 
@@ -70,7 +70,10 @@ function toolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
 function codexAppsProviderRow(inventory: ToolInventorySnapshot): DiagnosticRow {
   if (inventory.appsError) return { label: CODEX_APPS_PROVIDER_LABEL, value: inventory.appsError, level: "error" };
   if (!inventory.apps) return { label: CODEX_APPS_PROVIDER_LABEL, value: "not loaded", level: "warning" };
-  return { label: CODEX_APPS_PROVIDER_LABEL, value: listSummary(inventory.apps.filter(isUsableApp).map((app) => app.name)) };
+  return {
+    label: CODEX_APPS_PROVIDER_LABEL,
+    value: listSummary(inventory.apps.filter((app) => app.enabled && app.accessible).map((app) => app.name)),
+  };
 }
 
 function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
@@ -151,14 +154,6 @@ function skillRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
   return [...skillsByProvenance.entries()]
     .sort(([left], [right]) => compareSkillProvenance(left, right, provenanceRanks))
     .map(([provenance, skills]) => ({ label: provenance, value: listSummary([...skills]) }));
-}
-
-function isUsableApp(app: ToolInventoryApp): boolean {
-  return app.enabled && app.accessible;
-}
-
-function isUsablePlugin(plugin: ToolInventoryPlugin): boolean {
-  return plugin.enabled && plugin.installed;
 }
 
 function pluginBundleSummary(plugin: ToolInventoryPlugin): string {

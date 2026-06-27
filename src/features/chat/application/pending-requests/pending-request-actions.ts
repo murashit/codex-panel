@@ -2,8 +2,6 @@ import {
   type ApprovalAction,
   answersForPendingUserInput,
   type McpElicitationAction,
-  type PendingApproval,
-  type PendingMcpElicitation,
   type PendingRequestId,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
@@ -41,7 +39,7 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
   let lastFocusSignature = "";
 
   const resolveApproval = (requestId: PendingRequestId, approvalAction: ApprovalAction): void => {
-    const approval = pendingApproval(host, requestId);
+    const approval = host.stateStore.getState().requests.approvals.find((item) => item.requestId === requestId) ?? null;
     if (!approval) return;
     host.responder.resolveApproval(requestId, approvalAction);
     commitRequestAction(host);
@@ -65,7 +63,7 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
   };
 
   const resolveMcpElicitation = (requestId: PendingRequestId, action: McpElicitationAction): void => {
-    const elicitation = pendingMcpElicitation(host, requestId);
+    const elicitation = host.stateStore.getState().requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
     if (!elicitation) return;
     host.responder.resolveMcpElicitation(requestId, action);
     commitRequestAction(host);
@@ -132,16 +130,8 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
   };
 }
 
-function pendingApproval(host: PendingRequestActionsHost, requestId: PendingRequestId): PendingApproval | null {
-  return host.stateStore.getState().requests.approvals.find((approval) => approval.requestId === requestId) ?? null;
-}
-
 function pendingUserInput(host: PendingRequestActionsHost, requestId: PendingRequestId): PendingUserInput | null {
   return host.stateStore.getState().requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
-}
-
-function pendingMcpElicitation(host: PendingRequestActionsHost, requestId: PendingRequestId): PendingMcpElicitation | null {
-  return host.stateStore.getState().requests.pendingMcpElicitations.find((elicitation) => elicitation.requestId === requestId) ?? null;
 }
 
 function commitRequestAction(host: PendingRequestActionsHost): void {

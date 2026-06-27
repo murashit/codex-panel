@@ -36,17 +36,9 @@ export function createResumeActions(host: ResumeActionsHost): ResumeActions {
   };
 }
 
-function finishBeforeSwitchingThreadsMessage(): string {
-  return "Finish or interrupt the current turn before switching threads.";
-}
-
-function resumedThreadMessage(threadId: string): string {
-  return `Resumed thread ${threadId}`;
-}
-
 async function resumeThread(host: ResumeActionsHost, threadId: string): Promise<void> {
   if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
-    host.addSystemMessage(finishBeforeSwitchingThreadsMessage());
+    host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
     return;
   }
   const resume = host.resumeWork.begin(threadId);
@@ -70,7 +62,7 @@ async function resumeThread(host: ResumeActionsHost, threadId: string): Promise<
     if (isStaleResume(host, resume)) return;
     const renderFallbackMessage = messageStreamIsEmpty(host.stateStore.getState().messageStream);
     if (renderFallbackMessage) {
-      host.addSystemMessage(resumedThreadMessage(response.activation.thread.id));
+      host.addSystemMessage(`Resumed thread ${response.activation.thread.id}`);
     }
     host.refreshLiveState();
   } catch (error) {

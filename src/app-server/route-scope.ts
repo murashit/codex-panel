@@ -22,16 +22,13 @@ export function isTurnScopedMessageForIdleActiveThread(messageScope: MessageScop
 }
 
 export function fallbackMessageScope(message: { params?: unknown }): MessageScope {
-  const params = messageParams(message);
+  const rawParams = message.params;
+  const params =
+    rawParams !== null && typeof rawParams === "object" && !Array.isArray(rawParams) ? (rawParams as Record<string, unknown>) : null;
   return {
     threadId: stringParam(params, "threadId"),
     turnId: stringParam(params, "turnId"),
   };
-}
-
-function messageParams(message: { params?: unknown }): Record<string, unknown> | null {
-  const params = message.params;
-  return params !== null && typeof params === "object" && !Array.isArray(params) ? (params as Record<string, unknown>) : null;
 }
 
 function stringParam(params: Record<string, unknown> | null, key: string): string | null {

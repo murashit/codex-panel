@@ -50,11 +50,5 @@ function appServerUserInputItemFromCodexInputItem(item: CodexInputItem): AppServ
 function appServerImageDetailProp(detail: Extract<CodexInputItem, { type: "image" | "localImage" }>["detail"]): {
   detail?: AppServerUserInputImageDetail;
 } {
-  return detail === undefined ? {} : { detail: appServerUserInputImageDetail(detail) };
-}
-
-function appServerUserInputImageDetail(
-  detail: NonNullable<Extract<CodexInputItem, { type: "image" | "localImage" }>["detail"]>,
-): AppServerUserInputImageDetail {
-  return detail;
+  return detail === undefined ? {} : { detail };
 }

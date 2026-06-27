@@ -44,9 +44,7 @@ type GoalObjectiveSavePlan =
 
 type NormalizedGoalObjective = string & { readonly __brand: "NormalizedGoalObjective" };
 
-function emptyGoalObjectiveMessage(): string {
-  return "Goal objective cannot be empty.";
-}
+const EMPTY_GOAL_OBJECTIVE_MESSAGE = "Goal objective cannot be empty.";
 
 export function createThreadGoalSyncActions(host: ThreadGoalSyncHost): ThreadGoalSyncActions {
   return {
@@ -93,7 +91,7 @@ async function syncThreadGoal(host: ThreadGoalSyncHost, threadId: string): Promi
 async function setObjective(host: GoalActionsHost, threadId: string, objective: string, tokenBudget: number | null): Promise<boolean> {
   const normalized = normalizedGoalObjective(objective);
   if (!normalized) {
-    host.addSystemMessage(emptyGoalObjectiveMessage());
+    host.addSystemMessage(EMPTY_GOAL_OBJECTIVE_MESSAGE);
     return false;
   }
   return setNormalizedObjective(host, threadId, normalized, tokenBudget);
@@ -186,7 +184,7 @@ function startEditing(host: GoalActionsHost, threadId: string | null, objective:
 
 function planGoalObjectiveSave(activeThreadId: string | null, objective: string, tokenBudget: number | null): GoalObjectiveSavePlan {
   const normalized = normalizedGoalObjective(objective);
-  if (!normalized) return { kind: "reject", message: emptyGoalObjectiveMessage() };
+  if (!normalized) return { kind: "reject", message: EMPTY_GOAL_OBJECTIVE_MESSAGE };
   return activeThreadId
     ? { kind: "save-existing", threadId: activeThreadId, objective: normalized, tokenBudget }
     : { kind: "start-thread-and-save", objective: normalized, tokenBudget };

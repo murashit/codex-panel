@@ -16,7 +16,8 @@ export interface ConfigReadResult {
 }
 
 export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadResult): RuntimeConfigSnapshot {
-  const config = asRecord(response.config);
+  const rawConfig = response.config;
+  const config = rawConfig && typeof rawConfig === "object" ? (rawConfig as Record<string, unknown>) : {};
   const effort = config["model_reasoning_effort"];
   return {
     profile: selectedConfigProfile(response.layers),
@@ -30,10 +31,6 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadRes
     modelContextWindow: numberOrNull(config["model_context_window"]),
     autoCompactTokenLimit: numberOrNull(config["model_auto_compact_token_limit"]),
   };
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 function selectedConfigProfile(layers: ConfigReadResult["layers"]): string | null {

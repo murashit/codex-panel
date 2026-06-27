@@ -1,4 +1,3 @@
-import type { Thread } from "../../../../domain/threads/model";
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import type { ThreadOperations } from "../../../threads/thread-operations";
@@ -50,7 +49,7 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
     },
 
     start(threadId: string): void {
-      const thread = threadById(host, threadId);
+      const thread = host.stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
       if (!thread) return;
       dispatch(host, { type: "ui/rename-started", threadId, draft: threadRenameDraftTitle(thread) });
     },
@@ -133,8 +132,4 @@ function finishAutoNameDraftGeneration(
   generatingState: ChatRenameGeneratingUiState,
 ): void {
   dispatch(host, { type: "ui/rename-generation-finished", threadId, generatingState });
-}
-
-function threadById(host: ThreadRenameEditorActionsHost, threadId: string): Thread | undefined {
-  return host.stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
 }

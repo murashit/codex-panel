@@ -748,14 +748,7 @@ function bigintToNumberOrNull(value: unknown): number | null {
 
 function toJsonContent(content: Record<string, McpElicitationContentValue> | null): unknown {
   if (!content) return null;
-  return Object.fromEntries(Object.entries(content).map(([key, value]) => [key, toJsonValue(value)]));
-}
-
-function toJsonValue(value: McpElicitationContentValue): unknown {
-  if (isReadonlyStringArray(value)) return [...value];
-  return value;
-}
-
-function isReadonlyStringArray(value: McpElicitationContentValue): value is readonly string[] {
-  return Array.isArray(value);
+  return Object.fromEntries(
+    Object.entries(content).map(([key, value]) => [key, Array.isArray(value) ? Array.from(value as readonly string[]) : value]),
+  );
 }

@@ -1,7 +1,7 @@
 import type { ComponentChild as UiNode } from "preact";
 
 import type { ExecutionState } from "../../domain/message-stream/items";
-import type { AgentRunSummaryView, MessageStreamStatusView, StatusChecklistItem } from "../../presentation/message-stream/status-view";
+import type { AgentRunSummaryView, MessageStreamStatusView } from "../../presentation/message-stream/status-view";
 
 export function agentRunSummaryNode(view: AgentRunSummaryView): UiNode {
   return <AgentRunSummary view={view} />;
@@ -44,8 +44,19 @@ function TaskProgress({ view }: { view: Extract<MessageStreamStatusView, { kind:
       ) : (
         <ul className="codex-panel__task-list">
           {view.checklist.map((step) => (
-            <li key={`${step.status}\n${step.step}`} className={taskStepClassName(step.status)}>
-              <span className="codex-panel__task-marker">{taskStatusMarker(step.status)}</span>
+            <li
+              key={`${step.status}\n${step.step}`}
+              className={
+                step.status === "completed"
+                  ? "codex-panel__task-step codex-panel__task-step--completed"
+                  : step.status === "inProgress"
+                    ? "codex-panel__task-step codex-panel__task-step--inProgress"
+                    : "codex-panel__task-step"
+              }
+            >
+              <span className="codex-panel__task-marker">
+                {step.status === "completed" ? "[x]" : step.status === "inProgress" ? "[>]" : "[ ]"}
+              </span>
               <span className="codex-panel__task-text">{step.step}</span>
             </li>
           ))}
@@ -53,18 +64,6 @@ function TaskProgress({ view }: { view: Extract<MessageStreamStatusView, { kind:
       )}
     </StatusMessage>
   );
-}
-
-function taskStatusMarker(status: StatusChecklistItem["status"]): string {
-  if (status === "completed") return "[x]";
-  if (status === "inProgress") return "[>]";
-  return "[ ]";
-}
-
-function taskStepClassName(status: StatusChecklistItem["status"]): string {
-  if (status === "completed") return "codex-panel__task-step codex-panel__task-step--completed";
-  if (status === "inProgress") return "codex-panel__task-step codex-panel__task-step--inProgress";
-  return "codex-panel__task-step";
 }
 
 function ContextCompaction({ view }: { view: Extract<MessageStreamStatusView, { kind: "contextCompaction" }> }): UiNode {

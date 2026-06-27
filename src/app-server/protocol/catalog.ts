@@ -95,7 +95,7 @@ function hookItemFromCatalogHook(hook: CatalogHookMetadata): HookItem {
     enabled: hook.enabled,
     isManaged: hook.isManaged,
     currentHash: hook.currentHash,
-    trustStatus: hookTrustStatusFromCatalogTrustStatus(hook.trustStatus),
+    trustStatus: hook.trustStatus,
   };
 }
 
@@ -107,14 +107,6 @@ export function appServerHookOperationFromHookItem(hook: HookItem): AppServerHoo
   return {
     key: hook.key,
     currentHash: hook.currentHash,
-    trustStatus: appServerHookTrustStatus(hook.trustStatus),
+    trustStatus: hook.trustStatus,
   };
-}
-
-function hookTrustStatusFromCatalogTrustStatus(status: AppServerHookTrustStatus): HookItem["trustStatus"] {
-  return status;
-}
-
-function appServerHookTrustStatus(status: HookItem["trustStatus"]): AppServerHookTrustStatus {
-  return status;
 }

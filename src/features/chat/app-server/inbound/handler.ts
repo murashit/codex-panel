@@ -10,8 +10,6 @@ import {
   type ApprovalAction,
   contentForPendingMcpElicitation,
   type McpElicitationAction,
-  type PendingApproval,
-  type PendingMcpElicitation,
   type PendingRequestId,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
@@ -31,34 +29,6 @@ import {
 import type { AppServerResourceEvent } from "../actions/metadata";
 import { classifyAppServerLog } from "./app-server-logs";
 import { type ChatNotificationEffect, planChatNotification } from "./notification-plan";
-
-function cannotSendApprovalResponseMessage(): string {
-  return "Could not send approval response because Codex app-server is not connected.";
-}
-
-function cannotSendUserInputMessage(): string {
-  return "Could not send user input because Codex app-server is not connected.";
-}
-
-function cannotCancelUserInputMessage(): string {
-  return "Could not cancel user input because Codex app-server is not connected.";
-}
-
-function cannotSendMcpElicitationMessage(): string {
-  return "Could not send MCP request response because Codex app-server is not connected.";
-}
-
-function cannotSendCurrentTimeMessage(): string {
-  return "Could not send current time because Codex app-server is not connected.";
-}
-
-function userCancelledInputRequestMessage(): string {
-  return "User cancelled input request.";
-}
-
-function cannotRejectServerRequestMessage(): string {
-  return "Could not reject app-server request because Codex app-server is not connected.";
-}
 
 export interface ChatInboundHandlerActions {
   refreshActiveThreads: () => void;
@@ -144,29 +114,34 @@ function handleNotification(context: ChatInboundHandlerContext, notification: Se
 }
 
 function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
-  const route = routeServerRequest(request, activeRouteScope(context));
+  const current = state(context);
+  const route = routeServerRequest(request, { activeThreadId: current.activeThread.id, activeTurnId: activeTurnId(current) });
   switch (route.kind) {
     case "approval":
-      queueApprovalRequest(context, route.approval);
+      dispatch(context, { type: "request/approval-queued", approval: route.approval });
       return;
     case "userInput":
-      queueUserInputRequest(context, route.input);
+      dispatch(context, { type: "request/user-input-queued", input: route.input });
       return;
     case "mcpElicitation":
-      queueMcpElicitationRequest(context, route.elicitation);
+      dispatch(context, { type: "request/mcp-elicitation-queued", elicitation: route.elicitation });
       return;
     case "currentTime":
-      respondToCurrentTimeRequest(context, route.request);
+      if (!context.actions.respondToServerRequest(route.request.id, serverRequestCurrentTimeResponse(Date.now()))) {
+        addSystemMessage(context, "Could not send current time because Codex app-server is not connected.");
+      }
       return;
     case "inactive":
       rejectServerRequest(context, request, `Rejected inactive app-server request: ${request.method}`);
       return;
     case "unsupported":
-      rejectUnsupportedServerRequest(context, request);
+      rejectServerRequest(context, request, `Rejected unsupported app-server request: ${request.method}`);
       return;
-    case "unknown":
-      rejectUnknownServerRequest(context, request);
+    case "unknown": {
+      const message = `Rejected unknown app-server request: ${request.method}`;
+      context.actions.rejectServerRequest(request.id, -32601, message);
       return;
+    }
   }
 }
 
@@ -181,10 +156,10 @@ function handleAppServerLog(context: ChatInboundHandlerContext, message: string)
 }
 
 function resolveApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: ApprovalAction): void {
-  const approval = pendingApproval(context, requestId);
+  const approval = state(context).requests.approvals.find((item) => item.requestId === requestId) ?? null;
   if (!approval) return;
   if (!context.actions.respondToServerRequest(approval.requestId, serverRequestApprovalResponse(approval, action))) {
-    addSystemMessage(context, cannotSendApprovalResponseMessage());
+    addSystemMessage(context, "Could not send approval response because Codex app-server is not connected.");
     return;
   }
   dispatch(context, { type: "request/resolved", requestId: approval.requestId, resultItem: createApprovalResultItem(approval, action) });
@@ -194,7 +169,7 @@ function resolveUserInput(context: ChatInboundHandlerContext, requestId: Pending
   const input = pendingUserInput(context, requestId);
   if (!input) return;
   if (!context.actions.respondToServerRequest(input.requestId, serverRequestUserInputResponse(input.params.questions, answers))) {
-    addSystemMessage(context, cannotSendUserInputMessage());
+    addSystemMessage(context, "Could not send user input because Codex app-server is not connected.");
     return;
   }
   dispatch(context, {
@@ -207,8 +182,8 @@ function resolveUserInput(context: ChatInboundHandlerContext, requestId: Pending
 function cancelUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): void {
   const input = pendingUserInput(context, requestId);
   if (!input) return;
-  if (!context.actions.rejectServerRequest(input.requestId, -32000, userCancelledInputRequestMessage())) {
-    addSystemMessage(context, cannotCancelUserInputMessage());
+  if (!context.actions.rejectServerRequest(input.requestId, -32000, "User cancelled input request.")) {
+    addSystemMessage(context, "Could not cancel user input because Codex app-server is not connected.");
     return;
   }
   dispatch(context, {
@@ -219,11 +194,11 @@ function cancelUserInput(context: ChatInboundHandlerContext, requestId: PendingR
 }
 
 function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: PendingRequestId, action: McpElicitationAction): void {
-  const elicitation = pendingMcpElicitation(context, requestId);
+  const elicitation = state(context).requests.pendingMcpElicitations.find((item) => item.requestId === requestId) ?? null;
   if (!elicitation) return;
   const content = action === "accept" ? contentForPendingMcpElicitation(elicitation, state(context).requests.mcpElicitationDrafts) : null;
   if (!context.actions.respondToServerRequest(elicitation.requestId, serverRequestMcpElicitationResponse(action, content))) {
-    addSystemMessage(context, cannotSendMcpElicitationMessage());
+    addSystemMessage(context, "Could not send MCP request response because Codex app-server is not connected.");
     return;
   }
   dispatch(context, {
@@ -233,25 +208,8 @@ function resolveMcpElicitation(context: ChatInboundHandlerContext, requestId: Pe
   });
 }
 
-function respondToCurrentTimeRequest(
-  context: ChatInboundHandlerContext,
-  request: Extract<ServerRequest, { method: "currentTime/read" }>,
-): void {
-  if (!context.actions.respondToServerRequest(request.id, serverRequestCurrentTimeResponse(Date.now()))) {
-    addSystemMessage(context, cannotSendCurrentTimeMessage());
-  }
-}
-
-function pendingApproval(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingApproval | null {
-  return state(context).requests.approvals.find((approval) => approval.requestId === requestId) ?? null;
-}
-
 function pendingUserInput(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingUserInput | null {
   return state(context).requests.pendingUserInputs.find((input) => input.requestId === requestId) ?? null;
-}
-
-function pendingMcpElicitation(context: ChatInboundHandlerContext, requestId: PendingRequestId): PendingMcpElicitation | null {
-  return state(context).requests.pendingMcpElicitations.find((elicitation) => elicitation.requestId === requestId) ?? null;
 }
 
 function addSystemMessage(context: ChatInboundHandlerContext, text: string): void {
@@ -269,40 +227,10 @@ function addDedupedSystemMessage(context: ChatInboundHandlerContext, text: strin
   dispatch(context, { type: "message-stream/deduped-log-added", text, item: createSystemItem(localItemId(context, "system"), text) });
 }
 
-function queueApprovalRequest(context: ChatInboundHandlerContext, approval: PendingApproval): void {
-  dispatch(context, { type: "request/approval-queued", approval });
-}
-
-function queueUserInputRequest(context: ChatInboundHandlerContext, userInput: PendingUserInput): void {
-  dispatch(context, { type: "request/user-input-queued", input: userInput });
-}
-
-function queueMcpElicitationRequest(context: ChatInboundHandlerContext, elicitation: PendingMcpElicitation): void {
-  dispatch(context, { type: "request/mcp-elicitation-queued", elicitation });
-}
-
-function activeRouteScope(context: ChatInboundHandlerContext): { activeThreadId: string | null; activeTurnId: string | null } {
-  const current = state(context);
-  return {
-    activeThreadId: current.activeThread.id,
-    activeTurnId: activeTurnId(current),
-  };
-}
-
-function rejectUnsupportedServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
-  const message = `Rejected unsupported app-server request: ${request.method}`;
-  rejectServerRequest(context, request, message);
-}
-
-function rejectUnknownServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
-  const message = `Rejected unknown app-server request: ${request.method}`;
-  context.actions.rejectServerRequest(request.id, -32601, message);
-}
-
 function rejectServerRequest(context: ChatInboundHandlerContext, request: ServerRequest, message: string): void {
   addSystemMessage(context, message);
   if (!context.actions.rejectServerRequest(request.id, -32601, message)) {
-    addSystemMessage(context, cannotRejectServerRequestMessage());
+    addSystemMessage(context, "Could not reject app-server request because Codex app-server is not connected.");
   }
 }
 

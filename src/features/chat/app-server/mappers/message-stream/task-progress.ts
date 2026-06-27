@@ -3,7 +3,7 @@ import {
   executionStateFromStatus,
   RUNNING_EXECUTION_STATE,
 } from "../../../domain/message-stream/execution-state";
-import type { ExecutionState, MessageStreamItem } from "../../../domain/message-stream/items";
+import type { MessageStreamItem } from "../../../domain/message-stream/items";
 
 const TASK_STATES = {
   pending: RUNNING_EXECUTION_STATE,
@@ -16,10 +16,6 @@ type TaskStepStatus = "pending" | "inProgress" | "completed";
 interface TaskPlanStep {
   step: string;
   status: TaskStepStatus;
-}
-
-function taskProgressExecutionState(status: string): ExecutionState {
-  return executionStateFromStatus(status, TASK_STATES);
 }
 
 export function taskProgressMessageStreamItem(
@@ -39,6 +35,6 @@ export function taskProgressMessageStreamItem(
     explanation: trimmedExplanation !== undefined && trimmedExplanation.length > 0 ? trimmedExplanation : null,
     steps: plan.map((step) => ({ step: step.step, status: step.status })),
     status,
-    executionState: taskProgressExecutionState(status),
+    executionState: executionStateFromStatus(status, TASK_STATES),
   };
 }

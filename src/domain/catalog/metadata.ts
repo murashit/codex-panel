@@ -44,12 +44,8 @@ export interface HookItem {
 
 export type ReasoningEffort = string;
 
-function nonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
 export function normalizeReasoningEffort(value: unknown): ReasoningEffort | null {
-  return nonEmptyString(value) ? value.trim() : null;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 export function supportedEffortsForModelMetadata(model: ModelMetadata | null): ReasoningEffort[] {

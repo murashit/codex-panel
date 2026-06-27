@@ -3,7 +3,7 @@ import {
   executionStateFromStatus,
   RUNNING_EXECUTION_STATE,
 } from "../../../domain/message-stream/execution-state";
-import type { ExecutionState, HookMessageStreamItem } from "../../../domain/message-stream/items";
+import type { HookMessageStreamItem } from "../../../domain/message-stream/items";
 
 interface MessageStreamHookRun {
   id: string;
@@ -24,8 +24,9 @@ const HOOK_RUN_STATES: ExecutionStateByStatus = {
 
 export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: string | null, status: string): HookMessageStreamItem | null {
   if (run.id.length === 0) return null;
-  const eventName = hookEventName(run.eventName);
-  const displayId = hookRunDisplayId(run);
+  const trimmedEventName = run.eventName?.trim();
+  const eventName = trimmedEventName && trimmedEventName.length > 0 ? trimmedEventName : "Hook";
+  const displayId = `hook-${run.id}-${run.startedAt.toString()}`;
   return {
     id: displayId,
     kind: "hook",
@@ -37,7 +38,7 @@ export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: stri
     sourceItemId: displayId,
     provenance: { source: "appServer", channel: "notification", event: "hookRun", sourceItemId: displayId },
     status,
-    executionState: hookRunExecutionState(status),
+    executionState: executionStateFromStatus(status, HOOK_RUN_STATES),
     hookRun: {
       eventName,
       ...definedProp("statusMessage", run.statusMessage ?? undefined),
@@ -46,19 +47,6 @@ export function hookRunMessageStreamItem(run: MessageStreamHookRun, turnId: stri
     },
     output: "",
   };
-}
-
-function hookRunExecutionState(status: string): ExecutionState {
-  return executionStateFromStatus(status, HOOK_RUN_STATES);
-}
-
-function hookRunDisplayId(run: MessageStreamHookRun): string {
-  return `hook-${run.id}-${run.startedAt.toString()}`;
-}
-
-function hookEventName(eventName: string | null | undefined): string {
-  const trimmed = eventName?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : "Hook";
 }
 
 function definedProp<Key extends string, Value>(key: Key, value: Value | null | undefined): Record<Key, Value> | Record<string, never> {

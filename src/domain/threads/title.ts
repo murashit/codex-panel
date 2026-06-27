@@ -26,7 +26,9 @@ export function threadArchiveTitle(thread: Thread): string {
 }
 
 export function threadArchiveDisplayTitle(thread: Thread): string {
-  return truncateThreadTitle(threadArchiveTitle(thread), MAX_ARCHIVED_THREAD_DISPLAY_TITLE_LENGTH);
+  const title = threadArchiveTitle(thread);
+  if (title.length <= MAX_ARCHIVED_THREAD_DISPLAY_TITLE_LENGTH) return title;
+  return `${title.slice(0, MAX_ARCHIVED_THREAD_DISPLAY_TITLE_LENGTH - 3).trimEnd()}...`;
 }
 
 export function threadWindowTitle(activeThreadId: string | null, threads: readonly Thread[], fallbackTitle?: string | null): string {
@@ -44,9 +46,4 @@ export function threadWindowTitle(activeThreadId: string | null, threads: readon
 
 function normalizeThreadTitleText(value: string | null | undefined): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
-}
-
-function truncateThreadTitle(value: string, maxLength: number): string {
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength - 3).trimEnd()}...`;
 }

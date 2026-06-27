@@ -19,7 +19,7 @@ export function threadGoalFromAppServerGoal(goal: AppServerThreadGoal | null): T
   return {
     threadId: goal.threadId,
     objective: goal.objective,
-    status: threadGoalStatusFromAppServerStatus(goal.status),
+    status: goal.status,
     tokenBudget: goal.tokenBudget,
     tokensUsed: finiteNumber(goal.tokensUsed),
     timeUsedSeconds: finiteNumber(goal.timeUsedSeconds),
@@ -35,7 +35,7 @@ export function appServerThreadGoalUpdate(update: ThreadGoalUpdate): {
 } {
   return {
     ...("objective" in update ? { objective: update.objective } : {}),
-    ...("status" in update ? { status: update.status === null ? null : appServerThreadGoalStatus(update.status) } : {}),
+    ...("status" in update ? { status: update.status === null ? null : update.status } : {}),
     ...("tokenBudget" in update ? { tokenBudget: update.tokenBudget } : {}),
   };
 }
@@ -46,14 +46,6 @@ export function appServerThreadGoalUserHistoryItem(text: string): AppServerJsonV
     role: "user",
     content: [{ type: "input_text", text }],
   };
-}
-
-function threadGoalStatusFromAppServerStatus(status: AppServerThreadGoalStatus): ThreadGoalStatus {
-  return status;
-}
-
-function appServerThreadGoalStatus(status: ThreadGoalStatus): AppServerThreadGoalStatus {
-  return status;
 }
 
 function finiteNumber(value: number): number {

@@ -5,8 +5,7 @@ import {
   threadTitleFromGeneratedText,
   threadTitlePrompt,
 } from "../../domain/threads/title-generation-model";
-import type { ModelMetadataClient } from "../catalog";
-import { conversationAssistantTextFromTurnRecord, type TurnRecord } from "../protocol/turn";
+import { conversationAssistantTextFromTurnRecord } from "../protocol/turn";
 import {
   type EphemeralStructuredTurnClientFactory,
   runEphemeralStructuredTurn,
@@ -60,17 +59,10 @@ export async function generateThreadTitleWithCodex(
     serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
     exitedMessage: "Codex title generation app-server exited.",
     timedOutMessage: "Timed out while generating a Codex thread title.",
-    resolveRuntime: (client) => threadTitleRuntimeOverrideForClient(client, runtimeSettings),
+    resolveRuntime: (client) =>
+      resolvedRuntimeOverrideForClient(client, { model: runtimeSettings.threadNamingModel, effort: runtimeSettings.threadNamingEffort }),
     clientFactory,
   });
-  return threadTitleFromGenerationTurn(turn);
-}
-
-function threadTitleFromGenerationTurn(turn: TurnRecord): string | null {
   const response = conversationAssistantTextFromTurnRecord(turn);
   return response ? threadTitleFromGeneratedText(response) : null;
-}
-
-async function threadTitleRuntimeOverrideForClient(client: ModelMetadataClient, settings: ThreadTitleRuntimeSettings) {
-  return resolvedRuntimeOverrideForClient(client, { model: settings.threadNamingModel, effort: settings.threadNamingEffort });
 }

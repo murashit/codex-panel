@@ -84,10 +84,6 @@ export type ChatConnectionPhase =
   | { kind: "failed"; message: string }
   | { kind: "disconnected"; message: string };
 
-function turnCompletedStatus(status: string): string {
-  return `Turn ${status}.`;
-}
-
 interface ChatConnectionState {
   readonly phase: ChatConnectionPhase;
   readonly statusText: string;
@@ -244,7 +240,7 @@ export function createChatState(): ChatState {
     connection: initialConnectionState(),
     threadList: initialThreadListState(),
     activeThread: initialActiveThreadState(),
-    runtime: initialRuntimeState(),
+    runtime: initialChatRuntimeState(),
     turn: initialTurnState(),
     messageStream: initialMessageStreamState(),
     requests: initialRequestState(),
@@ -394,7 +390,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   return patchChatState(state, {
     turn: { lifecycle },
     messageStream: messageStreamWithItems(state.messageStream, action.items),
-    connection: { ...state.connection, statusText: turnCompletedStatus(action.status) },
+    connection: { ...state.connection, statusText: `Turn ${action.status}.` },
   });
 }
 
@@ -628,10 +624,6 @@ function initialActiveThreadState(): ChatActiveThreadState {
     goal: null,
     tokenUsage: null,
   };
-}
-
-function initialRuntimeState(): ChatRuntimeState {
-  return initialChatRuntimeState();
 }
 
 function initialTurnState(): ChatTurnState {

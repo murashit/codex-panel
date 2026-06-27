@@ -9,7 +9,7 @@ import type {
 } from "../../domain/message-stream/items";
 import { messageStreamReasoningIsActive } from "../../domain/message-stream/semantics/active-turn";
 
-export type StatusChecklistItem = TaskProgressMessageStreamItem["steps"][number];
+type StatusChecklistItem = TaskProgressMessageStreamItem["steps"][number];
 
 export type MessageStreamStatusView =
   | {

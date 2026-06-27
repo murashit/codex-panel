@@ -77,22 +77,6 @@ export interface ThreadReferenceInput {
   referencedThread: ReferencedThreadMetadata;
 }
 
-function currentThreadReferenceMessage(): string {
-  return "Use the current thread directly instead of referencing it.";
-}
-
-function noActiveThreadToForkMessage(): string {
-  return "No active thread to fork.";
-}
-
-function noActiveThreadToRollbackMessage(): string {
-  return "No active thread to roll back.";
-}
-
-function noActiveThreadToCompactMessage(): string {
-  return "No active thread to compact.";
-}
-
 export async function executeSlashCommand(
   command: SlashCommandName,
   args: string,
@@ -132,7 +116,7 @@ export async function executeSlashCommand(
         return;
       }
       if (thread.thread.id === context.activeThreadId) {
-        context.addSystemMessage(currentThreadReferenceMessage());
+        context.addSystemMessage("Use the current thread directly instead of referencing it.");
         return;
       }
       const reference = await context.referThread(thread.thread, parsed.message);
@@ -141,21 +125,21 @@ export async function executeSlashCommand(
     }
     case "fork":
       if (!context.activeThreadId) {
-        context.addSystemMessage(noActiveThreadToForkMessage());
+        context.addSystemMessage("No active thread to fork.");
         return;
       }
       await context.threadActions.forkThread(context.activeThreadId);
       return;
     case "rollback":
       if (!context.activeThreadId) {
-        context.addSystemMessage(noActiveThreadToRollbackMessage());
+        context.addSystemMessage("No active thread to roll back.");
         return;
       }
       await context.threadActions.rollbackThread(context.activeThreadId);
       return;
     case "compact":
       if (!context.activeThreadId) {
-        context.addSystemMessage(noActiveThreadToCompactMessage());
+        context.addSystemMessage("No active thread to compact.");
         return;
       }
       await context.threadActions.compactThread(context.activeThreadId);

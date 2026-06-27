@@ -121,15 +121,11 @@ export function messageStreamIsEmpty(state: Pick<ChatMessageStreamState, "stable
   return state.stableItems.length === 0 && (!state.activeSegment || state.activeSegment.items.length === 0);
 }
 
-function messageStreamTurnIds(state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">): string[] {
-  return orderedTurnIds(messageStreamItems(state));
-}
-
 export function messageStreamTurnsAfterTurnId(
   state: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">,
   turnId: string,
 ): number | null {
-  const turnIds = messageStreamTurnIds(state);
+  const turnIds = orderedTurnIds(messageStreamItems(state));
   const index = turnIds.indexOf(turnId);
   return index === -1 ? null : turnIds.length - index - 1;
 }
@@ -191,7 +187,7 @@ export function reduceMessageStreamSlice(state: ChatMessageStreamState, action: 
   switch (action.type) {
     case "message-stream/item-added":
     case "message-stream/system-item-added":
-      return appendMessageStreamItem(state, action.item);
+      return patchObject(state, appendMessageStreamItemPatch(state, action.item));
     case "message-stream/deduped-log-added":
       if (state.reportedLogs.has(action.text)) return state;
       return patchObject(state, {
@@ -224,10 +220,6 @@ export function reduceMessageStreamSlice(state: ChatMessageStreamState, action: 
         turnDiffs: updatedTurnDiffs(state.turnDiffs, action.turnId, action.diff),
       });
   }
-}
-
-function appendMessageStreamItem(state: ChatMessageStreamState, item: MessageStreamItem): ChatMessageStreamState {
-  return patchObject(state, appendMessageStreamItemPatch(state, item));
 }
 
 function appendMessageStreamItemPatch(state: ChatMessageStreamState, item: MessageStreamItem): Partial<ChatMessageStreamState> {
@@ -459,7 +451,7 @@ function appendActiveSegmentItem(segment: ChatMessageStreamActiveSegment, item: 
 function upsertActiveSegmentItem(segment: ChatMessageStreamActiveSegment, item: MessageStreamItem): ChatMessageStreamActiveSegment {
   const index = segment.indexById.get(item.id);
   if (index === undefined) return appendActiveSegmentItem(segment, item);
-  return replaceActiveSegmentItem(segment, index, (previous) => mergeMessageStreamItem(previous, item));
+  return replaceActiveSegmentItem(segment, index, (previous) => upsertMessageStreamItemById([previous], item)[0] ?? item);
 }
 
 function replaceActiveSegmentItem(
@@ -474,10 +466,6 @@ function replaceActiveSegmentItem(
   const items = [...segment.items];
   items[index] = next;
   return activeSegmentFromItems(segment.turnId, items);
-}
-
-function mergeMessageStreamItem(previous: MessageStreamItem, next: MessageStreamItem): MessageStreamItem {
-  return upsertMessageStreamItemById([previous], next)[0] ?? next;
 }
 
 function activeSegmentFromItems(turnId: string | null, items: readonly MessageStreamItem[]): ChatMessageStreamActiveSegment {

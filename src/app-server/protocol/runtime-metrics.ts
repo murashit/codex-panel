@@ -39,17 +39,13 @@ function rateLimitSnapshotFromAppServerSnapshot(snapshot: AppServerRateLimitSnap
 }
 
 export function rateLimitSnapshotFromAccountRateLimitsResponse(response: AppServerAccountRateLimitsResponse): RateLimitSnapshot {
-  return rateLimitSnapshotFromAppServerSnapshot(accountRateLimitSnapshotFromResponse(response));
+  const snapshots = response.rateLimitsByLimitId;
+  const snapshot = (snapshots && Object.hasOwn(snapshots, "codex") ? snapshots["codex"] : undefined) ?? response.rateLimits;
+  return rateLimitSnapshotFromAppServerSnapshot(snapshot);
 }
 
 export function accountRateLimitsSummaryFromResponse(response: AppServerAccountRateLimitsResponse): string {
   return response.rateLimitsByLimitId ? `${String(Object.keys(response.rateLimitsByLimitId).length)} limits` : "available";
-}
-
-function accountRateLimitSnapshotFromResponse(response: AppServerAccountRateLimitsResponse): AppServerRateLimitSnapshot {
-  const snapshots = response.rateLimitsByLimitId;
-  const codexRateLimit = snapshots && Object.hasOwn(snapshots, "codex") ? snapshots["codex"] : undefined;
-  return codexRateLimit ?? response.rateLimits;
 }
 
 function rateLimitWindowFromAppServerWindow(window: AppServerRateLimitWindow): RateLimitWindow {

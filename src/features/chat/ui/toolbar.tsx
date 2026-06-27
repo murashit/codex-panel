@@ -206,7 +206,16 @@ function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): 
       <div className="codex-panel__limit-panel-title">Usage limit</div>
       <div className="codex-panel__limit-panel-list">
         {rateLimit.rows.map((row) => (
-          <div key={`${row.label}:${row.value}:${row.resetLabel ?? ""}`} className={rateLimitRowClassName(row.level)}>
+          <div
+            key={`${row.label}:${row.value}:${row.resetLabel ?? ""}`}
+            className={
+              row.level === "danger"
+                ? "codex-panel__limit-panel-row codex-panel__limit-panel-row--danger"
+                : row.level === "warn"
+                  ? "codex-panel__limit-panel-row codex-panel__limit-panel-row--warn"
+                  : "codex-panel__limit-panel-row"
+            }
+          >
             <div className="codex-panel__limit-panel-label">{row.label}</div>
             <div className="codex-panel__limit-panel-value">{row.value}</div>
             <div className="codex-panel__limit-panel-meter-cell">
@@ -214,7 +223,11 @@ function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): 
                 className={[
                   "codex-panel__limit-panel-meter",
                   row.meterDivisions ? "codex-panel__limit-panel-meter--divided" : "",
-                  rateLimitMeterDivisionClassName(row.meterDivisions),
+                  row.meterDivisions === 5
+                    ? "codex-panel__limit-panel-meter--5"
+                    : row.meterDivisions === 7
+                      ? "codex-panel__limit-panel-meter--7"
+                      : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -265,30 +278,21 @@ function DiagnosticSection({ section }: { section: ToolbarDiagnosticSection }): 
 }
 
 function DiagnosticRow({ row }: { row: ToolbarDiagnosticRow }): UiNode {
+  const level = row.level ?? "normal";
   return (
-    <div className={diagnosticRowClassName(row.level ?? "normal")}>
+    <div
+      className={
+        level === "error"
+          ? "codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--error"
+          : level === "warning"
+            ? "codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--warning"
+            : "codex-panel__connection-diagnostics-row"
+      }
+    >
       <dt>{row.label}</dt>
       <dd>{row.value}</dd>
     </div>
   );
-}
-
-function rateLimitRowClassName(level: RateLimitSummary["rows"][number]["level"]): string {
-  if (level === "danger") return "codex-panel__limit-panel-row codex-panel__limit-panel-row--danger";
-  if (level === "warn") return "codex-panel__limit-panel-row codex-panel__limit-panel-row--warn";
-  return "codex-panel__limit-panel-row";
-}
-
-function rateLimitMeterDivisionClassName(divisions: RateLimitSummary["rows"][number]["meterDivisions"]): string {
-  if (divisions === 5) return "codex-panel__limit-panel-meter--5";
-  if (divisions === 7) return "codex-panel__limit-panel-meter--7";
-  return "";
-}
-
-function diagnosticRowClassName(level: NonNullable<ToolbarDiagnosticRow["level"]>): string {
-  if (level === "error") return "codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--error";
-  if (level === "warning") return "codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--warning";
-  return "codex-panel__connection-diagnostics-row";
 }
 
 function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions: ToolbarThreadActions }): UiNode {

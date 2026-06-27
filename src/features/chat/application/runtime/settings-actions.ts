@@ -1,7 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
-import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
@@ -148,7 +147,7 @@ async function setFastMode(host: RuntimeSettingsActionsHost, mode: FastModeState
       dispatch(host, { type: "runtime/fast-mode-requested", fastMode });
       return applyPendingThreadSettings(host);
     },
-    fastModeToggleMessage(mode),
+    mode === "enabled" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.",
   );
 }
 
@@ -162,7 +161,9 @@ async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborat
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode });
   const result = await commitPendingThreadSettings(host);
   if (result.ok) closeRuntimePanel(host);
-  if (result.ok && result.collaborationModeApplied) host.addSystemMessage(collaborationModeToggleMessage(collaborationMode));
+  if (result.ok && result.collaborationModeApplied) {
+    host.addSystemMessage(collaborationMode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.");
+  }
   return result.ok;
 }
 
@@ -172,7 +173,7 @@ function requestDefaultCollaborationModeForNextTurn(host: RuntimeSettingsActions
 
 async function toggleAutoReview(host: RuntimeSettingsActionsHost): Promise<void> {
   const { snapshot, config } = runtimeProjection(host);
-  const nextState = nextAutoReviewState(resolveRuntimeControls(snapshot, config).autoReview.active);
+  const nextState = resolveRuntimeControls(snapshot, config).autoReview.active ? "disabled" : "enabled";
   await setAutoReview(host, nextState);
 }
 
@@ -180,28 +181,11 @@ async function setAutoReview(host: RuntimeSettingsActionsHost, mode: AutoReviewS
   await runRuntimeUiCommand(
     host,
     async () => {
-      dispatch(host, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: autoReviewReviewerForState(mode) });
+      dispatch(host, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: mode === "enabled" ? "auto_review" : "user" });
       return applyPendingThreadSettings(host);
     },
-    autoReviewToggleMessage(mode),
+    mode === "enabled" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.",
   );
-}
-
-function fastModeToggleMessage(state: FastModeState): string {
-  return state === "enabled" ? "Fast mode on for subsequent turns." : "Fast mode off for subsequent turns.";
-}
-
-function collaborationModeToggleMessage(mode: CollaborationModeSelection): string {
-  return mode === "plan" ? "Plan mode on for subsequent turns." : "Plan mode off for subsequent turns.";
-}
-
-function autoReviewToggleMessage(state: AutoReviewState): string {
-  return state === "enabled" ? "Auto-review on for subsequent turns." : "Auto-review off for subsequent turns.";
-}
-
-function collaborationModeWarningMessage(warning: NonNullable<PendingRuntimeSettingsPatch["collaborationModeWarning"]>): string {
-  void warning;
-  return "No effective model is available. Sending without a mode override.";
 }
 
 async function runRuntimeUiCommand(
@@ -218,14 +202,6 @@ function closeRuntimePanel(host: RuntimeSettingsActionsHost): void {
   dispatch(host, { type: "ui/panel-set", panel: null });
 }
 
-function nextAutoReviewState(active: boolean): AutoReviewState {
-  return active ? "disabled" : "enabled";
-}
-
-function autoReviewReviewerForState(state: AutoReviewState): ApprovalsReviewer {
-  return state === "enabled" ? "auto_review" : "user";
-}
-
 function pendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): PendingRuntimeSettingsPatch {
   const { snapshot, config } = runtimeProjection(host);
   return buildPendingRuntimeSettingsPatch(snapshot, config);
@@ -235,7 +211,10 @@ function reportCollaborationModeWarning(
   host: RuntimeSettingsActionsHost,
   warning: NonNullable<PendingRuntimeSettingsPatch["collaborationModeWarning"]>,
 ): void {
-  host.addSystemMessage(`${host.collaborationModeLabel()} mode is selected, but ${collaborationModeWarningMessage(warning)}`);
+  void warning;
+  host.addSystemMessage(
+    `${host.collaborationModeLabel()} mode is selected, but No effective model is available. Sending without a mode override.`,
+  );
 }
 
 function currentPendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): RuntimeSettingsPatch {

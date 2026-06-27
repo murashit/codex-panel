@@ -65,7 +65,7 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     pending: snapshot.pending.approvalsReviewer,
   });
   const autoReview = resolveAutoReview(approvalsReviewer);
-  const serviceTiers = modelServiceTiers(snapshot.availableModels, model.effective);
+  const serviceTiers = findModelMetadataByIdOrName(snapshot.availableModels, model.effective)?.serviceTiers ?? [];
   const serviceTier = resolveServiceTier(snapshot, config);
   const fastMode = resolveFastMode(snapshot.pending.fastMode, serviceTier, serviceTiers);
   const collaborationMode = resolveCollaborationMode(snapshot, model.effective);
@@ -84,7 +84,7 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
 
 function resolveAutoReview(approvalsReviewer: RuntimeLayeredValue<ApprovalsReviewer>): AutoReviewResolution {
   return {
-    active: isAutoReviewReviewer(approvalsReviewer.effective),
+    active: approvalsReviewer.effective === "auto_review" || approvalsReviewer.effective === "guardian_subagent",
     reviewer: approvalsReviewer.effective,
     source: approvalsReviewer.source,
   };
@@ -159,7 +159,7 @@ function resolveFastMode(
     active: isFastServiceTier(serviceTier.effective, serviceTiers),
     source: serviceTier.source,
     effectiveServiceTier: serviceTier.effective,
-    serviceTierRequestValue: fastServiceTierRequestValue(serviceTiers),
+    serviceTierRequestValue: serviceTiers.find((tier) => tier.name.trim().toLowerCase() === "fast")?.id ?? "fast",
   };
 }
 
@@ -182,16 +182,4 @@ function isFastServiceTier(value: string | null | undefined, serviceTiers: Model
   if (value === "fast") return true;
   if (serviceTiers.length === 0) return value === "priority";
   return serviceTiers.some((tier) => tier.id === value && tier.name.trim().toLowerCase() === "fast");
-}
-
-function isAutoReviewReviewer(value: ApprovalsReviewer | null): boolean {
-  return value === "auto_review" || value === "guardian_subagent";
-}
-
-function fastServiceTierRequestValue(serviceTiers: ModelMetadata["serviceTiers"]): string {
-  return serviceTiers.find((tier) => tier.name.trim().toLowerCase() === "fast")?.id ?? "fast";
-}
-
-function modelServiceTiers(models: readonly ModelMetadata[], model: string | null): ModelMetadata["serviceTiers"] {
-  return findModelMetadataByIdOrName(models, model)?.serviceTiers ?? [];
 }

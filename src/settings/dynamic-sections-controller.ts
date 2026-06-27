@@ -15,24 +15,17 @@ import {
   transitionSettingsDynamicSectionLifecycle,
 } from "./lifecycle";
 
-function archivedThreadTitleForStatus(thread: Thread | undefined, threadId: string): string {
-  return thread ? threadArchiveDisplayTitle(thread) : threadId;
-}
-
 interface LoadedHookCatalog extends HookCatalog {
   status: string;
 }
 
 async function loadHookCatalog(client: AppServerClient, cwd: string): Promise<LoadedHookCatalog> {
   const hooks = await listHookCatalog(client, cwd);
+  const hookCount = hooks.hooks.length;
   return {
     ...hooks,
-    status: hooksStatus(hooks.hooks.length),
+    status: `Loaded ${String(hookCount)} hook${hookCount === 1 ? "" : "s"}.`,
   };
-}
-
-function hooksStatus(count: number): string {
-  return `Loaded ${String(count)} hook${count === 1 ? "" : "s"}.`;
 }
 
 interface SettingsDynamicSectionsControllerCallbacks {
@@ -369,10 +362,8 @@ export class SettingsDynamicSectionsController {
   }
 
   async deleteArchivedThread(threadId: string): Promise<void> {
-    const title = archivedThreadTitleForStatus(
-      this.archivedThreads.find((thread) => thread.id === threadId),
-      threadId,
-    );
+    const thread = this.archivedThreads.find((item) => item.id === threadId);
+    const title = thread ? threadArchiveDisplayTitle(thread) : threadId;
     await this.runDynamicSectionOperation({
       section: "archivedThreads",
       loadingStatus: "Loading archived threads...",

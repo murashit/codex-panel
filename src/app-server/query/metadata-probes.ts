@@ -18,7 +18,9 @@ export async function readSkillMetadataProbe(
   vaultPath: string,
   forceReload = false,
 ): Promise<SkillMetadataProbeResult> {
-  if (!client) return disconnectedSkillsResult();
+  if (!client) {
+    return { value: [], probe: diagnosticProbeError("skills/list", new Error("Codex app-server is not connected."), Date.now()) };
+  }
   try {
     const catalog = await listSkillCatalog(client, vaultPath, { forceReload });
     return { value: catalog.skills, probe: diagnosticProbeOk("skills/list", `${String(catalog.totalCount)} skills`, Date.now()) };
@@ -28,7 +30,12 @@ export async function readSkillMetadataProbe(
 }
 
 export async function readRateLimitMetadataProbe(client: AppServerClient | null): Promise<RateLimitMetadataProbeResult> {
-  if (!client) return disconnectedRateLimitResult();
+  if (!client) {
+    return {
+      value: null,
+      probe: diagnosticProbeError("account/rateLimits/read", new Error("Codex app-server is not connected."), Date.now()),
+    };
+  }
   try {
     const response = await client.readAccountRateLimits();
     return {
@@ -38,15 +45,4 @@ export async function readRateLimitMetadataProbe(client: AppServerClient | null)
   } catch (error) {
     return { value: null, probe: diagnosticProbeError("account/rateLimits/read", error, Date.now()) };
   }
-}
-
-function disconnectedSkillsResult(): SkillMetadataProbeResult {
-  return { value: [], probe: diagnosticProbeError("skills/list", new Error("Codex app-server is not connected."), Date.now()) };
-}
-
-function disconnectedRateLimitResult(): RateLimitMetadataProbeResult {
-  return {
-    value: null,
-    probe: diagnosticProbeError("account/rateLimits/read", new Error("Codex app-server is not connected."), Date.now()),
-  };
 }

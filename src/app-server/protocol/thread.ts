@@ -11,23 +11,21 @@ export interface ThreadRecord {
 }
 
 export function threadFromThreadRecord(thread: ThreadRecord, options: { archived?: boolean } = {}): Thread {
+  const hasRecencyAt = Object.hasOwn(thread, "recencyAt");
+  const recencyAt = hasRecencyAt ? thread.recencyAt : undefined;
   return {
     id: thread.id,
     preview: normalizeString(thread.preview),
-    name: normalizeNullableString(thread.name),
+    name: thread.name === null ? null : normalizeString(thread.name),
     archived: options.archived ?? false,
     createdAt: finiteTimestamp(thread.createdAt),
     updatedAt: finiteTimestamp(thread.updatedAt),
-    ...recencyAtPatch(thread),
+    ...(hasRecencyAt ? { recencyAt: typeof recencyAt === "number" && Number.isFinite(recencyAt) ? recencyAt : null } : {}),
   };
 }
 
 export function threadsFromThreadRecords(threads: readonly ThreadRecord[], options: { archived?: boolean } = {}): Thread[] {
   return threads.map((thread) => threadFromThreadRecord(thread, options));
-}
-
-function normalizeNullableString(value: string | null): string | null {
-  return value === null ? null : normalizeString(value);
 }
 
 function normalizeString(value: string): string {
@@ -36,10 +34,4 @@ function normalizeString(value: string): string {
 
 function finiteTimestamp(value: number): number {
   return Number.isFinite(value) ? value : 0;
-}
-
-function recencyAtPatch(thread: ThreadRecord): { recencyAt: number | null } | Record<string, never> {
-  if (!Object.hasOwn(thread, "recencyAt")) return {};
-  const value = thread.recencyAt;
-  return { recencyAt: typeof value === "number" && Number.isFinite(value) ? value : null };
 }

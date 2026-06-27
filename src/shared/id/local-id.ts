@@ -11,7 +11,7 @@ let sourceSequence = 0;
 
 export function createLocalIdSource(options: LocalIdSourceOptions = {}): LocalIdSource {
   const nowMs = options.nowMs ?? Date.now;
-  const seed = sanitizeIdPart(options.seed ?? defaultIdSeed());
+  const seed = sanitizeIdPart(options.seed ?? Date.now().toString(36));
   sourceSequence += 1;
   const sourceId = `${seed}-${sourceSequence.toString(36)}`;
   let itemSequence = 0;
@@ -22,10 +22,6 @@ export function createLocalIdSource(options: LocalIdSourceOptions = {}): LocalId
       return `${idPrefix}-${String(nowMs())}-${sourceId}-${itemSequence.toString(36)}`;
     },
   };
-}
-
-function defaultIdSeed(): string {
-  return Date.now().toString(36);
 }
 
 function sanitizeIdPart(value: string): string {

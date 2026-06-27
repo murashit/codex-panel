@@ -437,7 +437,10 @@ function autoApprovalReviewPlan(
   const reviewItem = createAutoReviewResultItem(notification.params);
   return actionPlan({
     type: "message-stream/items-replaced",
-    items: upsertMessageStreamItemById(removeUnstructuredAutoReviewWarnings(messageStreamItems(state.messageStream)), reviewItem),
+    items: upsertMessageStreamItemById(
+      messageStreamItems(state.messageStream).filter((item) => !isUnstructuredAutoReviewWarning(item)),
+      reviewItem,
+    ),
   });
 }
 
@@ -524,10 +527,6 @@ function messageStreamItemsWithPendingPromptSubmitHooks(state: ChatState, turnId
   const items = messageStreamItems(state.messageStream);
   if (!pending) return items;
   return attachHookRunsToTurn(items, turnId, pending.promptSubmitHookItemIds, pending.anchorItemId);
-}
-
-function removeUnstructuredAutoReviewWarnings(items: readonly MessageStreamItem[]): MessageStreamItem[] {
-  return items.filter((item) => !isUnstructuredAutoReviewWarning(item));
 }
 
 function hasStructuredAutoReviewResult(items: readonly MessageStreamItem[], activeTurnId: string | null): boolean {

@@ -51,10 +51,9 @@ export function threadRows(
     .map((thread) => {
       const threadSnapshots = snapshotsByThread.get(thread.id) ?? [];
       const live = liveStateForSnapshots(threadSnapshots);
-      const selected = selectedStateForSnapshots(threadSnapshots);
       const core = threadRowCoreProjection({
         thread,
-        selected,
+        selected: threadSnapshots.some((snapshot) => snapshot.threadId !== null && snapshot.lastFocused),
         renameState: renameStates.get(thread.id),
         archiveConfirmActive: archiveConfirmThreadId === thread.id,
         defaultArchiveSaveMarkdown,
@@ -75,10 +74,6 @@ function liveStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): ThreadsLive
   return {
     status,
   };
-}
-
-function selectedStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): boolean {
-  return snapshots.some((snapshot) => snapshot.threadId !== null && snapshot.lastFocused);
 }
 
 export function transitionThreadsRenameState(

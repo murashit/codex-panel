@@ -39,10 +39,6 @@ type TurnSubmissionPlan =
   | { kind: "start-thread-then-turn" }
   | { kind: "start-turn"; threadId: string };
 
-function currentTurnNotSteerableMessage(): string {
-  return "Current turn is not steerable yet.";
-}
-
 export interface TurnSubmissionActions {
   sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadMetadata): Promise<void>;
 }
@@ -148,7 +144,7 @@ function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
   if (state.busy) {
     return state.activeThreadId && state.activeTurnId
       ? { kind: "steer", threadId: state.activeThreadId, turnId: state.activeTurnId }
-      : { kind: "blocked", message: currentTurnNotSteerableMessage() };
+      : { kind: "blocked", message: "Current turn is not steerable yet." };
   }
   return state.activeThreadId ? { kind: "start-turn", threadId: state.activeThreadId } : { kind: "start-thread-then-turn" };
 }

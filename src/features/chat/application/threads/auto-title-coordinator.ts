@@ -2,7 +2,6 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { ThreadTitleService } from "../../../threads/thread-title-service";
-import type { ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 export interface AutoTitleCoordinatorHost {
@@ -22,7 +21,8 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
   const attemptedThreadIds = new Set<string>();
   const inFlightThreadIds = new Set<string>();
 
-  const thread = (threadId: string): Thread | undefined => state(host).threadList.listedThreads.find((item) => item.id === threadId);
+  const thread = (threadId: string): Thread | undefined =>
+    host.stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
   const threadHasTitle = (threadId: string): boolean => Boolean(thread(threadId)?.name?.trim());
   const threadCanReceiveGeneratedTitle = (threadId: string): boolean => {
     const candidate = thread(threadId);
@@ -63,8 +63,4 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
       void generateAndSetTitle(threadId, context);
     },
   };
-}
-
-function state(host: AutoTitleCoordinatorHost): ChatState {
-  return host.stateStore.getState();
 }

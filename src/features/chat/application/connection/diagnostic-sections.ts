@@ -64,12 +64,6 @@ function diagnosticProbeRow(probe: DiagnosticProbeResult): DiagnosticRow {
   return {
     label: probe.method,
     value: `${probe.status}${detail}`,
-    level: diagnosticProbeLevel(probe.status),
+    level: probe.status === "failed" ? "error" : probe.status === "unknown" ? "warning" : "normal",
   };
-}
-
-function diagnosticProbeLevel(status: DiagnosticProbeResult["status"]): NonNullable<DiagnosticRow["level"]> {
-  if (status === "failed") return "error";
-  if (status === "unknown") return "warning";
-  return "normal";
 }

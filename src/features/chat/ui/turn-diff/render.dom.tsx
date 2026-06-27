@@ -62,7 +62,8 @@ function TurnDiffHeader({
       <div className="codex-panel-chat-turn-diff__title-block">
         <div className="codex-panel-chat-turn-diff__title">Turn diff</div>
         <div className="codex-panel-chat-turn-diff__meta">
-          {shortThreadId(state.threadId)} / {shortThreadId(state.turnId)} · {fileCountLabel(state.files)}
+          {shortThreadId(state.threadId)} / {shortThreadId(state.turnId)} ·{" "}
+          {state.files.length === 1 ? "Edited 1 file" : `Edited ${String(state.files.length)} files`}
         </div>
       </div>
       {copyDiff ? (
@@ -83,8 +84,4 @@ function ChangedFiles({ files }: { files: string[] }): UiNode {
       </ul>
     </details>
   );
-}
-
-function fileCountLabel(files: string[]): string {
-  return files.length === 1 ? "Edited 1 file" : `Edited ${String(files.length)} files`;
 }

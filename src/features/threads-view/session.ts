@@ -206,7 +206,7 @@ export class ThreadsViewSession {
     renderThreadsViewShell(
       this.environment.root,
       {
-        status: threadsViewStatusText(this.status),
+        status: this.status.kind === "idle" ? null : this.status.message,
         loading: this.refreshLifecycle.kind === "loading",
         rows: threadRows(
           this.threads,
@@ -358,8 +358,4 @@ export class ThreadsViewSession {
   private viewWindow(): Window {
     return this.environment.viewWindow() ?? window;
   }
-}
-
-function threadsViewStatusText(status: ThreadsViewStatus): string | null {
-  return status.kind === "idle" ? null : status.message;
 }

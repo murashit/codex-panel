@@ -13,7 +13,7 @@ export function explicitThreadName(thread: Thread): string | null {
 }
 
 export function normalizeExplicitThreadName(value: string | null | undefined): string | null {
-  const name = typeof value === "string" ? normalizeTitle(value) : "";
+  const name = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
   return name.length > 0 ? name : null;
 }
 
@@ -30,8 +30,4 @@ export function upsertThread(threads: readonly Thread[], thread: Thread): Thread
 
 export function threadRecencyAt(thread: Thread): number {
   return thread.recencyAt ?? thread.updatedAt;
-}
-
-function normalizeTitle(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
 }

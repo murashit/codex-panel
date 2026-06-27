@@ -19,14 +19,10 @@ export interface ThreadNavigationActions {
   selectThreadFromToolbar(threadId: string): Promise<void>;
 }
 
-function finishBeforeSwitchingThreadsMessage(): string {
-  return "Finish or interrupt the current turn before switching threads.";
-}
-
 export function createThreadNavigationActions(host: ThreadNavigationActionsHost): ThreadNavigationActions {
   const selectThread = async (threadId: string): Promise<void> => {
     if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
-      host.addSystemMessage(finishBeforeSwitchingThreadsMessage());
+      host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
       return;
     }
 
