@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
 const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
-const workspaceByPlugins = new Map();
 const projectPluginByName = new Map(
   parseJsonc(readFileSync(path.join(repoRoot, "biome.jsonc"), "utf8")).plugins.map((plugin) => {
     const pluginPath = typeof plugin === "string" ? plugin : plugin.path;
@@ -16,8 +15,8 @@ const projectPluginByName = new Map(
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
-const APP_SERVER_ROOT_MODULE_FILE_MESSAGE =
-  "Keep app-server modules in responsibility subfolders; src/app-server root must not accumulate boundary adapters.";
+const RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE =
+  "Keep responsibility-split source roots free of module files; add modules to the matching subfolder instead of the root.";
 const APP_SERVER_ROOT_MODULE_IMPORT_MESSAGE =
   "Import app-server boundary modules from responsibility subfolders, not src/app-server root modules.";
 const APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE =
@@ -409,6 +408,7 @@ export function timestamp(): number {
       "no-chat-workspace-boundary-imports.grit",
       "no-feature-workspace-boundary-imports.grit",
       "no-workspace-chat-internal-imports.grit",
+      "no-responsibility-root-module-files.grit",
       "no-chat-host-rendering-layer-imports.grit",
       "no-chat-panel-runtime-boundary-imports.grit",
       "no-chat-presentation-outer-layer-imports.grit",
@@ -534,6 +534,36 @@ export type Allowed = ChatWorkspacePanelSurface | CodexChatView;
 `.trimStart(),
     );
     await writeFile(
+      path.join(cwd, "src/domain/mixed-root.ts"),
+      `
+export const misplaced = true;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/shared/mixed-root.ts"),
+      `
+export const misplaced = true;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/mixed-root.ts"),
+      `
+export const misplaced = true;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/threads/mixed-root.ts"),
+      `
+export const misplaced = true;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/threads/list/rename-lifecycle.ts"),
+      `
+export const allowed = true;
+`.trimStart(),
+    );
+    await writeFile(
       path.join(cwd, "src/features/chat/panel/outer.tsx"),
       `
 import type { AppServerClient } from "../../../app-server/connection/client";
@@ -615,6 +645,11 @@ export const value = statusText;
         "src/features/threads-view/workspace-allowed.ts",
         "src/workspace/chat-internal-escape.ts",
         "src/workspace/chat-host-allowed.ts",
+        "src/domain/mixed-root.ts",
+        "src/shared/mixed-root.ts",
+        "src/features/chat/mixed-root.ts",
+        "src/features/threads/mixed-root.ts",
+        "src/features/threads/list/rename-lifecycle.ts",
         "src/features/chat/panel/outer.tsx",
         "src/features/chat/panel/allowed.tsx",
         "src/features/chat/presentation/outer.ts",
@@ -644,6 +679,11 @@ export const value = statusText;
     expect(pluginDiagnostics(report, "src/features/threads-view/workspace-allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/workspace/chat-internal-escape.ts")).toEqual([WORKSPACE_CHAT_INTERNAL_MESSAGE]);
     expect(pluginDiagnostics(report, "src/workspace/chat-host-allowed.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/domain/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginMessages(report, "src/shared/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginMessages(report, "src/features/chat/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginMessages(report, "src/features/threads/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginDiagnostics(report, "src/features/threads/list/rename-lifecycle.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/panel/outer.tsx")).toEqual(
       Array.from({ length: 3 }, () => CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE),
     );
@@ -787,7 +827,7 @@ export const value = statusText;
 
   it("keeps app-server root from becoming a boundary escape hatch", async () => {
     const cwd = await tempBiomeWorkspace([
-      "no-app-server-root-module-files.grit",
+      "no-responsibility-root-module-files.grit",
       "no-app-server-root-module-imports.grit",
       "no-app-server-subfolder-root-imports.grit",
     ]);
@@ -836,7 +876,7 @@ export const read = listThreads;
       cwd,
     );
 
-    expect(pluginMessages(report, "src/app-server/escape.ts")).toEqual([APP_SERVER_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginMessages(report, "src/app-server/escape.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
     expect(pluginMessages(report, "src/features/chat/app-server/root-import.ts")).toEqual([APP_SERVER_ROOT_MODULE_IMPORT_MESSAGE]);
     expect(pluginMessages(report, "src/app-server/services/root-import.ts")).toEqual([APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE]);
     expect(pluginDiagnostics(report, "src/app-server/services/allowed.ts")).toEqual([]);
@@ -1310,10 +1350,6 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
 }
 
 async function tempBiomeWorkspace(plugins) {
-  const cacheKey = plugins.join("\0");
-  const cached = workspaceByPlugins.get(cacheKey);
-  if (cached) return cached;
-
   const cwd = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
   await mkdir(cwd, { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/domain/message-stream"), { recursive: true });
@@ -1328,6 +1364,8 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/chat/presentation"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/ui"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/selection-rewrite"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/threads/list"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/threads/workflows"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/threads-view"), { recursive: true });
   await mkdir(path.join(cwd, "src/settings"), { recursive: true });
   await mkdir(path.join(cwd, "src/domain/threads"), { recursive: true });
@@ -1347,7 +1385,6 @@ async function tempBiomeWorkspace(plugins) {
       css: { linter: { enabled: true } },
     }),
   );
-  workspaceByPlugins.set(cacheKey, cwd);
   return cwd;
 }
 

@@ -11,7 +11,7 @@ import {
   createAutoTitleCoordinator,
 } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 import { threadTitleContextFromMessageStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
-import { createThreadTitleService } from "../../../../../src/features/threads/thread-title-service";
+import { createThreadTitleService } from "../../../../../src/features/threads/workflows/thread-title-service";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
 import { deferred } from "../../../../support/async";
 

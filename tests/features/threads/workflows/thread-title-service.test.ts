@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE, type ThreadTitleContext } from "../../../src/domain/threads/title-generation-model";
+import { THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE, type ThreadTitleContext } from "../../../../src/domain/threads/title-generation-model";
 import {
   createThreadTitleService,
   type ThreadTitleService,
   type ThreadTitleServiceHost,
-} from "../../../src/features/threads/thread-title-service";
-import { DEFAULT_SETTINGS } from "../../../src/settings/model";
+} from "../../../../src/features/threads/workflows/thread-title-service";
+import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 
 describe("ThreadTitleService", () => {
   it("generates a title from visible context without saving it", async () => {

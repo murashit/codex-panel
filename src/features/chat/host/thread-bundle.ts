@@ -4,8 +4,8 @@ import type { AppServerClientAccess } from "../../../app-server/connection/clien
 import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { LocalIdSource } from "../../../shared/id/local-id";
-import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
-import { createThreadTitleService, type ThreadTitleService } from "../../threads/thread-title-service";
+import { createThreadOperations, type ThreadOperations } from "../../threads/workflows/thread-operations";
+import { createThreadTitleService, type ThreadTitleService } from "../../threads/workflows/thread-title-service";
 import type { ChatServerThreadActions } from "../app-server/actions/threads";
 import { createChatThreadGoalReadTransport, createChatThreadGoalTransport } from "../app-server/goals/transport";
 import { createChatThreadHistoryTransport, createChatThreadResumeTransport } from "../app-server/threads/loading-transport";

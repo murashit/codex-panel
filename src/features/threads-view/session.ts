@@ -9,8 +9,8 @@ import type { ArchiveExportSettings } from "../../domain/threads/archive-markdow
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedResult } from "../../shared/query/observed-result";
 import { observedInitialError, observedInitialLoading, observedValue } from "../../shared/query/observed-result";
-import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
-import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
+import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
+import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
 import {
   type ThreadsGeneratingRenameState,

@@ -6,8 +6,8 @@ import {
   type ThreadRenameActiveState,
   type ThreadRenameGeneratingState,
   transitionThreadRenameLifecycleState,
-} from "../threads/rename-lifecycle";
-import { type ThreadRowCoreProjection, threadRowCoreProjection } from "../threads/row-projection";
+} from "../threads/list/rename-lifecycle";
+import { type ThreadRowCoreProjection, threadRowCoreProjection } from "../threads/list/row-projection";
 
 type ThreadsLiveStatus = "pending" | "running" | "open";
 

@@ -3,7 +3,7 @@ import { h } from "preact";
 
 import { CLIENT_VERSION } from "../../../../constants";
 import type { Thread } from "../../../../domain/threads/model";
-import { threadRowCoreProjection } from "../../../threads/row-projection";
+import { threadRowCoreProjection } from "../../../threads/list/row-projection";
 import { connectionDiagnosticSectionsFromState } from "../../application/connection/diagnostic-sections";
 import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-diagnostic-sections";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";

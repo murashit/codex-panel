@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../src/app-server/connection/client";
-import type { ArchiveThreadResult } from "../../../src/app-server/services/thread-archive";
-import type { ArchiveExportDestination } from "../../../src/app-server/services/thread-archive-markdown";
-import { createThreadOperations, type ThreadOperationsHost } from "../../../src/features/threads/thread-operations";
-import { DEFAULT_SETTINGS } from "../../../src/settings/model";
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import type { ArchiveThreadResult } from "../../../../src/app-server/services/thread-archive";
+import type { ArchiveExportDestination } from "../../../../src/app-server/services/thread-archive-markdown";
+import { createThreadOperations, type ThreadOperationsHost } from "../../../../src/features/threads/workflows/thread-operations";
+import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 
 const archiveMock = vi.hoisted(() => ({
   archiveThreadOnAppServer: vi.fn(),
 }));
 
-vi.mock("../../../src/app-server/services/thread-archive", () => ({
+vi.mock("../../../../src/app-server/services/thread-archive", () => ({
   archiveThreadOnAppServer: archiveMock.archiveThreadOnAppServer,
 }));
 

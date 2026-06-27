@@ -1,5 +1,0 @@
-language js
-
-`$program` where {
-  register_diagnostic(span=$program, message="Keep app-server modules in responsibility subfolders; src/app-server root must not accumulate boundary adapters.", severity="error")
-}

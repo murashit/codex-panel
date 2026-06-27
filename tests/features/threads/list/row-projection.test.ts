@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Thread } from "../../../src/domain/threads/model";
-import { threadRowCoreProjection } from "../../../src/features/threads/row-projection";
+import type { Thread } from "../../../../src/domain/threads/model";
+import { threadRowCoreProjection } from "../../../../src/features/threads/list/row-projection";
 
 describe("thread row core projection", () => {
   it("projects shared row title, selection, rename, and archive confirmation state", () => {

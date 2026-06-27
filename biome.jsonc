@@ -6,11 +6,23 @@
     "useIgnoreFile": true
   },
   "plugins": [
-    // App-server protocol and generated binding boundaries.
+    // Shared source-shape boundaries.
     {
-      "path": "./scripts/lint/no-app-server-root-module-files.grit",
-      "includes": ["**/src/app-server/*.ts"]
+      "path": "./scripts/lint/no-responsibility-root-module-files.grit",
+      "includes": [
+        "**/src/app-server/*.ts",
+        "**/src/app-server/*.tsx",
+        "**/src/domain/*.ts",
+        "**/src/domain/*.tsx",
+        "**/src/features/chat/*.ts",
+        "**/src/features/chat/*.tsx",
+        "**/src/features/threads/*.ts",
+        "**/src/features/threads/*.tsx",
+        "**/src/shared/*.ts",
+        "**/src/shared/*.tsx"
+      ]
     },
+    // App-server protocol and generated binding boundaries.
     {
       "path": "./scripts/lint/no-app-server-root-module-imports.grit",
       "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
