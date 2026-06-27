@@ -225,7 +225,7 @@ describe("settings tab", () => {
     const codexInput = inputForSetting(tab, "Codex executable");
     if (!codexInput) throw new Error("Missing Codex executable input");
     codexInput.value = "/opt/codex";
-    codexInput.dispatchEvent(new Event("change"));
+    codexInput.dispatchEvent(new InputEvent("input", { bubbles: true }));
     await flushPromises();
 
     expect(saveSettings).not.toHaveBeenCalled();
@@ -1071,12 +1071,7 @@ function settingsGroupNames(element: Element): string[] {
 }
 
 function settingsSectionRoots(tab: CodexPanelSettingTab): Element[] {
-  return Array.from(tab.containerEl.children).flatMap((element) => {
-    if (element.classList.contains("codex-panel-settings__preact-sections")) {
-      return Array.from(element.children).flatMap((root) => Array.from(root.children));
-    }
-    return [element];
-  });
+  return Array.from(tab.containerEl.children);
 }
 
 function settingDesc(tab: CodexPanelSettingTab, name: string): string {

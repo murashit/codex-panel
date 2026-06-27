@@ -40,7 +40,7 @@ interface SettingsDynamicSectionsControllerCallbacks {
   notify(message: string): void;
 }
 
-export type SettingsDynamicSectionsDisplayTarget = "all" | "helper" | "archived" | "hooks";
+type SettingsDynamicSectionsDisplayTarget = "all" | "helper" | "archived" | "hooks";
 
 export interface SettingsDynamicSectionsSnapshot {
   archivedThreads: readonly Thread[];

@@ -1,44 +1,20 @@
-import { type App, Notice, type Plugin, PluginSettingTab, Setting, setIcon } from "obsidian";
+import { type App, Notice, type Plugin, PluginSettingTab } from "obsidian";
 
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
+import { listenDomEvent } from "../shared/ui/dom-events.dom";
 import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root.dom";
-import { ArchivedThreadSection } from "./archived-section";
-import { SettingsDynamicSectionsController, type SettingsDynamicSectionsDisplayTarget } from "./dynamic-sections-controller";
-import { HelperSettingsSection } from "./helper-section";
-import { HookSection } from "./hook-section";
+import { SettingsDynamicSectionsController } from "./dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "./host";
 import type { SettingsSectionsState } from "./section-state";
+import { SettingsTabShell } from "./tab-shell";
 
 const SETTINGS_INTRO_TEXT = "Codex Panel stores panel preferences only. Runtime settings still come from Codex.";
-const SEND_SHORTCUT_LABELS = {
-  enter: "Enter",
-  "mod-enter": "Cmd/Ctrl+Enter",
-} as const;
-
-interface DynamicSectionRoots {
-  container: HTMLElement;
-  helper: HTMLElement;
-  archived: HTMLElement;
-  hooks: HTMLElement;
-}
-
-function renderSettingsHeading(containerEl: HTMLElement, name: string): void {
-  new Setting(containerEl).setClass("codex-panel-settings__section-heading").setHeading().setName(name);
-}
-
-function createSettingsGroup(containerEl: HTMLElement, className: string): HTMLElement {
-  return containerEl.createDiv({ cls: `setting-group ${className}` });
-}
-
-function createSettingsItems(containerEl: HTMLElement): HTMLElement {
-  return containerEl.createDiv({ cls: "setting-items" });
-}
 
 export class CodexPanelSettingTab extends PluginSettingTab {
   private readonly dynamicSections: SettingsDynamicSectionsController;
   private archivedDeleteConfirmThreadId: string | null = null;
-  private dynamicSectionRoots: DynamicSectionRoots | null = null;
+  private disposeOutsidePointer: (() => void) | null = null;
   private readonly cancelArchivedDeleteConfirmOnOutsidePointer = (event: PointerEvent): void => {
     if (!this.archivedDeleteConfirmThreadId) return;
     const target = event.target;
@@ -48,7 +24,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       if (deleteConfirm && this.containerEl.contains(deleteConfirm)) return;
     }
     this.archivedDeleteConfirmThreadId = null;
-    this.renderDynamicSections("archived");
+    this.renderSettingsShell();
   };
 
   constructor(
@@ -58,8 +34,8 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   ) {
     super(app, owner);
     this.dynamicSections = new SettingsDynamicSectionsController(plugin, {
-      display: (target) => {
-        this.renderDynamicSections(target);
+      display: () => {
+        this.renderSettingsShell();
       },
       notify: (message) => {
         new Notice(message);
@@ -73,121 +49,60 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   override hide(): void {
-    this.containerEl.removeEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
+    this.disposeOutsidePointer?.();
+    this.disposeOutsidePointer = null;
     this.archivedDeleteConfirmThreadId = null;
     this.dynamicSections.dispose();
-    this.unmountDynamicSectionRoots();
+    unmountUiRoot(this.containerEl);
     super.hide();
   }
 
   private renderSettingsTab(options: { autoLoadDynamicSections: boolean }): void {
     const { containerEl } = this;
-    this.unmountDynamicSectionRoots();
-    containerEl.empty();
     containerEl.addClass("codex-panel-settings");
-    containerEl.removeEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
-    containerEl.addEventListener("pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
+    this.disposeOutsidePointer?.();
+    this.disposeOutsidePointer = listenDomEvent(containerEl, "pointerdown", this.cancelArchivedDeleteConfirmOnOutsidePointer);
 
-    this.renderHeaderActions(containerEl, SETTINGS_INTRO_TEXT);
-    this.renderPanelPreferenceSections(containerEl);
-    this.createDynamicSectionRoots(containerEl);
-    this.renderDynamicSections("all");
+    this.renderSettingsShell();
 
     if (options.autoLoadDynamicSections) this.maybeAutoLoadDynamicSections();
   }
 
-  private renderPanelPreferenceSections(containerEl: HTMLElement): void {
-    const configSection = createSettingsGroup(containerEl, "codex-panel-settings__section codex-panel-settings__general-section");
-    const configItems = createSettingsItems(configSection);
-
-    new Setting(configItems)
-      .setName("Codex executable")
-      .setDesc("Command used to start `codex app-server`; use an absolute path if needed.")
-      .addText((text) => {
-        text.setPlaceholder(DEFAULT_CODEX_PATH).setValue(this.plugin.settings.codexPath);
-        const commitCodexPath = () => {
-          void this.setCodexPath(text.inputEl.value);
-        };
-        text.inputEl.addEventListener("blur", commitCodexPath);
-        text.inputEl.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter") return;
-          event.preventDefault();
-          commitCodexPath();
-          text.inputEl.blur();
-        });
-      });
-    new Setting(configItems)
-      .setName("Show chat toolbar")
-      .setDesc("Show the toolbar above the chat panel.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.showToolbar).onChange(async (value) => {
-          this.plugin.settings.showToolbar = value;
-          await this.plugin.saveSettings();
-          this.plugin.refreshOpenViews();
-        });
-      });
-
-    const composerSection = createSettingsGroup(containerEl, "codex-panel-settings__section codex-panel-settings__composer-section");
-    renderSettingsHeading(composerSection, "Composer");
-    const composerItems = createSettingsItems(composerSection);
-    new Setting(composerItems)
-      .setName("Send shortcut")
-      .setDesc("Pick Enter or Cmd/Ctrl+Enter. Shift+Enter adds a newline when Enter sends.")
-      .addDropdown((dropdown) => {
-        dropdown.addOption("enter", SEND_SHORTCUT_LABELS.enter);
-        dropdown.addOption("mod-enter", SEND_SHORTCUT_LABELS["mod-enter"]);
-        dropdown.setValue(this.plugin.settings.sendShortcut).onChange(async (value) => {
-          this.plugin.settings.sendShortcut = value === "mod-enter" ? "mod-enter" : "enter";
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      });
-    new Setting(composerItems)
-      .setName("Scroll thread from composer line edges")
-      .setDesc("Use Up/Ctrl+P and Down/Ctrl+N at composer line edges to scroll the thread.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.plugin.settings.scrollThreadFromComposerEdges).onChange(async (value) => {
-          this.plugin.settings.scrollThreadFromComposerEdges = value;
-          await this.plugin.saveSettings();
-        });
-      });
+  private renderSettingsShell(): void {
+    renderUiRoot(
+      this.containerEl,
+      <SettingsTabShell
+        introText={SETTINGS_INTRO_TEXT}
+        dynamicSectionsLoading={this.dynamicSections.isLoading()}
+        panel={{
+          codexPath: this.plugin.settings.codexPath,
+          showToolbar: this.plugin.settings.showToolbar,
+          sendShortcut: this.plugin.settings.sendShortcut,
+          scrollThreadFromComposerEdges: this.plugin.settings.scrollThreadFromComposerEdges,
+        }}
+        sections={this.settingsSectionsState()}
+        actions={{
+          refreshDynamicSections: () => {
+            void this.dynamicSections.refreshDynamicSections();
+          },
+          setCodexPath: (value) => {
+            void this.setCodexPath(value);
+          },
+          setShowToolbar: (value) => {
+            void this.setShowToolbar(value);
+          },
+          setSendShortcut: (value) => {
+            void this.setSendShortcut(value);
+          },
+          setScrollThreadFromComposerEdges: (value) => {
+            void this.setScrollThreadFromComposerEdges(value);
+          },
+        }}
+      />,
+    );
   }
 
-  private createDynamicSectionRoots(containerEl: HTMLElement): void {
-    const container = containerEl.createDiv({ cls: "codex-panel-settings__preact-sections" });
-    this.dynamicSectionRoots = {
-      container,
-      helper: container.createDiv(),
-      archived: container.createDiv(),
-      hooks: container.createDiv(),
-    };
-  }
-
-  private unmountDynamicSectionRoots(): void {
-    const roots = this.dynamicSectionRoots;
-    if (!roots) return;
-    unmountUiRoot(roots.helper);
-    unmountUiRoot(roots.archived);
-    unmountUiRoot(roots.hooks);
-    this.dynamicSectionRoots = null;
-  }
-
-  private renderDynamicSections(target: SettingsDynamicSectionsDisplayTarget): void {
-    const roots = this.dynamicSectionRoots;
-    if (!roots) return;
-    const state = this.dynamicSectionsState();
-    if (target === "all" || target === "helper") {
-      renderUiRoot(roots.helper, <HelperSettingsSection state={state.helper} />);
-    }
-    if (target === "all" || target === "archived") {
-      renderUiRoot(roots.archived, <ArchivedThreadSection state={state.archived} />);
-    }
-    if (target === "all" || target === "hooks") {
-      renderUiRoot(roots.hooks, <HookSection state={state.hooks} />);
-    }
-  }
-
-  private dynamicSectionsState(): SettingsSectionsState {
+  private settingsSectionsState(): SettingsSectionsState {
     const dynamicSections = this.dynamicSections.snapshot();
     return {
       helper: {
@@ -222,16 +137,16 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         onExportTagsChange: (value) => void this.setArchiveExportTags(value),
         onRestore: (threadId) => {
           this.archivedDeleteConfirmThreadId = null;
-          this.renderDynamicSections("archived");
+          this.renderSettingsShell();
           void this.dynamicSections.restoreArchivedThread(threadId);
         },
         onStartDelete: (threadId) => {
           this.archivedDeleteConfirmThreadId = threadId;
-          this.renderDynamicSections("archived");
+          this.renderSettingsShell();
         },
         onDelete: (threadId) => {
           this.archivedDeleteConfirmThreadId = null;
-          this.renderDynamicSections("archived");
+          this.renderSettingsShell();
           void this.dynamicSections.deleteArchivedThread(threadId);
         },
       },
@@ -251,26 +166,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     };
   }
 
-  private renderHeaderActions(containerEl: HTMLElement, introText: string): void {
-    const header = containerEl.createDiv({ cls: "setting-item setting-item-heading codex-panel-settings__header" });
-    const info = header.createDiv({ cls: "setting-item-info" });
-    info.createDiv({
-      cls: "setting-item-description codex-panel-settings__section-intro",
-      text: introText,
-    });
-    const control = header.createDiv({ cls: "setting-item-control" });
-    const button = control.createEl("button", {
-      cls: "clickable-icon codex-panel-settings__refresh-button",
-    });
-    button.type = "button";
-    button.disabled = this.dynamicSections.isLoading();
-    button.ariaLabel = this.dynamicSections.isLoading() ? "Refreshing Codex details" : "Refresh Codex details";
-    setIcon(button, "refresh-cw");
-    button.addEventListener("click", () => {
-      void this.dynamicSections.refreshDynamicSections();
-    });
-  }
-
   private maybeAutoLoadDynamicSections(): void {
     this.dynamicSections.maybeAutoLoadDynamicSections();
   }
@@ -283,13 +178,32 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.dynamicSections.resetDynamicSectionContext();
     this.plugin.appServerQueries.notifyContextChanged();
     this.plugin.refreshOpenViews();
-    this.renderSettingsTab({ autoLoadDynamicSections: false });
+    this.renderSettingsShell();
+  }
+
+  private async setShowToolbar(value: boolean): Promise<void> {
+    this.plugin.settings.showToolbar = value;
+    await this.plugin.saveSettings();
+    this.plugin.refreshOpenViews();
+    this.renderSettingsShell();
+  }
+
+  private async setSendShortcut(value: "enter" | "mod-enter"): Promise<void> {
+    this.plugin.settings.sendShortcut = value;
+    await this.plugin.saveSettings();
+    this.renderSettingsShell();
+  }
+
+  private async setScrollThreadFromComposerEdges(value: boolean): Promise<void> {
+    this.plugin.settings.scrollThreadFromComposerEdges = value;
+    await this.plugin.saveSettings();
+    this.renderSettingsShell();
   }
 
   private async setArchiveExportEnabled(enabled: boolean): Promise<void> {
     this.plugin.settings.archiveExportEnabled = enabled;
     await this.plugin.saveSettings();
-    this.renderDynamicSections("archived");
+    this.renderSettingsShell();
   }
 
   private async setArchiveExportFolderTemplate(value: string): Promise<void> {
@@ -313,7 +227,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       this.plugin.settings.threadNamingEffort = null;
     }
     await this.plugin.saveSettings();
-    this.renderDynamicSections("helper");
+    this.renderSettingsShell();
   }
 
   private async setThreadNamingEffort(value: ReasoningEffort | null): Promise<void> {
@@ -327,7 +241,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
       this.plugin.settings.rewriteSelectionEffort = null;
     }
     await this.plugin.saveSettings();
-    this.renderDynamicSections("helper");
+    this.renderSettingsShell();
   }
 
   private async setRewriteSelectionEffort(value: ReasoningEffort | null): Promise<void> {
