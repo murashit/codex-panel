@@ -3,14 +3,15 @@ import { type AppServerQueryContext, appServerQueryContextMatches, appServerQuer
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
-import { ChatResumeWorkTracker, type ChatViewDeferredTasks, type RestoredThreadPlaceholderState } from "../application/lifecycle";
 import type { ChatState } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
+import type { RestoredThreadPlaceholderState } from "../application/threads/restored-thread-lifecycle";
+import { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatPanelSnapshot, openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
 import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelEnvironment, ChatPanelHandle } from "./contracts";
-import { createChatViewDeferredTasks } from "./deferred-work";
+import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./deferred-work";
 import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
 
 export class ChatPanelSession implements ChatPanelHandle {

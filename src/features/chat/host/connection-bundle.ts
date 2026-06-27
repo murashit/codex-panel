@@ -14,13 +14,13 @@ import {
   createChatConnectionController,
   handleChatConnectionExit,
 } from "../application/connection/connection-controller";
-import type { ChatViewDeferredTasks } from "../application/lifecycle";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { AutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
 import type { createThreadGoalSyncActions } from "../application/threads/goal-actions";
 import type { ChatPanelEnvironment } from "./contracts";
+import type { ChatViewDeferredTasks } from "./deferred-work";
 
 export type CurrentAppServerClient = () => AppServerClient | null;
 

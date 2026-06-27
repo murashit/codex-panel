@@ -1,7 +1,7 @@
 import { type App, type EventRef, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
-import { VaultNoteCandidateProvider } from "../../../../src/features/chat/panel/vault-note-candidate-provider";
+import { VaultNoteCandidateProvider } from "../../../../src/features/chat/host/vault-note-candidate-provider.obsidian";
 
 describe("VaultNoteCandidateProvider", () => {
   it("builds note candidates from markdown files", () => {

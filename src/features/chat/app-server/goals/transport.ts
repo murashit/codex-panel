@@ -1,7 +1,7 @@
 import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/services/threads";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../../application/threads/goal-transport";
-import type { ConnectedChatAppServerClientHost, CurrentChatAppServerClientHost } from "../client-scope";
-import { chatAppServerClientIsStale, withConnectedChatAppServerClient, withCurrentChatAppServerClient } from "../client-scope";
+import type { ConnectedChatAppServerClientHost, CurrentChatAppServerClientHost } from "../connection/client-scope";
+import { chatAppServerClientIsStale, withConnectedChatAppServerClient, withCurrentChatAppServerClient } from "../connection/client-scope";
 
 export function createChatThreadGoalReadTransport(host: CurrentChatAppServerClientHost): ThreadGoalReadTransport {
   return {

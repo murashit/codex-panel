@@ -1,7 +1,7 @@
 import type { AppServerClientAccess } from "../app-server/connection/client-access";
 import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../app-server/query/thread-catalog";
 import type { ModelMetadata } from "../domain/catalog/metadata";
-import type { ObservedResultListener } from "../domain/observed-result";
+import type { ObservedResultListener } from "../shared/query/observed-result";
 import type { CodexPanelSettings } from "./model";
 
 interface SettingsAppServerQueries {

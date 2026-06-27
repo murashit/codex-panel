@@ -1,4 +1,4 @@
-import type { AppServerClient } from "../../../app-server/connection/client";
+import type { AppServerClient } from "../../../../app-server/connection/client";
 
 export interface CurrentChatAppServerClientHost {
   currentClient(): AppServerClient | null;

@@ -103,7 +103,7 @@ function agentItem(id: string, turnId: string): MessageStreamItem {
     tool: "spawnAgent",
     senderThreadId: "sender",
     receiverThreadIds: ["receiver"],
-    agents: [{ threadId: "receiver", status: "running", message: "Still working" }],
+    agents: [{ threadId: "receiver", status: "running", executionState: "running", message: "Still working" }],
     status: "running",
     prompt: null,
     model: null,

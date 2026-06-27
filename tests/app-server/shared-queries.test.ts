@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerQueryCache } from "../../src/app-server/query/cache";
 import { AppServerSharedQueries, StaleAppServerSharedQueryContextError } from "../../src/app-server/query/shared-queries";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
-import type { ObservedResult } from "../../src/domain/observed-result";
 import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 import type { Thread } from "../../src/domain/threads/model";
+import type { ObservedResult } from "../../src/shared/query/observed-result";
 import { deferred } from "../support/async";
 
 describe("AppServerSharedQueries", () => {

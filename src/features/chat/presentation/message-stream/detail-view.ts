@@ -1,7 +1,6 @@
 import { shortThreadId } from "../../../../shared/id/thread-id";
 import { pathRelativeToRoot } from "../../../../shared/path/file-paths";
 import { truncate } from "../../../../shared/text/preview";
-import { failedStatusLabel } from "../../domain/message-stream/execution-state";
 import type {
   AgentMessageStreamItem,
   ApprovalResultMessageStreamItem,
@@ -416,6 +415,12 @@ function genericToolSummary(item: ToolCallMessageStreamItem | HookMessageStreamI
 function fileChangeSummary(item: FileChangeMessageStreamItem, changes: (MessageStreamFileChange & { displayPath: string })[]): string {
   const target = fileChangeTargetSummary(changes);
   return compactSummary(null, target, statusQualifier(item.status, failedStatusLabel(item.status)));
+}
+
+function failedStatusLabel(status: unknown): string | null {
+  if (status === "failed") return "failed";
+  if (status === "declined") return "declined";
+  return null;
 }
 
 function agentSummaryText(item: AgentMessageStreamItem): string {

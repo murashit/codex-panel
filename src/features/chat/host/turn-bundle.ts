@@ -10,7 +10,6 @@ import {
   type ConversationTurnActions as ChatPanelConversationTurnActions,
   createConversationTurnActions,
 } from "../application/conversation/composition";
-import type { ChatViewDeferredTasks } from "../application/lifecycle";
 import { createPendingRequestActions, type PendingRequestActions } from "../application/pending-requests/pending-request-actions";
 import type { ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
@@ -19,6 +18,7 @@ import type { MessageStreamNoticeSection } from "../domain/message-stream/items"
 import type { ChatComposerController } from "../panel/composer-controller";
 import type { CurrentAppServerClient } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
+import type { ChatViewDeferredTasks } from "./deferred-work";
 import type { ChatPanelRuntimeProjection, ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 import type {
   ChatPanelGoalActions,

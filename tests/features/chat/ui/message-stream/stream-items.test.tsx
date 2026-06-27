@@ -337,7 +337,7 @@ describe("message stream item renderer decisions", () => {
           prompt: null,
           model: null,
           reasoningEffort: null,
-          agents: [{ threadId: "running", status: "running", message: "Inspecting renderer" }],
+          agents: [{ threadId: "running", status: "running", executionState: "running", message: "Inspecting renderer" }],
         },
       ],
       pendingRequests: {
@@ -390,7 +390,7 @@ describe("message stream item renderer decisions", () => {
           prompt: null,
           model: null,
           reasoningEffort: null,
-          agents: [{ threadId: "running", status: "running", message: null }],
+          agents: [{ threadId: "running", status: "running", executionState: "running", message: null }],
         },
         {
           id: "plan-progress-turn",
@@ -426,7 +426,7 @@ describe("message stream item renderer decisions", () => {
           prompt: "Inspect the renderer.",
           model: null,
           reasoningEffort: null,
-          agents: [{ threadId: "child", status: "completed", message: null }],
+          agents: [{ threadId: "child", status: "completed", executionState: "completed", message: null }],
         },
         {
           id: "plan-progress-turn",
@@ -451,7 +451,7 @@ describe("message stream item renderer decisions", () => {
           prompt: null,
           model: null,
           reasoningEffort: null,
-          agents: [{ threadId: "child", status: "running", message: "Inspecting renderer" }],
+          agents: [{ threadId: "child", status: "running", executionState: "running", message: "Inspecting renderer" }],
         },
       ],
     });
@@ -482,7 +482,7 @@ describe("message stream item renderer decisions", () => {
           prompt: "Inspect the renderer.",
           model: "gpt-5.5",
           reasoningEffort: "high",
-          agents: [{ threadId: "child", status: "completed", message: "Done" }],
+          agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
         },
       ],
     })[0];
@@ -548,7 +548,7 @@ describe("message stream item renderer decisions", () => {
           prompt: null,
           model: null,
           reasoningEffort: null,
-          agents: [{ threadId, status: "completed", message: longMessage }],
+          agents: [{ threadId, status: "completed", executionState: "completed", message: longMessage }],
         },
       ],
       onDisclosureToggle,
@@ -588,8 +588,8 @@ describe("message stream item renderer decisions", () => {
           model: null,
           reasoningEffort: null,
           agents: [
-            { threadId: "done", status: "completed", message: null },
-            { threadId: "running", status: "running", message: "Inspecting renderer" },
+            { threadId: "done", status: "completed", executionState: "completed", message: null },
+            { threadId: "running", status: "running", executionState: "running", message: "Inspecting renderer" },
           ],
         },
       ],
@@ -665,7 +665,7 @@ describe("message stream item renderer decisions", () => {
           prompt: null,
           model: null,
           reasoningEffort: null,
-          agents: [{ threadId: "done", status: "completed", message: null }],
+          agents: [{ threadId: "done", status: "completed", executionState: "completed", message: null }],
         },
       ],
     });
@@ -691,8 +691,8 @@ describe("message stream item renderer decisions", () => {
           model: null,
           reasoningEffort: null,
           agents: [
-            { threadId: "failed", status: "errored", message: "Failed" },
-            { threadId: "running", status: "running", message: null },
+            { threadId: "failed", status: "errored", executionState: "failed", message: "Failed" },
+            { threadId: "running", status: "running", executionState: "running", message: null },
           ],
         },
       ],

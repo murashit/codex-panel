@@ -1,8 +1,8 @@
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
-import type { ObservedResult } from "../../../domain/observed-result";
-import { observedValue } from "../../../domain/observed-result";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { Thread } from "../../../domain/threads/model";
+import type { ObservedResult } from "../../../shared/query/observed-result";
+import { observedValue } from "../../../shared/query/observed-result";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatPanelConnectionBundle } from "./connection-bundle";
 

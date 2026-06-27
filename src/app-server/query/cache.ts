@@ -1,9 +1,9 @@
 import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
-import type { ObservedResult, ObservedResultListener } from "../../domain/observed-result";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
+import type { ObservedResult, ObservedResultListener } from "../../shared/query/observed-result";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccessOptions } from "../connection/client-access";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";

@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/metrics";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
-import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/lifecycle";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { HistoryController } from "../../../../../src/features/chat/application/threads/history-controller";
 import type { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { createResumeActions, type ResumeActionsHost } from "../../../../../src/features/chat/application/threads/resume-actions";
+import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type {
   ThreadHistoryPage,
   ThreadResumeSnapshot,

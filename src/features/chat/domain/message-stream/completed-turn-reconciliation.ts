@@ -1,5 +1,5 @@
-import { isLocalUserMessageId } from "../local-message-ids";
 import type { MessageStreamItem, MessageStreamMessageItem } from "./items";
+import { isLocalUserMessageId } from "./local-message-ids";
 import { upsertMessageStreamItemById } from "./updates";
 
 export interface CompletedTurnReconciliationInput {

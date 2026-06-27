@@ -1,11 +1,11 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { ChatResumeWorkTracker } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
 import { createActiveThreadIdentitySync } from "./active-thread-identity-sync";
 import type { GoalActions } from "./goal-actions";
 import type { HistoryController } from "./history-controller";
 import { RestorationController } from "./restoration-controller";
 import { createResumeActions, type ResumeActions } from "./resume-actions";
+import type { ChatResumeWorkTracker } from "./resume-work";
 import type { ThreadResumeTransport } from "./thread-loading-transport";
 
 export interface ThreadLifecyclePartsContext {

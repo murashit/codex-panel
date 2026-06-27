@@ -1,5 +1,12 @@
 import { DeferredTask, type DeferredTaskWindow } from "../../../shared/lifecycle/deferred-task";
-import type { ChatViewDeferredTasks } from "../application/lifecycle";
+
+export interface ChatViewDeferredTasks {
+  scheduleDiagnostics(callback: () => void): void;
+  clearDiagnostics(): void;
+  scheduleAppServerWarmup(callback: () => void): void;
+  clearAppServerWarmup(): void;
+  clearAll(): void;
+}
 
 export function createChatViewDeferredTasks(getWindow: () => DeferredTaskWindow): ChatViewDeferredTasks {
   const diagnosticsTask = new DeferredTask(getWindow, 1_000);

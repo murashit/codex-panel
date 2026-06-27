@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { referencedThreadPromptBundle } from "../../../../../src/domain/threads/reference";
+import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/message-stream/execution-state";
 import { hookRunMessageStreamItem } from "../../../../../src/features/chat/app-server/mappers/message-stream/hook-run-items";
 import {
   createAutoReviewResultItem,
@@ -12,7 +13,6 @@ import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
 } from "../../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
-import { collabAgentStateExecutionState } from "../../../../../src/features/chat/domain/message-stream/execution-state";
 import { permissionRows } from "../../../../../src/features/chat/domain/message-stream/format/permission-rows";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { activeTurnLiveItems } from "../../../../../src/features/chat/domain/message-stream/semantics/active-turn";
@@ -258,7 +258,7 @@ describe("turn item conversion preserves app-server semantics", () => {
       prompt: "Inspect the renderer.",
       model: "gpt-5.5",
       reasoningEffort: "high",
-      agents: [{ threadId: "child-thread", status: "completed", message: "Done" }],
+      agents: [{ threadId: "child-thread", status: "completed", executionState: "completed", message: "Done" }],
       executionState: "completed",
     });
   });
@@ -1069,7 +1069,7 @@ describe("display block grouping keeps message stream details subordinate to con
         prompt: null,
         model: null,
         reasoningEffort: null,
-        agents: [{ threadId: "child", status: "completed", message: null }],
+        agents: [{ threadId: "child", status: "completed", executionState: "completed", message: null }],
       },
       {
         id: "a1",
@@ -1105,9 +1105,9 @@ describe("display block grouping keeps message stream details subordinate to con
         model: null,
         reasoningEffort: null,
         agents: [
-          { threadId: "done", status: "completed", message: null },
-          { threadId: "running", status: "running", message: null },
-          { threadId: "failed", status: "errored", message: null },
+          { threadId: "done", status: "completed", executionState: "completed", message: null },
+          { threadId: "running", status: "running", executionState: "running", message: null },
+          { threadId: "failed", status: "errored", executionState: "failed", message: null },
         ],
       },
     ];
@@ -1153,11 +1153,11 @@ describe("display block grouping keeps message stream details subordinate to con
         model: null,
         reasoningEffort: null,
         agents: [
-          { threadId: "a", status: "running", message: "\n  Inspecting   renderer   tests  \nmore details" },
-          { threadId: "b", status: "failed", message: "Could not reproduce" },
-          { threadId: "c", status: "running", message: null },
-          { threadId: "d", status: "running", message: "Reviewing details" },
-          { threadId: "e", status: "running", message: "Checking scroll behavior" },
+          { threadId: "a", status: "running", executionState: "running", message: "\n  Inspecting   renderer   tests  \nmore details" },
+          { threadId: "b", status: "failed", executionState: "failed", message: "Could not reproduce" },
+          { threadId: "c", status: "running", executionState: "running", message: null },
+          { threadId: "d", status: "running", executionState: "running", message: "Reviewing details" },
+          { threadId: "e", status: "running", executionState: "running", message: "Checking scroll behavior" },
         ],
       },
     ];
@@ -1192,7 +1192,7 @@ describe("display block grouping keeps message stream details subordinate to con
         prompt: null,
         model: null,
         reasoningEffort: null,
-        agents: [{ threadId: "done", status: "completed", message: null }],
+        agents: [{ threadId: "done", status: "completed", executionState: "completed", message: null }],
       },
     ];
 

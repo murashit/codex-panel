@@ -1,5 +1,5 @@
-import { isLocalSteerMessageClientId } from "../../local-message-ids";
 import type { MessageStreamItem } from "../items";
+import { isLocalSteerMessageClientId } from "../local-message-ids";
 import type {
   MessageStreamLifecycle,
   MessageStreamMeaning,

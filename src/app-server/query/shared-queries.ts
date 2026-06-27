@@ -1,7 +1,7 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
-import type { ObservedResultListener } from "../../domain/observed-result";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
+import type { ObservedResultListener } from "../../shared/query/observed-result";
 import type { AppServerQueryCache } from "./cache";
 import {
   type AppServerQueryContext,

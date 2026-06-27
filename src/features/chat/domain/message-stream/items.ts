@@ -269,6 +269,7 @@ export interface TaskProgressMessageStreamItem extends MessageStreamBase {
 export interface AgentStateSummary {
   readonly threadId: string;
   readonly status: string;
+  readonly executionState: ExecutionState;
   readonly message: string | null;
 }
 

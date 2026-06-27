@@ -1,6 +1,6 @@
 import type { ChatTurnTransport } from "../../application/conversation/turn-transport";
-import type { ConnectedChatAppServerClientHost } from "../client-scope";
-import { withCurrentChatAppServerClient } from "../client-scope";
+import type { ConnectedChatAppServerClientHost } from "../connection/client-scope";
+import { withCurrentChatAppServerClient } from "../connection/client-scope";
 
 interface ChatTurnTransportHost extends ConnectedChatAppServerClientHost {
   vaultPath: string;

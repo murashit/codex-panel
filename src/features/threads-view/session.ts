@@ -5,10 +5,10 @@ import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../app-server/query/thread-catalog";
 import type { ArchiveExportDestination } from "../../app-server/services/thread-archive-markdown";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
-import type { ObservedResult } from "../../domain/observed-result";
-import { observedInitialError, observedInitialLoading, observedValue } from "../../domain/observed-result";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
+import type { ObservedResult } from "../../shared/query/observed-result";
+import { observedInitialError, observedInitialLoading, observedValue } from "../../shared/query/observed-result";
 import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";

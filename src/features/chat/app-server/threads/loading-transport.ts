@@ -4,8 +4,8 @@ import type {
   ThreadResumeSnapshot,
   ThreadResumeTransport,
 } from "../../application/threads/thread-loading-transport";
-import type { ConnectedChatAppServerClientHost, CurrentChatAppServerClientHost } from "../client-scope";
-import { withConnectedChatAppServerClient, withCurrentChatAppServerClient } from "../client-scope";
+import type { ConnectedChatAppServerClientHost, CurrentChatAppServerClientHost } from "../connection/client-scope";
+import { withConnectedChatAppServerClient, withCurrentChatAppServerClient } from "../connection/client-scope";
 import { readChatThreadHistoryPage, resumeChatThread } from "./projection";
 
 interface ChatThreadResumeTransportHost extends ConnectedChatAppServerClientHost {

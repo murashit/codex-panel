@@ -2,12 +2,12 @@ import { ConnectionManager } from "../../../app-server/connection/connection-man
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
-import type { ChatResumeWorkTracker, ChatViewDeferredTasks } from "../application/lifecycle";
 import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeActions } from "../application/threads/resume-actions";
+import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatComposerController } from "../panel/composer-controller";
@@ -15,6 +15,7 @@ import type { ChatMessageScrollController } from "../panel/surface/message-strea
 import { createComposerBundle } from "./composer-bundle";
 import { type ChatPanelConnectionBundle, createConnectionBundle } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
+import type { ChatViewDeferredTasks } from "./deferred-work";
 import { createRuntimeBundle } from "./runtime-bundle";
 import { type ChatPanelSharedStateBinding, createChatPanelSharedStateBinding } from "./shared-state-binding";
 import { type ChatPanelShellBundle, createShellBundle } from "./shell-bundle";

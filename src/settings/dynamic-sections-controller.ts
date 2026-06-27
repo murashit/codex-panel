@@ -4,10 +4,10 @@ import { type HookCatalog, listHookCatalog, setHookItemEnabled, trustHookItem } 
 import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
-import type { ObservedResult } from "../domain/observed-result";
-import { observedValue } from "../domain/observed-result";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
+import type { ObservedResult } from "../shared/query/observed-result";
+import { observedValue } from "../shared/query/observed-result";
 import type { SettingsDynamicSectionsHost } from "./host";
 import {
   createSettingsDynamicSectionLifecycle,

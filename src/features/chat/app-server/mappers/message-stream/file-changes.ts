@@ -1,5 +1,5 @@
-import { patchApplyExecutionState } from "../../../domain/message-stream/execution-state";
 import type { MessageStreamFileChange, MessageStreamItem } from "../../../domain/message-stream/items";
+import { patchApplyExecutionState } from "./execution-state";
 
 export interface AppServerFileChange {
   readonly path: string;

@@ -8,20 +8,20 @@ import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
 import type { ThreadConversationSummary } from "../../../../../domain/threads/transcript";
 import { jsonPreview } from "../../../../../shared/text/preview";
-import {
-  commandExecutionState,
-  dynamicToolCallExecutionState,
-  failedStatusLabel,
-  imageGenerationExecutionState,
-  mcpToolCallExecutionState,
-  patchApplyExecutionState,
-} from "../../../domain/message-stream/execution-state";
 import { fileMentionsFromInput } from "../../../domain/message-stream/format/file-mentions";
 import { normalizeProposedPlanMarkdown } from "../../../domain/message-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/message-stream/format/user-message-text";
 import type { CommandMessageStreamTarget, MessageStreamDiagnosticSection, MessageStreamItem } from "../../../domain/message-stream/items";
 import type { MessageStreamItemProvenance } from "../../../domain/message-stream/provenance";
 import { agentMessageStreamItem } from "./agent-items";
+import {
+  appServerFailedStatusLabel,
+  commandExecutionState,
+  dynamicToolCallExecutionState,
+  imageGenerationExecutionState,
+  mcpToolCallExecutionState,
+  patchApplyExecutionState,
+} from "./execution-state";
 import { normalizeFileChanges } from "./file-changes";
 
 type UserMessageItem = Extract<TurnItem, { type: "userMessage" }>;
@@ -228,7 +228,7 @@ function mcpToolCallMessageStreamItem(item: McpToolCallItem, turnId?: string): M
 function dynamicToolCallMessageStreamItem(item: DynamicToolCallItem, turnId?: string): MessageStreamItem {
   const name = `${item.namespace ? `${item.namespace}.` : ""}${item.tool}`;
   const target = jsonTargetLabel(item.arguments);
-  const failure = item.success === false ? "failed" : failedStatusLabel(item.status);
+  const failure = item.success === false ? "failed" : appServerFailedStatusLabel(item.status);
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "tool",
@@ -282,7 +282,7 @@ function sleepMessageStreamItem(item: SleepItem, turnId?: string): MessageStream
 
 function imageGenerationMessageStreamItem(item: ImageGenerationItem, turnId?: string): MessageStreamItem {
   const target = item.savedPath ?? item.result;
-  const failureReason = failedStatusLabel(item.status);
+  const failureReason = appServerFailedStatusLabel(item.status);
   return {
     ...turnItemSourceFields(item, turnId),
     kind: "tool",

@@ -10,7 +10,6 @@ import type { ChatServerThreadActions } from "../app-server/actions/threads";
 import { createChatThreadGoalReadTransport, createChatThreadGoalTransport } from "../app-server/goals/transport";
 import { createChatThreadHistoryTransport, createChatThreadResumeTransport } from "../app-server/threads/loading-transport";
 import { createChatThreadMutationTransport } from "../app-server/threads/transport";
-import type { ChatResumeWorkTracker } from "../application/lifecycle";
 import { messageStreamItems } from "../application/state/message-stream";
 import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
@@ -25,6 +24,7 @@ import {
 } from "../application/threads/rename-editor-actions";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeActions } from "../application/threads/resume-actions";
+import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { createThreadManagementActions, type ThreadManagementActionsHost } from "../application/threads/thread-management-actions";
 import { createThreadNavigationActions } from "../application/threads/thread-navigation-actions";
 import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";

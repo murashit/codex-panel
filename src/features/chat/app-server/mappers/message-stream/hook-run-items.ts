@@ -1,9 +1,5 @@
-import {
-  type ExecutionStateByStatus,
-  executionStateFromStatus,
-  RUNNING_EXECUTION_STATE,
-} from "../../../domain/message-stream/execution-state";
 import type { HookMessageStreamItem } from "../../../domain/message-stream/items";
+import { type ExecutionStateByStatus, executionStateFromStatus, RUNNING_EXECUTION_STATE } from "./execution-state";
 
 interface MessageStreamHookRun {
   id: string;

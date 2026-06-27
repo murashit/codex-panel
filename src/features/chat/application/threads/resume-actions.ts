@@ -1,10 +1,10 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { ActiveChatResume, ChatResumeWorkTracker } from "../lifecycle";
 import { resumedThreadAction } from "../state/actions";
 import { messageStreamIsEmpty } from "../state/message-stream";
 import type { ChatStateStore } from "../state/store";
 import type { HistoryController } from "./history-controller";
 import type { RestorationController } from "./restoration-controller";
+import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
 import type { ThreadResumeSnapshot, ThreadResumeTransport } from "./thread-loading-transport";
 import { canSwitchToThread } from "./thread-switching";
 

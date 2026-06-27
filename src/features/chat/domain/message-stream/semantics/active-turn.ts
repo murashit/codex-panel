@@ -1,5 +1,4 @@
 import { truncate } from "../../../../../shared/text/preview";
-import { collabAgentStateExecutionState } from "../execution-state";
 import type {
   AgentRunSummary,
   AgentRunSummaryAgent,
@@ -72,7 +71,7 @@ function activeAgentRunSummary(items: readonly MessageStreamItem[], activeTurnId
       }
     } else {
       for (const threadId of item.receiverThreadIds) {
-        agentStatuses.set(threadId, { threadId, status: item.status, message: null });
+        agentStatuses.set(threadId, { threadId, status: item.status, executionState: item.executionState ?? "running", message: null });
       }
     }
   }
@@ -82,14 +81,14 @@ function activeAgentRunSummary(items: readonly MessageStreamItem[], activeTurnId
   const summary = { running: 0, completed: 0, failed: 0, agents: [] as AgentRunSummaryAgent[], additionalAgents: 0 };
   const agents = [...agentStatuses.values()];
   for (const agent of agents) {
-    const state = agentRunState(agent.status);
+    const state = agentRunState(agent);
     summary[state] += 1;
   }
 
   if (summary.running === 0 && summary.failed === 0) return null;
 
   summary.agents = agents
-    .filter((agent) => agentRunState(agent.status) === "running")
+    .filter((agent) => agentRunState(agent) === "running")
     .sort((a, b) => a.threadId.localeCompare(b.threadId))
     .map((agent) => ({
       threadId: agent.threadId,
@@ -129,6 +128,6 @@ function agentMessagePreview(message: string | null, maxLength: number): string 
   return truncate(firstLine.replace(/\s+/g, " "), maxLength);
 }
 
-function agentRunState(status: string): AgentRunState {
-  return collabAgentStateExecutionState(status) ?? "running";
+function agentRunState(agent: AgentStateSummary): AgentRunState {
+  return agent.executionState ?? "running";
 }

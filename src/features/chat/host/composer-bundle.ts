@@ -5,10 +5,10 @@ import { resolveRuntimeControls } from "../domain/runtime/resolution";
 import { ChatComposerController } from "../panel/composer-controller";
 import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../panel/surface/composer-projection";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
-import { VaultNoteCandidateProvider } from "../panel/vault-note-candidate-provider";
 import type { ChatPanelEnvironment } from "./contracts";
 import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 import type { ChatPanelThreadLifecycle } from "./thread-bundle";
+import { VaultNoteCandidateProvider } from "./vault-note-candidate-provider.obsidian";
 
 interface ChatPanelComposerHost {
   environment: ChatPanelEnvironment;

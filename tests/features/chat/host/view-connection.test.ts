@@ -6,13 +6,13 @@ import { modelMetadataFromCatalogModels } from "../../../../src/app-server/proto
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ThreadCatalogEvent } from "../../../../src/app-server/query/thread-catalog";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
-import type { ObservedResult } from "../../../../src/domain/observed-result";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import type { ObservedResult } from "../../../../src/shared/query/observed-result";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";

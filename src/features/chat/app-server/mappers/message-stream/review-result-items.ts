@@ -1,11 +1,7 @@
 import { pathRelativeToRoot } from "../../../../../shared/path/file-paths";
-import {
-  type ExecutionStateByStatus,
-  executionStateFromStatus,
-  RUNNING_EXECUTION_STATE,
-} from "../../../domain/message-stream/execution-state";
 import { permissionRows } from "../../../domain/message-stream/format/permission-rows";
 import type { ExecutionState, MessageStreamAuditFact, MessageStreamItem } from "../../../domain/message-stream/items";
+import { type ExecutionStateByStatus, executionStateFromStatus, RUNNING_EXECUTION_STATE } from "./execution-state";
 
 const AUTO_REVIEW_STATES: ExecutionStateByStatus = {
   inProgress: RUNNING_EXECUTION_STATE,

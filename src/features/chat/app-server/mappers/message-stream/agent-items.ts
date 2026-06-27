@@ -1,10 +1,10 @@
+import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "../../../domain/message-stream/items";
 import {
   collabAgentStateExecutionState,
   type ExecutionStateByStatus,
   executionStateFromStatus,
   RUNNING_EXECUTION_STATE,
-} from "../../../domain/message-stream/execution-state";
-import type { AgentMessageStreamItem, AgentStateSummary, ExecutionState } from "../../../domain/message-stream/items";
+} from "./execution-state";
 
 const STANDARD_TOOL_STATES: ExecutionStateByStatus = {
   inProgress: RUNNING_EXECUTION_STATE,
@@ -51,19 +51,23 @@ export function agentMessageStreamItem(item: MessageStreamCollabAgentToolCall, t
 
 function agentStatesDisplay(states: MessageStreamCollabAgentToolCall["agentsStates"]): AgentStateSummary[] {
   return Object.entries(states)
-    .map(([threadId, state]) => ({
-      threadId,
-      status: state?.status ?? "unknown",
-      message: state?.message ?? null,
-    }))
+    .map(([threadId, state]) => {
+      const status = state?.status ?? "unknown";
+      return {
+        threadId,
+        status,
+        executionState: collabAgentStateExecutionState(status),
+        message: state?.message ?? null,
+      };
+    })
     .sort((a, b) => a.threadId.localeCompare(b.threadId));
 }
 
 function collabAgentExecutionState(tool: string, status: string, receiverThreadIds: string[], agents: AgentStateSummary[]): ExecutionState {
   if (tool === "spawnAgent") return collabAgentToolCallExecutionState(status);
-  if (agents.some((agent) => collabAgentStateExecutionState(agent.status) === "failed")) return "failed";
-  if (agents.some((agent) => collabAgentStateExecutionState(agent.status) === "running")) return "running";
-  if (agents.length > 0 && agents.every((agent) => collabAgentStateExecutionState(agent.status) === "completed")) {
+  if (agents.some((agent) => agent.executionState === "failed")) return "failed";
+  if (agents.some((agent) => agent.executionState === "running")) return "running";
+  if (agents.length > 0 && agents.every((agent) => agent.executionState === "completed")) {
     return "completed";
   }
   if (receiverThreadIds.length > 0 && collabAgentToolCallExecutionState(status) === "completed") return "running";
