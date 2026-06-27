@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   createServerDiagnostics,
-  DIAGNOSTIC_PROBE_METHODS,
   diagnosticProbeError,
   diagnosticProbeOk,
   serverIdentity,
@@ -27,7 +26,14 @@ describe("app-server diagnostics", () => {
   it("creates generic capability probe defaults", () => {
     const diagnostics = createServerDiagnostics();
 
-    expect(Object.keys(diagnostics.probes)).toEqual([...DIAGNOSTIC_PROBE_METHODS]);
+    expect(Object.keys(diagnostics.probes)).toEqual([
+      "model/list",
+      "skills/list",
+      "app/list",
+      "plugin/installed",
+      "account/rateLimits/read",
+      "mcpServerStatus/list",
+    ]);
     expect(diagnostics.probes["model/list"]).toMatchObject({
       method: "model/list",
       status: "unknown",

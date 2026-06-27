@@ -316,18 +316,6 @@ const THREAD_LIFECYCLE_PLANNERS = {
   },
 } satisfies ServerNotificationStatePlannerMap<ThreadLifecycleNotificationMethod>;
 
-export const PLANNED_SERVER_NOTIFICATION_METHODS_BY_ROUTE_KIND = {
-  streamUpdate: plannerMethods(STREAM_UPDATE_PLANNERS),
-  turnLifecycle: plannerMethods(TURN_LIFECYCLE_PLANNERS),
-  threadLifecycle: plannerMethods(THREAD_LIFECYCLE_PLANNERS),
-  requestResolved: ["serverRequest/resolved"],
-  diagnosticStatus: plannerMethods(DIAGNOSTIC_STATUS_PLANNERS),
-  userVisibleNotice: plannerMethods(USER_VISIBLE_NOTICE_PLANNERS),
-} satisfies Record<
-  Exclude<ReturnType<typeof routeServerNotification>["kind"], "inactive" | "unhandled" | "ignored">,
-  readonly ServerNotification["method"][]
->;
-
 export function planChatNotification(
   state: ChatState,
   notification: ServerNotification,
@@ -417,10 +405,6 @@ function planNotificationWithStateByMethod<M extends ServerNotification["method"
 ): ChatNotificationPlan {
   const planner = planners[notification.method];
   return planner(state, notification, localItemId);
-}
-
-function plannerMethods<M extends ServerNotification["method"]>(planners: Record<M, unknown>): readonly M[] {
-  return Object.keys(planners) as M[];
 }
 
 function jsonNoticePlan(

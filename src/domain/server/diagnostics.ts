@@ -1,7 +1,7 @@
 import type { ServerInitialization } from "./initialization";
 import { cloneToolInventorySnapshot, type ToolInventorySnapshot } from "./tool-inventory";
 
-export const DIAGNOSTIC_PROBE_METHODS = [
+const DIAGNOSTIC_PROBE_METHODS = [
   "model/list",
   "skills/list",
   "app/list",
