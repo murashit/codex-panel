@@ -177,6 +177,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       threadFoundation.invalidateThreadWork();
     },
     runtimeProjection: runtime.projection,
+    refreshDiagnostics: () => connectionController.refreshDiagnostics(),
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });

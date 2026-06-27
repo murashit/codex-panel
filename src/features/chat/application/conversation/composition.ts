@@ -29,7 +29,7 @@ export interface ConversationTurnActionsContext {
     modelStatusLines: () => string[];
     effortStatusLines: () => string[];
     statusSummaryLines: () => string[];
-    toolInventoryDetails: () => MessageStreamNoticeSection[];
+    toolInventoryDetails: () => MessageStreamNoticeSection[] | Promise<MessageStreamNoticeSection[]>;
   };
   thread: {
     ensureRestoredThreadLoaded: () => Promise<boolean>;

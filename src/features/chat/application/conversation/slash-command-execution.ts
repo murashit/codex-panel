@@ -53,7 +53,7 @@ export interface SlashCommandExecutionPorts {
   };
   statusSummaryLines: () => string[];
   connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
-  toolInventoryDetails: () => MessageStreamNoticeSection[];
+  toolInventoryDetails: () => MessageStreamNoticeSection[] | Promise<MessageStreamNoticeSection[]>;
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
 }
@@ -186,7 +186,7 @@ export async function executeSlashCommand(
       context.addStructuredSystemMessage("Connection diagnostics", context.connectionDiagnosticDetails());
       return;
     case "tools":
-      context.addStructuredSystemMessage("Codex capabilities", context.toolInventoryDetails());
+      context.addStructuredSystemMessage("Codex capabilities", await context.toolInventoryDetails());
       return;
     case "model": {
       const requested = parseModelOverride(args);

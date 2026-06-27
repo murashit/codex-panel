@@ -68,6 +68,7 @@ interface ChatPanelTurnInput {
   autoTitleCoordinator: AutoTitleCoordinator;
   invalidateThreadWork: () => void;
   runtimeProjection: ChatPanelRuntimeProjection;
+  refreshDiagnostics: () => Promise<void>;
   refreshLiveState: () => void;
   notifyActiveThreadIdentityChanged: () => void;
 }
@@ -91,6 +92,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     autoTitleCoordinator,
     invalidateThreadWork,
     runtimeProjection,
+    refreshDiagnostics,
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   } = input;
@@ -148,7 +150,10 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
         modelStatusLines: runtimeProjection.modelStatusLines,
         effortStatusLines: runtimeProjection.effortStatusLines,
         statusSummaryLines: runtimeProjection.statusSummaryLines,
-        toolInventoryDetails: runtimeProjection.toolInventoryDetails,
+        toolInventoryDetails: async () => {
+          await refreshDiagnostics();
+          return runtimeProjection.toolInventoryDetails();
+        },
       },
       thread: {
         ensureRestoredThreadLoaded: () =>

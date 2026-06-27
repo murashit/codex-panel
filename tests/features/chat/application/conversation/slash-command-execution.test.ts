@@ -47,7 +47,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
     },
     statusSummaryLines: () => ["status"],
     connectionDiagnosticDetails: () => [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }],
-    toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "GitHub" }] }]),
+    toolInventoryDetails: vi.fn(() => [{ title: "MCP servers", auditFacts: [{ key: "codex_apps", value: "GitHub" }] }]),
     modelStatusLines: () => ["model"],
     effortStatusLines: () => ["effort"],
     ...overrides,
@@ -674,13 +674,16 @@ describe("slash commands", () => {
   });
 
   it("shows Codex capabilities", async () => {
-    const ctx = context();
+    const toolInventoryDetails = vi
+      .fn()
+      .mockResolvedValue([{ title: "MCP servers", auditFacts: [{ key: "codex_apps", value: "GitHub" }] }]);
+    const ctx = context({ toolInventoryDetails });
 
     await executeSlashCommand("tools", "", ctx);
 
-    expect(ctx.toolInventoryDetails).toHaveBeenCalledOnce();
+    expect(toolInventoryDetails).toHaveBeenCalledOnce();
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Codex capabilities", [
-      { title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "GitHub" }] },
+      { title: "MCP servers", auditFacts: [{ key: "codex_apps", value: "GitHub" }] },
     ]);
   });
 
@@ -703,7 +706,7 @@ describe("slash commands", () => {
   });
 
   it("documents Codex capabilities", () => {
-    expect(slashCommandHelpValue("/tools")).toBe("Show Codex plugins, tool providers, and skills reported by App Server.");
+    expect(slashCommandHelpValue("/tools")).toBe("Show Codex plugins, MCP servers, and skills reported by App Server.");
   });
 });
 
