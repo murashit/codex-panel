@@ -203,7 +203,6 @@ export const status = signal("idle");
       path.join(cwd, "src/shared/ui/signal-escapes.tsx"),
       `
 import type { Signal } from "@preact/signals";
-export { signal } from "@preact/signals";
 
 export type SignalValue = Signal<string>;
 
@@ -343,7 +342,6 @@ export const render = renderUiRoot;
       path.join(cwd, "src/features/chat/ui/root-escapes.tsx"),
       `
 import type { RootRenderer } from "../../../shared/ui/ui-root.dom";
-export { renderUiRoot } from "../../../shared/ui/ui-root.dom";
 
 export type { RootRenderer };
 
@@ -398,7 +396,6 @@ export function timestamp(): number {
       "Do not import @preact/signals from this module.",
       "Do not import @preact/signals from this module.",
       "Do not import @preact/signals from this module.",
-      "Do not import @preact/signals from this module.",
     ]);
     expect(pluginMessages(report, "src/features/chat/ui/dom-bridge-escape.tsx")).toEqual(
       Array.from({ length: 37 }, () => DOM_BOUNDARY_MESSAGE),
@@ -411,7 +408,6 @@ export function timestamp(): number {
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/panel/shell.dom.tsx")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/ui/root-escapes.tsx")).toEqual([
-      "Import the Preact root adapter only from explicit root bridge files.",
       "Import the Preact root adapter only from explicit root bridge files.",
       "Import the Preact root adapter only from explicit root bridge files.",
       "Import the Preact root adapter only from explicit root bridge files.",
@@ -809,7 +805,6 @@ export const value = statusText;
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/domain/message-stream/items.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/domain/message-stream/outer-shapes.ts")).toEqual([
-      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
@@ -1262,7 +1257,6 @@ export type Item = MessageStreamItem;
     path.join(cwd, "src/features/chat/domain/message-stream/outer-shapes.ts"),
     `
 import type { ChatStateStore } from "../../application/state/store";
-export { createChatStateStore } from "../../application/state/store";
 
 export type OuterStore = ChatStateStore;
 
