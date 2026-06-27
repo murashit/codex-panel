@@ -123,7 +123,7 @@ describe("development scripts", () => {
       "tests/component.test.ts": 'expect("codex-panel__test-only").toBeTruthy();\n',
     });
 
-    const result = runNodeScript("scripts/lint/check-css-usage.mjs", [], cwd);
+    const result = runNodeScript("scripts/check-css-usage.mjs", [], cwd);
 
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");

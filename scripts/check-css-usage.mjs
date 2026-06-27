@@ -4,7 +4,7 @@ import path from "node:path";
 const root = process.cwd();
 const stylesDir = path.join(root, "src", "styles");
 if (process.argv.length > 2) {
-  console.error("Usage: node scripts/lint/check-css-usage.mjs");
+  console.error("Usage: node scripts/check-css-usage.mjs");
   process.exit(1);
 }
 

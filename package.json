@@ -19,7 +19,7 @@
     "build:styles": "node scripts/build-styles.mjs",
     "check": "concurrently --group --pad-prefix 'node:check:*' && node --run build",
     "check:biome": "biome check --diagnostic-level=warn --error-on-warnings",
-    "check:css-usage": "node scripts/lint/check-css-usage.mjs",
+    "check:css-usage": "node scripts/check-css-usage.mjs",
     "check:eslint": "eslint src manifest.json LICENSE --max-warnings=0",
     "check:test": "node --run test",
     "check:typecheck": "node --run typecheck",

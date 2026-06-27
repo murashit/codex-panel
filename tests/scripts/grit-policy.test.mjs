@@ -1,15 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
 const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
+const projectBiomeConfig = parseJsonc(readFileSync(path.join(repoRoot, "biome.jsonc"), "utf8"));
+const projectPluginEntries = projectBiomeConfig.plugins;
 const projectPluginByName = new Map(
-  parseJsonc(readFileSync(path.join(repoRoot, "biome.jsonc"), "utf8")).plugins.map((plugin) => {
-    const pluginPath = typeof plugin === "string" ? plugin : plugin.path;
+  projectPluginEntries.map((plugin) => {
+    const pluginPath = projectPluginPath(plugin);
     return [path.basename(pluginPath), plugin];
   }),
 );
@@ -45,6 +47,20 @@ let appServerBoundaryPolicyReportPromise;
 let renderingAndCssPolicyReportPromise;
 
 describe.concurrent("GritQL source policy", () => {
+  it("keeps Biome wired to every checked-in Grit policy", async () => {
+    const gritPolicyPaths = await listRelativeGritPolicyPaths(path.join(repoRoot, "scripts/grit"));
+    const configuredGritPluginPaths = projectPluginEntries
+      .map((plugin) => projectPluginPath(plugin))
+      .filter((pluginPath) => pluginPath.endsWith(".grit"))
+      .map(normalizeProjectRelativePath)
+      .sort();
+    const configuredGritPluginNames = configuredGritPluginPaths.map((pluginPath) => path.basename(pluginPath));
+
+    expect(new Set(configuredGritPluginPaths).size).toBe(configuredGritPluginPaths.length);
+    expect(new Set(configuredGritPluginNames).size).toBe(configuredGritPluginNames.length);
+    expect(configuredGritPluginPaths).toEqual(gritPolicyPaths);
+  });
+
   it("keeps project-wide source-shape policies enforceable as Biome plugin diagnostics", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-handwritten-reexports.grit",
@@ -1458,11 +1474,15 @@ function projectPluginConfig(plugin) {
   if (!projectPlugin) {
     throw new Error(`Missing ${plugin} in biome.jsonc plugins`);
   }
-  const pluginPath = path.join(repoRoot, "scripts", "lint", plugin);
+  const pluginPath = path.resolve(repoRoot, projectPluginPath(projectPlugin));
   if (typeof projectPlugin === "string") {
     return pluginPath;
   }
   return { ...projectPlugin, path: pluginPath };
+}
+
+function projectPluginPath(plugin) {
+  return typeof plugin === "string" ? plugin : plugin.path;
 }
 
 function pluginDiagnostics(report, filePath) {
@@ -1495,6 +1515,23 @@ function normalizeDiagnosticPath(report, diagnostic) {
 
 function normalizeRelativePath(filePath) {
   return filePath.split(path.sep).join("/");
+}
+
+function normalizeProjectRelativePath(filePath) {
+  return normalizeRelativePath(filePath).replace(/^\.\//, "");
+}
+
+async function listRelativeGritPolicyPaths(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const paths = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) return listRelativeGritPolicyPaths(entryPath);
+      if (entry.isFile() && entry.name.endsWith(".grit")) return [normalizeRelativePath(path.relative(repoRoot, entryPath))];
+      return [];
+    }),
+  );
+  return paths.flat().sort();
 }
 
 function parseBiomeJsonReport(stdout, stderr) {
