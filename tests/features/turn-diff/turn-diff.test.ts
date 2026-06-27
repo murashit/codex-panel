@@ -3,19 +3,19 @@
 import type { WorkspaceLeaf } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
-import { persistedChatTurnDiffViewState } from "../../../../src/features/chat/domain/turn-diff";
-import { renderChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff/render.dom";
-import { CodexChatTurnDiffView } from "../../../../src/features/chat/ui/turn-diff/view.obsidian";
-import { installObsidianDomShims } from "../../../support/dom";
+import { persistedTurnDiffViewState } from "../../../src/features/turn-diff/model";
+import { renderTurnDiffView } from "../../../src/features/turn-diff/render.dom";
+import { CodexTurnDiffView } from "../../../src/features/turn-diff/view.obsidian";
+import { installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();
 
-describe("chat turn diff view decisions", () => {
+describe("turn diff view decisions", () => {
   it("renders the turn diff view with classified unified diff lines", () => {
     const parent = document.createElement("div");
     const copyDiff = vi.fn();
 
-    renderChatTurnDiffView(
+    renderTurnDiffView(
       parent,
       {
         threadId: "019e061e-0046-7653-a362-86de9a47cb5c",
@@ -27,12 +27,12 @@ describe("chat turn diff view decisions", () => {
       { copyDiff },
     );
 
-    expect(parent.querySelector(".codex-panel-chat-turn-diff__title")?.textContent).toBe("Turn diff");
-    expect(parent.querySelector(".codex-panel-chat-turn-diff__meta")?.textContent).toContain("019e061e");
-    const changedFilesSummary = parent.querySelector<HTMLElement>(".codex-panel-chat-turn-diff__files summary");
+    expect(parent.querySelector(".codex-panel-turn-diff__title")?.textContent).toBe("Turn diff");
+    expect(parent.querySelector(".codex-panel-turn-diff__meta")?.textContent).toContain("019e061e");
+    const changedFilesSummary = parent.querySelector<HTMLElement>(".codex-panel-turn-diff__files summary");
     expect(changedFilesSummary?.textContent).toBe("Changed files");
     expect(changedFilesSummary?.tabIndex).toBe(-1);
-    expect(parent.querySelector(".codex-panel-chat-turn-diff__files")?.textContent).toContain("src/main.ts");
+    expect(parent.querySelector(".codex-panel-turn-diff__files")?.textContent).toContain("src/main.ts");
     expect(parent.querySelector(".codex-panel-diff__line--file")?.textContent).toBe("src/main.ts");
     expect(parent.textContent).not.toContain("diff --git");
     expect(parent.textContent).not.toContain("+++ b/src/main.ts");
@@ -43,14 +43,14 @@ describe("chat turn diff view decisions", () => {
     expect(parent.querySelectorAll(".codex-panel-diff__line--hunk")).toHaveLength(1);
     expect(parent.querySelectorAll(".codex-panel-diff__line--removed")).toHaveLength(1);
     expect(parent.querySelectorAll(".codex-panel-diff__line--added")).toHaveLength(1);
-    parent.querySelector<HTMLButtonElement>(".codex-panel-chat-turn-diff__copy")?.click();
+    parent.querySelector<HTMLButtonElement>(".codex-panel-turn-diff__copy")?.click();
     expect(copyDiff).toHaveBeenCalled();
   });
 
   it("highlights changed English words inside adjacent removed and added lines", () => {
     const parent = document.createElement("div");
 
-    renderChatTurnDiffView(parent, {
+    renderTurnDiffView(parent, {
       threadId: "thread",
       turnId: "turn",
       cwd: "/vault/project",
@@ -67,7 +67,7 @@ describe("chat turn diff view decisions", () => {
   it("highlights changed Japanese words with Intl.Segmenter", () => {
     const parent = document.createElement("div");
 
-    renderChatTurnDiffView(parent, {
+    renderTurnDiffView(parent, {
       threadId: "thread",
       turnId: "turn",
       cwd: "/vault/project",
@@ -84,7 +84,7 @@ describe("chat turn diff view decisions", () => {
   it("pairs changed words by line inside multi-line replacement blocks", () => {
     const parent = document.createElement("div");
 
-    renderChatTurnDiffView(parent, {
+    renderTurnDiffView(parent, {
       threadId: "thread",
       turnId: "turn",
       cwd: "/vault/project",
@@ -114,7 +114,7 @@ describe("chat turn diff view decisions", () => {
     const oldText = `start ${"old ".repeat(600)}end`;
     const newText = `start ${"new ".repeat(600)}end`;
 
-    renderChatTurnDiffView(parent, {
+    renderTurnDiffView(parent, {
       threadId: "thread",
       turnId: "turn",
       cwd: "/vault/project",
@@ -128,7 +128,7 @@ describe("chat turn diff view decisions", () => {
   });
 
   it("keeps unified diff text out of persisted turn diff view state", () => {
-    const persisted = persistedChatTurnDiffViewState({
+    const persisted = persistedTurnDiffViewState({
       threadId: "thread",
       turnId: "turn",
       cwd: "/vault/project",
@@ -148,17 +148,17 @@ describe("chat turn diff view decisions", () => {
   it("renders restored turn diff metadata without unavailable diff text", () => {
     const parent = document.createElement("div");
 
-    renderChatTurnDiffView(parent, null, {}, { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts"] });
+    renderTurnDiffView(parent, null, {}, { threadId: "thread", turnId: "turn", cwd: "/vault/project", files: ["src/main.ts"] });
 
-    expect(parent.querySelector(".codex-panel-chat-turn-diff__meta")?.textContent).toContain("thread / turn");
+    expect(parent.querySelector(".codex-panel-turn-diff__meta")?.textContent).toContain("thread / turn");
     expect(parent.textContent).toContain("Turn diff is no longer available.");
-    expect(parent.querySelector(".codex-panel-chat-turn-diff__copy")).toBeNull();
-    expect(parent.querySelector(".codex-panel-chat-turn-diff__diff")).toBeNull();
+    expect(parent.querySelector(".codex-panel-turn-diff__copy")).toBeNull();
+    expect(parent.querySelector(".codex-panel-turn-diff__diff")).toBeNull();
   });
 
   it("unmounts the turn diff Preact root when the view closes", async () => {
     const containerEl = document.createElement("div");
-    const view = new CodexChatTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
+    const view = new CodexTurnDiffView({ containerEl } as unknown as WorkspaceLeaf);
 
     view.setDiffPayload({
       threadId: "thread",
@@ -168,7 +168,7 @@ describe("chat turn diff view decisions", () => {
       diff: "diff --git a/src/main.ts b/src/main.ts\n@@\n-old\n+new",
     });
 
-    expect(view.contentEl.querySelector(".codex-panel-chat-turn-diff__title")?.textContent).toBe("Turn diff");
+    expect(view.contentEl.querySelector(".codex-panel-turn-diff__title")?.textContent).toBe("Turn diff");
 
     await view.onClose();
 

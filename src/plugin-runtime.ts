@@ -8,8 +8,6 @@ import { AppServerSharedQueries } from "./app-server/query/shared-queries";
 import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./app-server/query/thread-catalog";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { hasPendingRequests } from "./domain/pending-requests/aggregate";
-import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
-import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import type {
   ChatPanelClientSurface,
   ChatPanelSettingsAccess,
@@ -18,11 +16,12 @@ import type {
   ChatWorkspacePanelSurface,
   CodexChatHost,
 } from "./features/chat/host/contracts";
-import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidian";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
+import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/turn-diff/model";
+import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import type { CodexPanelSettings } from "./settings/model";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
@@ -200,12 +199,12 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     return this.runWithAppServerClient(this.appServerQueryContext(), operation, options);
   }
 
-  private async openTurnDiff(state: ChatTurnDiffViewState): Promise<void> {
+  private async openTurnDiff(state: TurnDiffViewState): Promise<void> {
     const existing = this.options.app.workspace.getLeavesOfType(VIEW_TYPE_CODEX_TURN_DIFF).at(0);
     const leaf = existing ?? this.options.app.workspace.getLeaf("tab");
-    await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true, state: { ...persistedChatTurnDiffViewState(state) } });
+    await leaf.setViewState({ type: VIEW_TYPE_CODEX_TURN_DIFF, active: true, state: { ...persistedTurnDiffViewState(state) } });
     await leaf.loadIfDeferred();
-    if (leaf.view instanceof CodexChatTurnDiffView) {
+    if (leaf.view instanceof CodexTurnDiffView) {
       leaf.view.setDiffPayload(state);
     }
     await this.options.app.workspace.revealLeaf(leaf);

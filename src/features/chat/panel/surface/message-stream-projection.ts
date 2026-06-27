@@ -1,10 +1,10 @@
+import type { TurnDiffViewState } from "../../../turn-diff/model";
 import { type PendingRequestBlockActions, pendingRequestBlockStateFromChatState } from "../../application/pending-requests/block";
 import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatDisclosureBucket, ChatDisclosureUiState } from "../../application/state/ui-state";
 import { type ForkCandidate, messageStreamSegmentsEmpty, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
-import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import type { MessageStreamTextActionTargets } from "../../presentation/message-stream/text-view";
 import { type MessageStreamViewBlock, messageStreamViewBlocks } from "../../presentation/message-stream/view-model";
 import { type PendingRequestBlockSnapshot, pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/view-model";
@@ -15,7 +15,7 @@ interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
   forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
   implementPlan: (itemId: string) => void;
-  openTurnDiff: (state: ChatTurnDiffViewState) => void;
+  openTurnDiff: (state: TurnDiffViewState) => void;
 }
 
 interface ChatMessageStreamRequests {

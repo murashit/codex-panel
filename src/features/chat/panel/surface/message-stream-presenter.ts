@@ -2,10 +2,10 @@ import type { App, Component } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
 import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
+import type { TurnDiffViewState } from "../../../turn-diff/model";
 import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
-import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/flow-scroll.measure";
 import { MarkdownMessageRenderer, renderStreamMarkdown } from "../../ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/stream-blocks";
@@ -32,7 +32,7 @@ interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
   forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
   implementPlan: (itemId: string) => void;
-  openTurnDiff: (state: ChatTurnDiffViewState) => void;
+  openTurnDiff: (state: TurnDiffViewState) => void;
 }
 
 interface ChatMessageStreamRequests {

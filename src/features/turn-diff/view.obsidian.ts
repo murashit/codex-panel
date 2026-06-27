@@ -1,26 +1,21 @@
 import { ItemView, type ViewStateResult } from "obsidian";
 
-import { VIEW_TYPE_CODEX_TURN_DIFF } from "../../../../constants";
-import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
-import { unmountUiRoot } from "../../../../shared/ui/ui-root.dom";
-import {
-  type ChatTurnDiffViewState,
-  isPersistedChatTurnDiffViewState,
-  type PersistedChatTurnDiffViewState,
-  persistedChatTurnDiffViewState,
-} from "../../domain/turn-diff";
-import { renderChatTurnDiffView } from "./render.dom";
+import { VIEW_TYPE_CODEX_TURN_DIFF } from "../../constants";
+import { copyTextWithNotice } from "../../shared/ui/clipboard";
+import { unmountUiRoot } from "../../shared/ui/ui-root.dom";
+import { isPersistedTurnDiffViewState, type PersistedTurnDiffViewState, persistedTurnDiffViewState, type TurnDiffViewState } from "./model";
+import { renderTurnDiffView } from "./render.dom";
 
-export class CodexChatTurnDiffView extends ItemView {
-  private metadata: PersistedChatTurnDiffViewState | null = null;
-  private payload: ChatTurnDiffViewState | null = null;
+export class CodexTurnDiffView extends ItemView {
+  private metadata: PersistedTurnDiffViewState | null = null;
+  private payload: TurnDiffViewState | null = null;
 
   override getViewType(): string {
     return VIEW_TYPE_CODEX_TURN_DIFF;
   }
 
   override getDisplayText(): string {
-    return "Codex chat turn diff";
+    return "Codex turn diff";
   }
 
   override getIcon(): string {
@@ -33,7 +28,7 @@ export class CodexChatTurnDiffView extends ItemView {
 
   override async setState(state: unknown, result: ViewStateResult): Promise<void> {
     await super.setState(state, result);
-    this.metadata = isPersistedChatTurnDiffViewState(state)
+    this.metadata = isPersistedTurnDiffViewState(state)
       ? {
           threadId: state.threadId,
           turnId: state.turnId,
@@ -53,15 +48,15 @@ export class CodexChatTurnDiffView extends ItemView {
     unmountUiRoot(this.contentEl);
   }
 
-  setDiffPayload(payload: ChatTurnDiffViewState): void {
-    this.metadata = persistedChatTurnDiffViewState(payload);
+  setDiffPayload(payload: TurnDiffViewState): void {
+    this.metadata = persistedTurnDiffViewState(payload);
     this.payload = payload;
     this.render();
   }
 
   private render(): void {
     const root = this.contentEl;
-    renderChatTurnDiffView(
+    renderTurnDiffView(
       root,
       this.payload,
       this.payload ? { copyDiff: () => void this.copyDiff(this.payload?.diff ?? "") } : {},

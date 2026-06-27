@@ -38,6 +38,7 @@ The source tree is organized by implementation ownership, not by the single Obsi
 - `src/main.ts` and `src/plugin-runtime.ts` own Obsidian plugin registration, lifecycle wiring, and cross-surface runtime coordination.
 - `src/app-server/` owns the app-server boundary through responsibility subfolders such as `connection/`, `protocol/`, `query/`, `routing/`, and `services/`. Do not add root-level app-server modules.
 - `src/features/` contains feature-owned surfaces and workflows. Feature-to-feature imports are acceptable only when the imported feature owns a concrete capability.
+- `src/features/turn-diff/` owns the turn diff Obsidian view, renderer, and persisted view state; chat provides current turn diff state through its workspace contract.
 - `src/workspace/` and `src/settings/` own Obsidian workspace coordination and settings-tab behavior.
 - `src/domain/` contains panel-owned, generated-independent meaning models and pure derivations. Domain code must not import app-server protocol, generated bindings, feature modules, UI, or Obsidian APIs.
 - `src/shared/` contains feature-neutral helpers. Move behavior here only when it is genuinely shared outside one feature.
@@ -45,13 +46,13 @@ The source tree is organized by implementation ownership, not by the single Obsi
 
 Within `src/features/chat/`:
 
-- `domain/` owns chat-local meaning models and pure derivations for message stream items, pending request display facts, runtime intent, local IDs, and turn diffs.
+- `domain/` owns chat-local meaning models and pure derivations for message stream items, pending request display facts, runtime intent, and local IDs.
 - `application/` owns chat state transitions and workflow orchestration for composer input, turn submission, thread lifecycle, pending requests, runtime settings, connection status, and reducer state.
 - `app-server/` adapts app-server notifications, requests, thread payloads, diagnostics, and turn items into chat-owned actions, projections, and message stream models.
 - `host/` wires each chat session to Obsidian views, workspace services, app-server clients, plugin settings, shared runtime state, lifecycle cleanup, and cross-surface handles.
 - `panel/` owns the Preact shell, shell-state projection, panel controllers, toolbar/composer/message-stream surface adapters, and Obsidian-facing panel snapshots.
 - `presentation/` owns view-model projection, grouping, formatting, and status text for chat UI surfaces.
-- `ui/` owns Preact and explicit DOM bridge rendering pieces for the composer, toolbar, goal view, message stream, and turn diff view.
+- `ui/` owns Preact and explicit DOM bridge rendering pieces for the composer, toolbar, goal view, and message stream.
 
 Tests should mirror the ownership boundary of the code under test. Keep chat feature tests under `tests/features/chat/app-server/`, `application/`, `domain/`, `host/`, `panel/`, `presentation/`, or `ui/` instead of flattened shortcut folders such as `connection/`, `composer/`, `message-stream/`, `runtime/`, `threads/`, or `conversation/`. Feature-neutral tests belong under `tests/shared/`.
 

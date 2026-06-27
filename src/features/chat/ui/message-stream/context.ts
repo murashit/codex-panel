@@ -1,6 +1,6 @@
 import type { ApprovalAction, McpElicitationAction, PendingRequestId } from "../../../../domain/pending-requests/model";
+import type { TurnDiffViewState } from "../../../turn-diff/model";
 import type { PlanImplementationTarget } from "../../domain/message-stream/selectors";
-import type { ChatTurnDiffViewState } from "../../domain/turn-diff";
 import type { MessageStreamForkTarget } from "../../presentation/message-stream/text-view";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
 
@@ -53,7 +53,7 @@ export interface TextItemActionContext extends TextItemDetailStateContext {
 export interface TextItemMetadataContext extends TextItemDetailStateContext {
   activeThreadId: string | null;
   workspaceRoot?: string | null;
-  openTurnDiff?: (state: ChatTurnDiffViewState) => void;
+  openTurnDiff?: (state: TurnDiffViewState) => void;
 }
 
 interface MessageStreamRenderContext {

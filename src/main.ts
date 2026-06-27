@@ -2,9 +2,9 @@ import { Plugin } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { CodexChatView } from "./features/chat/host/view.obsidian";
-import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidian";
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command.obsidian";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
+import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
 import { CodexPanelRuntime } from "./plugin-runtime";
 import { type CodexPanelSettings, DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchStoredSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab.obsidian";
@@ -24,7 +24,7 @@ export default class CodexPanelPlugin extends Plugin {
     await this.loadSettings();
 
     this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this.runtime.chatHost()));
-    this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexChatTurnDiffView(leaf));
+    this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexTurnDiffView(leaf));
     this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this.runtime.threadsHost()));
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {

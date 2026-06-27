@@ -740,6 +740,7 @@ export const value = statusText;
     expect(pluginDiagnostics(report, "src/features/chat/ui/message.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/selection-rewrite/popover.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/threads-view/shell.dom.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/turn-diff/render.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/settings/section.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/shared/ui/diff.tsx")).toEqual([]);
   });
@@ -953,6 +954,12 @@ export const value = <main />;
 `.trimStart(),
   );
   await writeFile(
+    path.join(cwd, "src/features/turn-diff/render.dom.tsx"),
+    `
+export const value = <main />;
+`.trimStart(),
+  );
+  await writeFile(
     path.join(cwd, "src/features/chat/ui/message.tsx"),
     `
 export const value = <article />;
@@ -1025,6 +1032,7 @@ export const value = <pre />;
       "src/features/selection-rewrite/popover.dom.tsx",
       "src/features/threads-view/inline-row.tsx",
       "src/features/threads-view/shell.dom.tsx",
+      "src/features/turn-diff/render.dom.tsx",
       "src/features/chat/ui/message.tsx",
       "src/settings/section.tsx",
       "src/shared/ui/diff.tsx",
@@ -1367,6 +1375,7 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/threads/list"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/threads/workflows"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/threads-view"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/turn-diff"), { recursive: true });
   await mkdir(path.join(cwd, "src/settings"), { recursive: true });
   await mkdir(path.join(cwd, "src/domain/threads"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/connection"), { recursive: true });

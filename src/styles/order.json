@@ -10,7 +10,7 @@
   "24-chat-stream-items.css",
   "25-chat-pending-requests.css",
   "26-chat-composer.css",
-  "30-chat-turn-diff-view.css",
+  "30-turn-diff-view.css",
   "40-threads-view.css",
   "50-selection-rewrite.css",
   "60-settings.css"

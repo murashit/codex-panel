@@ -1,4 +1,4 @@
-export interface ChatTurnDiffViewState {
+export interface TurnDiffViewState {
   threadId: string;
   turnId: string;
   cwd: string | null;
@@ -6,9 +6,9 @@ export interface ChatTurnDiffViewState {
   diff: string;
 }
 
-export type PersistedChatTurnDiffViewState = Omit<ChatTurnDiffViewState, "diff">;
+export type PersistedTurnDiffViewState = Omit<TurnDiffViewState, "diff">;
 
-export function persistedChatTurnDiffViewState(state: ChatTurnDiffViewState): PersistedChatTurnDiffViewState {
+export function persistedTurnDiffViewState(state: TurnDiffViewState): PersistedTurnDiffViewState {
   return {
     threadId: state.threadId,
     turnId: state.turnId,
@@ -17,9 +17,9 @@ export function persistedChatTurnDiffViewState(state: ChatTurnDiffViewState): Pe
   };
 }
 
-export function isPersistedChatTurnDiffViewState(value: unknown): value is PersistedChatTurnDiffViewState {
+export function isPersistedTurnDiffViewState(value: unknown): value is PersistedTurnDiffViewState {
   if (!value || typeof value !== "object") return false;
-  const record = value as Partial<PersistedChatTurnDiffViewState>;
+  const record = value as Partial<PersistedTurnDiffViewState>;
   return (
     typeof record.threadId === "string" &&
     typeof record.turnId === "string" &&

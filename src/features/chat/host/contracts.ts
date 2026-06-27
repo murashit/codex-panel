@@ -10,7 +10,7 @@ import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import type { ObservedResultListener } from "../../../shared/query/observed-result";
 import type { SendShortcut } from "../../../shared/ui/keyboard";
-import type { ChatTurnDiffViewState } from "../domain/turn-diff";
+import type { TurnDiffViewState } from "../../turn-diff/model";
 
 export interface CodexChatHost {
   readonly settingsRef: ChatPanelSettingsRef;
@@ -38,7 +38,7 @@ export interface ChatPanelSettingsAccess {
 interface WorkspacePanels {
   openThreadInNewView(threadId: string): Promise<void>;
   focusThreadInOpenView(threadId: string): Promise<boolean>;
-  openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
+  openTurnDiff(state: TurnDiffViewState): Promise<void>;
   refreshThreadsViewLiveState(): void;
 }
 
