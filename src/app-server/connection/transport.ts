@@ -3,6 +3,12 @@ import * as readline from "node:readline";
 
 import type { RpcOutboundMessage } from "./rpc-messages";
 
+interface AppServerSpawnSpec {
+  command: string;
+  args: string[];
+  killProcessTreeOnStop: boolean;
+}
+
 export interface AppServerTransport {
   start(): void;
   send(message: RpcOutboundMessage): void;
@@ -17,10 +23,36 @@ export interface AppServerTransportHandlers {
   onError: (error: Error) => void;
 }
 
+export function createAppServerSpawnSpec(
+  codexPath: string,
+  options: { platform?: NodeJS.Platform; comSpec?: string } = {},
+): AppServerSpawnSpec {
+  const platform = options.platform ?? process.platform;
+  if (platform !== "win32" || !isWindowsCommandScript(codexPath)) {
+    return { command: codexPath, args: ["app-server"], killProcessTreeOnStop: false };
+  }
+
+  const comSpec = options.comSpec?.trim() || process.env["ComSpec"]?.trim() || process.env["COMSPEC"]?.trim() || "cmd.exe";
+  return {
+    command: comSpec,
+    args: ["/d", "/c", `${quoteWindowsCmdArgument(codexPath)} app-server`],
+    killProcessTreeOnStop: true,
+  };
+}
+
+function isWindowsCommandScript(path: string): boolean {
+  return /\.(?:bat|cmd)$/i.test(path);
+}
+
+function quoteWindowsCmdArgument(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 export class StdioAppServerTransport implements AppServerTransport {
   private process: ChildProcessWithoutNullStreams | null = null;
   private reader: readline.Interface | null = null;
   private stderrBuffer = "";
+  private killProcessTreeOnStop = false;
 
   constructor(
     private readonly codexPath: string,
@@ -33,7 +65,9 @@ export class StdioAppServerTransport implements AppServerTransport {
       throw new Error("Codex app-server is already running.");
     }
 
-    this.process = spawn(this.codexPath, ["app-server"], {
+    const launch = createAppServerSpawnSpec(this.codexPath);
+    this.killProcessTreeOnStop = launch.killProcessTreeOnStop;
+    this.process = spawn(launch.command, launch.args, {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -43,6 +77,7 @@ export class StdioAppServerTransport implements AppServerTransport {
       this.reader?.close();
       this.reader = null;
       this.process = null;
+      this.killProcessTreeOnStop = false;
       this.handlers.onError(error instanceof Error ? error : new Error(String(error)));
     });
 
@@ -51,6 +86,7 @@ export class StdioAppServerTransport implements AppServerTransport {
       this.reader?.close();
       this.reader = null;
       this.process = null;
+      this.killProcessTreeOnStop = false;
       this.handlers.onExit(code, signal);
     });
 
@@ -80,10 +116,16 @@ export class StdioAppServerTransport implements AppServerTransport {
     this.flushStderr();
     this.reader?.close();
     this.reader = null;
-    if (this.process && !this.process.killed) {
-      this.process.kill();
+    const child = this.process;
+    if (child && !child.killed) {
+      if (this.killProcessTreeOnStop && typeof child.pid === "number") {
+        killWindowsProcessTree(child.pid);
+      } else {
+        child.kill();
+      }
     }
     this.process = null;
+    this.killProcessTreeOnStop = false;
   }
 
   isRunning(): boolean {
@@ -105,4 +147,12 @@ export class StdioAppServerTransport implements AppServerTransport {
     this.stderrBuffer = "";
     if (trimmed.length > 0) this.handlers.onLog(trimmed);
   }
+}
+
+function killWindowsProcessTree(pid: number): void {
+  const killer = spawn("taskkill", ["/pid", String(pid), "/t", "/f"], {
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  killer.on("error", () => undefined);
 }

@@ -1,11 +1,45 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { type AppServerTransportHandlers, StdioAppServerTransport } from "../../src/app-server/connection/transport";
+import {
+  type AppServerTransportHandlers,
+  createAppServerSpawnSpec,
+  StdioAppServerTransport,
+} from "../../src/app-server/connection/transport";
 
 interface TestableTransport {
   handleStderr(text: string): void;
   flushStderr(): void;
 }
+
+describe("createAppServerSpawnSpec", () => {
+  it("starts regular commands directly", () => {
+    expect(createAppServerSpawnSpec("codex", { platform: "darwin" })).toEqual({
+      command: "codex",
+      args: ["app-server"],
+      killProcessTreeOnStop: false,
+    });
+  });
+
+  it("starts Windows executables directly", () => {
+    const codexExe = String.raw`C:\Program Files\Codex\codex.exe`;
+
+    expect(createAppServerSpawnSpec(codexExe, { platform: "win32" })).toEqual({
+      command: codexExe,
+      args: ["app-server"],
+      killProcessTreeOnStop: false,
+    });
+  });
+
+  it("quotes Windows command shim paths that contain spaces", () => {
+    const codexBat = String.raw`C:\Program Files\nodejs\codex.bat`;
+
+    expect(createAppServerSpawnSpec(codexBat, { platform: "win32", comSpec: " " })).toEqual({
+      command: "cmd.exe",
+      args: ["/d", "/c", `"${codexBat}" app-server`],
+      killProcessTreeOnStop: true,
+    });
+  });
+});
 
 describe("StdioAppServerTransport", () => {
   it("emits complete stderr lines and flushes the final partial line", () => {
