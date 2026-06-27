@@ -1,33 +1,27 @@
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import type { ConversationTurnActions } from "../application/conversation/composition";
 import type { PendingRequestActions } from "../application/pending-requests/pending-request-actions";
 import type { ChatStateStore } from "../application/state/store";
-import type { createGoalActions } from "../application/threads/goal-actions";
 import type { HistoryController } from "../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../application/threads/rename-editor-actions";
-import type { createThreadManagementActions } from "../application/threads/thread-management-actions";
-import type { createThreadNavigationActions } from "../application/threads/thread-navigation-actions";
+import type { ChatPanelShellParts } from "../panel/shell.dom";
 import type { ChatPanelGoalSurface } from "../panel/surface/goal-projection";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
 import { createToolbarUiActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
-import type { ToolbarActions } from "../ui/toolbar";
+import type { ChatPanelComposerBundle } from "./composer-bundle";
 import type { ChatPanelConnectionBundle } from "./connection-bundle";
-import type { ChatPanelEnvironment } from "./environment";
+import type { ChatPanelEnvironment } from "./contracts";
+import type { ChatPanelGoalActions, ChatPanelThreadActions, ChatPanelThreadNavigationActions } from "./thread-bundle";
+import type { ChatPanelTurnBundle } from "./turn-bundle";
 
-type ChatPanelGoalActions = ReturnType<typeof createGoalActions>;
-type ChatPanelThreadActions = ReturnType<typeof createThreadManagementActions>;
-type ChatPanelThreadNavigationActions = ReturnType<typeof createThreadNavigationActions>;
-type ChatPanelConversationTurnActions = ConversationTurnActions;
-
-export interface ChatPanelSurfacesHost {
+interface ChatPanelShellBundleHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
   messageScrollController: ChatMessageScrollController;
 }
 
-export interface ChatPanelSurfacesInput {
+interface ChatPanelShellBundleInput {
   connection: ConnectionManager;
   connectionController: ChatPanelConnectionBundle["connection"]["controller"];
   goals: ChatPanelGoalActions;
@@ -38,17 +32,17 @@ export interface ChatPanelSurfacesInput {
   reconnect: () => Promise<void>;
   history: HistoryController;
   pendingRequests: PendingRequestActions;
-  turnActions: ChatPanelConversationTurnActions;
+  turn: ChatPanelTurnBundle;
+  composer: ChatPanelComposerBundle;
 }
 
-export interface ChatPanelSurfaces {
-  toolbarActions: ToolbarActions;
-  toolbarSurface: ChatPanelToolbarSurface;
-  goalSurface: ChatPanelGoalSurface;
-  messageStreamPresenter: MessageStreamPresenter;
+export interface ChatPanelShellBundle {
+  parts: ChatPanelShellParts;
+  closeToolbarPanelOnOutsidePointer(event: PointerEvent): void;
+  dispose(): void;
 }
 
-export function createChatPanelSurfaces(host: ChatPanelSurfacesHost, input: ChatPanelSurfacesInput): ChatPanelSurfaces {
+export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPanelShellBundleInput): ChatPanelShellBundle {
   const {
     connection,
     connectionController,
@@ -60,7 +54,8 @@ export function createChatPanelSurfaces(host: ChatPanelSurfacesHost, input: Chat
     reconnect,
     history,
     pendingRequests,
-    turnActions,
+    turn,
+    composer,
   } = input;
   const { environment, stateStore } = host;
   const toolbarActions = createToolbarUiActions({
@@ -110,7 +105,7 @@ export function createChatPanelSurfaces(host: ChatPanelSurfacesHost, input: Chat
     actions: {
       rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),
       forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
-      implementPlan: (itemId) => void turnActions.planImplementation.implement(itemId),
+      implementPlan: (itemId) => void turn.turnActions.planImplementation.implement(itemId),
       openTurnDiff: (state) => void environment.plugin.workspace.openTurnDiff(state),
     },
     requests: {
@@ -118,11 +113,33 @@ export function createChatPanelSurfaces(host: ChatPanelSurfacesHost, input: Chat
       consumePendingAutoFocus: () => pendingRequests.consumeAutoFocus(),
     },
   });
+  const parts: ChatPanelShellParts = {
+    toolbar: {
+      surface: toolbarSurface,
+      actions: toolbarActions,
+    },
+    goal: goalSurface,
+    messageStream: messageStreamPresenter,
+    composer: {
+      presenter: composer.controller,
+      actions: {
+        submit: () => void turn.turnActions.composerSubmit.submit(),
+      },
+    },
+  };
 
   return {
-    toolbarActions,
-    toolbarSurface,
-    goalSurface,
-    messageStreamPresenter,
+    parts,
+    closeToolbarPanelOnOutsidePointer: (event) => {
+      toolbarPanelActions.closeOnOutsidePointer({
+        target: event.target,
+        viewWindow: environment.view.viewWindow() as (Window & { Element: typeof Element }) | null,
+        contains: (element) => environment.view.containsElement(element),
+        renameEditing: rename.isEditing(),
+      });
+    },
+    dispose: () => {
+      messageStreamPresenter.dispose();
+    },
   };
 }

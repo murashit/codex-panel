@@ -20,7 +20,7 @@ import type { ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { AutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
 import type { createThreadGoalSyncActions } from "../application/threads/goal-actions";
-import type { ChatPanelEnvironment } from "./environment";
+import type { ChatPanelEnvironment } from "./contracts";
 
 export type CurrentAppServerClient = () => AppServerClient | null;
 

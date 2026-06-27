@@ -1,5 +1,7 @@
 import type { App, Component, EventRef } from "obsidian";
 
+import type { AppServerClient } from "../../../app-server/connection/client";
+import type { AppServerQueryContext } from "../../../app-server/query/keys";
 import type { ArchiveExportDestination } from "../../../app-server/services/thread-archive-markdown";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { ObservedResultListener } from "../../../domain/observed-result";
@@ -7,6 +9,7 @@ import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../../workspace/thread-catalog";
 import type { ChatTurnDiffViewState } from "../domain/turn-diff";
+import type { ChatPanelSnapshot } from "../panel/snapshot";
 
 export interface CodexChatHost {
   readonly settingsRef: PluginSettingsRef;
@@ -58,3 +61,40 @@ export interface ChatPanelEnvironment {
     refreshTabHeader: () => void;
   };
 }
+
+export interface ChatViewLifecycleSurface {
+  displayTitle(): string;
+  persistedState(): Record<string, unknown>;
+  applyViewState(state: unknown): void;
+  open(): void;
+  close(): void;
+  refreshSettings(): void;
+}
+
+export interface ChatWorkspacePanelSurface {
+  openPanelSnapshot(): ChatPanelSnapshot;
+  openThread(threadId: string): Promise<void>;
+  focusThread(threadId?: string | null): Promise<void>;
+  hydrateRestoredThread(): Promise<void>;
+  focusComposer(): void;
+  connect(): Promise<void>;
+  startNewThread(): Promise<void>;
+}
+
+export interface ChatSharedThreadSurface {
+  refreshSharedThreads(): Promise<void>;
+  applyThreadArchived(threadId: string): void;
+  applyThreadRenamed(threadId: string, name: string | null): void;
+}
+
+export interface ChatPanelClientSurface {
+  canServeAppServerContext(context: AppServerQueryContext): boolean;
+  runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T>;
+}
+
+export type ChatPanelHandle = ChatViewLifecycleSurface &
+  ChatWorkspacePanelSurface &
+  ChatSharedThreadSurface &
+  ChatPanelClientSurface & {
+    setComposerText(text: string): void;
+  };

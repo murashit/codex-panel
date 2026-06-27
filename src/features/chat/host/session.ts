@@ -9,12 +9,11 @@ import { type ChatStateStore, createChatStateStore } from "../application/state/
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatPanelSnapshot, openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
 import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/surface/message-stream-scroll";
-import { createChatViewDeferredTasks } from "./deferred-tasks";
-import type { ChatPanelEnvironment } from "./environment";
+import type { ChatPanelEnvironment, ChatPanelHandle } from "./contracts";
+import { createChatViewDeferredTasks } from "./deferred-work";
 import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
-import type { ChatSurfaceHandle } from "./surface-handle";
 
-export class ChatPanelSession implements ChatSurfaceHandle {
+export class ChatPanelSession implements ChatPanelHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();
   private readonly graph: ChatPanelSessionGraph;
 
@@ -191,20 +190,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
     renderChatPanelShell(root, {
       stateStore: this.stateStore,
       showToolbar: this.environment.plugin.settingsRef.settings.showToolbar,
-      parts: {
-        toolbar: {
-          surface: this.graph.surface.toolbar,
-          actions: this.graph.toolbar.actions,
-        },
-        goal: this.graph.surface.goal,
-        messageStream: this.graph.render.messageStreamPresenter,
-        composer: {
-          presenter: this.graph.composer.controller,
-          actions: {
-            submit: () => void this.graph.composer.submission.submit(),
-          },
-        },
-      },
+      parts: this.graph.shell.parts,
     });
   }
 
@@ -230,12 +216,7 @@ export class ChatPanelSession implements ChatSurfaceHandle {
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {
-    this.graph.toolbar.panels.closeOnOutsidePointer({
-      target: event.target,
-      viewWindow: this.environment.view.viewWindow() as (Window & { Element: typeof Element }) | null,
-      contains: (element) => this.environment.view.containsElement(element),
-      renameEditing: this.graph.thread.rename.isEditing(),
-    });
+    this.graph.shell.closeToolbarPanelOnOutsidePointer(event);
   }
 
   private activeThreadTitle(): string | null {

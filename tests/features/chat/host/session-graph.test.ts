@@ -7,8 +7,9 @@ import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/lifecycle";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/deferred-tasks";
-import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/environment";
+import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
+import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/contracts";
+import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/deferred-work";
 import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
@@ -34,7 +35,7 @@ describe("createChatPanelSessionGraph actions", () => {
   it("invalidates thread work through the graph action", () => {
     const { graph, resumeWork } = sessionGraphFixture();
     const resume = resumeWork.begin("thread-1");
-    const invalidateHistory = vi.spyOn(graph.thread.history, "invalidate");
+    const invalidateHistory = vi.spyOn(HistoryController.prototype, "invalidate");
 
     graph.actions.invalidateThreadWork();
 

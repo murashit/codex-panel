@@ -10,7 +10,7 @@ import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/confi
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
-import type { CodexChatHost } from "../../../../src/features/chat/host/environment";
+import type { CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import type { ThreadCatalogEvent } from "../../../../src/workspace/thread-catalog";
 import { notices } from "../../../mocks/obsidian";
