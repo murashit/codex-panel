@@ -6,7 +6,11 @@
     "useIgnoreFile": true
   },
   "plugins": [
-    // Shared source-shape boundaries.
+    // Project-wide source shape and placement.
+    {
+      "path": "./scripts/grit/source-shape/no-handwritten-reexports.grit",
+      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
+    },
     {
       "path": "./scripts/grit/source-shape/no-responsibility-root-module-files.grit",
       "includes": [
@@ -22,93 +26,123 @@
         "**/src/shared/*.tsx"
       ]
     },
-    // App-server protocol and generated binding boundaries.
     {
-      "path": "./scripts/grit/architecture/no-app-server-root-module-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
+      "path": "./scripts/grit/source-shape/no-misplaced-tsx.grit",
+      "includes": [
+        "**/src/**/*.tsx",
+        "!**/src/features/chat/panel/**",
+        "!**/src/features/chat/ui/**",
+        "!**/src/features/selection-rewrite/*.dom.tsx",
+        "!**/src/features/turn-diff/*.dom.tsx",
+        "!**/src/features/threads-view/*.dom.tsx",
+        "!**/src/settings/**",
+        "!**/src/shared/ui/**"
+      ]
     },
     {
-      "path": "./scripts/grit/architecture/no-app-server-subfolder-root-imports.grit",
-      "includes": ["**/src/app-server/**/*.ts"]
+      "path": "./scripts/grit/source-shape/no-self-referential-initializer-callback.grit",
+      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
     },
     {
-      "path": "./scripts/grit/architecture/no-app-server-projection-rpcs.grit",
-      "includes": ["**/src/features/chat/application/**/*.ts"]
+      "path": "./scripts/grit/source-shape/no-unsafe-iterator-value.grit",
+      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
     },
     {
-      "path": "./scripts/grit/architecture/no-app-server-protocol-boundary-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/**"]
-    },
-    {
-      "path": "./scripts/grit/architecture/no-generated-app-server-boundary-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/connection/**"]
-    },
-    {
-      "path": "./scripts/grit/architecture/no-settings-app-server-boundary-imports.grit",
-      "includes": ["**/src/settings/**/*.ts", "**/src/settings/**/*.tsx", "!**/src/settings/app-server/**"]
+      "path": "./scripts/grit/source-shape/no-uncontrolled-preact-form-state.grit",
+      "includes": ["**/src/**/*.tsx"]
     },
 
-    // Shared source layering boundaries.
+    // Cross-cutting source-layer import boundaries.
     {
-      "path": "./scripts/grit/architecture/no-domain-outer-layer-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-domain-outer-layer-imports.grit",
       "includes": ["**/src/domain/**/*.ts", "**/src/features/chat/domain/**/*.ts"]
     },
     {
-      "path": "./scripts/grit/architecture/no-lower-level-feature-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-lower-level-feature-imports.grit",
       "includes": ["**/src/app-server/**/*.ts", "**/src/shared/**/*.ts", "**/src/shared/**/*.tsx"]
     },
+
+    // App-server and generated protocol boundaries.
     {
-      "path": "./scripts/grit/architecture/no-app-server-connection-boundary-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-app-server-root-module-imports.grit",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
+    },
+    {
+      "path": "./scripts/grit/import-boundaries/no-app-server-subfolder-root-imports.grit",
+      "includes": ["**/src/app-server/**/*.ts"]
+    },
+    {
+      "path": "./scripts/grit/import-boundaries/no-app-server-connection-boundary-imports.grit",
       "includes": ["**/src/app-server/protocol/**/*.ts", "**/src/domain/**/*.ts", "**/src/shared/**/*.ts", "**/src/shared/**/*.tsx"]
     },
-
-    // Chat feature architecture.
     {
-      "path": "./scripts/grit/architecture/no-preact-signal-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/features/chat/panel/shell-state.tsx"]
+      "path": "./scripts/grit/import-boundaries/no-app-server-protocol-boundary-imports.grit",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/**"]
     },
     {
-      "path": "./scripts/grit/architecture/no-state-module-side-effects.grit",
-      "includes": ["**/src/features/chat/application/state/**/*.ts"]
+      "path": "./scripts/grit/import-boundaries/no-generated-app-server-boundary-imports.grit",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/connection/**"]
     },
     {
-      "path": "./scripts/grit/architecture/no-chat-application-outer-layer-imports.grit",
+      "path": "./scripts/grit/runtime/no-app-server-projection-rpcs.grit",
       "includes": ["**/src/features/chat/application/**/*.ts"]
     },
     {
-      "path": "./scripts/grit/architecture/no-chat-app-server-outer-layer-imports.grit",
-      "includes": ["**/src/features/chat/app-server/**/*.ts"]
+      "path": "./scripts/grit/import-boundaries/no-settings-app-server-boundary-imports.grit",
+      "includes": ["**/src/settings/**/*.ts", "**/src/settings/**/*.tsx", "!**/src/settings/app-server/**"]
     },
+
+    // Workspace and feature coordination boundaries.
     {
-      "path": "./scripts/grit/architecture/no-chat-workspace-boundary-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-chat-workspace-boundary-imports.grit",
       "includes": ["**/src/features/chat/**/*.ts", "**/src/features/chat/**/*.tsx"]
     },
     {
-      "path": "./scripts/grit/architecture/no-feature-workspace-boundary-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-feature-workspace-boundary-imports.grit",
       "includes": ["**/src/features/**/*.ts", "**/src/features/**/*.tsx", "!**/src/features/chat/**"]
     },
     {
-      "path": "./scripts/grit/architecture/no-workspace-chat-internal-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-workspace-chat-internal-imports.grit",
       "includes": ["**/src/workspace/**/*.ts"]
     },
+
+    // Chat feature layer boundaries.
     {
-      "path": "./scripts/grit/architecture/no-chat-host-rendering-layer-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-chat-application-outer-layer-imports.grit",
+      "includes": ["**/src/features/chat/application/**/*.ts"]
+    },
+    {
+      "path": "./scripts/grit/import-boundaries/no-chat-app-server-outer-layer-imports.grit",
+      "includes": ["**/src/features/chat/app-server/**/*.ts"]
+    },
+    {
+      "path": "./scripts/grit/import-boundaries/no-chat-host-rendering-layer-imports.grit",
       "includes": ["**/src/features/chat/host/**/*.ts"]
     },
     {
-      "path": "./scripts/grit/architecture/no-chat-panel-runtime-boundary-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-chat-panel-runtime-boundary-imports.grit",
       "includes": ["**/src/features/chat/panel/**/*.ts", "**/src/features/chat/panel/**/*.tsx"]
     },
     {
-      "path": "./scripts/grit/architecture/no-chat-presentation-outer-layer-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-chat-presentation-outer-layer-imports.grit",
       "includes": ["**/src/features/chat/presentation/**/*.ts"]
     },
     {
-      "path": "./scripts/grit/architecture/no-chat-ui-outer-layer-imports.grit",
+      "path": "./scripts/grit/import-boundaries/no-chat-ui-outer-layer-imports.grit",
       "includes": ["**/src/features/chat/ui/**/*.ts", "**/src/features/chat/ui/**/*.tsx"]
     },
 
-    // UI and DOM source boundaries.
+    // Chat state and runtime ownership.
+    {
+      "path": "./scripts/grit/import-boundaries/no-preact-signal-imports.grit",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/features/chat/panel/shell-state.tsx"]
+    },
+    {
+      "path": "./scripts/grit/runtime/no-state-module-side-effects.grit",
+      "includes": ["**/src/features/chat/application/state/**/*.ts"]
+    },
+
+    // DOM bridge and Preact root boundaries.
     {
       "path": "./scripts/grit/dom/no-implicit-dom-bridges.grit",
       "includes": [
@@ -145,37 +179,6 @@
         "!**/src/**/*.obsidian.ts",
         "!**/src/**/*.obsidian.tsx"
       ]
-    },
-    {
-      "path": "./scripts/grit/source-shape/no-uncontrolled-preact-form-state.grit",
-      "includes": ["**/src/**/*.tsx"]
-    },
-
-    // Project-wide source shape.
-    {
-      "path": "./scripts/grit/source-shape/no-misplaced-tsx.grit",
-      "includes": [
-        "**/src/**/*.tsx",
-        "!**/src/features/chat/panel/**",
-        "!**/src/features/chat/ui/**",
-        "!**/src/features/selection-rewrite/*.dom.tsx",
-        "!**/src/features/turn-diff/*.dom.tsx",
-        "!**/src/features/threads-view/*.dom.tsx",
-        "!**/src/settings/**",
-        "!**/src/shared/ui/**"
-      ]
-    },
-    {
-      "path": "./scripts/grit/source-shape/no-handwritten-reexports.grit",
-      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
-    },
-    {
-      "path": "./scripts/grit/source-shape/no-self-referential-initializer-callback.grit",
-      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
-    },
-    {
-      "path": "./scripts/grit/source-shape/no-unsafe-iterator-value.grit",
-      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
     },
 
     // CSS source policy.

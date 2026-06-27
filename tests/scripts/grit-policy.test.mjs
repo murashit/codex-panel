@@ -175,7 +175,7 @@ runner = new Runner(() => runner.stop());
     expect(pluginDiagnostics(report, "src/plugin-runtime-declared.ts")).toEqual([]);
   });
 
-  it("keeps chat architecture policies behind their intended boundaries", async () => {
+  it("keeps chat runtime and DOM policies behind their intended boundaries", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-implicit-dom-bridges.grit",
       "no-dom-events-imports.grit",
