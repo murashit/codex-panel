@@ -1,20 +1,14 @@
-import { type ChatThreadHistoryClient, type ChatThreadHistoryPage, readChatThreadHistoryPage } from "../../app-server/threads/projection";
 import { messageStreamItems } from "../state/message-stream";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import type { ThreadHistoryPage, ThreadHistoryTransport } from "./thread-loading-transport";
 
 export interface HistoryControllerHost {
   stateStore: ChatStateStore;
-  currentClient: () => ChatThreadHistoryClient | null;
+  historyTransport: ThreadHistoryTransport;
   addSystemMessage: (text: string) => void;
   showLatestPageAtBottom: () => void;
   setThreadTurnPresence: (hadTurns: boolean) => void;
-  readHistoryPage?: (
-    client: ChatThreadHistoryClient,
-    threadId: string,
-    cursor: string | null,
-    limit: number,
-  ) => Promise<ChatThreadHistoryPage>;
 }
 
 type ThreadHistoryLoadLifecycleState = { kind: "idle" } | { kind: "loading"; threadId: string; mode: "latest" | "older" };
@@ -43,11 +37,11 @@ export class HistoryController {
   }
 
   async loadLatest(threadId = this.state.activeThread.id): Promise<void> {
-    const client = this.host.currentClient();
-    if (!client || !threadId) return;
+    if (!threadId) return;
     const load = this.startLoading(threadId, "latest");
     try {
-      const response = await this.readHistoryPage(client, threadId, null, 20);
+      const response = await this.host.historyTransport.readHistoryPage(threadId, null, 20);
+      if (!response) return;
       if (this.isStale(load)) return;
       this.applyLatestPage(threadId, response);
     } catch (error) {
@@ -58,7 +52,7 @@ export class HistoryController {
     }
   }
 
-  applyLatestPage(threadId: string, response: ChatThreadHistoryPage): boolean {
+  applyLatestPage(threadId: string, response: ThreadHistoryPage): boolean {
     if (this.state.activeThread.id !== threadId) return false;
     this.host.setThreadTurnPresence(response.hadTurns);
     this.host.showLatestPageAtBottom();
@@ -71,14 +65,14 @@ export class HistoryController {
   }
 
   async loadOlder(): Promise<void> {
-    const client = this.host.currentClient();
     const state = this.state;
-    if (!client || !state.activeThread.id || !state.messageStream.historyCursor || state.messageStream.loadingHistory) return;
+    if (!state.activeThread.id || !state.messageStream.historyCursor || state.messageStream.loadingHistory) return;
     const threadId = state.activeThread.id;
     const cursor = state.messageStream.historyCursor;
     const load = this.startLoading(threadId, "older");
     try {
-      const response = await this.readHistoryPage(client, threadId, cursor, 20);
+      const response = await this.host.historyTransport.readHistoryPage(threadId, cursor, 20);
+      if (!response) return;
       if (this.isStale(load)) return;
       const current = this.state;
       const currentItems = messageStreamItems(current.messageStream);
@@ -112,15 +106,6 @@ export class HistoryController {
 
   private isStale(load: ActiveThreadHistoryLoad): boolean {
     return this.lifecycle !== load || this.state.activeThread.id !== load.threadId;
-  }
-
-  private readHistoryPage(
-    client: ChatThreadHistoryClient,
-    threadId: string,
-    cursor: string | null,
-    limit: number,
-  ): Promise<ChatThreadHistoryPage> {
-    return (this.host.readHistoryPage ?? readChatThreadHistoryPage)(client, threadId, cursor, limit);
   }
 }
 

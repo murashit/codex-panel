@@ -1,21 +1,19 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import { type ChatThreadResumeClient, type ChatThreadResumeSnapshot, resumeChatThread } from "../../app-server/threads/projection";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "../lifecycle";
 import { resumedThreadAction } from "../state/actions";
 import { messageStreamIsEmpty } from "../state/message-stream";
 import type { ChatStateStore } from "../state/store";
 import type { HistoryController } from "./history-controller";
 import type { RestorationController } from "./restoration-controller";
+import type { ThreadResumeSnapshot, ThreadResumeTransport } from "./thread-loading-transport";
 import { canSwitchToThread } from "./thread-switching";
 
 export interface ResumeActionsHost {
   stateStore: ChatStateStore;
-  vaultPath: string;
   resumeWork: ChatResumeWorkTracker;
   history: HistoryController;
   restoration: RestorationController;
-  currentClient: () => ChatThreadResumeClient | null;
-  ensureConnected: () => Promise<void>;
+  resumeTransport: ThreadResumeTransport;
   closing: () => boolean;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   notifyActiveThreadIdentityChanged: () => void;
@@ -23,7 +21,6 @@ export interface ResumeActionsHost {
   refreshLiveState: () => void;
   syncThreadGoal: (threadId: string) => Promise<void>;
   recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
-  resumeFromAppServer?: (client: ChatThreadResumeClient, threadId: string, cwd: string) => Promise<ChatThreadResumeSnapshot>;
 }
 
 export interface ResumeActions {
@@ -43,12 +40,10 @@ async function resumeThread(host: ResumeActionsHost, threadId: string): Promise<
   }
   const resume = host.resumeWork.begin(threadId);
   host.history.invalidate();
-  await host.ensureConnected();
-  const client = host.currentClient();
-  if (!client || isStaleResume(host, resume)) return;
 
   try {
-    const response = await (host.resumeFromAppServer ?? resumeChatThread)(client, threadId, host.vaultPath);
+    const response = await host.resumeTransport.resumeThread(threadId);
+    if (!response) return;
     if (isStaleResume(host, resume)) return;
     applyResumedThread(host, response);
     recoverResumedThreadTokenUsage(host, response.activation.thread.id, response.rolloutPath, resume);
@@ -71,7 +66,7 @@ async function resumeThread(host: ResumeActionsHost, threadId: string): Promise<
   }
 }
 
-function applyResumedThread(host: ResumeActionsHost, response: ChatThreadResumeSnapshot): void {
+function applyResumedThread(host: ResumeActionsHost, response: ThreadResumeSnapshot): void {
   host.stateStore.dispatch(
     resumedThreadAction({
       response: response.activation,

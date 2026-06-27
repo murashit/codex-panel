@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import type { ChatThreadHistoryPage } from "../../../../../src/features/chat/app-server/threads/projection";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { HistoryController, type HistoryControllerHost } from "../../../../../src/features/chat/application/threads/history-controller";
+import { HistoryController } from "../../../../../src/features/chat/application/threads/history-controller";
+import type {
+  ThreadHistoryPage,
+  ThreadHistoryTransport,
+} from "../../../../../src/features/chat/application/threads/thread-loading-transport";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { deferred } from "../../../../support/async";
 import { chatStateMessageStreamItems } from "../../support/message-stream";
@@ -10,8 +12,8 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("HistoryController", () => {
   it("keeps the latest history load when an older request resolves later", async () => {
-    const first = deferred<ChatThreadHistoryPage>();
-    const second = deferred<ChatThreadHistoryPage>();
+    const first = deferred<ThreadHistoryPage | null>();
+    const second = deferred<ThreadHistoryPage | null>();
     const { loader, stateStore } = historyFixture({
       readHistoryPage: vi.fn<HistoryPageReader>().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
     });
@@ -29,7 +31,7 @@ describe("HistoryController", () => {
   });
 
   it("ignores a history load that is invalidated while pending", async () => {
-    const pending = deferred<ChatThreadHistoryPage>();
+    const pending = deferred<ThreadHistoryPage | null>();
     const { loader, stateStore, addSystemMessage } = historyFixture({
       readHistoryPage: vi.fn<HistoryPageReader>().mockReturnValue(pending.promise),
     });
@@ -79,15 +81,28 @@ describe("HistoryController", () => {
 
     await loader.loadOlder();
 
-    expect(readHistoryPage).toHaveBeenCalledWith(expect.anything(), "thread", "cursor", 20);
+    expect(readHistoryPage).toHaveBeenCalledWith("thread", "cursor", 20);
     expect(chatStateMessageStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "current"]);
     expect(stateStore.getState().messageStream.historyCursor).toBe("next");
     expect(showLatestPageAtBottom).not.toHaveBeenCalled();
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "message-stream/items-replaced" }));
   });
+
+  it("clears loading state when the history transport has no page", async () => {
+    const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(null);
+    const { loader, stateStore, addSystemMessage, setThreadTurnPresence } = historyFixture({ readHistoryPage });
+
+    await loader.loadLatest();
+
+    expect(readHistoryPage).toHaveBeenCalledWith("thread", null, 20);
+    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
+    expect(stateStore.getState().messageStream.loadingHistory).toBe(false);
+    expect(setThreadTurnPresence).not.toHaveBeenCalled();
+    expect(addSystemMessage).not.toHaveBeenCalled();
+  });
 });
 
-type HistoryPageReader = NonNullable<HistoryControllerHost["readHistoryPage"]>;
+type HistoryPageReader = ThreadHistoryTransport["readHistoryPage"];
 
 function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<HistoryPageReader>> }) {
   let state = chatStateFixture();
@@ -96,18 +111,20 @@ function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<Hist
   const dispatch = vi.spyOn(stateStore, "dispatch");
   const addSystemMessage = vi.fn();
   const showLatestPageAtBottom = vi.fn();
+  const setThreadTurnPresence = vi.fn();
   const loader = new HistoryController({
     stateStore,
-    currentClient: () => ({}) as AppServerClient,
+    historyTransport: {
+      readHistoryPage: options.readHistoryPage,
+    },
     addSystemMessage,
     showLatestPageAtBottom,
-    setThreadTurnPresence: vi.fn(),
-    readHistoryPage: options.readHistoryPage,
+    setThreadTurnPresence,
   });
-  return { loader, stateStore, addSystemMessage, dispatch, showLatestPageAtBottom };
+  return { loader, stateStore, addSystemMessage, dispatch, setThreadTurnPresence, showLatestPageAtBottom };
 }
 
-function historyPage(items: MessageStreamItem[], nextCursor: string | null): ChatThreadHistoryPage {
+function historyPage(items: MessageStreamItem[], nextCursor: string | null): ThreadHistoryPage {
   return { items, nextCursor, hadTurns: items.length > 0 };
 }
 

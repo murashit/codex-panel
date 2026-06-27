@@ -4,9 +4,13 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/chat/input";
-import { createChatThreadGoalTransport } from "../../../../src/features/chat/app-server/goals/transport";
+import { createChatThreadGoalReadTransport, createChatThreadGoalTransport } from "../../../../src/features/chat/app-server/goals/transport";
 import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/references/thread-reference-resolver";
 import { createChatRuntimeSettingsTransport } from "../../../../src/features/chat/app-server/runtime/thread-settings-transport";
+import {
+  createChatThreadHistoryTransport,
+  createChatThreadResumeTransport,
+} from "../../../../src/features/chat/app-server/threads/loading-transport";
 import { createChatThreadMutationTransport } from "../../../../src/features/chat/app-server/threads/transport";
 import { createChatTurnTransport } from "../../../../src/features/chat/app-server/turns/transport";
 import { deferred } from "../../../support/async";
@@ -121,6 +125,104 @@ describe("chat app-server transports", () => {
     expect(snapshot?.items).toEqual([expect.objectContaining({ kind: "message", role: "user", text: "prompt" })]);
   });
 
+  it("reads thread history pages as message stream items", async () => {
+    const threadTurnsList = vi.fn().mockResolvedValue({
+      data: [turn([userMessage("u1", "prompt"), agentMessage("a1", "answer")])],
+      nextCursor: "older",
+    });
+    const client = { threadTurnsList } as unknown as AppServerClient;
+    const transport = createChatThreadHistoryTransport({
+      currentClient: () => client,
+    });
+
+    const page = await transport.readHistoryPage("thread", "cursor", 20);
+
+    expect(threadTurnsList).toHaveBeenCalledWith("thread", "cursor", 20);
+    expect(page?.nextCursor).toBe("older");
+    expect(page?.hadTurns).toBe(true);
+    expect(page?.items).toEqual([
+      expect.objectContaining({ kind: "message", role: "user", text: "prompt" }),
+      expect.objectContaining({ kind: "message", role: "assistant", text: "answer" }),
+    ]);
+  });
+
+  it("drops stale history transport responses after the current client changes", async () => {
+    const history = deferred<{ data: TurnRecord[]; nextCursor: string | null }>();
+    const firstClient = { threadTurnsList: vi.fn().mockReturnValue(history.promise) } as unknown as AppServerClient;
+    const secondClient = {} as unknown as AppServerClient;
+    let currentClient = firstClient;
+    const transport = createChatThreadHistoryTransport({
+      currentClient: () => currentClient,
+    });
+
+    const loading = transport.readHistoryPage("thread", "cursor", 20);
+    currentClient = secondClient;
+    history.resolve({ data: [turn([userMessage("u1", "prompt")])], nextCursor: "older" });
+
+    await expect(loading).resolves.toBeNull();
+  });
+
+  it("resumes threads with the session vault path and projects initial history", async () => {
+    const resumeThread = vi.fn().mockResolvedValue({
+      thread: { ...threadRecord("thread"), path: "/tmp/rollout.jsonl" },
+      cwd: "/vault",
+      model: "gpt-test",
+      serviceTier: null,
+      approvalsReviewer: "user",
+      reasoningEffort: null,
+      initialTurnsPage: {
+        data: [turn([userMessage("u1", "prompt")])],
+        nextCursor: "older",
+      },
+    });
+    const client = { resumeThread } as unknown as AppServerClient;
+    const transport = createChatThreadResumeTransport({
+      vaultPath: "/vault",
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    });
+
+    const snapshot = await transport.resumeThread("thread");
+
+    expect(resumeThread).toHaveBeenCalledWith("thread", "/vault");
+    expect(snapshot?.activation.thread.id).toBe("thread");
+    expect(snapshot?.activation.cwd).toBe("/vault");
+    expect(snapshot?.rolloutPath).toBe("/tmp/rollout.jsonl");
+    expect(snapshot?.initialHistoryPage).toMatchObject({
+      nextCursor: "older",
+      hadTurns: true,
+      items: [expect.objectContaining({ kind: "message", role: "user", text: "prompt" })],
+    });
+  });
+
+  it("drops stale resume transport responses after the current client changes", async () => {
+    const resume = deferred<AppServerThreadResumeResponse>();
+    const firstClient = { resumeThread: vi.fn().mockReturnValue(resume.promise) } as unknown as AppServerClient;
+    const secondClient = {} as unknown as AppServerClient;
+    let currentClient = firstClient;
+    const transport = createChatThreadResumeTransport({
+      vaultPath: "/vault",
+      currentClient: () => currentClient,
+      connectedClient: vi.fn().mockResolvedValue(firstClient),
+    });
+
+    const resuming = transport.resumeThread("thread");
+    currentClient = secondClient;
+    resume.resolve(threadResumeResponse("thread"));
+
+    await expect(resuming).resolves.toBeNull();
+  });
+
+  it("returns no resume snapshot when no connected client is available", async () => {
+    const transport = createChatThreadResumeTransport({
+      vaultPath: "/vault",
+      currentClient: () => null,
+      connectedClient: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(transport.resumeThread("thread")).resolves.toBeNull();
+  });
+
   it("distinguishes absent goals from unavailable goal clients", async () => {
     const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: null }) } as unknown as AppServerClient;
     const transport = createChatThreadGoalTransport({
@@ -131,9 +233,13 @@ describe("chat app-server transports", () => {
       currentClient: () => null,
       connectedClient: vi.fn().mockResolvedValue(null),
     });
+    const readOnlyUnavailable = createChatThreadGoalReadTransport({
+      currentClient: () => null,
+    });
 
     await expect(transport.readThreadGoal("thread")).resolves.toBeNull();
     await expect(unavailable.readThreadGoal("thread")).resolves.toBeUndefined();
+    await expect(readOnlyUnavailable.readThreadGoal("thread")).resolves.toBeUndefined();
   });
 
   it("drops stale runtime settings updates after the current client changes", async () => {
@@ -182,7 +288,9 @@ describe("chat app-server transports", () => {
   });
 });
 
-function threadRecord(id: string, turns: readonly TurnRecord[] = []): ThreadRecord {
+type AppServerThreadResumeResponse = Awaited<ReturnType<AppServerClient["resumeThread"]>>;
+
+function threadRecord(id: string, turns: readonly TurnRecord[] = [], overrides: Partial<ThreadRecord> = {}): ThreadRecord {
   return {
     id,
     sessionId: id,
@@ -204,6 +312,27 @@ function threadRecord(id: string, turns: readonly TurnRecord[] = []): ThreadReco
     gitInfo: null,
     name: null,
     turns,
+    ...overrides,
+  };
+}
+
+function threadResumeResponse(threadId: string, overrides: Partial<AppServerThreadResumeResponse> = {}): AppServerThreadResumeResponse {
+  return {
+    thread: threadRecord(threadId) as AppServerThreadResumeResponse["thread"],
+    cwd: "/vault",
+    model: "gpt-test",
+    modelProvider: "openai",
+    serviceTier: null,
+    runtimeWorkspaceRoots: [],
+    instructionSources: [],
+    approvalPolicy: "never",
+    approvalsReviewer: "user",
+    sandbox: { type: "readOnly", networkAccess: false },
+    activePermissionProfile: null,
+    reasoningEffort: null,
+    multiAgentMode: "none",
+    initialTurnsPage: null,
+    ...overrides,
   };
 }
 

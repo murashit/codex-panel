@@ -1,7 +1,5 @@
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
-import type { ThreadOperations } from "../../../threads/thread-operations";
-import type { ThreadTitleService } from "../../../threads/thread-title-service";
 import { messageStreamItems } from "../state/message-stream";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
@@ -17,8 +15,8 @@ export interface ThreadRenameEditorActionsHost {
   stateStore: ChatStateStore;
   ensureConnected: () => Promise<void>;
   addSystemMessage: (text: string) => void;
-  renameThread: ThreadOperations["renameThread"];
-  generateThreadTitle: ThreadTitleService["generateTitle"];
+  renameThread(threadId: string, value: string): Promise<boolean>;
+  generateThreadTitle(threadId: string): Promise<string>;
 }
 
 export interface ThreadRenameEditorActions {

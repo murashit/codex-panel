@@ -16,10 +16,8 @@ const projectPluginByName = new Map(
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
-const CHAT_APPLICATION_ROOT_APP_SERVER_MESSAGE =
-  "Chat application modules must not import root app-server modules; use chat app-server transports or application ports instead.";
 const CHAT_APPLICATION_OUTER_LAYER_MESSAGE =
-  "Chat application modules must not import host, panel, presentation, or UI layers; expose state and workflow contracts instead.";
+  "Chat application modules must not import app-server, host, panel, presentation, or UI layers; expose state and workflow contracts instead.";
 const CHAT_APP_SERVER_OUTER_LAYER_MESSAGE = "Chat app-server adapters must not import chat host, panel, presentation, or UI layers.";
 const CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE = "Chat panel modules must not import app-server adapters or chat host internals.";
 const CHAT_PRESENTATION_OUTER_LAYER_MESSAGE =
@@ -394,7 +392,6 @@ export function timestamp(): number {
   it("keeps chat folder ownership boundaries explicit without filename-scoped Grit checks", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-chat-application-outer-layer-imports.grit",
-      "no-chat-application-root-app-server-imports.grit",
       "no-chat-app-server-outer-layer-imports.grit",
       "no-chat-panel-runtime-boundary-imports.grit",
       "no-chat-presentation-outer-layer-imports.grit",
@@ -404,11 +401,12 @@ export function timestamp(): number {
       path.join(cwd, "src/features/chat/application/outer.ts"),
       `
 import type { Host } from "../host/contracts";
+import type { ChatThreadHistoryPage } from "../app-server/threads/projection";
 import type { PanelSnapshot } from "../panel/snapshot";
 import { statusText } from "../presentation/runtime/status";
 import { Toolbar } from "../ui/toolbar";
 
-export type Escape = Host | PanelSnapshot;
+export type Escape = ChatThreadHistoryPage | Host | PanelSnapshot;
 export const values = [statusText, Toolbar] satisfies unknown[];
 `.trimStart(),
     );
@@ -416,9 +414,8 @@ export const values = [statusText, Toolbar] satisfies unknown[];
       path.join(cwd, "src/features/chat/application/allowed.ts"),
       `
 import type { MessageStreamItem } from "../domain/message-stream/items";
-import type { ChatThreadHistoryPage } from "../app-server/threads/projection";
 
-export type Item = MessageStreamItem | ChatThreadHistoryPage;
+export type Item = MessageStreamItem;
 `.trimStart(),
     );
     await writeFile(
@@ -536,10 +533,10 @@ export const value = statusText;
     );
 
     expect(pluginMessages(report, "src/features/chat/application/outer.ts")).toEqual(
-      Array.from({ length: 4 }, () => CHAT_APPLICATION_OUTER_LAYER_MESSAGE),
+      Array.from({ length: 5 }, () => CHAT_APPLICATION_OUTER_LAYER_MESSAGE),
     );
     expect(pluginDiagnostics(report, "src/features/chat/application/allowed.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/application/root-app-server.ts")).toEqual([CHAT_APPLICATION_ROOT_APP_SERVER_MESSAGE]);
+    expect(pluginMessages(report, "src/features/chat/application/root-app-server.ts")).toEqual([CHAT_APPLICATION_OUTER_LAYER_MESSAGE]);
     expect(pluginMessages(report, "src/features/chat/app-server/outer.ts")).toEqual(
       Array.from({ length: 4 }, () => CHAT_APP_SERVER_OUTER_LAYER_MESSAGE),
     );

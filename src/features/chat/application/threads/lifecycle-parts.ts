@@ -1,5 +1,4 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
-import type { ChatThreadResumeClient } from "../../app-server/threads/projection";
 import type { ChatResumeWorkTracker } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
 import { createActiveThreadIdentitySync } from "./active-thread-identity-sync";
@@ -7,14 +6,11 @@ import type { GoalActions } from "./goal-actions";
 import type { HistoryController } from "./history-controller";
 import { RestorationController } from "./restoration-controller";
 import { createResumeActions, type ResumeActions } from "./resume-actions";
+import type { ThreadResumeTransport } from "./thread-loading-transport";
 
 export interface ThreadLifecyclePartsContext {
-  settingsRef: { readonly vaultPath: string };
   stateStore: ChatStateStore;
-  client: {
-    currentClient: () => ChatThreadResumeClient | null;
-    ensureConnected: () => Promise<void>;
-  };
+  resumeTransport: ThreadResumeTransport;
   lifecycle: {
     resumeWork: ChatResumeWorkTracker;
     history: HistoryController;
@@ -45,7 +41,7 @@ export interface ThreadLifecycleParts {
 }
 
 export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext): ThreadLifecycleParts {
-  const { settingsRef, stateStore, client, lifecycle, thread, status, liveState, goals, resetThreadTurnPresence } = context;
+  const { stateStore, resumeTransport, lifecycle, thread, status, liveState, goals, resetThreadTurnPresence } = context;
   const { resumeWork, history, invalidateThreadWork } = lifecycle;
   const restoration = new RestorationController({
     invalidateThreadWork,
@@ -54,12 +50,10 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
   });
   const resume = createResumeActions({
     stateStore,
-    vaultPath: settingsRef.vaultPath,
     resumeWork,
     history,
     restoration,
-    currentClient: client.currentClient,
-    ensureConnected: client.ensureConnected,
+    resumeTransport,
     closing: lifecycle.getClosing,
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,

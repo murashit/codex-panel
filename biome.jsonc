@@ -12,10 +12,6 @@
       "includes": ["**/src/features/chat/application/**/*.ts"]
     },
     {
-      "path": "./scripts/lint/no-chat-application-root-app-server-imports.grit",
-      "includes": ["**/src/features/chat/application/**/*.ts"]
-    },
-    {
       "path": "./scripts/lint/no-app-server-protocol-boundary-imports.grit",
       "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/**"]
     },

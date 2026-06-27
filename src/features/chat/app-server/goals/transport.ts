@@ -1,17 +1,18 @@
 import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/threads";
-import type { ThreadGoalTransport } from "../../application/threads/goal-transport";
-import type { ConnectedChatAppServerClientHost } from "../client-scope";
+import type { ThreadGoalReader, ThreadGoalTransport } from "../../application/threads/goal-transport";
+import type { ConnectedChatAppServerClientHost, CurrentChatAppServerClientHost } from "../client-scope";
 import { chatAppServerClientIsStale, withConnectedChatAppServerClient, withCurrentChatAppServerClient } from "../client-scope";
+
+export function createChatThreadGoalReadTransport(host: CurrentChatAppServerClientHost): ThreadGoalReader {
+  return {
+    readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
+  };
+}
 
 export function createChatThreadGoalTransport(host: ConnectedChatAppServerClientHost): ThreadGoalTransport {
   return {
     ensureConnected: async () => (await host.connectedClient()) !== null,
-    readThreadGoal: async (threadId) => {
-      const client = host.currentClient();
-      if (!client) return undefined;
-      const goal = await readThreadGoal(client, threadId);
-      return chatAppServerClientIsStale(host, client) ? undefined : goal;
-    },
+    readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
     setThreadGoal: async (threadId, params) => {
       const client = await host.connectedClient();
       if (!client) return undefined;
@@ -33,4 +34,14 @@ export function createChatThreadGoalTransport(host: ConnectedChatAppServerClient
       return result ?? false;
     },
   };
+}
+
+async function readThreadGoalFromCurrentClient(
+  host: CurrentChatAppServerClientHost,
+  threadId: string,
+): ReturnType<ThreadGoalReader["readThreadGoal"]> {
+  const client = host.currentClient();
+  if (!client) return undefined;
+  const goal = await readThreadGoal(client, threadId);
+  return chatAppServerClientIsStale(host, client) ? undefined : goal;
 }

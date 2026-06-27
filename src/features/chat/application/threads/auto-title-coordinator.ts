@@ -1,13 +1,12 @@
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
-import type { ThreadTitleService } from "../../../threads/thread-title-service";
 import type { ChatStateStore } from "../state/store";
 
 export interface AutoTitleCoordinatorHost {
   stateStore: ChatStateStore;
-  completedTurnTitleContext: ThreadTitleService["completedTurnContext"];
-  generateTitleFromContext: ThreadTitleService["generate"];
+  completedTurnTitleContext(turnId: string, completedSummary: ThreadConversationSummary | null): ThreadTitleContext | null;
+  generateTitleFromContext(context: ThreadTitleContext): Promise<string | null>;
   renameGeneratedTitle(threadId: string, title: string, options: { shouldPublish: () => boolean }): Promise<boolean>;
 }
 

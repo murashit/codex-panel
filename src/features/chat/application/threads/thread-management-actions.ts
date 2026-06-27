@@ -1,6 +1,5 @@
 import { inheritedForkThreadName } from "../../../../domain/threads/model";
 import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
-import type { ThreadOperations } from "../../../threads/thread-operations";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import { chatTurnBusy } from "../conversation/turn-state";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
@@ -16,7 +15,7 @@ const STATUS_ROLLBACK_FAILED = "Rollback failed.";
 
 export interface ThreadManagementActionsHost {
   stateStore: ChatStateStore;
-  operations: ThreadOperations;
+  operations: ThreadManagementOperations;
   threadTransport: ThreadMutationTransport;
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
@@ -26,6 +25,11 @@ export interface ThreadManagementActionsHost {
   notifyActiveThreadIdentityChanged: () => void;
   refreshAfterThreadMutation: () => Promise<void>;
   applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
+}
+
+interface ThreadManagementOperations {
+  renameThread(threadId: string, value: string): Promise<boolean>;
+  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; closeOpenPanels?: boolean }): Promise<unknown>;
 }
 
 export interface ThreadManagementActions {

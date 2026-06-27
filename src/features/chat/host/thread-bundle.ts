@@ -7,7 +7,8 @@ import type { LocalIdSource } from "../../../shared/id/local-id";
 import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../threads/thread-title-service";
 import type { ChatServerThreadActions } from "../app-server/actions/threads";
-import { createChatThreadGoalTransport } from "../app-server/goals/transport";
+import { createChatThreadGoalReadTransport, createChatThreadGoalTransport } from "../app-server/goals/transport";
+import { createChatThreadHistoryTransport, createChatThreadResumeTransport } from "../app-server/threads/loading-transport";
 import { createChatThreadMutationTransport } from "../app-server/threads/transport";
 import type { ChatResumeWorkTracker } from "../application/lifecycle";
 import { messageStreamItems } from "../application/state/message-stream";
@@ -156,7 +157,7 @@ export function createThreadLifecycleBundle(
   );
   const lifecycle = createSessionThreadLifecycle(host, {
     currentClient,
-    ensureConnected,
+    connectedClient,
     status,
     goals,
     autoTitleCoordinator: foundation.autoTitleCoordinator,
@@ -283,7 +284,9 @@ function createSessionHistoryController(
 ): HistoryController {
   return new HistoryController({
     stateStore: host.stateStore,
-    currentClient,
+    historyTransport: createChatThreadHistoryTransport({
+      currentClient,
+    }),
     addSystemMessage: status.addSystemMessage,
     showLatestPageAtBottom: () => {
       host.messageScrollController.showLatest();
@@ -303,9 +306,8 @@ function createSessionGoalSyncActions(
 ): ChatPanelGoalSyncActions {
   return createThreadGoalSyncActions({
     stateStore: host.stateStore,
-    goalTransport: createChatThreadGoalTransport({
+    goalTransport: createChatThreadGoalReadTransport({
       currentClient,
-      connectedClient: async () => currentClient(),
     }),
     localItemIds,
     addSystemMessage: (text) => {
@@ -391,7 +393,7 @@ function createSessionThreadRenameEditorActions(
     stateStore,
     ensureConnected,
     addSystemMessage: status.addSystemMessage,
-    renameThread: (threadId, value, options) => operations.renameThread(threadId, value, options),
+    renameThread: (threadId, value) => operations.renameThread(threadId, value),
     generateThreadTitle: (threadId) => titleService.generateTitle(threadId),
   });
 }
@@ -400,7 +402,7 @@ function createSessionThreadLifecycle(
   host: ChatPanelThreadHost,
   input: {
     currentClient: CurrentAppServerClient;
-    ensureConnected: () => Promise<void>;
+    connectedClient: () => Promise<ReturnType<CurrentAppServerClient>>;
     status: ChatPanelThreadStatus;
     goals: ChatPanelGoalActions;
     autoTitleCoordinator: AutoTitleCoordinator;
@@ -413,7 +415,7 @@ function createSessionThreadLifecycle(
 ): ChatPanelThreadLifecycle {
   const {
     currentClient,
-    ensureConnected,
+    connectedClient,
     status,
     goals,
     autoTitleCoordinator,
@@ -424,12 +426,12 @@ function createSessionThreadLifecycle(
     notifyActiveThreadIdentityChanged,
   } = input;
   return createThreadLifecycleParts({
-    settingsRef: host.environment.plugin.settingsRef,
     stateStore: host.stateStore,
-    client: {
+    resumeTransport: createChatThreadResumeTransport({
+      vaultPath: host.environment.plugin.settingsRef.vaultPath,
       currentClient,
-      ensureConnected,
-    },
+      connectedClient,
+    }),
     lifecycle: {
       resumeWork: host.resumeWork,
       history,
