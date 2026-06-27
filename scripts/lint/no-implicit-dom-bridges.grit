@@ -50,7 +50,6 @@ or {
   `$target.defaultView` as $stmt,
   `$target.style.$property` as $stmt
 } where {
-  not { $filename <: r".*\.(?:dom|obsidian|measure)\.tsx?$" },
   not { $stmt <: `$target.addEventListener("abort", $...)` },
   not { $stmt <: `$target.removeEventListener("abort", $...)` },
   register_diagnostic(span=$stmt, message="Keep DOM reads, writes, measurements, hit-tests, focus, and event wiring in files named with a .dom, .obsidian, or .measure suffix.", severity="error")

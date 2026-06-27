@@ -47,7 +47,16 @@
     // UI and DOM source boundaries.
     {
       "path": "./scripts/lint/no-implicit-dom-bridges.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
+      "includes": [
+        "**/src/**/*.ts",
+        "**/src/**/*.tsx",
+        "!**/src/**/*.dom.ts",
+        "!**/src/**/*.dom.tsx",
+        "!**/src/**/*.obsidian.ts",
+        "!**/src/**/*.obsidian.tsx",
+        "!**/src/**/*.measure.ts",
+        "!**/src/**/*.measure.tsx"
+      ]
     },
     {
       "path": "./scripts/lint/no-dom-events-imports.grit",
@@ -64,7 +73,14 @@
     },
     {
       "path": "./scripts/lint/no-ui-root-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
+      "includes": [
+        "**/src/**/*.ts",
+        "**/src/**/*.tsx",
+        "!**/src/**/*.dom.ts",
+        "!**/src/**/*.dom.tsx",
+        "!**/src/**/*.obsidian.ts",
+        "!**/src/**/*.obsidian.tsx"
+      ]
     },
     {
       "path": "./scripts/lint/no-uncontrolled-preact-form-state.grit",
