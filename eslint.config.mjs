@@ -44,6 +44,15 @@ export default defineConfig([
       },
     },
     rules: {
+      // Biome import restrictions do not cover `import("...").T`; keep that type syntax out before source-boundary lint runs.
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        {
+          disallowTypeAnnotations: true,
+          fixStyle: "separate-type-imports",
+          prefer: "type-imports",
+        },
+      ],
       "@typescript-eslint/no-deprecated": "off",
       "@typescript-eslint/require-await": "off",
     },

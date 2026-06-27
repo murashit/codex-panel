@@ -202,8 +202,10 @@ export const status = signal("idle");
     await writeFile(
       path.join(cwd, "src/shared/ui/signal-escapes.tsx"),
       `
+import type { Signal } from "@preact/signals";
 export { signal } from "@preact/signals";
-export type SignalValue = import("@preact/signals").Signal<string>;
+
+export type SignalValue = Signal<string>;
 
 export async function loadSignals() {
   return import("@preact/signals");
@@ -340,8 +342,10 @@ export const render = renderUiRoot;
     await writeFile(
       path.join(cwd, "src/features/chat/ui/root-escapes.tsx"),
       `
+import type { RootRenderer } from "../../../shared/ui/ui-root.dom";
 export { renderUiRoot } from "../../../shared/ui/ui-root.dom";
-export type RootRenderer = import("../../../shared/ui/ui-root.dom").RootRenderer;
+
+export type { RootRenderer };
 
 export async function loadRoot() {
   return import("../../../shared/ui/ui-root.dom");
@@ -1087,7 +1091,9 @@ async function createAppServerBoundaryPolicyReport() {
   await writeFile(
     path.join(cwd, "src/features/chat/domain/generated-thread.ts"),
     `
-export type GeneratedThread = import('../../../generated/app-server/v2/Thread').Thread;
+import type { Thread } from '../../../generated/app-server/v2/Thread';
+
+export type GeneratedThread = Thread;
 `.trimStart(),
   );
   await writeFile(
@@ -1101,13 +1107,17 @@ export type GeneratedThread = Thread;
   await writeFile(
     path.join(cwd, "src/app-server/connection/generated-thread.ts"),
     `
-export type GeneratedThread = import("../../generated/app-server/v2/Thread").Thread;
+import type { Thread } from "../../generated/app-server/v2/Thread";
+
+export type GeneratedThread = Thread;
 `.trimStart(),
   );
   await writeFile(
     path.join(cwd, "tests/app-server/generated-thread.test.ts"),
     `
-export type GeneratedThread = import("../../src/generated/app-server/v2/Thread").Thread;
+import type { Thread } from "../../src/generated/app-server/v2/Thread";
+
+export type GeneratedThread = Thread;
 `.trimStart(),
   );
   await writeFile(
@@ -1251,8 +1261,10 @@ export type Item = MessageStreamItem;
   await writeFile(
     path.join(cwd, "src/features/chat/domain/message-stream/outer-shapes.ts"),
     `
+import type { ChatStateStore } from "../../application/state/store";
 export { createChatStateStore } from "../../application/state/store";
-export type OuterStore = import("../../application/state/store").ChatStateStore;
+
+export type OuterStore = ChatStateStore;
 
 export async function loadComposer() {
   return import("src/features/chat/ui/composer");
