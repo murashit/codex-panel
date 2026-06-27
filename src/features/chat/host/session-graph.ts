@@ -244,7 +244,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
 }
 
 function createConnectionManager(environment: ChatPanelEnvironment): ConnectionManager {
-  return new ConnectionManager(() => environment.plugin.settingsRef.settings.codexPath, environment.plugin.settingsRef.vaultPath);
+  return new ConnectionManager(() => environment.plugin.settingsRef.settings.codexPath(), environment.plugin.settingsRef.vaultPath);
 }
 
 function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {

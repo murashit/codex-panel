@@ -220,7 +220,7 @@ export function createConnectionBundle(
     },
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
-    configuredCommand: () => environment.plugin.settingsRef.settings.codexPath,
+    configuredCommand: () => environment.plugin.settingsRef.settings.codexPath(),
     refreshLiveState: () => {
       host.refreshLiveState();
     },

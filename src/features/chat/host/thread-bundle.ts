@@ -243,10 +243,10 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
 function createSessionThreadTitleService(host: ChatPanelThreadHost, currentClient: CurrentAppServerClient): ThreadTitleService {
   const { environment, stateStore } = host;
   return createThreadTitleService({
-    codexPath: () => environment.plugin.settingsRef.settings.codexPath,
+    codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
     vaultPath: environment.plugin.settingsRef.vaultPath,
-    threadNamingModel: () => environment.plugin.settingsRef.settings.threadNamingModel,
-    threadNamingEffort: () => environment.plugin.settingsRef.settings.threadNamingEffort,
+    threadNamingModel: () => environment.plugin.settingsRef.settings.threadNamingModel(),
+    threadNamingEffort: () => environment.plugin.settingsRef.settings.threadNamingEffort(),
     clientAccess: createCurrentClientAccess(currentClient),
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
     visibleCompletedTurnContext: (turnId) =>
@@ -327,12 +327,8 @@ function createSessionThreadOperations(environment: ChatPanelEnvironment, curren
   return createThreadOperations({
     clientAccess: createCurrentClientAccess(currentClient),
     archiveExport: {
-      settings: () => ({
-        archiveExportFolderTemplate: environment.plugin.settingsRef.settings.archiveExportFolderTemplate,
-        archiveExportFilenameTemplate: environment.plugin.settingsRef.settings.archiveExportFilenameTemplate,
-        archiveExportTags: environment.plugin.settingsRef.settings.archiveExportTags,
-      }),
-      enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled,
+      settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
+      enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),
       vaultPath: environment.plugin.settingsRef.vaultPath,
       vaultConfigDir: environment.obsidian.app.vault.configDir,
     },

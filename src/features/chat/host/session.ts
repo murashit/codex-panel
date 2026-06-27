@@ -9,10 +9,9 @@ import { parseRestoredThreadState, type RestoredThreadPlaceholderState } from ".
 import { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/surface/message-stream-scroll";
-import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot } from "./contracts";
+import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot, ChatWorkspacePanelTurnLifecycle } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./deferred-work";
 import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
-import { openPanelTurnLifecycle } from "./workspace-panel-snapshot";
 
 export class ChatPanelSession implements ChatPanelHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();
@@ -188,7 +187,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     if (!root) return;
     renderChatPanelShell(root, {
       stateStore: this.stateStore,
-      showToolbar: this.environment.plugin.settingsRef.settings.showToolbar,
+      showToolbar: this.environment.plugin.settingsRef.settings.showToolbar(),
       parts: this.graph.shell.parts,
     });
   }
@@ -209,7 +208,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   private currentAppServerContext(): AppServerQueryContext {
     return {
-      codexPath: this.environment.plugin.settingsRef.settings.codexPath,
+      codexPath: this.environment.plugin.settingsRef.settings.codexPath(),
       vaultPath: this.environment.plugin.settingsRef.vaultPath,
     };
   }
@@ -253,4 +252,10 @@ export class ChatPanelSession implements ChatPanelHandle {
       viewWindow: () => this.viewWindow(),
     });
   }
+}
+
+function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): ChatWorkspacePanelTurnLifecycle {
+  if (state.kind === "running") return { kind: "running", turnId: state.turnId };
+  if (state.kind === "starting") return { kind: "starting" };
+  return { kind: "idle" };
 }

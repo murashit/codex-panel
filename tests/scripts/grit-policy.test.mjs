@@ -30,6 +30,8 @@ const CHAT_WORKSPACE_BOUNDARY_MESSAGE =
 const FEATURE_WORKSPACE_BOUNDARY_MESSAGE =
   "Feature modules must not import workspace modules; pass workspace capabilities through feature host contracts.";
 const WORKSPACE_CHAT_INTERNAL_MESSAGE = "Workspace modules may coordinate chat only through chat host contracts and Obsidian views.";
+const CHAT_HOST_RENDERING_LAYER_MESSAGE =
+  "Chat host modules must not import chat presentation or UI layers; route render-facing projections through panel-owned adapters.";
 const CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE = "Chat panel modules must not import app-server adapters or chat host internals.";
 const CHAT_PRESENTATION_OUTER_LAYER_MESSAGE =
   "Chat presentation modules must stay pure view-model projection; keep application, app-server, host, panel, and UI dependencies outward.";
@@ -407,6 +409,7 @@ export function timestamp(): number {
       "no-chat-workspace-boundary-imports.grit",
       "no-feature-workspace-boundary-imports.grit",
       "no-workspace-chat-internal-imports.grit",
+      "no-chat-host-rendering-layer-imports.grit",
       "no-chat-panel-runtime-boundary-imports.grit",
       "no-chat-presentation-outer-layer-imports.grit",
       "no-chat-ui-outer-layer-imports.grit",
@@ -476,6 +479,24 @@ export type Escape = WorkspacePanelCoordinator;
 import type { ChatStateStore } from "../application/state/store";
 
 export type Allowed = ChatStateStore;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/host/rendering-escape.ts"),
+      `
+import { statusText } from "../presentation/runtime/status";
+import { Toolbar } from "../ui/toolbar";
+
+export const values = [statusText, Toolbar] satisfies unknown[];
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/host/rendering-allowed.ts"),
+      `
+import type { ChatStateStore } from "../application/state/store";
+import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
+
+export type Allowed = ChatStateStore | ChatPanelToolbarSurface;
 `.trimStart(),
     );
     await writeFile(
@@ -588,6 +609,8 @@ export const value = statusText;
         "src/features/chat/app-server/allowed.ts",
         "src/features/chat/host/workspace-escape.ts",
         "src/features/chat/host/workspace-allowed.ts",
+        "src/features/chat/host/rendering-escape.ts",
+        "src/features/chat/host/rendering-allowed.ts",
         "src/features/threads-view/workspace-escape.ts",
         "src/features/threads-view/workspace-allowed.ts",
         "src/workspace/chat-internal-escape.ts",
@@ -613,6 +636,10 @@ export const value = statusText;
     expect(pluginDiagnostics(report, "src/features/chat/app-server/allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/host/workspace-escape.ts")).toEqual([CHAT_WORKSPACE_BOUNDARY_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/chat/host/workspace-allowed.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/host/rendering-escape.ts")).toEqual(
+      Array.from({ length: 2 }, () => CHAT_HOST_RENDERING_LAYER_MESSAGE),
+    );
+    expect(pluginDiagnostics(report, "src/features/chat/host/rendering-allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/threads-view/workspace-escape.ts")).toEqual([FEATURE_WORKSPACE_BOUNDARY_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/threads-view/workspace-allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/workspace/chat-internal-escape.ts")).toEqual([WORKSPACE_CHAT_INTERNAL_MESSAGE]);

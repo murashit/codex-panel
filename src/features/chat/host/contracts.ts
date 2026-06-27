@@ -4,23 +4,35 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerQueryContext } from "../../../app-server/query/keys";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../../app-server/query/thread-catalog";
 import type { ArchiveExportDestination } from "../../../app-server/services/thread-archive-markdown";
-import type { ModelMetadata } from "../../../domain/catalog/metadata";
+import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { PendingRequestCounts } from "../../../domain/pending-requests/aggregate";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
-import type { CodexPanelSettings } from "../../../settings/model";
+import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import type { ObservedResultListener } from "../../../shared/query/observed-result";
+import type { SendShortcut } from "../../../shared/ui/keyboard";
 import type { ChatTurnDiffViewState } from "../domain/turn-diff";
 
 export interface CodexChatHost {
-  readonly settingsRef: PluginSettingsRef;
+  readonly settingsRef: ChatPanelSettingsRef;
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
 }
 
-export interface PluginSettingsRef {
-  readonly settings: CodexPanelSettings;
+interface ChatPanelSettingsRef {
+  readonly settings: ChatPanelSettingsAccess;
   readonly vaultPath: string;
+}
+
+export interface ChatPanelSettingsAccess {
+  archiveExportEnabled(): boolean;
+  archiveExportSettings(): ArchiveExportSettings;
+  codexPath(): string;
+  scrollThreadFromComposerEdges(): boolean;
+  sendShortcut(): SendShortcut;
+  showToolbar(): boolean;
+  threadNamingEffort(): ReasoningEffort | null;
+  threadNamingModel(): string | null;
 }
 
 interface WorkspacePanels {

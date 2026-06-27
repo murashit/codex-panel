@@ -7,7 +7,6 @@ import type { ThreadRenameEditorActions } from "../application/threads/rename-ed
 import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
 import type { ThreadNavigationActions } from "../application/threads/thread-navigation-actions";
 import type { ToolbarActions } from "../ui/toolbar";
-import type { ToolbarOutsidePointerHit } from "../ui/toolbar.dom";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
@@ -34,6 +33,11 @@ export interface ToolbarUiActionDependencies {
   toolbarPanel: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;
   navigation: ThreadNavigationActions;
+}
+
+export interface ToolbarOutsidePointerHit {
+  insideToolbarPanel: boolean;
+  insideArchiveConfirm: boolean;
 }
 
 interface ToolbarOutsidePointerContext {

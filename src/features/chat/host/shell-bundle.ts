@@ -9,7 +9,7 @@ import { MessageStreamPresenter } from "../panel/surface/message-stream-presente
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
 import { createToolbarUiActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
-import { toolbarOutsidePointerHit } from "../ui/toolbar.dom";
+import { toolbarOutsidePointerHit } from "../panel/toolbar-hit-test.dom";
 import type { ChatPanelComposerBundle } from "./composer-bundle";
 import type { ChatPanelConnectionBundle } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
@@ -75,12 +75,12 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     },
     settings: {
       vaultPath: () => environment.plugin.settingsRef.vaultPath,
-      configuredCommand: () => environment.plugin.settingsRef.settings.codexPath,
-      archiveExportEnabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled,
+      configuredCommand: () => environment.plugin.settingsRef.settings.codexPath(),
+      archiveExportEnabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),
     },
   };
   const goalSurface: ChatPanelGoalSurface = {
-    sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
+    sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
     actions: goals,
   };
   const messageStreamPresenter = new MessageStreamPresenter({

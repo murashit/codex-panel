@@ -8,14 +8,12 @@ import type { RuntimeConfigSnapshot } from "../../../../../src/domain/runtime/co
 import { createServerDiagnostics } from "../../../../../src/domain/server/diagnostics";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { ChatPanelShellStateContext, createChatPanelShellState } from "../../../../../src/features/chat/panel/shell-state";
 import type { ChatPanelComposerSurface } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { ChatPanelGoal, type ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/goal-projection";
 import { ChatPanelToolbar } from "../../../../../src/features/chat/panel/surface/toolbar-projection";
-import { effortStatusLines, modelStatusLines, statusSummaryLines } from "../../../../../src/features/chat/presentation/runtime/status";
 import type { ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
@@ -231,48 +229,6 @@ describe("chat panel surface projections", () => {
       planActive: false,
       autoReviewActive: false,
     });
-  });
-
-  it("builds slash-command status lines from chat state", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = chatStateWith(state, {
-      connection: {
-        runtimeConfig: runtimeConfigFixture({
-          model: "gpt-5.5",
-          model_provider: "openai",
-          model_reasoning_effort: "high",
-          service_tier: "fast",
-        }),
-      },
-    });
-    state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5")] } });
-    const snapshot = runtimeSnapshotFixture(state);
-
-    expect(statusSummaryLines({ activeThreadId: state.activeThread.id, snapshot, nowMs: 0 })[1]).toBe("Thread: thread-1");
-    expect(
-      modelStatusLines({
-        runtimeConfig: state.connection.runtimeConfig,
-        pendingModel: state.runtime.pending.model,
-        snapshot,
-        collaborationModeLabel: "Default",
-      }),
-    ).toContain("Model: gpt-5.5");
-    expect(
-      modelStatusLines({
-        runtimeConfig: state.connection.runtimeConfig,
-        pendingModel: state.runtime.pending.model,
-        snapshot,
-        collaborationModeLabel: "Default",
-      }),
-    ).toContain("Mode: Default");
-    expect(
-      effortStatusLines({
-        runtimeConfig: state.connection.runtimeConfig,
-        pendingReasoningEffort: state.runtime.pending.reasoningEffort,
-        snapshot,
-      }),
-    ).toContain("Supported: high");
   });
 
   it("builds runtime composer choices from immutable chat state snapshots", () => {
@@ -518,10 +474,6 @@ function runtimeConfigFixture(config: Record<string, unknown>): RuntimeConfigSna
     origins: {},
     layers: null,
   });
-}
-
-function runtimeSnapshotFixture(state: ChatState) {
-  return runtimeSnapshotForChatState(state);
 }
 
 function threadFixture(id: string, name: string | null): Thread {

@@ -8,8 +8,9 @@ import type { Thread } from "../src/domain/threads/model";
 import type { CodexChatHost } from "../src/features/chat/host/contracts";
 import type { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
-import { DEFAULT_SETTINGS } from "../src/settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../src/settings/model";
 import { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
+import { chatPanelSettingsAccess } from "./features/chat/support/settings";
 import { waitForAsyncWork } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
 
@@ -814,9 +815,10 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
 }
 
 function chatHostFixture(): CodexChatHost {
+  const settings: CodexPanelSettings = { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" };
   return {
     settingsRef: {
-      settings: { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" },
+      settings: chatPanelSettingsAccess(settings),
       vaultPath: "/vault",
     },
     workspace: {

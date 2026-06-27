@@ -12,11 +12,11 @@ import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import type {
   ChatPanelClientSurface,
+  ChatPanelSettingsAccess,
   ChatSharedThreadSurface,
   ChatViewLifecycleSurface,
   ChatWorkspacePanelSurface,
   CodexChatHost,
-  PluginSettingsRef,
 } from "./features/chat/host/contracts";
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidian";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
@@ -24,11 +24,17 @@ import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/thre
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import type { CodexPanelSettingTabHost } from "./settings/host";
+import type { CodexPanelSettings } from "./settings/model";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
+
+interface CodexPanelRuntimeSettingsRef {
+  readonly settings: CodexPanelSettings;
+  readonly vaultPath: string;
+}
 
 export interface CodexPanelRuntimeOptions {
   app: App;
-  settingsRef: PluginSettingsRef;
+  settingsRef: CodexPanelRuntimeSettingsRef;
   saveSettings(): Promise<void>;
 }
 
@@ -107,7 +113,10 @@ export class CodexPanelRuntime implements AppServerClientAccess {
 
   chatHost(): CodexChatHost {
     return {
-      settingsRef: this.options.settingsRef,
+      settingsRef: {
+        settings: this.chatSettings(),
+        vaultPath: this.options.settingsRef.vaultPath,
+      },
       workspace: {
         openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
@@ -118,6 +127,23 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       },
       appServerQueries: this.appServerSharedQueries,
       threadCatalog: this.threadCatalog,
+    };
+  }
+
+  private chatSettings(): ChatPanelSettingsAccess {
+    return {
+      archiveExportEnabled: () => this.options.settingsRef.settings.archiveExportEnabled,
+      archiveExportSettings: () => ({
+        archiveExportFolderTemplate: this.options.settingsRef.settings.archiveExportFolderTemplate,
+        archiveExportFilenameTemplate: this.options.settingsRef.settings.archiveExportFilenameTemplate,
+        archiveExportTags: this.options.settingsRef.settings.archiveExportTags,
+      }),
+      codexPath: () => this.options.settingsRef.settings.codexPath,
+      scrollThreadFromComposerEdges: () => this.options.settingsRef.settings.scrollThreadFromComposerEdges,
+      sendShortcut: () => this.options.settingsRef.settings.sendShortcut,
+      showToolbar: () => this.options.settingsRef.settings.showToolbar,
+      threadNamingEffort: () => this.options.settingsRef.settings.threadNamingEffort,
+      threadNamingModel: () => this.options.settingsRef.settings.threadNamingModel,
     };
   }
 

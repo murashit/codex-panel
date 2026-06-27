@@ -14,9 +14,10 @@ import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
 import { createChatMessageScrollController } from "../../../../src/features/chat/panel/surface/message-stream-scroll";
-import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
 import { installObsidianDomShims } from "../../../support/dom";
+import { chatPanelSettingsAccess } from "../support/settings";
 
 installObsidianDomShims();
 
@@ -238,6 +239,12 @@ describe("createChatPanelSessionGraph actions", () => {
   function chatPanelEnvironmentFixture(overrides: PartialChatPanelEnvironment = {}): ChatPanelEnvironment {
     const threadCatalog = threadCatalogFixture(overrides.plugin?.threadCatalog);
     const appServerQueries = appServerQueriesFixture(overrides.plugin?.appServerQueries);
+    const settingsRef = overrides.plugin?.settingsRef;
+    const settingsSource: CodexPanelSettings = {
+      ...DEFAULT_SETTINGS,
+      codexPath: "codex",
+      sendShortcut: "enter",
+    };
     return {
       obsidian: {
         app: {
@@ -273,13 +280,8 @@ describe("createChatPanelSessionGraph actions", () => {
       },
       plugin: {
         settingsRef: {
-          settings: {
-            ...DEFAULT_SETTINGS,
-            codexPath: "codex",
-            sendShortcut: "enter",
-          },
-          vaultPath: "/vault",
-          ...overrides.plugin?.settingsRef,
+          settings: settingsRef?.settings ?? chatPanelSettingsAccess(settingsSource),
+          vaultPath: settingsRef?.vaultPath ?? "/vault",
         },
         workspace: {
           openThreadInNewView: vi.fn().mockResolvedValue(undefined),

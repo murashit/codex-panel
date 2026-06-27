@@ -11,13 +11,16 @@ import { createServerDiagnostics } from "../../../../src/domain/server/diagnosti
 import type { SharedServerMetadata } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { CodexChatHost } from "../../../../src/features/chat/host/contracts";
-import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import type { ObservedResult } from "../../../../src/shared/query/observed-result";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
+import { chatPanelSettingsAccess } from "../support/settings";
 
-type TestCodexChatHost = CodexChatHost;
+interface TestCodexChatHost extends CodexChatHost {
+  readonly settingsSource: CodexPanelSettings;
+}
 let CodexChatView: typeof import("../../../../src/features/chat/host/view.obsidian")["CodexChatView"];
 interface TrackedView {
   view: { onClose(): Promise<void> | void };
@@ -199,11 +202,11 @@ describe("CodexChatView connection lifecycle", () => {
     await view.surface.connect();
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
 
-    host.settingsRef.settings.showToolbar = false;
+    host.settingsSource.showToolbar = false;
     view.surface.refreshSettings();
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
 
-    host.settingsRef.settings.codexPath = "codex-next";
+    host.settingsSource.codexPath = "codex-next";
     view.surface.refreshSettings();
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
   });
@@ -484,7 +487,25 @@ describe("CodexChatView connection lifecycle", () => {
         clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
       });
     });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "starting" } });
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
+    connectionMock.state.onNotification?.({
+      method: "turn/started",
+      params: {
+        threadId: "thread-1",
+        turn: {
+          id: "turn-1",
+          status: "inProgress",
+          startedAt: 1,
+          completedAt: null,
+          durationMs: null,
+          error: null,
+          itemsView: "full",
+          items: [],
+        },
+      },
+    } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ turnLifecycle: { kind: "running", turnId: "turn-1" } });
   });
 
   it("requests a workspace layout save after resuming a thread", async () => {
@@ -913,7 +934,7 @@ async function flushAsyncTicks(): Promise<void> {
 }
 
 interface ChatHostFixtureOverrides {
-  settings?: Partial<typeof DEFAULT_SETTINGS>;
+  settings?: Partial<CodexPanelSettings>;
   vaultPath?: string;
   openThreadInNewView?: CodexChatHost["workspace"]["openThreadInNewView"];
   focusThreadInOpenView?: CodexChatHost["workspace"]["focusThreadInOpenView"];
@@ -1021,8 +1042,9 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
     }
   };
   return {
+    settingsSource: settings,
     settingsRef: {
-      settings,
+      settings: chatPanelSettingsAccess(settings),
       vaultPath,
     },
     workspace: {

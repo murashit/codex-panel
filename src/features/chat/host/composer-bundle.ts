@@ -65,8 +65,8 @@ function createSessionComposerController(
     sourcePath: () => environment.obsidian.app.workspace.getActiveFile()?.path ?? "",
     stateStore,
     viewId: environment.obsidian.viewId,
-    sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut,
-    scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges,
+    sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
+    scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges(),
     canInterrupt: (state) => {
       return state.turnBusy && Boolean(state.activeThreadId && state.activeTurnId);
     },

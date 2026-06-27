@@ -16,10 +16,11 @@ import type { ChatStateStore } from "../application/state/store";
 import type { AutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatComposerController } from "../panel/composer-controller";
+import type { ChatPanelRuntimeProjection } from "../panel/runtime-status-projection";
 import type { CurrentAppServerClient } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
 import type { ChatViewDeferredTasks } from "./deferred-work";
-import type { ChatPanelRuntimeProjection, ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
+import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 import type {
   ChatPanelGoalActions,
   ChatPanelThreadActions,
