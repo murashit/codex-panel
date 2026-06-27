@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
+import type { ThreadCatalogEvent } from "../../src/app-server/query/thread-catalog";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
+import { createSettingsAppServerDynamicData } from "../../src/settings/app-server/dynamic-data";
+import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
@@ -952,14 +956,15 @@ function newSettingsTab(
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: CodexPanelSettingTabHost["appServerQueries"]["observeModelsResult"];
+    observeModels?: SettingsDynamicDataAccess["observeModelsResult"];
     notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
     archivedThreads?: Thread[];
     archivedSnapshot?: Thread[] | null;
     refreshArchived?: () => Promise<readonly Thread[]>;
-    observeArchived?: CodexPanelSettingTabHost["threadCatalog"]["observeArchived"];
-    applyThreadCatalogEvent?: CodexPanelSettingTabHost["threadCatalog"]["apply"];
+    observeArchived?: SettingsDynamicDataAccess["observeArchivedThreadsResult"];
+    applyThreadCatalogEvent?: (event: ThreadCatalogEvent) => void;
+    dynamicData?: SettingsDynamicDataAccess;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -978,14 +983,15 @@ function settingsTabHost(
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: CodexPanelSettingTabHost["appServerQueries"]["observeModelsResult"];
+    observeModels?: SettingsDynamicDataAccess["observeModelsResult"];
     notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
     archivedThreads?: Thread[];
     archivedSnapshot?: Thread[] | null;
     refreshArchived?: () => Promise<readonly Thread[]>;
-    observeArchived?: CodexPanelSettingTabHost["threadCatalog"]["observeArchived"];
-    applyThreadCatalogEvent?: CodexPanelSettingTabHost["threadCatalog"]["apply"];
+    observeArchived?: SettingsDynamicDataAccess["observeArchivedThreadsResult"];
+    applyThreadCatalogEvent?: (event: ThreadCatalogEvent) => void;
+    dynamicData?: SettingsDynamicDataAccess;
     settings?: Partial<{
       threadNamingModel: string | null;
       threadNamingEffort: string | null;
@@ -1009,29 +1015,35 @@ function settingsTabHost(
     archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
     archiveExportTags: "",
   };
+  const appServerQueries = {
+    modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
+    fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
+    refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
+    observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),
+    notifyContextChanged: options.notifyContextChanged ?? vi.fn(),
+  };
+  const threadCatalog = {
+    archivedSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
+    loadArchived: vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
+    refreshArchived: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
+    observeArchived: options.observeArchived ?? vi.fn(() => () => undefined),
+    apply: options.applyThreadCatalogEvent ?? vi.fn(),
+  };
   return {
     settings,
-    vaultPath: "/vault",
-    clientAccess: {
-      withClient: <T>(operation: (client: never) => Promise<T>, clientOptions?: AppServerClientAccessOptions) =>
-        withShortLivedAppServerClientMock(settings.codexPath, "/vault", operation, clientOptions) as Promise<T>,
-    },
+    dynamicData:
+      options.dynamicData ??
+      createSettingsAppServerDynamicData({
+        vaultPath: "/vault",
+        clientAccess: {
+          withClient: <T>(operation: (client: AppServerClient) => Promise<T>, clientOptions?: AppServerClientAccessOptions) =>
+            withShortLivedAppServerClientMock(settings.codexPath, "/vault", operation, clientOptions) as Promise<T>,
+        },
+        appServerQueries,
+        threadCatalog,
+      }),
     saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
     refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
-    appServerQueries: {
-      modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
-      fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
-      refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
-      observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),
-      notifyContextChanged: options.notifyContextChanged ?? vi.fn(),
-    },
-    threadCatalog: {
-      archivedSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
-      loadArchived: vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
-      refreshArchived: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
-      observeArchived: options.observeArchived ?? vi.fn(() => () => undefined),
-      apply: options.applyThreadCatalogEvent ?? vi.fn(),
-    },
   };
 }
 

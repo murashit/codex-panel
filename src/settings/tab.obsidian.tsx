@@ -176,7 +176,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     this.plugin.settings.codexPath = codexPath;
     await this.plugin.saveSettings();
     this.dynamicSections.resetDynamicSectionContext();
-    this.plugin.appServerQueries.notifyContextChanged();
+    this.plugin.dynamicData.notifyContextChanged();
     this.plugin.refreshOpenViews();
     this.renderSettingsShell();
   }

@@ -1,32 +1,16 @@
-import type { AppServerClient } from "../app-server/connection/client";
-import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
-import { type HookCatalog, listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
-import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
 import type { ObservedResult } from "../shared/query/observed-result";
 import { observedValue } from "../shared/query/observed-result";
+import { isStaleSettingsDynamicDataContextError } from "./dynamic-data";
 import type { SettingsDynamicSectionsHost } from "./host";
 import {
   createSettingsDynamicSectionLifecycle,
   type SettingsDynamicSectionLifecycleState,
   transitionSettingsDynamicSectionLifecycle,
 } from "./lifecycle";
-
-interface LoadedHookCatalog extends HookCatalog {
-  status: string;
-}
-
-async function loadHookCatalog(client: AppServerClient, cwd: string): Promise<LoadedHookCatalog> {
-  const hooks = await listHookCatalog(client, cwd);
-  const hookCount = hooks.hooks.length;
-  return {
-    ...hooks,
-    status: `Loaded ${String(hookCount)} hook${hookCount === 1 ? "" : "s"}.`,
-  };
-}
 
 interface SettingsDynamicSectionsControllerCallbacks {
   display(target: SettingsDynamicSectionsDisplayTarget): void;
@@ -75,8 +59,8 @@ export class SettingsDynamicSectionsController {
 
   activate(): void {
     if (this.unsubscribeModels) return;
-    this.models = [...(this.host.appServerQueries.modelsSnapshot() ?? [])];
-    const archivedThreads = this.host.threadCatalog.archivedSnapshot();
+    this.models = [...(this.host.dynamicData.modelsSnapshot() ?? [])];
+    const archivedThreads = this.host.dynamicData.archivedThreadsSnapshot();
     if (archivedThreads) {
       this.archivedThreads = [...archivedThreads];
       this.archivedThreadsLoaded = true;
@@ -86,13 +70,13 @@ export class SettingsDynamicSectionsController {
         operationToken: this.archivedThreadsOperationToken,
       });
     }
-    this.unsubscribeModels = this.host.appServerQueries.observeModelsResult(
+    this.unsubscribeModels = this.host.dynamicData.observeModelsResult(
       (result) => {
         this.receiveObservedModelsResult(result);
       },
       { emitCurrent: false },
     );
-    this.unsubscribeArchivedThreads = this.host.threadCatalog.observeArchived(
+    this.unsubscribeArchivedThreads = this.host.dynamicData.observeArchivedThreadsResult(
       (result) => {
         this.receiveObservedArchivedThreadsResult(result);
       },
@@ -112,7 +96,7 @@ export class SettingsDynamicSectionsController {
     this.modelsOperationToken += 1;
     this.hooksOperationToken += 1;
     this.archivedThreadsOperationToken += 1;
-    this.models = [...(this.host.appServerQueries.modelsSnapshot() ?? [])];
+    this.models = [...(this.host.dynamicData.modelsSnapshot() ?? [])];
     this.modelsLifecycle = createSettingsDynamicSectionLifecycle();
     this.hooks = [];
     this.hookWarnings = [];
@@ -179,9 +163,9 @@ export class SettingsDynamicSectionsController {
     let failedCount = 0;
     try {
       const [modelsResult, hooksResult, archivedThreadsResult] = await Promise.allSettled([
-        options.forceModels === false ? this.host.appServerQueries.fetchModels() : this.host.appServerQueries.refreshModels(),
-        this.withSettingsConnection((client) => loadHookCatalog(client, this.host.vaultPath)),
-        this.host.threadCatalog.refreshArchived(),
+        options.forceModels === false ? this.host.dynamicData.fetchModels() : this.host.dynamicData.refreshModels(),
+        this.host.dynamicData.loadHooks(),
+        this.host.dynamicData.refreshArchivedThreads(),
       ] as const);
       if (this.isStaleDynamicSectionsRefreshOperation(operationToken)) return;
 
@@ -194,7 +178,7 @@ export class SettingsDynamicSectionsController {
           status: `Loaded ${String(modelsResult.value.length)} model${modelsResult.value.length === 1 ? "" : "s"}.`,
           operationToken: modelsOperationToken,
         });
-      } else if (isStaleAppServerSharedQueryContextError(modelsResult.reason)) {
+      } else if (isStaleSettingsDynamicDataContextError(modelsResult.reason)) {
         return;
       } else {
         failedCount += 1;
@@ -208,9 +192,9 @@ export class SettingsDynamicSectionsController {
       if (this.isStaleHooksOperation(hooksOperationToken)) {
         // A newer hooks operation owns this section.
       } else if (hooksResult.status === "fulfilled") {
-        this.hooks = hooksResult.value.hooks;
-        this.hookWarnings = hooksResult.value.warnings;
-        this.hookErrors = hooksResult.value.errors;
+        this.hooks = [...hooksResult.value.hooks];
+        this.hookWarnings = [...hooksResult.value.warnings];
+        this.hookErrors = [...hooksResult.value.errors];
         this.hooksLoaded = true;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
@@ -236,7 +220,7 @@ export class SettingsDynamicSectionsController {
           status: archivedThreadsStatus(archivedThreadsResult.value.length),
           operationToken: archivedThreadsOperationToken,
         });
-      } else if (isStaleAppServerSharedQueryContextError(archivedThreadsResult.reason)) {
+      } else if (isStaleSettingsDynamicDataContextError(archivedThreadsResult.reason)) {
         return;
       } else {
         failedCount += 1;
@@ -310,7 +294,7 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not trust hook: ${errorMessage(error)}`,
       failureNotice: "Could not trust Codex hook.",
       operation: async (operationToken) => {
-        await this.withSettingsConnection((client) => trustHookItem(client, hook));
+        await this.host.dynamicData.trustHook(hook);
         if (this.isStaleHooksOperation(operationToken)) return;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
@@ -329,7 +313,7 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not update hook: ${errorMessage(error)}`,
       failureNotice: "Could not update Codex hook.",
       operation: async (operationToken) => {
-        await this.withSettingsConnection((client) => setHookItemEnabled(client, hook, enabled));
+        await this.host.dynamicData.setHookEnabled(hook, enabled);
         if (this.isStaleHooksOperation(operationToken)) return;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
@@ -348,10 +332,11 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not restore archived Codex thread.",
       operation: async (operationToken) => {
-        const restoredThread = await this.withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
+        const restoredThread = await this.host.dynamicData.restoreArchivedThread(threadId, {
+          shouldPublish: () => !this.isStaleArchivedThreadsOperation(operationToken),
+        });
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-        this.host.threadCatalog.apply({ type: "thread-restored", thread: restoredThread });
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: `Restored "${threadArchiveDisplayTitle(restoredThread)}".`,
@@ -370,10 +355,11 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not delete archived Codex thread.",
       operation: async (operationToken) => {
-        await this.withSettingsConnection((client) => client.deleteThread(threadId));
+        await this.host.dynamicData.deleteArchivedThread(threadId, {
+          shouldPublish: () => !this.isStaleArchivedThreadsOperation(operationToken),
+        });
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
-        this.host.threadCatalog.apply({ type: "thread-deleted", threadId });
         this.archivedThreadsLifecycle = transitionSettingsDynamicSectionLifecycle(this.archivedThreadsLifecycle, {
           type: "loaded",
           status: `Deleted "${title}".`,
@@ -407,11 +393,11 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not load hooks: ${errorMessage(error)}`,
       failureNotice: "Could not load Codex hooks.",
       operation: async (operationToken) => {
-        const hooks = await this.withSettingsConnection((client) => loadHookCatalog(client, this.host.vaultPath));
+        const hooks = await this.host.dynamicData.loadHooks();
         if (this.isStaleHooksOperation(operationToken)) return;
-        this.hooks = hooks.hooks;
-        this.hookWarnings = hooks.warnings;
-        this.hookErrors = hooks.errors;
+        this.hooks = [...hooks.hooks];
+        this.hookWarnings = [...hooks.warnings];
+        this.hookErrors = [...hooks.errors];
         this.hooksLoaded = true;
         this.hooksLifecycle = transitionSettingsDynamicSectionLifecycle(this.hooksLifecycle, {
           type: "loaded",
@@ -465,12 +451,6 @@ export class SettingsDynamicSectionsController {
     } finally {
       if (!stale()) this.callbacks.display(displayTargetForDynamicOperationSection(options.section));
     }
-  }
-
-  private async withSettingsConnection<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    return this.host.clientAccess.withClient(operation, {
-      serverRequests: { kind: "reject", message: "Codex Panel settings does not handle server requests." },
-    });
   }
 
   private nextDynamicSectionsRefreshOperationToken(): number {

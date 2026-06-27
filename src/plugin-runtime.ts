@@ -22,6 +22,7 @@ import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/turn-diff/model";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
+import { createSettingsAppServerDynamicData } from "./settings/app-server/dynamic-data";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import type { CodexPanelSettings } from "./settings/model";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
@@ -175,14 +176,16 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   settingTabHost(): CodexPanelSettingTabHost {
     return {
       settings: this.options.settingsRef.settings,
-      vaultPath: this.options.settingsRef.vaultPath,
-      clientAccess: this,
+      dynamicData: createSettingsAppServerDynamicData({
+        vaultPath: this.options.settingsRef.vaultPath,
+        clientAccess: this,
+        appServerQueries: this.appServerSharedQueries,
+        threadCatalog: this.threadCatalog,
+      }),
       saveSettings: () => this.options.saveSettings(),
       refreshOpenViews: () => {
         this.refreshOpenViews();
       },
-      appServerQueries: this.appServerSharedQueries,
-      threadCatalog: this.threadCatalog,
     };
   }
 

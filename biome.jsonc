@@ -43,6 +43,10 @@
       "path": "./scripts/lint/no-generated-app-server-boundary-imports.grit",
       "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/connection/**"]
     },
+    {
+      "path": "./scripts/lint/no-settings-app-server-boundary-imports.grit",
+      "includes": ["**/src/settings/**/*.ts", "**/src/settings/**/*.tsx", "!**/src/settings/app-server/**"]
+    },
 
     // Shared source layering boundaries.
     {
