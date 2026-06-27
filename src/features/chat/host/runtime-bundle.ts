@@ -1,4 +1,5 @@
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import { createChatRuntimeSettingsTransport } from "../app-server/runtime/thread-settings-transport";
 import { connectionDiagnosticSectionsFromState } from "../application/connection/diagnostic-sections";
 import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-diagnostic-sections";
 import { type ChatRuntimeSettingsActions, createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
@@ -60,7 +61,9 @@ function createSessionRuntimeSettingsActions(
 ): ChatPanelRuntimeSettingsActions {
   return createChatRuntimeSettingsActions({
     stateStore: host.stateStore,
-    currentClient,
+    runtimeTransport: createChatRuntimeSettingsTransport({
+      currentClient,
+    }),
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     collaborationModeLabel: () => collaborationModeLabel(host.stateStore),
     addSystemMessage: (text) => {

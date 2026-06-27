@@ -1,21 +1,13 @@
-import {
-  compactThread as compactThreadOnAppServer,
-  forkThread as forkThreadOnAppServer,
-  rollbackThread as rollbackThreadOnAppServer,
-  type ThreadCompactionClient,
-  type ThreadForkClient,
-  type ThreadRollbackClient,
-} from "../../../../app-server/threads";
 import { inheritedForkThreadName } from "../../../../domain/threads/model";
 import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import type { ThreadOperations } from "../../../threads/thread-operations";
-import { messageStreamItemsFromTurns } from "../../app-server/mappers/message-stream/turn-items";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import { chatTurnBusy } from "../conversation/turn-state";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
 import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import type { ThreadMutationTransport } from "./thread-mutation-transport";
 
 const STATUS_COMPACTION_REQUESTED = "Compaction requested.";
 const STATUS_ROLLBACK_STARTING = "Rolling back latest turn...";
@@ -24,10 +16,8 @@ const STATUS_ROLLBACK_FAILED = "Rollback failed.";
 
 export interface ThreadManagementActionsHost {
   stateStore: ChatStateStore;
-  vaultPath: string;
   operations: ThreadOperations;
-  connectedClient: () => Promise<ThreadManagementClient | null>;
-  currentClient: () => ThreadManagementClient | null;
+  threadTransport: ThreadMutationTransport;
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
@@ -48,13 +38,10 @@ export interface ThreadManagementActions {
   rollbackThread: (threadId: string) => Promise<void>;
 }
 
-interface ThreadManagementOperationScope {
-  client: ThreadManagementClient;
+interface ThreadManagementPanelScope {
   targetThreadId: string;
   initialActiveThreadId: string | null;
 }
-
-type ThreadManagementClient = ThreadCompactionClient & ThreadForkClient & ThreadRollbackClient;
 
 export function createThreadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
   return {
@@ -78,10 +65,9 @@ async function compactActiveThread(host: ThreadManagementActionsHost): Promise<v
 }
 
 async function compactThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
-  const scope = await captureThreadManagementOperationScope(host, threadId);
-  if (!scope) return;
+  const scope = captureThreadManagementPanelScope(host, threadId);
   try {
-    await compactThreadOnAppServer(scope.client, threadId);
+    if (!(await host.threadTransport.compactThread(threadId))) return;
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(STATUS_COMPACTION_REQUESTED);
     host.setStatus(STATUS_COMPACTION_REQUESTED);
@@ -122,8 +108,7 @@ async function forkThreadFromTurn(
     host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
     return;
   }
-  const scope = await captureThreadManagementOperationScope(host, threadId);
-  if (!scope) return;
+  const scope = captureThreadManagementPanelScope(host, threadId);
 
   const turnsToDrop = turnId ? messageStreamTurnsAfterTurnId(threadManagementState(host).messageStream, turnId) : 0;
   if (turnsToDrop === null) {
@@ -133,13 +118,13 @@ async function forkThreadFromTurn(
 
   try {
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
-    let forkedThread = await forkThreadOnAppServer(scope.client, threadId, host.vaultPath);
-    if (threadManagementScopeClientStale(host, scope)) return;
+    let forkedThread = await host.threadTransport.forkThread(threadId);
+    if (!forkedThread) return;
     const forkedThreadId = forkedThread.id;
     if (turnsToDrop > 0) {
-      const snapshot = await rollbackThreadOnAppServer(scope.client, forkedThreadId, turnsToDrop);
-      if (threadManagementScopeClientStale(host, scope)) return;
-      forkedThread = snapshot.thread;
+      const rolledBackThread = await host.threadTransport.rollbackForkedThread(forkedThreadId, turnsToDrop);
+      if (!rolledBackThread) return;
+      forkedThread = rolledBackThread;
     }
     host.applyThreadCatalogEvent({ type: "thread-forked", thread: forkedThread });
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
@@ -188,8 +173,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     host.addSystemMessage("Interrupt the current turn before rolling back.");
     return;
   }
-  const scope = await captureThreadManagementOperationScope(host, threadId);
-  if (!scope) return;
+  const scope = captureThreadManagementPanelScope(host, threadId);
 
   const candidate = messageStreamRollbackCandidate(threadManagementState(host).messageStream);
   if (!candidate) {
@@ -199,7 +183,8 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
 
   try {
     host.setStatus(STATUS_ROLLBACK_STARTING);
-    const snapshot = await rollbackThreadOnAppServer(scope.client, threadId);
+    const snapshot = await host.threadTransport.rollbackThread(threadId);
+    if (!snapshot) return;
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     threadManagementDispatch(
       host,
@@ -212,7 +197,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     );
     threadManagementDispatch(host, {
       type: "message-stream/items-replaced",
-      items: messageStreamItemsFromTurns(snapshot.turns),
+      items: snapshot.items,
       historyCursor: null,
       loadingHistory: false,
     });
@@ -235,29 +220,18 @@ function threadManagementDispatch(host: ThreadManagementActionsHost, action: Cha
   host.stateStore.dispatch(action);
 }
 
-async function captureThreadManagementOperationScope(
-  host: ThreadManagementActionsHost,
-  targetThreadId: string,
-): Promise<ThreadManagementOperationScope | null> {
-  const client = await host.connectedClient();
-  if (!client) return null;
+function captureThreadManagementPanelScope(host: ThreadManagementActionsHost, targetThreadId: string): ThreadManagementPanelScope {
   return {
-    client,
     targetThreadId,
     initialActiveThreadId: threadManagementState(host).activeThread.id,
   };
 }
 
-function threadManagementScopeClientStale(host: ThreadManagementActionsHost, scope: ThreadManagementOperationScope): boolean {
-  return host.currentClient() !== scope.client;
+function threadManagementScopeStillTargetsPanel(host: ThreadManagementActionsHost, scope: ThreadManagementPanelScope): boolean {
+  return threadManagementState(host).activeThread.id === scope.targetThreadId;
 }
 
-function threadManagementScopeStillTargetsPanel(host: ThreadManagementActionsHost, scope: ThreadManagementOperationScope): boolean {
-  return !threadManagementScopeClientStale(host, scope) && threadManagementState(host).activeThread.id === scope.targetThreadId;
-}
-
-function threadManagementScopeStillTargetsOriginalPanel(host: ThreadManagementActionsHost, scope: ThreadManagementOperationScope): boolean {
-  if (threadManagementScopeClientStale(host, scope)) return false;
+function threadManagementScopeStillTargetsOriginalPanel(host: ThreadManagementActionsHost, scope: ThreadManagementPanelScope): boolean {
   if (!scope.initialActiveThreadId) return true;
   return scope.initialActiveThreadId === scope.targetThreadId && threadManagementState(host).activeThread.id === scope.targetThreadId;
 }

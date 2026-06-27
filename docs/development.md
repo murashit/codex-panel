@@ -61,6 +61,8 @@ Keep new code near the state or API it owns. A feature may import another featur
 
 Generated app-server types should stay behind app-server connection and protocol adapter modules. Chat-local app-server integration modules may consume app-server protocol projections, but not raw generated bindings. If a domain, shared, settings, workspace, or UI module needs app-server payloads, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
 
+Chat application workflows should not import root `src/app-server/` modules or receive `AppServerClient` access directly. Keep app-server client access, connection freshness checks, vault-path injection, and payload projection in `src/features/chat/app-server/` transports or host-owned wiring, then pass chat-owned workflow contracts into application modules.
+
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only in `src/features/chat/panel/shell-state.tsx`; lint enforces this boundary. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
 
 Chat feature folders should keep dependencies flowing toward owned adapters and render surfaces: `application/` must not import host, panel, presentation, or UI layers; `app-server/` must not import host, panel, presentation, or UI layers; `panel/` must not import app-server adapters or host internals; `presentation/` must not import application, app-server, host, panel, or UI layers; and `ui/` must not import application, app-server, host, or panel layers. Biome enforces these folder-scoped import boundaries with per-folder plugin includes.

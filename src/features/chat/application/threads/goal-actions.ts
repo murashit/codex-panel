@@ -1,14 +1,13 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
-import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/threads";
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
 import type { GoalMessageStreamItem } from "../../domain/message-stream/items";
 import type { ChatStateStore } from "../state/store";
+import type { ThreadGoalTransport } from "./goal-transport";
 
 export interface ThreadGoalSyncHost {
   stateStore: ChatStateStore;
-  currentClient: () => AppServerClient | null;
+  goalTransport: ThreadGoalTransport;
   localItemIds: LocalIdSource;
   addSystemMessage: (text: string) => void;
   addGoalEvent: (item: GoalMessageStreamItem) => void;
@@ -16,7 +15,6 @@ export interface ThreadGoalSyncHost {
 }
 
 export interface GoalActionsHost extends ThreadGoalSyncHost {
-  connectedClient: () => Promise<AppServerClient | null>;
   startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
 }
 
@@ -79,10 +77,10 @@ export function createGoalActions(host: GoalActionsHost): GoalActions {
 }
 
 async function syncThreadGoal(host: ThreadGoalSyncHost, threadId: string): Promise<void> {
-  const client = host.currentClient();
-  if (!client) return;
   try {
-    applyGoalIfActive(host, threadId, await readThreadGoal(client, threadId), { reportChange: false });
+    const goal = await host.goalTransport.readThreadGoal(threadId);
+    if (goal === undefined) return;
+    applyGoalIfActive(host, threadId, goal, { reportChange: false });
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, `Could not load thread goal: ${errorMessage(error)}`);
   }
@@ -134,10 +132,8 @@ function setGoalStatus(host: GoalActionsHost, threadId: string, status: ThreadGo
 }
 
 async function clearGoal(host: GoalActionsHost, threadId: string): Promise<boolean> {
-  const client = await host.connectedClient();
-  if (!client) return false;
   try {
-    await client.clearThreadGoal(threadId);
+    if (!(await host.goalTransport.clearThreadGoal(threadId))) return false;
     applyGoalIfActive(host, threadId, null, { reportChange: true });
     return true;
   } catch (error) {
@@ -147,10 +143,10 @@ async function clearGoal(host: GoalActionsHost, threadId: string): Promise<boole
 }
 
 async function setGoal(host: GoalActionsHost, threadId: string, params: ThreadGoalUpdate): Promise<boolean> {
-  const client = await host.connectedClient();
-  if (!client) return false;
   try {
-    return applyGoalIfActive(host, threadId, await setThreadGoal(client, threadId, params), { reportChange: true });
+    const goal = await host.goalTransport.setThreadGoal(threadId, params);
+    if (goal === undefined) return false;
+    return applyGoalIfActive(host, threadId, goal, { reportChange: true });
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, errorMessage(error));
     return false;
@@ -200,8 +196,7 @@ async function startThreadAndSaveObjective(
   plan: Extract<GoalObjectiveSavePlan, { kind: "start-thread-and-save" }>,
 ): Promise<boolean> {
   try {
-    const client = await host.connectedClient();
-    if (!client) return false;
+    if (!(await host.goalTransport.ensureConnected())) return false;
     const response = await host.startThread(plan.objective, { syncGoal: false });
     const threadId = response?.threadId ?? null;
     return threadId ? await setNormalizedObjective(host, threadId, plan.objective, plan.tokenBudget) : false;
@@ -212,10 +207,8 @@ async function startThreadAndSaveObjective(
 }
 
 async function recordGoalUserMessage(host: GoalActionsHost, threadId: string, objective: string): Promise<void> {
-  const client = host.currentClient();
-  if (!client) return;
   try {
-    await recordThreadGoalUserMessage(client, threadId, objective);
+    await host.goalTransport.recordThreadGoalUserMessage(threadId, objective);
   } catch (error) {
     addThreadScopedSystemMessage(host, threadId, `Could not record goal message: ${errorMessage(error)}`);
   }

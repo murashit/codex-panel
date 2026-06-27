@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import {
   implementPlan,
   implementPlanTargetFromState,
@@ -42,21 +41,21 @@ function resumeThread(stateStore: ChatStateStore, items: readonly MessageStreamI
   stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
 }
 
-function createController({ client = {} as AppServerClient } = {}) {
+function createController() {
   const stateStore = createChatStateStore(createChatState());
-  const connectedClient = vi.fn().mockResolvedValue(client);
+  const ensureConnected = vi.fn().mockResolvedValue(true);
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
   const requestDefaultCollaborationModeForNextTurn = vi.fn(() => {
     stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
   });
   const host: PlanImplementationHost = {
     stateStore,
-    connectedClient,
+    ensureConnected,
     sendTurnText,
     requestDefaultCollaborationModeForNextTurn,
   };
   return {
-    connectedClient,
+    ensureConnected,
     host,
     requestDefaultCollaborationModeForNextTurn,
     sendTurnText,
@@ -88,14 +87,14 @@ describe("implementPlan", () => {
   });
 
   it("switches out of plan mode and submits the implementation prompt", async () => {
-    const { host, connectedClient, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createController();
+    const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createController();
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);
     stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
 
     await implementPlan(host, plan.id);
 
-    expect(connectedClient).toHaveBeenCalledOnce();
+    expect(ensureConnected).toHaveBeenCalledOnce();
     expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
     expect(stateStore.getState().runtime.pending.collaborationMode).toBe("default");
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
@@ -103,14 +102,14 @@ describe("implementPlan", () => {
   });
 
   it("ignores stale plan items", async () => {
-    const { host, connectedClient, sendTurnText, stateStore } = createController();
+    const { host, ensureConnected, sendTurnText, stateStore } = createController();
     const first = planItem("first");
     const latest = planItem("latest");
     resumeThread(stateStore, [first, latest]);
 
     await implementPlan(host, first.id);
 
-    expect(connectedClient).not.toHaveBeenCalled();
+    expect(ensureConnected).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
   });
 });

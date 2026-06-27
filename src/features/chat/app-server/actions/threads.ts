@@ -5,7 +5,7 @@ import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import { resumedThreadAction } from "../../application/state/actions";
 import type { ChatState } from "../../application/state/root-reducer";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { serviceTierRequestForThreadStart } from "../runtime/thread-settings-update";
+import { serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import { type ChatServerActionsHost, captureChatServerClientScope } from "./host";
 
 interface StartedThreadSummary {

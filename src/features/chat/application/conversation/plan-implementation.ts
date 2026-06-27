@@ -1,4 +1,3 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { type ChatMessageStreamState, messageStreamItems } from "../state/message-stream";
@@ -10,7 +9,7 @@ const IMPLEMENT_PLAN_PROMPT = "Please implement this plan.";
 
 export interface PlanImplementationHost {
   stateStore: ChatStateStore;
-  connectedClient(): Promise<AppServerClient | null>;
+  ensureConnected(): Promise<boolean>;
   sendTurnText(text: string): Promise<void>;
   requestDefaultCollaborationModeForNextTurn(): void;
 }
@@ -29,7 +28,7 @@ export function implementPlanTargetFromState(state: {
 
 export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
   if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId) return;
-  if (!(await host.connectedClient()) || !host.stateStore.getState().activeThread.id) return;
+  if (!(await host.ensureConnected()) || !host.stateStore.getState().activeThread.id) return;
 
   host.requestDefaultCollaborationModeForNextTurn();
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });

@@ -1,5 +1,5 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
+import type { Thread } from "../../../../domain/threads/model";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
@@ -8,17 +8,17 @@ import type { GoalActions } from "../threads/goal-actions";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import { type ComposerSubmitActions, type ComposerSubmitActionsHost, submitComposer } from "./composer-submit-actions";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
+import type { ThreadReferenceInput } from "./slash-command-execution";
 import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
 import { createTurnSubmissionActions } from "./turn-submission-actions";
+import type { ChatTurnTransport } from "./turn-transport";
 
 export interface ConversationTurnActionsContext {
-  vaultPath: string;
   stateStore: ChatStateStore;
   localItemIds: LocalIdSource;
-  client: {
-    currentClient: () => AppServerClient | null;
-    connectedClient: () => Promise<AppServerClient | null>;
-  };
+  connectionAvailable: () => boolean;
+  turnTransport: ChatTurnTransport;
+  referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -73,12 +73,11 @@ export function createConversationTurnActions(
   context: ConversationTurnActionsContext,
   refs: ConversationTurnActionsRefs,
 ): ConversationTurnActions {
-  const { vaultPath, stateStore, localItemIds, client, status, runtime, thread, composer, scroll } = context;
+  const { stateStore, localItemIds, connectionAvailable, turnTransport, referThread, status, runtime, thread, composer, scroll } = context;
   const turnSubmission = createTurnSubmissionActions({
     stateStore,
-    vaultPath,
     localItemIds,
-    connectedClient: client.connectedClient,
+    turnTransport,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     startThread: (preview) => refs.threadStarter.startThread(preview),
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
@@ -91,8 +90,8 @@ export function createConversationTurnActions(
   });
   const slashCommandExecutorHost: SlashCommandExecutorHost = {
     stateStore,
-    currentClient: client.currentClient,
-    codexInput: composer.codexInput,
+    connectionAvailable,
+    referThread,
     startNewThread: thread.startNewThread,
     startThreadForGoal: (objective) => startThreadForGoal(refs.threadStarter, objective),
     resumeThread: thread.selectThread,
@@ -111,7 +110,7 @@ export function createConversationTurnActions(
   };
   const planImplementationHost: PlanImplementationHost = {
     stateStore,
-    connectedClient: client.connectedClient,
+    ensureConnected: () => turnTransport.ensureConnected(),
     sendTurnText: (text) => turnSubmission.sendTurnText(text),
     requestDefaultCollaborationModeForNextTurn: () => {
       refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
@@ -130,9 +129,9 @@ export function createConversationTurnActions(
     },
     turnSubmission,
     connection: {
-      connectedClient: client.connectedClient,
-      currentClient: client.currentClient,
+      ensureConnected: () => turnTransport.ensureConnected(),
     },
+    turnTransport,
     status: {
       setStatus: status.set,
       addSystemMessage: status.addSystemMessage,

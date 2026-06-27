@@ -1,4 +1,3 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import { type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
@@ -6,6 +5,7 @@ import { parseSlashCommand } from "../composer/suggestions";
 import type { ChatStateStore } from "../state/store";
 import type { SlashCommandExecutionResult } from "./slash-command-execution";
 import { submissionStateSnapshot } from "./submission-state";
+import type { ChatTurnTransport } from "./turn-transport";
 
 const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
 
@@ -22,9 +22,9 @@ export interface ComposerSubmitActionsHost {
     sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadMetadata): Promise<void>;
   };
   connection: {
-    connectedClient: () => Promise<AppServerClient | null>;
-    currentClient: () => AppServerClient | null;
+    ensureConnected: () => Promise<boolean>;
   };
+  turnTransport: Pick<ChatTurnTransport, "interruptTurn">;
   status: {
     setStatus: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -54,7 +54,7 @@ async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
 
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
-    if (slashCommandRequiresConnection(slashCommand.command) && !(await host.connection.connectedClient())) return;
+    if (slashCommandRequiresConnection(slashCommand.command) && !(await host.connection.ensureConnected())) return;
     host.composer.setDraft("", { clearSuggestions: true });
     const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args);
     if (result?.composerDraft !== undefined) {
@@ -74,10 +74,9 @@ async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
 async function interruptTurn(host: ComposerSubmitActionsHost): Promise<void> {
   const state = submissionStateSnapshot(host.stateStore.getState());
   const turnId = state.activeTurnId;
-  const client = host.connection.currentClient();
-  if (!client || !state.activeThreadId || !turnId) return;
+  if (!state.activeThreadId || !turnId) return;
   try {
-    await client.interruptTurn(state.activeThreadId, turnId);
+    if (!(await host.turnTransport.interruptTurn(state.activeThreadId, turnId))) return;
     host.status.setStatus(STATUS_INTERRUPT_REQUESTED);
   } catch (error) {
     host.status.addSystemMessage(error instanceof Error ? error.message : String(error));

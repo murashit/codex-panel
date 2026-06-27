@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
-import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../../src/domain/chat/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import {
@@ -28,13 +26,12 @@ type SlashCommandExecutorHostOverrides = Partial<SlashCommandExecutorHost>;
 
 function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
-  const threadTurnsList = vi.fn().mockResolvedValue({ data: [] });
-  const client = { threadTurnsList } as unknown as AppServerClient;
   const compactThread = vi.fn().mockResolvedValue(undefined);
+  const referThread = vi.fn().mockResolvedValue(null);
   const host: SlashCommandExecutorHost = {
     stateStore,
-    currentClient: () => client,
-    codexInput: vi.fn((text: string) => textInput(text)),
+    connectionAvailable: () => true,
+    referThread,
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
@@ -71,7 +68,7 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
     effortStatusLines: () => [],
     ...overrides,
   };
-  return { compactThread, host, stateStore, threadTurnsList };
+  return { compactThread, host, referThread, stateStore };
 }
 
 describe("executeSlashCommandWithState", () => {
@@ -106,7 +103,7 @@ describe("executeSlashCommandWithState", () => {
   });
 
   it("routes compact through the shared thread action port before a client is connected", async () => {
-    const { compactThread, host, stateStore } = createHost({ currentClient: () => null });
+    const { compactThread, host, stateStore } = createHost({ connectionAvailable: () => false });
     stateStore.dispatch({
       type: "active-thread/resumed",
       thread: thread("thread", "Thread"),
@@ -132,7 +129,7 @@ describe("executeSlashCommandWithState", () => {
   });
 
   it("runs reconnect even when there is no current app-server client", async () => {
-    const { host } = createHost({ currentClient: () => null });
+    const { host } = createHost({ connectionAvailable: () => false });
 
     await executeSlashCommandWithState(host, "reconnect", "");
 
@@ -140,7 +137,7 @@ describe("executeSlashCommandWithState", () => {
   });
 
   it("reports unreadable referenced threads", async () => {
-    const { host, stateStore, threadTurnsList } = createHost();
+    const { host, referThread, stateStore } = createHost();
     stateStore.dispatch({
       type: "thread-list/applied",
       threads: [thread("other", "Other")],
@@ -148,47 +145,30 @@ describe("executeSlashCommandWithState", () => {
 
     const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
 
-    expect(threadTurnsList).toHaveBeenCalledWith("other", null, 20);
+    expect(referThread).toHaveBeenCalledWith(expect.objectContaining({ id: "other" }), "summarize");
     expect(result).toBeUndefined();
-    expect(host.addSystemMessage).toHaveBeenCalledWith("Referenced thread has no readable conversation turns.");
   });
 
-  it("sets chat-owned status copy for readable referenced threads", async () => {
-    const { host, stateStore, threadTurnsList } = createHost();
+  it("forwards readable referenced thread input to turn submission", async () => {
+    const { host, referThread, stateStore } = createHost();
     stateStore.dispatch({
       type: "thread-list/applied",
       threads: [thread("019abcde-0000-7000-8000-000000000001", "Other")],
     });
-    threadTurnsList.mockResolvedValue({
-      data: [turn([userMessage("u1", "元の依頼"), agentMessage("a1", "回答")])],
-      nextCursor: null,
+    referThread.mockResolvedValue({
+      input: textInput("referenced summarize"),
+      referencedThread: {
+        threadId: "019abcde-0000-7000-8000-000000000001",
+        title: "Other",
+        includedTurns: 1,
+        turnLimit: 20,
+      },
     });
 
     const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
 
     expect(result?.sendText).toBe("summarize");
-    expect(host.setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
+    expect(result?.sendInput).toEqual(textInput("referenced summarize"));
+    expect(result?.referencedThread?.title).toBe("Other");
   });
 });
-
-function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
-  return {
-    id: "turn",
-    items,
-    itemsView: "full",
-    status: "completed",
-    error: null,
-    startedAt: null,
-    completedAt: null,
-    durationMs: null,
-    ...overrides,
-  };
-}
-
-function userMessage(id: string, text: string): TurnItem {
-  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
-}
-
-function agentMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
-}

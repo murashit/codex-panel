@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createGoalActions } from "../../../../../src/features/chat/application/threads/goal-actions";
+import type { ThreadGoalTransport } from "../../../../../src/features/chat/application/threads/goal-transport";
 import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -14,13 +14,12 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
-    const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
     const refreshLiveState = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
@@ -38,12 +37,11 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const addSystemMessage = vi.fn();
-    const client = { getThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ readThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) });
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -64,19 +62,17 @@ describe("createGoalActions", () => {
     const stateStore = createChatStateStore(state);
     const updated = goal({ objective: "Updated", tokenBudget: 250 });
     const paused = goal({ objective: "Updated", status: "paused", tokenBudget: 250 });
-    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: updated }).mockResolvedValueOnce({ goal: paused });
-    const clearThreadGoal = vi.fn().mockResolvedValue({ cleared: true });
-    const client = {
-      setThreadGoal,
-      clearThreadGoal,
-    } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({
+      setThreadGoal: vi.fn().mockResolvedValueOnce(updated).mockResolvedValueOnce(paused),
+      clearThreadGoal: vi.fn().mockResolvedValue(true),
+    });
+    const { setThreadGoal, clearThreadGoal } = goalTransport;
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
@@ -103,13 +99,12 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const update = deferred<never>();
-    const client = { setThreadGoal: vi.fn().mockReturnValue(update.promise) } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockReturnValue(update.promise) });
     const addSystemMessage = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -131,13 +126,12 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
     const clear = deferred<never>();
-    const client = { clearThreadGoal: vi.fn().mockReturnValue(clear.promise) } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ clearThreadGoal: vi.fn().mockReturnValue(clear.promise) });
     const addSystemMessage = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -157,16 +151,13 @@ describe("createGoalActions", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
-    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
-    const injectThreadItems = vi.fn().mockResolvedValue({});
-    const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal()) });
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
@@ -185,21 +176,14 @@ describe("createGoalActions", () => {
         objective: "Finish",
       }),
     );
-    expect(injectThreadItems).toHaveBeenCalledWith("thread", [
-      {
-        type: "message",
-        role: "user",
-        content: [{ type: "input_text", text: "Finish" }],
-      },
-    ]);
+    expect(goalTransport.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread", "Finish");
   });
 
   it("starts a thread before saving a new goal objective when no thread is active", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const savedGoal = goal({ threadId: "thread-new", objective: "Plan release" });
-    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: savedGoal });
-    const injectThreadItems = vi.fn().mockResolvedValue({});
-    const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(savedGoal) });
+    const { setThreadGoal } = goalTransport;
     const startThread = vi.fn().mockImplementation(async () => {
       stateStore.dispatch({
         type: "active-thread/resumed",
@@ -214,9 +198,8 @@ describe("createGoalActions", () => {
     });
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread,
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
@@ -227,25 +210,18 @@ describe("createGoalActions", () => {
 
     expect(startThread).toHaveBeenCalledWith("Plan release", { syncGoal: false });
     expect(setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Plan release", status: "active", tokenBudget: null });
-    expect(injectThreadItems).toHaveBeenCalledWith("thread-new", [
-      {
-        type: "message",
-        role: "user",
-        content: [{ type: "input_text", text: "Plan release" }],
-      },
-    ]);
+    expect(goalTransport.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread-new", "Plan release");
   });
 
   it("rejects empty goal objective saves before connecting or starting a thread", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const connectedClient = vi.fn().mockResolvedValue({ setThreadGoal: vi.fn() } as unknown as AppServerClient);
+    const goalTransport = goalTransportFixture();
     const startThread = vi.fn().mockResolvedValue({ threadId: "thread" });
     const addSystemMessage = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => ({ setThreadGoal: vi.fn() }) as unknown as AppServerClient,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient,
       startThread,
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -255,7 +231,7 @@ describe("createGoalActions", () => {
     await expect(controller.saveObjective("   ", null)).resolves.toBe(false);
 
     expect(addSystemMessage).toHaveBeenCalledWith("Goal objective cannot be empty.");
-    expect(connectedClient).not.toHaveBeenCalled();
+    expect(goalTransport.ensureConnected).not.toHaveBeenCalled();
     expect(startThread).not.toHaveBeenCalled();
   });
 
@@ -263,15 +239,15 @@ describe("createGoalActions", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
-    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
-    const injectThreadItems = vi.fn().mockRejectedValue(new Error("offline"));
-    const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({
+      setThreadGoal: vi.fn().mockResolvedValueOnce(goal()),
+      recordThreadGoalUserMessage: vi.fn().mockRejectedValue(new Error("offline")),
+    });
     const addSystemMessage = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -287,18 +263,18 @@ describe("createGoalActions", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
-    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
-    const injectThreadItems = vi.fn().mockImplementation(async () => {
-      stateStore.dispatch({ type: "active-thread/cleared" });
-      throw new Error("offline");
+    const goalTransport = goalTransportFixture({
+      setThreadGoal: vi.fn().mockResolvedValueOnce(goal()),
+      recordThreadGoalUserMessage: vi.fn().mockImplementation(async () => {
+        stateStore.dispatch({ type: "active-thread/cleared" });
+        throw new Error("offline");
+      }),
     });
-    const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
     const addSystemMessage = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -315,15 +291,12 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
-    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal({ objective: "Updated" }) });
-    const injectThreadItems = vi.fn().mockResolvedValue({});
-    const client = { setThreadGoal, injectThreadItems } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal({ objective: "Updated" })) });
     const addGoalEvent = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent,
@@ -333,7 +306,7 @@ describe("createGoalActions", () => {
     await controller.setObjective("thread", "Updated", null);
 
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
-    expect(injectThreadItems).not.toHaveBeenCalled();
+    expect(goalTransport.recordThreadGoalUserMessage).not.toHaveBeenCalled();
   });
 
   it("reports goal resume as a user-visible state change", async () => {
@@ -341,15 +314,13 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { activeThread: { goal: goal({ status: "paused" }) } });
     const stateStore = createChatStateStore(state);
-    const setThreadGoal = vi.fn().mockResolvedValueOnce({ goal: goal() });
-    const client = { setThreadGoal } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal()) });
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
@@ -367,13 +338,12 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const currentGoal = goal();
-    const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: currentGoal }) } as unknown as AppServerClient;
+    const goalTransport = goalTransportFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
     const addSystemMessage = vi.fn();
     const controller = createGoalActions({
       stateStore,
-      currentClient: () => client,
+      goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      connectedClient: vi.fn().mockResolvedValue(client),
       startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
@@ -397,6 +367,17 @@ function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
     timeUsedSeconds: 0,
     createdAt: 1,
     updatedAt: 1,
+    ...overrides,
+  };
+}
+
+function goalTransportFixture(overrides: Partial<ThreadGoalTransport> = {}): ThreadGoalTransport {
+  return {
+    readThreadGoal: vi.fn().mockResolvedValue(null),
+    setThreadGoal: vi.fn().mockResolvedValue(goal()),
+    clearThreadGoal: vi.fn().mockResolvedValue(true),
+    recordThreadGoalUserMessage: vi.fn().mockResolvedValue(true),
+    ensureConnected: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
 }

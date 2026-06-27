@@ -16,6 +16,8 @@ const projectPluginByName = new Map(
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
+const CHAT_APPLICATION_ROOT_APP_SERVER_MESSAGE =
+  "Chat application modules must not import root app-server modules; use chat app-server transports or application ports instead.";
 const CHAT_APPLICATION_OUTER_LAYER_MESSAGE =
   "Chat application modules must not import host, panel, presentation, or UI layers; expose state and workflow contracts instead.";
 const CHAT_APP_SERVER_OUTER_LAYER_MESSAGE = "Chat app-server adapters must not import chat host, panel, presentation, or UI layers.";
@@ -392,6 +394,7 @@ export function timestamp(): number {
   it("keeps chat folder ownership boundaries explicit without filename-scoped Grit checks", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-chat-application-outer-layer-imports.grit",
+      "no-chat-application-root-app-server-imports.grit",
       "no-chat-app-server-outer-layer-imports.grit",
       "no-chat-panel-runtime-boundary-imports.grit",
       "no-chat-presentation-outer-layer-imports.grit",
@@ -413,8 +416,17 @@ export const values = [statusText, Toolbar] satisfies unknown[];
       path.join(cwd, "src/features/chat/application/allowed.ts"),
       `
 import type { MessageStreamItem } from "../domain/message-stream/items";
+import type { ChatThreadHistoryPage } from "../app-server/threads/projection";
 
-export type Item = MessageStreamItem;
+export type Item = MessageStreamItem | ChatThreadHistoryPage;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/application/root-app-server.ts"),
+      `
+import type { AppServerClient } from "../../../app-server/connection/client";
+
+export type Escape = AppServerClient;
 `.trimStart(),
     );
     await writeFile(
@@ -510,6 +522,7 @@ export const value = statusText;
       [
         "src/features/chat/application/outer.ts",
         "src/features/chat/application/allowed.ts",
+        "src/features/chat/application/root-app-server.ts",
         "src/features/chat/app-server/outer.ts",
         "src/features/chat/app-server/allowed.ts",
         "src/features/chat/panel/outer.tsx",
@@ -526,6 +539,7 @@ export const value = statusText;
       Array.from({ length: 4 }, () => CHAT_APPLICATION_OUTER_LAYER_MESSAGE),
     );
     expect(pluginDiagnostics(report, "src/features/chat/application/allowed.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/chat/application/root-app-server.ts")).toEqual([CHAT_APPLICATION_ROOT_APP_SERVER_MESSAGE]);
     expect(pluginMessages(report, "src/features/chat/app-server/outer.ts")).toEqual(
       Array.from({ length: 4 }, () => CHAT_APP_SERVER_OUTER_LAYER_MESSAGE),
     );

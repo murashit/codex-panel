@@ -1,4 +1,3 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
@@ -12,14 +11,14 @@ import {
 } from "./optimistic-turn-start";
 import { submissionStateSnapshot } from "./submission-state";
 import { STATUS_TURN_RUNNING } from "./turn-state";
+import type { ChatTurnTransport } from "./turn-transport";
 
 const STATUS_STEERED_CURRENT_TURN = "Steered current turn.";
 
 export interface TurnSubmissionActionsHost {
   stateStore: ChatStateStore;
-  vaultPath: string;
   localItemIds: LocalIdSource;
-  connectedClient: () => Promise<AppServerClient | null>;
+  turnTransport: ChatTurnTransport;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
   startThread: (preview?: string) => Promise<unknown>;
   notifyActiveThreadIdentityChanged: () => void;
@@ -57,8 +56,7 @@ async function sendTurnText(
   codexInputOverride?: CodexInput,
   referencedThread?: ReferencedThreadMetadata,
 ): Promise<void> {
-  const client = await host.connectedClient();
-  if (!client) return;
+  if (!(await host.turnTransport.ensureConnected())) return;
   if (!(await host.ensureRestoredThreadLoaded())) return;
 
   const initialState = submissionStateSnapshot(host.stateStore.getState());
@@ -71,7 +69,7 @@ async function sendTurnText(
         host.addSystemMessage(plan.message);
         return;
       case "steer":
-        await steerCurrentTurn(host, localItemIds, client, plan, text, codexInputOverride, referencedThread);
+        await steerCurrentTurn(host, localItemIds, plan, text, codexInputOverride, referencedThread);
         return;
       case "start-thread-then-turn":
         if (!(await startThreadForTurn(host, text))) return;
@@ -98,12 +96,22 @@ async function sendTurnText(
     });
     host.setDraft("");
 
-    const response = await client.startTurn({
+    const response = await host.turnTransport.startTurn({
       threadId: activeThreadId,
-      cwd: host.vaultPath,
       input: codexInput,
       clientUserMessageId: optimisticUserId,
     });
+    if (!response) {
+      const failedState = submissionStateSnapshot(host.stateStore.getState());
+      const items = cleanupFailedTurnStart({
+        items: failedState.items,
+        optimisticUserId,
+        pendingTurnStart: failedState.pendingTurnStart,
+      });
+      host.stateStore.dispatch({ type: "turn/start-failed", items });
+      host.setDraft(text);
+      return;
+    }
     const acknowledgedState = submissionStateSnapshot(host.stateStore.getState());
     const pendingStart = acknowledgedState.pendingTurnStart;
     if (
@@ -113,16 +121,16 @@ async function sendTurnText(
         pendingTurnStart: pendingStart,
         activeTurnId: acknowledgedState.activeTurnId,
         optimisticUserId,
-        responseTurnId: response.turn.id,
+        responseTurnId: response.turnId,
       })
     ) {
       const items = acknowledgeOptimisticTurnStart({
         items: acknowledgedState.items,
         optimisticUserId,
-        turnId: response.turn.id,
+        turnId: response.turnId,
         pendingTurnStart: pendingStart,
       });
-      host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turn.id, items });
+      host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turnId, items });
       host.setStatus(STATUS_TURN_RUNNING);
     }
   } catch (error) {
@@ -160,7 +168,6 @@ async function startThreadForTurn(host: TurnSubmissionActionsHost, text: string)
 async function steerCurrentTurn(
   host: TurnSubmissionActionsHost,
   localItemIds: LocalIdSource,
-  client: AppServerClient,
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
   text: string,
   codexInputOverride?: CodexInput,
@@ -171,7 +178,13 @@ async function steerCurrentTurn(
   host.setDraft("", { clearSuggestions: true });
 
   try {
-    await client.steerTurn(plan.threadId, plan.turnId, codexInput, localSteerId);
+    const steered = await host.turnTransport.steerTurn({
+      threadId: plan.threadId,
+      turnId: plan.turnId,
+      input: codexInput,
+      clientUserMessageId: localSteerId,
+    });
+    if (!steered) return;
     if (!isCurrentTurn(host, plan.threadId, plan.turnId)) return;
     host.stateStore.dispatch({
       type: "message-stream/item-added",

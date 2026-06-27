@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { CodexInput } from "../../../../../src/domain/chat/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { optimisticTurnStart } from "../../../../../src/features/chat/application/conversation/optimistic-turn-start";
@@ -30,16 +29,16 @@ type TurnSubmissionHostOverrides = Partial<TurnSubmissionActionsHost>;
 
 function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
-  const startTurn = vi.fn().mockResolvedValue({ turn: { id: "turn" } });
-  const steerTurn = vi.fn().mockResolvedValue({});
-  const client = {
-    startTurn,
-    steerTurn,
-  } as unknown as AppServerClient;
+  const startTurn = vi.fn().mockResolvedValue({ turnId: "turn" });
+  const steerTurn = vi.fn().mockResolvedValue(true);
   const host: TurnSubmissionActionsHost = {
     stateStore,
-    vaultPath: "/vault",
-    connectedClient: vi.fn().mockResolvedValue(client),
+    turnTransport: {
+      ensureConnected: vi.fn().mockResolvedValue(true),
+      startTurn,
+      steerTurn,
+      interruptTurn: vi.fn().mockResolvedValue(true),
+    },
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
     startThread: vi.fn().mockImplementation(async () => {
       resumeThread(stateStore);
@@ -82,7 +81,6 @@ describe("TurnSubmissionActions", () => {
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(startTurn).toHaveBeenCalledWith({
       threadId: "thread",
-      cwd: "/vault",
       input: textInput("hello"),
       clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
     });
@@ -133,15 +131,15 @@ describe("TurnSubmissionActions", () => {
 
     await actions.sendTurnText("follow up");
 
-    expect(steerTurn).toHaveBeenCalledWith(
-      "thread",
-      "turn",
-      textInput("follow up"),
-      expect.stringMatching(/^local-steer-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
-    );
+    expect(steerTurn).toHaveBeenCalledWith({
+      threadId: "thread",
+      turnId: "turn",
+      input: textInput("follow up"),
+      clientUserMessageId: expect.stringMatching(/^local-steer-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
+    });
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setStatus).toHaveBeenCalledWith("Steered current turn.");
-    const localSteerId = steerTurn.mock.calls[0]?.[3];
+    const localSteerId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
     expect(
       chatStateMessageStreamItems(stateStore.getState()).some(
         (item) => item.kind === "message" && item.id === localSteerId && item.text === "follow up",

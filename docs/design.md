@@ -28,6 +28,8 @@ Fast mode is a user-facing runtime intent, not a general service-tier editor. Co
 
 Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before payloads reach features, workspace coordination, settings, or UI.
 
+Chat application workflows should express turn, thread, goal, runtime-setting, and reference-thread needs as chat-owned contracts. Root app-server clients, RPC method names, connection freshness checks, vault-path injection, and protocol projection belong in chat app-server transports or host wiring, not in application state-transition code.
+
 Turn stream conversion is the main exception: raw app-server stream payloads may be consumed at the conversion boundary because the event set is broad and changes with Codex. The converter should still reduce them into panel-owned display and diagnostic models before they reach chat state or UI.
 
 Server request adapters should normalize method-specific app-server requests into coarse panel models before they reach pending request state. The UI should handle user-facing intent; app-server-specific decisions and response payloads should remain boundary-owned.

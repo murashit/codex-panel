@@ -3,6 +3,8 @@ import type { LocalIdSource } from "../../../shared/id/local-id";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import type { ChatServerThreadActions } from "../app-server/actions/threads";
 import type { ChatInboundHandler } from "../app-server/inbound/handler";
+import { createThreadReferenceResolver } from "../app-server/references/thread-reference-resolver";
+import { createChatTurnTransport } from "../app-server/turns/transport";
 import { type ChatReconnectActionsHost, reconnectPanel } from "../application/connection/reconnect-actions";
 import {
   type ConversationTurnActions as ChatPanelConversationTurnActions,
@@ -124,15 +126,24 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     },
   };
   const reconnect = () => reconnectPanel(reconnectHost);
+  const turnTransport = createChatTurnTransport({
+    vaultPath: host.environment.plugin.settingsRef.vaultPath,
+    currentClient,
+    connectedClient,
+  });
+  const threadReferenceResolver = createThreadReferenceResolver({
+    currentClient,
+    codexInput: (text) => composerController.codexInput(text),
+    addSystemMessage: status.addSystemMessage,
+    setStatus: status.set,
+  });
   const turnActions = createConversationTurnActions(
     {
-      vaultPath: host.environment.plugin.settingsRef.vaultPath,
       stateStore: host.stateStore,
       localItemIds,
-      client: {
-        currentClient,
-        connectedClient,
-      },
+      connectionAvailable: () => currentClient() !== null,
+      turnTransport,
+      referThread: (thread, message) => threadReferenceResolver.referThread(thread, message),
       status,
       runtime: {
         connectionDiagnosticDetails: runtimeProjection.connectionDiagnosticDetails,

@@ -1,17 +1,17 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
-import {
-  pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
-  type PendingRuntimeSettingsPatch,
-} from "../../app-server/runtime/thread-settings-update";
 import { type CollaborationModeSelection, nextCollaborationMode, type RequestedFastMode } from "../../domain/runtime/intent";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import {
+  pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
+  type PendingRuntimeSettingsPatch,
+} from "../../domain/runtime/thread-settings-patch";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import type { RuntimeSettingsTransport } from "./settings-transport";
 
 interface RuntimeSettingsCommitResult {
   ok: boolean;
@@ -23,7 +23,7 @@ type FastModeState = "enabled" | "disabled";
 
 export interface RuntimeSettingsActionsHost {
   stateStore: ChatStateStore;
-  currentClient: () => AppServerClient | null;
+  runtimeTransport: RuntimeSettingsTransport;
   runtimeSnapshotForState: (state: ChatState) => RuntimeSnapshot;
   collaborationModeLabel: () => string;
   addSystemMessage: (text: string) => void;
@@ -78,9 +78,8 @@ async function applyPendingThreadSettings(host: RuntimeSettingsActionsHost): Pro
 }
 
 async function commitPendingThreadSettings(host: RuntimeSettingsActionsHost): Promise<RuntimeSettingsCommitResult> {
-  const client = host.currentClient();
   const threadId = state(host).activeThread.id;
-  if (!client || !threadId) return { ok: true, collaborationModeApplied: true };
+  if (!threadId) return { ok: true, collaborationModeApplied: true };
 
   const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
   if (collaborationModeWarning) reportCollaborationModeWarning(host, collaborationModeWarning);
@@ -88,7 +87,9 @@ async function commitPendingThreadSettings(host: RuntimeSettingsActionsHost): Pr
   if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
 
   try {
-    await client.updateThreadSettings(threadId, update);
+    if (!(await host.runtimeTransport.updateThreadSettings(threadId, update))) {
+      return { ok: false, collaborationModeApplied: false };
+    }
     if (state(host).activeThread.id !== threadId) return { ok: false, collaborationModeApplied: false };
     if (!runtimeSettingsPatchStillPending(currentPendingRuntimeSettingsPatch(host), update)) {
       return { ok: false, collaborationModeApplied: false };

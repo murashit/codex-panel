@@ -3,10 +3,6 @@ import { describe, expect, it } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../src/domain/runtime/config";
-import {
-  pendingRuntimeSettingsPatch,
-  serviceTierRequestForThreadStart,
-} from "../../src/features/chat/app-server/runtime/thread-settings-update";
 import { resetRuntimeIntentToConfig, setRuntimeIntentValue } from "../../src/features/chat/domain/runtime/intent";
 import {
   compactReasoningEffortLabel,
@@ -15,6 +11,10 @@ import {
 } from "../../src/features/chat/domain/runtime/labels";
 import { resolveRuntimeControls } from "../../src/features/chat/domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
+import {
+  pendingRuntimeSettingsPatch,
+  serviceTierRequestForThreadStart,
+} from "../../src/features/chat/domain/runtime/thread-settings-patch";
 import { contextSummary, rateLimitSummary } from "../../src/features/chat/presentation/runtime/status";
 
 describe("runtime settings", () => {

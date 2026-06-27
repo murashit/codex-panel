@@ -3,8 +3,8 @@ import type { ModeKind } from "../../../../domain/runtime/thread-settings";
 export type CollaborationModeSelection = ModeKind;
 export type ActiveCollaborationMode = CollaborationModeSelection | null;
 
-// Pending runtime intents are panel-side user requests, not app-server payload values.
-// They are projected for display first and converted to transport values only at the app-server boundary.
+// Pending runtime intents are panel-side user requests, not app-server protocol values.
+// They are projected for display and reduced into panel-owned runtime settings patches before app-server protocol adaptation.
 export type PendingRuntimeIntent<T> =
   | { readonly kind: "unchanged" }
   | { readonly kind: "set"; readonly value: T }

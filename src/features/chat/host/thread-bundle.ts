@@ -7,6 +7,8 @@ import type { LocalIdSource } from "../../../shared/id/local-id";
 import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../threads/thread-title-service";
 import type { ChatServerThreadActions } from "../app-server/actions/threads";
+import { createChatThreadGoalTransport } from "../app-server/goals/transport";
+import { createChatThreadMutationTransport } from "../app-server/threads/transport";
 import type { ChatResumeWorkTracker } from "../application/lifecycle";
 import { messageStreamItems } from "../application/state/message-stream";
 import type { ChatStateStore } from "../application/state/store";
@@ -192,10 +194,12 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
   const { environment, stateStore } = host;
   const threadManagementHost: ThreadManagementActionsHost = {
     stateStore,
-    vaultPath: environment.plugin.settingsRef.vaultPath,
     operations: foundation.threadOperations,
-    connectedClient,
-    currentClient,
+    threadTransport: createChatThreadMutationTransport({
+      vaultPath: environment.plugin.settingsRef.vaultPath,
+      currentClient,
+      connectedClient,
+    }),
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
     setComposerText: (text) => {
@@ -299,7 +303,10 @@ function createSessionGoalSyncActions(
 ): ChatPanelGoalSyncActions {
   return createThreadGoalSyncActions({
     stateStore: host.stateStore,
-    currentClient,
+    goalTransport: createChatThreadGoalTransport({
+      currentClient,
+      connectedClient: async () => currentClient(),
+    }),
     localItemIds,
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
@@ -357,9 +364,11 @@ function createSessionGoalActions(
 ): ChatPanelGoalActions {
   return createGoalActions({
     stateStore: host.stateStore,
-    currentClient,
+    goalTransport: createChatThreadGoalTransport({
+      currentClient,
+      connectedClient,
+    }),
     localItemIds,
-    connectedClient,
     startThread: (preview, options) => serverThreads.startThread(preview, options),
     addSystemMessage: (text) => {
       status.addSystemMessage(text);

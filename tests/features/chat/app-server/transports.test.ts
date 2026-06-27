@@ -1,0 +1,230 @@
+import { describe, expect, it, vi } from "vitest";
+
+import type { AppServerClient } from "../../../../src/app-server/connection/client";
+import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
+import type { CodexInput } from "../../../../src/domain/chat/input";
+import { createChatThreadGoalTransport } from "../../../../src/features/chat/app-server/goals/transport";
+import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/references/thread-reference-resolver";
+import { createChatRuntimeSettingsTransport } from "../../../../src/features/chat/app-server/runtime/thread-settings-transport";
+import { createChatThreadMutationTransport } from "../../../../src/features/chat/app-server/threads/transport";
+import { createChatTurnTransport } from "../../../../src/features/chat/app-server/turns/transport";
+import { deferred } from "../../../support/async";
+
+const textInput = (text: string): CodexInput => [{ type: "text", text }];
+
+describe("chat app-server transports", () => {
+  it("starts turns with the session vault path and returns chat-owned turn ids", async () => {
+    const startTurn = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
+    const client = { startTurn } as unknown as AppServerClient;
+    const transport = createChatTurnTransport({
+      vaultPath: "/vault",
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    });
+
+    await expect(
+      transport.startTurn({
+        threadId: "thread",
+        input: textInput("hello"),
+        clientUserMessageId: "local-user",
+      }),
+    ).resolves.toEqual({ turnId: "turn-1" });
+
+    expect(startTurn).toHaveBeenCalledWith({
+      threadId: "thread",
+      cwd: "/vault",
+      input: textInput("hello"),
+      clientUserMessageId: "local-user",
+    });
+  });
+
+  it("drops stale turn transport responses after the current client changes", async () => {
+    const start = deferred<{ turn: { id: string } }>();
+    const firstClient = { startTurn: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
+    const secondClient = {} as unknown as AppServerClient;
+    let currentClient = firstClient;
+    const transport = createChatTurnTransport({
+      vaultPath: "/vault",
+      currentClient: () => currentClient,
+      connectedClient: vi.fn().mockResolvedValue(firstClient),
+    });
+
+    const starting = transport.startTurn({ threadId: "thread", input: textInput("hello"), clientUserMessageId: "local-user" });
+    currentClient = secondClient;
+    start.resolve({ turn: { id: "turn-1" } });
+
+    await expect(starting).resolves.toBeNull();
+  });
+
+  it("compacts threads through a connected app-server client", async () => {
+    const compactThread = vi.fn().mockResolvedValue({});
+    const client = { compactThread } as unknown as AppServerClient;
+    const transport = createChatThreadMutationTransport({
+      vaultPath: "/vault",
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    });
+
+    await expect(transport.compactThread("thread")).resolves.toBe(true);
+
+    expect(compactThread).toHaveBeenCalledWith("thread");
+  });
+
+  it("forks threads with the session vault path and returns panel threads", async () => {
+    const forkThread = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
+    const client = { forkThread } as unknown as AppServerClient;
+    const transport = createChatThreadMutationTransport({
+      vaultPath: "/vault",
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    });
+
+    const thread = await transport.forkThread("source");
+
+    expect(forkThread).toHaveBeenCalledWith("source", "/vault");
+    expect(thread).toMatchObject({ id: "forked", preview: "Preview", archived: false });
+  });
+
+  it("drops stale fork transport responses after the current client changes", async () => {
+    const fork = deferred<{ thread: ThreadRecord }>();
+    const firstClient = { forkThread: vi.fn().mockReturnValue(fork.promise) } as unknown as AppServerClient;
+    const secondClient = {} as unknown as AppServerClient;
+    let currentClient = firstClient;
+    const transport = createChatThreadMutationTransport({
+      vaultPath: "/vault",
+      currentClient: () => currentClient,
+      connectedClient: vi.fn().mockResolvedValue(firstClient),
+    });
+
+    const forking = transport.forkThread("source");
+    currentClient = secondClient;
+    fork.resolve({ thread: threadRecord("forked") });
+
+    await expect(forking).resolves.toBeNull();
+  });
+
+  it("projects rollback turns into message stream items", async () => {
+    const rollbackThread = vi.fn().mockResolvedValue({ thread: threadRecord("thread", [turn([userMessage("u1", "prompt")])]) });
+    const client = { rollbackThread } as unknown as AppServerClient;
+    const transport = createChatThreadMutationTransport({
+      vaultPath: "/vault",
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    });
+
+    const snapshot = await transport.rollbackThread("thread");
+
+    expect(rollbackThread).toHaveBeenCalledWith("thread");
+    expect(snapshot?.thread.id).toBe("thread");
+    expect(snapshot?.cwd).toBe("/vault");
+    expect(snapshot?.items).toEqual([expect.objectContaining({ kind: "message", role: "user", text: "prompt" })]);
+  });
+
+  it("distinguishes absent goals from unavailable goal clients", async () => {
+    const client = { getThreadGoal: vi.fn().mockResolvedValue({ goal: null }) } as unknown as AppServerClient;
+    const transport = createChatThreadGoalTransport({
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    });
+    const unavailable = createChatThreadGoalTransport({
+      currentClient: () => null,
+      connectedClient: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(transport.readThreadGoal("thread")).resolves.toBeNull();
+    await expect(unavailable.readThreadGoal("thread")).resolves.toBeUndefined();
+  });
+
+  it("drops stale runtime settings updates after the current client changes", async () => {
+    const update = deferred<void>();
+    const firstClient = { updateThreadSettings: vi.fn().mockReturnValue(update.promise) } as unknown as AppServerClient;
+    const secondClient = {} as unknown as AppServerClient;
+    let currentClient = firstClient;
+    const transport = createChatRuntimeSettingsTransport({
+      currentClient: () => currentClient,
+    });
+
+    const updating = transport.updateThreadSettings("thread", { model: "gpt-5.5" });
+    currentClient = secondClient;
+    update.resolve(undefined);
+
+    await expect(updating).resolves.toBe(false);
+    expect(firstClient.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
+  });
+
+  it("resolves referenced thread input at the app-server boundary", async () => {
+    const threadTurnsList = vi.fn().mockResolvedValue({
+      data: [turn([userMessage("u1", "元の依頼"), agentMessage("a1", "回答")])],
+      nextCursor: null,
+    });
+    const client = { threadTurnsList } as unknown as AppServerClient;
+    const setStatus = vi.fn();
+    const resolver = createThreadReferenceResolver({
+      currentClient: () => client,
+      codexInput: (text) => textInput(text),
+      addSystemMessage: vi.fn(),
+      setStatus,
+    });
+
+    const result = await resolver.referThread(
+      { id: "019abcde-0000-7000-8000-000000000001", preview: "", name: "Other", createdAt: 1, updatedAt: 1, archived: false },
+      "summarize",
+    );
+
+    expect(threadTurnsList).toHaveBeenCalledWith("019abcde-0000-7000-8000-000000000001", null, 20);
+    expect(result?.input[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("Reference thread history:"),
+    });
+    expect(result?.referencedThread).toMatchObject({ title: "Other", includedTurns: 1, turnLimit: 20 });
+    expect(setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
+  });
+});
+
+function threadRecord(id: string, turns: readonly TurnRecord[] = []): ThreadRecord {
+  return {
+    id,
+    sessionId: id,
+    forkedFromId: null,
+    parentThreadId: null,
+    preview: "Preview",
+    ephemeral: false,
+    modelProvider: "openai",
+    createdAt: 1,
+    updatedAt: 1,
+    status: { type: "idle" },
+    path: null,
+    cwd: "/vault",
+    cliVersion: "codex-cli 0.0.0",
+    source: "unknown",
+    threadSource: null,
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: null,
+    turns,
+  };
+}
+
+function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
+  return {
+    id: "turn",
+    items,
+    itemsView: "full",
+    status: "completed",
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    durationMs: null,
+    ...overrides,
+  };
+}
+
+function userMessage(id: string, text: string): TurnItem {
+  return { type: "userMessage", id, clientId: null, content: [{ type: "text", text, text_elements: [] }] };
+}
+
+function agentMessage(id: string, text: string): TurnItem {
+  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
+}
