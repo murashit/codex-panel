@@ -1,6 +1,8 @@
 import type { EditorPosition } from "obsidian";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 
+export type SelectionRewriteInstructionHistoryDirection = -1 | 1;
+
 type SelectionRewriteStatus = SelectionRewriteState["status"];
 const APPLY_CONTEXT_RADIUS = 1_000;
 

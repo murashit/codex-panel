@@ -3,7 +3,7 @@ import type { App, WorkspaceLeaf } from "obsidian";
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { hasPendingRequests, pendingRequestCounts } from "../domain/pending-requests/aggregate";
 import type { ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
-import { CodexChatView } from "../features/chat/host/view";
+import { CodexChatView } from "../features/chat/host/view.obsidian";
 import type { ChatPanelSnapshot } from "../features/chat/panel/snapshot";
 
 type ThreadPanelTarget =

@@ -12,7 +12,7 @@ import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../workspace/thread-catalog";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
-import { renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
+import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
 import {
   type ThreadsGeneratingRenameState,
   type ThreadsRenameLifecycleEvent,
@@ -319,12 +319,7 @@ export class ThreadsViewSession {
 
   private cancelArchiveConfirmOnOutsidePointer(event: PointerEvent): void {
     if (!this.archiveConfirmThreadId) return;
-    const target = event.target;
-    const viewWindow = this.viewWindow() as Window & { Element: typeof Element };
-    if (target instanceof viewWindow.Element) {
-      const archiveConfirm = target.closest(".codex-panel-threads__archive-confirm");
-      if (archiveConfirm && this.environment.root.contains(archiveConfirm)) return;
-    }
+    if (isThreadsArchiveConfirmPointer(event, this.environment.root, this.viewWindow())) return;
     this.archiveConfirmThreadId = null;
     this.render();
   }

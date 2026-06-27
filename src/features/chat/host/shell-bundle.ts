@@ -9,6 +9,7 @@ import { MessageStreamPresenter } from "../panel/surface/message-stream-presente
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
 import { createToolbarUiActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
+import { toolbarOutsidePointerHit } from "../ui/toolbar.dom";
 import type { ChatPanelComposerBundle } from "./composer-bundle";
 import type { ChatPanelConnectionBundle } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
@@ -132,9 +133,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     parts,
     closeToolbarPanelOnOutsidePointer: (event) => {
       toolbarPanelActions.closeOnOutsidePointer({
-        target: event.target,
-        viewWindow: environment.view.viewWindow() as (Window & { Element: typeof Element }) | null,
-        contains: (element) => environment.view.containsElement(element),
+        hit: toolbarOutsidePointerHit(event, environment.view.panelRoot(), environment.view.viewWindow()),
         renameEditing: rename.isEditing(),
       });
     },

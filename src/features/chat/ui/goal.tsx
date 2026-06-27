@@ -3,9 +3,14 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { ThreadGoal, ThreadGoalStatus } from "../../../domain/threads/goal";
 import { IconButton } from "../../../shared/ui/components.obsidian";
-import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events.dom";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
-import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow.measure";
+import {
+  closeGoalEditorOnOutsidePointer,
+  collapseGoalObjectiveOnOutsidePointer,
+  focusGoalObjectiveEditor,
+  observeGoalObjectiveOverflow,
+  syncGoalObjectiveHeight,
+} from "./goal.dom";
 
 export interface GoalPanelActions {
   onSave: (objective: string, tokenBudget: number | null) => void;
@@ -69,51 +74,30 @@ export function GoalPanel({
 
   useLayoutEffect(() => {
     if (!editing) return;
-    objectiveRef.current?.focus();
+    focusGoalObjectiveEditor(objectiveRef.current);
   }, [editing]);
 
   useLayoutEffect(() => {
     if (editing) return;
     const content = objectiveContentRef.current;
     if (!content) return;
-    const update = () => {
-      setObjectiveOverflows(content.scrollHeight > goalObjectiveCollapseHeight(content) + 1);
-    };
-    update();
-    content.win.requestAnimationFrame(update);
+    return observeGoalObjectiveOverflow(content, setObjectiveOverflows);
   }, [editing, resetObjective]);
 
   useEffect(() => {
     if (!editing) return;
-    const doc = goalRef.current?.ownerDocument;
-    if (!doc) return;
-    const cancelEditing = () => {
-      actions.onCancelEditing();
-    };
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (event.target instanceof Node && goalRef.current?.contains(event.target)) return;
-      cancelEditing();
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      cancelEditing();
-    };
-    return disposeDomListeners(
-      listenDomEvent(doc, "pointerdown", closeOnOutsidePointer, true),
-      listenDomEvent(doc, "keydown", closeOnEscape),
-    );
+    const root = goalRef.current;
+    if (!root) return;
+    return closeGoalEditorOnOutsidePointer(root, actions.onCancelEditing);
   }, [actions, editing]);
 
   useEffect(() => {
     if (!objectiveExpanded) return;
-    const doc = goalRef.current?.ownerDocument;
-    if (!doc) return;
-    const collapseOnOutsidePointer = (event: PointerEvent) => {
-      if (event.target instanceof Node && goalRef.current?.contains(event.target)) return;
+    const root = goalRef.current;
+    if (!root) return;
+    return collapseGoalObjectiveOnOutsidePointer(root, () => {
       actions.onObjectiveExpandedChange(false);
-    };
-    return listenDomEvent(doc, "pointerdown", collapseOnOutsidePointer, true);
+    });
   }, [actions, objectiveExpanded]);
 
   if (!goal && !editing) return null;
@@ -253,26 +237,6 @@ function goalStatusClassName(status: ThreadGoalStatus | null): string {
   if (status === "paused") return "codex-panel__goal--paused";
   if (status === "usageLimited") return "codex-panel__goal--usageLimited";
   return "";
-}
-
-function syncGoalObjectiveHeight(textarea: HTMLTextAreaElement | null): void {
-  syncTextareaHeight(textarea, {
-    minHeightFallback: 56,
-    maxHeightFallback: textarea ? Math.min(180, textarea.win.innerHeight * 0.3) : 180,
-  });
-}
-
-function goalObjectiveCollapseHeight(element: HTMLElement): number {
-  const lineHeight = computedLineHeight(element);
-  return lineHeight * 3;
-}
-
-function computedLineHeight(element: HTMLElement): number {
-  const style = element.win.getComputedStyle(element);
-  const lineHeight = Number.parseFloat(style.lineHeight);
-  if (Number.isFinite(lineHeight) && lineHeight > 0) return lineHeight;
-  const fontSize = Number.parseFloat(style.fontSize);
-  return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.5 : 24;
 }
 
 function goalUsage(goal: ThreadGoal): string {

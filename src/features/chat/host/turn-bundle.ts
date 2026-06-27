@@ -96,7 +96,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     responder: inboundHandler,
     composerHasFocus: () => composerController.hasFocus(),
     focusComposer: () => {
-      composerController.focus();
+      composerController.focusComposer();
     },
     refreshLiveState,
   });

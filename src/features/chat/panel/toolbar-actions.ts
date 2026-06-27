@@ -7,6 +7,7 @@ import type { ThreadRenameEditorActions } from "../application/threads/rename-ed
 import type { ThreadManagementActions } from "../application/threads/thread-management-actions";
 import type { ThreadNavigationActions } from "../application/threads/thread-navigation-actions";
 import type { ToolbarActions } from "../ui/toolbar";
+import type { ToolbarOutsidePointerHit } from "../ui/toolbar.dom";
 
 export interface ToolbarPanelActionsHost {
   stateStore: ChatStateStore;
@@ -36,13 +37,9 @@ export interface ToolbarUiActionDependencies {
 }
 
 interface ToolbarOutsidePointerContext {
-  target: EventTarget | null;
-  viewWindow: ToolbarDomWindow | null;
-  contains: (element: Element) => boolean;
+  hit: ToolbarOutsidePointerHit;
   renameEditing: boolean;
 }
-
-type ToolbarDomWindow = Window & { Element: typeof Element };
 
 export function createToolbarPanelActions(host: ToolbarPanelActionsHost): ToolbarPanelActions {
   const state = (): ChatState => host.stateStore.getState();
@@ -98,15 +95,11 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
     closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void {
       if (!hasOpenPanel()) return;
 
-      const target = context.target;
-      if (isToolbarElement(target, context.viewWindow)) {
-        const insideToolbarPanel = target.closest(".codex-panel__toolbar-primary, .codex-panel__toolbar-panel");
-        if (insideToolbarPanel && context.contains(insideToolbarPanel)) {
-          if (archiveConfirmId() && !target.closest(".codex-panel__archive-confirm")) {
-            setArchiveConfirm(null);
-          }
-          return;
+      if (context.hit.insideToolbarPanel) {
+        if (archiveConfirmId() && !context.hit.insideArchiveConfirm) {
+          setArchiveConfirm(null);
         }
+        return;
       }
 
       if (archiveConfirmId()) {
@@ -186,8 +179,4 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
       },
     },
   };
-}
-
-function isToolbarElement(target: EventTarget | null, viewWindow: ToolbarDomWindow | null): target is Element {
-  return Boolean(viewWindow && target instanceof viewWindow.Element);
 }

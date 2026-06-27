@@ -19,7 +19,7 @@ import type {
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidian";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
-import { CodexThreadsView } from "./features/threads-view/view";
+import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 import { createThreadCatalog, type ThreadCatalog } from "./workspace/thread-catalog";

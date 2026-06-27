@@ -2,9 +2,17 @@ import type { ButtonHTMLAttributes, Ref, ComponentChild as UiNode } from "preact
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { IconButton } from "../../../shared/ui/components.obsidian";
-import { disposeDomListeners, listenDomEvent } from "../../../shared/ui/dom-events.dom";
-import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow.measure";
-import { renderComposerMetaIcon, scrollComposerSuggestionIntoView, updateComposerMetaStatusOverflow } from "./composer.dom";
+import {
+  type ComposerMetaPickerState,
+  closeComposerMetaPickerOnOutsidePointer,
+  composerMetaPickerState,
+  observeComposerMetaStatusOverflow,
+  preserveComposerSelection,
+  renderComposerMetaIcon,
+  restoreComposerSelection,
+  scrollComposerSuggestionIntoView,
+  syncComposerHeight,
+} from "./composer.dom";
 
 export interface ComposerSuggestion {
   display: string;
@@ -119,9 +127,7 @@ export function ComposerShell({
   }, [suggestions, selectedSuggestionIndex]);
   useLayoutEffect(() => {
     previousDraftRef.current = draft;
-    const composer = composerRef.current;
-    if (!composer || !preservedSelection) return;
-    composer.setSelectionRange(preservedSelection.start, preservedSelection.end, preservedSelection.direction);
+    restoreComposerSelection(composerRef.current, preservedSelection);
   });
   const sendMode = composerSendMode(busy, canInterrupt, draft);
   const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
@@ -165,19 +171,6 @@ export function ComposerShell({
   );
 }
 
-function preserveComposerSelection(
-  composer: HTMLTextAreaElement | null,
-  previousDraft: string,
-  nextDraft: string,
-): { start: number; end: number; direction: "forward" | "backward" | "none" } | null {
-  if (!composer || previousDraft !== nextDraft) return null;
-  return {
-    start: composer.selectionStart,
-    end: composer.selectionEnd,
-    direction: composer.selectionDirection,
-  };
-}
-
 function ComposerMeta({
   meta,
   sendMode,
@@ -195,40 +188,15 @@ function ComposerMeta({
   useLayoutEffect(() => {
     const status = statusRef.current;
     if (!status) return;
-    const win = status.win;
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      updateComposerMetaStatusOverflow(status);
-    };
-    const scheduleUpdate = () => {
-      if (frame) win.cancelAnimationFrame(frame);
-      frame = win.requestAnimationFrame(update);
-    };
-    update();
-    const ResizeObserverCtor = (win as Window & { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
-    const observer = ResizeObserverCtor ? new ResizeObserverCtor(scheduleUpdate) : null;
-    observer?.observe(status);
-    const disposeResize = listenDomEvent(win, "resize", scheduleUpdate);
-    return () => {
-      if (frame) win.cancelAnimationFrame(frame);
-      observer?.disconnect();
-      disposeResize();
-    };
+    return observeComposerMetaStatusOverflow(status);
   }, [meta]);
   useLayoutEffect(() => {
     if (!picker) return;
     const metaRoot = metaRef.current;
-    const doc = metaRoot?.ownerDocument;
-    if (!metaRoot || !doc) return;
-    const closeOnOutsideMouse = (event: MouseEvent) => {
-      if (event.target && metaRoot.contains(event.target as Node)) return;
+    if (!metaRoot) return;
+    return closeComposerMetaPickerOnOutsidePointer(metaRoot, () => {
       setPicker(null);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPicker(null);
-    };
-    return disposeDomListeners(listenDomEvent(doc, "mousedown", closeOnOutsideMouse), listenDomEvent(doc, "keydown", closeOnEscape));
+    });
   }, [picker]);
   const openPicker = (kind: ComposerMetaPickerKind) => {
     const nextPicker = composerMetaPickerState(
@@ -318,26 +286,7 @@ function ComposerMeta({
   );
 }
 
-type ComposerMetaPickerKind = "model" | "effort";
-
-interface ComposerMetaPickerState {
-  kind: ComposerMetaPickerKind;
-  left: number;
-}
-
-function composerMetaPickerState(
-  kind: ComposerMetaPickerKind,
-  trigger: HTMLElement | null,
-  metaRoot: HTMLElement | null,
-): ComposerMetaPickerState {
-  if (!trigger || !metaRoot) return { kind, left: 0 };
-  const triggerRect = trigger.getBoundingClientRect();
-  const metaRect = metaRoot.getBoundingClientRect();
-  return {
-    kind,
-    left: Math.max(0, triggerRect.left - metaRect.left),
-  };
-}
+type ComposerMetaPickerKind = ComposerMetaPickerState["kind"];
 
 function ComposerContextMeter({ context }: { context: ComposerMetaViewModel["context"] }): UiNode {
   return (
@@ -503,16 +452,6 @@ function ComposerIconButton({
       className={`clickable-icon codex-panel-ui__icon-button codex-panel__composer-action ${className}`}
     />
   );
-}
-
-export function syncComposerHeight(composer: HTMLTextAreaElement | null): boolean {
-  const previousHeight = composer?.style.height ?? "";
-  const previousOverflowY = composer?.style.overflowY ?? "";
-  syncTextareaHeight(composer, {
-    minHeightFallback: 56,
-    maxHeightFallback: composer ? Math.min(208, composer.win.innerHeight * 0.4) : 208,
-  });
-  return Boolean(composer && (composer.style.height !== previousHeight || composer.style.overflowY !== previousOverflowY));
 }
 
 function ComposerSuggestions({

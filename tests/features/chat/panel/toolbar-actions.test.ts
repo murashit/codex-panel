@@ -35,9 +35,7 @@ describe("createToolbarPanelActions", () => {
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
 
     actions.closeOnOutsidePointer({
-      target: document.createElement("button"),
-      viewWindow: window,
-      contains: () => false,
+      hit: { insideToolbarPanel: false, insideArchiveConfirm: false },
       renameEditing: false,
     });
 

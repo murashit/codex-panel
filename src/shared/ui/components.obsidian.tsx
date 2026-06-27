@@ -2,6 +2,8 @@ import { ButtonComponent, DropdownComponent, ExtraButtonComponent, setIcon, Text
 import type { ButtonHTMLAttributes, JSX, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
+import { disposeDomListeners, listenDomEvent } from "./dom-events.dom";
+
 interface ObsidianIconProps {
   icon: string;
   className?: string;
@@ -200,16 +202,15 @@ export function ObsidianExtraButton({
     const stopPointerDown = (event: PointerEvent): void => {
       event.stopPropagation();
     };
-    button.extraSettingsEl.addEventListener("pointerdown", stopPointerDown);
+    const disposePointerDown = listenDomEvent(button.extraSettingsEl, "pointerdown", stopPointerDown);
     if (className) {
       for (const classPart of className.split(" ").filter(Boolean)) {
         button.extraSettingsEl.addClass(classPart);
       }
     }
-    return () => {
-      button.extraSettingsEl.removeEventListener("pointerdown", stopPointerDown);
+    return disposeDomListeners(disposePointerDown, () => {
       container.empty();
-    };
+    });
   }, [className, icon, label, onClick]);
 
   return <span ref={ref} />;

@@ -18,7 +18,7 @@ import { deferred, waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
 
 type TestCodexChatHost = CodexChatHost;
-let CodexChatView: typeof import("../../../../src/features/chat/host/view")["CodexChatView"];
+let CodexChatView: typeof import("../../../../src/features/chat/host/view.obsidian")["CodexChatView"];
 interface TrackedView {
   view: { onClose(): Promise<void> | void };
   opened: boolean;
@@ -115,7 +115,7 @@ describe("CodexChatView connection lifecycle", () => {
   let restoreDefaultMessageViewportMetrics: (() => void) | null = null;
 
   beforeAll(async () => {
-    ({ CodexChatView } = await import("../../../../src/features/chat/host/view"));
+    ({ CodexChatView } = await import("../../../../src/features/chat/host/view.obsidian"));
   });
 
   beforeEach(() => {

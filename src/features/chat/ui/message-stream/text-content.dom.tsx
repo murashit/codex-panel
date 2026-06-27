@@ -1,6 +1,7 @@
 import type { Ref, ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
+import { listenDomEvent, listenOutsideDomEvent } from "../../../../shared/ui/dom-events.dom";
 import type { MessageStreamTextView } from "../../presentation/message-stream/text-view";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 import type { TextItemContentContext } from "./context";
@@ -19,26 +20,24 @@ export function CollapsibleTextContent({ view, context }: { view: MessageStreamT
     const update = () => {
       setOverflows(content.scrollHeight > userMessageCollapseHeight(content) + 1);
     };
-    content.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
+    const disposeRendered = listenDomEvent(content, MESSAGE_CONTENT_RENDERED_EVENT, update);
     update();
     content.win.requestAnimationFrame(update);
-    return () => {
-      content.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, update);
-    };
+    return disposeRendered;
   }, [view.id, view.body, view.renderMode]);
 
   useEffect(() => {
     if (!overflows || !expanded) return;
-    const doc = collapseRef.current?.ownerDocument;
-    if (!doc) return;
-    const collapseOnOutsidePointer = (event: PointerEvent) => {
-      if (event.target instanceof Node && collapseRef.current?.contains(event.target)) return;
-      context.onDisclosureToggle?.("userMessageExpanded", view.id, false);
-    };
-    doc.addEventListener("pointerdown", collapseOnOutsidePointer, true);
-    return () => {
-      doc.removeEventListener("pointerdown", collapseOnOutsidePointer, true);
-    };
+    const collapse = collapseRef.current;
+    if (!collapse) return;
+    return listenOutsideDomEvent(
+      collapse,
+      "pointerdown",
+      () => {
+        context.onDisclosureToggle?.("userMessageExpanded", view.id, false);
+      },
+      true,
+    );
   }, [context, expanded, view.id, overflows]);
 
   return (
@@ -71,12 +70,22 @@ export function CollapsibleTextContent({ view, context }: { view: MessageStreamT
 interface TextContentProps {
   view: MessageStreamTextView;
   context: TextItemContentContext;
-  contentRef?: Ref<HTMLDivElement>;
+  contentRef?: Ref<HTMLDivElement> | undefined;
   collapsed?: boolean;
 }
 
 export function TextContent({ view, context, contentRef, collapsed = false }: TextContentProps): UiNode {
-  const rendersMarkdown = view.renderMode !== "text";
+  if (view.renderMode === "text") {
+    return (
+      <TextContentContainer contentRef={contentRef} collapsed={collapsed}>
+        {view.body}
+      </TextContentContainer>
+    );
+  }
+  return <MarkdownTextContent view={view} context={context} contentRef={contentRef} collapsed={collapsed} />;
+}
+
+function MarkdownTextContent({ view, context, contentRef, collapsed = false }: TextContentProps): UiNode {
   const text = view.body;
   const localRef = useRef<HTMLDivElement | null>(null);
   const contextRef = useRef(context);
@@ -89,31 +98,57 @@ export function TextContent({ view, context, contentRef, collapsed = false }: Te
     const currentContext = contextRef.current;
     if (view.renderMode === "obsidianMarkdown") {
       currentContext.renderObsidianMarkdown(content, text);
-    } else if (view.renderMode === "streamMarkdown") {
-      currentContext.renderStreamMarkdown(content, text);
     } else {
-      content.textContent = text;
+      currentContext.renderStreamMarkdown(content, text);
     }
   }, [view.renderMode, text]);
   return (
+    <TextContentContainer
+      contentRef={(element) => {
+        localRef.current = element;
+        assignTextContentRef(contentRef, element);
+      }}
+      collapsed={collapsed}
+      markdown
+    />
+  );
+}
+
+function TextContentContainer({
+  children,
+  contentRef,
+  collapsed,
+  markdown = false,
+}: {
+  children?: UiNode;
+  contentRef?: Ref<HTMLDivElement> | undefined;
+  collapsed: boolean;
+  markdown?: boolean;
+}): UiNode {
+  return (
     <div
       ref={(element) => {
-        localRef.current = element;
-        if (typeof contentRef === "function") {
-          contentRef(element);
-        } else if (contentRef) {
-          contentRef.current = element;
-        }
+        assignTextContentRef(contentRef, element);
       }}
       className={[
         "codex-panel__message-content",
-        rendersMarkdown ? "markdown-rendered" : "",
+        markdown ? "markdown-rendered" : "",
         collapsed ? "codex-panel__message-content--collapsed" : "",
       ]
         .filter(Boolean)
         .join(" ")}
-    />
+    >
+      {children}
+    </div>
   );
+}
+
+function assignTextContentRef(contentRef: Ref<HTMLDivElement> | undefined, element: HTMLDivElement | null): void {
+  if (typeof contentRef === "function") {
+    contentRef(element);
+  } else if (contentRef) {
+    contentRef.current = element;
+  }
 }
 
 function userMessageCollapseHeight(element: HTMLElement): number {

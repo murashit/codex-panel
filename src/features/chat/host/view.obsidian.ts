@@ -32,7 +32,6 @@ export class CodexChatView extends ItemView {
       view: {
         panelRoot: () => this.contentEl,
         viewWindow: () => this.containerEl.doc.defaultView,
-        containsElement: (element) => this.containerEl.contains(element),
         refreshTabHeader: () => {
           this.refreshTabHeader();
         },

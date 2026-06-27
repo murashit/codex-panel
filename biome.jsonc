@@ -50,6 +50,19 @@
       "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
     },
     {
+      "path": "./scripts/lint/no-dom-events-imports.grit",
+      "includes": [
+        "**/src/**/*.ts",
+        "**/src/**/*.tsx",
+        "!**/src/**/*.dom.ts",
+        "!**/src/**/*.dom.tsx",
+        "!**/src/**/*.obsidian.ts",
+        "!**/src/**/*.obsidian.tsx",
+        "!**/src/**/*.measure.ts",
+        "!**/src/**/*.measure.tsx"
+      ]
+    },
+    {
       "path": "./scripts/lint/no-ui-root-imports.grit",
       "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
     },

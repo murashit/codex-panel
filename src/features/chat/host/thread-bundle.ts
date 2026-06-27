@@ -225,7 +225,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     resumeThread: (threadId) => lifecycle.resume.resumeThread(threadId),
     addSystemMessage: status.addSystemMessage,
     focusComposer: () => {
-      composerController.focus();
+      composerController.focusComposer();
     },
   });
   return { actions, toolbarPanelActions, navigation };

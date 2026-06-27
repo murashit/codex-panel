@@ -1,3 +1,4 @@
+import { listenAbortSignal } from "../../shared/lifecycle/abort-signal";
 import type { ModelMetadataClient } from "../catalog";
 import {
   AppServerClient,
@@ -281,9 +282,9 @@ function rejectOnAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined, 
     const onAbort = (): void => {
       reject(abortError());
     };
-    signal.addEventListener("abort", onAbort, { once: true });
+    const disposeAbortListener = listenAbortSignal(signal, onAbort);
     promise.then(resolve, reject).finally(() => {
-      signal.removeEventListener("abort", onAbort);
+      disposeAbortListener();
     });
   });
 }

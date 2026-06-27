@@ -1,5 +1,5 @@
-import type { TextareaCaretBoundaryDirection } from "../../shared/ui/textarea-caret.measure";
 import {
+  type SelectionRewriteInstructionHistoryDirection,
   type SelectionRewriteLifecycleEvent,
   type SelectionRewriteRuntimeSettings,
   type SelectionRewriteState,
@@ -141,7 +141,7 @@ export class SelectionRewriteSession {
     if (this.generationRun.kind === "running") this.generationRun.abortController.abort();
   }
 
-  navigateInstructionHistory(direction: TextareaCaretBoundaryDirection): boolean {
+  navigateInstructionHistory(direction: SelectionRewriteInstructionHistoryDirection): boolean {
     if (selectionRewriteInstructionHistory.length === 0) return false;
 
     if (this.historyCursor === null) {

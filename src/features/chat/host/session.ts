@@ -131,7 +131,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   focusComposer(): void {
-    this.graph.composer.controller.focus();
+    this.graph.composer.controller.focusComposer();
   }
 
   applyThreadArchived(threadId: string): void {

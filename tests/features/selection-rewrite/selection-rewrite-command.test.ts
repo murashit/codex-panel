@@ -3,7 +3,7 @@
 import { MarkdownView, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
-import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command";
+import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command.obsidian";
 import type { SelectionRewritePopoverOptions } from "../../../src/features/selection-rewrite/popover.dom";
 
 const popoverMock = vi.hoisted(() => {

@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../../shared/ui/components.obsidian";
 import type { RateLimitSummary } from "../presentation/runtime/status";
+import { focusToolbarRenameInput } from "./toolbar.dom";
 
 type ButtonProps = ButtonHTMLAttributes & {
   disabled?: boolean | undefined;
@@ -417,12 +418,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
   const generating = thread.rename?.generating ?? false;
   const draft = thread.rename?.draft ?? thread.title;
   useLayoutEffect(() => {
-    const input = inputRef.current;
-    if (!input) return;
-    if (input.ownerDocument.activeElement !== input) {
-      input.focus();
-      input.select();
-    }
+    focusToolbarRenameInput(inputRef.current);
   }, [draft]);
 
   return (

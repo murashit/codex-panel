@@ -20,7 +20,7 @@ import {
 } from "../../../src/features/selection-rewrite/model";
 import { selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
-import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position";
+import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
 import { runSelectionRewrite } from "../../../src/features/selection-rewrite/runner";

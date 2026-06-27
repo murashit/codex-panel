@@ -57,7 +57,6 @@ export interface ChatPanelEnvironment {
   view: {
     panelRoot: () => HTMLElement | null;
     viewWindow: () => Window | null;
-    containsElement: (element: Element) => boolean;
     refreshTabHeader: () => void;
   };
 }

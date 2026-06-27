@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../src/constants";
 import type { Thread } from "../src/domain/threads/model";
 import type { CodexChatHost } from "../src/features/chat/host/contracts";
-import type { CodexChatView } from "../src/features/chat/host/view";
+import type { CodexChatView } from "../src/features/chat/host/view.obsidian";
 import type CodexPanelPlugin from "../src/main";
 import { DEFAULT_SETTINGS } from "../src/settings/model";
 import { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
@@ -88,7 +88,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   it("loads and focuses a deferred restored panel before opening another panel", async () => {
     const restoredLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
     const plugin = await pluginWithLeaves([restoredLeaf]);
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     restoredLeaf.loadIfDeferred.mockImplementation(async () => {
       restoredLeaf.view = chatView(CodexChatView, restoredLeaf);
     });
@@ -118,7 +118,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("focuses an already open thread before reusing an empty panel", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const openLeaf = leaf();
     openLeaf.view = chatView(CodexChatView, openLeaf);
     const openView = openLeaf.view as CodexChatView;
@@ -146,7 +146,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("reuses an idle empty panel before opening a new panel", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const busyLeaf = leaf();
     busyLeaf.view = chatView(CodexChatView, busyLeaf);
     const busyView = busyLeaf.view as CodexChatView;
@@ -182,7 +182,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("does not reuse an idle panel with a pending MCP elicitation as empty", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const pendingLeaf = leaf();
     pendingLeaf.view = chatView(CodexChatView, pendingLeaf);
     const pendingView = pendingLeaf.view as CodexChatView;
@@ -204,7 +204,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("opens picker Enter selections in the most recent panel when the thread is not already open", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const olderLeaf = leaf();
     olderLeaf.view = chatView(CodexChatView, olderLeaf);
     const olderView = olderLeaf.view as CodexChatView;
@@ -223,7 +223,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("opens picker Enter selections in the active Codex panel before the right-sidebar fallback", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const fallbackLeaf = leaf();
     fallbackLeaf.view = chatView(CodexChatView, fallbackLeaf);
     const fallbackView = fallbackLeaf.view as CodexChatView;
@@ -243,7 +243,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("focuses an already open thread before picker Enter overwrites the current panel", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const openLeaf = leaf();
     openLeaf.view = chatView(CodexChatView, openLeaf);
     const openView = openLeaf.view as CodexChatView;
@@ -266,7 +266,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const restoredLeaf = leaf({ state: { threadId: "restored-thread", threadTitle: "Restored thread" } });
     const plugin = await pluginWithLeaves([restoredLeaf]);
     (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(restoredLeaf);
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const view = chatView(CodexChatView, restoredLeaf);
     const openThread = vi.spyOn(view.surface, "openThread").mockResolvedValue(undefined);
     const focusThread = vi.spyOn(view.surface, "focusThread").mockResolvedValue(undefined);
@@ -285,7 +285,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const newLeaf = leaf();
     const plugin = await pluginWithLeaves([]);
     (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(newLeaf);
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const view = chatView(CodexChatView, newLeaf);
     newLeaf.setViewState.mockImplementation(async () => {
       newLeaf.view = view;
@@ -302,7 +302,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("activates the active Codex panel instead of the first existing panel", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
     const firstView = firstLeaf.view as CodexChatView;
@@ -327,8 +327,8 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("marks snapshots for the last focused Codex panel", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
-    const { CodexThreadsView } = await import("../src/features/threads-view/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const { CodexThreadsView } = await import("../src/features/threads-view/view.obsidian");
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
     vi.spyOn((firstLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
@@ -367,7 +367,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("hydrates restored panels when Obsidian activates an open Codex tab", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const panelLeaf = leaf();
     panelLeaf.view = chatView(CodexChatView, panelLeaf);
     const hydrateRestoredThread = vi.spyOn((panelLeaf.view as CodexChatView).surface, "hydrateRestoredThread").mockResolvedValue(undefined);
@@ -390,7 +390,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
 
   it("loads and hydrates the startup foreground Codex panel through workspace reconciliation", async () => {
     vi.useFakeTimers();
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const activeLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
     const view = chatView(CodexChatView, activeLeaf);
     const hydrateRestoredThread = vi.spyOn(view.surface, "hydrateRestoredThread").mockResolvedValue(undefined);
@@ -411,7 +411,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
 
   it("hydrates the right sidebar Codex panel on startup when the active leaf is a note", async () => {
     vi.useFakeTimers();
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const restoredLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored thread" } });
     const noteLeaf = nonPanelLeaf();
     const view = chatView(CodexChatView, restoredLeaf);
@@ -434,7 +434,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("initially marks the active Codex panel before focus events arrive", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const firstLeaf = leaf();
     firstLeaf.view = chatView(CodexChatView, firstLeaf);
     vi.spyOn((firstLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
@@ -454,7 +454,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("initially falls back to the most recent right sidebar Codex panel", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const recentLeaf = leaf();
     recentLeaf.view = chatView(CodexChatView, recentLeaf);
     vi.spyOn((recentLeaf.view as CodexChatView).surface, "openPanelSnapshot").mockReturnValue(
@@ -478,7 +478,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const newLeaf = leaf();
     const plugin = await pluginWithLeaves([]);
     (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(newLeaf);
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const view = chatView(CodexChatView, newLeaf);
     newLeaf.setViewState.mockImplementation(async () => {
       newLeaf.view = view;
@@ -495,7 +495,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("does not refresh shared thread lists after known archive mutations", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
@@ -509,7 +509,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("closes matching chat panels only when archive notification requests it", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
     const matchingLeaf = leaf();
     matchingLeaf.view = chatView(CodexChatView, matchingLeaf);
@@ -535,7 +535,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("does not refresh shared thread lists after known rename mutations", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
@@ -549,7 +549,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("single-flights shared thread list refreshes and caches successful results", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
@@ -582,7 +582,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
@@ -622,7 +622,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("does not reuse a connected panel whose app-server context does not match the shared query", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
@@ -644,7 +644,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("keeps the previous shared thread list when refresh fails", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
@@ -664,7 +664,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("uses a short-lived client when the operation declares an unhandled server-request policy", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();
     connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
     const connectedView = connectedLeaf.view as CodexChatView;
@@ -691,7 +691,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
   });
 
   it("refreshes shared thread lists from a remaining connected panel after the archived panel is detached", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view");
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const sourceLeaf = leaf();
     sourceLeaf.view = chatView(CodexChatView, sourceLeaf);
     const sourceView = sourceLeaf.view as CodexChatView;

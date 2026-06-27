@@ -1,5 +1,6 @@
 import { Component, h, type ComponentChild as UiNode } from "preact";
 
+import { disposeDomListeners, listenDomEvent } from "../../../../shared/ui/dom-events.dom";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
 
 type MessageScrollDirection = -1 | 1;
@@ -168,10 +169,6 @@ function attachMessageFlowContainer(runtime: MessageFlowRuntime, container: HTML
     scrollMessageFlowToEnd(runtime);
     scheduleMessageFlowEndRestore(runtime);
   };
-  container.addEventListener("scroll", handleScroll, { passive: true });
-  container.addEventListener(MESSAGE_CONTENT_RENDERED_EVENT, handleContentChange, true);
-  container.addEventListener("toggle", handleContentChange, true);
-
   const win = container.ownerDocument.defaultView;
   if (win?.ResizeObserver) {
     runtime.resizeObserver = new win.ResizeObserver(() => {
@@ -181,13 +178,18 @@ function attachMessageFlowContainer(runtime: MessageFlowRuntime, container: HTML
   }
 
   runtime.restoreFrame = null;
-  cleanupMessageFlowContainer.set(runtime, () => {
-    container.removeEventListener("scroll", handleScroll);
-    container.removeEventListener(MESSAGE_CONTENT_RENDERED_EVENT, handleContentChange, true);
-    container.removeEventListener("toggle", handleContentChange, true);
-    runtime.resizeObserver?.disconnect();
-    runtime.resizeObserver = null;
-  });
+  cleanupMessageFlowContainer.set(
+    runtime,
+    disposeDomListeners(
+      listenDomEvent(container, "scroll", handleScroll, { passive: true }),
+      listenDomEvent(container, MESSAGE_CONTENT_RENDERED_EVENT, handleContentChange, true),
+      listenDomEvent(container, "toggle", handleContentChange, true),
+      () => {
+        runtime.resizeObserver?.disconnect();
+        runtime.resizeObserver = null;
+      },
+    ),
+  );
 }
 
 const cleanupMessageFlowContainer = new WeakMap<MessageFlowRuntime, () => void>();

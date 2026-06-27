@@ -564,7 +564,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
 }
 
 async function threadsView(host = threadsHost()) {
-  const { CodexThreadsView } = await import("../../../src/features/threads-view/view");
+  const { CodexThreadsView } = await import("../../../src/features/threads-view/view.obsidian");
   const containerEl = document.createElement("div");
   return new CodexThreadsView(
     {

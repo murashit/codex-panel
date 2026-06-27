@@ -11,6 +11,7 @@ import type {
   PendingUserInputViewModel,
 } from "../../presentation/pending-requests/view-model";
 import type { PendingRequestBlockActions } from "./context";
+import { applyMcpElicitationFormValidity, focusPendingRequestControl, type McpElicitationValidityMessage } from "./message-stream.dom";
 import { createStatusMessageClassName } from "./status";
 
 export function pendingRequestBlockNode(
@@ -93,26 +94,6 @@ function PendingRequestBlock({
   );
 }
 
-function focusPendingRequestControl(container: HTMLElement | null): void {
-  if (!container) return;
-  for (const selector of [
-    ".codex-panel__user-input-radio:checked",
-    ".codex-panel__user-input-text",
-    ".codex-panel__mcp-elicitation-input",
-    ".codex-panel__mcp-elicitation-checkbox",
-    ".codex-panel__mcp-elicitation-radio:checked",
-    ".codex-panel__mcp-elicitation-radio",
-    ".codex-panel__user-input-radio",
-    ".codex-panel__pending-request-button.mod-cta",
-    ".codex-panel__pending-request-button",
-  ]) {
-    const target = container.querySelector<HTMLElement>(selector);
-    if (!target) continue;
-    target.focus({ preventScroll: true });
-    return;
-  }
-}
-
 function McpElicitationCard({
   elicitation,
   mcpElicitationDrafts,
@@ -175,25 +156,15 @@ function validateMcpElicitationForm(
   elicitation: PendingMcpElicitationViewModel,
   drafts: ReadonlyMap<string, string>,
 ): boolean {
-  if (!form) return true;
-  clearMcpElicitationCustomValidity(form);
+  const messages: McpElicitationValidityMessage[] = [];
   for (const field of elicitation.fields) {
     if (field.type !== "multi-select") continue;
     const selectedCount = selectedMcpElicitationValues(drafts.get(field.draftKey) ?? field.defaultDraft).size;
     const message = mcpElicitationMultiSelectValidationMessage(field, selectedCount);
     if (!message) continue;
-    const input = Array.from(form.querySelectorAll<HTMLInputElement>("input[data-mcp-elicitation-field]")).find(
-      (candidate) => candidate.dataset["mcpElicitationField"] === field.id,
-    );
-    input?.setCustomValidity(message);
+    messages.push({ fieldId: field.id, message });
   }
-  return form.reportValidity();
-}
-
-function clearMcpElicitationCustomValidity(form: HTMLFormElement): void {
-  form.querySelectorAll<HTMLInputElement>(".codex-panel__mcp-elicitation-checkbox").forEach((input) => {
-    input.setCustomValidity("");
-  });
+  return applyMcpElicitationFormValidity(form, messages);
 }
 
 function mcpElicitationMultiSelectValidationMessage(field: PendingMcpElicitationFieldViewModel, selectedCount: number): string | null {

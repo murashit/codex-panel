@@ -63,7 +63,7 @@ Generated app-server types should stay behind app-server connection and protocol
 
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only in `src/features/chat/panel/shell-state.tsx`; lint enforces this boundary. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
 
-Use imperative DOM writes only for explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Name those files with a `.dom`, `.obsidian`, or `.measure` suffix so Biome can enforce the boundary without file-specific allowlists.
+Use DOM reads, writes, measurements, hit-tests, focus/selection operations, and DOM event listener wiring only from explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Normal `.ts` and `.tsx` modules may keep refs and call named adapters, but they should not interpret DOM structure or layout directly. Name bridge files with a `.dom`, `.obsidian`, or `.measure` suffix so Biome can enforce the boundary without file-specific allowlists.
 
 Use `.tsx` only in rendering-owned source folders: chat panel and UI modules, Obsidian/settings surfaces, shared UI components, and explicit `.dom.tsx` rendering boundaries such as the selection rewrite popover and threads view shell. Non-rendering source should use `.ts`; Biome enforces this so lower-level app-server, domain, application, presentation, workspace, and generic shared modules do not grow JSX dependencies.
 

@@ -1,4 +1,5 @@
 import type { ComponentChild as UiNode } from "preact";
+import { listenDomEvent } from "../../../shared/ui/dom-events.dom";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root.dom";
 import type { ChatStateStore } from "../application/state/store";
 import type { ToolbarActions } from "../ui/toolbar";
@@ -168,10 +169,7 @@ function startStatusBarClearanceSync(container: HTMLElement): () => void {
     bodyObserver.disconnect();
   });
 
-  win.addEventListener("resize", sync);
-  cleanupCallbacks.push(() => {
-    win.removeEventListener("resize", sync);
-  });
+  cleanupCallbacks.push(listenDomEvent(win, "resize", sync));
   sync();
 
   return () => {

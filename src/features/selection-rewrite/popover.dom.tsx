@@ -3,14 +3,20 @@ import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
 
 import { IconButton } from "../../shared/ui/components.obsidian";
 import { DiffLineList, unifiedDiffDisplayLines } from "../../shared/ui/diff";
+import { listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../shared/ui/dom-events.dom";
 import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
 import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow.measure";
-import { type TextareaCaretBoundaryDirection, textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret.measure";
+import { textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret.measure";
 import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root.dom";
 import { buildSelectionUnifiedDiff } from "./diff";
-import { canApplySelectionRewrite, type SelectionRewriteRuntimeSettings, type SelectionRewriteState } from "./model";
+import {
+  canApplySelectionRewrite,
+  type SelectionRewriteInstructionHistoryDirection,
+  type SelectionRewriteRuntimeSettings,
+  type SelectionRewriteState,
+} from "./model";
 
-import { positionSelectionRewritePopover } from "./position";
+import { positionSelectionRewritePopover } from "./position.dom";
 import { SelectionRewriteSession, type SelectionRewriteSessionStatus } from "./session";
 
 const POPOVER_MARGIN = 8;
@@ -62,26 +68,37 @@ export class SelectionRewritePopover {
     const elements = this.createElements();
     this.elements = elements;
 
-    this.addDomListener(this.options.viewWindow, "resize", () => {
-      this.position();
-    });
-    this.addDomListener(
-      this.options.viewWindow,
-      "scroll",
-      () => {
+    this.addCleanup(
+      listenDomEvent(this.options.viewWindow, "resize", () => {
         this.position();
-      },
-      true,
+      }),
     );
-    this.addDomListener(this.options.viewDocument, "keydown", (event) => {
-      if (event.key === "Escape") {
+    this.addCleanup(
+      listenDomEvent(
+        this.options.viewWindow,
+        "scroll",
+        () => {
+          this.position();
+        },
+        true,
+      ),
+    );
+    this.addCleanup(
+      listenDomEscapeKey(this.options.viewDocument, (event) => {
         event.preventDefault();
         this.cancel();
-      }
-    });
-    this.addDomListener(this.options.viewDocument, "pointerdown", (event) => {
-      if (!this.elements?.root.contains(event.target as Node | null)) this.cancel();
-    });
+      }),
+    );
+    this.addCleanup(
+      listenOutsideDomEvent(
+        elements.root,
+        "pointerdown",
+        () => {
+          this.cancel();
+        },
+        true,
+      ),
+    );
 
     this.session.setStatus("");
     this.syncInstructionHeight();
@@ -246,35 +263,15 @@ export class SelectionRewritePopover {
     instruction.setSelectionRange(cursor, cursor);
   }
 
-  private addDomListener<K extends keyof WindowEventMap>(
-    target: Window,
-    type: K,
-    callback: (event: WindowEventMap[K]) => void,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  private addDomListener<K extends keyof DocumentEventMap>(
-    target: Document,
-    type: K,
-    callback: (event: DocumentEventMap[K]) => void,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  private addDomListener(
-    target: Window | Document,
-    type: string,
-    callback: EventListener,
-    options?: boolean | AddEventListenerOptions,
-  ): void {
-    target.addEventListener(type, callback, options);
-    this.cleanups.push(() => {
-      target.removeEventListener(type, callback, options);
-    });
+  private addCleanup(cleanup: Cleanup): void {
+    this.cleanups.push(cleanup);
   }
 }
 
 function selectionRewriteInstructionHistoryDirection(
   event: TargetedKeyboardEvent<HTMLTextAreaElement>,
   instruction: HTMLTextAreaElement,
-): TextareaCaretBoundaryDirection | null {
+): SelectionRewriteInstructionHistoryDirection | null {
   if (event.isComposing || event.metaKey || event.altKey || event.shiftKey) return null;
 
   const direction = selectionRewriteInstructionHistoryKeyDirection(event);
@@ -285,7 +282,7 @@ function selectionRewriteInstructionHistoryDirection(
 
 function selectionRewriteInstructionHistoryKeyDirection(
   event: TargetedKeyboardEvent<HTMLTextAreaElement>,
-): TextareaCaretBoundaryDirection | null {
+): SelectionRewriteInstructionHistoryDirection | null {
   if (!event.ctrlKey) {
     if (event.key === "ArrowUp") return -1;
     if (event.key === "ArrowDown") return 1;
@@ -299,7 +296,7 @@ function selectionRewriteInstructionHistoryKeyDirection(
 }
 
 function selectionRewriteInstructionCursorOnLogicalBoundary(
-  direction: TextareaCaretBoundaryDirection,
+  direction: SelectionRewriteInstructionHistoryDirection,
   instruction: HTMLTextAreaElement,
 ): boolean {
   if (instruction.selectionStart !== instruction.selectionEnd) return false;

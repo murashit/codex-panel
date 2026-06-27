@@ -1,22 +1,29 @@
 import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
-import { textareaCursorAtVisualBoundary } from "../../../shared/ui/textarea-caret.measure";
-import { type ComposerBoundaryScrollAction, composerBoundaryScrollDirection } from "../application/composer/boundary-scroll";
+import type { ComposerBoundaryScrollAction } from "../application/composer/boundary-scroll";
 import type { NoteCandidateProvider } from "../application/composer/note-context";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
   type ComposerSuggestion,
   composerSuggestionNavigationDirection,
-  composerSuggestionSignature,
   type NoteCandidate,
   nextComposerSuggestionIndex,
 } from "../application/composer/suggestions";
 import { userInputWithWikiLinkMentionsAndSkills } from "../application/composer/wikilink-context";
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
-import type { ComposerShellProps } from "../ui/composer";
-import { type ComposerCallbacks, syncComposerHeight } from "../ui/composer";
+import type { ComposerCallbacks, ComposerShellProps } from "../ui/composer";
+import { syncComposerHeight } from "../ui/composer.dom";
+import {
+  applyComposerInsertionToElement,
+  composerBoundaryScrollActionFromElement,
+  composerHasFocus,
+  composerInsertionSource,
+  composerSuggestionSignatureFromElement,
+  composerTextBeforeCursor,
+  focusComposer,
+} from "./composer-controller.dom";
 import type { ChatPanelComposerShellState } from "./shell-state";
 import type { ChatPanelComposerProjection } from "./surface/composer-projection";
 
@@ -91,15 +98,15 @@ export class ChatComposerController {
       ...(options.clearSuggestions === undefined ? {} : { clearSuggestions: options.clearSuggestions }),
     });
     this.options.onDraftChange();
-    if (options.focus) this.composer?.focus();
+    if (options.focus) focusComposer(this.composer);
   }
 
-  focus(): void {
-    this.composer?.focus({ preventScroll: true });
+  focusComposer(): void {
+    focusComposer(this.composer, { preventScroll: true });
   }
 
   hasFocus(): boolean {
-    return this.composer !== null && this.composer.ownerDocument.activeElement === this.composer;
+    return composerHasFocus(this.composer);
   }
 
   dispose(): void {
@@ -153,12 +160,7 @@ export class ChatComposerController {
   }
 
   private handleBoundaryScrollKeydown(event: KeyboardEvent): boolean {
-    if (!this.composer) return false;
-
-    const composer = this.composer;
-    const action = composerBoundaryScrollDirection(event, composer, {
-      cursorAtVisualBoundary: (direction) => textareaCursorAtVisualBoundary(direction, composer),
-    });
+    const action = composerBoundaryScrollActionFromElement(event, this.composer);
     if (!action) return false;
     if (action.kind === "scroll-by" && action.amount === "text-lines" && !this.options.scrollThreadFromComposerEdges()) return false;
 
@@ -168,19 +170,18 @@ export class ChatComposerController {
   }
 
   private updateSuggestions(): void {
-    if (!this.composer) {
+    const beforeCursor = composerTextBeforeCursor(this.composer);
+    if (beforeCursor === null) {
       this.clearSuggestions();
       return;
     }
 
-    const cursor = this.composer.selectionStart;
     const signature = this.suggestionSignature();
     const state = this.state;
     if (state.composer.suggestionsDismissedSignature === signature) {
       this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [] });
       return;
     }
-    const beforeCursor = this.composer.value.slice(0, cursor);
     const suggestions = activeComposerSuggestions(
       beforeCursor,
       this.noteCandidates(),
@@ -221,7 +222,8 @@ export class ChatComposerController {
     if (state.composer.suggestionsDismissedSignature === signature) {
       return { suggestions: [], selected: 0, dismissedSignature: signature };
     }
-    const beforeCursor = this.composer.value.slice(0, this.composer.selectionStart);
+    const beforeCursor = composerTextBeforeCursor(this.composer);
+    if (beforeCursor === null) return { suggestions: [], selected: 0, dismissedSignature: null };
     const suggestions = activeComposerSuggestions(
       beforeCursor,
       this.noteCandidates(),
@@ -244,17 +246,15 @@ export class ChatComposerController {
   }
 
   private insertSuggestion(suggestion: ComposerSuggestion | undefined, activation: "enter" | "tab" = "enter"): void {
-    if (!this.composer || !suggestion) return;
+    if (!suggestion) return;
+    const source = composerInsertionSource(this.composer);
+    if (!source) return;
 
-    const cursor = this.composer.selectionStart;
-    const value = this.composer.value;
-    const insertion = applyComposerSuggestionInsertion(value, cursor, suggestion, { activation });
+    const insertion = applyComposerSuggestionInsertion(source.value, source.cursor, suggestion, { activation });
 
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
     this.options.onDraftChange();
-    syncComposerHeight(this.composer);
-    this.composer.focus();
-    this.composer.setSelectionRange(insertion.cursor, insertion.cursor);
+    applyComposerInsertionToElement(this.composer, insertion.cursor);
   }
 
   private clearSuggestions(): void {
@@ -275,8 +275,7 @@ export class ChatComposerController {
   }
 
   private suggestionSignature(): string | null {
-    if (!this.composer) return null;
-    return composerSuggestionSignature(this.composer.value, this.composer.selectionStart);
+    return composerSuggestionSignatureFromElement(this.composer);
   }
 
   private noteCandidates(): NoteCandidate[] {

@@ -26,9 +26,32 @@ or {
   `$target.classList.remove($...)` as $stmt,
   `$target.classList.toggle($...)` as $stmt,
   `$target.addEventListener($...)` as $stmt,
-  `$target.removeEventListener($...)` as $stmt
+  `$target.removeEventListener($...)` as $stmt,
+  `$target.querySelector($...)` as $stmt,
+  `$target.querySelectorAll($...)` as $stmt,
+  `$target.closest($...)` as $stmt,
+  `$target.contains($...)` as $stmt,
+  `$target.getBoundingClientRect()` as $stmt,
+  `$target.focus($...)` as $stmt,
+  `$target.select()` as $stmt,
+  `$target.setSelectionRange($...)` as $stmt,
+  `$target.setCssProps($...)` as $stmt,
+  `$target.scrollHeight` as $stmt,
+  `$target.scrollWidth` as $stmt,
+  `$target.clientHeight` as $stmt,
+  `$target.clientWidth` as $stmt,
+  `$target.offsetTop` as $stmt,
+  `$target.offsetHeight` as $stmt,
+  `$target.selectionStart` as $stmt,
+  `$target.selectionEnd` as $stmt,
+  `$target.selectionDirection` as $stmt,
+  `$target.activeElement` as $stmt,
+  `$target.ownerDocument` as $stmt,
+  `$target.defaultView` as $stmt,
+  `$target.style.$property` as $stmt
 } where {
   not { $filename <: r".*\.(?:dom|obsidian|measure)\.tsx?$" },
-  not { $target <: `signal` },
-  register_diagnostic(span=$stmt, message="Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.", severity="error")
+  not { $stmt <: `$target.addEventListener("abort", $...)` },
+  not { $stmt <: `$target.removeEventListener("abort", $...)` },
+  register_diagnostic(span=$stmt, message="Keep DOM reads, writes, measurements, hit-tests, focus, and event wiring in files named with a .dom, .obsidian, or .measure suffix.", severity="error")
 }

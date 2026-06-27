@@ -136,7 +136,7 @@ describe("createChatPanelSessionGraph actions", () => {
   });
 
   it("starts a new thread from graph state and composer actions", async () => {
-    const focusComposer = vi.spyOn(ChatComposerController.prototype, "focus").mockImplementation(() => undefined);
+    const focusComposer = vi.spyOn(ChatComposerController.prototype, "focusComposer").mockImplementation(() => undefined);
     const refreshLiveState = vi.fn();
     const requestWorkspaceLayoutSave = vi.fn();
     const refreshTabHeader = vi.fn();
@@ -178,7 +178,7 @@ describe("createChatPanelSessionGraph actions", () => {
   });
 
   it("does not clear the current thread while a turn is busy", async () => {
-    const focusComposer = vi.spyOn(ChatComposerController.prototype, "focus").mockImplementation(() => undefined);
+    const focusComposer = vi.spyOn(ChatComposerController.prototype, "focusComposer").mockImplementation(() => undefined);
     const { graph, stateStore } = sessionGraphFixture();
     stateStore.dispatch({
       type: "turn/started",
@@ -294,7 +294,6 @@ describe("createChatPanelSessionGraph actions", () => {
       view: {
         panelRoot: () => panelRoot,
         viewWindow: () => window,
-        containsElement: (element) => panelRoot.contains(element),
         refreshTabHeader: vi.fn(),
         ...overrides.view,
       },

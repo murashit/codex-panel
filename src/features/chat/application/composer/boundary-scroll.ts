@@ -28,8 +28,8 @@ export interface ComposerBoundaryScrollKeyEvent {
 
 export interface ComposerBoundaryScrollTextState {
   value: string;
-  selectionStart: number;
-  selectionEnd: number;
+  cursorStart: number;
+  cursorEnd: number;
 }
 
 export interface ComposerBoundaryScrollOptions {
@@ -46,7 +46,7 @@ export function composerBoundaryScrollDirection(
   const keyAction = composerBoundaryScrollKeyAction(event);
   if (!keyAction) return null;
   if (keyAction.kind === "scroll-to" || keyAction.amount === "page") return keyAction;
-  if (composer.selectionStart !== composer.selectionEnd) return null;
+  if (composer.cursorStart !== composer.cursorEnd) return null;
 
   return keyAction.direction === -1
     ? composerCursorOnFirstLine(composer) && composerCursorAtVisualBoundary(keyAction.direction, composer, options)
@@ -83,11 +83,11 @@ function composerBoundaryScrollByAction(
 }
 
 function composerCursorOnFirstLine(composer: ComposerBoundaryScrollTextState): boolean {
-  return !composer.value.slice(0, composer.selectionStart).includes("\n");
+  return !composer.value.slice(0, composer.cursorStart).includes("\n");
 }
 
 function composerCursorOnLastLine(composer: ComposerBoundaryScrollTextState): boolean {
-  return !composer.value.slice(composer.selectionEnd).includes("\n");
+  return !composer.value.slice(composer.cursorEnd).includes("\n");
 }
 
 function composerCursorAtVisualBoundary(

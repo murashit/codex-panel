@@ -42,7 +42,7 @@ describe("composer boundary scroll shortcuts", () => {
   it("scrolls by page from any composer line for PageUp and PageDown", () => {
     expect(direction("PageUp", "first\nsecond", 9)).toEqual({ kind: "scroll-by", direction: -1, amount: "page" });
     expect(direction("PageDown", "first\nsecond", 3)).toEqual({ kind: "scroll-by", direction: 1, amount: "page" });
-    expect(direction("PageDown", "first\nsecond", 3, { selectionEnd: 8 })).toEqual({
+    expect(direction("PageDown", "first\nsecond", 3, { cursorEnd: 8 })).toEqual({
       kind: "scroll-by",
       direction: 1,
       amount: "page",
@@ -58,7 +58,7 @@ describe("composer boundary scroll shortcuts", () => {
   it("scrolls to stream edges from any composer line for Home and End", () => {
     expect(direction("Home", "first\nsecond", 9)).toEqual({ kind: "scroll-to", edge: "start" });
     expect(direction("End", "first\nsecond", 3)).toEqual({ kind: "scroll-to", edge: "end" });
-    expect(direction("End", "first\nsecond", 3, { selectionEnd: 8 })).toEqual({ kind: "scroll-to", edge: "end" });
+    expect(direction("End", "first\nsecond", 3, { cursorEnd: 8 })).toEqual({ kind: "scroll-to", edge: "end" });
   });
 
   it("keeps normal cursor movement away from composer edges", () => {
@@ -79,7 +79,7 @@ describe("composer boundary scroll shortcuts", () => {
   });
 
   it("ignores selections, composition, and modified arrow keys", () => {
-    expect(direction("ArrowUp", "first\nsecond", 3, { selectionEnd: 4 })).toBeNull();
+    expect(direction("ArrowUp", "first\nsecond", 3, { cursorEnd: 4 })).toBeNull();
     expect(direction("ArrowUp", "first\nsecond", 3, { isComposing: true })).toBeNull();
     expect(direction("ArrowUp", "first\nsecond", 3, { shiftKey: true })).toBeNull();
     expect(direction("ArrowUp", "first\nsecond", 3, { altKey: true })).toBeNull();
@@ -89,7 +89,7 @@ describe("composer boundary scroll shortcuts", () => {
 function direction(
   key: string,
   value: string,
-  selectionStart: number,
+  cursorStart: number,
   options: Partial<{
     ctrlKey: boolean;
     metaKey: boolean;
@@ -97,7 +97,7 @@ function direction(
     shiftKey: boolean;
     isComposing: boolean;
     repeat: boolean;
-    selectionEnd: number;
+    cursorEnd: number;
     visualBoundary: boolean | ((direction: -1 | 1) => boolean);
   }> = {},
 ): ComposerBoundaryScrollAction | null {
@@ -120,8 +120,8 @@ function direction(
     },
     {
       value,
-      selectionStart,
-      selectionEnd: options.selectionEnd ?? selectionStart,
+      cursorStart,
+      cursorEnd: options.cursorEnd ?? cursorStart,
     },
     visualOptions,
   );

@@ -1,7 +1,6 @@
 import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { IconButton } from "../../../../shared/ui/components.obsidian";
-import { listenDomEvent } from "../../../../shared/ui/dom-events.dom";
 import type {
   EditedFilesTextView,
   MentionedFileTextView,
@@ -10,6 +9,7 @@ import type {
   TextItemDetailSectionView,
 } from "../../presentation/message-stream/text-view";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
+import { closeMessageRoleMenuOnOutsidePointer } from "./message-stream.dom";
 import { CollapsibleTextContent, TextContent } from "./text-content.dom";
 
 export function textNode(view: MessageStreamTextView, context: TextItemContext): UiNode {
@@ -46,13 +46,11 @@ function TextHeader({ view, context }: { view: MessageStreamTextView; context: T
 
   useEffect(() => {
     if (!forkMenuOpen) return;
-    const doc = roleRef.current?.ownerDocument;
-    if (!doc) return;
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (event.target instanceof Node && roleRef.current?.contains(event.target)) return;
+    const role = roleRef.current;
+    if (!role) return;
+    return closeMessageRoleMenuOnOutsidePointer(role, () => {
       context.onForkMenuToggle?.(null);
-    };
-    return listenDomEvent(doc, "pointerdown", closeOnOutsidePointer, true);
+    });
   }, [context, forkMenuOpen]);
 
   const copyAction =

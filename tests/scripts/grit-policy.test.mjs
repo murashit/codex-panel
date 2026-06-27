@@ -16,7 +16,9 @@ const projectPluginByName = new Map(
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
-const DOM_BOUNDARY_MESSAGE = "Keep imperative DOM writes and event wiring in files named with a .dom, .obsidian, or .measure suffix.";
+const DOM_BOUNDARY_MESSAGE =
+  "Keep DOM reads, writes, measurements, hit-tests, focus, and event wiring in files named with a .dom, .obsidian, or .measure suffix.";
+const DOM_EVENTS_IMPORT_MESSAGE = "Import DOM event listener helpers only from explicit .dom, .obsidian, or .measure bridge files.";
 let appServerBoundaryPolicyReportPromise;
 let renderingAndCssPolicyReportPromise;
 
@@ -138,6 +140,7 @@ runner = new Runner(() => runner.stop());
   it("keeps chat architecture policies behind their intended boundaries", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-implicit-dom-bridges.grit",
+      "no-dom-events-imports.grit",
       "no-preact-signal-imports.grit",
       "no-state-module-side-effects.grit",
       "no-ui-root-imports.grit",
@@ -177,6 +180,7 @@ export const loadedSignals = signals;
       `
 export function render(container: HTMLElement): void {
   const child = document.body;
+  const input = container as HTMLInputElement;
   container.createDiv();
   container.append(child);
   container.setAttribute("role", "region");
@@ -189,6 +193,30 @@ export function render(container: HTMLElement): void {
   container.classList.remove("codex-panel-chat--stale");
   container.classList.toggle("codex-panel-chat--busy", false);
   container.addEventListener("click", () => undefined);
+  container.querySelector(".codex-panel-chat");
+  container.querySelectorAll(".codex-panel-chat");
+  container.closest(".codex-panel-chat");
+  container.contains(child);
+  container.getBoundingClientRect();
+  container.focus();
+  input.select();
+  input.setSelectionRange(0, 0);
+  container.setCssProps({ display: "block" });
+  container.scrollHeight;
+  container.scrollWidth;
+  container.clientHeight;
+  container.clientWidth;
+  container.offsetTop;
+  container.offsetHeight;
+  input.selectionStart;
+  input.selectionEnd;
+  input.selectionDirection;
+  const doc = container.ownerDocument;
+  doc.defaultView;
+  container.style.display;
+  container.style.color;
+  container.style.setProperty("display", "block");
+  container.style.removeProperty("display");
   child.remove();
 }
 `.trimStart(),
@@ -198,6 +226,7 @@ export function render(container: HTMLElement): void {
       `
 export function render(container: HTMLElement): void {
   const child = document.body;
+  const input = container as HTMLInputElement;
   container.createDiv();
   container.append(child);
   container.setAttribute("role", "region");
@@ -210,8 +239,40 @@ export function render(container: HTMLElement): void {
   container.classList.remove("codex-panel-chat--stale");
   container.classList.toggle("codex-panel-chat--busy", false);
   container.addEventListener("click", () => undefined);
+  container.querySelector(".codex-panel-chat");
+  container.querySelectorAll(".codex-panel-chat");
+  container.closest(".codex-panel-chat");
+  container.contains(child);
+  container.getBoundingClientRect();
+  container.focus();
+  input.select();
+  input.setSelectionRange(0, 0);
+  container.setCssProps({ display: "block" });
+  container.scrollHeight;
+  container.scrollWidth;
+  container.clientHeight;
+  container.clientWidth;
+  container.offsetTop;
+  container.offsetHeight;
+  input.selectionStart;
+  input.selectionEnd;
+  input.selectionDirection;
+  const doc = container.ownerDocument;
+  doc.defaultView;
+  container.style.display;
+  container.style.color;
+  container.style.setProperty("display", "block");
+  container.style.removeProperty("display");
   child.remove();
 }
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/ui/dom-event-escape.tsx"),
+      `
+import { listenDomEvent } from "../../../shared/ui/dom-events.dom";
+
+export const listen = listenDomEvent;
 `.trimStart(),
     );
     await writeFile(
@@ -277,6 +338,7 @@ export function timestamp(): number {
         "src/shared/ui/components.tsx",
         "src/shared/ui/signal-escapes.tsx",
         "src/features/chat/ui/dom-bridge-escape.tsx",
+        "src/features/chat/ui/dom-event-escape.tsx",
         "src/features/chat/ui/dom-bridge.dom.tsx",
         "src/app-server/services/runtime-overrides.ts",
         "src/features/chat/ui/root-import.tsx",
@@ -297,8 +359,9 @@ export function timestamp(): number {
       "Do not import @preact/signals from this module.",
     ]);
     expect(pluginMessages(report, "src/features/chat/ui/dom-bridge-escape.tsx")).toEqual(
-      Array.from({ length: 13 }, () => DOM_BOUNDARY_MESSAGE),
+      Array.from({ length: 37 }, () => DOM_BOUNDARY_MESSAGE),
     );
+    expect(pluginMessages(report, "src/features/chat/ui/dom-event-escape.tsx")).toEqual([DOM_EVENTS_IMPORT_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/chat/ui/dom-bridge.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/app-server/services/runtime-overrides.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/ui/root-import.tsx")).toEqual([

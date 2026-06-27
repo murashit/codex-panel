@@ -37,6 +37,21 @@ export function unmountThreadsViewShell(parent: HTMLElement | null): void {
   unmountUiRoot(parent);
 }
 
+export function isThreadsArchiveConfirmPointer(event: PointerEvent, root: HTMLElement, viewWindow: Window): boolean {
+  const target = event.target;
+  const domWindow = viewWindow as Window & { Element: typeof Element };
+  if (!(target instanceof domWindow.Element)) return false;
+  const archiveConfirm = target.closest(".codex-panel-threads__archive-confirm");
+  return Boolean(archiveConfirm && root.contains(archiveConfirm));
+}
+
+function focusThreadsRenameInput(input: HTMLInputElement | null): void {
+  if (!input) return;
+  if (input.ownerDocument.activeElement === input) return;
+  input.focus();
+  input.select();
+}
+
 function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; actions: ThreadsViewShellActions }): UiNode {
   return (
     <>
@@ -181,12 +196,7 @@ function ArchiveModeButton({
 function RenameRow({ row, actions, className }: { row: ThreadsRowModel; actions: ThreadsViewShellActions; className: string }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   useLayoutEffect(() => {
-    const input = inputRef.current;
-    if (!input) return;
-    if (input.ownerDocument.activeElement !== input) {
-      input.focus();
-      input.select();
-    }
+    focusThreadsRenameInput(inputRef.current);
   }, [row.rename.draft]);
 
   return (
