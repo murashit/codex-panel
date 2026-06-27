@@ -68,31 +68,43 @@ function toolbarSurface(_store: ReturnType<typeof createChatStateStore>, _toolba
   };
 }
 
-function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarActions: ToolbarPanelActions): ChatPanelShellParts {
-  const surface = surfaceFixture(store, toolbarActions);
+function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanelActions: ToolbarPanelActions): ChatPanelShellParts {
+  const surface = surfaceFixture(store, toolbarPanelActions);
   return {
     toolbar: {
       surface: surface.toolbar,
       actions: {
-        startNewThread: vi.fn(),
-        toggleChatActions: vi.fn(),
-        compactConversation: vi.fn(),
-        setGoal: vi.fn(),
-        toggleHistory: vi.fn(),
-        toggleStatusPanel: vi.fn(),
-        connect: vi.fn(),
-        refreshStatus: vi.fn(),
-        copyDebugDetails: vi.fn(),
-        resumeThread: vi.fn(),
-        startArchiveThread: (threadId) => {
-          toolbarActions.startArchive(threadId);
+        primary: {
+          toggleHistory: vi.fn(),
+          toggleChatActions: vi.fn(),
+          toggleStatusPanel: vi.fn(),
         },
-        archiveThread: vi.fn(),
-        startRenameThread: vi.fn(),
-        updateRenameDraft: vi.fn(),
-        saveRenameThread: vi.fn(),
-        cancelRenameThread: vi.fn(),
-        autoNameThread: vi.fn(),
+        chat: {
+          startNewThread: vi.fn(),
+          compactConversation: vi.fn(),
+          setGoal: vi.fn(),
+        },
+        status: {
+          connect: vi.fn(),
+          refreshStatus: vi.fn(),
+          copyDebugDetails: vi.fn(),
+        },
+        threads: {
+          resume: vi.fn(),
+          archive: {
+            start: (threadId) => {
+              toolbarPanelActions.startArchive(threadId);
+            },
+            confirm: vi.fn(),
+          },
+          rename: {
+            start: vi.fn(),
+            updateDraft: vi.fn(),
+            save: vi.fn(),
+            cancel: vi.fn(),
+            autoName: vi.fn(),
+          },
+        },
       },
     },
     goal: surface.goal,

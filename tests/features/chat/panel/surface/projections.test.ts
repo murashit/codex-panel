@@ -445,26 +445,41 @@ function toolbarSurfaceFixture(overrides: { archiveExportEnabled?: boolean } = {
   };
 }
 
-function toolbarActionsFixture(overrides: Partial<ToolbarActions> = {}): ToolbarActions {
+interface ToolbarActionOverrides {
+  copyDebugDetails?: (details: string) => void;
+}
+
+function toolbarActionsFixture(overrides: ToolbarActionOverrides = {}): ToolbarActions {
   return {
-    startNewThread: () => undefined,
-    toggleChatActions: () => undefined,
-    compactConversation: () => undefined,
-    setGoal: () => undefined,
-    toggleHistory: () => undefined,
-    toggleStatusPanel: () => undefined,
-    connect: () => undefined,
-    refreshStatus: () => undefined,
-    copyDebugDetails: () => undefined,
-    resumeThread: () => undefined,
-    startArchiveThread: () => undefined,
-    archiveThread: () => undefined,
-    startRenameThread: () => undefined,
-    updateRenameDraft: () => undefined,
-    saveRenameThread: () => undefined,
-    cancelRenameThread: () => undefined,
-    autoNameThread: () => undefined,
-    ...overrides,
+    primary: {
+      toggleHistory: () => undefined,
+      toggleChatActions: () => undefined,
+      toggleStatusPanel: () => undefined,
+    },
+    chat: {
+      startNewThread: () => undefined,
+      compactConversation: () => undefined,
+      setGoal: () => undefined,
+    },
+    status: {
+      connect: () => undefined,
+      refreshStatus: () => undefined,
+      copyDebugDetails: overrides.copyDebugDetails ?? (() => undefined),
+    },
+    threads: {
+      resume: () => undefined,
+      archive: {
+        start: () => undefined,
+        confirm: () => undefined,
+      },
+      rename: {
+        start: () => undefined,
+        updateDraft: () => undefined,
+        save: () => undefined,
+        cancel: () => undefined,
+        autoName: () => undefined,
+      },
+    },
   };
 }
 

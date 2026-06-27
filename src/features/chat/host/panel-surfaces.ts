@@ -11,7 +11,7 @@ import type { ChatPanelGoalSurface } from "../panel/surface/goal-projection";
 import { MessageStreamPresenter } from "../panel/surface/message-stream-presenter";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../panel/surface/toolbar-projection";
-import { createChatPanelToolbarActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
+import { createToolbarUiActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
 import type { ToolbarActions } from "../ui/toolbar";
 import type { ChatPanelConnectionBundle } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./environment";
@@ -33,7 +33,7 @@ export interface ChatPanelSurfacesInput {
   goals: ChatPanelGoalActions;
   rename: ThreadRenameEditorActions;
   threadActions: ChatPanelThreadActions;
-  toolbarPanels: ToolbarPanelActions;
+  toolbarPanelActions: ToolbarPanelActions;
   navigation: ChatPanelThreadNavigationActions;
   reconnect: () => Promise<void>;
   history: HistoryController;
@@ -55,7 +55,7 @@ export function createChatPanelSurfaces(host: ChatPanelSurfacesHost, input: Chat
     goals,
     rename,
     threadActions,
-    toolbarPanels,
+    toolbarPanelActions,
     navigation,
     reconnect,
     history,
@@ -63,12 +63,12 @@ export function createChatPanelSurfaces(host: ChatPanelSurfacesHost, input: Chat
     turnActions,
   } = input;
   const { environment, stateStore } = host;
-  const toolbarActions = createChatPanelToolbarActions({
+  const toolbarActions = createToolbarUiActions({
     connectionController,
     reconnectPanel: reconnect,
     threadActions,
     goals,
-    toolbarPanels,
+    toolbarPanel: toolbarPanelActions,
     rename,
     navigation,
   });

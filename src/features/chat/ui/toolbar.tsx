@@ -45,24 +45,44 @@ export interface ToolbarViewModel {
   toolInventory: ToolbarDiagnosticSection[];
 }
 
-export interface ToolbarActions {
-  startNewThread: () => void;
+interface ToolbarPrimaryActions {
+  toggleHistory: () => void;
   toggleChatActions: () => void;
+  toggleStatusPanel: () => void;
+}
+
+interface ToolbarChatActions {
+  startNewThread: () => void;
   compactConversation: () => void;
   setGoal: () => void;
-  toggleHistory: () => void;
-  toggleStatusPanel: () => void;
+}
+
+interface ToolbarStatusActions {
   connect: () => void;
   refreshStatus: () => void;
   copyDebugDetails: (details: string) => void;
-  resumeThread: (threadId: string) => void;
-  startArchiveThread: (threadId: string) => void;
-  archiveThread: (threadId: string, saveMarkdown: boolean) => void;
-  startRenameThread: (threadId: string) => void;
-  updateRenameDraft: (threadId: string, value: string) => void;
-  saveRenameThread: (threadId: string, value: string) => void;
-  cancelRenameThread: (threadId: string) => void;
-  autoNameThread: (threadId: string) => void;
+}
+
+interface ToolbarThreadActions {
+  resume: (threadId: string) => void;
+  archive: {
+    start: (threadId: string) => void;
+    confirm: (threadId: string, saveMarkdown: boolean) => void;
+  };
+  rename: {
+    start: (threadId: string) => void;
+    updateDraft: (threadId: string, value: string) => void;
+    save: (threadId: string, value: string) => void;
+    cancel: (threadId: string) => void;
+    autoName: (threadId: string) => void;
+  };
+}
+
+export interface ToolbarActions {
+  primary: ToolbarPrimaryActions;
+  chat: ToolbarChatActions;
+  status: ToolbarStatusActions;
+  threads: ToolbarThreadActions;
 }
 
 export function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
@@ -74,16 +94,16 @@ export function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: 
             icon="history"
             label={model.historyOpen ? "Hide thread list" : "Show thread list"}
             className={["codex-panel__history-toggle", model.historyOpen ? "is-active" : ""].filter(Boolean).join(" ")}
-            onClick={actions.toggleHistory}
+            onClick={actions.primary.toggleHistory}
           />
           <ToolbarIconButton
             icon="messages-square"
             label={model.chatActionsOpen ? "Hide chat actions" : "Show chat actions"}
             className={["codex-panel__new-chat", model.chatActionsOpen ? "is-active" : ""].filter(Boolean).join(" ")}
             disabled={model.newChatDisabled}
-            onClick={actions.toggleChatActions}
+            onClick={actions.primary.toggleChatActions}
           />
-          <StatusButton model={model} actions={actions} />
+          <StatusButton model={model} actions={actions.primary} />
         </div>
       </div>
       <ToolbarPanel model={model} actions={actions} />
@@ -111,7 +131,7 @@ function ToolbarIconButton({
   );
 }
 
-function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
+function StatusButton({ model, actions }: { model: ToolbarViewModel; actions: ToolbarPrimaryActions }): UiNode {
   return (
     <ToolbarIconButton
       icon="waypoints"
@@ -131,14 +151,14 @@ function ToolbarPanel({ model, actions }: { model: ToolbarViewModel; actions: To
         .join(" ")}
       data-codex-panel-toolbar-panel={model.openPanel}
     >
-      {model.openPanel === "history" ? <ThreadList threads={model.threads} actions={actions} /> : null}
-      {model.openPanel === "chat-actions" ? <ChatActionsPanel model={model} actions={actions} /> : null}
-      {model.openPanel === "status" ? <StatusPanel model={model} actions={actions} /> : null}
+      {model.openPanel === "history" ? <ThreadList threads={model.threads} actions={actions.threads} /> : null}
+      {model.openPanel === "chat-actions" ? <ChatActionsPanel model={model} actions={actions.chat} /> : null}
+      {model.openPanel === "status" ? <StatusPanel model={model} actions={actions.status} /> : null}
     </div>
   );
 }
 
-function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
+function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarChatActions }): UiNode {
   return (
     <div className="codex-panel__chat-actions-panel-items">
       <ToolbarPanelItem
@@ -157,7 +177,7 @@ function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions
   );
 }
 
-function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarActions }): UiNode {
+function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: ToolbarStatusActions }): UiNode {
   return (
     <>
       <div className="codex-panel__status-panel-items">
@@ -270,7 +290,7 @@ function diagnosticRowClassName(level: NonNullable<ToolbarDiagnosticRow["level"]
   return "codex-panel__connection-diagnostics-row";
 }
 
-function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions: ToolbarActions }): UiNode {
+function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions: ToolbarThreadActions }): UiNode {
   if (threads.length === 0) {
     return (
       <div className="codex-panel__threads">
@@ -292,7 +312,7 @@ function ThreadList({ threads, actions }: { threads: ToolbarThreadRow[]; actions
   );
 }
 
-function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): UiNode {
+function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
   const archiveConfirm = archiveConfirmState(thread);
   return (
     <div
@@ -319,7 +339,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
             disabled={thread.disabled}
             className="codex-panel__thread"
             onClick={() => {
-              actions.resumeThread(thread.threadId);
+              actions.resume(thread.threadId);
             }}
           />
           {!archiveConfirm.active ? (
@@ -330,7 +350,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
               disabled={thread.disabled}
               onClick={(event) => {
                 event.stopPropagation();
-                actions.startRenameThread(thread.threadId);
+                actions.rename.start(thread.threadId);
               }}
             />
           ) : null}
@@ -341,7 +361,7 @@ function ThreadListRow({ thread, actions }: { thread: ToolbarThreadRow; actions:
   );
 }
 
-function ArchiveControls({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): UiNode {
+function ArchiveControls({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
   const archiveConfirm = archiveConfirmState(thread);
   if (!archiveConfirm.active) {
     return (
@@ -352,7 +372,7 @@ function ArchiveControls({ thread, actions }: { thread: ToolbarThreadRow; action
         disabled={thread.disabled}
         onClick={(event) => {
           event.stopPropagation();
-          actions.startArchiveThread(thread.threadId);
+          actions.archive.start(thread.threadId);
         }}
       />
     );
@@ -375,7 +395,7 @@ function ArchiveModeButton({
   thread: ToolbarThreadRow;
   saveMarkdown: boolean;
   primary: boolean;
-  actions: ToolbarActions;
+  actions: ToolbarThreadActions;
 }): UiNode {
   const label = saveMarkdown ? "Save and archive thread" : "Archive thread without saving";
   return (
@@ -386,13 +406,13 @@ function ArchiveModeButton({
       disabled={thread.disabled}
       onClick={(event) => {
         event.stopPropagation();
-        actions.archiveThread(thread.threadId, saveMarkdown);
+        actions.archive.confirm(thread.threadId, saveMarkdown);
       }}
     />
   );
 }
 
-function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarActions }): UiNode {
+function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; actions: ToolbarThreadActions }): UiNode {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const generating = thread.rename?.generating ?? false;
   const draft = thread.rename?.draft ?? thread.title;
@@ -419,21 +439,21 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
               type="text"
               value={draft}
               onInput={(event) => {
-                actions.updateRenameDraft(thread.threadId, event.currentTarget.value);
+                actions.rename.updateDraft(thread.threadId, event.currentTarget.value);
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  if (!event.isComposing && !generating) actions.saveRenameThread(thread.threadId, event.currentTarget.value);
+                  if (!event.isComposing && !generating) actions.rename.save(thread.threadId, event.currentTarget.value);
                   return;
                 }
                 if (event.key === "Escape") {
                   event.preventDefault();
-                  actions.cancelRenameThread(thread.threadId);
+                  actions.rename.cancel(thread.threadId);
                 }
               }}
               onBlur={(event) => {
-                if (!generating) actions.saveRenameThread(thread.threadId, event.currentTarget.value);
+                if (!generating) actions.rename.save(thread.threadId, event.currentTarget.value);
               }}
             />
           </div>
@@ -450,7 +470,7 @@ function ThreadRenameRow({ thread, actions }: { thread: ToolbarThreadRow; action
         }}
         onClick={(event) => {
           event.stopPropagation();
-          actions.autoNameThread(thread.threadId);
+          actions.rename.autoName(thread.threadId);
         }}
       />
     </>

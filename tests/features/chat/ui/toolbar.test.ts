@@ -368,25 +368,56 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
   };
 }
 
-function toolbarActions(overrides: Partial<ToolbarActions> = {}): ToolbarActions {
+interface ToolbarActionOverrides {
+  toggleHistory?: () => void;
+  startNewThread?: () => void;
+  toggleChatActions?: () => void;
+  compactConversation?: () => void;
+  setGoal?: () => void;
+  toggleStatusPanel?: () => void;
+  connect?: () => void;
+  refreshStatus?: () => void;
+  copyDebugDetails?: (details: string) => void;
+  resumeThread?: (threadId: string) => void;
+  startArchiveThread?: (threadId: string) => void;
+  archiveThread?: (threadId: string, saveMarkdown: boolean) => void;
+  startRenameThread?: (threadId: string) => void;
+  updateRenameDraft?: (threadId: string, value: string) => void;
+  saveRenameThread?: (threadId: string, value: string) => void;
+  cancelRenameThread?: (threadId: string) => void;
+  autoNameThread?: (threadId: string) => void;
+}
+
+function toolbarActions(overrides: ToolbarActionOverrides = {}): ToolbarActions {
   return {
-    toggleHistory: vi.fn(),
-    startNewThread: vi.fn(),
-    toggleChatActions: vi.fn(),
-    compactConversation: vi.fn(),
-    setGoal: vi.fn(),
-    toggleStatusPanel: vi.fn(),
-    connect: vi.fn(),
-    refreshStatus: vi.fn(),
-    copyDebugDetails: vi.fn(),
-    resumeThread: vi.fn(),
-    startArchiveThread: vi.fn(),
-    archiveThread: vi.fn(),
-    startRenameThread: vi.fn(),
-    updateRenameDraft: vi.fn(),
-    saveRenameThread: vi.fn(),
-    cancelRenameThread: vi.fn(),
-    autoNameThread: vi.fn(),
-    ...overrides,
+    primary: {
+      toggleHistory: overrides.toggleHistory ?? vi.fn(),
+      toggleChatActions: overrides.toggleChatActions ?? vi.fn(),
+      toggleStatusPanel: overrides.toggleStatusPanel ?? vi.fn(),
+    },
+    chat: {
+      startNewThread: overrides.startNewThread ?? vi.fn(),
+      compactConversation: overrides.compactConversation ?? vi.fn(),
+      setGoal: overrides.setGoal ?? vi.fn(),
+    },
+    status: {
+      connect: overrides.connect ?? vi.fn(),
+      refreshStatus: overrides.refreshStatus ?? vi.fn(),
+      copyDebugDetails: overrides.copyDebugDetails ?? vi.fn(),
+    },
+    threads: {
+      resume: overrides.resumeThread ?? vi.fn(),
+      archive: {
+        start: overrides.startArchiveThread ?? vi.fn(),
+        confirm: overrides.archiveThread ?? vi.fn(),
+      },
+      rename: {
+        start: overrides.startRenameThread ?? vi.fn(),
+        updateDraft: overrides.updateRenameDraft ?? vi.fn(),
+        save: overrides.saveRenameThread ?? vi.fn(),
+        cancel: overrides.cancelRenameThread ?? vi.fn(),
+        autoName: overrides.autoNameThread ?? vi.fn(),
+      },
+    },
   };
 }

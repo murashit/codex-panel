@@ -138,7 +138,7 @@ type ChatPanelThreadNavigationActions = ReturnType<typeof createThreadNavigation
 
 interface ChatPanelThreadActionParts {
   actions: ChatPanelThreadActions;
-  toolbarPanels: ToolbarPanelActions;
+  toolbarPanelActions: ToolbarPanelActions;
   navigation: ChatPanelThreadNavigationActions;
 }
 
@@ -281,7 +281,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     goals,
     rename,
     threadActions: threadActionParts.actions,
-    toolbarPanels: threadActionParts.toolbarPanels,
+    toolbarPanelActions: threadActionParts.toolbarPanelActions,
     navigation: threadActionParts.navigation,
     reconnect: composerAndTurn.reconnect,
     history,
@@ -324,7 +324,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       rename,
     },
     toolbar: {
-      panels: threadActionParts.toolbarPanels,
+      panels: threadActionParts.toolbarPanelActions,
       actions: surfaces.toolbarActions,
     },
     composer: {
@@ -667,7 +667,7 @@ function createThreadActionParts(
     },
   };
   const actions = createThreadManagementActions(threadManagementHost);
-  const toolbarPanels = createToolbarPanelActions({
+  const toolbarPanelActions = createToolbarPanelActions({
     stateStore,
     threadActions: actions,
   });
@@ -675,7 +675,7 @@ function createThreadActionParts(
     stateStore,
     identity,
     closeForThreadSelection: () => {
-      toolbarPanels.closeForThreadSelection();
+      toolbarPanelActions.closeForThreadSelection();
     },
     focusThreadInOpenView: (threadId) => environment.plugin.workspace.focusThreadInOpenView(threadId),
     resumeThread: (threadId) => resume.resumeThread(threadId),
@@ -684,7 +684,7 @@ function createThreadActionParts(
       composerController.focus();
     },
   });
-  return { actions, toolbarPanels, navigation };
+  return { actions, toolbarPanelActions, navigation };
 }
 
 function createComposerAndTurnActions(

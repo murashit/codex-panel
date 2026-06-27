@@ -470,23 +470,35 @@ const noOpMessageStreamScrollController: MessageStreamScrollControllerBinding = 
 
 function toolbarActionsFixture(): ChatPanelShellParts["toolbar"]["actions"] {
   return {
-    startNewThread: vi.fn(),
-    toggleChatActions: vi.fn(),
-    compactConversation: vi.fn(),
-    setGoal: vi.fn(),
-    toggleHistory: vi.fn(),
-    toggleStatusPanel: vi.fn(),
-    connect: vi.fn(),
-    refreshStatus: vi.fn(),
-    copyDebugDetails: vi.fn(),
-    resumeThread: vi.fn(),
-    startArchiveThread: vi.fn(),
-    archiveThread: vi.fn(),
-    startRenameThread: vi.fn(),
-    updateRenameDraft: vi.fn(),
-    saveRenameThread: vi.fn(),
-    cancelRenameThread: vi.fn(),
-    autoNameThread: vi.fn(),
+    primary: {
+      toggleHistory: vi.fn(),
+      toggleChatActions: vi.fn(),
+      toggleStatusPanel: vi.fn(),
+    },
+    chat: {
+      startNewThread: vi.fn(),
+      compactConversation: vi.fn(),
+      setGoal: vi.fn(),
+    },
+    status: {
+      connect: vi.fn(),
+      refreshStatus: vi.fn(),
+      copyDebugDetails: vi.fn(),
+    },
+    threads: {
+      resume: vi.fn(),
+      archive: {
+        start: vi.fn(),
+        confirm: vi.fn(),
+      },
+      rename: {
+        start: vi.fn(),
+        updateDraft: vi.fn(),
+        save: vi.fn(),
+        cancel: vi.fn(),
+        autoName: vi.fn(),
+      },
+    },
   };
 }
 

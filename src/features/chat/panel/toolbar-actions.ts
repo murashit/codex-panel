@@ -25,12 +25,12 @@ export interface ToolbarPanelActions {
   closeOnOutsidePointer(context: ToolbarOutsidePointerContext): void;
 }
 
-export interface ChatPanelToolbarActionDependencies {
+export interface ToolbarUiActionDependencies {
   connectionController: ChatConnectionController;
   reconnectPanel: () => Promise<void>;
   threadActions: ThreadManagementActions;
   goals: GoalActions;
-  toolbarPanels: ToolbarPanelActions;
+  toolbarPanel: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;
   navigation: ThreadNavigationActions;
 }
@@ -120,58 +120,70 @@ export function createToolbarPanelActions(host: ToolbarPanelActionsHost): Toolba
   };
 }
 
-export function createChatPanelToolbarActions(deps: ChatPanelToolbarActionDependencies): ToolbarActions {
+export function createToolbarUiActions(deps: ToolbarUiActionDependencies): ToolbarActions {
   return {
-    startNewThread: () => {
-      void deps.navigation.startNewThread();
+    primary: {
+      toggleChatActions: () => {
+        deps.toolbarPanel.toggleChatActions();
+      },
+      toggleHistory: () => {
+        deps.toolbarPanel.toggleHistory();
+      },
+      toggleStatusPanel: () => {
+        deps.toolbarPanel.toggleStatus();
+      },
     },
-    toggleChatActions: () => {
-      deps.toolbarPanels.toggleChatActions();
+    chat: {
+      startNewThread: () => {
+        void deps.navigation.startNewThread();
+      },
+      compactConversation: () => {
+        void deps.threadActions.compactActiveThread();
+      },
+      setGoal: () => {
+        deps.goals.startEditingCurrent();
+      },
     },
-    compactConversation: () => {
-      void deps.threadActions.compactActiveThread();
+    status: {
+      connect: () => {
+        void deps.reconnectPanel();
+      },
+      refreshStatus: () => {
+        void deps.connectionController.refreshStatusPanel();
+      },
+      copyDebugDetails: (details) => {
+        void copyTextWithNotice(details, "Copied debug details.", "Could not copy debug details.");
+      },
     },
-    setGoal: () => {
-      deps.goals.startEditingCurrent();
-    },
-    toggleHistory: () => {
-      deps.toolbarPanels.toggleHistory();
-    },
-    toggleStatusPanel: () => {
-      deps.toolbarPanels.toggleStatus();
-    },
-    connect: () => {
-      void deps.reconnectPanel();
-    },
-    refreshStatus: () => {
-      void deps.connectionController.refreshStatusPanel();
-    },
-    copyDebugDetails: (details) => {
-      void copyTextWithNotice(details, "Copied debug details.", "Could not copy debug details.");
-    },
-    resumeThread: (threadId) => {
-      void deps.navigation.selectThreadFromToolbar(threadId);
-    },
-    startArchiveThread: (threadId) => {
-      deps.toolbarPanels.startArchive(threadId);
-    },
-    archiveThread: (threadId, saveMarkdown) => {
-      void deps.toolbarPanels.archiveThread(threadId, saveMarkdown);
-    },
-    startRenameThread: (threadId) => {
-      deps.rename.start(threadId);
-    },
-    updateRenameDraft: (threadId, value) => {
-      deps.rename.updateDraft(threadId, value);
-    },
-    saveRenameThread: (threadId, value) => {
-      void deps.rename.save(threadId, value);
-    },
-    cancelRenameThread: (threadId) => {
-      deps.rename.cancel(threadId);
-    },
-    autoNameThread: (threadId) => {
-      void deps.rename.autoNameDraft(threadId);
+    threads: {
+      resume: (threadId) => {
+        void deps.navigation.selectThreadFromToolbar(threadId);
+      },
+      archive: {
+        start: (threadId) => {
+          deps.toolbarPanel.startArchive(threadId);
+        },
+        confirm: (threadId, saveMarkdown) => {
+          void deps.toolbarPanel.archiveThread(threadId, saveMarkdown);
+        },
+      },
+      rename: {
+        start: (threadId) => {
+          deps.rename.start(threadId);
+        },
+        updateDraft: (threadId, value) => {
+          deps.rename.updateDraft(threadId, value);
+        },
+        save: (threadId, value) => {
+          void deps.rename.save(threadId, value);
+        },
+        cancel: (threadId) => {
+          deps.rename.cancel(threadId);
+        },
+        autoName: (threadId) => {
+          void deps.rename.autoNameDraft(threadId);
+        },
+      },
     },
   };
 }
