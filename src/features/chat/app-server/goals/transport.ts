@@ -1,9 +1,9 @@
 import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/threads";
-import type { ThreadGoalReader, ThreadGoalTransport } from "../../application/threads/goal-transport";
+import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../../application/threads/goal-transport";
 import type { ConnectedChatAppServerClientHost, CurrentChatAppServerClientHost } from "../client-scope";
 import { chatAppServerClientIsStale, withConnectedChatAppServerClient, withCurrentChatAppServerClient } from "../client-scope";
 
-export function createChatThreadGoalReadTransport(host: CurrentChatAppServerClientHost): ThreadGoalReader {
+export function createChatThreadGoalReadTransport(host: CurrentChatAppServerClientHost): ThreadGoalReadTransport {
   return {
     readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
   };
@@ -39,7 +39,7 @@ export function createChatThreadGoalTransport(host: ConnectedChatAppServerClient
 async function readThreadGoalFromCurrentClient(
   host: CurrentChatAppServerClientHost,
   threadId: string,
-): ReturnType<ThreadGoalReader["readThreadGoal"]> {
+): ReturnType<ThreadGoalReadTransport["readThreadGoal"]> {
   const client = host.currentClient();
   if (!client) return undefined;
   const goal = await readThreadGoal(client, threadId);

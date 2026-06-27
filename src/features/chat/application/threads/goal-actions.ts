@@ -3,11 +3,11 @@ import type { LocalIdSource } from "../../../../shared/id/local-id";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
 import type { GoalMessageStreamItem } from "../../domain/message-stream/items";
 import type { ChatStateStore } from "../state/store";
-import type { ThreadGoalReader, ThreadGoalTransport } from "./goal-transport";
+import type { ThreadGoalReadTransport, ThreadGoalTransport } from "./goal-transport";
 
 export interface ThreadGoalSyncHost {
   stateStore: ChatStateStore;
-  goalTransport: ThreadGoalReader;
+  goalTransport: ThreadGoalReadTransport;
   localItemIds: LocalIdSource;
   addSystemMessage: (text: string) => void;
   addGoalEvent: (item: GoalMessageStreamItem) => void;

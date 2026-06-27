@@ -42,7 +42,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
     startThread: vi.fn().mockImplementation(async () => {
       resumeThread(stateStore);
-      return {};
+      return true;
     }),
     notifyActiveThreadIdentityChanged: vi.fn(),
     resetThreadTurnPresence: vi.fn(),

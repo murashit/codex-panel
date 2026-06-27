@@ -91,10 +91,9 @@ export class WorkspacePanelCoordinator {
     return view;
   }
 
-  async openThreadInNewView(threadId: string): Promise<CodexChatView> {
+  async openThreadInNewView(threadId: string): Promise<void> {
     const view = await this.activateThreadResumeView();
     await workspacePanelSurface(view).openThread(threadId);
-    return view;
   }
 
   async openNewPanel(): Promise<void> {

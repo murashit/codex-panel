@@ -24,7 +24,7 @@ export interface PluginSettingsRef {
 }
 
 interface WorkspacePanels {
-  openThreadInNewView(threadId: string): Promise<unknown>;
+  openThreadInNewView(threadId: string): Promise<void>;
   focusThreadInOpenView(threadId: string): Promise<boolean>;
   openTurnDiff(state: ChatTurnDiffViewState): Promise<void>;
   refreshThreadsViewLiveState(): void;

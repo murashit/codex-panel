@@ -203,6 +203,22 @@ describe("thread management actions", () => {
     expect(host.addSystemMessage).toHaveBeenCalledWith("archive failed");
   });
 
+  it("keeps the source panel when fork and archive is declined by thread operations", async () => {
+    const host = hostMock({
+      items: turnItems(),
+      operations: {
+        archiveThread: vi.fn<ThreadManagementActionsHost["operations"]["archiveThread"]>().mockResolvedValue(false),
+      },
+    });
+    const controller = threadManagementActions(host);
+
+    await controller.forkThreadFromTurn("source", "turn-3", true);
+
+    expect(host.operations.archiveThread).toHaveBeenCalledWith("source", {});
+    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).not.toHaveBeenCalledWith("archive failed");
+  });
+
   it("reports when fork and archive succeeds but the fork cannot replace the source panel", async () => {
     const host = hostMock({ items: turnItems() });
     host.openThreadInCurrentPanel.mockRejectedValue(new Error("resume failed"));
@@ -478,7 +494,7 @@ function hostMock({
     ...transportOverrides,
   };
   const operations: ThreadOperationsMock = {
-    archiveThread: vi.fn<ThreadManagementActionsHost["operations"]["archiveThread"]>().mockResolvedValue({ exportedPath: null }),
+    archiveThread: vi.fn<ThreadManagementActionsHost["operations"]["archiveThread"]>().mockResolvedValue(true),
     renameThread: vi.fn<ThreadManagementActionsHost["operations"]["renameThread"]>().mockResolvedValue(true),
     ...operationOverrides,
   };

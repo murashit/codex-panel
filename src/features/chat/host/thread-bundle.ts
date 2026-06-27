@@ -195,7 +195,10 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
   const { environment, stateStore } = host;
   const threadManagementHost: ThreadManagementActionsHost = {
     stateStore,
-    operations: foundation.threadOperations,
+    operations: {
+      renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
+      archiveThread: async (threadId, options) => (await foundation.threadOperations.archiveThread(threadId, options)) !== null,
+    },
     threadTransport: createChatThreadMutationTransport({
       vaultPath: environment.plugin.settingsRef.vaultPath,
       currentClient,

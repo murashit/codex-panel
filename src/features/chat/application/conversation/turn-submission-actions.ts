@@ -20,7 +20,7 @@ export interface TurnSubmissionActionsHost {
   localItemIds: LocalIdSource;
   turnTransport: ChatTurnTransport;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
-  startThread: (preview?: string) => Promise<unknown>;
+  startThread: (preview?: string) => Promise<boolean>;
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
@@ -158,8 +158,7 @@ function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
 }
 
 async function startThreadForTurn(host: TurnSubmissionActionsHost, text: string): Promise<boolean> {
-  const threadResponse = await host.startThread(text);
-  if (!threadResponse) return false;
+  if (!(await host.startThread(text))) return false;
   host.notifyActiveThreadIdentityChanged();
   host.resetThreadTurnPresence(false);
   return true;

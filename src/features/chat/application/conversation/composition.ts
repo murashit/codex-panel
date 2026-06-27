@@ -79,7 +79,7 @@ export function createConversationTurnActions(
     localItemIds,
     turnTransport,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
-    startThread: (preview) => refs.threadStarter.startThread(preview),
+    startThread: async (preview) => (await refs.threadStarter.startThread(preview)) !== null,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     resetThreadTurnPresence: thread.resetTurnPresence,
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),

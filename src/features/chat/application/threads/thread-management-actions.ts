@@ -20,7 +20,7 @@ export interface ThreadManagementActionsHost {
   addSystemMessage: (text: string) => void;
   setStatus: (status: string) => void;
   setComposerText: (text: string) => void;
-  openThreadInNewView: (threadId: string) => Promise<unknown>;
+  openThreadInNewView: (threadId: string) => Promise<void>;
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
   refreshAfterThreadMutation: () => Promise<void>;
@@ -29,7 +29,7 @@ export interface ThreadManagementActionsHost {
 
 interface ThreadManagementOperations {
   renameThread(threadId: string, value: string): Promise<boolean>;
-  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; closeOpenPanels?: boolean }): Promise<unknown>;
+  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; closeOpenPanels?: boolean }): Promise<boolean>;
 }
 
 export interface ThreadManagementActions {
@@ -91,7 +91,7 @@ async function archiveThreadFromPanel(host: ThreadManagementActionsHost, threadI
   }
   try {
     const options = saveMarkdown === undefined ? {} : { saveMarkdown };
-    return Boolean(await host.operations.archiveThread(threadId, options));
+    return await host.operations.archiveThread(threadId, options);
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return false;
