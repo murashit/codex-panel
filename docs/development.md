@@ -10,11 +10,11 @@ npm run fix
 npm run check
 ```
 
-Use this as the normal edit loop. `npm run fix` applies Biome formatting, import organization, and safe lint fixes; `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, CSS checks, and the production bundle.
+Use this as the normal edit loop. `npm run fix` applies Biome formatting, import organization, safe lint fixes, and Knip's safe unused-code cleanup. `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, unused-code checks, CSS checks, and the production bundle.
 
 Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run build`, or the targeted `npm run check:*` scripts. CI and release preflight run the same `npm run check` command as local development.
 
-`npm run check` combines Biome, TypeScript, Vitest, ESLint, CSS usage checks, and the production build. Biome warnings fail the check. Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
+`npm run check` combines Biome, TypeScript, Vitest, ESLint, Knip unused-code checks, CSS usage checks, and the production build. Biome warnings fail the check. Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
 
 ## Generated and Loaded Files
 
