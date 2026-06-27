@@ -2,13 +2,8 @@ import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import { AppServerSharedQueries } from "../../src/app-server/query/shared-queries";
+import { createThreadCatalog, type ThreadCatalogEventObserver } from "../../src/app-server/thread-catalog";
 import type { Thread } from "../../src/domain/threads/model";
-import { createThreadCatalog } from "../../src/workspace/thread-catalog";
-
-interface MockSurfaceActions {
-  applyThreadArchived: Mock<(threadId: string, options?: { closeOpenPanels?: boolean }) => void>;
-  applyThreadRenamed: Mock<(threadId: string, name: string | null) => void>;
-}
 
 describe("ThreadCatalog", () => {
   it("applies active thread snapshot replacement events through the catalog boundary", () => {
@@ -52,8 +47,17 @@ describe("ThreadCatalog", () => {
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("thread")] }));
   });
 
-  it("broadcasts rename mutations to open surfaces after updating the catalog cache", () => {
-    const { catalog, surfaces } = catalogFixture();
+  it("notifies applied catalog events through a generic observer", () => {
+    const onEventApplied = vi.fn();
+    const { catalog } = catalogFixture({ onEventApplied });
+
+    catalog.apply({ type: "thread-started", thread: thread("thread") });
+
+    expect(onEventApplied).toHaveBeenCalledWith({ type: "thread-started", thread: thread("thread") });
+  });
+
+  it("applies rename mutations after updating the catalog cache", () => {
+    const { catalog } = catalogFixture();
     const listener = vi.fn();
     catalog.observeActive(listener);
     catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
@@ -64,11 +68,10 @@ describe("ThreadCatalog", () => {
     expect(listener).toHaveBeenLastCalledWith(
       expect.objectContaining({ value: [{ ...thread("thread"), name: "Renamed" }, thread("other")] }),
     );
-    expect(surfaces.applyThreadRenamed).toHaveBeenCalledWith("thread", "Renamed");
   });
 
-  it("broadcasts archive mutations to open surfaces after updating catalog membership", () => {
-    const { catalog, surfaces } = catalogFixture();
+  it("applies archive mutations after updating catalog membership", () => {
+    const { catalog } = catalogFixture();
     const listener = vi.fn();
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
@@ -84,7 +87,6 @@ describe("ThreadCatalog", () => {
     expect(archivedListener).toHaveBeenLastCalledWith(
       expect.objectContaining({ value: [{ ...thread("thread"), archived: true }, thread("archived", true)] }),
     );
-    expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("thread", { closeOpenPanels: true });
   });
 
   it("refreshes archived snapshots after unknown archive mutations even when an older archived refresh is in flight", async () => {
@@ -113,8 +115,8 @@ describe("ThreadCatalog", () => {
     expect(fetchThreads).toHaveBeenCalledTimes(2);
   });
 
-  it("applies known delete mutations to cache without open-surface effects", () => {
-    const { catalog, surfaces } = catalogFixture();
+  it("applies known delete mutations to cache", () => {
+    const { catalog } = catalogFixture();
     const listener = vi.fn();
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
@@ -128,12 +130,10 @@ describe("ThreadCatalog", () => {
     expect(catalog.archivedSnapshot()).toEqual([thread("archived", true)]);
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("other")] }));
     expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("archived", true)] }));
-    expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
-    expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
 
-  it("records started, forked, and restored thread membership without open-surface broadcasts", () => {
-    const { catalog, surfaces } = catalogFixture();
+  it("records started, forked, and restored thread membership", () => {
+    const { catalog } = catalogFixture();
     const listener = vi.fn();
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
@@ -151,8 +151,6 @@ describe("ThreadCatalog", () => {
       expect.objectContaining({ value: [thread("restored"), thread("forked"), thread("started"), thread("existing")] }),
     );
     expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("archived", true)] }));
-    expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
-    expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
 
   it("keeps app-server lifecycle threads visible until the server list acknowledges them", async () => {
@@ -241,7 +239,7 @@ describe("ThreadCatalog", () => {
 
   it("archives unacknowledged active lifecycle threads without waiting for list acknowledgement", async () => {
     const fetchThreads = vi.fn().mockResolvedValue([thread("other")]);
-    const { catalog, surfaces } = catalogFixture({ fetchThreads });
+    const { catalog } = catalogFixture({ fetchThreads });
     const listener = vi.fn();
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
@@ -253,7 +251,6 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([]);
     expect(catalog.archivedSnapshot()).toEqual([thread("started", true)]);
     expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("started", true)] }));
-    expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("started", undefined);
 
     await expect(catalog.refreshActive()).resolves.toEqual([thread("other")]);
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
@@ -273,8 +270,8 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
   });
 
-  it("records active thread touches as catalog ordering facts without open-surface broadcasts", () => {
-    const { catalog, surfaces } = catalogFixture();
+  it("records active thread touches as catalog ordering facts", () => {
+    const { catalog } = catalogFixture();
     const listener = vi.fn();
     catalog.observeActive(listener);
     catalog.apply({
@@ -293,12 +290,10 @@ describe("ThreadCatalog", () => {
         value: [thread("active", false, { updatedAt: 1, recencyAt: 20 }), thread("other", false, { updatedAt: 10, recencyAt: 10 })],
       }),
     );
-    expect(surfaces.applyThreadArchived).not.toHaveBeenCalled();
-    expect(surfaces.applyThreadRenamed).not.toHaveBeenCalled();
   });
 
   it("applies thread lifecycle events through one catalog event boundary", () => {
-    const { catalog, surfaces } = catalogFixture();
+    const { catalog } = catalogFixture();
     const listener = vi.fn();
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
@@ -317,8 +312,6 @@ describe("ThreadCatalog", () => {
     expect(archivedListener).toHaveBeenLastCalledWith(
       expect.objectContaining({ value: [thread("existing", true, { recencyAt: 20 }), thread("archived", true)] }),
     );
-    expect(surfaces.applyThreadRenamed).toHaveBeenCalledWith("started", "Started");
-    expect(surfaces.applyThreadArchived).toHaveBeenCalledWith("existing", { closeOpenPanels: true });
   });
 
   it("moves known unarchived threads through the catalog and refreshes unknown unarchives", async () => {
@@ -359,18 +352,24 @@ describe("ThreadCatalog", () => {
 });
 
 function catalogFixture(
-  options: { fetchThreads?: (context: { codexPath: string; vaultPath: string }, archived: boolean) => Promise<readonly Thread[]> } = {},
+  options: {
+    fetchThreads?: (context: { codexPath: string; vaultPath: string }, archived: boolean) => Promise<readonly Thread[]>;
+    onEventApplied?: ThreadCatalogEventObserver;
+  } = {},
 ) {
-  const surfaces = surfaceActions();
   const store = new AppServerSharedQueries({
     cache: cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([]))),
     context: () => ({ codexPath: "codex", vaultPath: "/vault" }),
   });
-  const catalog = createThreadCatalog({
-    store,
-    surfaces,
-  });
-  return { catalog, surfaces };
+  const catalog = createThreadCatalog(
+    options.onEventApplied
+      ? {
+          store,
+          onEventApplied: options.onEventApplied,
+        }
+      : { store },
+  );
+  return { catalog };
 }
 
 function cacheWithThreads(
@@ -388,13 +387,6 @@ function cacheWithThreads(
       },
     },
   });
-}
-
-function surfaceActions(): MockSurfaceActions {
-  return {
-    applyThreadArchived: vi.fn(),
-    applyThreadRenamed: vi.fn(),
-  };
 }
 
 function observedActiveThreadIds(listener: Mock): string[][] {

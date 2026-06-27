@@ -508,6 +508,22 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(refreshSharedThreads).not.toHaveBeenCalled();
   });
 
+  it("applies known archive mutations to open chat surfaces", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const firstLeaf = leaf();
+    firstLeaf.view = chatView(CodexChatView, firstLeaf);
+    const firstArchived = vi.spyOn((firstLeaf.view as CodexChatView).surface, "applyThreadArchived").mockImplementation(() => undefined);
+    const secondLeaf = leaf();
+    secondLeaf.view = chatView(CodexChatView, secondLeaf);
+    const secondArchived = vi.spyOn((secondLeaf.view as CodexChatView).surface, "applyThreadArchived").mockImplementation(() => undefined);
+    const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
+
+    threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1" });
+
+    expect(firstArchived).toHaveBeenCalledWith("thread-1");
+    expect(secondArchived).toHaveBeenCalledWith("thread-1");
+  });
+
   it("closes matching chat panels only when archive notification requests it", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
@@ -546,6 +562,22 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     threadCatalog(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
 
     expect(refreshSharedThreads).not.toHaveBeenCalled();
+  });
+
+  it("applies known rename mutations to open chat surfaces", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const firstLeaf = leaf();
+    firstLeaf.view = chatView(CodexChatView, firstLeaf);
+    const firstRenamed = vi.spyOn((firstLeaf.view as CodexChatView).surface, "applyThreadRenamed").mockImplementation(() => undefined);
+    const secondLeaf = leaf();
+    secondLeaf.view = chatView(CodexChatView, secondLeaf);
+    const secondRenamed = vi.spyOn((secondLeaf.view as CodexChatView).surface, "applyThreadRenamed").mockImplementation(() => undefined);
+    const plugin = await pluginWithLeaves([firstLeaf, secondLeaf]);
+
+    threadCatalog(plugin).apply({ type: "thread-renamed", threadId: "thread-1", name: "Renamed thread" });
+
+    expect(firstRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
+    expect(secondRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
   });
 
   it("single-flights shared thread list refreshes and caches successful results", async () => {

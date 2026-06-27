@@ -18,11 +18,6 @@ interface ThreadCatalogStore {
   updateArchivedThreads(updater: (threads: readonly Thread[] | null) => readonly Thread[] | null): readonly Thread[] | null;
 }
 
-interface ThreadSurfaceActions {
-  applyThreadArchived(threadId: string, options?: { closeOpenPanels?: boolean }): void;
-  applyThreadRenamed(threadId: string, name: string | null): void;
-}
-
 interface PendingThreadUpsert {
   readonly thread: Thread;
   readonly acknowledgedBy: (thread: Thread) => boolean;
@@ -36,9 +31,11 @@ interface PendingThreadListFacts {
   readonly removals: PendingThreadRemovals;
 }
 
+export type ThreadCatalogEventObserver = (event: ThreadCatalogEvent) => void;
+
 export interface ThreadCatalogOptions {
   store: ThreadCatalogStore;
-  surfaces: ThreadSurfaceActions;
+  onEventApplied?: ThreadCatalogEventObserver;
 }
 
 export type ThreadCatalogEvent =
@@ -76,9 +73,10 @@ export interface ThreadCatalog extends ThreadCatalogActiveReader, ThreadCatalogA
 export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalog {
   const activeFacts = pendingThreadListFacts();
   const archivedFacts = pendingThreadListFacts();
-  const { store, surfaces } = options;
+  const { store } = options;
   const apply = (event: ThreadCatalogEvent): void => {
-    applyThreadCatalogEvent(store, surfaces, activeFacts, archivedFacts, event);
+    applyThreadCatalogEvent(store, activeFacts, archivedFacts, event);
+    options.onEventApplied?.(event);
   };
 
   return {
@@ -108,7 +106,6 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
 
 function applyThreadCatalogEvent(
   store: ThreadCatalogStore,
-  surfaces: ThreadSurfaceActions,
   activeFacts: PendingThreadListFacts,
   archivedFacts: PendingThreadListFacts,
   event: ThreadCatalogEvent,
@@ -132,10 +129,10 @@ function applyThreadCatalogEvent(
       applyThreadTouchedEvent(store, activeFacts, event.threadId, event.recencyAt);
       return;
     case "thread-renamed":
-      applyThreadRenamedEvent(store, surfaces, activeFacts, archivedFacts, event.threadId, event.name);
+      applyThreadRenamedEvent(store, activeFacts, archivedFacts, event.threadId, event.name);
       return;
     case "thread-archived":
-      applyThreadArchivedEvent(store, surfaces, activeFacts, archivedFacts, event.threadId, event.options);
+      applyThreadArchivedEvent(store, activeFacts, archivedFacts, event.threadId);
       return;
     case "thread-deleted":
       applyThreadDeletedEvent(store, activeFacts, archivedFacts, event.threadId);
@@ -193,7 +190,6 @@ function applyThreadTouchedEvent(
 
 function applyThreadRenamedEvent(
   store: ThreadCatalogStore,
-  surfaces: ThreadSurfaceActions,
   activeFacts: PendingThreadListFacts,
   archivedFacts: PendingThreadListFacts,
   threadId: string,
@@ -210,16 +206,13 @@ function applyThreadRenamedEvent(
   store.updateArchivedThreads((current) =>
     current ? current.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)) : null,
   );
-  surfaces.applyThreadRenamed(threadId, name);
 }
 
 function applyThreadArchivedEvent(
   store: ThreadCatalogStore,
-  surfaces: ThreadSurfaceActions,
   activeFacts: PendingThreadListFacts,
   archivedFacts: PendingThreadListFacts,
   threadId: string,
-  archiveOptions: { closeOpenPanels?: boolean } | undefined,
 ): void {
   const archivedThread = threadListProjection(store.activeThreadsSnapshot(), activeFacts)?.find((thread) => thread.id === threadId);
   rememberPendingThreadRemoval(activeFacts, threadId);
@@ -233,7 +226,6 @@ function applyThreadArchivedEvent(
   } else {
     refreshArchivedThreadsAfterUnknownArchive(store, archivedFacts);
   }
-  surfaces.applyThreadArchived(threadId, archiveOptions);
 }
 
 function applyThreadDeletedEvent(

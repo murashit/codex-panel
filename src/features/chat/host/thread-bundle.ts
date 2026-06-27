@@ -215,8 +215,8 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     refreshAfterThreadMutation: async () => {
       await refreshActiveThreads();
     },
-    applyThreadCatalogEvent: (event) => {
-      environment.plugin.threadCatalog.apply(event);
+    recordForkedThread: (thread) => {
+      environment.plugin.threadCatalog.apply({ type: "thread-forked", thread });
     },
   };
   const actions = createThreadManagementActions(threadManagementHost);

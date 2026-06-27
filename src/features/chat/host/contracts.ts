@@ -3,11 +3,11 @@ import type { App, Component, EventRef } from "obsidian";
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerQueryContext } from "../../../app-server/query/keys";
 import type { ArchiveExportDestination } from "../../../app-server/services/thread-archive-markdown";
+import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../../app-server/thread-catalog";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
 import type { ObservedResultListener } from "../../../domain/observed-result";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { CodexPanelSettings } from "../../../settings/model";
-import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../../workspace/thread-catalog";
 import type { ChatTurnDiffViewState } from "../domain/turn-diff";
 import type { ChatPanelSnapshot } from "../panel/snapshot";
 

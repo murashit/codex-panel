@@ -1,5 +1,4 @@
-import { inheritedForkThreadName } from "../../../../domain/threads/model";
-import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
+import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import { chatTurnBusy } from "../conversation/turn-state";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
@@ -24,7 +23,7 @@ export interface ThreadManagementActionsHost {
   openThreadInCurrentPanel: (threadId: string) => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
   refreshAfterThreadMutation: () => Promise<void>;
-  applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
+  recordForkedThread: (thread: Thread) => void;
 }
 
 interface ThreadManagementOperations {
@@ -130,7 +129,7 @@ async function forkThreadFromTurn(
       if (!rolledBackThread) return;
       forkedThread = rolledBackThread;
     }
-    host.applyThreadCatalogEvent({ type: "thread-forked", thread: forkedThread });
+    host.recordForkedThread(forkedThread);
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     if (sourceName) {
       try {

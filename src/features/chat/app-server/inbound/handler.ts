@@ -6,6 +6,7 @@ import {
   serverRequestMcpElicitationResponse,
   serverRequestUserInputResponse,
 } from "../../../../app-server/server-requests";
+import type { ThreadCatalogEvent } from "../../../../app-server/thread-catalog";
 import {
   type ApprovalAction,
   contentForPendingMcpElicitation,
@@ -15,7 +16,6 @@ import {
 } from "../../../../domain/pending-requests/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
-import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import { activeTurnId } from "../../application/conversation/turn-state";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";

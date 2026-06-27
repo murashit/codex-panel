@@ -1,7 +1,7 @@
+import type { ThreadCatalogEvent } from "../../../../app-server/thread-catalog";
 import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
-import type { ThreadCatalogEvent } from "../../../../workspace/thread-catalog";
 import { resumedThreadAction } from "../../application/state/actions";
 import type { ChatState } from "../../application/state/root-reducer";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";

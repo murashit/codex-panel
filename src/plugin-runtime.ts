@@ -5,6 +5,7 @@ import { withShortLivedAppServerClient } from "./app-server/connection/short-liv
 import { AppServerQueryCache } from "./app-server/query/cache";
 import { type AppServerQueryContext, appServerQueryContextIsComplete } from "./app-server/query/keys";
 import { AppServerSharedQueries } from "./app-server/query/shared-queries";
+import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./app-server/thread-catalog";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
@@ -22,7 +23,6 @@ import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/thre
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
-import { createThreadCatalog, type ThreadCatalog } from "./workspace/thread-catalog";
 
 export interface CodexPanelRuntimeOptions {
   app: App;
@@ -52,13 +52,8 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     });
     this.threadCatalog = createThreadCatalog({
       store: this.appServerSharedQueries,
-      surfaces: {
-        applyThreadArchived: (threadId, archiveOptions) => {
-          this.applyThreadArchived(threadId, archiveOptions);
-        },
-        applyThreadRenamed: (threadId, name) => {
-          this.applyThreadRenamed(threadId, name);
-        },
+      onEventApplied: (event) => {
+        this.applyThreadCatalogSurfaceEvent(event);
       },
     });
   }
@@ -210,6 +205,19 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     for (const view of this.panels.panelViews()) {
       const surface: ChatSharedThreadSurface = view.surface;
       surface.applyThreadRenamed(threadId, name);
+    }
+  }
+
+  private applyThreadCatalogSurfaceEvent(event: ThreadCatalogEvent): void {
+    switch (event.type) {
+      case "thread-archived":
+        this.applyThreadArchived(event.threadId, event.options);
+        return;
+      case "thread-renamed":
+        this.applyThreadRenamed(event.threadId, event.name);
+        return;
+      default:
+        return;
     }
   }
 
