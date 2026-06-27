@@ -5,11 +5,11 @@ import type { AppServerQueryContext } from "../../../app-server/query/keys";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../../app-server/query/thread-catalog";
 import type { ArchiveExportDestination } from "../../../app-server/services/thread-archive-markdown";
 import type { ModelMetadata } from "../../../domain/catalog/metadata";
+import type { PendingRequestCounts } from "../../../domain/pending-requests/aggregate";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { CodexPanelSettings } from "../../../settings/model";
 import type { ObservedResultListener } from "../../../shared/query/observed-result";
 import type { ChatTurnDiffViewState } from "../domain/turn-diff";
-import type { ChatPanelSnapshot } from "../panel/snapshot";
 
 export interface CodexChatHost {
   readonly settingsRef: PluginSettingsRef;
@@ -70,8 +70,19 @@ export interface ChatViewLifecycleSurface {
   refreshSettings(): void;
 }
 
+export type ChatWorkspacePanelTurnLifecycle = { kind: "idle" } | { kind: "starting" } | { kind: "running"; turnId: string };
+
+export interface ChatWorkspacePanelSnapshot {
+  viewId: string;
+  threadId: string | null;
+  turnLifecycle: ChatWorkspacePanelTurnLifecycle;
+  pendingRequests: PendingRequestCounts;
+  hasComposerDraft: boolean;
+  connected: boolean;
+}
+
 export interface ChatWorkspacePanelSurface {
-  openPanelSnapshot(): ChatPanelSnapshot;
+  openPanelSnapshot(): ChatWorkspacePanelSnapshot;
   openThread(threadId: string): Promise<void>;
   focusThread(threadId?: string | null): Promise<void>;
   hydrateRestoredThread(): Promise<void>;

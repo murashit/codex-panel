@@ -68,6 +68,14 @@
       "includes": ["**/src/features/chat/**/*.ts", "**/src/features/chat/**/*.tsx"]
     },
     {
+      "path": "./scripts/lint/no-feature-workspace-boundary-imports.grit",
+      "includes": ["**/src/features/**/*.ts", "**/src/features/**/*.tsx", "!**/src/features/chat/**"]
+    },
+    {
+      "path": "./scripts/lint/no-workspace-chat-internal-imports.grit",
+      "includes": ["**/src/workspace/**/*.ts"]
+    },
+    {
       "path": "./scripts/lint/no-chat-panel-runtime-boundary-imports.grit",
       "includes": ["**/src/features/chat/panel/**/*.ts", "**/src/features/chat/panel/**/*.tsx"]
     },

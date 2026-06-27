@@ -7,6 +7,7 @@ import { type AppServerQueryContext, appServerQueryContextIsComplete } from "./a
 import { AppServerSharedQueries } from "./app-server/query/shared-queries";
 import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./app-server/query/thread-catalog";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
+import { hasPendingRequests } from "./domain/pending-requests/aggregate";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import type {
@@ -20,6 +21,7 @@ import type {
 import { CodexChatTurnDiffView } from "./features/chat/ui/turn-diff/view.obsidian";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
+import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
@@ -127,7 +129,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       threadCatalog: this.threadCatalog,
       openNewPanel: () => this.panels.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
-      getOpenPanelSnapshots: () => this.panels.getOpenPanelSnapshots(),
+      openPanelActivities: () => this.openPanelActivities(),
     };
   }
 
@@ -225,6 +227,15 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     for (const view of this.threadsViews()) {
       view.refreshLiveState();
     }
+  }
+
+  private openPanelActivities(): readonly ThreadsViewPanelActivity[] {
+    return this.panels.getOpenPanelSnapshots().map((snapshot) => ({
+      threadId: snapshot.threadId,
+      selected: snapshot.lastFocused,
+      pending: hasPendingRequests(snapshot.pendingRequests),
+      running: snapshot.turnLifecycle.kind !== "idle",
+    }));
   }
 
   private threadsViews(): CodexThreadsView[] {

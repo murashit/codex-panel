@@ -5,14 +5,14 @@ import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/thread
 import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import type { ChatState } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
-import type { RestoredThreadPlaceholderState } from "../application/threads/restored-thread-lifecycle";
+import { parseRestoredThreadState, type RestoredThreadPlaceholderState } from "../application/threads/restored-thread-lifecycle";
 import { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
-import { type ChatPanelSnapshot, openPanelTurnLifecycle, parseRestoredThreadState } from "../panel/snapshot";
 import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/surface/message-stream-scroll";
-import type { ChatPanelEnvironment, ChatPanelHandle } from "./contracts";
+import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./deferred-work";
 import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
+import { openPanelTurnLifecycle } from "./workspace-panel-snapshot";
 
 export class ChatPanelSession implements ChatPanelHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();
@@ -100,15 +100,13 @@ export class ChatPanelSession implements ChatPanelHandle {
     return result;
   }
 
-  openPanelSnapshot(): ChatPanelSnapshot {
+  openPanelSnapshot(): ChatWorkspacePanelSnapshot {
     const pendingRequests = pendingRequestCountsFromQueues(this.state.requests);
     return {
       viewId: this.environment.obsidian.viewId,
       threadId: this.closing ? null : this.panelThreadId(),
       turnLifecycle: openPanelTurnLifecycle(this.state.turn.lifecycle),
-      pendingApprovals: pendingRequests.approvals,
-      pendingUserInputs: pendingRequests.userInputs,
-      pendingMcpElicitations: pendingRequests.mcpElicitations,
+      pendingRequests,
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
       connected: this.graph.connection.manager.isConnected(),
     };

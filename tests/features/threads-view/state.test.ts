@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Thread } from "../../../src/domain/threads/model";
-import { threadRows, transitionThreadsRenameState } from "../../../src/features/threads-view/state";
-import type { OpenCodexPanelSnapshot } from "../../../src/workspace/panel-coordinator";
+import { type ThreadsViewPanelActivity, threadRows, transitionThreadsRenameState } from "../../../src/features/threads-view/state";
 
 describe("threads view rename state", () => {
   it("maps threads view auto-name events through the shared rename lifecycle", () => {
@@ -47,7 +46,7 @@ describe("threads view rename state", () => {
   });
 
   it("treats pending MCP elicitations as pending live state", () => {
-    const rows = threadRows([thread()], [openPanelSnapshot({ pendingMcpElicitations: 1 })], new Map());
+    const rows = threadRows([thread()], [panelActivity({ pending: true })], new Map());
 
     expect(rows[0]?.live).toMatchObject({ status: "pending" });
   });
@@ -65,17 +64,12 @@ function thread(overrides: Partial<Thread> = {}): Thread {
   };
 }
 
-function openPanelSnapshot(overrides: Partial<OpenCodexPanelSnapshot> = {}): OpenCodexPanelSnapshot {
+function panelActivity(overrides: Partial<ThreadsViewPanelActivity> = {}): ThreadsViewPanelActivity {
   return {
-    viewId: "view",
     threadId: "thread",
-    turnLifecycle: { kind: "idle" },
-    pendingApprovals: 0,
-    pendingUserInputs: 0,
-    pendingMcpElicitations: 0,
-    hasComposerDraft: false,
-    connected: true,
-    lastFocused: false,
+    selected: false,
+    pending: false,
+    running: false,
     ...overrides,
   };
 }

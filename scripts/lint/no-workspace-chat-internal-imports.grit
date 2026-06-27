@@ -1,0 +1,18 @@
+language js
+
+private pattern js_module_reference() {
+  or {
+    JsImport(),
+    JsExportNamedFromClause(),
+    JsExportFromClause(),
+    TsImportType(),
+    JsImportCallExpression()
+  }
+}
+
+js_module_reference() as $stmt where {
+  $stmt <: contains `$source` where {
+    $source <: r"^[\"'](?:\.\./features/chat/(?:application|app-server|domain|panel|presentation|ui)|src/features/chat/(?:application|app-server|domain|panel|presentation|ui))(?:/.*)?[\"']$"
+  },
+  register_diagnostic(span=$stmt, message="Workspace modules may coordinate chat only through chat host contracts and Obsidian views.", severity="error")
+}

@@ -1,6 +1,4 @@
-import { hasPendingRequests, pendingRequestCounts } from "../../domain/pending-requests/aggregate";
 import { type Thread, threadRecencyAt } from "../../domain/threads/model";
-import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import {
   initialThreadRenameLifecycleState,
   type ThreadRenameLifecycleEvent as SharedThreadRenameLifecycleEvent,
@@ -15,6 +13,13 @@ type ThreadsLiveStatus = "pending" | "running" | "open";
 
 interface ThreadsLiveState {
   status: ThreadsLiveStatus;
+}
+
+export interface ThreadsViewPanelActivity {
+  threadId: string | null;
+  selected: boolean;
+  pending: boolean;
+  running: boolean;
 }
 
 export interface ThreadsRowModel extends ThreadRowCoreProjection {
@@ -40,20 +45,20 @@ const STATUS_PRIORITY: Record<ThreadsLiveStatus, number> = {
 
 export function threadRows(
   threads: readonly Thread[],
-  snapshots: OpenCodexPanelSnapshot[],
+  panelActivities: readonly ThreadsViewPanelActivity[],
   renameStates: ReadonlyMap<string, ThreadsRenameState>,
   archiveConfirmThreadId: string | null = null,
   defaultArchiveSaveMarkdown = false,
 ): ThreadsRowModel[] {
-  const snapshotsByThread = snapshotsForThreads(snapshots);
+  const panelActivitiesByThread = panelActivitiesForThreads(panelActivities);
   return [...threads]
     .sort((a, b) => threadRecencyAt(b) - threadRecencyAt(a))
     .map((thread) => {
-      const threadSnapshots = snapshotsByThread.get(thread.id) ?? [];
-      const live = liveStateForSnapshots(threadSnapshots);
+      const threadPanelActivities = panelActivitiesByThread.get(thread.id) ?? [];
+      const live = liveStateForPanelActivities(threadPanelActivities);
       const core = threadRowCoreProjection({
         thread,
-        selected: threadSnapshots.some((snapshot) => snapshot.threadId !== null && snapshot.lastFocused),
+        selected: threadPanelActivities.some((activity) => activity.threadId !== null && activity.selected),
         renameState: renameStates.get(thread.id),
         archiveConfirmActive: archiveConfirmThreadId === thread.id,
         defaultArchiveSaveMarkdown,
@@ -65,12 +70,14 @@ export function threadRows(
     });
 }
 
-function liveStateForSnapshots(snapshots: OpenCodexPanelSnapshot[]): ThreadsLiveState | null {
-  const liveSnapshots = snapshots.filter((snapshot) => snapshot.threadId !== null);
-  if (liveSnapshots.length === 0) return null;
-  const winner = [...liveSnapshots].sort((a, b) => STATUS_PRIORITY[snapshotStatus(b)] - STATUS_PRIORITY[snapshotStatus(a)]).at(0);
+function liveStateForPanelActivities(panelActivities: ThreadsViewPanelActivity[]): ThreadsLiveState | null {
+  const livePanelActivities = panelActivities.filter((activity) => activity.threadId !== null);
+  if (livePanelActivities.length === 0) return null;
+  const winner = [...livePanelActivities]
+    .sort((a, b) => STATUS_PRIORITY[panelActivityStatus(b)] - STATUS_PRIORITY[panelActivityStatus(a)])
+    .at(0);
   if (!winner) return null;
-  const status = snapshotStatus(winner);
+  const status = panelActivityStatus(winner);
   return {
     status,
   };
@@ -106,19 +113,19 @@ function activeThreadsRenameState(state: SharedThreadRenameLifecycleState): Thre
   return state.kind === "idle" ? undefined : state;
 }
 
-function snapshotsForThreads(snapshots: OpenCodexPanelSnapshot[]): Map<string, OpenCodexPanelSnapshot[]> {
-  const map = new Map<string, OpenCodexPanelSnapshot[]>();
-  for (const snapshot of snapshots) {
-    if (!snapshot.threadId) continue;
-    const existing = map.get(snapshot.threadId) ?? [];
-    existing.push(snapshot);
-    map.set(snapshot.threadId, existing);
+function panelActivitiesForThreads(panelActivities: readonly ThreadsViewPanelActivity[]): Map<string, ThreadsViewPanelActivity[]> {
+  const map = new Map<string, ThreadsViewPanelActivity[]>();
+  for (const activity of panelActivities) {
+    if (!activity.threadId) continue;
+    const existing = map.get(activity.threadId) ?? [];
+    existing.push(activity);
+    map.set(activity.threadId, existing);
   }
   return map;
 }
 
-function snapshotStatus(snapshot: OpenCodexPanelSnapshot): ThreadsLiveStatus {
-  if (hasPendingRequests(pendingRequestCounts(snapshot))) return "pending";
-  if (snapshot.turnLifecycle.kind !== "idle") return "running";
+function panelActivityStatus(activity: ThreadsViewPanelActivity): ThreadsLiveStatus {
+  if (activity.pending) return "pending";
+  if (activity.running) return "running";
   return "open";
 }

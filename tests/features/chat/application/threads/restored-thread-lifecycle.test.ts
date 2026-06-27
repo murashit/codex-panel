@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { transitionRestoredThreadLifecycle } from "../../../../../src/features/chat/application/threads/restored-thread-lifecycle";
+import {
+  parseRestoredThreadState,
+  transitionRestoredThreadLifecycle,
+} from "../../../../../src/features/chat/application/threads/restored-thread-lifecycle";
 
 describe("transitionRestoredThreadLifecycle", () => {
   it("clears restored-thread loading only for the active loading promise", () => {
@@ -22,5 +25,15 @@ describe("transitionRestoredThreadLifecycle", () => {
       kind: "placeholder",
       loading: null,
     });
+  });
+
+  it("parses restored thread view state defensively", () => {
+    expect(parseRestoredThreadState({ threadId: "thread", threadTitle: "Title" })).toEqual({
+      threadId: "thread",
+      title: "Title",
+      explicitName: null,
+    });
+    expect(parseRestoredThreadState({ threadId: "" })).toBeNull();
+    expect(parseRestoredThreadState(null)).toBeNull();
   });
 });

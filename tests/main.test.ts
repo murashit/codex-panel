@@ -107,9 +107,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
       {
         threadId: "thread-1",
         turnLifecycle: { kind: "idle" },
-        pendingApprovals: 0,
-        pendingUserInputs: 0,
-        pendingMcpElicitations: 0,
+        pendingRequests: { actionable: 0 },
         hasComposerDraft: false,
         connected: false,
         lastFocused: false,
@@ -122,16 +120,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const openLeaf = leaf();
     openLeaf.view = chatView(CodexChatView, openLeaf);
     const openView = openLeaf.view as CodexChatView;
-    vi.spyOn(openView.surface, "openPanelSnapshot").mockReturnValue({
-      viewId: "open-view",
-      threadId: "thread-1",
-      turnLifecycle: { kind: "idle" },
-      pendingApprovals: 0,
-      pendingUserInputs: 0,
-      pendingMcpElicitations: 0,
-      hasComposerDraft: false,
-      connected: true,
-    });
+    vi.spyOn(openView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "open-view", threadId: "thread-1" }));
     vi.spyOn(openView.surface, "focusThread").mockResolvedValue(undefined);
     const emptyLeaf = leaf();
     emptyLeaf.view = chatView(CodexChatView, emptyLeaf);
@@ -150,29 +139,11 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const busyLeaf = leaf();
     busyLeaf.view = chatView(CodexChatView, busyLeaf);
     const busyView = busyLeaf.view as CodexChatView;
-    vi.spyOn(busyView.surface, "openPanelSnapshot").mockReturnValue({
-      viewId: "busy-view",
-      threadId: "other-thread",
-      turnLifecycle: { kind: "idle" },
-      pendingApprovals: 0,
-      pendingUserInputs: 0,
-      pendingMcpElicitations: 0,
-      hasComposerDraft: false,
-      connected: true,
-    });
+    vi.spyOn(busyView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "busy-view", threadId: "other-thread" }));
     const emptyLeaf = leaf();
     emptyLeaf.view = chatView(CodexChatView, emptyLeaf);
     const emptyView = emptyLeaf.view as CodexChatView;
-    vi.spyOn(emptyView.surface, "openPanelSnapshot").mockReturnValue({
-      viewId: "empty-view",
-      threadId: null,
-      turnLifecycle: { kind: "idle" },
-      pendingApprovals: 0,
-      pendingUserInputs: 0,
-      pendingMcpElicitations: 0,
-      hasComposerDraft: false,
-      connected: true,
-    });
+    vi.spyOn(emptyView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "empty-view", threadId: null }));
     const openEmptyThread = vi.spyOn(emptyView.surface, "openThread").mockResolvedValue(undefined);
     const plugin = await pluginWithLeaves([busyLeaf, emptyLeaf]);
 
@@ -360,9 +331,9 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     activeLeafHandler(secondLeaf);
 
     expect(refreshThreadsViewLiveState).toHaveBeenCalledOnce();
-    expect(pluginWithThreads.runtime.threadsHost().getOpenPanelSnapshots()).toMatchObject([
-      { viewId: "first", lastFocused: false },
-      { viewId: "second", lastFocused: true },
+    expect(pluginWithThreads.runtime.threadsHost().openPanelActivities()).toMatchObject([
+      { threadId: "thread-1", selected: false },
+      { threadId: "thread-2", selected: true },
     ]);
   });
 
@@ -898,18 +869,27 @@ function thread(id: string): Thread {
   };
 }
 
-function panelSnapshot(
-  overrides: Partial<ReturnType<CodexChatView["surface"]["openPanelSnapshot"]>> = {},
-): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
+function panelSnapshot(overrides: PanelSnapshotFixtureOverrides = {}): ReturnType<CodexChatView["surface"]["openPanelSnapshot"]> {
+  const { pendingApprovals, pendingUserInputs, pendingMcpElicitations, ...snapshotOverrides } = overrides;
+  const pendingRequests = snapshotOverrides.pendingRequests ?? {
+    approvals: pendingApprovals ?? 0,
+    userInputs: pendingUserInputs ?? 0,
+    mcpElicitations: pendingMcpElicitations ?? 0,
+    actionable: (pendingApprovals ?? 0) + (pendingUserInputs ?? 0) + (pendingMcpElicitations ?? 0),
+  };
   return {
     viewId: "view",
     threadId: "thread",
     turnLifecycle: { kind: "idle" },
-    pendingApprovals: 0,
-    pendingUserInputs: 0,
-    pendingMcpElicitations: 0,
+    pendingRequests,
     hasComposerDraft: false,
     connected: true,
-    ...overrides,
+    ...snapshotOverrides,
   };
 }
+
+type PanelSnapshotFixtureOverrides = Partial<ReturnType<CodexChatView["surface"]["openPanelSnapshot"]>> & {
+  pendingApprovals?: number;
+  pendingUserInputs?: number;
+  pendingMcpElicitations?: number;
+};

@@ -35,3 +35,16 @@ export function transitionRestoredThreadLifecycle(
       return state.kind === "idle" ? state : { kind: "idle" };
   }
 }
+
+export function parseRestoredThreadState(state: unknown): RestoredThreadState | null {
+  if (!state || typeof state !== "object") return null;
+  const record = state as Record<string, unknown>;
+  const threadId = record["threadId"];
+  if (typeof threadId !== "string" || threadId.trim().length === 0) return null;
+  const title = record["threadTitle"];
+  return {
+    threadId,
+    title: typeof title === "string" && title.trim().length > 0 ? title : null,
+    explicitName: null,
+  };
+}

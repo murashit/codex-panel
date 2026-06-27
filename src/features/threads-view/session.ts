@@ -9,7 +9,6 @@ import type { ArchiveExportSettings } from "../../domain/threads/archive-markdow
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedResult } from "../../shared/query/observed-result";
 import { observedInitialError, observedInitialLoading, observedValue } from "../../shared/query/observed-result";
-import type { OpenCodexPanelSnapshot } from "../../workspace/panel-coordinator";
 import { createThreadOperations, type ThreadOperations } from "../threads/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
@@ -17,6 +16,7 @@ import {
   type ThreadsGeneratingRenameState,
   type ThreadsRenameLifecycleEvent,
   type ThreadsRenameState,
+  type ThreadsViewPanelActivity,
   threadRows,
   transitionThreadsRenameState,
 } from "./state";
@@ -35,7 +35,7 @@ export interface ThreadsViewHost {
   readonly threadCatalog: ThreadsViewThreadCatalog;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
-  getOpenPanelSnapshots(): OpenCodexPanelSnapshot[];
+  openPanelActivities(): readonly ThreadsViewPanelActivity[];
 }
 
 type ThreadsViewThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
@@ -210,7 +210,7 @@ export class ThreadsViewSession {
         loading: this.refreshLifecycle.kind === "loading",
         rows: threadRows(
           this.threads,
-          this.host.getOpenPanelSnapshots(),
+          this.host.openPanelActivities(),
           this.renameStates,
           this.archiveConfirmThreadId,
           this.host.settings.archiveExportEnabled(),

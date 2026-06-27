@@ -539,7 +539,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     },
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
-    getOpenPanelSnapshots: vi.fn(() => []),
+    openPanelActivities: vi.fn(() => []),
     threadCatalog: {
       apply: vi.fn(),
       loadActive: vi.fn(async () => []),

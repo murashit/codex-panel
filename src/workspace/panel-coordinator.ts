@@ -2,9 +2,8 @@ import type { App, WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { hasPendingRequests, pendingRequestCounts } from "../domain/pending-requests/aggregate";
-import type { ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
+import type { ChatWorkspacePanelSnapshot, ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
 import { CodexChatView } from "../features/chat/host/view.obsidian";
-import type { ChatPanelSnapshot } from "../features/chat/panel/snapshot";
 
 type ThreadPanelTarget =
   | {
@@ -42,7 +41,7 @@ interface WorkspacePanelReconcileOptions {
 
 const ignoreWorkspacePanelLoadError = (): void => undefined;
 
-export interface OpenCodexPanelSnapshot extends ChatPanelSnapshot {
+export interface WorkspacePanelSnapshot extends ChatWorkspacePanelSnapshot {
   lastFocused: boolean;
 }
 
@@ -127,7 +126,7 @@ export class WorkspacePanelCoordinator {
     return true;
   }
 
-  getOpenPanelSnapshots(): OpenCodexPanelSnapshot[] {
+  getOpenPanelSnapshots(): WorkspacePanelSnapshot[] {
     const leaves = this.panelLeaves();
     this.ensureInitialFocusedPanel(leaves);
     return leaves.flatMap((leaf, index) => {
@@ -370,7 +369,7 @@ export class WorkspacePanelCoordinator {
     if (viewId) this.lastFocusedPanelViewId = viewId;
   }
 
-  private openPanelSnapshotWithFocus(snapshot: ChatPanelSnapshot): OpenCodexPanelSnapshot {
+  private openPanelSnapshotWithFocus(snapshot: ChatWorkspacePanelSnapshot): WorkspacePanelSnapshot {
     return { ...snapshot, lastFocused: snapshot.viewId === this.lastFocusedPanelViewId };
   }
 
@@ -417,11 +416,11 @@ export class WorkspacePanelCoordinator {
   }
 }
 
-function isIdleEmptyPanelSnapshot(snapshot: ChatPanelSnapshot): boolean {
+function isIdleEmptyPanelSnapshot(snapshot: ChatWorkspacePanelSnapshot): boolean {
   return (
     snapshot.threadId === null &&
     snapshot.turnLifecycle.kind === "idle" &&
-    !hasPendingRequests(pendingRequestCounts(snapshot)) &&
+    !hasPendingRequests(snapshot.pendingRequests) &&
     !snapshot.hasComposerDraft
   );
 }
@@ -441,16 +440,14 @@ function restoredThreadId(leaf: WorkspaceLeaf): string | null {
   return typeof threadId === "string" && threadId.length > 0 ? threadId : null;
 }
 
-function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): OpenCodexPanelSnapshot | null {
+function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): WorkspacePanelSnapshot | null {
   const threadId = restoredThreadId(leaf);
   if (!threadId) return null;
   return {
     viewId: `restored:${String(index)}:${threadId}`,
     threadId,
     turnLifecycle: { kind: "idle" },
-    pendingApprovals: 0,
-    pendingUserInputs: 0,
-    pendingMcpElicitations: 0,
+    pendingRequests: pendingRequestCounts({ pendingApprovals: 0, pendingUserInputs: 0, pendingMcpElicitations: 0 }),
     hasComposerDraft: false,
     connected: false,
     lastFocused: false,

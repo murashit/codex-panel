@@ -3,8 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../src/domain/threads/model";
 import { renderThreadsViewShell } from "../../../src/features/threads-view/shell.dom";
-import { type ThreadsRowModel, threadRows } from "../../../src/features/threads-view/state";
-import type { OpenCodexPanelSnapshot } from "../../../src/workspace/panel-coordinator";
+import { type ThreadsRowModel, type ThreadsViewPanelActivity, threadRows } from "../../../src/features/threads-view/state";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
 
 installObsidianDomShims();
@@ -14,29 +13,12 @@ function expectPresent<T>(value: T | null | undefined): T {
   return value;
 }
 
-function openPanelSnapshot(
-  overrides: Partial<{
-    viewId: string;
-    threadId: string | null;
-    turnLifecycle: OpenCodexPanelSnapshot["turnLifecycle"];
-    pendingApprovals: number;
-    pendingUserInputs: number;
-    pendingMcpElicitations: number;
-    hasComposerDraft: boolean;
-    connected: boolean;
-    lastFocused: boolean;
-  }> = {},
-): OpenCodexPanelSnapshot {
+function panelActivity(overrides: Partial<ThreadsViewPanelActivity> = {}): ThreadsViewPanelActivity {
   return {
-    viewId: "view",
     threadId: "thread",
-    lastFocused: false,
-    turnLifecycle: { kind: "idle" },
-    pendingApprovals: 0,
-    pendingUserInputs: 0,
-    pendingMcpElicitations: 0,
-    hasComposerDraft: false,
-    connected: true,
+    selected: false,
+    pending: false,
+    running: false,
     ...overrides,
   };
 }
@@ -88,38 +70,19 @@ describe("threads view renderer decisions", () => {
       threadRows(
         [threadFixture({ id: "thread" })],
         [
-          openPanelSnapshot({ viewId: "open", threadId: "thread" }),
-          openPanelSnapshot({ viewId: "running", threadId: "thread", turnLifecycle: { kind: "running", turnId: "turn" } }),
-          openPanelSnapshot({ viewId: "pending", threadId: "thread", pendingApprovals: 1 }),
+          panelActivity({ threadId: "thread" }),
+          panelActivity({ threadId: "thread", running: true }),
+          panelActivity({ threadId: "thread", pending: true }),
         ],
         new Map(),
       )[0]?.live,
     ).toMatchObject({ status: "pending" });
 
-    expect(
-      threadRows(
-        [threadFixture({ id: "thread" })],
-        [openPanelSnapshot({ viewId: "draft", threadId: "thread", hasComposerDraft: true })],
-        new Map(),
-      )[0]?.live,
-    ).toMatchObject({
+    expect(threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: "thread" })], new Map())[0]?.live).toMatchObject({
       status: "open",
     });
     expect(
-      threadRows(
-        [threadFixture({ id: "thread" })],
-        [openPanelSnapshot({ viewId: "offline", threadId: "thread", connected: false })],
-        new Map(),
-      )[0]?.live,
-    ).toMatchObject({
-      status: "open",
-    });
-    expect(
-      threadRows(
-        [threadFixture({ id: "thread" })],
-        [openPanelSnapshot({ viewId: "none", threadId: null, turnLifecycle: { kind: "running", turnId: "turn" } })],
-        new Map(),
-      )[0]?.live,
+      threadRows([threadFixture({ id: "thread" })], [panelActivity({ threadId: null, running: true })], new Map())[0]?.live,
     ).toBeNull();
   });
 
@@ -129,7 +92,7 @@ describe("threads view renderer decisions", () => {
         threadFixture({ id: "closed", preview: "Closed thread" }),
         threadFixture({ id: "focused", preview: "Focused thread", updatedAt: 2 }),
       ],
-      [openPanelSnapshot({ viewId: "view-focused", threadId: "focused", lastFocused: true })],
+      [panelActivity({ threadId: "focused", selected: true })],
       new Map(),
     );
 
@@ -142,7 +105,7 @@ describe("threads view renderer decisions", () => {
     const actions = threadsViewActions();
     const rows = threadRows(
       [threadFixture({ id: "closed", preview: "Closed thread" }), threadFixture({ id: "open", preview: "Open thread", updatedAt: 2 })],
-      [openPanelSnapshot({ viewId: "view-open", threadId: "open", pendingApprovals: 1, lastFocused: true })],
+      [panelActivity({ threadId: "open", pending: true, selected: true })],
       new Map(),
     );
 

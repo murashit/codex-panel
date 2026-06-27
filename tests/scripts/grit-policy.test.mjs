@@ -27,6 +27,9 @@ const CHAT_APPLICATION_OUTER_LAYER_MESSAGE =
 const CHAT_APP_SERVER_OUTER_LAYER_MESSAGE = "Chat app-server adapters must not import chat host, panel, presentation, or UI layers.";
 const CHAT_WORKSPACE_BOUNDARY_MESSAGE =
   "Chat modules must not import workspace modules; pass workspace capabilities through chat host contracts.";
+const FEATURE_WORKSPACE_BOUNDARY_MESSAGE =
+  "Feature modules must not import workspace modules; pass workspace capabilities through feature host contracts.";
+const WORKSPACE_CHAT_INTERNAL_MESSAGE = "Workspace modules may coordinate chat only through chat host contracts and Obsidian views.";
 const CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE = "Chat panel modules must not import app-server adapters or chat host internals.";
 const CHAT_PRESENTATION_OUTER_LAYER_MESSAGE =
   "Chat presentation modules must stay pure view-model projection; keep application, app-server, host, panel, and UI dependencies outward.";
@@ -402,6 +405,8 @@ export function timestamp(): number {
       "no-chat-application-outer-layer-imports.grit",
       "no-chat-app-server-outer-layer-imports.grit",
       "no-chat-workspace-boundary-imports.grit",
+      "no-feature-workspace-boundary-imports.grit",
+      "no-workspace-chat-internal-imports.grit",
       "no-chat-panel-runtime-boundary-imports.grit",
       "no-chat-presentation-outer-layer-imports.grit",
       "no-chat-ui-outer-layer-imports.grit",
@@ -411,11 +416,11 @@ export function timestamp(): number {
       `
 import type { Host } from "../host/contracts";
 import type { ChatThreadHistoryPage } from "../app-server/threads/projection";
-import type { PanelSnapshot } from "../panel/snapshot";
+import type { ToolbarPanelActions } from "../panel/toolbar-actions";
 import { statusText } from "../presentation/runtime/status";
 import { Toolbar } from "../ui/toolbar";
 
-export type Escape = ChatThreadHistoryPage | Host | PanelSnapshot;
+export type Escape = ChatThreadHistoryPage | Host | ToolbarPanelActions;
 export const values = [statusText, Toolbar] satisfies unknown[];
 `.trimStart(),
     );
@@ -439,11 +444,11 @@ export type Escape = AppServerClient;
       path.join(cwd, "src/features/chat/app-server/outer.ts"),
       `
 import type { Host } from "../host/contracts";
-import type { PanelSnapshot } from "../panel/snapshot";
+import type { ToolbarPanelActions } from "../panel/toolbar-actions";
 import { statusText } from "../presentation/runtime/status";
 import { Toolbar } from "../ui/toolbar";
 
-export type Escape = Host | PanelSnapshot;
+export type Escape = Host | ToolbarPanelActions;
 export const values = [statusText, Toolbar] satisfies unknown[];
 `.trimStart(),
     );
@@ -474,6 +479,40 @@ export type Allowed = ChatStateStore;
 `.trimStart(),
     );
     await writeFile(
+      path.join(cwd, "src/features/threads-view/workspace-escape.ts"),
+      `
+import type { WorkspacePanelCoordinator } from "../../workspace/panel-coordinator";
+
+export type Escape = WorkspacePanelCoordinator;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/threads-view/workspace-allowed.ts"),
+      `
+import type { Thread } from "../../domain/threads/model";
+
+export type Allowed = Thread;
+`.trimStart(),
+    );
+    await mkdir(path.join(cwd, "src/workspace"), { recursive: true });
+    await writeFile(
+      path.join(cwd, "src/workspace/chat-internal-escape.ts"),
+      `
+import type { ToolbarPanelActions } from "../features/chat/panel/toolbar-actions";
+
+export type Escape = ToolbarPanelActions;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/workspace/chat-host-allowed.ts"),
+      `
+import type { ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
+import type { CodexChatView } from "../features/chat/host/view.obsidian";
+
+export type Allowed = ChatWorkspacePanelSurface | CodexChatView;
+`.trimStart(),
+    );
+    await writeFile(
       path.join(cwd, "src/features/chat/panel/outer.tsx"),
       `
 import type { AppServerClient } from "../../../app-server/connection/client";
@@ -500,10 +539,10 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatServerActionsHost } from "../app-server/actions/host";
 import type { Host } from "../host/contracts";
-import type { PanelSnapshot } from "../panel/snapshot";
+import type { ToolbarPanelActions } from "../panel/toolbar-actions";
 import { Toolbar } from "../ui/toolbar";
 
-export type Escape = AppServerClient | ChatStateStore | ChatServerActionsHost | Host | PanelSnapshot;
+export type Escape = AppServerClient | ChatStateStore | ChatServerActionsHost | Host | ToolbarPanelActions;
 export const toolbar = Toolbar;
 `.trimStart(),
     );
@@ -523,9 +562,9 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatStateStore } from "../application/state/store";
 import type { ChatServerActionsHost } from "../app-server/actions/host";
 import type { Host } from "../host/contracts";
-import type { PanelSnapshot } from "../panel/snapshot";
+import type { ToolbarPanelActions } from "../panel/toolbar-actions";
 
-export type Escape = AppServerClient | ChatStateStore | ChatServerActionsHost | Host | PanelSnapshot;
+export type Escape = AppServerClient | ChatStateStore | ChatServerActionsHost | Host | ToolbarPanelActions;
 `.trimStart(),
     );
     await writeFile(
@@ -549,6 +588,10 @@ export const value = statusText;
         "src/features/chat/app-server/allowed.ts",
         "src/features/chat/host/workspace-escape.ts",
         "src/features/chat/host/workspace-allowed.ts",
+        "src/features/threads-view/workspace-escape.ts",
+        "src/features/threads-view/workspace-allowed.ts",
+        "src/workspace/chat-internal-escape.ts",
+        "src/workspace/chat-host-allowed.ts",
         "src/features/chat/panel/outer.tsx",
         "src/features/chat/panel/allowed.tsx",
         "src/features/chat/presentation/outer.ts",
@@ -570,6 +613,10 @@ export const value = statusText;
     expect(pluginDiagnostics(report, "src/features/chat/app-server/allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/host/workspace-escape.ts")).toEqual([CHAT_WORKSPACE_BOUNDARY_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/chat/host/workspace-allowed.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/features/threads-view/workspace-escape.ts")).toEqual([FEATURE_WORKSPACE_BOUNDARY_MESSAGE]);
+    expect(pluginDiagnostics(report, "src/features/threads-view/workspace-allowed.ts")).toEqual([]);
+    expect(pluginMessages(report, "src/workspace/chat-internal-escape.ts")).toEqual([WORKSPACE_CHAT_INTERNAL_MESSAGE]);
+    expect(pluginDiagnostics(report, "src/workspace/chat-host-allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/panel/outer.tsx")).toEqual(
       Array.from({ length: 3 }, () => CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE),
     );
