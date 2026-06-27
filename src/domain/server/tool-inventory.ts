@@ -1,16 +1,6 @@
 import type { SkillMetadata } from "../catalog/metadata";
 import type { McpServerDiagnostic, McpServerStatusSummary } from "./diagnostics";
 
-export interface ToolInventoryApp {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string | null;
-  readonly enabled: boolean;
-  readonly accessible: boolean;
-  readonly distributionChannel: string | null;
-  readonly pluginDisplayNames: readonly string[];
-}
-
 export interface ToolInventoryPlugin {
   readonly id: string;
   readonly name: string;
@@ -38,8 +28,6 @@ export interface ToolInventoryMarketplaceError {
 
 export interface ToolInventorySnapshot {
   readonly checkedAt: number;
-  readonly apps: readonly ToolInventoryApp[] | null;
-  readonly appsError: string | null;
   readonly plugins: readonly ToolInventoryPlugin[] | null;
   readonly pluginMarketplaceErrors: readonly ToolInventoryMarketplaceError[];
   readonly pluginsError: string | null;
@@ -53,7 +41,6 @@ export interface ToolInventorySnapshot {
 export function cloneToolInventorySnapshot(snapshot: ToolInventorySnapshot): ToolInventorySnapshot {
   return {
     ...snapshot,
-    apps: snapshot.apps ? snapshot.apps.map((app) => ({ ...app, pluginDisplayNames: [...app.pluginDisplayNames] })) : null,
     plugins: snapshot.plugins
       ? snapshot.plugins.map((plugin) => ({ ...plugin, details: plugin.details ? { ...plugin.details } : null }))
       : null,

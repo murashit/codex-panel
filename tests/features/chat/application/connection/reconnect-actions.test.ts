@@ -19,7 +19,6 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
     stateStore,
     invalidateConnectionWork: vi.fn(),
     invalidateThreadWork: vi.fn(),
-    clearDeferredDiagnostics: vi.fn(),
     resetConnection: vi.fn(),
     setStatus: vi.fn(),
     ensureConnected: vi.fn().mockResolvedValue(undefined),
@@ -39,7 +38,6 @@ describe("reconnectPanel", () => {
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.invalidateConnectionWork).toHaveBeenCalledOnce();
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
-    expect(host.clearDeferredDiagnostics).toHaveBeenCalledOnce();
     expect(host.resetConnection).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(host.ensureConnected).toHaveBeenCalledOnce();

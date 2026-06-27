@@ -7,18 +7,11 @@ import {
   type McpServerStatusSummary,
   mcpServerStatusSummariesFromStatuses,
 } from "../../domain/server/diagnostics";
-import type {
-  ToolInventoryApp,
-  ToolInventoryMarketplaceError,
-  ToolInventoryPlugin,
-  ToolInventorySnapshot,
-} from "../../domain/server/tool-inventory";
+import type { ToolInventoryMarketplaceError, ToolInventoryPlugin, ToolInventorySnapshot } from "../../domain/server/tool-inventory";
 import type { AppServerClient } from "../connection/client";
-import { toolInventoryAppsFromAppInfos, toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
+import { toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
 import { listSkillCatalog } from "./catalog";
 
-const APP_PAGE_LIMIT = 100;
-const APP_PAGE_LOOP_LIMIT = 20;
 const PLUGIN_DETAILS_CONCURRENCY = 4;
 
 export interface ReadToolInventoryOptions {
@@ -40,8 +33,10 @@ export async function readToolInventory(
   options: ReadToolInventoryOptions = {},
 ): Promise<ReadToolInventoryResult> {
   const checkedAt = Date.now();
-  const [apps, plugins, mcp, skills] = await Promise.all([
-    readApps(client, options.threadId ?? null, checkedAt),
+  // As of Codex CLI 0.142.3, app/list can enumerate the full app catalog and leave
+  // app-server CPU-bound after returning. Keep diagnostics on MCP/plugin/skill data
+  // until the app-list API can provide a cheap installed-or-enabled summary.
+  const [plugins, mcp, skills] = await Promise.all([
     readPlugins(client, cwd, checkedAt),
     readMcpServers(client, options.threadId ?? null, checkedAt),
     options.cachedSkills !== undefined
@@ -52,8 +47,6 @@ export async function readToolInventory(
   return {
     inventory: {
       checkedAt,
-      apps: apps.items,
-      appsError: apps.error,
       plugins: plugins.items,
       pluginMarketplaceErrors: plugins.marketplaceErrors,
       pluginsError: plugins.error,
@@ -63,7 +56,7 @@ export async function readToolInventory(
       skills: skills.items,
       skillsError: skills.error,
     },
-    probes: [apps.probe, plugins.probe, mcp.probe, skills.probe],
+    probes: [plugins.probe, mcp.probe, skills.probe],
     mcpServerStatuses: mcp.items,
   };
 }
@@ -78,47 +71,6 @@ function readCachedSkills(
     error: null,
     probe: probe ?? diagnosticProbeOk("skills/list", `${String(skills.length)} skills`, checkedAt),
   };
-}
-
-async function readApps(
-  client: AppServerClient,
-  threadId: string | null,
-  checkedAt: number,
-): Promise<{ items: ToolInventoryApp[] | null; error: string | null; probe: DiagnosticProbeResult }> {
-  try {
-    const apps = await listAllApps(client, threadId);
-    return {
-      items: toolInventoryAppsFromAppInfos(apps),
-      error: null,
-      probe: diagnosticProbeOk("app/list", `${String(apps.length)} apps`, checkedAt),
-    };
-  } catch (error) {
-    return { items: null, error: shortErrorMessage(error), probe: diagnosticProbeError("app/list", error, checkedAt) };
-  }
-}
-
-async function listAllApps(
-  client: AppServerClient,
-  threadId: string | null,
-): Promise<Awaited<ReturnType<AppServerClient["listApps"]>>["data"]> {
-  let cursor: string | null = null;
-  const seenCursors = new Set<string>();
-  const apps: Awaited<ReturnType<AppServerClient["listApps"]>>["data"] = [];
-  for (let page = 0; page < APP_PAGE_LOOP_LIMIT; page += 1) {
-    const response = await client.listApps({
-      limit: APP_PAGE_LIMIT,
-      ...(cursor ? { cursor } : {}),
-      ...(threadId ? { threadId } : {}),
-    });
-    apps.push(...response.data);
-    cursor = response.nextCursor;
-    if (!cursor) return apps;
-    if (seenCursors.has(cursor)) {
-      throw new Error("Codex app-server returned a repeated app list cursor.");
-    }
-    seenCursors.add(cursor);
-  }
-  throw new Error("Codex app-server returned too many app list pages.");
 }
 
 async function readPlugins(

@@ -615,13 +615,10 @@ describe("chat app-server actions", () => {
     await diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
 
     const sections = toolInventoryDiagnosticSections(stateStore.getState().connection.serverDiagnostics);
-    const providerRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
+    const mcpRows = sections.find((section) => section.title === "MCP servers")?.rows ?? [];
 
-    expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
-    expect(providerRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
-      "codex_apps: (none)",
-      "github: MCP server, ready, auth oAuth, 1 tool, 0 resources",
-    ]);
+    expect(sections.map((section) => section.title)).toEqual(["Plugins", "MCP servers", "Skills"]);
+    expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, ready, auth oAuth, 1 tool, 0 resources"]);
     expect(listMcpServerStatus).toHaveBeenCalledWith({
       detail: "toolsAndAuthOnly",
       limit: 100,

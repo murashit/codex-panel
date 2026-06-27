@@ -205,16 +205,6 @@ export function createConnectionBundle(
       refreshServerDiagnostics: (options) => serverDiagnostics.refreshServerDiagnostics(options),
     },
     refreshSharedThreads,
-    scheduleDeferredDiagnostics: () => {
-      host.deferredTasks.scheduleDiagnostics(() => {
-        if (connection.isConnected()) {
-          void serverDiagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
-        }
-      });
-    },
-    clearDeferredDiagnostics: () => {
-      host.deferredTasks.clearDiagnostics();
-    },
     refreshTabHeader: () => {
       host.refreshTabHeader();
     },

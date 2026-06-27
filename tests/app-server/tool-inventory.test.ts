@@ -77,33 +77,16 @@ describe("tool inventory", () => {
     ]);
   });
 
-  it("fails app inventory when app pagination repeats a cursor", async () => {
+  it("skips app catalog loading during diagnostics", async () => {
+    const listApps = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
     const client = toolInventoryClient({
-      listApps: vi
-        .fn()
-        .mockResolvedValueOnce({ data: [{ name: "first", title: "First", readOnlyHint: false }], nextCursor: "repeat" })
-        .mockResolvedValueOnce({ data: [{ name: "second", title: "Second", readOnlyHint: false }], nextCursor: "repeat" }),
+      listApps,
     });
 
     const result = await readToolInventory(client, "/vault");
 
-    expect(result.inventory.apps).toBeNull();
-    expect(result.inventory.appsError).toBe("Codex app-server returned a repeated app list cursor.");
-  });
-
-  it("fails app inventory when app pagination exceeds the page limit", async () => {
-    let page = 0;
-    const client = toolInventoryClient({
-      listApps: vi.fn().mockImplementation(() => {
-        page += 1;
-        return Promise.resolve({ data: [], nextCursor: `cursor-${String(page)}` });
-      }),
-    });
-
-    const result = await readToolInventory(client, "/vault");
-
-    expect(result.inventory.apps).toBeNull();
-    expect(result.inventory.appsError).toBe("Codex app-server returned too many app list pages.");
+    expect(listApps).not.toHaveBeenCalled();
+    expect(result.probes.some((probe) => probe.method === "app/list")).toBe(false);
   });
 
   it("limits plugin detail reads while preserving plugin order", async () => {

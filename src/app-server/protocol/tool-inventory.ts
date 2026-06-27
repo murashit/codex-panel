@@ -1,15 +1,4 @@
-import type { ToolInventoryApp, ToolInventoryMarketplaceError, ToolInventoryPlugin } from "../../domain/server/tool-inventory";
-
-interface ToolInventoryAppInfo {
-  id: string;
-  name: string;
-  description: string | null;
-  isEnabled: boolean;
-  isAccessible: boolean;
-  distributionChannel: string | null;
-  pluginDisplayNames: readonly string[];
-  [key: string]: unknown;
-}
+import type { ToolInventoryMarketplaceError, ToolInventoryPlugin } from "../../domain/server/tool-inventory";
 
 interface ToolInventoryPluginInstalledResponse {
   marketplaces: readonly ToolInventoryPluginMarketplaceEntry[];
@@ -47,10 +36,6 @@ interface ToolInventoryMarketplaceLoadError {
   [key: string]: unknown;
 }
 
-export function toolInventoryAppsFromAppInfos(apps: readonly ToolInventoryAppInfo[]): ToolInventoryApp[] {
-  return apps.map(toolInventoryAppFromAppInfo).sort((a, b) => a.name.localeCompare(b.name));
-}
-
 export function toolInventoryPluginsFromInstalledResponse(response: ToolInventoryPluginInstalledResponse): {
   plugins: ToolInventoryPlugin[];
   marketplaceErrors: ToolInventoryMarketplaceError[];
@@ -60,18 +45,6 @@ export function toolInventoryPluginsFromInstalledResponse(response: ToolInventor
       .flatMap((marketplace) => marketplace.plugins.map((plugin) => toolInventoryPluginFromSummary(plugin, marketplace)))
       .sort((a, b) => a.name.localeCompare(b.name)),
     marketplaceErrors: response.marketplaceLoadErrors.map(toolInventoryMarketplaceError),
-  };
-}
-
-function toolInventoryAppFromAppInfo(app: ToolInventoryAppInfo): ToolInventoryApp {
-  return {
-    id: app.id,
-    name: app.name,
-    description: app.description,
-    enabled: app.isEnabled,
-    accessible: app.isAccessible,
-    distributionChannel: app.distributionChannel,
-    pluginDisplayNames: [...app.pluginDisplayNames],
   };
 }
 

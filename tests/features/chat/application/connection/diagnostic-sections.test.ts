@@ -109,36 +109,6 @@ describe("connection diagnostics", () => {
   it("summarizes usable Codex capabilities and groups skills by provenance", () => {
     const inventory: ToolInventorySnapshot = {
       checkedAt: 1,
-      apps: [
-        {
-          id: "enabled-app",
-          name: "Enabled App",
-          description: null,
-          enabled: true,
-          accessible: true,
-          distributionChannel: null,
-          pluginDisplayNames: [],
-        },
-        {
-          id: "catalog-candidate",
-          name: "Catalog Candidate",
-          description: null,
-          enabled: true,
-          accessible: false,
-          distributionChannel: "DEFAULT_OAI_CATALOG",
-          pluginDisplayNames: [],
-        },
-        {
-          id: "disabled-accessible-app",
-          name: "Disabled Accessible App",
-          description: null,
-          enabled: false,
-          accessible: true,
-          distributionChannel: null,
-          pluginDisplayNames: [],
-        },
-      ],
-      appsError: null,
       plugins: [
         {
           id: "usable-plugin",
@@ -261,13 +231,13 @@ describe("connection diagnostics", () => {
 
     const sections = toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory));
     const pluginRows = sections.find((section) => section.title === "Plugins")?.rows ?? [];
-    const providerRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
+    const mcpRows = sections.find((section) => section.title === "MCP servers")?.rows ?? [];
     const skillRows = sections.find((section) => section.title === "Skills")?.rows ?? [];
 
-    expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
+    expect(sections.map((section) => section.title)).toEqual(["Plugins", "MCP servers", "Skills"]);
     expect(pluginRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["Usable Plugin: 2 skills, 1 hook, 1 app, 1 MCP server"]);
-    expect(providerRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
-      "codex_apps: Enabled App",
+    expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
+      "codex_apps: MCP server, ready, auth oAuth, 219 tools, 0 resources",
       "github: MCP server, ready, auth oAuth, 2 tools, 0 resources",
     ]);
     expect(skillRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
@@ -281,8 +251,6 @@ describe("connection diagnostics", () => {
   it("projects Codex capabilities from the latest diagnostic snapshot", () => {
     const inventory: ToolInventorySnapshot = {
       checkedAt: 1,
-      apps: [],
-      appsError: null,
       plugins: [],
       pluginMarketplaceErrors: [],
       pluginsError: null,
@@ -312,19 +280,14 @@ describe("connection diagnostics", () => {
       toolInventory: inventory,
     };
 
-    const providerRows = toolInventoryDiagnosticSections(diagnostics).find((section) => section.title === "Tool providers")?.rows ?? [];
+    const mcpRows = toolInventoryDiagnosticSections(diagnostics).find((section) => section.title === "MCP servers")?.rows ?? [];
 
-    expect(providerRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
-      "codex_apps: (none)",
-      "github: MCP server, ready, auth oAuth, 1 tool, 0 resources",
-    ]);
+    expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, ready, auth oAuth, 1 tool, 0 resources"]);
   });
 
-  it("keeps diagnostic-only MCP server failures in Tool providers", () => {
+  it("keeps diagnostic-only MCP server failures in MCP servers", () => {
     const inventory: ToolInventorySnapshot = {
       checkedAt: 1,
-      apps: [],
-      appsError: null,
       plugins: [],
       pluginMarketplaceErrors: [],
       pluginsError: null,
@@ -343,14 +306,13 @@ describe("connection diagnostics", () => {
       skillsError: null,
     };
 
-    const providerRows =
-      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory)).find((section) => section.title === "Tool providers")
-        ?.rows ?? [];
+    const mcpRows =
+      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory)).find((section) => section.title === "MCP servers")?.rows ??
+      [];
 
-    expect(providerRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
-      "codex_apps: (none)",
+    expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "figma: MCP server, failed, auth unknown, tools unknown, command not found",
     ]);
-    expect(providerRows.find((row) => row.label === "figma")?.level).toBe("error");
+    expect(mcpRows.find((row) => row.label === "figma")?.level).toBe("error");
   });
 });

@@ -11,16 +11,13 @@ describe("createChatViewDeferredTasks", () => {
 
   it("clears scheduled deferred work", async () => {
     const tasks = createChatViewDeferredTasks(() => window);
-    const diagnostics = vi.fn();
     const warmup = vi.fn();
 
-    tasks.scheduleDiagnostics(diagnostics);
     tasks.scheduleAppServerWarmup(warmup);
     tasks.clearAll();
 
     await vi.advanceTimersByTimeAsync(1_500);
 
-    expect(diagnostics).not.toHaveBeenCalled();
     expect(warmup).not.toHaveBeenCalled();
   });
 });

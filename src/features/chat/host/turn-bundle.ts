@@ -111,9 +111,6 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     invalidateThreadWork: () => {
       invalidateThreadWork();
     },
-    clearDeferredDiagnostics: () => {
-      host.deferredTasks.clearDiagnostics();
-    },
     resetConnection: () => {
       connection.resetConnection();
     },

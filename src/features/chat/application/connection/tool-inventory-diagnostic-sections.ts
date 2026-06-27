@@ -6,7 +6,6 @@ import type { DiagnosticRow, DiagnosticSection } from "./diagnostic-sections";
 const PERSONAL_SKILLS_LABEL = "Personal";
 const SYSTEM_SKILLS_LABEL = "System";
 const WORKSPACE_SKILLS_FALLBACK_LABEL = "Workspace";
-const CODEX_APPS_PROVIDER_LABEL = "codex_apps";
 const SKILL_PROVENANCE_RANKS = {
   workspace: 0,
   personal: 1,
@@ -23,8 +22,8 @@ interface SkillProvenance {
 
 function toolInventorySections(inventory: ToolInventorySnapshot | null): DiagnosticSection[] {
   if (!inventory) {
-    const row = { label: "Codex capabilities", value: "not loaded", level: "warning" as const };
-    return [{ title: "Tool providers", rows: [row] }];
+    const row = { label: "MCP servers", value: "not loaded", level: "warning" as const };
+    return [{ title: "MCP servers", rows: [row] }];
   }
 
   return toolInventorySnapshotSections(inventory);
@@ -41,7 +40,7 @@ export function toolInventoryDiagnosticSections(diagnostics: Pick<Diagnostics, "
 function toolInventorySnapshotSections(inventory: ToolInventorySnapshot): DiagnosticSection[] {
   return [
     { title: "Plugins", rows: pluginRows(inventory) },
-    { title: "Tool providers", rows: toolProviderRows(inventory) },
+    { title: "MCP servers", rows: mcpToolProviderRows(inventory) },
     { title: "Skills", rows: skillRows(inventory) },
   ];
 }
@@ -62,20 +61,6 @@ function pluginRow(plugin: ToolInventoryPlugin): DiagnosticRow {
   };
 }
 
-function toolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
-  const rows = mcpToolProviderRows(inventory).sort((left, right) => left.label.localeCompare(right.label));
-  return [codexAppsProviderRow(inventory), ...rows];
-}
-
-function codexAppsProviderRow(inventory: ToolInventorySnapshot): DiagnosticRow {
-  if (inventory.appsError) return { label: CODEX_APPS_PROVIDER_LABEL, value: inventory.appsError, level: "error" };
-  if (!inventory.apps) return { label: CODEX_APPS_PROVIDER_LABEL, value: "not loaded", level: "warning" };
-  return {
-    label: CODEX_APPS_PROVIDER_LABEL,
-    value: listSummary(inventory.apps.filter((app) => app.enabled && app.accessible).map((app) => app.name)),
-  };
-}
-
 function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
   if (inventory.mcpError) return [{ label: "MCP servers", value: inventory.mcpError, level: "error" }];
   if (inventory.mcpServers === null && inventory.mcpDiagnostics.length === 0) {
@@ -85,12 +70,12 @@ function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] 
   const statusByName = new Map((inventory.mcpServers ?? []).map((server) => [server.name, server]));
   const diagnosticByName = new Map(inventory.mcpDiagnostics.map((diagnostic) => [diagnostic.name, diagnostic]));
   const names = new Set([...statusByName.keys(), ...diagnosticByName.keys()]);
-  return [...names].flatMap((name) => {
-    if (name === CODEX_APPS_PROVIDER_LABEL) return [];
+  const rows = [...names].map((name) => {
     const server = statusByName.get(name);
     const diagnostic = diagnosticByName.get(name);
-    return [server ? mcpToolProviderStatusRow(server, diagnostic) : mcpToolProviderDiagnosticRow(name, diagnostic)];
+    return server ? mcpToolProviderStatusRow(server, diagnostic) : mcpToolProviderDiagnosticRow(name, diagnostic);
   });
+  return rows.sort((left, right) => left.label.localeCompare(right.label));
 }
 
 function mcpToolProviderStatusRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
