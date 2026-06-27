@@ -84,9 +84,12 @@ describe("settings tab", () => {
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    expect(inputForSetting(tab, "Codex executable")?.getAttribute("aria-label")).toBeNull();
+    const codexPath = inputForSetting(tab, "Codex executable");
+    expect(codexPath?.getAttribute("aria-label")).toBeNull();
+    expect(codexPath?.type).toBe("text");
     const shortcut = selectForSetting(tab, "Send shortcut");
     if (!shortcut) throw new Error("Missing send shortcut dropdown");
+    expect(shortcut.classList.contains("dropdown")).toBe(true);
 
     shortcut.value = "mod-enter";
     shortcut.dispatchEvent(new Event("change"));
@@ -105,6 +108,7 @@ describe("settings tab", () => {
     tab.display();
     const toggle = inputForSetting(tab, "Show chat toolbar");
     if (!toggle) throw new Error("Missing toolbar visibility toggle");
+    expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
 
     toggle.checked = false;
     toggle.dispatchEvent(new Event("change"));
@@ -122,6 +126,7 @@ describe("settings tab", () => {
     tab.display();
     const toggle = inputForSetting(tab, "Scroll thread from composer line edges");
     if (!toggle) throw new Error("Missing composer line edge scroll toggle");
+    expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
 
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));

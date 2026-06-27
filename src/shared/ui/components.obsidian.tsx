@@ -14,6 +14,12 @@ export interface ObsidianDropdownOption {
   label: string;
 }
 
+function useLatestRef<T>(value: T): { current: T } {
+  const ref = useRef(value);
+  ref.current = value;
+  return ref;
+}
+
 function ObsidianIcon({ icon, className }: ObsidianIconProps): UiNode {
   const ref = useRef<HTMLSpanElement | null>(null);
   useLayoutEffect(() => {
@@ -115,6 +121,7 @@ export function ObsidianDropdown({
   onChange: (value: string) => void;
 }): UiNode {
   const ref = useRef<HTMLSpanElement | null>(null);
+  const onChangeRef = useLatestRef(onChange);
   useLayoutEffect(() => {
     const container = ref.current;
     if (!container) return;
@@ -124,12 +131,12 @@ export function ObsidianDropdown({
       dropdown.addOption(option.value, option.label);
     }
     dropdown.setValue(value).onChange((selected) => {
-      onChange(selected);
+      onChangeRef.current(selected);
     });
     return () => {
       container.empty();
     };
-  }, [onChange, options, value]);
+  }, [onChangeRef, options, value]);
 
   return <span ref={ref} />;
 }
@@ -144,6 +151,7 @@ export function ObsidianTextInput({
   onChange: (value: string) => void;
 }): UiNode {
   const ref = useRef<HTMLSpanElement | null>(null);
+  const onChangeRef = useLatestRef(onChange);
   useLayoutEffect(() => {
     const container = ref.current;
     if (!container) return;
@@ -153,30 +161,67 @@ export function ObsidianTextInput({
       .setPlaceholder(placeholder)
       .setValue(value)
       .onChange((nextValue) => {
-        onChange(nextValue);
+        onChangeRef.current(nextValue);
       });
     return () => {
       container.empty();
     };
-  }, [onChange, placeholder, value]);
+  }, [onChangeRef, placeholder, value]);
+
+  return <span ref={ref} />;
+}
+
+export function ObsidianCommitTextInput({
+  value,
+  placeholder,
+  onCommit,
+}: {
+  value: string;
+  placeholder: string;
+  onCommit: (value: string) => void;
+}): UiNode {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const onCommitRef = useLatestRef(onCommit);
+  useLayoutEffect(() => {
+    const container = ref.current;
+    if (!container) return;
+    container.empty();
+    const text = new TextComponent(container);
+    text.setPlaceholder(placeholder).setValue(value);
+    const commit = () => {
+      onCommitRef.current(text.inputEl.value);
+    };
+    return disposeDomListeners(
+      listenDomEvent(text.inputEl, "blur", commit),
+      listenDomEvent(text.inputEl, "keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        commit();
+      }),
+      () => {
+        container.empty();
+      },
+    );
+  }, [onCommitRef, placeholder, value]);
 
   return <span ref={ref} />;
 }
 
 export function ObsidianToggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }): UiNode {
   const ref = useRef<HTMLSpanElement | null>(null);
+  const onChangeRef = useLatestRef(onChange);
   useLayoutEffect(() => {
     const container = ref.current;
     if (!container) return;
     container.empty();
     const toggle = new ToggleComponent(container);
     toggle.setValue(checked).onChange((nextValue) => {
-      onChange(nextValue);
+      onChangeRef.current(nextValue);
     });
     return () => {
       container.empty();
     };
-  }, [checked, onChange]);
+  }, [checked, onChangeRef]);
 
   return <span ref={ref} />;
 }
