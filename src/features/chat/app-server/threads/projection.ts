@@ -1,5 +1,5 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads";
+import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/services/threads";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
 import type { ThreadHistoryPage, ThreadResumeSnapshot } from "../../application/threads/thread-loading-transport";
 import { messageStreamItemsFromTurns } from "../mappers/message-stream/turn-items";

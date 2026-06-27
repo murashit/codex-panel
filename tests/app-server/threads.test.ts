@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
-import { listThreads } from "../../src/app-server/threads";
+import { listThreads } from "../../src/app-server/services/threads";
 
 describe("app-server thread response adapters", () => {
   it("maps listed threads to domain threads with archive state", async () => {

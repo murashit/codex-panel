@@ -1,7 +1,7 @@
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
+import type { ThreadCatalogEventSink } from "../../app-server/query/thread-catalog";
 import { type ArchiveThreadResult, archiveThreadOnAppServer } from "../../app-server/services/thread-archive";
 import type { ArchiveExportDestination } from "../../app-server/services/thread-archive-markdown";
-import type { ThreadCatalogEventSink } from "../../app-server/thread-catalog";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../domain/threads/model";
 

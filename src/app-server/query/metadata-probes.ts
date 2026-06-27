@@ -1,9 +1,9 @@
 import type { SkillMetadata } from "../../domain/catalog/metadata";
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../domain/server/diagnostics";
-import { listSkillCatalog } from "../catalog";
 import type { AppServerClient } from "../connection/client";
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
+import { listSkillCatalog } from "../services/catalog";
 
 interface MetadataProbeResult<T, K extends keyof Diagnostics["probes"]> {
   value: T;

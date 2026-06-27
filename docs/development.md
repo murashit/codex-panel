@@ -36,7 +36,7 @@ The generation script uses `codex app-server generate-ts --experimental` because
 The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint:
 
 - `src/main.ts` and `src/plugin-runtime.ts` own Obsidian plugin registration, lifecycle wiring, and cross-surface runtime coordination.
-- `src/app-server/` owns the app-server boundary, including connection code, protocol adapters, app-server services, shared queries, and generated payload adaptation.
+- `src/app-server/` owns the app-server boundary through responsibility subfolders such as `connection/`, `protocol/`, `query/`, `routing/`, and `services/`. Do not add root-level app-server modules.
 - `src/features/` contains feature-owned surfaces and workflows. Feature-to-feature imports are acceptable only when the imported feature owns a concrete capability.
 - `src/workspace/` and `src/settings/` own Obsidian workspace coordination and settings-tab behavior.
 - `src/domain/` contains panel-owned, generated-independent meaning models and pure derivations. Domain code must not import app-server protocol, generated bindings, feature modules, UI, or Obsidian APIs.

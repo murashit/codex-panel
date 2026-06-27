@@ -1,6 +1,6 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
-import type { ThreadCatalogEvent } from "../../../../app-server/thread-catalog";
-import { threadFromAppServerRecord } from "../../../../app-server/threads";
+import type { ThreadCatalogEvent } from "../../../../app-server/query/thread-catalog";
+import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";

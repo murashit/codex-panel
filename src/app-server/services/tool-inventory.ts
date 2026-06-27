@@ -1,4 +1,4 @@
-import type { SkillMetadata } from "../domain/catalog/metadata";
+import type { SkillMetadata } from "../../domain/catalog/metadata";
 import {
   type DiagnosticProbeResult,
   diagnosticProbeError,
@@ -6,16 +6,16 @@ import {
   type McpServerDiagnostic,
   type McpServerStatusSummary,
   mcpServerStatusSummariesFromStatuses,
-} from "../domain/server/diagnostics";
+} from "../../domain/server/diagnostics";
 import type {
   ToolInventoryApp,
   ToolInventoryMarketplaceError,
   ToolInventoryPlugin,
   ToolInventorySnapshot,
-} from "../domain/server/tool-inventory";
+} from "../../domain/server/tool-inventory";
+import type { AppServerClient } from "../connection/client";
+import { toolInventoryAppsFromAppInfos, toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
 import { listSkillCatalog } from "./catalog";
-import type { AppServerClient } from "./connection/client";
-import { toolInventoryAppsFromAppInfos, toolInventoryPluginsFromInstalledResponse } from "./protocol/tool-inventory";
 
 const APP_PAGE_LIMIT = 100;
 const APP_PAGE_LOOP_LIMIT = 20;

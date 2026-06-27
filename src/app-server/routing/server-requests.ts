@@ -5,8 +5,8 @@ import type {
   PendingApproval,
   PendingMcpElicitation,
   PendingUserInput,
-} from "../domain/pending-requests/model";
-import type { ServerRequest } from "./connection/rpc-messages";
+} from "../../domain/pending-requests/model";
+import type { ServerRequest } from "../connection/rpc-messages";
 import {
   appServerApprovalRequest,
   appServerApprovalResponse,
@@ -14,14 +14,14 @@ import {
   appServerMcpElicitationResponse,
   appServerUserInputRequest,
   appServerUserInputResponse,
-} from "./protocol/server-requests";
+} from "../protocol/server-requests";
 import {
   type ActiveRouteScope,
   fallbackMessageScope,
   isMessageScopeInActiveRouteScope,
   isTurnScopedMessageForIdleActiveThread,
   type MessageScope,
-} from "./route-scope";
+} from "./scope";
 
 export type ServerRequestRoute =
   | { kind: "approval"; request: ServerRequest; approval: PendingApproval }

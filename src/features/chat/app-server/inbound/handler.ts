@@ -1,12 +1,12 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import type { ThreadCatalogEvent } from "../../../../app-server/query/thread-catalog";
 import {
   routeServerRequest,
   serverRequestApprovalResponse,
   serverRequestCurrentTimeResponse,
   serverRequestMcpElicitationResponse,
   serverRequestUserInputResponse,
-} from "../../../../app-server/server-requests";
-import type { ThreadCatalogEvent } from "../../../../app-server/thread-catalog";
+} from "../../../../app-server/routing/server-requests";
 import {
   type ApprovalAction,
   contentForPendingMcpElicitation,

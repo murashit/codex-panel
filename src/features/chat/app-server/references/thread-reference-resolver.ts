@@ -1,4 +1,4 @@
-import { readReferencedThreadConversationSummaries, type ThreadConversationSummaryClient } from "../../../../app-server/threads";
+import { readReferencedThreadConversationSummaries, type ThreadConversationSummaryClient } from "../../../../app-server/services/threads";
 import { type CodexInput, codexTextInputWithAttachments } from "../../../../domain/chat/input";
 import type { Thread } from "../../../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadPromptBundle } from "../../../../domain/threads/reference";

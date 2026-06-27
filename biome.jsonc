@@ -8,6 +8,18 @@
   "plugins": [
     // App-server protocol and generated binding boundaries.
     {
+      "path": "./scripts/lint/no-app-server-root-module-files.grit",
+      "includes": ["**/src/app-server/*.ts"]
+    },
+    {
+      "path": "./scripts/lint/no-app-server-root-module-imports.grit",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
+    },
+    {
+      "path": "./scripts/lint/no-app-server-subfolder-root-imports.grit",
+      "includes": ["**/src/app-server/**/*.ts"]
+    },
+    {
       "path": "./scripts/lint/no-app-server-projection-rpcs.grit",
       "includes": ["**/src/features/chat/application/**/*.ts"]
     },

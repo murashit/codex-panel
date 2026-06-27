@@ -16,6 +16,12 @@ const projectPluginByName = new Map(
 );
 const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
+const APP_SERVER_ROOT_MODULE_FILE_MESSAGE =
+  "Keep app-server modules in responsibility subfolders; src/app-server root must not accumulate boundary adapters.";
+const APP_SERVER_ROOT_MODULE_IMPORT_MESSAGE =
+  "Import app-server boundary modules from responsibility subfolders, not src/app-server root modules.";
+const APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE =
+  "App-server subfolders must not import sibling root modules; move the dependency into a responsibility subfolder.";
 const CHAT_APPLICATION_OUTER_LAYER_MESSAGE =
   "Chat application modules must not import app-server, host, panel, presentation, or UI layers; expose state and workflow contracts instead.";
 const CHAT_APP_SERVER_OUTER_LAYER_MESSAGE = "Chat app-server adapters must not import chat host, panel, presentation, or UI layers.";
@@ -705,13 +711,70 @@ export const value = statusText;
     ]);
   });
 
+  it("keeps app-server root from becoming a boundary escape hatch", async () => {
+    const cwd = await tempBiomeWorkspace([
+      "no-app-server-root-module-files.grit",
+      "no-app-server-root-module-imports.grit",
+      "no-app-server-subfolder-root-imports.grit",
+    ]);
+    await writeFile(
+      path.join(cwd, "src/app-server/escape.ts"),
+      `
+import type { AppServerClient } from "./connection/client";
+
+export type Escape = AppServerClient;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/app-server/root-import.ts"),
+      `
+import { listThreads } from "../../../../app-server/threads";
+
+export const read = listThreads;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/app-server/services/root-import.ts"),
+      `
+import { listThreads } from "../threads";
+
+export const read = listThreads;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/app-server/services/allowed.ts"),
+      `
+import type { AppServerClient } from "../connection/client";
+import { listThreads } from "./threads";
+
+export type Allowed = AppServerClient;
+export const read = listThreads;
+`.trimStart(),
+    );
+
+    const report = biomeLint(
+      [
+        "src/app-server/escape.ts",
+        "src/features/chat/app-server/root-import.ts",
+        "src/app-server/services/root-import.ts",
+        "src/app-server/services/allowed.ts",
+      ],
+      cwd,
+    );
+
+    expect(pluginMessages(report, "src/app-server/escape.ts")).toEqual([APP_SERVER_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginMessages(report, "src/features/chat/app-server/root-import.ts")).toEqual([APP_SERVER_ROOT_MODULE_IMPORT_MESSAGE]);
+    expect(pluginMessages(report, "src/app-server/services/root-import.ts")).toEqual([APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE]);
+    expect(pluginDiagnostics(report, "src/app-server/services/allowed.ts")).toEqual([]);
+  });
+
   it("keeps chat application app-server projection RPCs behind facades", async () => {
     const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/application/threads/history.ts")).toEqual([
       "Keep app-server projection RPCs behind app-server facades; consume Panel-owned snapshots or view models here.",
     ]);
-    expect(pluginDiagnostics(report, "src/app-server/threads.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/app-server/services/threads.ts")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/chat/host/connection-bundle.ts")).toEqual([]);
   });
 
@@ -999,7 +1062,7 @@ export const response = [appServerUserInputResponse, runtimeMetrics] satisfies u
   await writeFile(
     path.join(cwd, "src/domain/threads/model.ts"),
     `
-import { listThreads } from "../../app-server/threads";
+import { listThreads } from "../../app-server/services/threads";
 import type { ThreadPickerModal } from "../../features/thread-picker/modal";
 import { copyText } from "../../shared/ui/clipboard";
 import type { App } from "obsidian";
@@ -1117,9 +1180,9 @@ export async function read(appServerClient: AppServerClient): Promise<void> {
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/app-server/threads.ts"),
+    path.join(cwd, "src/app-server/services/threads.ts"),
     `
-import type { AppServerClient } from "./connection/client";
+import type { AppServerClient } from "../connection/client";
 
 export async function read(client: AppServerClient): Promise<void> {
   await client.threadTurnsList("thread", null, 20);
@@ -1165,7 +1228,7 @@ export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
       "src/domain/connection-client.ts",
       "src/shared/connection-client.ts",
       "src/features/chat/application/threads/history.ts",
-      "src/app-server/threads.ts",
+      "src/app-server/services/threads.ts",
       "src/features/chat/host/connection-bundle.ts",
     ],
     cwd,

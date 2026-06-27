@@ -5,7 +5,7 @@ import {
   isMessageScopeInActiveRouteScope,
   isTurnScopedMessageForIdleActiveThread,
   type MessageScope,
-} from "../../../../app-server/route-scope";
+} from "../../../../app-server/routing/scope";
 
 type ServerNotificationMethod = ServerNotification["method"];
 type RoutedNotification<M extends ServerNotificationMethod> = Extract<ServerNotification, { method: M }>;

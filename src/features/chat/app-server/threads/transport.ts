@@ -1,4 +1,4 @@
-import { compactThread, forkThread, rollbackThread } from "../../../../app-server/threads";
+import { compactThread, forkThread, rollbackThread } from "../../../../app-server/services/threads";
 import type { ThreadMutationTransport, ThreadRollbackSnapshot } from "../../application/threads/thread-mutation-transport";
 import type { ConnectedChatAppServerClientHost } from "../client-scope";
 import { withConnectedChatAppServerClient } from "../client-scope";

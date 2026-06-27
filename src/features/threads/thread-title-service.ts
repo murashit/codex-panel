@@ -1,6 +1,6 @@
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import { generateThreadTitleWithCodex } from "../../app-server/services/thread-title-generation";
-import { readCompletedConversationSummariesPage } from "../../app-server/threads";
+import { readCompletedConversationSummariesPage } from "../../app-server/services/threads";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import {
   findThreadTitleContext,

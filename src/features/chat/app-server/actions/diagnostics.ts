@@ -1,6 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
-import { readToolInventory } from "../../../../app-server/tool-inventory";
+import { readToolInventory } from "../../../../app-server/services/tool-inventory";
 import {
   cloneServerDiagnostics,
   type DiagnosticProbeMethod,

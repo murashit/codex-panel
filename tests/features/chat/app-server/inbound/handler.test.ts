@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { appServerApprovalRequest, appServerUserInputRequest } from "../../../../../src/app-server/protocol/server-requests";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
-import type { ThreadCatalogEvent } from "../../../../../src/app-server/thread-catalog";
+import type { ThreadCatalogEvent } from "../../../../../src/app-server/query/thread-catalog";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import {
   type ChatInboundHandler,

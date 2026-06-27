@@ -4,11 +4,11 @@ import type { ObservedResult, ObservedResultListener } from "../../domain/observ
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
-import { listModelMetadata } from "../catalog";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccessOptions } from "../connection/client-access";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
-import { listThreads } from "../threads";
+import { listModelMetadata } from "../services/catalog";
+import { listThreads } from "../services/threads";
 import {
   type AppServerQueryContext,
   activeThreadsQueryKey,

@@ -2,7 +2,7 @@ import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import { AppServerSharedQueries } from "../../src/app-server/query/shared-queries";
-import { createThreadCatalog, type ThreadCatalogEventObserver } from "../../src/app-server/thread-catalog";
+import { createThreadCatalog, type ThreadCatalogEventObserver } from "../../src/app-server/query/thread-catalog";
 import type { Thread } from "../../src/domain/threads/model";
 
 describe("ThreadCatalog", () => {

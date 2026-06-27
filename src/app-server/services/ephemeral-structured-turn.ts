@@ -1,5 +1,4 @@
 import { listenAbortSignal } from "../../shared/lifecycle/abort-signal";
-import type { ModelMetadataClient } from "../catalog";
 import {
   AppServerClient,
   type AppServerClientHandlers,
@@ -9,6 +8,7 @@ import {
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import type { ServerNotification } from "../connection/rpc-messages";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
+import type { ModelMetadataClient } from "./catalog";
 
 export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["outputSchema"];
 

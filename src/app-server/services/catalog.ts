@@ -1,12 +1,12 @@
-import type { HookItem, ModelMetadata, SkillMetadata } from "../domain/catalog/metadata";
-import type { AppServerClient } from "./connection/client";
+import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
+import type { AppServerClient } from "../connection/client";
 import {
   appServerHookOperationFromHookItem,
   type CatalogModel,
   hookItemsFromCatalogHooks,
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
-} from "./protocol/catalog";
+} from "../protocol/catalog";
 
 export interface HookCatalog {
   hooks: HookItem[];

@@ -1,5 +1,5 @@
-import type { ModelMetadataClient } from "../../app-server/catalog";
 import type { AppServerClientHandlers } from "../../app-server/connection/client";
+import type { ModelMetadataClient } from "../../app-server/services/catalog";
 import {
   type EphemeralStructuredTurnClient,
   runEphemeralStructuredTurnForLastAgentText,

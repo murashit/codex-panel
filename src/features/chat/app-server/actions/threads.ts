@@ -1,5 +1,5 @@
-import type { ThreadCatalogEvent } from "../../../../app-server/thread-catalog";
-import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/threads";
+import type { ThreadCatalogEvent } from "../../../../app-server/query/thread-catalog";
+import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/services/threads";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
 import { resumedThreadAction } from "../../application/state/actions";

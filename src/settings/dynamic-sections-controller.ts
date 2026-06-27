@@ -1,7 +1,7 @@
-import { type HookCatalog, listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/catalog";
 import type { AppServerClient } from "../app-server/connection/client";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
-import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/threads";
+import { type HookCatalog, listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
+import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { ObservedResult } from "../domain/observed-result";

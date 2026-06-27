@@ -1,6 +1,6 @@
 import { type App, Notice, Platform, SuggestModal } from "obsidian";
 
-import type { ThreadCatalogActiveReader } from "../../app-server/thread-catalog";
+import type { ThreadCatalogActiveReader } from "../../app-server/query/thread-catalog";
 import { type Thread, threadRecencyAt } from "../../domain/threads/model";
 import { threadDisplayTitle } from "../../domain/threads/title";
 import { shortThreadId } from "../../shared/id/thread-id";

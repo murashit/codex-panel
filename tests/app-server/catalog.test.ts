@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { listHookCatalog, listSkillCatalog } from "../../src/app-server/catalog";
 import type { AppServerClient } from "../../src/app-server/connection/client";
 import {
   appServerHookOperationFromHookItem,
@@ -7,6 +6,7 @@ import {
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
 } from "../../src/app-server/protocol/catalog";
+import { listHookCatalog, listSkillCatalog } from "../../src/app-server/services/catalog";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { SkillMetadata } from "../../src/generated/app-server/v2/SkillMetadata";

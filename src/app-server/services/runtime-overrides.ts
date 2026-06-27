@@ -1,6 +1,6 @@
 import type { ModelMetadata, ReasoningEffort } from "../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from "../../domain/catalog/metadata";
-import { listModelMetadata, type ModelMetadataClient } from "../catalog";
+import { listModelMetadata, type ModelMetadataClient } from "./catalog";
 
 export interface RuntimeOverrideSettings {
   model: string | null;

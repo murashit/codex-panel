@@ -5,7 +5,7 @@ import { withShortLivedAppServerClient } from "./app-server/connection/short-liv
 import { AppServerQueryCache } from "./app-server/query/cache";
 import { type AppServerQueryContext, appServerQueryContextIsComplete } from "./app-server/query/keys";
 import { AppServerSharedQueries } from "./app-server/query/shared-queries";
-import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./app-server/thread-catalog";
+import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./app-server/query/thread-catalog";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import type { ChatTurnDiffViewState } from "./features/chat/domain/turn-diff";
 import { persistedChatTurnDiffViewState } from "./features/chat/domain/turn-diff";

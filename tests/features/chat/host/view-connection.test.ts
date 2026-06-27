@@ -4,7 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
-import type { ThreadCatalogEvent } from "../../../../src/app-server/thread-catalog";
+import type { ThreadCatalogEvent } from "../../../../src/app-server/query/thread-catalog";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import type { ObservedResult } from "../../../../src/domain/observed-result";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";

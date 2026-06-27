@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../src/app-server/connection/client";
-import { readToolInventory } from "../../src/app-server/tool-inventory";
+import { readToolInventory } from "../../src/app-server/services/tool-inventory";
 
 describe("tool inventory", () => {
   it("reads plugin details with exactly one marketplace locator", async () => {
