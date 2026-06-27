@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import {
   type ChatConnectionAdapter,
@@ -13,17 +12,16 @@ import { createChatState } from "../../../../../src/features/chat/application/st
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { ConnectionWorkTracker } from "../../../../../src/shared/lifecycle/connection-work";
 
-function createController({ connected = false, client = {} as AppServerClient } = {}) {
+function createController({ connected = false } = {}) {
   const stateStore = createChatStateStore(createChatState());
-  let currentClient: AppServerClient | null = connected ? client : null;
+  let isConnected = connected;
   const connect = vi.fn().mockImplementation(async () => {
-    currentClient = client;
+    isConnected = true;
     return { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" };
   });
   const connection: ChatConnectionAdapter = {
     connect,
-    currentClient: () => currentClient,
-    isConnected: () => Boolean(currentClient),
+    isConnected: () => isConnected,
   };
   const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
   const refreshServerDiagnostics = vi.fn().mockResolvedValue(undefined);
@@ -49,6 +47,8 @@ function createController({ connected = false, client = {} as AppServerClient } 
     addSystemMessage: vi.fn(),
     configuredCommand: () => "codex",
     refreshLiveState: vi.fn(),
+    isStaleConnectionError: () => false,
+    isStaleSharedQueryError: () => false,
     notifyConnectionFailed: vi.fn(),
   };
   return {
@@ -97,6 +97,18 @@ describe("ChatConnectionController", () => {
 
     expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
     expect(refreshAppServerMetadata).not.toHaveBeenCalled();
+  });
+
+  it("ignores stale shared query failures while refreshing active threads", async () => {
+    const { controller, host } = createController({ connected: true });
+    const error = new Error("stale");
+    vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(error);
+    host.isStaleSharedQueryError = vi.fn((candidate) => candidate === error);
+
+    await controller.refreshActiveThreads();
+
+    expect(host.isStaleSharedQueryError).toHaveBeenCalledWith(error);
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {
@@ -155,5 +167,20 @@ describe("ChatConnectionController", () => {
       "Could not start Codex app-server because the configured command was not found: codex. Check the Codex command path in settings. (spawn codex ENOENT)",
     );
     expect(host.notifyConnectionFailed).toHaveBeenCalledOnce();
+  });
+
+  it("ignores stale connection failures during startup", async () => {
+    const { controller, connect, host } = createController();
+    const error = new Error("stale connection");
+    connect.mockRejectedValueOnce(error);
+    host.isStaleConnectionError = vi.fn((candidate) => candidate === error);
+
+    await controller.ensureConnected();
+
+    expect(host.isStaleConnectionError).toHaveBeenCalledWith(error);
+    expect(host.setStatus).toHaveBeenCalledWith("Starting Codex app-server...", { kind: "connecting" });
+    expect(host.setStatus).not.toHaveBeenCalledWith("Connection failed.", expect.anything());
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
+    expect(host.notifyConnectionFailed).not.toHaveBeenCalled();
   });
 });

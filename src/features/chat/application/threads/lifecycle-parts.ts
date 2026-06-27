@@ -1,5 +1,5 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
-import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
+import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import type { ChatThreadResumeClient } from "../../app-server/threads/projection";
 import type { ChatResumeWorkTracker } from "../lifecycle";
 import type { ChatStateStore } from "../state/store";
 import { createActiveThreadIdentitySync } from "./active-thread-identity-sync";
@@ -12,7 +12,7 @@ export interface ThreadLifecyclePartsContext {
   settingsRef: { readonly vaultPath: string };
   stateStore: ChatStateStore;
   client: {
-    currentClient: () => AppServerClient | null;
+    currentClient: () => ChatThreadResumeClient | null;
     ensureConnected: () => Promise<void>;
   };
   lifecycle: {
@@ -20,6 +20,7 @@ export interface ThreadLifecyclePartsContext {
     history: HistoryController;
     invalidateThreadWork: () => void;
     getClosing: () => boolean;
+    recoverTokenUsageFromRollout?: (path: string) => Promise<ThreadTokenUsage | null>;
   };
   thread: {
     notifyIdentityChanged: () => void;
@@ -65,11 +66,7 @@ export function createThreadLifecycleParts(context: ThreadLifecyclePartsContext)
     addSystemMessage: status.addSystemMessage,
     refreshLiveState: liveState.refresh,
     syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),
-    recoverTokenUsageFromRollout: (path) =>
-      recoverRolloutTokenUsage(path, async (filePath, options) => {
-        const response = await client.currentClient()?.readFile(filePath, options);
-        return response?.dataBase64 ?? "";
-      }),
+    ...(lifecycle.recoverTokenUsageFromRollout ? { recoverTokenUsageFromRollout: lifecycle.recoverTokenUsageFromRollout } : {}),
   });
   const identity = createActiveThreadIdentitySync({
     stateStore,

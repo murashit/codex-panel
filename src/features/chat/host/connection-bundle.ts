@@ -1,7 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClient } from "../../../app-server/connection/client";
-import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
+import { type ConnectionManager, StaleConnectionError } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import type { LocalIdSource } from "../../../shared/id/local-id";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
@@ -196,7 +196,6 @@ export function createConnectionBundle(
             handleChatConnectionExit(connectionExitHost);
           },
         }),
-      currentClient,
       isConnected: () => connection.isConnected(),
     },
     metadata: {
@@ -225,6 +224,8 @@ export function createConnectionBundle(
     refreshLiveState: () => {
       host.refreshLiveState();
     },
+    isStaleConnectionError: (error) => error instanceof StaleConnectionError,
+    isStaleSharedQueryError: isStaleAppServerSharedQueryContextError,
     notifyConnectionFailed: () => {
       new Notice("Codex app-server connection failed.");
     },

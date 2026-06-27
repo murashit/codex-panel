@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
+import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { LocalIdSource } from "../../../shared/id/local-id";
 import { createThreadOperations, type ThreadOperations } from "../../threads/thread-operations";
@@ -425,6 +426,11 @@ function createSessionThreadLifecycle(
       history,
       invalidateThreadWork,
       getClosing: host.getClosing,
+      recoverTokenUsageFromRollout: (path) =>
+        recoverRolloutTokenUsage(path, async (filePath, options) => {
+          const response = await currentClient()?.readFile(filePath, options);
+          return response?.dataBase64 ?? "";
+        }),
     },
     thread: {
       notifyIdentityChanged: notifyActiveThreadIdentityChanged,

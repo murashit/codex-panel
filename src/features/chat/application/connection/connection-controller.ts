@@ -1,6 +1,3 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
-import { StaleConnectionError } from "../../../../app-server/connection/connection-manager";
-import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ActiveConnectionWork, ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";
 import type { ChatConnectionPhase } from "../state/root-reducer";
@@ -13,7 +10,6 @@ const STATUS_CONNECTION_FAILED = "Connection failed.";
 
 export interface ChatConnectionAdapter {
   connect(): Promise<ServerInitialization>;
-  currentClient(): AppServerClient | null;
   isConnected(): boolean;
 }
 
@@ -41,6 +37,8 @@ export interface ChatConnectionControllerHost {
   addSystemMessage: (text: string) => void;
   configuredCommand: () => string;
   refreshLiveState: () => void;
+  isStaleConnectionError: (error: unknown) => boolean;
+  isStaleSharedQueryError: (error: unknown) => boolean;
   notifyConnectionFailed: () => void;
 }
 
@@ -102,12 +100,12 @@ async function ensureConnected(host: ChatConnectionControllerHost): Promise<void
 }
 
 async function refreshActiveThreads(host: ChatConnectionControllerHost): Promise<void> {
-  if (!host.connection.currentClient()) return;
+  if (!host.connection.isConnected()) return;
   try {
     await host.refreshSharedThreads();
     host.refreshTabHeader();
   } catch (error) {
-    if (isStaleAppServerSharedQueryContextError(error)) return;
+    if (host.isStaleSharedQueryError(error)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
 }
@@ -118,7 +116,7 @@ async function refreshDiagnostics(
 ): Promise<void> {
   host.clearDeferredDiagnostics();
   await controller.ensureConnected();
-  if (!host.connection.currentClient()) return;
+  if (!host.connection.isConnected()) return;
   host.clearDeferredDiagnostics();
   await host.metadata.refreshAppServerMetadata();
   await host.diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
@@ -142,8 +140,7 @@ async function initializeConnection(host: ChatConnectionControllerHost, connecti
     const initialization = await host.connection.connect();
     if (host.connectionWork.isStale(connection)) return;
     host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
-    const client = host.connection.currentClient();
-    if (!client) throw new Error("Codex app-server connection did not initialize.");
+    if (!host.connection.isConnected()) throw new Error("Codex app-server connection did not initialize.");
     await host.metadata.refreshAppServerMetadata();
     if (host.connectionWork.isStale(connection)) return;
     await host.refreshSharedThreads();
@@ -153,8 +150,8 @@ async function initializeConnection(host: ChatConnectionControllerHost, connecti
     host.setStatus(STATUS_CONNECTED, { kind: "connected" });
   } catch (error) {
     if (host.connectionWork.isStale(connection)) return;
-    if (error instanceof StaleConnectionError) return;
-    if (isStaleAppServerSharedQueryContextError(error)) return;
+    if (host.isStaleConnectionError(error)) return;
+    if (host.isStaleSharedQueryError(error)) return;
     const message = connectionErrorMessage(error, host.configuredCommand());
     host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
     host.addSystemMessage(message);
