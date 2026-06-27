@@ -1,6 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-import { listHookCatalog } from "../../src/app-server/catalog";
-import type { AppServerClient } from "../../src/app-server/connection/client";
+import { describe, expect, it } from "vitest";
 import { createSettingsDynamicSectionLifecycle, transitionSettingsDynamicSectionLifecycle } from "../../src/settings/lifecycle";
 
 describe("settings lifecycle", () => {
@@ -34,36 +32,5 @@ describe("settings lifecycle", () => {
     );
 
     expect(transitionSettingsDynamicSectionLifecycle(failed, { type: "reset" })).toEqual(idle);
-  });
-
-  it("uses only hook rows for the requested cwd", async () => {
-    const client = {
-      listHooks: vi.fn().mockResolvedValue({
-        data: [
-          { cwd: "/other", hooks: [{ key: "other" }], warnings: ["skip"], errors: [{ message: "skip" }] },
-          { cwd: "/vault", hooks: [{ key: "vault" }], warnings: ["warn"], errors: [{ message: "err" }] },
-        ],
-      }),
-    } as unknown as AppServerClient;
-
-    await expect(listHookCatalog(client, "/vault")).resolves.toEqual({
-      hooks: [{ key: "vault" }],
-      warnings: ["warn"],
-      errors: ['{"message":"err"}'],
-    });
-  });
-
-  it("does not fall back to unrelated hook rows", async () => {
-    const client = {
-      listHooks: vi.fn().mockResolvedValue({
-        data: [{ cwd: "/other", hooks: [{ key: "other" }], warnings: ["skip"], errors: [{ message: "skip" }] }],
-      }),
-    } as unknown as AppServerClient;
-
-    await expect(listHookCatalog(client, "/vault")).resolves.toEqual({
-      hooks: [],
-      warnings: [],
-      errors: [],
-    });
   });
 });

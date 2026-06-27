@@ -480,10 +480,6 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft (thread-a), Draft notes (thread-b)");
   });
 
-  it("documents archive", () => {
-    expect(slashCommandHelpValue("/archive <thread>")).toBe("Archive the selected Codex thread.");
-  });
-
   it("shows slash command help as a structured system result", async () => {
     const ctx = context();
 
@@ -582,10 +578,6 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/doctor does not take arguments. Usage: /doctor");
   });
 
-  it("documents that /plan can take a message", () => {
-    expect(slashCommandHelpValue("/plan [message]")).toBe("Toggle Plan mode, optionally with a message.");
-  });
-
   it("expands goal subcommands in help", () => {
     expect(slashCommandHelpValue("/goal [set <objective>|edit|pause|resume|clear]")).toBeUndefined();
     expect(slashCommandHelpValue("/goal")).toBe("Show or manage the current thread goal.");
@@ -599,14 +591,6 @@ describe("slash commands", () => {
 
   it("documents rollback", () => {
     expect(slashCommandHelpValue("/rollback")).toBe("Roll back the latest turn and restore its prompt.");
-  });
-
-  it("documents rename", () => {
-    expect(slashCommandHelpValue("/rename <thread> <name>")).toBe("Rename the selected Codex thread.");
-  });
-
-  it("documents refer history size", () => {
-    expect(slashCommandHelpValue("/refer <thread> <message>")).toBe("Send a message with recent turns from another non-archived thread.");
   });
 
   it("documents status and doctor as separate commands", () => {

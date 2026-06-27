@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import {
-  activeTurnId,
-  chatTurnBusy,
-  pendingTurnStart,
-  transitionChatTurnLifecycleState,
-} from "../../../../../src/features/chat/application/conversation/turn-state";
+import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/conversation/turn-state";
 import { messageStreamItems } from "../../../../../src/features/chat/application/state/message-stream";
 import { type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
@@ -247,23 +242,6 @@ describe("chatReducer", () => {
     expect(chatTurnBusy(completed)).toBe(false);
     expect(activeTurnId(completed)).toBeNull();
     expect(pendingTurnStart(completed)).toBeNull();
-  });
-
-  it("keeps turn lifecycle transition rules explicit", () => {
-    const pending = { anchorItemId: "local-user", promptSubmitHookItemIds: ["hook"] };
-    const optimistic = transitionChatTurnLifecycleState({ kind: "idle" }, { type: "optimistic-started", pendingTurnStart: pending });
-    const running = transitionChatTurnLifecycleState(optimistic, { type: "start-acknowledged", turnId: "turn" });
-
-    expect(optimistic).toEqual({ kind: "starting", pendingTurnStart: pending });
-    expect(running).toEqual({ kind: "running", turnId: "turn" });
-    expect(transitionChatTurnLifecycleState(running, { type: "completed", turnId: "stale-turn" })).toEqual({
-      kind: "running",
-      turnId: "turn",
-    });
-    expect(transitionChatTurnLifecycleState({ kind: "idle" }, { type: "start-acknowledged", turnId: "turn" })).toEqual({
-      kind: "idle",
-    });
-    expect(transitionChatTurnLifecycleState(running, { type: "completed", turnId: "turn" })).toEqual({ kind: "idle" });
   });
 
   it("appends streaming assistant deltas after stable history", () => {

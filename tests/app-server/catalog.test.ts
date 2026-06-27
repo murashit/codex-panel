@@ -117,6 +117,20 @@ describe("app-server catalog adapters", () => {
       errors: ['{"message":"err"}'],
     });
   });
+
+  it("does not fall back to unrelated hook rows", async () => {
+    const client = {
+      listHooks: vi.fn().mockResolvedValue({
+        data: [{ cwd: "/other", hooks: [{ key: "other" }], warnings: ["skip"], errors: [{ message: "skip" }] }],
+      }),
+    } as unknown as AppServerClient;
+
+    await expect(listHookCatalog(client, "/vault")).resolves.toEqual({
+      hooks: [],
+      warnings: [],
+      errors: [],
+    });
+  });
 });
 
 function modelFixture(): Model {
