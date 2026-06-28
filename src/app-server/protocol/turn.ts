@@ -11,6 +11,7 @@ export type TurnItem = GeneratedThreadItem;
 export type TurnRecord = GeneratedTurn;
 
 type AppServerUserInput = Extract<TurnItem, { type: "userMessage" }>["content"][number];
+type AppServerTextUserInput = Extract<AppServerUserInput, { type: "text" }>;
 
 function transcriptEntriesFromTurnRecord(turn: TurnRecord): ThreadTranscriptEntry[] {
   return turn.items.flatMap((item) => transcriptEntriesFromTurnItem(item, turn));
@@ -79,7 +80,7 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
 }
 
 function userInputText(content: readonly AppServerUserInput[]): string {
-  const textItems = content.filter((item) => item.type === "text");
+  const textItems = content.filter(isTextUserInput);
   const hasText = textItems.some((item) => item.text.length > 0);
   const textIncludes = (value: string) => value.length > 0 && textItems.some((item) => item.text.includes(value));
   return content
@@ -92,4 +93,8 @@ function userInputText(content: readonly AppServerUserInput[]): string {
     })
     .filter(Boolean)
     .join("\n");
+}
+
+function isTextUserInput(item: AppServerUserInput): item is AppServerTextUserInput {
+  return item.type === "text";
 }
