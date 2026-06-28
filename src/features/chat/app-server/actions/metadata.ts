@@ -96,7 +96,7 @@ async function refreshSkillResource(host: ChatServerMetadataActionsHost, forceRe
     if (!metadata) return null;
     return {
       ...metadata,
-      availableSkills: skills.value,
+      ...(skills.probe.status === "ok" ? { availableSkills: skills.value } : {}),
       serverDiagnostics: diagnosticsWithProbe(cloneServerDiagnostics(metadata.serverDiagnostics), skills.probe),
     };
   });
@@ -105,11 +105,15 @@ async function refreshSkillResource(host: ChatServerMetadataActionsHost, forceRe
     return next;
   }
   const diagnostics = diagnosticsWithProbe(currentMetadataDiagnostics(host), skills.probe);
-  host.stateStore.dispatch({
-    type: "connection/metadata-applied",
-    availableSkills: skills.value,
-    serverDiagnostics: diagnostics,
-  });
+  host.stateStore.dispatch(
+    skills.probe.status === "ok"
+      ? {
+          type: "connection/metadata-applied",
+          availableSkills: skills.value,
+          serverDiagnostics: diagnostics,
+        }
+      : { type: "connection/metadata-applied", serverDiagnostics: diagnostics },
+  );
   return null;
 }
 

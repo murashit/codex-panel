@@ -504,6 +504,28 @@ describe("chat app-server actions", () => {
     expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
+  it("keeps previous skills when sparse skill refresh fails", async () => {
+    let state = chatStateFixture();
+    const previousSkills = [{ name: "writer", description: "", path: "/tmp/writer", enabled: true }];
+    state = chatStateWith(state, { connection: { availableSkills: previousSkills } });
+    const stateStore = createChatStateStore(state);
+    const listSkills = vi.fn().mockRejectedValue(new Error("offline"));
+    const client = requestClient({ "skills/list": listSkills });
+    const controller = createChatServerMetadataActions({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      ...metadataCacheHost(),
+      refreshAppServerMetadata: async () => null,
+    });
+
+    await controller.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+
+    expect(listSkills).toHaveBeenCalledWith({ cwds: ["/vault"], forceReload: true });
+    expect(stateStore.getState().connection.availableSkills).toEqual(previousSkills);
+    expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"]).toMatchObject({ status: "failed" });
+  });
+
   it("publishes refreshed rate limits from sparse update notifications", async () => {
     const state = chatStateFixture();
     const stateStore = createChatStateStore(state);

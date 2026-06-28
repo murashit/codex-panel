@@ -188,13 +188,16 @@ export class AppServerQueryCache {
 
   writeAppServerMetadata(context: AppServerQueryContext, metadata: SharedServerMetadata): SharedServerMetadata | null {
     if (!appServerQueryContextIsComplete(context)) return null;
+    const previous = this.appServerMetadataSnapshot(context);
+    const probes = metadata.serverDiagnostics.probes;
     const next = cloneSharedServerMetadata({
       ...metadata,
-      availableModels:
-        metadata.serverDiagnostics.probes["model/list"].status === "ok" ? metadata.availableModels : (this.modelsSnapshot(context) ?? []),
+      availableModels: probes["model/list"].status === "ok" ? metadata.availableModels : (this.modelsSnapshot(context) ?? []),
+      availableSkills: probes["skills/list"].status === "ok" ? metadata.availableSkills : (previous?.availableSkills ?? []),
+      rateLimit: probes["account/rateLimits/read"].status === "ok" ? metadata.rateLimit : (previous?.rateLimit ?? null),
     });
     this.client.setQueryData(appServerMetadataQueryKey(context), cloneSharedServerMetadata(next));
-    if (metadata.serverDiagnostics.probes["model/list"].status === "ok") {
+    if (probes["model/list"].status === "ok") {
       this.client.setQueryData(appServerModelsQueryKey(context), cloneModelMetadata(next.availableModels));
     }
     return cloneSharedServerMetadata(next);

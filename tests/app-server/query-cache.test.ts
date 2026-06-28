@@ -14,7 +14,7 @@ import {
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 
 describe("AppServerQueryCache", () => {
-  it("stores metadata snapshots without replacing failed resource values with stale values", () => {
+  it("preserves successful resource values when metadata probes fail", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
     const goodMetadata = metadata({
@@ -29,7 +29,7 @@ describe("AppServerQueryCache", () => {
       context,
       metadata({
         availableModels: [modelMetadata("gpt-5.6")],
-        availableSkills: [skillMetadata("stale-skill")],
+        availableSkills: [skillMetadata("failed-skill")],
         rateLimit: rateLimit(90),
         skillsProbeStatus: "failed",
         rateLimitProbeStatus: "failed",
@@ -37,8 +37,8 @@ describe("AppServerQueryCache", () => {
     );
 
     expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
-    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["stale-skill"]);
-    expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(90);
+    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(42);
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["skills/list"].status).toBe("failed");
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("failed");
 
@@ -47,7 +47,7 @@ describe("AppServerQueryCache", () => {
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["model/list"].status).toBe("failed");
   });
 
-  it("does not accept failed metadata model payloads as model cache truth", () => {
+  it("does not accept failed metadata resource payloads as cache truth", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
 
@@ -58,6 +58,7 @@ describe("AppServerQueryCache", () => {
         availableSkills: [skillMetadata("writer")],
         rateLimit: rateLimit(90),
         modelProbeStatus: "failed",
+        skillsProbeStatus: "failed",
         rateLimitProbeStatus: "failed",
       }),
     );
@@ -66,8 +67,8 @@ describe("AppServerQueryCache", () => {
     expect(cached?.runtimeConfig).not.toBeNull();
     expect(cached?.serverDiagnostics.probes["model/list"].status).toBe("failed");
     expect(cached?.availableModels).toEqual([]);
-    expect(cached?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
-    expect(cached?.rateLimit?.primary?.usedPercent).toBe(90);
+    expect(cached?.availableSkills).toEqual([]);
+    expect(cached?.rateLimit).toBeNull();
     expect(cache.modelsSnapshot(context)).toBeNull();
   });
 
