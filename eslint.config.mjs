@@ -53,7 +53,6 @@ export default defineConfig([
           prefer: "type-imports",
         },
       ],
-      "@typescript-eslint/no-deprecated": "off",
       "@typescript-eslint/require-await": "off",
     },
   },

@@ -721,8 +721,12 @@ function multiSelectOptions(schema: Extract<AppServerMcpElicitationPrimitiveSche
 
 function stringArrayOrEmpty(value: unknown): readonly string[] {
   if (!Array.isArray(value)) return [];
-  if (!value.every((item) => typeof item === "string")) return [];
-  return value;
+  const strings: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") return [];
+    strings.push(item);
+  }
+  return strings;
 }
 
 function enumOptions(values: unknown, labels: unknown): PendingMcpElicitationOption[] {

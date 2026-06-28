@@ -1,5 +1,5 @@
 import { ButtonComponent, DropdownComponent, ExtraButtonComponent, setIcon, TextComponent, ToggleComponent } from "obsidian";
-import type { ButtonHTMLAttributes, JSX, Ref, ComponentChild as UiNode } from "preact";
+import type { ButtonHTMLAttributes, HTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import { disposeDomListeners, listenDomEvent } from "./dom-events.dom";
@@ -68,7 +68,7 @@ export function IconButton({ icon, label, buttonRef, className, children, ...pro
   );
 }
 
-export type ObsidianToolbarActionProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, "className"> & {
+export type ObsidianToolbarActionProps = Omit<HTMLAttributes<HTMLDivElement>, "className"> & {
   icon: string;
   label: string;
   actionRef?: Ref<HTMLDivElement>;
