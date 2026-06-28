@@ -1,17 +1,12 @@
 import { Notice } from "obsidian";
 
-import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import { readFileBase64 } from "../../../app-server/services/files";
 import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
-import { renameThread as renameAppServerThread } from "../../../app-server/services/threads";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { LocalIdSource } from "../../../shared/id/local-id";
 import { createThreadOperations, type ThreadOperations } from "../../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../threads/workflows/thread-title-service";
 import type { ChatServerThreadActions } from "../app-server/actions/threads";
-import { createChatThreadGoalReadTransport, createChatThreadGoalTransport } from "../app-server/goals/transport";
-import { createChatThreadHistoryTransport, createChatThreadResumeTransport } from "../app-server/threads/loading-transport";
-import { createChatThreadMutationTransport } from "../app-server/threads/transport";
+import type { ChatAppServerGateway } from "../app-server/session-gateway";
 import { messageStreamItems } from "../application/state/message-stream";
 import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
@@ -32,7 +27,6 @@ import { createThreadNavigationActions } from "../application/threads/thread-nav
 import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
 import type { ChatComposerController } from "../panel/composer-controller";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
-import type { CurrentAppServerClient } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
 
 type ChatPanelGoalSyncActions = ReturnType<typeof createThreadGoalSyncActions>;
@@ -57,7 +51,7 @@ interface ChatPanelThreadHost {
 }
 
 interface ChatPanelThreadFoundationInput {
-  currentClient: CurrentAppServerClient;
+  appServer: ChatAppServerGateway;
   localItemIds: LocalIdSource;
   status: ChatPanelThreadStatus;
   refreshLiveState: () => void;
@@ -73,9 +67,8 @@ interface ChatPanelThreadFoundation {
 }
 
 interface ChatPanelThreadLifecycleInput {
-  currentClient: CurrentAppServerClient;
+  appServer: ChatAppServerGateway;
   localItemIds: LocalIdSource;
-  connectedClient: () => Promise<ReturnType<CurrentAppServerClient>>;
   ensureConnected: () => Promise<void>;
   status: ChatPanelThreadStatus;
   serverThreads: ChatServerThreadActions;
@@ -95,8 +88,7 @@ interface ChatPanelThreadLifecycleBundle {
 }
 
 interface ChatPanelThreadActionInput {
-  currentClient: CurrentAppServerClient;
-  connectedClient: () => Promise<ReturnType<CurrentAppServerClient>>;
+  appServer: ChatAppServerGateway;
   status: ChatPanelThreadStatus;
   composerController: ChatComposerController;
   foundation: ChatPanelThreadFoundation;
@@ -112,16 +104,16 @@ interface ChatPanelThreadActionBundle {
 }
 
 export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPanelThreadFoundationInput): ChatPanelThreadFoundation {
-  const { currentClient, localItemIds, status, refreshLiveState } = input;
-  const titleService = createSessionThreadTitleService(host, currentClient);
-  const autoTitleCoordinator = createSessionAutoTitleCoordinator(host, currentClient, titleService);
-  const history = createSessionHistoryController(host, currentClient, status, autoTitleCoordinator);
+  const { appServer, localItemIds, status, refreshLiveState } = input;
+  const titleService = createSessionThreadTitleService(host, appServer);
+  const autoTitleCoordinator = createSessionAutoTitleCoordinator(host, appServer, titleService);
+  const history = createSessionHistoryController(host, appServer, status, autoTitleCoordinator);
   const invalidateThreadWork = () => {
     host.resumeWork.invalidate();
     history.invalidate();
   };
-  const goalSync = createSessionGoalSyncActions(host, currentClient, localItemIds, status, refreshLiveState);
-  const threadOperations = createSessionThreadOperations(host.environment, currentClient);
+  const goalSync = createSessionGoalSyncActions(host, appServer, localItemIds, status, refreshLiveState);
+  const threadOperations = createSessionThreadOperations(host.environment, appServer);
 
   return {
     titleService,
@@ -138,9 +130,8 @@ export function createThreadLifecycleBundle(
   input: ChatPanelThreadLifecycleInput,
 ): ChatPanelThreadLifecycleBundle {
   const {
-    currentClient,
+    appServer,
     localItemIds,
-    connectedClient,
     ensureConnected,
     status,
     serverThreads,
@@ -149,7 +140,7 @@ export function createThreadLifecycleBundle(
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   } = input;
-  const goals = createSessionGoalActions(host, currentClient, localItemIds, connectedClient, status, serverThreads, refreshLiveState);
+  const goals = createSessionGoalActions(host, appServer, localItemIds, status, serverThreads, refreshLiveState);
   const rename = createSessionThreadRenameEditorActions(
     host.stateStore,
     foundation.threadOperations,
@@ -158,8 +149,7 @@ export function createThreadLifecycleBundle(
     status,
   );
   const lifecycle = createSessionThreadLifecycle(host, {
-    currentClient,
-    connectedClient,
+    appServer,
     status,
     goals,
     autoTitleCoordinator: foundation.autoTitleCoordinator,
@@ -184,16 +174,7 @@ export function createThreadLifecycleBundle(
 }
 
 export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatPanelThreadActionInput): ChatPanelThreadActionBundle {
-  const {
-    currentClient,
-    connectedClient,
-    status,
-    composerController,
-    foundation,
-    lifecycle,
-    refreshActiveThreads,
-    notifyActiveThreadIdentityChanged,
-  } = input;
+  const { appServer, status, composerController, foundation, lifecycle, refreshActiveThreads, notifyActiveThreadIdentityChanged } = input;
   const { environment, stateStore } = host;
   const threadManagementHost: ThreadManagementActionsHost = {
     stateStore,
@@ -201,11 +182,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
       renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
       archiveThread: async (threadId, options) => (await foundation.threadOperations.archiveThread(threadId, options)) !== null,
     },
-    threadTransport: createChatThreadMutationTransport({
-      vaultPath: environment.plugin.settingsRef.vaultPath,
-      currentClient,
-      connectedClient,
-    }),
+    threadTransport: appServer.threadMutation,
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
     setComposerText: (text) => {
@@ -242,14 +219,14 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
   return { actions, toolbarPanelActions, navigation };
 }
 
-function createSessionThreadTitleService(host: ChatPanelThreadHost, currentClient: CurrentAppServerClient): ThreadTitleService {
+function createSessionThreadTitleService(host: ChatPanelThreadHost, appServer: ChatAppServerGateway): ThreadTitleService {
   const { environment, stateStore } = host;
   return createThreadTitleService({
     codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
     vaultPath: environment.plugin.settingsRef.vaultPath,
     threadNamingModel: () => environment.plugin.settingsRef.settings.threadNamingModel(),
     threadNamingEffort: () => environment.plugin.settingsRef.settings.threadNamingEffort(),
-    clientAccess: createCurrentClientAccess(currentClient),
+    clientAccess: appServer.clientAccess,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
     visibleCompletedTurnContext: (turnId) =>
       threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(stateStore.getState().messageStream)),
@@ -258,7 +235,7 @@ function createSessionThreadTitleService(host: ChatPanelThreadHost, currentClien
 
 function createSessionAutoTitleCoordinator(
   host: ChatPanelThreadHost,
-  currentClient: CurrentAppServerClient,
+  appServer: ChatAppServerGateway,
   titleService: ThreadTitleService,
 ): AutoTitleCoordinator {
   return createAutoTitleCoordinator({
@@ -268,11 +245,7 @@ function createSessionAutoTitleCoordinator(
     renameGeneratedTitle: async (threadId, title, options) => {
       const name = normalizeExplicitThreadName(title);
       if (!name) return false;
-      const client = currentClient();
-      if (!client) return false;
-
-      await renameAppServerThread(client, threadId, name);
-      if (currentClient() !== client) return false;
+      if (!(await appServer.renameThread(threadId, name))) return false;
       if (options.shouldPublish()) {
         host.environment.plugin.threadCatalog.apply({ type: "thread-renamed", threadId, name });
       }
@@ -283,15 +256,13 @@ function createSessionAutoTitleCoordinator(
 
 function createSessionHistoryController(
   host: ChatPanelThreadHost,
-  currentClient: CurrentAppServerClient,
+  appServer: ChatAppServerGateway,
   status: ChatPanelThreadStatus,
   autoTitleCoordinator: AutoTitleCoordinator,
 ): HistoryController {
   return new HistoryController({
     stateStore: host.stateStore,
-    historyTransport: createChatThreadHistoryTransport({
-      currentClient,
-    }),
+    historyTransport: appServer.threadHistory,
     addSystemMessage: status.addSystemMessage,
     showLatestPageAtBottom: () => {
       host.messageScrollController.showLatest();
@@ -304,16 +275,14 @@ function createSessionHistoryController(
 
 function createSessionGoalSyncActions(
   host: ChatPanelThreadHost,
-  currentClient: CurrentAppServerClient,
+  appServer: ChatAppServerGateway,
   localItemIds: LocalIdSource,
   status: ChatPanelThreadStatus,
   refreshLiveState: () => void,
 ): ChatPanelGoalSyncActions {
   return createThreadGoalSyncActions({
     stateStore: host.stateStore,
-    goalTransport: createChatThreadGoalReadTransport({
-      currentClient,
-    }),
+    goalTransport: appServer.threadGoalRead,
     localItemIds,
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
@@ -325,9 +294,9 @@ function createSessionGoalSyncActions(
   });
 }
 
-function createSessionThreadOperations(environment: ChatPanelEnvironment, currentClient: CurrentAppServerClient): ThreadOperations {
+function createSessionThreadOperations(environment: ChatPanelEnvironment, appServer: ChatAppServerGateway): ThreadOperations {
   return createThreadOperations({
-    clientAccess: createCurrentClientAccess(currentClient),
+    clientAccess: appServer.clientAccess,
     archiveExport: {
       settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
       enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),
@@ -342,35 +311,17 @@ function createSessionThreadOperations(environment: ChatPanelEnvironment, curren
   });
 }
 
-function createCurrentClientAccess(currentClient: CurrentAppServerClient): AppServerClientAccess {
-  return {
-    withClient: async (operation) => {
-      const client = currentClient();
-      if (!client) throw new Error("Codex app-server is not connected.");
-      const result = await operation(client);
-      if (currentClient() !== client) {
-        throw new Error("Codex app-server connection changed while running the operation.");
-      }
-      return result;
-    },
-  };
-}
-
 function createSessionGoalActions(
   host: ChatPanelThreadHost,
-  currentClient: CurrentAppServerClient,
+  appServer: ChatAppServerGateway,
   localItemIds: LocalIdSource,
-  connectedClient: () => Promise<ReturnType<CurrentAppServerClient>>,
   status: ChatPanelThreadStatus,
   serverThreads: ChatServerThreadActions,
   refreshLiveState: () => void,
 ): ChatPanelGoalActions {
   return createGoalActions({
     stateStore: host.stateStore,
-    goalTransport: createChatThreadGoalTransport({
-      currentClient,
-      connectedClient,
-    }),
+    goalTransport: appServer.threadGoal,
     localItemIds,
     startThread: (preview, options) => serverThreads.startThread(preview, options),
     addSystemMessage: (text) => {
@@ -402,8 +353,7 @@ function createSessionThreadRenameEditorActions(
 function createSessionThreadLifecycle(
   host: ChatPanelThreadHost,
   input: {
-    currentClient: CurrentAppServerClient;
-    connectedClient: () => Promise<ReturnType<CurrentAppServerClient>>;
+    appServer: ChatAppServerGateway;
     status: ChatPanelThreadStatus;
     goals: ChatPanelGoalActions;
     autoTitleCoordinator: AutoTitleCoordinator;
@@ -415,8 +365,7 @@ function createSessionThreadLifecycle(
   },
 ): ChatPanelThreadLifecycle {
   const {
-    currentClient,
-    connectedClient,
+    appServer,
     status,
     goals,
     autoTitleCoordinator,
@@ -428,21 +377,14 @@ function createSessionThreadLifecycle(
   } = input;
   return createThreadLifecycleParts({
     stateStore: host.stateStore,
-    resumeTransport: createChatThreadResumeTransport({
-      vaultPath: host.environment.plugin.settingsRef.vaultPath,
-      currentClient,
-      connectedClient,
-    }),
+    resumeTransport: appServer.threadResume,
     lifecycle: {
       resumeWork: host.resumeWork,
       history,
       invalidateThreadWork,
       getClosing: host.getClosing,
       recoverTokenUsageFromRollout: (path) =>
-        recoverRolloutTokenUsage(path, async (filePath, options) => {
-          const client = currentClient();
-          return client ? readFileBase64(client, filePath, options) : "";
-        }),
+        recoverRolloutTokenUsage(path, (filePath, options) => appServer.readFileBase64(filePath, options)),
     },
     thread: {
       notifyIdentityChanged: notifyActiveThreadIdentityChanged,

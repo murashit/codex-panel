@@ -69,8 +69,11 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
       connection: { resetConnection: vi.fn() },
       localItemIds: { next: vi.fn(() => "local-id") },
       ensureConnected: vi.fn().mockResolvedValue(undefined),
-      connectedClient: vi.fn().mockResolvedValue({}),
-      currentClient: vi.fn(() => ({})),
+      appServer: {
+        connectionAvailable: vi.fn(() => true),
+        threadReferences: vi.fn(() => ({ referThread: vi.fn() })),
+        turn: { ensureConnected: vi.fn().mockResolvedValue(true) },
+      },
       status,
       inboundHandler: {},
       threadLifecycle: {

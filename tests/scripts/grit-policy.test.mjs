@@ -869,6 +869,14 @@ export const read = listThreads;
 `.trimStart(),
     );
     await writeFile(
+      path.join(cwd, "src/features/chat/host/chat-app-server-root-import.ts"),
+      `
+import { createChatAppServerGateway } from "../app-server/session-gateway";
+
+export const gateway = createChatAppServerGateway;
+`.trimStart(),
+    );
+    await writeFile(
       path.join(cwd, "src/app-server/services/root-import.ts"),
       `
 import { listThreads } from "../threads";
@@ -891,6 +899,7 @@ export const read = listThreads;
       [
         "src/app-server/escape.ts",
         "src/features/chat/app-server/root-import.ts",
+        "src/features/chat/host/chat-app-server-root-import.ts",
         "src/app-server/services/root-import.ts",
         "src/app-server/services/allowed.ts",
       ],
@@ -899,6 +908,7 @@ export const read = listThreads;
 
     expect(pluginMessages(report, "src/app-server/escape.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
     expect(pluginMessages(report, "src/features/chat/app-server/root-import.ts")).toEqual([APP_SERVER_ROOT_MODULE_IMPORT_MESSAGE]);
+    expect(pluginDiagnostics(report, "src/features/chat/host/chat-app-server-root-import.ts")).toEqual([]);
     expect(pluginMessages(report, "src/app-server/services/root-import.ts")).toEqual([APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE]);
     expect(pluginDiagnostics(report, "src/app-server/services/allowed.ts")).toEqual([]);
   });

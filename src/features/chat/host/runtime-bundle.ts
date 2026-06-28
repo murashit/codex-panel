@@ -1,11 +1,10 @@
 import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import { createChatRuntimeSettingsTransport } from "../app-server/runtime/thread-settings-transport";
+import type { ChatAppServerGateway } from "../app-server/session-gateway";
 import { type ChatRuntimeSettingsActions, createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatStateStore } from "../application/state/store";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import { type ChatPanelRuntimeProjection, createChatPanelRuntimeProjection } from "../panel/runtime-status-projection";
-import type { CurrentAppServerClient } from "./connection-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
 
 export type ChatPanelRuntimeSettingsActions = ChatRuntimeSettingsActions;
@@ -28,26 +27,24 @@ export function createRuntimeBundle(
   host: ChatPanelRuntimeHost,
   input: {
     connection: ConnectionManager;
-    currentClient: CurrentAppServerClient;
+    appServer: ChatAppServerGateway;
     status: ChatPanelRuntimeStatus;
   },
 ): ChatPanelRuntimeBundle {
   return {
-    settings: createSessionRuntimeSettingsActions(host, input.currentClient, input.status),
+    settings: createSessionRuntimeSettingsActions(host, input.appServer, input.status),
     projection: createSessionRuntimeProjection(host, input.connection),
   };
 }
 
 function createSessionRuntimeSettingsActions(
   host: ChatPanelRuntimeHost,
-  currentClient: CurrentAppServerClient,
+  appServer: ChatAppServerGateway,
   status: ChatPanelRuntimeStatus,
 ): ChatPanelRuntimeSettingsActions {
   return createChatRuntimeSettingsActions({
     stateStore: host.stateStore,
-    runtimeTransport: createChatRuntimeSettingsTransport({
-      currentClient,
-    }),
+    runtimeTransport: appServer.runtimeSettings,
     runtimeSnapshotForState: runtimeSnapshotForChatState,
     collaborationModeLabel: () => collaborationModeLabel(host.stateStore),
     addSystemMessage: (text) => {

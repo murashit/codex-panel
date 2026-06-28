@@ -22,7 +22,7 @@ import type { createThreadGoalSyncActions } from "../application/threads/goal-ac
 import type { ChatPanelEnvironment } from "./contracts";
 import type { ChatViewDeferredTasks } from "./deferred-work";
 
-export type CurrentAppServerClient = () => AppServerClient | null;
+type CurrentAppServerClient = () => AppServerClient | null;
 
 type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
 type RejectRequestId = Parameters<AppServerClient["rejectServerRequest"]>[0];

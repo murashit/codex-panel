@@ -2,6 +2,7 @@ import { ConnectionManager } from "../../../app-server/connection/connection-man
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
 import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
+import { createChatAppServerGateway } from "../app-server/session-gateway";
 import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
@@ -71,6 +72,18 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const localItemIds = createLocalIdSource();
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
+  let ensureConnected: () => Promise<void> = async () => {
+    throw new Error("Codex app-server connection controller is not initialized.");
+  };
+  const connectedClient = async () => {
+    await ensureConnected();
+    return currentClient();
+  };
+  const appServer = createChatAppServerGateway({
+    vaultPath: environment.plugin.settingsRef.vaultPath,
+    currentClient,
+    connectedClient,
+  });
   const status = createSessionStatus(stateStore, localItemIds);
   const refreshTabHeader = () => {
     host.environment.view.refreshTabHeader();
@@ -88,7 +101,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   };
 
   const threadFoundation = createThreadFoundation(host, {
-    currentClient,
+    appServer,
     localItemIds,
     status,
     refreshLiveState,
@@ -120,21 +133,16 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     inboundHandler,
   } = connectionBundle;
   const { threads: serverThreads } = connectionBundle.serverActions;
-  const ensureConnected = () => connectionController.ensureConnected();
-  const connectedClient = async () => {
-    await ensureConnected();
-    return currentClient();
-  };
+  ensureConnected = () => connectionController.ensureConnected();
   const refreshActiveThreads = () => connectionController.refreshActiveThreads();
   const runtime = createRuntimeBundle(host, {
     connection,
-    currentClient,
+    appServer,
     status,
   });
   const threadLifecycle = createThreadLifecycleBundle(host, {
-    currentClient,
+    appServer,
     localItemIds,
-    connectedClient,
     ensureConnected,
     status,
     serverThreads,
@@ -148,8 +156,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     runtimeSettings: runtime.settings,
   });
   const threadActions = createThreadActionBundle(host, {
-    currentClient,
-    connectedClient,
+    appServer,
     status,
     composerController: composer.controller,
     foundation: threadFoundation,
@@ -161,8 +168,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     connection,
     localItemIds,
     ensureConnected,
-    connectedClient,
-    currentClient,
+    appServer,
     status,
     inboundHandler,
     threadLifecycle: threadLifecycle.lifecycle,
