@@ -91,6 +91,20 @@ describe("MCP elicitation request model", () => {
     expect(contentForPendingMcpElicitation(input, new Map())).toBeNull();
   });
 
+  it("maps OpenAI form mode through the normal form model", () => {
+    const input = expectPresent(toPendingMcpElicitation(openAiFormRequest()));
+
+    expect(input).toMatchObject({
+      requestId: 45,
+      params: {
+        mode: "form",
+        serverName: "github",
+      },
+    });
+    if (input.params.mode !== "form") throw new Error("Expected form mode");
+    expect(input.params.fields).toEqual([expect.objectContaining({ id: "title", type: "string" })]);
+  });
+
   it("normalizes malformed schema fields without leaking invalid values", () => {
     const input = expectPresent(toPendingMcpElicitation(malformedSchemaRequest()));
     if (input.params.mode !== "form") throw new Error("Expected form mode");
@@ -183,6 +197,27 @@ function urlRequest(): ServerRequest {
       message: "Confirm in browser",
       url: "https://example.com/confirm",
       elicitationId: "elicit-1",
+    },
+  };
+}
+
+function openAiFormRequest(): ServerRequest {
+  return {
+    id: 45,
+    method: "mcpServer/elicitation/request",
+    params: {
+      threadId: "thread",
+      turnId: null,
+      serverName: "github",
+      mode: "openai/form",
+      _meta: null,
+      message: "Provide issue details",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string", title: "Title" },
+        },
+      },
     },
   };
 }

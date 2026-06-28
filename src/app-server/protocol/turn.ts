@@ -4,126 +4,13 @@ import {
   type ThreadConversationSummary,
   type ThreadTranscriptEntry,
 } from "../../domain/threads/transcript";
+import type { ThreadItem as GeneratedThreadItem } from "../../generated/app-server/v2/ThreadItem";
+import type { Turn as GeneratedTurn } from "../../generated/app-server/v2/Turn";
 
-type AppServerUserInput =
-  | { type: "text"; text: string; text_elements: AppServerTextElement[] }
-  | { type: "image"; url: string; detail?: "auto" | "low" | "high" | "original" }
-  | { type: "localImage"; path: string; detail?: "auto" | "low" | "high" | "original" }
-  | { type: "mention"; name: string; path: string }
-  | { type: "skill"; name: string; path: string };
-interface AppServerTextElement {
-  byteRange: { start: number; end: number };
-  placeholder: string | null;
-}
-type TurnItemsView = "notLoaded" | "summary" | "full";
-type TurnStatus = "completed" | "interrupted" | "failed" | "inProgress";
-type CommandAction =
-  | { type: "read"; command: string; name: string; path: string | null }
-  | { type: "search"; command: string; query: string | null; path: string | null }
-  | { type: "listFiles"; command: string; path: string | null }
-  | { type: "unknown"; command: string };
-type WebSearchAction =
-  | { type: "search"; query: string | null; queries: string[] | null }
-  | { type: "openPage"; url: string | null }
-  | { type: "findInPage"; url: string | null; pattern: string | null }
-  | { type: "other" };
-type HttpCodexErrorInfo =
-  | { httpConnectionFailed: { httpStatusCode: number | null } }
-  | { responseStreamConnectionFailed: { httpStatusCode: number | null } }
-  | { responseStreamDisconnected: { httpStatusCode: number | null } }
-  | { responseTooManyFailedAttempts: { httpStatusCode: number | null } };
-type AppServerCodexErrorInfo =
-  | "contextWindowExceeded"
-  | "usageLimitExceeded"
-  | "serverOverloaded"
-  | "cyberPolicy"
-  | "internalServerError"
-  | "unauthorized"
-  | "badRequest"
-  | "threadRollbackFailed"
-  | "sandboxError"
-  | "other"
-  | HttpCodexErrorInfo
-  | { activeTurnNotSteerable: { turnKind: "review" | "compact" } };
+export type TurnItem = GeneratedThreadItem;
+export type TurnRecord = GeneratedTurn;
 
-interface TurnError {
-  message: string;
-  codexErrorInfo: AppServerCodexErrorInfo | null;
-  additionalDetails: string | null;
-}
-
-interface BaseTurnItem<Type extends string> {
-  type: Type;
-  id: string;
-}
-
-export type TurnItem =
-  | (BaseTurnItem<"userMessage"> & { clientId: string | null; content: AppServerUserInput[] })
-  | (BaseTurnItem<"hookPrompt"> & { fragments: { text: string; [key: string]: unknown }[] })
-  | (BaseTurnItem<"agentMessage"> & { text: string; phase: string | null; memoryCitation: unknown })
-  | (BaseTurnItem<"plan"> & { text: string })
-  | (BaseTurnItem<"reasoning"> & { summary: string[]; content: string[] })
-  | (BaseTurnItem<"commandExecution"> & {
-      command: string;
-      cwd: string;
-      processId: string | null;
-      source: string;
-      status: string;
-      commandActions: CommandAction[];
-      aggregatedOutput: string | null;
-      exitCode: number | null;
-      durationMs: number | null;
-    })
-  | (BaseTurnItem<"fileChange"> & { changes: { path: string; kind: { type: string }; diff: string }[]; status: string })
-  | (BaseTurnItem<"mcpToolCall"> & {
-      server: string;
-      tool: string;
-      status: string;
-      arguments: unknown;
-      appContext: unknown;
-      pluginId: string | null;
-      result: unknown;
-      error: { message?: string; [key: string]: unknown } | null;
-      durationMs: number | null;
-    })
-  | (BaseTurnItem<"dynamicToolCall"> & {
-      namespace: string | null;
-      tool: string;
-      arguments: unknown;
-      status: string;
-      contentItems: unknown[] | null;
-      success: boolean | null;
-      durationMs: number | null;
-    })
-  | (BaseTurnItem<"collabAgentToolCall"> & {
-      tool: string;
-      status: string;
-      senderThreadId: string;
-      receiverThreadIds: string[];
-      prompt: string | null;
-      model: string | null;
-      reasoningEffort: string | null;
-      agentsStates: Record<string, { status?: string | null; message?: string | null } | undefined>;
-    })
-  | (BaseTurnItem<"subAgentActivity"> & { kind: string; agentThreadId: string; agentPath: string })
-  | (BaseTurnItem<"webSearch"> & { query: string; action: WebSearchAction | null })
-  | (BaseTurnItem<"imageView"> & { path: string })
-  | (BaseTurnItem<"sleep"> & { durationMs: number })
-  | (BaseTurnItem<"imageGeneration"> & { status: string; revisedPrompt: string | null; result: string; savedPath?: string })
-  | (BaseTurnItem<"enteredReviewMode"> & { review: string })
-  | (BaseTurnItem<"exitedReviewMode"> & { review: string })
-  | BaseTurnItem<"contextCompaction">;
-
-export interface TurnRecord {
-  id: string;
-  items: TurnItem[];
-  itemsView: TurnItemsView;
-  status: TurnStatus;
-  error: TurnError | null;
-  startedAt: number | null;
-  completedAt: number | null;
-  durationMs: number | null;
-}
+type AppServerUserInput = Extract<TurnItem, { type: "userMessage" }>["content"][number];
 
 function transcriptEntriesFromTurnRecord(turn: TurnRecord): ThreadTranscriptEntry[] {
   return turn.items.flatMap((item) => transcriptEntriesFromTurnItem(item, turn));

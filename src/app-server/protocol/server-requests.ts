@@ -12,6 +12,7 @@ import type {
   PendingUserInput,
   PendingUserInputQuestion,
 } from "../../domain/pending-requests/model";
+import type { ServerRequest as GeneratedServerRequest } from "../../generated/app-server/ServerRequest";
 import { pathRelativeToRoot } from "../../shared/path/file-paths";
 import { jsonPreview } from "../../shared/text/preview";
 
@@ -26,38 +27,19 @@ type CommandApprovalDecision =
   | { acceptWithExecpolicyAmendment: unknown }
   | { applyNetworkPolicyAmendment: { network_policy_amendment: { action?: unknown; host?: unknown } } };
 
-type AppServerRequest = {
-  method: string;
-  id: PendingApproval["requestId"];
-  params: unknown;
-};
+type AppServerRequest = GeneratedServerRequest;
+type CommandApprovalRequest = Extract<AppServerRequest, { method: "item/commandExecution/requestApproval" }>;
+type FileChangeApprovalRequest = Extract<AppServerRequest, { method: "item/fileChange/requestApproval" }>;
+type PermissionsApprovalRequest = Extract<AppServerRequest, { method: "item/permissions/requestApproval" }>;
+type UserInputRequest = Extract<AppServerRequest, { method: "item/tool/requestUserInput" }>;
+type McpElicitationRequest = Extract<AppServerRequest, { method: "mcpServer/elicitation/request" }>;
 
-interface CommandApprovalParams {
-  command?: unknown;
-  cwd?: unknown;
-  turnId?: unknown;
-  reason?: unknown;
-  networkApprovalContext?: unknown;
-  commandActions?: unknown;
-  additionalPermissions?: unknown;
-  proposedExecpolicyAmendment?: unknown;
-  proposedNetworkPolicyAmendments?: unknown;
-  availableDecisions?: unknown;
-}
-
-interface FileChangeApprovalParams {
-  turnId?: unknown;
-  reason?: unknown;
-  grantRoot?: unknown;
-}
-
-interface PermissionsApprovalParams {
-  cwd?: unknown;
-  turnId?: unknown;
-  reason?: unknown;
-  environmentId?: unknown;
-  permissions?: unknown;
-}
+type CommandApprovalParams = CommandApprovalRequest["params"];
+type FileChangeApprovalParams = FileChangeApprovalRequest["params"];
+type PermissionsApprovalParams = PermissionsApprovalRequest["params"];
+type UserInputParams = UserInputRequest["params"];
+type UserInputQuestion = UserInputParams["questions"][number];
+type McpElicitationParams = McpElicitationRequest["params"];
 
 type AppServerMcpElicitationPrimitiveSchema =
   | {
@@ -125,11 +107,11 @@ export interface AppServerMcpElicitationResponse {
 export function appServerApprovalRequest(request: AppServerRequest): PendingApproval | null {
   switch (request.method) {
     case "item/commandExecution/requestApproval":
-      return commandApprovalRequest(request.id, asRecordOrEmpty(request.params));
+      return commandApprovalRequest(request.id, request.params);
     case "item/fileChange/requestApproval":
-      return fileChangeApprovalRequest(request.id, asRecordOrEmpty(request.params));
+      return fileChangeApprovalRequest(request.id, request.params);
     case "item/permissions/requestApproval":
-      return permissionsApprovalRequest(request.id, asRecordOrEmpty(request.params));
+      return permissionsApprovalRequest(request.id, request.params);
     default:
       return null;
   }
@@ -168,7 +150,7 @@ export function appServerUserInputResponse(
 
 export function appServerMcpElicitationRequest(request: AppServerRequest): PendingMcpElicitation | null {
   if (request.method !== "mcpServer/elicitation/request") return null;
-  const params = mcpElicitationParams(request.params);
+  const params = normalizeMcpElicitationParams(request.params);
   if (!params) return null;
   if (params.mode === "url") {
     return {
@@ -568,28 +550,26 @@ function asRecordOrEmpty(value: unknown): Record<string, unknown> {
   return asRecordOrNull(value) ?? {};
 }
 
-function pendingUserInputParams(value: unknown): PendingUserInput["params"] | null {
-  const params = asRecordOrNull(value);
-  const questions = params?.["questions"];
-  if (!params || !Array.isArray(questions)) return null;
+function pendingUserInputParams(params: UserInputParams): PendingUserInput["params"] | null {
+  const questions: unknown = params.questions;
+  if (!Array.isArray(questions)) return null;
   return {
-    threadId: stringValue(params["threadId"]),
-    turnId: stringValue(params["turnId"]),
-    itemId: stringValue(params["itemId"]),
+    threadId: stringValue(params.threadId),
+    turnId: stringValue(params.turnId),
+    itemId: stringValue(params.itemId),
     questions: questions.map(pendingUserInputQuestion),
-    autoResolutionMs: numberOrNull(params["autoResolutionMs"]),
+    autoResolutionMs: numberOrNull(params.autoResolutionMs),
   };
 }
 
-function pendingUserInputQuestion(value: unknown): PendingUserInputQuestion {
-  const question = asRecordOrEmpty(value);
-  const options = question["options"];
+function pendingUserInputQuestion(question: UserInputQuestion): PendingUserInputQuestion {
+  const options: unknown = question.options;
   return {
-    id: stringValue(question["id"]),
-    header: stringValue(question["header"]),
-    question: stringValue(question["question"]),
-    isOther: question["isOther"] === true,
-    isSecret: question["isSecret"] === true,
+    id: stringValue(question.id),
+    header: stringValue(question.header),
+    question: stringValue(question.question),
+    isOther: question.isOther,
+    isSecret: question.isSecret,
     options: Array.isArray(options)
       ? options.map((option) => {
           const record = asRecordOrEmpty(option);
@@ -599,22 +579,33 @@ function pendingUserInputQuestion(value: unknown): PendingUserInputQuestion {
   };
 }
 
-function mcpElicitationParams(value: unknown): NormalizedMcpElicitationParams | null {
-  const params = asRecordOrNull(value);
-  if (!params) return null;
-  const mode = params["mode"];
-  if (mode !== "form" && mode !== "url") return null;
-  return {
-    threadId: stringValue(params["threadId"]),
-    turnId: nullableString(params["turnId"]),
-    serverName: stringValue(params["serverName"]),
-    mode,
-    message: stringValue(params["message"]),
-    meta: params["_meta"] ?? null,
-    requestedSchema: params["requestedSchema"],
-    url: stringValue(params["url"]),
-    elicitationId: stringValue(params["elicitationId"]),
-  };
+function normalizeMcpElicitationParams(params: McpElicitationParams): NormalizedMcpElicitationParams | null {
+  switch (params.mode) {
+    case "form":
+    case "openai/form":
+      return {
+        threadId: stringValue(params.threadId),
+        turnId: nullableString(params.turnId),
+        serverName: stringValue(params.serverName),
+        mode: "form",
+        message: stringValue(params.message),
+        meta: params._meta ?? null,
+        requestedSchema: params.requestedSchema,
+        url: "",
+        elicitationId: "",
+      };
+    case "url":
+      return {
+        threadId: stringValue(params.threadId),
+        turnId: nullableString(params.turnId),
+        serverName: stringValue(params.serverName),
+        mode: "url",
+        message: stringValue(params.message),
+        meta: params._meta ?? null,
+        url: stringValue(params.url),
+        elicitationId: stringValue(params.elicitationId),
+      };
+  }
 }
 
 function numberOrNull(value: unknown): number | null {

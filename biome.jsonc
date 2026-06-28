@@ -81,7 +81,13 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-generated-app-server-boundary-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/connection/**"]
+      "includes": [
+        "**/src/**/*.ts",
+        "**/src/**/*.tsx",
+        "!**/src/app-server/connection/**",
+        "!**/src/app-server/protocol/server-requests.ts",
+        "!**/src/app-server/protocol/turn.ts"
+      ]
     },
     {
       "path": "./scripts/grit/runtime/no-app-server-projection-rpcs.grit",

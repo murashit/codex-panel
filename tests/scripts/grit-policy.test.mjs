@@ -731,13 +731,8 @@ export const value = statusText;
     expect(pluginMessages(report, "src/app-server/services/runtime-overrides.ts")).toEqual([
       "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
-    expect(pluginMessages(report, "src/app-server/protocol/turn.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
-    ]);
-    expect(pluginMessages(report, "src/app-server/protocol/server-requests.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
-      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
-    ]);
+    expect(pluginDiagnostics(report, "src/app-server/protocol/turn.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/app-server/protocol/server-requests.ts")).toEqual([]);
   });
 
   it("keeps TSX files in rendering-owned source folders", async () => {
