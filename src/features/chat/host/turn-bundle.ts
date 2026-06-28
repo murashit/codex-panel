@@ -113,6 +113,9 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     invalidateThreadWork: () => {
       invalidateThreadWork();
     },
+    clearDeferredDiagnostics: () => {
+      host.deferredTasks.clearDiagnostics();
+    },
     resetConnection: () => {
       connection.resetConnection();
     },
@@ -151,6 +154,9 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
         effortStatusLines: runtimeProjection.effortStatusLines,
         statusSummaryLines: runtimeProjection.statusSummaryLines,
         toolInventoryDetails: async () => {
+          if (host.stateStore.getState().connection.serverDiagnostics.toolInventory) {
+            return runtimeProjection.toolInventoryDetails();
+          }
           await refreshDiagnostics();
           return runtimeProjection.toolInventoryDetails();
         },

@@ -12,13 +12,6 @@ export interface ToolInventoryPlugin {
   readonly enabled: boolean;
   readonly availability: string;
   readonly source: string;
-  readonly details: {
-    readonly skillCount: number;
-    readonly hookCount: number;
-    readonly appCount: number;
-    readonly mcpServerCount: number;
-  } | null;
-  readonly detailsError: string | null;
 }
 
 export interface ToolInventoryMarketplaceError {
@@ -41,12 +34,14 @@ export interface ToolInventorySnapshot {
 export function cloneToolInventorySnapshot(snapshot: ToolInventorySnapshot): ToolInventorySnapshot {
   return {
     ...snapshot,
-    plugins: snapshot.plugins
-      ? snapshot.plugins.map((plugin) => ({ ...plugin, details: plugin.details ? { ...plugin.details } : null }))
-      : null,
+    plugins: snapshot.plugins ? snapshot.plugins.map((plugin) => ({ ...plugin })) : null,
     pluginMarketplaceErrors: snapshot.pluginMarketplaceErrors.map((error) => ({ ...error })),
-    mcpServers: snapshot.mcpServers ? snapshot.mcpServers.map((server) => ({ ...server })) : null,
+    mcpServers: snapshot.mcpServers ? snapshot.mcpServers.map(cloneMcpServerStatusSummary) : null,
     mcpDiagnostics: snapshot.mcpDiagnostics.map((diagnostic) => ({ ...diagnostic })),
     skills: snapshot.skills ? snapshot.skills.map((skill) => ({ ...skill })) : null,
   };
+}
+
+function cloneMcpServerStatusSummary(server: McpServerStatusSummary): McpServerStatusSummary {
+  return server.codexAppIds ? { ...server, codexAppIds: [...server.codexAppIds] } : { ...server };
 }

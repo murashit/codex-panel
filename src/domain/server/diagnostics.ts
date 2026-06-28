@@ -45,6 +45,7 @@ export interface McpServerStatusSummary {
   readonly toolCount: number;
   readonly resourceCount: number;
   readonly resourceTemplateCount: number;
+  readonly codexAppIds?: readonly string[];
 }
 
 export interface Diagnostics {
@@ -153,6 +154,7 @@ function mcpServerStatusSummaryFromStatus(server: McpServerStatus): McpServerSta
     toolCount: Object.keys(server.tools).length,
     resourceCount: server.resources.length,
     resourceTemplateCount: server.resourceTemplates.length,
+    codexAppIds: server.name === "codex_apps" ? codexAppIdsFromTools(server.tools) : [],
   };
 }
 
@@ -164,6 +166,23 @@ function shortErrorMessage(error: unknown, maxLength = 160): string {
   const message = error instanceof Error ? error.message : String(error);
   const compact = message.replace(/\s+/g, " ").trim() || "Codex app-server request failed.";
   return compact.length > maxLength ? `${compact.slice(0, maxLength - 3)}...` : compact;
+}
+
+function codexAppIdsFromTools(tools: Readonly<Record<string, unknown>>): string[] {
+  const appIds = new Set<string>();
+  for (const [toolKey, tool] of Object.entries(tools)) {
+    const toolName = toolNameFromStatusTool(tool) ?? toolKey;
+    const prefixSeparator = toolName.indexOf(".");
+    if (prefixSeparator <= 0) continue;
+    appIds.add(toolName.slice(0, prefixSeparator));
+  }
+  return [...appIds].sort((left, right) => left.localeCompare(right));
+}
+
+function toolNameFromStatusTool(tool: unknown): string | null {
+  if (!tool || typeof tool !== "object") return null;
+  const name = (tool as { readonly name?: unknown }).name;
+  return typeof name === "string" && name.length > 0 ? name : null;
 }
 
 function mcpServerDiagnosticFromStatus(server: McpServerStatusSummary): McpServerDiagnostic {

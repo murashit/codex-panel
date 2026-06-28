@@ -29,6 +29,8 @@ export interface ChatConnectionControllerHost {
   diagnostics: ChatConnectionDiagnosticsActions;
   invalidateThreadWork: () => void;
   refreshSharedThreads: () => Promise<void>;
+  scheduleDeferredDiagnostics: () => void;
+  clearDeferredDiagnostics: () => void;
   refreshTabHeader: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   setStatus: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -112,8 +114,10 @@ async function refreshDiagnostics(
   host: ChatConnectionControllerHost,
   controller: Pick<ChatConnectionController, "ensureConnected">,
 ): Promise<void> {
+  host.clearDeferredDiagnostics();
   await controller.ensureConnected();
   if (!host.connection.isConnected()) return;
+  host.clearDeferredDiagnostics();
   await host.metadata.refreshAppServerMetadata();
   await host.diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
 }
@@ -141,6 +145,7 @@ async function initializeConnection(host: ChatConnectionControllerHost, connecti
     if (host.connectionWork.isStale(connection)) return;
     await host.refreshSharedThreads();
     if (host.connectionWork.isStale(connection)) return;
+    host.scheduleDeferredDiagnostics();
     host.refreshTabHeader();
     host.setStatus(STATUS_CONNECTED, { kind: "connected" });
   } catch (error) {

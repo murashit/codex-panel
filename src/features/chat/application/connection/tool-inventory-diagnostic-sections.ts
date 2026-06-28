@@ -5,6 +5,7 @@ import type { DiagnosticRow, DiagnosticSection } from "./diagnostic-sections";
 
 const PERSONAL_SKILLS_LABEL = "Personal";
 const SYSTEM_SKILLS_LABEL = "System";
+const TOOL_PROVIDERS_LABEL = "Tool providers";
 const WORKSPACE_SKILLS_FALLBACK_LABEL = "Workspace";
 const SKILL_PROVENANCE_RANKS = {
   workspace: 0,
@@ -22,8 +23,8 @@ interface SkillProvenance {
 
 function toolInventorySections(inventory: ToolInventorySnapshot | null): DiagnosticSection[] {
   if (!inventory) {
-    const row = { label: "MCP servers", value: "not loaded", level: "warning" as const };
-    return [{ title: "MCP servers", rows: [row] }];
+    const row = { label: TOOL_PROVIDERS_LABEL, value: "not loaded", level: "warning" as const };
+    return [{ title: TOOL_PROVIDERS_LABEL, rows: [row] }];
   }
 
   return toolInventorySnapshotSections(inventory);
@@ -40,7 +41,7 @@ export function toolInventoryDiagnosticSections(diagnostics: Pick<Diagnostics, "
 function toolInventorySnapshotSections(inventory: ToolInventorySnapshot): DiagnosticSection[] {
   return [
     { title: "Plugins", rows: pluginRows(inventory) },
-    { title: "MCP servers", rows: mcpToolProviderRows(inventory) },
+    { title: TOOL_PROVIDERS_LABEL, rows: mcpToolProviderRows(inventory) },
     { title: "Skills", rows: skillRows(inventory) },
   ];
 }
@@ -57,14 +58,14 @@ function pluginRow(plugin: ToolInventoryPlugin): DiagnosticRow {
   return {
     label: plugin.displayName ?? plugin.name,
     value: pluginBundleSummary(plugin),
-    level: plugin.detailsError ? "warning" : "normal",
+    level: "normal",
   };
 }
 
 function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
-  if (inventory.mcpError) return [{ label: "MCP servers", value: inventory.mcpError, level: "error" }];
+  if (inventory.mcpError) return [{ label: TOOL_PROVIDERS_LABEL, value: inventory.mcpError, level: "error" }];
   if (inventory.mcpServers === null && inventory.mcpDiagnostics.length === 0) {
-    return [{ label: "MCP servers", value: "not loaded", level: "warning" }];
+    return [{ label: TOOL_PROVIDERS_LABEL, value: "not loaded", level: "warning" }];
   }
 
   const statusByName = new Map((inventory.mcpServers ?? []).map((server) => [server.name, server]));
@@ -79,6 +80,8 @@ function mcpToolProviderRows(inventory: ToolInventorySnapshot): DiagnosticRow[] 
 }
 
 function mcpToolProviderStatusRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
+  if (server.name === "codex_apps") return codexAppsToolProviderRow(server, diagnostic);
+
   const startup = diagnostic?.startupStatus && diagnostic.startupStatus !== "unknown" ? diagnostic.startupStatus : "available";
   const parts = [
     "MCP server",
@@ -92,6 +95,14 @@ function mcpToolProviderStatusRow(server: McpServerStatusSummary, diagnostic: Mc
   return {
     label: server.name,
     value: parts.join(", "),
+    level: mcpToolProviderLevel(diagnostic, server.authStatus),
+  };
+}
+
+function codexAppsToolProviderRow(server: McpServerStatusSummary, diagnostic: McpServerDiagnostic | undefined): DiagnosticRow {
+  return {
+    label: server.name,
+    value: server.codexAppIds && server.codexAppIds.length > 0 ? listSummary(server.codexAppIds) : "(none)",
     level: mcpToolProviderLevel(diagnostic, server.authStatus),
   };
 }
@@ -142,21 +153,7 @@ function skillRows(inventory: ToolInventorySnapshot): DiagnosticRow[] {
 }
 
 function pluginBundleSummary(plugin: ToolInventoryPlugin): string {
-  if (plugin.detailsError) return "details unavailable";
-  if (!plugin.details) return "details not loaded";
-
-  const parts = [
-    countPart(plugin.details.skillCount, "skill"),
-    countPart(plugin.details.hookCount, "hook"),
-    countPart(plugin.details.appCount, "app"),
-    countPart(plugin.details.mcpServerCount, "MCP server"),
-  ].filter((part): part is string => part !== null);
-  return parts.length > 0 ? parts.join(", ") : "no listed items";
-}
-
-function countPart(count: number, singular: string): string | null {
-  if (count === 0) return null;
-  return `${String(count)} ${singular}${count === 1 ? "" : "s"}`;
+  return plugin.localVersion ? `version ${plugin.localVersion}` : "version unknown";
 }
 
 function countLabel(count: number, singular: string): string {

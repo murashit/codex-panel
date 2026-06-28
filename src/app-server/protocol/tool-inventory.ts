@@ -63,8 +63,6 @@ function toolInventoryPluginFromSummary(
     enabled: plugin.enabled,
     availability: plugin.availability,
     source: pluginSourceLabel(plugin.source),
-    details: null,
-    detailsError: null,
   };
 }
 

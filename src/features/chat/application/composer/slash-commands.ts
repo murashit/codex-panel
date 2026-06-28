@@ -141,7 +141,7 @@ export const SLASH_COMMANDS = [
     usage: "/tools",
     argsKind: "none",
     surface: "diagnostic",
-    detail: "Show Codex plugins, MCP servers, and skills reported by App Server.",
+    detail: "Show Codex plugins, tool providers, and skills reported by App Server.",
   },
   {
     command: "/model",

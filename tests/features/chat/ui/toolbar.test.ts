@@ -169,7 +169,7 @@ describe("Toolbar decisions", () => {
 
     expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection");
     expect(parent.textContent).toContain("Codex capabilities");
-    expect(parent.textContent).toContain("MCP servers");
+    expect(parent.textContent).toContain("Tool providers");
     expect(parent.textContent).toContain("Process");
     expect(parent.textContent).toContain("Runtime Checks");
     expect(parent.textContent).toContain("Copy debug details");
@@ -363,7 +363,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
     connectLabel: "Reconnect",
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
-    toolInventory: [{ title: "MCP servers", rows: [{ label: "MCP servers", value: "not loaded", level: "warning" }] }],
+    toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "not loaded", level: "warning" }] }],
     ...overrides,
   };
 }

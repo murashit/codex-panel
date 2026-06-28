@@ -121,8 +121,6 @@ describe("connection diagnostics", () => {
           enabled: true,
           availability: "AVAILABLE",
           source: "remote",
-          details: { skillCount: 2, hookCount: 1, appCount: 1, mcpServerCount: 1 },
-          detailsError: null,
         },
         {
           id: "installable-plugin",
@@ -135,8 +133,6 @@ describe("connection diagnostics", () => {
           enabled: true,
           availability: "AVAILABLE",
           source: "remote",
-          details: null,
-          detailsError: null,
         },
         {
           id: "disabled-plugin",
@@ -149,8 +145,18 @@ describe("connection diagnostics", () => {
           enabled: false,
           availability: "AVAILABLE",
           source: "remote",
-          details: null,
-          detailsError: null,
+        },
+        {
+          id: "unversioned-plugin",
+          name: "unversioned-plugin",
+          displayName: "Unversioned Plugin",
+          marketplaceName: "personal",
+          marketplacePath: null,
+          localVersion: null,
+          installed: true,
+          enabled: true,
+          availability: "AVAILABLE",
+          source: "remote",
         },
       ],
       pluginMarketplaceErrors: [],
@@ -162,6 +168,7 @@ describe("connection diagnostics", () => {
           toolCount: 219,
           resourceCount: 0,
           resourceTemplateCount: 0,
+          codexAppIds: ["apple_music", "github", "google_drive"],
         },
         {
           name: "github",
@@ -231,13 +238,16 @@ describe("connection diagnostics", () => {
 
     const sections = toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory));
     const pluginRows = sections.find((section) => section.title === "Plugins")?.rows ?? [];
-    const mcpRows = sections.find((section) => section.title === "MCP servers")?.rows ?? [];
+    const toolProviderRows = sections.find((section) => section.title === "Tool providers")?.rows ?? [];
     const skillRows = sections.find((section) => section.title === "Skills")?.rows ?? [];
 
-    expect(sections.map((section) => section.title)).toEqual(["Plugins", "MCP servers", "Skills"]);
-    expect(pluginRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["Usable Plugin: 2 skills, 1 hook, 1 app, 1 MCP server"]);
-    expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
-      "codex_apps: MCP server, ready, auth oAuth, 219 tools, 0 resources",
+    expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
+    expect(pluginRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
+      "Usable Plugin: version 1.2.3",
+      "Unversioned Plugin: version unknown",
+    ]);
+    expect(toolProviderRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
+      "codex_apps: apple_music, github, google_drive",
       "github: MCP server, ready, auth oAuth, 2 tools, 0 resources",
     ]);
     expect(skillRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
@@ -280,7 +290,7 @@ describe("connection diagnostics", () => {
       toolInventory: inventory,
     };
 
-    const mcpRows = toolInventoryDiagnosticSections(diagnostics).find((section) => section.title === "MCP servers")?.rows ?? [];
+    const mcpRows = toolInventoryDiagnosticSections(diagnostics).find((section) => section.title === "Tool providers")?.rows ?? [];
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, ready, auth oAuth, 1 tool, 0 resources"]);
   });
@@ -307,8 +317,8 @@ describe("connection diagnostics", () => {
     };
 
     const mcpRows =
-      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory)).find((section) => section.title === "MCP servers")?.rows ??
-      [];
+      toolInventoryDiagnosticSections(diagnosticsWithToolInventory(inventory)).find((section) => section.title === "Tool providers")
+        ?.rows ?? [];
 
     expect(mcpRows.map((row) => `${row.label}: ${row.value}`)).toEqual([
       "figma: MCP server, failed, auth unknown, tools unknown, command not found",

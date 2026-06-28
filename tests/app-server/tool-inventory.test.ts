@@ -2,19 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
 import { readToolInventory } from "../../src/app-server/services/tool-inventory";
-import type { PluginReadParams } from "../../src/generated/app-server/v2/PluginReadParams";
 
 describe("tool inventory", () => {
-  it("reads plugin details with exactly one marketplace locator", async () => {
-    const readPlugin = vi.fn(async (params: PluginReadParams) => ({
-      plugin: {
-        skills: params.pluginName === "local-plugin" ? [{ name: "local-skill" }] : [],
-        hooks: [],
-        apps: [],
-        appTemplates: [],
-        mcpServers: params.pluginName === "remote-plugin" ? ["remote-server"] : [],
-      },
-    }));
+  it("reads installed plugins without loading plugin details", async () => {
+    const readPlugin = vi.fn();
     const client = toolInventoryClient({
       "plugin/installed": vi.fn().mockResolvedValue({
         marketplaces: [
@@ -58,21 +49,8 @@ describe("tool inventory", () => {
 
     const result = await readToolInventory(client, "/vault");
 
-    expect(readPlugin).toHaveBeenCalledWith({
-      pluginName: "local-plugin",
-      marketplacePath: "/marketplaces/local.json",
-    });
-    expect(readPlugin).toHaveBeenCalledWith({
-      pluginName: "remote-plugin",
-      remoteMarketplaceName: "remote-marketplace",
-    });
-    expect(readPlugin).not.toHaveBeenCalledWith(
-      expect.objectContaining({ marketplacePath: expect.any(String), remoteMarketplaceName: expect.any(String) }),
-    );
-    expect(result.inventory.plugins?.map((plugin) => [plugin.name, plugin.details, plugin.detailsError])).toEqual([
-      ["local-plugin", { skillCount: 1, hookCount: 0, appCount: 0, mcpServerCount: 0 }, null],
-      ["remote-plugin", { skillCount: 0, hookCount: 0, appCount: 0, mcpServerCount: 1 }, null],
-    ]);
+    expect(readPlugin).not.toHaveBeenCalled();
+    expect(result.inventory.plugins?.map((plugin) => plugin.name)).toEqual(["local-plugin", "remote-plugin"]);
   });
 
   it("skips app catalog loading during diagnostics", async () => {
@@ -84,25 +62,9 @@ describe("tool inventory", () => {
     expect(result.probes.some((probe) => probe.method === "app/list")).toBe(false);
   });
 
-  it("limits plugin detail reads while preserving plugin order", async () => {
-    let activeReads = 0;
-    let maxActiveReads = 0;
+  it("preserves plugin order from installed plugin summaries", async () => {
     const plugins = Array.from({ length: 10 }, (_, index) => installedPlugin(`plugin-${String(index)}`));
-    const readPlugin = vi.fn(async (params: PluginReadParams) => {
-      activeReads += 1;
-      maxActiveReads = Math.max(maxActiveReads, activeReads);
-      await Promise.resolve();
-      activeReads -= 1;
-      return {
-        plugin: {
-          skills: [{ name: `${params.pluginName}-skill` }],
-          hooks: [],
-          apps: [],
-          appTemplates: [],
-          mcpServers: [],
-        },
-      };
-    });
+    const readPlugin = vi.fn();
     const client = toolInventoryClient({
       "plugin/installed": vi.fn().mockResolvedValue({
         marketplaces: [{ name: "local-marketplace", path: "/marketplaces/local.json", plugins }],
@@ -113,9 +75,8 @@ describe("tool inventory", () => {
 
     const result = await readToolInventory(client, "/vault");
 
-    expect(maxActiveReads).toBe(4);
+    expect(readPlugin).not.toHaveBeenCalled();
     expect(result.inventory.plugins?.map((plugin) => plugin.name)).toEqual(plugins.map((plugin) => plugin.name));
-    expect(result.inventory.plugins?.every((plugin) => plugin.details?.skillCount === 1)).toBe(true);
   });
 });
 

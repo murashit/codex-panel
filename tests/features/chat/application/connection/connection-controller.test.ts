@@ -39,6 +39,8 @@ function createController({ connected = false } = {}) {
     diagnostics,
     invalidateThreadWork: vi.fn(),
     refreshSharedThreads: vi.fn().mockResolvedValue(undefined),
+    scheduleDeferredDiagnostics: vi.fn(),
+    clearDeferredDiagnostics: vi.fn(),
     refreshTabHeader: vi.fn(),
     resetThreadTurnPresence: vi.fn(),
     setStatus: vi.fn(),
@@ -74,14 +76,16 @@ describe("ChatConnectionController", () => {
     });
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
     expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
+    expect(host.scheduleDeferredDiagnostics).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
   it("refreshes metadata before server diagnostics", async () => {
-    const { controller, refreshAppServerMetadata, refreshServerDiagnostics } = createController({ connected: true });
+    const { controller, host, refreshAppServerMetadata, refreshServerDiagnostics } = createController({ connected: true });
 
     await controller.refreshDiagnostics();
 
+    expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
     expect(refreshServerDiagnostics).toHaveBeenCalledWith({ appServerMetadataSnapshot: true });
   });

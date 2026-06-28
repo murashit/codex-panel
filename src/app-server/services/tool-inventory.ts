@@ -8,12 +8,9 @@ import {
   mcpServerStatusSummariesFromStatuses,
 } from "../../domain/server/diagnostics";
 import type { ToolInventoryMarketplaceError, ToolInventoryPlugin, ToolInventorySnapshot } from "../../domain/server/tool-inventory";
-import type { ClientRequestParams } from "../connection/rpc-messages";
 import { toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
 import { listSkillCatalog } from "./catalog";
 import type { AppServerRequestClient } from "./request-client";
-
-const PLUGIN_DETAILS_CONCURRENCY = 4;
 
 export interface ReadToolInventoryOptions {
   readonly threadId?: string | null;
@@ -87,9 +84,8 @@ async function readPlugins(
   try {
     const response = await client.request("plugin/installed", { cwds: [cwd] });
     const { plugins, marketplaceErrors } = toolInventoryPluginsFromInstalledResponse(response);
-    const pluginsWithDetails = await mapLimit(plugins, PLUGIN_DETAILS_CONCURRENCY, (plugin) => readPluginDetails(client, plugin));
     return {
-      items: pluginsWithDetails,
+      items: plugins,
       marketplaceErrors,
       error: null,
       probe: diagnosticProbeOk("plugin/installed", `${String(plugins.length)} plugins`, checkedAt),
@@ -102,60 +98,6 @@ async function readPlugins(
       probe: diagnosticProbeError("plugin/installed", error, checkedAt),
     };
   }
-}
-
-async function mapLimit<T, R>(items: readonly T[], concurrency: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  async function worker(): Promise<void> {
-    for (;;) {
-      const index = nextIndex;
-      nextIndex += 1;
-      if (index >= items.length) return;
-      results[index] = await fn(items[index] as T, index);
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(Math.max(concurrency, 1), items.length) }, () => worker());
-  await Promise.all(workers);
-  return results;
-}
-
-async function readPluginDetails(client: AppServerRequestClient, plugin: ToolInventoryPlugin): Promise<ToolInventoryPlugin> {
-  if (!isUsablePlugin(plugin)) return plugin;
-  try {
-    const response = await client.request("plugin/read", pluginReadParams(plugin));
-    return {
-      ...plugin,
-      details: {
-        skillCount: response.plugin.skills.length,
-        hookCount: response.plugin.hooks.length,
-        appCount: response.plugin.apps.length,
-        mcpServerCount: response.plugin.mcpServers.length,
-      },
-      detailsError: null,
-    };
-  } catch (error) {
-    return { ...plugin, details: null, detailsError: shortErrorMessage(error) };
-  }
-}
-
-function pluginReadParams(plugin: ToolInventoryPlugin): ClientRequestParams<"plugin/read"> {
-  if (plugin.marketplacePath) {
-    return {
-      pluginName: plugin.name,
-      marketplacePath: plugin.marketplacePath,
-    };
-  }
-  return {
-    pluginName: plugin.name,
-    remoteMarketplaceName: plugin.marketplaceName,
-  };
-}
-
-function isUsablePlugin(plugin: ToolInventoryPlugin): boolean {
-  return plugin.enabled && plugin.installed;
 }
 
 async function readMcpServers(

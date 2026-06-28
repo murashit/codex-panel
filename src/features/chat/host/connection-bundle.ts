@@ -67,6 +67,22 @@ export interface ChatPanelConnectionBundle {
   refreshSharedThreads: () => Promise<void>;
 }
 
+export interface DeferredDiagnosticsRefreshHost {
+  scheduleDiagnostics(callback: () => void): void;
+  isConnected(): boolean;
+  refreshServerDiagnostics(options: { appServerMetadataSnapshot: true }): Promise<void>;
+  addSystemMessage(text: string): void;
+}
+
+export function scheduleDeferredDiagnosticsRefresh(host: DeferredDiagnosticsRefreshHost): void {
+  host.scheduleDiagnostics(() => {
+    if (!host.isConnected()) return;
+    void host.refreshServerDiagnostics({ appServerMetadataSnapshot: true }).catch((error: unknown) => {
+      host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    });
+  });
+}
+
 function respondToCurrentServerRequest(currentClient: CurrentAppServerClient, requestId: RespondRequestId, result: unknown): boolean {
   try {
     const client = currentClient();
@@ -205,6 +221,21 @@ export function createConnectionBundle(
       refreshServerDiagnostics: (options) => serverDiagnostics.refreshServerDiagnostics(options),
     },
     refreshSharedThreads,
+    scheduleDeferredDiagnostics: () => {
+      scheduleDeferredDiagnosticsRefresh({
+        scheduleDiagnostics: (callback) => {
+          host.deferredTasks.scheduleDiagnostics(callback);
+        },
+        isConnected: () => connection.isConnected(),
+        refreshServerDiagnostics: (options) => serverDiagnostics.refreshServerDiagnostics(options),
+        addSystemMessage: (text) => {
+          status.addSystemMessage(text);
+        },
+      });
+    },
+    clearDeferredDiagnostics: () => {
+      host.deferredTasks.clearDiagnostics();
+    },
     refreshTabHeader: () => {
       host.refreshTabHeader();
     },
