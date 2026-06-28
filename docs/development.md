@@ -78,7 +78,7 @@ Use `.tsx` only in rendering-owned source folders: chat panel and UI modules, Ob
 
 CSS should stay native to Obsidian. Prefer Obsidian variables and Codex Panel tokens for color, typography, spacing, and layout dimensions instead of hardcoded values.
 
-Keep selectors shallow and specific to Codex Panel classes. Avoid broad invalidation patterns such as `:has()`, hidden specificity inside `:where()`, IDs, universal selectors, and unnecessary type selectors. Add new authored CSS files to `src/styles/order.json`, and remove unused or test-only `codex-panel` classes instead of keeping dead styles.
+Keep selectors shallow and specific to Codex Panel classes. Avoid broad invalidation patterns such as `:has()`, hidden specificity inside `:where()`, IDs, and universal selectors. Keep needed type selectors under Codex Panel-owned class roots for Obsidian-rendered or semantic child DOM. Add new authored CSS files to `src/styles/order.json`, and remove unused or test-only `codex-panel` classes instead of keeping dead styles.
 
 ## Naming Conventions
 

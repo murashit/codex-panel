@@ -1033,6 +1033,10 @@ export const value = <pre />;
   font-weight: var(--font-normal);
 }
 
+.codex-panel__message-content.markdown-rendered pre {
+  overflow-x: auto;
+}
+
 @keyframes codex-panel-fade-in {
   from {
     opacity: 0;

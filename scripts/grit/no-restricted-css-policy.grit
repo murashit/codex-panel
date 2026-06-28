@@ -45,10 +45,6 @@ or {
   CssUniversalSelector() as $selector where {
     register_diagnostic(span=$selector, message="Avoid universal selectors in Codex Panel CSS.")
   },
-  CssTypeSelector() as $selector where {
-    not $selector <: r"(?:dd|dt|pre|span|summary|svg|ul)",
-    register_diagnostic(span=$selector, message="Avoid unnecessary type selectors in Codex Panel CSS.")
-  },
   CssAtRule() as $rule where {
     $rule <: r"@keyframes ([a-zA-Z0-9_-]+)[\s\S]*"($name),
     not $name <: r"codex-panel-[a-z0-9-]+",

@@ -4,5 +4,5 @@ or {
   JsExportNamedFromClause() as $stmt,
   JsExportFromClause() as $stmt
 } where {
-  register_diagnostic(span=$stmt, message="Do not add hand-written re-exports. Import from the owning module directly unless this file is an explicit public boundary.", severity="error")
+  register_diagnostic(span=$stmt, message="Do not add hand-written re-exports. Import from the owning module directly.", severity="error")
 }
