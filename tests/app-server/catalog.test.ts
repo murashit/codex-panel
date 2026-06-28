@@ -5,7 +5,7 @@ import {
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
 } from "../../src/app-server/protocol/catalog";
-import { listHookCatalog, listSkillCatalog } from "../../src/app-server/services/catalog";
+import { listHookCatalog, listSkillCatalog, setHookItemEnabled, trustHookItem } from "../../src/app-server/services/catalog";
 import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
@@ -133,6 +133,87 @@ describe("app-server catalog adapters", () => {
       errors: [],
     });
   });
+
+  it("writes trusted hook state through config batch updates", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({}),
+    } as unknown as AppServerRequestClient;
+    const hook = hookItemsFromCatalogHooks([
+      hookFixture({ key: "hook-trust", currentHash: "newhash", enabled: false, trustStatus: "modified" }),
+    ])[0];
+    if (!hook) throw new Error("Expected mapped hook");
+
+    await trustHookItem(client, hook);
+
+    expect(client.request).toHaveBeenCalledWith("config/batchWrite", {
+      edits: [
+        {
+          keyPath: "hooks.state",
+          value: {
+            "hook-trust": {
+              enabled: true,
+              trusted_hash: "newhash",
+            },
+          },
+          mergeStrategy: "upsert",
+        },
+      ],
+      reloadUserConfig: true,
+    });
+  });
+
+  it("preserves trusted hashes when toggling already trusted hooks", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({}),
+    } as unknown as AppServerRequestClient;
+    const hook = hookItemsFromCatalogHooks([hookFixture({ key: "hook-enabled", currentHash: "trustedhash", trustStatus: "trusted" })])[0];
+    if (!hook) throw new Error("Expected mapped hook");
+
+    await setHookItemEnabled(client, hook, false);
+
+    expect(client.request).toHaveBeenCalledWith("config/batchWrite", {
+      edits: [
+        {
+          keyPath: "hooks.state",
+          value: {
+            "hook-enabled": {
+              enabled: false,
+              trusted_hash: "trustedhash",
+            },
+          },
+          mergeStrategy: "upsert",
+        },
+      ],
+      reloadUserConfig: true,
+    });
+  });
+
+  it("does not write trusted hashes when toggling untrusted hook revisions", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({}),
+    } as unknown as AppServerRequestClient;
+    const hook = hookItemsFromCatalogHooks([
+      hookFixture({ key: "hook-modified", currentHash: "modifiedhash", trustStatus: "modified" }),
+    ])[0];
+    if (!hook) throw new Error("Expected mapped hook");
+
+    await setHookItemEnabled(client, hook, true);
+
+    expect(client.request).toHaveBeenCalledWith("config/batchWrite", {
+      edits: [
+        {
+          keyPath: "hooks.state",
+          value: {
+            "hook-modified": {
+              enabled: true,
+            },
+          },
+          mergeStrategy: "upsert",
+        },
+      ],
+      reloadUserConfig: true,
+    });
+  });
 });
 
 function modelFixture(): Model {
@@ -171,7 +252,7 @@ function skillFixture(): SkillMetadata {
   };
 }
 
-function hookFixture(): HookMetadata {
+function hookFixture(overrides: Partial<HookMetadata> = {}): HookMetadata {
   return {
     key: "hook-key",
     eventName: "postToolUse",
@@ -188,5 +269,6 @@ function hookFixture(): HookMetadata {
     isManaged: false,
     currentHash: "hash",
     trustStatus: "modified",
+    ...overrides,
   };
 }

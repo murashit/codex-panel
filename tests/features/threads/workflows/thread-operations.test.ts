@@ -20,7 +20,7 @@ describe("ThreadOperations", () => {
 
     await expect(operations.renameThread("thread", "  Saved   title  ")).resolves.toBe(true);
 
-    expect(client?.setThreadName).toHaveBeenCalledWith("thread", "Saved title");
+    expect(client?.request).toHaveBeenCalledWith("thread/name/set", { threadId: "thread", name: "Saved title" });
     expect(catalog.apply).toHaveBeenCalledWith({ type: "thread-renamed", threadId: "thread", name: "Saved title" });
   });
 
@@ -62,8 +62,10 @@ describe("ThreadOperations", () => {
     const secondClient = clientMock();
     let currentClient: MockClient | null = firstClient;
     const { operations, catalog } = operationsFixture({ client: () => currentClient });
-    firstClient.setThreadName.mockImplementationOnce(async () => {
+    firstClient.request.mockImplementationOnce(async (method: string) => {
+      if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
       currentClient = secondClient;
+      return {};
     });
 
     await expect(operations.renameThread("thread", "Title")).rejects.toThrow("Client changed.");
@@ -126,15 +128,10 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
 type MockClient = ReturnType<typeof clientMock>;
 
 function clientMock() {
-  const client = {
-    setThreadName: vi.fn().mockResolvedValue({}),
-    archiveThread: vi.fn().mockResolvedValue({}),
-  };
   return {
-    ...client,
     request: vi.fn((method: string, params: { threadId: string; name?: string }) => {
-      if (method === "thread/name/set") return client.setThreadName(params.threadId, params.name);
-      if (method === "thread/archive") return client.archiveThread(params.threadId);
+      if (method === "thread/name/set") return Promise.resolve({ threadId: params.threadId, name: params.name });
+      if (method === "thread/archive") return Promise.resolve({});
       throw new Error(`Unexpected app-server request: ${method}`);
     }),
   };

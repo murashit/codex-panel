@@ -48,8 +48,8 @@ describe("settings tab", () => {
 
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(fetchModels).toHaveBeenCalledTimes(1);
-    expect(client.listModels).not.toHaveBeenCalled();
-    expect(client.listHooks).toHaveBeenCalledTimes(1);
+    expect(requestMethods(client)).not.toContain("model/list");
+    expectRequestTimes(client, "hooks/list", 1);
 
     tab.display();
     await flushPromises();
@@ -348,11 +348,11 @@ describe("settings tab", () => {
     const initialClient = settingsClient({
       hooks: [hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" })],
     });
-    const trustClient = withSettingsRequest({
-      trustHook: vi.fn().mockResolvedValue({}),
+    const trustClient = settingsRequestClient({
+      "config/batchWrite": vi.fn().mockResolvedValue({}),
     });
     const staleClient = settingsClient();
-    staleClient.listHooks.mockReturnValue(staleHooks.promise);
+    staleClient.requestHandlers["hooks/list"]?.mockReturnValue(staleHooks.promise);
     const newerClient = settingsClient({
       hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
     });
@@ -393,8 +393,8 @@ describe("settings tab", () => {
     const fullRefreshClient = settingsClient({
       hooks: [hook({ key: "hook-full", command: "full refresh hook", currentHash: "fullhash" })],
     });
-    const trustClient = withSettingsRequest({
-      trustHook: vi.fn().mockResolvedValue({}),
+    const trustClient = settingsRequestClient({
+      "config/batchWrite": vi.fn().mockResolvedValue({}),
     });
     const hookReloadClient = settingsClient({
       hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
@@ -435,8 +435,8 @@ describe("settings tab", () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
     const applyThreadCatalogEvent = vi.fn();
     const initialClient = settingsClient();
-    const restoreClient = withSettingsRequest({
-      unarchiveThread: vi.fn(() => staleRestore.promise),
+    const restoreClient = settingsRequestClient({
+      "thread/unarchive": vi.fn(() => staleRestore.promise),
     });
     const newerClient = settingsClient();
     withShortLivedAppServerClientMock
@@ -476,8 +476,8 @@ describe("settings tab", () => {
     const notify = vi.fn();
     const applyThreadCatalogEvent = vi.fn();
     const initialClient = settingsClient();
-    const restoreClient = withSettingsRequest({
-      unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
+    const restoreClient = settingsRequestClient({
+      "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
     });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
@@ -510,8 +510,8 @@ describe("settings tab", () => {
   it("displays restored archived thread state after recording the active catalog event", async () => {
     const snapshots: SettingsDynamicSectionsSnapshot[] = [];
     const initialClient = settingsClient();
-    const restoreClient = withSettingsRequest({
-      unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
+    const restoreClient = settingsRequestClient({
+      "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
     });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
@@ -557,8 +557,8 @@ describe("settings tab", () => {
   it("displays deleted archived thread status after recording the catalog event", async () => {
     const snapshots: SettingsDynamicSectionsSnapshot[] = [];
     const initialClient = settingsClient();
-    const deleteClient = withSettingsRequest({
-      deleteThread: vi.fn().mockResolvedValue({}),
+    const deleteClient = settingsRequestClient({
+      "thread/delete": vi.fn().mockResolvedValue({}),
     });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
@@ -736,7 +736,7 @@ describe("settings tab", () => {
 
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).toBeNull();
     expect(tab.containerEl.textContent).not.toContain("Permanently delete this archived thread?");
-    expect(client.deleteThread).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/delete");
   });
 
   it("keeps the settings shell mounted while dynamic sections update", async () => {
@@ -781,7 +781,7 @@ describe("settings tab", () => {
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
     const hookUpdate = deferred<undefined>();
-    client.setHookEnabled.mockReturnValue(hookUpdate.promise);
+    client.requestHandlers["config/batchWrite"]?.mockReturnValue(hookUpdate.promise);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
@@ -808,7 +808,7 @@ describe("settings tab", () => {
     clickButtonByText(tab, "Disable");
     await flushPromises();
 
-    expect(client.setHookEnabled).toHaveBeenCalledOnce();
+    expectRequestTimes(client, "config/batchWrite", 1);
     expect(dynamicSection(tab, "codex-panel-settings__hook-section")).not.toBeNull();
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")).not.toBeNull();
     expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
@@ -823,8 +823,8 @@ describe("settings tab", () => {
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
     );
-    const deleteThread = deferred<undefined>();
-    client.deleteThread.mockReturnValue(deleteThread.promise);
+    const deleteRequest = deferred<undefined>();
+    client.requestHandlers["thread/delete"]?.mockReturnValue(deleteRequest.promise);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
@@ -835,10 +835,10 @@ describe("settings tab", () => {
     clickButtonByLabel(tab, "Delete thread");
     await flushPromises();
 
-    expect(client.deleteThread).toHaveBeenCalledWith("thread-archived");
+    expect(client.request).toHaveBeenCalledWith("thread/delete", { threadId: "thread-archived" }, {});
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")).not.toBeNull();
 
-    deleteThread.resolve(undefined);
+    deleteRequest.resolve(undefined);
     await flushPromises();
 
     expect(tab.containerEl.textContent).toContain("No archived threads.");
@@ -932,9 +932,9 @@ function hook(overrides: Partial<CatalogHookMetadata> = {}): CatalogHookMetadata
 function settingsClient(
   options: { models?: CatalogModel[]; hooks?: CatalogHookMetadata[]; hooksError?: Error; threads?: ThreadRecord[] } = {},
 ) {
-  return withSettingsRequest({
-    listModels: vi.fn().mockResolvedValue({ data: options.models ?? [model("gpt-5.4")] }),
-    listHooks: vi.fn().mockImplementation(() => {
+  return settingsRequestClient({
+    "model/list": vi.fn().mockResolvedValue({ data: options.models ?? [model("gpt-5.4")] }),
+    "hooks/list": vi.fn().mockImplementation(() => {
       if (options.hooksError) return Promise.reject(options.hooksError);
       return Promise.resolve({
         data: [
@@ -947,53 +947,37 @@ function settingsClient(
         ],
       });
     }),
-    listThreads: vi.fn().mockResolvedValue({ data: options.threads ?? [appServerThread({ preview: "Archived" })] }),
-    setHookEnabled: vi.fn().mockResolvedValue({}),
-    trustHook: vi.fn().mockResolvedValue({}),
-    unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ preview: "Restored" }) }),
-    deleteThread: vi.fn().mockResolvedValue({}),
+    "thread/list": vi.fn().mockResolvedValue({ data: options.threads ?? [appServerThread({ preview: "Archived" })] }),
+    "config/batchWrite": vi.fn().mockResolvedValue({}),
+    "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ preview: "Restored" }) }),
+    "thread/delete": vi.fn().mockResolvedValue({}),
   });
 }
 
-function withSettingsRequest<T extends Record<string, unknown>>(client: T): T & { request: ReturnType<typeof vi.fn> } {
+type SettingsRequestClient = AppServerClient & {
+  request: ReturnType<typeof vi.fn<(method: string, params?: unknown, options?: unknown) => unknown>>;
+  requestHandlers: Record<string, ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>>;
+};
+
+function settingsRequestClient(
+  handlers: Record<string, ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>>,
+): SettingsRequestClient {
   return {
-    ...client,
+    requestHandlers: handlers,
     request: vi.fn((method: string, params: unknown) => {
-      switch (method) {
-        case "model/list":
-          return (client["listModels"] as (includeHidden: boolean) => Promise<unknown>)(
-            (params as { includeHidden?: boolean }).includeHidden ?? false,
-          );
-        case "hooks/list":
-          return (client["listHooks"] as (cwd: string) => Promise<unknown>)((params as { cwds: string[] }).cwds[0] ?? "");
-        case "thread/list":
-          return (client["listThreads"] as (cwd: string, options: { archived?: boolean }) => Promise<unknown>)(
-            (params as { cwd: string }).cwd,
-            params as { archived?: boolean },
-          );
-        case "config/batchWrite": {
-          const state = hookStateFromBatchWrite(params);
-          if (state?.enabled === true && state.trusted_hash && client["trustHook"]) {
-            return (client["trustHook"] as () => Promise<unknown>)();
-          }
-          if (client["setHookEnabled"]) return (client["setHookEnabled"] as () => Promise<unknown>)();
-          return Promise.resolve({});
-        }
-        case "thread/unarchive":
-          return (client["unarchiveThread"] as (threadId: string) => Promise<unknown>)((params as { threadId: string }).threadId);
-        case "thread/delete":
-          return (client["deleteThread"] as (threadId: string) => Promise<unknown>)((params as { threadId: string }).threadId);
-        default:
-          throw new Error(`Unexpected app-server request: ${method}`);
-      }
+      const handler = handlers[method];
+      if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
+      return handler(params);
     }),
-  };
+  } as unknown as SettingsRequestClient;
 }
 
-function hookStateFromBatchWrite(params: unknown): { enabled?: boolean; trusted_hash?: string } | null {
-  const edit = (params as { edits?: { value?: Record<string, { enabled?: boolean; trusted_hash?: string }> }[] }).edits?.[0];
-  const value = edit?.value;
-  return value ? (Object.values(value)[0] ?? null) : null;
+function requestMethods(client: SettingsRequestClient): string[] {
+  return client.request.mock.calls.map(([method]) => method);
+}
+
+function expectRequestTimes(client: SettingsRequestClient, method: string, times: number): void {
+  expect(requestMethods(client).filter((calledMethod) => calledMethod === method)).toHaveLength(times);
 }
 
 function newSettingsTab(

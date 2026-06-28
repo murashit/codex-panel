@@ -96,7 +96,11 @@ describe("chat app-server actions", () => {
 
     await controller.startThread("first prompt");
 
-    expect(startThread).toHaveBeenCalledWith({ cwd: "/vault", serviceTier: "fast" });
+    expect(startThread).toHaveBeenCalledWith({
+      cwd: "/vault",
+      serviceName: "codex-panel",
+      serviceTier: "fast",
+    });
     expect(stateStore.getState().runtime.active.model).toBe("gpt-5");
     expect(stateStore.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(stateStore.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
@@ -160,7 +164,11 @@ describe("chat app-server actions", () => {
 
     await controller.startThread();
 
-    expect(startThread).toHaveBeenCalledWith({ cwd: "/vault", serviceTier: "flex" });
+    expect(startThread).toHaveBeenCalledWith({
+      cwd: "/vault",
+      serviceName: "codex-panel",
+      serviceTier: "flex",
+    });
   });
 
   it("keeps app-server preview when newly started threads already have one", async () => {
@@ -252,8 +260,8 @@ describe("chat app-server actions", () => {
       ),
     });
     const refreshAppServerMetadata = vi.fn<() => Promise<SharedServerMetadata | null>>().mockResolvedValue(refreshedMetadata);
-    const client = legacyClient({
-      listMcpServerStatus,
+    const client = requestClient({
+      "mcpServerStatus/list": listMcpServerStatus,
     });
     const metadataCache = metadataCacheHost({ current: null });
 
@@ -324,11 +332,11 @@ describe("chat app-server actions", () => {
     const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("direct-skill")] }] });
     const readAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture(), rateLimitsByLimitId: null });
     const listMcpServerStatus = vi.fn().mockResolvedValue({ data: [] });
-    const client = legacyClient({
-      listModels,
-      listSkills,
-      readAccountRateLimits,
-      listMcpServerStatus,
+    const client = requestClient({
+      "model/list": listModels,
+      "skills/list": listSkills,
+      "account/rateLimits/read": readAccountRateLimits,
+      "mcpServerStatus/list": listMcpServerStatus,
     });
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
@@ -354,11 +362,11 @@ describe("chat app-server actions", () => {
     const listModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-direct")] });
     const listSkills = vi.fn().mockResolvedValue({ data: [{ skills: [skillFixture("direct-skill")] }] });
     const readAccountRateLimits = vi.fn().mockResolvedValue({ rateLimits: rateLimitFixture(), rateLimitsByLimitId: null });
-    const client = legacyClient({
-      listModels,
-      listSkills,
-      readAccountRateLimits,
-      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
+    const client = requestClient({
+      "model/list": listModels,
+      "skills/list": listSkills,
+      "account/rateLimits/read": readAccountRateLimits,
+      "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [] }),
     });
     const diagnostics = createChatServerDiagnosticsActions({
       stateStore,
@@ -369,9 +377,9 @@ describe("chat app-server actions", () => {
 
     await diagnostics.refreshServerDiagnostics({ forceResourceProbes: true });
 
-    expect(listModels).toHaveBeenCalledWith(false);
-    expect(listSkills).toHaveBeenCalledWith("/vault", false);
-    expect(readAccountRateLimits).toHaveBeenCalledOnce();
+    expect(listModels).toHaveBeenCalledWith({ includeHidden: false, limit: 100 });
+    expect(listSkills).toHaveBeenCalledWith({ cwds: ["/vault"], forceReload: false });
+    expect(readAccountRateLimits).toHaveBeenCalledWith(undefined);
     expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
       status: "ok",
       summary: "1 models",
@@ -382,8 +390,8 @@ describe("chat app-server actions", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const mcpStatusRefresh = deferred<{ data: ReturnType<typeof mcpServerStatus>[] }>();
     const listMcpServerStatus = vi.fn().mockReturnValue(mcpStatusRefresh.promise);
-    const firstClient = legacyClient({
-      listMcpServerStatus,
+    const firstClient = requestClient({
+      "mcpServerStatus/list": listMcpServerStatus,
     });
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
@@ -472,7 +480,7 @@ describe("chat app-server actions", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const skillRefresh = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const listSkills = vi.fn().mockReturnValue(skillRefresh.promise);
-    const firstClient = legacyClient({ listSkills });
+    const firstClient = requestClient({ "skills/list": listSkills });
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
     const updateAppServerMetadata = vi.fn(() => null);
@@ -490,7 +498,7 @@ describe("chat app-server actions", () => {
     skillRefresh.resolve({ data: [{ skills: [skillFixture("stale-skill")] }] });
 
     await refreshing;
-    expect(listSkills).toHaveBeenCalledWith("/vault", true);
+    expect(listSkills).toHaveBeenCalledWith({ cwds: ["/vault"], forceReload: true });
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
     expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"].status).toBe("unknown");
     expect(updateAppServerMetadata).not.toHaveBeenCalled();
@@ -501,8 +509,8 @@ describe("chat app-server actions", () => {
     const stateStore = createChatStateStore(state);
     const rateLimit = rateLimitFixture({ primary: { usedPercent: 64, windowDurationMins: 300, resetsAt: null } });
     const cachedMetadata = { current: serverMetadataFixture() as SharedServerMetadata | null };
-    const client = legacyClient({
-      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
+    const client = requestClient({
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
     });
     const controller = createChatServerMetadataActions({
       stateStore,
@@ -526,8 +534,8 @@ describe("chat app-server actions", () => {
     });
     state = chatStateWith(state, { connection: { rateLimit: previousRateLimit } });
     const stateStore = createChatStateStore(state);
-    const client = legacyClient({
-      readAccountRateLimits: vi.fn().mockRejectedValue(new Error("offline")),
+    const client = requestClient({
+      "account/rateLimits/read": vi.fn().mockRejectedValue(new Error("offline")),
     });
     const controller = createChatServerMetadataActions({
       stateStore,
@@ -546,8 +554,8 @@ describe("chat app-server actions", () => {
   it("does not apply or publish sparse rate limit refreshes after the client changes", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const rateLimitRefresh = deferred<{ rateLimits: RateLimitSnapshot; rateLimitsByLimitId: null }>();
-    const firstClient = legacyClient({
-      readAccountRateLimits: vi.fn().mockReturnValue(rateLimitRefresh.promise),
+    const firstClient = requestClient({
+      "account/rateLimits/read": vi.fn().mockReturnValue(rateLimitRefresh.promise),
     });
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
@@ -579,11 +587,11 @@ describe("chat app-server actions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     const stateStore = createChatStateStore(state);
     const listMcpServerStatus = vi.fn().mockResolvedValue({ data: [mcpServerStatus()] });
-    const client = legacyClient({
-      listApps: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      listInstalledPlugins: vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
-      listMcpServerStatus,
-      listSkills: vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", skills: [] }] }),
+    const client = requestClient({
+      "app/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "plugin/installed": vi.fn().mockResolvedValue({ marketplaces: [], marketplaceLoadErrors: [] }),
+      "mcpServerStatus/list": listMcpServerStatus,
+      "skills/list": vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", skills: [] }] }),
     });
     const metadataCache = metadataCacheHost({ current: serverMetadataFixture() });
     const metadata = createChatServerMetadataActions({
@@ -622,36 +630,19 @@ describe("chat app-server actions", () => {
   });
 });
 
-function legacyClient(methods: Record<string, unknown>): AppServerClient {
+function requestClient(handlers: Record<string, ReturnType<typeof vi.fn>> = {}): AppServerClient {
+  const methodHandlers: Record<string, (params: unknown) => Promise<unknown>> = {
+    "skills/list": async (params) => ({ data: [{ cwd: (params as { cwds: string[] }).cwds[0] ?? "", skills: [] }] }),
+    "app/list": async () => ({ data: [], nextCursor: null }),
+    "plugin/installed": async () => ({ marketplaces: [], marketplaceLoadErrors: [] }),
+    "plugin/read": async () => ({ plugin: { skills: [], hooks: [], apps: [], appTemplates: [], mcpServers: [] } }),
+    ...handlers,
+  };
   return {
-    ...methods,
     request: vi.fn((method: string, params: unknown) => {
-      switch (method) {
-        case "model/list":
-          return (methods["listModels"] as (includeHidden: boolean) => Promise<unknown>)(
-            (params as { includeHidden?: boolean }).includeHidden ?? false,
-          );
-        case "skills/list":
-          if (!methods["listSkills"]) return Promise.resolve({ data: [{ cwd: (params as { cwds: string[] }).cwds[0] ?? "", skills: [] }] });
-          return (methods["listSkills"] as (cwd: string, forceReload?: boolean) => Promise<unknown>)(
-            (params as { cwds: string[] }).cwds[0] ?? "",
-            (params as { forceReload?: boolean }).forceReload,
-          );
-        case "account/rateLimits/read":
-          return (methods["readAccountRateLimits"] as () => Promise<unknown>)();
-        case "mcpServerStatus/list":
-          return (methods["listMcpServerStatus"] as (params: unknown) => Promise<unknown>)(params);
-        case "plugin/installed":
-          if (!methods["listInstalledPlugins"]) return Promise.resolve({ marketplaces: [], marketplaceLoadErrors: [] });
-          return (methods["listInstalledPlugins"] as (cwd: string) => Promise<unknown>)((params as { cwds: string[] }).cwds[0] ?? "");
-        case "plugin/read":
-          if (!methods["readPlugin"]) {
-            return Promise.resolve({ plugin: { skills: [], hooks: [], apps: [], appTemplates: [], mcpServers: [] } });
-          }
-          return (methods["readPlugin"] as (params: unknown) => Promise<unknown>)(params);
-        default:
-          throw new Error(`Unexpected app-server request: ${method}`);
-      }
+      const handler = methodHandlers[method];
+      if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
+      return handler(params);
     }),
   } as unknown as AppServerClient;
 }
@@ -661,15 +652,7 @@ function startThreadClient(startThread: ReturnType<typeof vi.fn>): AppServerClie
     request: vi.fn((method: string, params: ClientRequestParams<"thread/start">) => {
       if (method !== "thread/start") throw new Error(`Unexpected app-server request: ${method}`);
       if (!params.cwd) throw new Error("Expected thread/start cwd.");
-      return (
-        startThread as unknown as (options: {
-          cwd: string;
-          serviceTier?: ClientRequestParams<"thread/start">["serviceTier"];
-        }) => Promise<ThreadStartResponse>
-      )({
-        cwd: params.cwd,
-        ...(params.serviceTier !== undefined ? { serviceTier: params.serviceTier } : {}),
-      });
+      return (startThread as unknown as (params: ClientRequestParams<"thread/start">) => Promise<ThreadStartResponse>)(params);
     }),
   } as unknown as AppServerClient;
 }

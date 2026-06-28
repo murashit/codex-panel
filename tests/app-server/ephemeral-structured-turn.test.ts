@@ -117,9 +117,9 @@ describe("runEphemeralStructuredTurn", () => {
     await runEphemeralStructuredTurn(runOptions(clientFactory));
 
     const fake = expectPresent(client.current);
-    expect(fake.deleteThread).toHaveBeenCalledWith("thread", { timeoutMs: 5_000 });
+    expect(fake.deleteThreadRequest).toHaveBeenCalledWith({ threadId: "thread" }, { timeoutMs: 5_000 });
     expect(expectPresent(fake.disconnect.mock.invocationCallOrder[0])).toBeGreaterThan(
-      expectPresent(fake.deleteThread.mock.invocationCallOrder[0]),
+      expectPresent(fake.deleteThreadRequest.mock.invocationCallOrder[0]),
     );
   });
 
@@ -138,12 +138,12 @@ describe("runEphemeralStructuredTurn", () => {
     timers.fireTimeout();
 
     await expect(running).rejects.toThrow("Structured test timed out.");
-    expect(expectPresent(client.current).deleteThread).not.toHaveBeenCalled();
+    expect(expectPresent(client.current).deleteThreadRequest).not.toHaveBeenCalled();
   });
 
   it("keeps the completed turn result when deleting the ephemeral thread fails", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
-      fake.deleteThread.mockRejectedValueOnce(new Error("delete failed"));
+      fake.deleteThreadRequest.mockRejectedValueOnce(new Error("delete failed"));
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
@@ -275,7 +275,7 @@ describe("runEphemeralStructuredTurn", () => {
     timers.fireTimeout();
 
     await expect(running).rejects.toThrow("Structured test timed out.");
-    expect(expectPresent(client.current).deleteThread).toHaveBeenCalledWith("thread", { timeoutMs: 5_000 });
+    expect(expectPresent(client.current).deleteThreadRequest).toHaveBeenCalledWith({ threadId: "thread" }, { timeoutMs: 5_000 });
   });
 });
 
@@ -318,7 +318,9 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
   readonly modelListRequests: ClientRequestParams<"model/list">[] = [];
   readonly rejectServerRequest = vi.fn();
-  readonly deleteThread = vi.fn(async (_threadId: string, _options?: { timeoutMs?: number }) => undefined);
+  readonly deleteThreadRequest = vi.fn(
+    async (_params: ClientRequestParams<"thread/delete">, _options?: { timeoutMs?: number }) => undefined,
+  );
   readonly disconnect = vi.fn();
   readonly structuredTurnStarted: Promise<void>;
   private resolveStructuredTurnStarted!: () => void;
@@ -354,7 +356,7 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
           ? await this.startStructuredTurnImpl()
           : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
       case "thread/delete":
-        await this.deleteThread((params as ClientRequestParams<"thread/delete">).threadId, options);
+        await this.deleteThreadRequest(params as ClientRequestParams<"thread/delete">, options);
         return {} as unknown as ClientResponseByMethod[M];
       default:
         throw new Error(`Unexpected app-server request: ${method}`);

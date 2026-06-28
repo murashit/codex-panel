@@ -259,14 +259,6 @@ export async function updateThreadSettings(
   await client.request("thread/settings/update", { threadId, ...appServerRuntimeSettingsPatch(settings) });
 }
 
-export function readThreadRolloutFile(
-  client: AppServerRequestClient,
-  path: string,
-  options: { timeoutMs?: number } = {},
-): Promise<ClientResponseByMethod["fs/readFile"]> {
-  return client.request("fs/readFile", { path }, options);
-}
-
 export function listThreadTurns(
   client: AppServerRequestClient,
   threadId: string,

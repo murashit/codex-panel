@@ -811,8 +811,6 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
     this.disconnected = true;
   }
 
-  async deleteThread(): Promise<void> {}
-
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {}
 
   async request<M extends TypedClientRequestMethod>(
@@ -833,7 +831,6 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
           ? await this.startStructuredTurnImpl()
           : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
       case "thread/delete":
-        await this.deleteThread();
         return {} as unknown as ClientResponseByMethod[M];
       default:
         throw new Error(`Unexpected app-server request: ${method}`);

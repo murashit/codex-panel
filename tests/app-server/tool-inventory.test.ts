@@ -16,7 +16,7 @@ describe("tool inventory", () => {
       },
     }));
     const client = toolInventoryClient({
-      listInstalledPlugins: vi.fn().mockResolvedValue({
+      "plugin/installed": vi.fn().mockResolvedValue({
         marketplaces: [
           {
             name: "local-marketplace",
@@ -53,7 +53,7 @@ describe("tool inventory", () => {
         ],
         marketplaceLoadErrors: [],
       }),
-      readPlugin,
+      "plugin/read": readPlugin,
     });
 
     const result = await readToolInventory(client, "/vault");
@@ -104,11 +104,11 @@ describe("tool inventory", () => {
       };
     });
     const client = toolInventoryClient({
-      listInstalledPlugins: vi.fn().mockResolvedValue({
+      "plugin/installed": vi.fn().mockResolvedValue({
         marketplaces: [{ name: "local-marketplace", path: "/marketplaces/local.json", plugins }],
         marketplaceLoadErrors: [],
       }),
-      readPlugin,
+      "plugin/read": readPlugin,
     });
 
     const result = await readToolInventory(client, "/vault");
@@ -120,28 +120,24 @@ describe("tool inventory", () => {
 });
 
 function toolInventoryClient(
-  overrides: Partial<{
-    listInstalledPlugins: ReturnType<typeof vi.fn>;
-    readPlugin: ReturnType<typeof vi.fn>;
-  }> = {},
+  overrides: Partial<Record<string, ReturnType<typeof vi.fn>>> = {},
 ): AppServerRequestClient & { request: ReturnType<typeof vi.fn> } {
-  const listInstalledPlugins =
-    overrides.listInstalledPlugins ??
-    vi.fn().mockResolvedValue({
+  const handlers = {
+    "plugin/installed": vi.fn().mockResolvedValue({
       marketplaces: [],
       marketplaceLoadErrors: [],
-    });
-  const readPlugin =
-    overrides.readPlugin ??
-    vi.fn().mockResolvedValue({
+    }),
+    "plugin/read": vi.fn().mockResolvedValue({
       plugin: { skills: [], hooks: [], apps: [], appTemplates: [], mcpServers: [] },
-    });
+    }),
+    ...overrides,
+  };
   const request = vi.fn(async (method: string, params: unknown) => {
     switch (method) {
       case "plugin/installed":
-        return (listInstalledPlugins as unknown as (params: unknown) => Promise<unknown>)(params);
+        return (handlers["plugin/installed"] as unknown as (params: unknown) => Promise<unknown>)(params);
       case "plugin/read":
-        return (readPlugin as unknown as (params: unknown) => Promise<unknown>)(params);
+        return (handlers["plugin/read"] as unknown as (params: unknown) => Promise<unknown>)(params);
       case "mcpServerStatus/list":
         return { data: [] };
       case "skills/list":

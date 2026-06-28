@@ -70,8 +70,8 @@ describe("ThreadRenameEditorActions", () => {
 
   it("does not save after cancellation while connection is pending", async () => {
     const connection = deferred<undefined>();
-    const setThreadName = vi.fn().mockResolvedValue({});
-    const client = fakeClient({ setThreadName });
+    const renameThreadRequest = vi.fn().mockResolvedValue({});
+    const client = fakeClient({ renameThreadRequest });
     const { actions } = actionsFixture({
       ensureConnected: vi.fn(() => connection.promise),
       currentClient: () => client,
@@ -83,15 +83,15 @@ describe("ThreadRenameEditorActions", () => {
     connection.resolve(undefined);
     await save;
 
-    expect(setThreadName).not.toHaveBeenCalled();
+    expect(renameThreadRequest).not.toHaveBeenCalled();
     expect(actions.editState("thread")).toBeNull();
   });
 
   it("does not clear a newer inline rename when an older save finishes", async () => {
     const saved = deferred<object>();
-    const setThreadName = vi.fn(() => saved.promise);
+    const renameThreadRequest = vi.fn(() => saved.promise);
     const { actions, stateStore, notifyThreadRenamed } = actionsFixture({
-      currentClient: () => fakeClient({ setThreadName }),
+      currentClient: () => fakeClient({ renameThreadRequest }),
     });
 
     actions.start("thread");
@@ -104,7 +104,7 @@ describe("ThreadRenameEditorActions", () => {
     saved.resolve({});
     await save;
 
-    expect(setThreadName).toHaveBeenCalledWith("thread", "Saved title");
+    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Saved title" });
     expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Saved title");
     expect(notifyThreadRenamed).toHaveBeenCalledWith("thread", "Saved title");
     expect(actions.editState("thread")).toEqual({ draft: "New draft", generating: false });
@@ -188,12 +188,12 @@ function actionsFixture(
   return { ...host, notifyThreadRenamed, actions: createThreadRenameEditorActions(host) };
 }
 
-function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
-  const setThreadName = options.setThreadName ?? vi.fn().mockResolvedValue({});
+function fakeClient(options: { renameThreadRequest?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
+  const renameThreadRequest = options.renameThreadRequest ?? vi.fn().mockResolvedValue({});
   return {
     request: vi.fn((method: string, params: { threadId: string; name: string }) => {
       if (method === "thread/name/set") {
-        return (setThreadName as unknown as (threadId: string, name: string) => Promise<unknown>)(params.threadId, params.name);
+        return (renameThreadRequest as unknown as (params: { threadId: string; name: string }) => Promise<unknown>)(params);
       }
       if (method === "thread/turns/list") {
         return Promise.resolve({

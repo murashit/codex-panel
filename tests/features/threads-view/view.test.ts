@@ -83,7 +83,7 @@ describe("CodexThreadsView", () => {
 
   it("renders thread list from app-server history", async () => {
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
     });
     const host = threadsHost();
     const view = await threadsView(host);
@@ -102,7 +102,7 @@ describe("CodexThreadsView", () => {
         }),
     );
     connectionMock.state.client = clientFixture({
-      listThreads,
+      "thread/list": listThreads,
     });
     const view = await threadsView();
 
@@ -120,7 +120,7 @@ describe("CodexThreadsView", () => {
   it("renders shared thread refresh failures", async () => {
     const listThreads = vi.fn().mockRejectedValue(new Error("Codex app-server stopped."));
     connectionMock.state.client = clientFixture({
-      listThreads,
+      "thread/list": listThreads,
     });
     const view = await threadsView();
 
@@ -147,7 +147,7 @@ describe("CodexThreadsView", () => {
           }),
       );
     connectionMock.state.client = clientFixture({
-      listThreads,
+      "thread/list": listThreads,
     });
     const view = await threadsView();
 
@@ -172,7 +172,7 @@ describe("CodexThreadsView", () => {
 
   it("opens selected threads through the shared panel selection path", async () => {
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
     });
     const host = threadsHost({
       openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
@@ -192,7 +192,7 @@ describe("CodexThreadsView", () => {
 
   it("opens a new panel from the threads view toolbar", async () => {
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
     });
     const host = threadsHost({
       openNewPanel: vi.fn().mockResolvedValue(undefined),
@@ -210,7 +210,7 @@ describe("CodexThreadsView", () => {
 
   it("refreshes threads from the threads view toolbar", async () => {
     const listThreads = vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] });
-    connectionMock.state.client = clientFixture({ listThreads });
+    connectionMock.state.client = clientFixture({ "thread/list": listThreads });
     const view = await threadsView();
 
     await view.refresh();
@@ -225,7 +225,7 @@ describe("CodexThreadsView", () => {
     const threads = [{ id: "thread", preview: "Thread preview", name: null, archived: false, createdAt: 1, updatedAt: 1 }];
     const refresh = vi.fn().mockResolvedValue(threads);
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn(),
+      "thread/list": vi.fn(),
     });
     const host = threadsHost({
       threadCatalog: {
@@ -242,7 +242,7 @@ describe("CodexThreadsView", () => {
 
   it("renders cached thread lists before refreshing", async () => {
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn(
+      "thread/list": vi.fn(
         () =>
           new Promise(() => {
             // Keep the app-server refresh pending so the cached snapshot remains visible for this assertion.
@@ -292,8 +292,8 @@ describe("CodexThreadsView", () => {
   it("notifies open panels after archiving a thread", async () => {
     const archiveThread = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      archiveThread,
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/archive": archiveThread,
     });
     const applyThreadCatalogEvent = vi.fn();
     const host = threadsHost({
@@ -306,7 +306,7 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
 
     await waitForAsyncWork(() => {
-      expect(archiveThread).toHaveBeenCalledWith("thread");
+      expect(archiveThread).toHaveBeenCalledWith({ threadId: "thread" });
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
         type: "thread-archived",
         threadId: "thread",
@@ -316,10 +316,10 @@ describe("CodexThreadsView", () => {
   });
 
   it("notifies open panels after renaming a thread", async () => {
-    const setThreadName = vi.fn().mockResolvedValue({});
+    const renameThreadRequest = vi.fn().mockResolvedValue({});
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      setThreadName,
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/name/set": renameThreadRequest,
     });
     const applyThreadCatalogEvent = vi.fn();
     const host = threadsHost({
@@ -336,7 +336,7 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.dispatchEvent(new FocusEvent("blur"));
 
     await waitForAsyncWork(() => {
-      expect(setThreadName).toHaveBeenCalledWith("thread", "Renamed thread");
+      expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Renamed thread" });
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
         type: "thread-renamed",
         threadId: "thread",
@@ -347,10 +347,10 @@ describe("CodexThreadsView", () => {
 
   it("does not clear a newer rename edit when an older save finishes", async () => {
     const saved = deferred<object>();
-    const setThreadName = vi.fn(() => saved.promise);
+    const renameThreadRequest = vi.fn(() => saved.promise);
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      setThreadName,
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/name/set": renameThreadRequest,
     });
     const applyThreadCatalogEvent = vi.fn();
     const host = threadsHost({
@@ -366,7 +366,7 @@ describe("CodexThreadsView", () => {
     changeInputValue(firstInput, "  Saved   title  ");
     firstInput.dispatchEvent(new FocusEvent("blur"));
     await waitForAsyncWork(() => {
-      expect(setThreadName).toHaveBeenCalledWith("thread", "Saved title");
+      expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Saved title" });
     });
 
     firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -405,8 +405,8 @@ describe("CodexThreadsView", () => {
     });
     namingMock.generateThreadTitleWithCodex.mockResolvedValue("Threads rename UI");
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      threadTurnsList,
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/turns/list": threadTurnsList,
     });
     const view = await threadsView();
 
@@ -415,7 +415,13 @@ describe("CodexThreadsView", () => {
     view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     await waitForAsyncWork(() => {
-      expect(threadTurnsList).toHaveBeenCalledWith("thread", null, 20, "asc");
+      expect(threadTurnsList).toHaveBeenCalledWith({
+        threadId: "thread",
+        cursor: null,
+        limit: 20,
+        sortDirection: "asc",
+        itemsView: "full",
+      });
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
       expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("Threads rename UI");
     });
@@ -439,8 +445,8 @@ describe("CodexThreadsView", () => {
     const generatedTitle = deferred<string | null>();
     namingMock.generateThreadTitleWithCodex.mockReturnValue(generatedTitle.promise);
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      threadTurnsList,
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/turns/list": threadTurnsList,
     });
     const view = await threadsView();
 
@@ -478,8 +484,8 @@ describe("CodexThreadsView", () => {
     const generatedTitle = deferred<string | null>();
     namingMock.generateThreadTitleWithCodex.mockReturnValue(generatedTitle.promise);
     connectionMock.state.client = clientFixture({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
-      threadTurnsList,
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/turns/list": threadTurnsList,
     });
     const view = await threadsView();
 
@@ -502,35 +508,21 @@ describe("CodexThreadsView", () => {
   });
 });
 
-function clientFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  const client = {
-    listThreads: vi.fn().mockResolvedValue({ data: [] }),
-    archiveThread: vi.fn().mockResolvedValue({}),
-    setThreadName: vi.fn().mockResolvedValue({}),
-    threadTurnsList: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-    rejectServerRequest: vi.fn(),
+type ThreadRequestHandler = ReturnType<typeof vi.fn<(params: Record<string, unknown>) => unknown>>;
+
+function clientFixture(overrides: Record<string, ThreadRequestHandler> = {}): Record<string, unknown> {
+  const handlers: Record<string, ThreadRequestHandler> = {
+    "thread/list": vi.fn().mockResolvedValue({ data: [] }),
+    "thread/archive": vi.fn().mockResolvedValue({}),
+    "thread/name/set": vi.fn().mockResolvedValue({}),
+    "thread/turns/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     ...overrides,
   };
   return {
-    ...client,
     request: vi.fn((method: string, params: Record<string, unknown>) => {
-      switch (method) {
-        case "thread/list":
-          return (client.listThreads as (cwd: string, options: unknown) => Promise<unknown>)(params["cwd"] as string, params);
-        case "thread/archive":
-          return (client.archiveThread as (threadId: string) => Promise<unknown>)(params["threadId"] as string);
-        case "thread/name/set":
-          return (client.setThreadName as (threadId: string, name: string) => Promise<unknown>)(
-            params["threadId"] as string,
-            params["name"] as string,
-          );
-        case "thread/turns/list":
-          return (
-            client.threadTurnsList as (threadId: string, cursor: string | null, limit: number, sortDirection?: string) => Promise<unknown>
-          )(params["threadId"] as string, params["cursor"] as string | null, params["limit"] as number, params["sortDirection"] as string);
-        default:
-          throw new Error(`Unexpected app-server request: ${method}`);
-      }
+      const handler = handlers[method];
+      if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
+      return handler(params);
     }),
   };
 }
@@ -568,13 +560,13 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       refreshActive: vi.fn(async () => {
         const client = connectionMock.state.client;
         if (!client) return [];
-        const listThreads = client["listThreads"] as (
-          cwd: string,
-          options: Record<string, unknown>,
+        const request = client["request"] as (
+          method: string,
+          params: Record<string, unknown>,
         ) => Promise<{
           data: Record<string, unknown>[];
         }>;
-        const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
+        const response = await request("thread/list", { cwd: "/vault", archived: false, cursor: null, limit: 100 });
         return response.data.map(threadFromRecord);
       }),
       activeSnapshot: vi.fn(() => null),

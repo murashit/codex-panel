@@ -23,14 +23,14 @@ describe("thread archive operation", () => {
       saveMarkdown: true,
     });
 
-    expect(client.readThread).toHaveBeenCalledWith("thread", true);
+    expect(client.request).toHaveBeenCalledWith("thread/read", { threadId: "thread", includeTurns: true });
     expect(destination.createMarkdownFile).toHaveBeenCalledWith(
       "Archive/Archived Thread abcdef12.md",
       expect.stringContaining('thread_id: "abcdef12-9999"'),
     );
-    expect(client.archiveThread).toHaveBeenCalledWith("thread");
+    expect(client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
     expect(result).toEqual({ exportedPath: "Archive/Archived Thread abcdef12.md" });
-    expect(callOrder(destination.createMarkdownFile)).toBeLessThan(callOrder(client.archiveThread));
+    expect(callOrder(destination.createMarkdownFile)).toBeLessThan(requestCallOrder(client, "thread/archive"));
   });
 
   it("archives without reading transcript history when markdown export is disabled", async () => {
@@ -47,30 +47,20 @@ describe("thread archive operation", () => {
       }),
     ).resolves.toEqual({ exportedPath: null });
 
-    expect(client.readThread).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/read");
     expect(archiveDestinationFactory).not.toHaveBeenCalled();
-    expect(client.archiveThread).toHaveBeenCalledWith("thread");
+    expect(client.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
   });
 });
 
-function fakeClient(): AppServerClient & {
-  readThread: ReturnType<typeof vi.fn>;
-  archiveThread: ReturnType<typeof vi.fn>;
-} {
-  const readThread = vi.fn().mockResolvedValue({ thread: archivedThread() });
-  const archiveThread = vi.fn().mockResolvedValue({});
+function fakeClient(): AppServerClient & { request: ReturnType<typeof vi.fn> } {
   return {
-    readThread,
-    archiveThread,
-    request: vi.fn((method: string, params: { threadId: string; includeTurns?: boolean }) => {
-      if (method === "thread/read") return readThread(params.threadId, params.includeTurns);
-      if (method === "thread/archive") return archiveThread(params.threadId);
+    request: vi.fn((method: string, _params: { threadId: string; includeTurns?: boolean }) => {
+      if (method === "thread/read") return Promise.resolve({ thread: archivedThread() });
+      if (method === "thread/archive") return Promise.resolve({});
       throw new Error(`Unexpected app-server request: ${method}`);
     }),
-  } as unknown as AppServerClient & {
-    readThread: ReturnType<typeof vi.fn>;
-    archiveThread: ReturnType<typeof vi.fn>;
-  };
+  } as unknown as AppServerClient & { request: ReturnType<typeof vi.fn> };
 }
 
 function archiveDestination(): ArchiveExportDestination & {
@@ -104,4 +94,13 @@ function archivedThread(): ThreadRecord {
 
 function callOrder(fn: ReturnType<typeof vi.fn>): number {
   return fn.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY;
+}
+
+function requestMethods(client: { request: ReturnType<typeof vi.fn> }): string[] {
+  return client.request.mock.calls.map(([method]) => method);
+}
+
+function requestCallOrder(client: { request: ReturnType<typeof vi.fn> }, method: string): number {
+  const index = client.request.mock.calls.findIndex(([calledMethod]) => calledMethod === method);
+  return index === -1 ? Number.POSITIVE_INFINITY : (client.request.mock.invocationCallOrder[index] ?? Number.POSITIVE_INFINITY);
 }

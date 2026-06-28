@@ -1,8 +1,9 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
+import { readFileBase64 } from "../../../app-server/services/files";
 import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
-import { readThreadRolloutFile, renameThread as renameAppServerThread } from "../../../app-server/services/threads";
+import { renameThread as renameAppServerThread } from "../../../app-server/services/threads";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { LocalIdSource } from "../../../shared/id/local-id";
 import { createThreadOperations, type ThreadOperations } from "../../threads/workflows/thread-operations";
@@ -440,8 +441,7 @@ function createSessionThreadLifecycle(
       recoverTokenUsageFromRollout: (path) =>
         recoverRolloutTokenUsage(path, async (filePath, options) => {
           const client = currentClient();
-          const response = client ? await readThreadRolloutFile(client, filePath, options) : null;
-          return response?.dataBase64 ?? "";
+          return client ? readFileBase64(client, filePath, options) : "";
         }),
     },
     thread: {

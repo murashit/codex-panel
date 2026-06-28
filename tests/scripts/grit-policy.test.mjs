@@ -1129,7 +1129,7 @@ export type Input = UserInput;
 import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
 
 export interface RuntimeOverrideModelClient {
-  listModels(includeHidden: boolean): Promise<ModelListResponse>;
+  request(method: "model/list", params: { includeHidden: boolean }): Promise<ModelListResponse>;
 }
 `.trimStart(),
   );
@@ -1330,7 +1330,7 @@ export type Client = AppServerClient;
 import type { AppServerClient } from "../../../../app-server/connection/client";
 
 export async function read(appServerClient: AppServerClient): Promise<void> {
-  await appServerClient.threadTurnsList("thread", null, 20);
+  await appServerClient.request("thread/turns/list", { threadId: "thread", cursor: null, limit: 20 });
 }
 `.trimStart(),
   );
@@ -1340,7 +1340,7 @@ export async function read(appServerClient: AppServerClient): Promise<void> {
 import type { AppServerClient } from "../connection/client";
 
 export async function read(client: AppServerClient): Promise<void> {
-  await client.threadTurnsList("thread", null, 20);
+  await client.request("thread/turns/list", { threadId: "thread", cursor: null, limit: 20 });
 }
 `.trimStart(),
   );
@@ -1349,7 +1349,9 @@ export async function read(client: AppServerClient): Promise<void> {
     `
 import type { AppServerClient } from "../../../app-server/connection/client";
 
-export type AppServerThreadResumeClient = Pick<AppServerClient, "resumeThread">;
+export async function resume(client: AppServerClient): Promise<void> {
+  await client.request("thread/resume", { threadId: "thread", cwd: "/vault" });
+}
 `.trimStart(),
   );
   await writeFile(

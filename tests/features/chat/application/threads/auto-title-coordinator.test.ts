@@ -17,10 +17,10 @@ import { deferred } from "../../../../support/async";
 
 describe("AutoTitleCoordinator", () => {
   it("prefers visible turn items over completed turn summaries for active streamed turns", async () => {
-    const setThreadName = vi.fn().mockResolvedValue({});
+    const renameThreadRequest = vi.fn().mockResolvedValue({});
     const generateThreadTitle = vi.fn().mockResolvedValue("Visible context title");
     const { coordinator, stateStore } = coordinatorFixture({
-      currentClient: () => fakeClient({ setThreadName }),
+      currentClient: () => fakeClient({ renameThreadRequest }),
       generateThreadTitle,
     });
     stateStore.dispatch({
@@ -49,14 +49,14 @@ describe("AutoTitleCoordinator", () => {
       userRequest: "Visible streamed request.",
       assistantResponse: "Visible streamed response.",
     });
-    expect(setThreadName).toHaveBeenCalledWith("thread", "Visible context title");
+    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Visible context title" });
   });
 
   it("uses visible turn items when completed turn summaries are unavailable", async () => {
-    const setThreadName = vi.fn().mockResolvedValue({});
+    const renameThreadRequest = vi.fn().mockResolvedValue({});
     const generateThreadTitle = vi.fn().mockResolvedValue("Visible context title");
     const { coordinator, stateStore } = coordinatorFixture({
-      currentClient: () => fakeClient({ setThreadName }),
+      currentClient: () => fakeClient({ renameThreadRequest }),
       generateThreadTitle,
     });
     stateStore.dispatch({
@@ -82,14 +82,14 @@ describe("AutoTitleCoordinator", () => {
       userRequest: "Please diagnose auto naming.",
       assistantResponse: "I found the regression.",
     });
-    expect(setThreadName).toHaveBeenCalledWith("thread", "Visible context title");
+    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Visible context title" });
   });
 
   it("does not apply a completed auto-title after the thread leaves the list", async () => {
     const generatedTitle = deferred<string | null>();
-    const setThreadName = vi.fn().mockResolvedValue({});
+    const renameThreadRequest = vi.fn().mockResolvedValue({});
     const { coordinator, stateStore, notifyThreadRenamed } = coordinatorFixture({
-      currentClient: () => fakeClient({ setThreadName }),
+      currentClient: () => fakeClient({ renameThreadRequest }),
       generateThreadTitle: vi.fn(() => generatedTitle.promise),
     });
 
@@ -100,21 +100,21 @@ describe("AutoTitleCoordinator", () => {
     generatedTitle.resolve("Generated title");
     await flushPromises();
 
-    expect(setThreadName).not.toHaveBeenCalled();
+    expect(renameThreadRequest).not.toHaveBeenCalled();
     expect(notifyThreadRenamed).not.toHaveBeenCalled();
   });
 
   it("does not overwrite a manual name when auto-title save finishes later", async () => {
     const savedName = deferred<object>();
-    const setThreadName = vi.fn(() => savedName.promise);
+    const renameThreadRequest = vi.fn(() => savedName.promise);
     const { coordinator, stateStore, notifyThreadRenamed } = coordinatorFixture({
-      currentClient: () => fakeClient({ setThreadName }),
+      currentClient: () => fakeClient({ renameThreadRequest }),
       generateThreadTitle: vi.fn().mockResolvedValue("Generated title"),
     });
 
     coordinator.maybeAutoTitleThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
     await flushPromises();
-    expect(setThreadName).toHaveBeenCalledWith("thread", "Generated title");
+    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Generated title" });
 
     stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...threadFixture("thread"), name: "Manual title" }] });
     savedName.resolve({});
@@ -160,12 +160,12 @@ function coordinatorFixture(
   return { ...host, notifyThreadRenamed, coordinator: createAutoTitleCoordinator(host) };
 }
 
-function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
-  const setThreadName = options.setThreadName ?? vi.fn().mockResolvedValue({});
+function fakeClient(options: { renameThreadRequest?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
+  const renameThreadRequest = options.renameThreadRequest ?? vi.fn().mockResolvedValue({});
   return {
     request: vi.fn((method: string, params: { threadId: string; name: string }) => {
       if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
-      return (setThreadName as unknown as (threadId: string, name: string) => Promise<unknown>)(params.threadId, params.name);
+      return (renameThreadRequest as unknown as (params: { threadId: string; name: string }) => Promise<unknown>)(params);
     }),
   } as unknown as AppServerClient;
 }

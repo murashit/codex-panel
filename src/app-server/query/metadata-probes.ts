@@ -1,9 +1,10 @@
 import type { SkillMetadata } from "../../domain/catalog/metadata";
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
 import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../../domain/server/diagnostics";
-import type { AppServerClient } from "../connection/client";
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
 import { listSkillCatalog } from "../services/catalog";
+import type { AppServerRequestClient } from "../services/request-client";
+import { readAccountRateLimits } from "../services/runtime-metrics";
 
 interface MetadataProbeResult<T, K extends keyof Diagnostics["probes"]> {
   value: T;
@@ -14,7 +15,7 @@ export type SkillMetadataProbeResult = MetadataProbeResult<SkillMetadata[], "ski
 export type RateLimitMetadataProbeResult = MetadataProbeResult<RateLimitSnapshot | null, "account/rateLimits/read">;
 
 export async function readSkillMetadataProbe(
-  client: AppServerClient | null,
+  client: AppServerRequestClient | null,
   vaultPath: string,
   forceReload = false,
 ): Promise<SkillMetadataProbeResult> {
@@ -29,7 +30,7 @@ export async function readSkillMetadataProbe(
   }
 }
 
-export async function readRateLimitMetadataProbe(client: AppServerClient | null): Promise<RateLimitMetadataProbeResult> {
+export async function readRateLimitMetadataProbe(client: AppServerRequestClient | null): Promise<RateLimitMetadataProbeResult> {
   if (!client) {
     return {
       value: null,
@@ -37,7 +38,7 @@ export async function readRateLimitMetadataProbe(client: AppServerClient | null)
     };
   }
   try {
-    const response = await client.request("account/rateLimits/read", undefined);
+    const response = await readAccountRateLimits(client);
     return {
       value: rateLimitSnapshotFromAccountRateLimitsResponse(response),
       probe: diagnosticProbeOk("account/rateLimits/read", accountRateLimitsSummaryFromResponse(response), Date.now()),

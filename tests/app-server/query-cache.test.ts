@@ -179,11 +179,11 @@ describe("AppServerQueryCache", () => {
 
   it("fetches app-server metadata through the query cache and syncs model snapshots", async () => {
     const context = cacheContext();
-    const cache = cacheWithClient({
-      readEffectiveConfig: vi.fn().mockResolvedValue({}),
-      listModels: vi.fn().mockResolvedValue({ data: [catalogModel("gpt-meta")] }),
-      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [catalogSkill("writer")] }] }),
-      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(64), rateLimitsByLimitId: null }),
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockResolvedValue({ data: [catalogModel("gpt-meta")] }),
+      "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [catalogSkill("writer")] }] }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(64), rateLimitsByLimitId: null }),
     });
 
     const metadata = await cache.refreshAppServerMetadata(context);
@@ -199,11 +199,11 @@ describe("AppServerQueryCache", () => {
     const context = cacheContext();
     const modelRefresh = deferred<{ data: CatalogModel[] }>();
     const listModels = vi.fn(() => modelRefresh.promise);
-    const cache = cacheWithClient({
-      readEffectiveConfig: vi.fn().mockResolvedValue({}),
-      listModels,
-      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
-      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": listModels,
+      "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
 
     const metadataPromise = cache.refreshAppServerMetadata(context);
@@ -225,11 +225,11 @@ describe("AppServerQueryCache", () => {
 
   it("keeps query-cached models when app-server metadata model refresh fails", async () => {
     const context = cacheContext();
-    const cache = cacheWithClient({
-      readEffectiveConfig: vi.fn().mockResolvedValue({}),
-      listModels: vi.fn().mockRejectedValue(new Error("offline")),
-      listSkills: vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
-      readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockRejectedValue(new Error("offline")),
+      "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
     cache.writeAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-cached")] }));
 
@@ -298,43 +298,19 @@ function cacheWithThreads(
   });
 }
 
-function cacheWithClient(client: Record<string, unknown>): AppServerQueryCache {
-  const requestClient = "request" in client ? client : clientWithRequest(client);
+function cacheWithRequestHandlers(handlers: Record<string, (params: unknown) => Promise<unknown>>): AppServerQueryCache {
+  const requestClient = {
+    request: async (method: string, params: unknown) => {
+      const handler = handlers[method];
+      if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
+      return handler(params);
+    },
+  };
   return new AppServerQueryCache({
     clientRunner: {
       runWithClient: async (_context, operation) => operation(requestClient as never),
     },
   });
-}
-
-function clientWithRequest(client: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...client,
-    request: async (method: string, params: unknown) => {
-      switch (method) {
-        case "thread/list":
-          return (client["listThreads"] as (cwd: string, options: { archived?: boolean }) => Promise<unknown>)(
-            (params as { cwd: string }).cwd,
-            params as { archived?: boolean },
-          );
-        case "config/read":
-          return (client["readEffectiveConfig"] as (cwd: string) => Promise<unknown>)((params as { cwd: string }).cwd);
-        case "model/list":
-          return (client["listModels"] as (includeHidden: boolean) => Promise<unknown>)(
-            (params as { includeHidden?: boolean }).includeHidden ?? false,
-          );
-        case "skills/list":
-          return (client["listSkills"] as (cwd: string, forceReload?: boolean) => Promise<unknown>)(
-            (params as { cwds: string[] }).cwds[0] ?? "",
-            (params as { forceReload?: boolean }).forceReload,
-          );
-        case "account/rateLimits/read":
-          return (client["readAccountRateLimits"] as () => Promise<unknown>)();
-        default:
-          throw new Error(`Unexpected app-server request: ${method}`);
-      }
-    },
-  };
 }
 
 function metadata(

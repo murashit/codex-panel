@@ -1,9 +1,36 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
-import { listThreads } from "../../src/app-server/services/threads";
+import { listThreads, startThread } from "../../src/app-server/services/threads";
 
 describe("app-server thread response adapters", () => {
+  it("starts panel-owned threads with the codex-panel service name", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({ thread: { id: "thread-new" } }),
+    } as unknown as AppServerRequestClient;
+
+    await startThread(client, { cwd: "/vault" });
+
+    expect(client.request).toHaveBeenCalledWith("thread/start", {
+      cwd: "/vault",
+      serviceName: "codex-panel",
+    });
+  });
+
+  it("passes explicit service tier requests when starting panel-owned threads", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({ thread: { id: "thread-new" } }),
+    } as unknown as AppServerRequestClient;
+
+    await startThread(client, { cwd: "/vault", serviceTier: "priority" });
+
+    expect(client.request).toHaveBeenCalledWith("thread/start", {
+      cwd: "/vault",
+      serviceName: "codex-panel",
+      serviceTier: "priority",
+    });
+  });
+
   it("maps listed threads to domain threads with archive state", async () => {
     const clientListThreads = vi.fn().mockResolvedValue({
       data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20 }],

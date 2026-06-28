@@ -245,8 +245,6 @@ class FakeThreadTitleClient implements EphemeralStructuredTurnClient {
 
   disconnect(): void {}
 
-  async deleteThread(): Promise<void> {}
-
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {}
 
   async request<M extends TypedClientRequestMethod>(
@@ -266,7 +264,6 @@ class FakeThreadTitleClient implements EphemeralStructuredTurnClient {
           ? await this.startStructuredTurnImpl()
           : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
       case "thread/delete":
-        await this.deleteThread();
         return {} as unknown as ClientResponseByMethod[M];
       default:
         throw new Error(`Unexpected app-server request: ${method}`);

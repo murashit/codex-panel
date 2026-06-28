@@ -147,24 +147,24 @@ describe("CodexChatView connection lifecycle", () => {
     await Promise.all([view.surface.connect(), view.surface.connect()]);
 
     expect(connectionMock.state.connectCalls).toBe(1);
-    expect(client.readEffectiveConfig).toHaveBeenCalledTimes(1);
+    expectRequestTimes(client, "config/read", 1);
     expect(fetchModels).toHaveBeenCalledTimes(1);
-    expect(client.listSkills).toHaveBeenCalledTimes(1);
-    expect(client.readAccountRateLimits).toHaveBeenCalledTimes(1);
-    expect(client.listThreads).toHaveBeenCalledTimes(1);
+    expectRequestTimes(client, "skills/list", 1);
+    expectRequestTimes(client, "account/rateLimits/read", 1);
+    expectRequestTimes(client, "thread/list", 1);
   });
 
   it("keeps connect calls joined while metadata is still loading", async () => {
     const config = deferred<unknown>();
     const client = connectedClient({
-      readEffectiveConfig: vi.fn(() => config.promise),
+      "config/read": vi.fn(() => config.promise),
     });
     connectionMock.state.client = client;
     const view = await chatView();
 
     const firstConnect = view.surface.connect();
     await waitForAsyncWork(() => {
-      expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+      expectRequestTimes(client, "config/read", 1);
     });
 
     let secondResolved = false;
@@ -179,8 +179,8 @@ describe("CodexChatView connection lifecycle", () => {
     config.resolve({});
     await Promise.all([firstConnect, secondConnect]);
 
-    expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
-    expect(client.listThreads).toHaveBeenCalledOnce();
+    expectRequestTimes(client, "config/read", 1);
+    expectRequestTimes(client, "thread/list", 1);
   });
 
   it("loads app-server metadata after connecting", async () => {
@@ -189,7 +189,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.surface.connect();
 
-    expect(connectionMock.state.client["readEffectiveConfig"]).toHaveBeenCalledOnce();
+    expectRequestTimes(connectionMock.state.client as TestAppServerClient, "config/read", 1);
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
   });
 
@@ -214,7 +214,7 @@ describe("CodexChatView connection lifecycle", () => {
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
     vi.useFakeTimers();
     const client = connectedClient({
-      setThreadGoal: vi.fn().mockResolvedValue({
+      "thread/goal/set": vi.fn().mockResolvedValue({
         goal: {
           threadId: "thread-new",
           objective: "Ship the feature",
@@ -252,21 +252,25 @@ describe("CodexChatView connection lifecycle", () => {
     save.click();
 
     await waitForAsyncWork(() => {
-      expect(client.startThread).toHaveBeenCalledWith({ cwd: "/vault", serviceTier: undefined });
-      expect(client.setThreadGoal).toHaveBeenCalledWith("thread-new", {
+      expect(client.request).toHaveBeenCalledWith("thread/start", { cwd: "/vault", serviceName: "codex-panel" });
+      expect(client.request).toHaveBeenCalledWith("thread/goal/set", {
+        threadId: "thread-new",
         objective: "Ship the feature",
         status: "active",
         tokenBudget: null,
       });
     });
     await waitForAsyncWork(() => {
-      expect(client.injectThreadItems).toHaveBeenCalledWith("thread-new", [
-        {
-          type: "message",
-          role: "user",
-          content: [{ type: "input_text", text: "Ship the feature" }],
-        },
-      ]);
+      expect(client.request).toHaveBeenCalledWith("thread/inject_items", {
+        threadId: "thread-new",
+        items: [
+          {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "Ship the feature" }],
+          },
+        ],
+      });
     });
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-new" });
     expect(view.containerEl.textContent).toContain("Ship the feature");
@@ -275,7 +279,7 @@ describe("CodexChatView connection lifecycle", () => {
   it("ignores stale connection work after the view closes", async () => {
     let resolveConfig!: (value: unknown) => void;
     const client = connectedClient({
-      readEffectiveConfig: vi.fn(
+      "config/read": vi.fn(
         () =>
           new Promise((resolve) => {
             resolveConfig = resolve;
@@ -292,20 +296,20 @@ describe("CodexChatView connection lifecycle", () => {
     await connecting;
 
     expect(notices).toEqual([]);
-    expect(client.listThreads).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/list");
   });
 
   it("ignores stale connection work after the app-server exits during metadata loading", async () => {
     const config = deferred<unknown>();
     const client = connectedClient({
-      readEffectiveConfig: vi.fn(() => config.promise),
+      "config/read": vi.fn(() => config.promise),
     });
     connectionMock.state.client = client;
     const view = await chatView();
 
     const connecting = view.surface.connect();
     await waitForAsyncWork(() => {
-      expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+      expectRequestTimes(client, "config/read", 1);
     });
     connectionMock.state.connected = false;
     connectionMock.state.onExit?.();
@@ -313,14 +317,14 @@ describe("CodexChatView connection lifecycle", () => {
     config.resolve({});
     await connecting;
 
-    expect(client.listThreads).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/list");
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
   });
 
   it("restores workspace thread state without hydrating it automatically", async () => {
     vi.useFakeTimers();
     const client = connectedClient({
-      resumeThread: vi.fn().mockResolvedValue(resumedThread("thread-1")),
+      "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-1")),
     });
     connectionMock.state.client = client;
     const view = await chatView();
@@ -332,20 +336,20 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
     expect(connectionMock.state.connectCalls).toBe(0);
-    expect(client.resumeThread).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/resume");
     expect(view.containerEl.textContent).not.toContain("Thread restored. Send a message to resume it.");
 
     await vi.advanceTimersByTimeAsync(0);
 
     expect(connectionMock.state.connectCalls).toBe(1);
-    expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
-    expect(client.listThreads).toHaveBeenCalledOnce();
-    expect(client.resumeThread).not.toHaveBeenCalled();
+    expectRequestTimes(client, "config/read", 1);
+    expectRequestTimes(client, "thread/list", 1);
+    expect(requestMethods(client)).not.toContain("thread/resume");
 
     await vi.advanceTimersByTimeAsync(1_500);
 
-    expect(client.resumeThread).not.toHaveBeenCalled();
-    expect(client.threadTurnsList).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/resume");
+    expect(requestMethods(client)).not.toContain("thread/turns/list");
   });
 
   it("formats the panel title from listed thread metadata", async () => {
@@ -377,9 +381,9 @@ describe("CodexChatView connection lifecycle", () => {
     await view.onOpen();
     await vi.advanceTimersByTimeAsync(0);
     expect(connectionMock.state.connectCalls).toBe(1);
-    expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
-    expect(client.listThreads).toHaveBeenCalledOnce();
-    expect(client.resumeThread).not.toHaveBeenCalled();
+    expectRequestTimes(client, "config/read", 1);
+    expectRequestTimes(client, "thread/list", 1);
+    expect(requestMethods(client)).not.toContain("thread/resume");
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await vi.advanceTimersByTimeAsync(1_500);
@@ -387,19 +391,22 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.getDisplayText()).toBe("Codex: Restored thread");
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
-    expect(client.resumeThread).not.toHaveBeenCalled();
-    expect(client.threadTurnsList).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/resume");
+    expect(requestMethods(client)).not.toContain("thread/turns/list");
 
     await view.surface.focusThread("thread-1");
 
-    expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-    expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
+    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+    expect(client.request).toHaveBeenCalledWith(
+      "thread/turns/list",
+      expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
+    );
   });
 
   it("warms app-server metadata for an empty restored panel after the shell is open", async () => {
     vi.useFakeTimers();
     const client = connectedClient({
-      listThreads: vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")], nextCursor: null }),
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture("thread-1")], nextCursor: null }),
     });
     const fetchModels = vi.fn().mockResolvedValue([]);
     connectionMock.state.client = client;
@@ -411,11 +418,17 @@ describe("CodexChatView connection lifecycle", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(connectionMock.state.connectCalls).toBe(1);
-    expect(client.readEffectiveConfig).toHaveBeenCalledOnce();
+    expectRequestTimes(client, "config/read", 1);
     expect(fetchModels).toHaveBeenCalledOnce();
-    expect(client.listSkills).toHaveBeenCalledOnce();
-    expect(client.readAccountRateLimits).toHaveBeenCalledOnce();
-    expect(client.listThreads).toHaveBeenCalledWith("/vault", { archived: false, cursor: null, limit: 100 });
+    expectRequestTimes(client, "skills/list", 1);
+    expectRequestTimes(client, "account/rateLimits/read", 1);
+    expect(client.request).toHaveBeenCalledWith("thread/list", {
+      cwd: "/vault",
+      archived: false,
+      limit: 100,
+      sortKey: "recency_at",
+      sortDirection: "desc",
+    });
     requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("Restored thread");
@@ -461,11 +474,14 @@ describe("CodexChatView connection lifecycle", () => {
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
     await view.onOpen();
 
-    expect(client.resumeThread).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/resume");
     await view.surface.focusThread("thread-1");
 
-    expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-    expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
+    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+    expect(client.request).toHaveBeenCalledWith(
+      "thread/turns/list",
+      expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
+    );
   });
 
   it("resumes a restored thread before sending the first message", async () => {
@@ -479,11 +495,11 @@ describe("CodexChatView connection lifecycle", () => {
     await submitComposerByEnter(view);
 
     await waitForAsyncWork(() => {
-      expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-      expect(client.startTurn).toHaveBeenCalledWith({
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(client.request).toHaveBeenCalledWith("turn/start", {
         threadId: "thread-1",
         cwd: "/vault",
-        input: [{ type: "text", text: "hello" }],
+        input: [{ type: "text", text: "hello", text_elements: [] }],
         clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
       });
     });
@@ -529,7 +545,7 @@ describe("CodexChatView connection lifecycle", () => {
     await view.surface.openThread("thread-1");
     await view.surface.startNewThread();
 
-    expect(client.startThread).not.toHaveBeenCalled();
+    expect(requestMethods(client)).not.toContain("thread/start");
     expect(view.getState()).toEqual({ version: 1 });
     expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnLifecycle: { kind: "idle" }, hasComposerDraft: false });
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
@@ -620,14 +636,17 @@ describe("CodexChatView connection lifecycle", () => {
   it("renders resumed thread metadata before history hydration completes", async () => {
     const history = deferred<{ data: unknown[]; nextCursor: null }>();
     const client = connectedClient({
-      threadTurnsList: vi.fn(() => history.promise),
+      "thread/turns/list": vi.fn(() => history.promise),
     });
     connectionMock.state.client = client;
     const view = await chatView();
 
     const opening = view.surface.openThread("thread-1");
     await waitForAsyncWork(() => {
-      expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
+      expect(client.request).toHaveBeenCalledWith(
+        "thread/turns/list",
+        expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
+      );
     });
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
@@ -639,7 +658,7 @@ describe("CodexChatView connection lifecycle", () => {
 
   it("hydrates resumed threads from the initial turns page without a second history request", async () => {
     const client = connectedClient({
-      resumeThread: vi.fn().mockResolvedValue({
+      "thread/resume": vi.fn().mockResolvedValue({
         ...resumedThread("thread-1"),
         initialTurnsPage: {
           data: [completedTurn("turn-1")],
@@ -647,7 +666,7 @@ describe("CodexChatView connection lifecycle", () => {
           backwardsCursor: null,
         },
       }),
-      threadTurnsList: vi.fn().mockResolvedValue({ data: [turnWithUserMessage("fallback prompt")], nextCursor: null }),
+      "thread/turns/list": vi.fn().mockResolvedValue({ data: [turnWithUserMessage("fallback prompt")], nextCursor: null }),
     });
     connectionMock.state.client = client;
     const view = await chatView();
@@ -655,8 +674,8 @@ describe("CodexChatView connection lifecycle", () => {
     await view.onOpen();
     await view.surface.openThread("thread-1");
 
-    expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
-    expect(client.threadTurnsList).not.toHaveBeenCalled();
+    expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+    expect(requestMethods(client)).not.toContain("thread/turns/list");
     await waitForAsyncWork(() => {
       expect(view.containerEl.textContent).toContain("hello");
       expect(view.containerEl.textContent).toContain("done");
@@ -667,18 +686,20 @@ describe("CodexChatView connection lifecycle", () => {
     const firstResume = deferred<ReturnType<typeof resumedThread>>();
     const secondResume = deferred<ReturnType<typeof resumedThread>>();
     const client = connectedClient({
-      resumeThread: vi.fn((threadId: string) => (threadId === "thread-1" ? firstResume.promise : secondResume.promise)),
+      "thread/resume": vi.fn((params: unknown) =>
+        (params as { threadId: string }).threadId === "thread-1" ? firstResume.promise : secondResume.promise,
+      ),
     });
     connectionMock.state.client = client;
     const view = await chatView();
 
     const firstOpen = view.surface.openThread("thread-1");
     await waitForAsyncWork(() => {
-      expect(client.resumeThread).toHaveBeenCalledWith("thread-1", "/vault");
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
     });
     const secondOpen = view.surface.openThread("thread-2");
     await waitForAsyncWork(() => {
-      expect(client.resumeThread).toHaveBeenCalledWith("thread-2", "/vault");
+      expect(client.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-2", cwd: "/vault" }));
     });
 
     secondResume.resolve(resumedThread("thread-2"));
@@ -687,16 +708,19 @@ describe("CodexChatView connection lifecycle", () => {
     await firstOpen;
 
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-2", threadTitle: "Restored thread" });
-    expect(client.threadTurnsList).toHaveBeenCalledTimes(1);
-    expect(client.threadTurnsList).toHaveBeenCalledWith("thread-2", null, 20);
+    expectRequestTimes(client, "thread/turns/list", 1);
+    expect(client.request).toHaveBeenCalledWith(
+      "thread/turns/list",
+      expect.objectContaining({ threadId: "thread-2", cursor: null, limit: 20 }),
+    );
   });
 
   it("invalidates stale history hydration when a second resume starts", async () => {
     const firstHistory = deferred<{ data: unknown[]; nextCursor: null }>();
     const client = connectedClient({
-      resumeThread: vi.fn((threadId: string) => Promise.resolve(resumedThread(threadId))),
-      threadTurnsList: vi.fn((threadId: string) =>
-        threadId === "thread-1" ? firstHistory.promise : Promise.resolve({ data: [], nextCursor: null }),
+      "thread/resume": vi.fn((params: unknown) => Promise.resolve(resumedThread((params as { threadId: string }).threadId))),
+      "thread/turns/list": vi.fn((params: unknown) =>
+        (params as { threadId: string }).threadId === "thread-1" ? firstHistory.promise : Promise.resolve({ data: [], nextCursor: null }),
       ),
     });
     connectionMock.state.client = client;
@@ -704,11 +728,17 @@ describe("CodexChatView connection lifecycle", () => {
 
     const firstOpen = view.surface.openThread("thread-1");
     await waitForAsyncWork(() => {
-      expect(client.threadTurnsList).toHaveBeenCalledWith("thread-1", null, 20);
+      expect(client.request).toHaveBeenCalledWith(
+        "thread/turns/list",
+        expect.objectContaining({ threadId: "thread-1", cursor: null, limit: 20 }),
+      );
     });
     const secondOpen = view.surface.openThread("thread-2");
     await waitForAsyncWork(() => {
-      expect(client.threadTurnsList).toHaveBeenCalledWith("thread-2", null, 20);
+      expect(client.request).toHaveBeenCalledWith(
+        "thread/turns/list",
+        expect.objectContaining({ threadId: "thread-2", cursor: null, limit: 20 }),
+      );
     });
 
     firstHistory.resolve({ data: [turnWithUserMessage("first prompt")], nextCursor: null });
@@ -720,112 +750,57 @@ describe("CodexChatView connection lifecycle", () => {
   });
 });
 
-function connectedClient(overrides: Partial<ReturnType<typeof baseClient>> = {}): ReturnType<typeof baseClient> {
-  return withClientRequest({ ...baseClientMethods(), ...overrides }) as ReturnType<typeof baseClient>;
+type RequestHandler = ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>;
+type RequestSpy = ReturnType<typeof vi.fn<(method: string, params?: unknown, options?: unknown) => unknown>>;
+type RequestHandlers = Record<string, RequestHandler>;
+type TestAppServerClient = {
+  requestHandlers: RequestHandlers;
+  request: RequestSpy;
+};
+
+function connectedClient(overrides: RequestHandlers = {}): TestAppServerClient {
+  return requestClient({ ...baseClientHandlers(), ...overrides });
 }
 
-function baseClient() {
-  return withClientRequest(baseClientMethods());
-}
-
-function baseClientMethods() {
-  const client = {
-    readEffectiveConfig: vi.fn().mockResolvedValue({}),
-    listModels: vi.fn().mockResolvedValue({ data: [] }),
-    listSkills: vi.fn().mockResolvedValue({ data: [] }),
-    readAccountRateLimits: vi.fn().mockResolvedValue({ rateLimits: null }),
-    listThreads: vi.fn().mockResolvedValue({ data: [] }),
-    startThread: vi.fn().mockResolvedValue(startedThread("thread-new")),
-    resumeThread: vi.fn().mockResolvedValue(resumedThread("thread-1")),
-    threadTurnsList: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-    startTurn: vi.fn().mockResolvedValue({ turn: { id: "turn-1" } }),
-    forkThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
-    rollbackThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
-    setThreadName: vi.fn().mockResolvedValue({}),
-    getThreadGoal: vi.fn().mockResolvedValue({ goal: null }),
-    setThreadGoal: vi.fn().mockResolvedValue({ goal: goalFixture("thread-1") }),
-    injectThreadItems: vi.fn().mockResolvedValue({}),
-    readThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-1") }),
-    archiveThread: vi.fn().mockResolvedValue({}),
-  };
-  return client;
-}
-
-function withClientRequest<T extends Record<string, unknown>>(client: T): T & { request: ReturnType<typeof vi.fn> } {
+function baseClientHandlers(): RequestHandlers {
   return {
-    ...client,
-    request: vi.fn((method: string, params: Record<string, unknown>) => {
-      switch (method) {
-        case "config/read":
-          return (client["readEffectiveConfig"] as (cwd: unknown) => Promise<unknown>)(params["cwd"]);
-        case "model/list":
-          return (client["listModels"] as (includeHidden: unknown) => Promise<unknown>)(params["includeHidden"] ?? false);
-        case "skills/list":
-          return (client["listSkills"] as (cwd: string) => Promise<unknown>)((params["cwds"] as string[])[0] ?? "");
-        case "account/rateLimits/read":
-          return (client["readAccountRateLimits"] as () => Promise<unknown>)();
-        case "thread/list":
-          return (client["listThreads"] as (cwd: unknown, params: unknown) => Promise<unknown>)(params["cwd"], params);
-        case "thread/start":
-          return (client["startThread"] as (options: unknown) => Promise<unknown>)({
-            cwd: params["cwd"],
-            serviceTier: params["serviceTier"],
-          });
-        case "thread/resume":
-          return (client["resumeThread"] as (threadId: unknown, cwd: unknown) => Promise<unknown>)(params["threadId"], params["cwd"]);
-        case "thread/turns/list":
-          if (params["sortDirection"] === "desc") {
-            return (client["threadTurnsList"] as (threadId: unknown, cursor: unknown, limit: unknown) => Promise<unknown>)(
-              params["threadId"],
-              params["cursor"],
-              params["limit"],
-            );
-          }
-          return (
-            client["threadTurnsList"] as (threadId: unknown, cursor: unknown, limit: unknown, sortDirection?: unknown) => Promise<unknown>
-          )(params["threadId"], params["cursor"], params["limit"], params["sortDirection"]);
-        case "turn/start":
-          return (client["startTurn"] as (options: unknown) => Promise<unknown>)({
-            threadId: params["threadId"],
-            cwd: params["cwd"],
-            input: codexInputFromRequestInput(params["input"] as { type: string; text?: string }[]),
-            clientUserMessageId: params["clientUserMessageId"],
-          });
-        case "thread/fork":
-          return (client["forkThread"] as (threadId: unknown, cwd: unknown) => Promise<unknown>)(params["threadId"], params["cwd"]);
-        case "thread/rollback":
-          return (client["rollbackThread"] as (threadId: unknown) => Promise<unknown>)(params["threadId"]);
-        case "thread/name/set":
-          return (client["setThreadName"] as (threadId: unknown, name: unknown) => Promise<unknown>)(params["threadId"], params["name"]);
-        case "thread/goal/get":
-          return (client["getThreadGoal"] as (threadId: unknown) => Promise<unknown>)(params["threadId"]);
-        case "thread/goal/set":
-          return (client["setThreadGoal"] as (threadId: unknown, goal: unknown) => Promise<unknown>)(params["threadId"], {
-            objective: params["objective"],
-            status: params["status"],
-            tokenBudget: params["tokenBudget"],
-          });
-        case "thread/inject_items":
-          return (client["injectThreadItems"] as (threadId: unknown, items: unknown) => Promise<unknown>)(
-            params["threadId"],
-            params["items"],
-          );
-        case "thread/read":
-          return (client["readThread"] as (threadId: unknown, includeTurns: unknown) => Promise<unknown>)(
-            params["threadId"],
-            params["includeTurns"],
-          );
-        case "thread/archive":
-          return (client["archiveThread"] as (threadId: unknown) => Promise<unknown>)(params["threadId"]);
-        default:
-          throw new Error(`Unexpected app-server request: ${method}`);
-      }
+    "config/read": vi.fn().mockResolvedValue({}),
+    "model/list": vi.fn().mockResolvedValue({ data: [] }),
+    "skills/list": vi.fn().mockResolvedValue({ data: [] }),
+    "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: null }),
+    "thread/list": vi.fn().mockResolvedValue({ data: [] }),
+    "thread/start": vi.fn().mockResolvedValue(startedThread("thread-new")),
+    "thread/resume": vi.fn().mockResolvedValue(resumedThread("thread-1")),
+    "thread/turns/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+    "turn/start": vi.fn().mockResolvedValue({ turn: { id: "turn-1" } }),
+    "thread/fork": vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
+    "thread/rollback": vi.fn().mockResolvedValue({ thread: threadFixture("thread-forked") }),
+    "thread/name/set": vi.fn().mockResolvedValue({}),
+    "thread/goal/get": vi.fn().mockResolvedValue({ goal: null }),
+    "thread/goal/set": vi.fn().mockResolvedValue({ goal: goalFixture("thread-1") }),
+    "thread/inject_items": vi.fn().mockResolvedValue({}),
+    "thread/read": vi.fn().mockResolvedValue({ thread: threadFixture("thread-1") }),
+    "thread/archive": vi.fn().mockResolvedValue({}),
+  };
+}
+
+function requestClient(handlers: RequestHandlers): TestAppServerClient {
+  return {
+    requestHandlers: handlers,
+    request: vi.fn((method: string, params: unknown, options?: unknown) => {
+      const handler = handlers[method];
+      if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
+      return handler(params, options);
     }),
   };
 }
 
-function codexInputFromRequestInput(input: { type: string; text?: string }[]): { type: "text"; text: string }[] {
-  return input.flatMap((item) => (item.type === "text" ? [{ type: "text", text: item.text ?? "" }] : []));
+function requestMethods(client: TestAppServerClient): string[] {
+  return client.request.mock.calls.map(([method]) => method);
+}
+
+function expectRequestTimes(client: TestAppServerClient, method: string, times: number): void {
+  expect(requestMethods(client).filter((calledMethod) => calledMethod === method)).toHaveLength(times);
 }
 
 function goalFixture(threadId: string) {
@@ -1051,18 +1026,26 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
     return nextMetadata;
   };
   const loadAppServerMetadata = async (): Promise<SharedServerMetadata | null> => {
-    const client = connectionMock.state.client as ReturnType<typeof baseClient> | null;
+    const client = connectionMock.state.client as TestAppServerClient | null;
     if (!client || !connectionMock.state.connected) return null;
     const connectionStillCurrent = () => connectionMock.state.client === client && connectionMock.state.connected;
-    await client.readEffectiveConfig(vaultPath);
+    await client.request("config/read", { cwd: vaultPath, includeLayers: true });
     if (!connectionStillCurrent()) return null;
-    const availableModels = overrides.fetchModels
-      ? await overrides.fetchModels()
-      : modelMetadataFromCatalogModels((await client.listModels(false)).data as Parameters<typeof modelMetadataFromCatalogModels>[0]);
+    let availableModels: readonly ModelMetadata[];
+    if (overrides.fetchModels) {
+      availableModels = await overrides.fetchModels();
+    } else {
+      const modelsResponse = (await client.request("model/list", { includeHidden: false, limit: 100 })) as {
+        data: Parameters<typeof modelMetadataFromCatalogModels>[0];
+      };
+      availableModels = modelMetadataFromCatalogModels(modelsResponse.data);
+    }
     if (!connectionStillCurrent()) return null;
-    const skillsResponse = await client.listSkills(vaultPath);
+    const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: false })) as {
+      data: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }[];
+    };
     if (!connectionStillCurrent()) return null;
-    await client.readAccountRateLimits();
+    await client.request("account/rateLimits/read", undefined);
     if (!connectionStillCurrent()) return null;
     return {
       runtimeConfig: emptyRuntimeConfigSnapshot(),
@@ -1172,8 +1155,14 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
         (vi.fn(async () => {
           const client = connectionMock.state.client;
           if (!client) return activeThreads ?? [];
-          const listThreads = client["listThreads"] as (cwd: string, options: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
-          const response = await listThreads("/vault", { archived: false, cursor: null, limit: 100 });
+          const request = client["request"] as (method: string, params: Record<string, unknown>) => Promise<{ data: ThreadRecord[] }>;
+          const response = await request("thread/list", {
+            cwd: "/vault",
+            archived: false,
+            limit: 100,
+            sortKey: "recency_at",
+            sortDirection: "desc",
+          });
           activeThreads = response.data.map(threadFromRecord);
           for (const listener of activeThreadResultListeners) listener(queryResult(activeThreads));
           return activeThreads;
