@@ -133,6 +133,32 @@ describe("selection rewrite diff", () => {
     );
   });
 
+  it("bounds large selection diffs to a linear prefix and suffix comparison", () => {
+    const originalText = [
+      "same start",
+      ...Array.from({ length: 160 }, (_unused, index) => `old before ${String(index)}`),
+      "shared middle",
+      ...Array.from({ length: 160 }, (_unused, index) => `old after ${String(index)}`),
+      "same end",
+    ].join("\n");
+    const replacementText = [
+      "same start",
+      ...Array.from({ length: 160 }, (_unused, index) => `new before ${String(index)}`),
+      "shared middle",
+      ...Array.from({ length: 160 }, (_unused, index) => `new after ${String(index)}`),
+      "same end",
+    ].join("\n");
+
+    const diff = buildSelectionUnifiedDiff("Note.md", originalText, replacementText);
+
+    expect(diff).toContain("\n same start\n");
+    expect(diff).toContain("\n-old before 0\n");
+    expect(diff).toContain("\n-shared middle\n");
+    expect(diff).toContain("\n+shared middle\n");
+    expect(diff).toContain("\n same end");
+    expect(diff).not.toContain("\n shared middle\n");
+  });
+
   it("renders additions and deletions", () => {
     expect(buildSelectionUnifiedDiff("Note.md", "", "added")).toContain("+added");
     expect(buildSelectionUnifiedDiff("Note.md", "removed", "")).toContain("-removed");

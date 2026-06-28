@@ -13,11 +13,9 @@ import {
 } from "./lifecycle";
 
 interface SettingsDynamicSectionsControllerCallbacks {
-  display(target: SettingsDynamicSectionsDisplayTarget): void;
+  display(): void;
   notify(message: string): void;
 }
-
-type SettingsDynamicSectionsDisplayTarget = "all" | "helper" | "archived" | "hooks";
 
 export interface SettingsDynamicSectionsSnapshot {
   archivedThreads: readonly Thread[];
@@ -119,7 +117,7 @@ export class SettingsDynamicSectionsController {
     const observedModels = observedValue(result);
     if (!observedModels) return;
     this.models = [...observedModels];
-    this.callbacks.display("helper");
+    this.callbacks.display();
   }
 
   private receiveObservedArchivedThreadsResult(result: ObservedResult<readonly Thread[]>): void {
@@ -134,7 +132,7 @@ export class SettingsDynamicSectionsController {
         operationToken: this.archivedThreadsOperationToken,
       });
     }
-    this.callbacks.display("archived");
+    this.callbacks.display();
   }
 
   async refreshDynamicSections(options: { forceModels?: boolean } = {}): Promise<void> {
@@ -158,7 +156,7 @@ export class SettingsDynamicSectionsController {
       status: "Loading hooks...",
       operationToken: hooksOperationToken,
     });
-    this.callbacks.display("all");
+    this.callbacks.display();
 
     let failedCount = 0;
     try {
@@ -261,7 +259,7 @@ export class SettingsDynamicSectionsController {
         if (failedCount > 0) {
           this.callbacks.notify("Could not refresh all Codex details.");
         }
-        this.callbacks.display("all");
+        this.callbacks.display();
       }
     }
   }
@@ -435,7 +433,7 @@ export class SettingsDynamicSectionsController {
         operationToken,
       }),
     );
-    this.callbacks.display(displayTargetForDynamicOperationSection(options.section));
+    this.callbacks.display();
     try {
       await options.operation(operationToken);
     } catch (error) {
@@ -449,7 +447,7 @@ export class SettingsDynamicSectionsController {
       );
       this.callbacks.notify(options.failureNotice);
     } finally {
-      if (!stale()) this.callbacks.display(displayTargetForDynamicOperationSection(options.section));
+      if (!stale()) this.callbacks.display();
     }
   }
 
@@ -488,10 +486,6 @@ export class SettingsDynamicSectionsController {
   private isStaleArchivedThreadsOperation(operationToken: number): boolean {
     return operationToken !== this.archivedThreadsOperationToken;
   }
-}
-
-function displayTargetForDynamicOperationSection(section: "hooks" | "archivedThreads"): SettingsDynamicSectionsDisplayTarget {
-  return section === "hooks" ? "hooks" : "archived";
 }
 
 function archivedThreadsStatus(count: number): string {

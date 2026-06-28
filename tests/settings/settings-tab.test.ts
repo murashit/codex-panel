@@ -300,7 +300,7 @@ describe("settings tab", () => {
 
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Archived elsewhere"]);
     expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(display).toHaveBeenCalledWith("archived");
+    expect(display).toHaveBeenCalledOnce();
   });
 
   it("ignores stale dynamic sections refresh results after a newer refresh completes", async () => {
