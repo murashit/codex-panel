@@ -678,9 +678,19 @@ function composerSuggestionsEqual(left: readonly ComposerSuggestion[], right: re
       item.replacement === other.replacement &&
       item.start === other.start &&
       item.appendSpaceOnInsert === other.appendSpaceOnInsert &&
+      composerSuggestionActiveNoteContextEqual(item.activeNoteContext, other.activeNoteContext) &&
       composerSuggestionSelectionContextEqual(item.selectionContext, other.selectionContext)
     );
   });
+}
+
+function composerSuggestionActiveNoteContextEqual(
+  left: ComposerSuggestion["activeNoteContext"],
+  right: ComposerSuggestion["activeNoteContext"],
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return left.name === right.name && left.path === right.path && left.linktext === right.linktext;
 }
 
 function composerSuggestionSelectionContextEqual(

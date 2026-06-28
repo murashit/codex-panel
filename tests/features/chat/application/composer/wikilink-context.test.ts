@@ -173,6 +173,16 @@ describe("wikilink context", () => {
     expect(prepared.input).toEqual([{ type: "text", text }]);
   });
 
+  it("resolves completed active-note snapshots without depending on the current link context", () => {
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext("整理して [[Alpha]]", () => null, [], {
+      activeNote: null,
+      selection: null,
+      activeNoteSnapshots: [{ name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" }],
+    });
+
+    expect(prepared.input).toContainEqual({ type: "mention", name: "Alpha", path: "notes/Alpha.md" });
+  });
+
   it("attaches completed selection snapshots without depending on the current editor selection", () => {
     const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
       "整理して [[notes/Alpha]] (L42:C5-L47:C1)",

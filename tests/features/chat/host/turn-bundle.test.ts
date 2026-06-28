@@ -92,7 +92,7 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
         setDraft: vi.fn(),
         codexInput: vi.fn(),
         preparedInput: vi.fn(),
-        withPreservedContextReferences: vi.fn((operation) => operation()),
+        withPreservedComposerReferences: vi.fn((operation) => operation()),
         hasFocus: vi.fn(() => false),
         focusComposer: vi.fn(),
       },

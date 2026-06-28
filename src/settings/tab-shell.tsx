@@ -6,6 +6,7 @@ import type { SendShortcut } from "../shared/ui/keyboard";
 import { ArchivedThreadSection } from "./archived-section";
 import { HelperSettingsSection } from "./helper-section";
 import { HookSection } from "./hook-section";
+import { DEFAULT_ATTACHMENT_FOLDER } from "./model";
 import type { SettingsSectionsState } from "./section-state";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
 
@@ -23,6 +24,7 @@ interface SettingsTabPanelState {
   showToolbar: boolean;
   sendShortcut: SendShortcut;
   scrollThreadFromComposerEdges: boolean;
+  attachmentFolder: string;
 }
 
 interface SettingsTabShellActions {
@@ -31,6 +33,7 @@ interface SettingsTabShellActions {
   setShowToolbar: (value: boolean) => void;
   setSendShortcut: (value: SendShortcut) => void;
   setScrollThreadFromComposerEdges: (value: boolean) => void;
+  setAttachmentFolder: (value: string) => void;
 }
 
 interface SettingsTabShellProps {
@@ -102,6 +105,13 @@ function PanelPreferenceSections({ panel, actions }: { panel: SettingsTabPanelSt
             desc="Use Up/Ctrl+P and Down/Ctrl+N at composer line edges to scroll the thread."
           >
             <ObsidianToggle checked={panel.scrollThreadFromComposerEdges} onChange={actions.setScrollThreadFromComposerEdges} />
+          </SettingRow>
+          <SettingRow name="Attachment folder" desc="Vault folder for files pasted or dropped into the composer.">
+            <ObsidianCommitTextInput
+              value={panel.attachmentFolder}
+              placeholder={DEFAULT_ATTACHMENT_FOLDER}
+              onCommit={actions.setAttachmentFolder}
+            />
           </SettingRow>
         </SettingsItems>
       </SettingsGroup>

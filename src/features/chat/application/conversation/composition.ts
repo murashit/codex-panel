@@ -43,7 +43,7 @@ export interface ConversationTurnActionsContext {
     prepareInput: (text: string) => { text: string; input: CodexInput };
     trimmedDraft: () => string;
     setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
-    withPreservedContextReferences: <T>(operation: () => Promise<T>) => Promise<T>;
+    withPreservedComposerReferences: <T>(operation: () => Promise<T>) => Promise<T>;
   };
   scroll: {
     showLatest: () => void;
@@ -125,7 +125,7 @@ export function createConversationTurnActions(
         return composer.trimmedDraft();
       },
       setDraft: composer.setDraft,
-      withPreservedContextReferences: composer.withPreservedContextReferences,
+      withPreservedComposerReferences: composer.withPreservedComposerReferences,
     },
     slashCommandExecutor: {
       execute: (command, args) => executeSlashCommandWithState(slashCommandExecutorHost, command, args),

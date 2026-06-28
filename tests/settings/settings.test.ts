@@ -24,6 +24,7 @@ describe("settings", () => {
       showToolbar: false,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
+      attachmentFolder: "Codex Uploads",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
       archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
@@ -42,6 +43,7 @@ describe("settings", () => {
       showToolbar: false,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
+      attachmentFolder: "Codex Uploads",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
       archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
@@ -66,6 +68,7 @@ describe("settings", () => {
       showToolbar: true,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
+      attachmentFolder: "Codex Attachments",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives",
       archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
@@ -115,6 +118,12 @@ describe("settings", () => {
     expect(normalizeSettings({ scrollThreadFromComposerEdges: "yes" }).scrollThreadFromComposerEdges).toBe(
       DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
     );
+  });
+
+  it("normalizes the attachment folder", () => {
+    expect(normalizeSettings({ attachmentFolder: " Files/Codex " }).attachmentFolder).toBe("Files/Codex");
+    expect(normalizeSettings({ attachmentFolder: "   " }).attachmentFolder).toBe(DEFAULT_SETTINGS.attachmentFolder);
+    expect(normalizeSettings({ attachmentFolder: 1 }).attachmentFolder).toBe(DEFAULT_SETTINGS.attachmentFolder);
   });
 
   it("normalizes archive export settings", () => {

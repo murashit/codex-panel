@@ -14,11 +14,14 @@ export interface CodexPanelSettings {
   showToolbar: boolean;
   sendShortcut: SendShortcut;
   scrollThreadFromComposerEdges: boolean;
+  attachmentFolder: string;
   archiveExportEnabled: boolean;
   archiveExportFolderTemplate: string;
   archiveExportFilenameTemplate: string;
   archiveExportTags: string;
 }
+
+export const DEFAULT_ATTACHMENT_FOLDER = "Codex Attachments";
 
 export const DEFAULT_SETTINGS: CodexPanelSettings = {
   codexPath: DEFAULT_CODEX_PATH,
@@ -29,6 +32,7 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   showToolbar: true,
   sendShortcut: "enter",
   scrollThreadFromComposerEdges: false,
+  attachmentFolder: DEFAULT_ATTACHMENT_FOLDER,
   archiveExportEnabled: false,
   archiveExportFolderTemplate: "Codex Archives",
   archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
@@ -51,6 +55,8 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
       record["scrollThreadFromComposerEdges"],
       DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
     ),
+    attachmentFolder:
+      stringOrDefault(record["attachmentFolder"], DEFAULT_SETTINGS.attachmentFolder).trim() || DEFAULT_SETTINGS.attachmentFolder,
     archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),
     archiveExportFolderTemplate: stringOrDefault(
       record["archiveExportFolderTemplate"],

@@ -8,7 +8,7 @@ export interface ComposerContextRange {
   to: ComposerContextPosition;
 }
 
-interface ActiveNoteContextReference {
+export interface ActiveNoteContextReference {
   name: string;
   path: string;
   linktext: string;
@@ -25,6 +25,7 @@ export interface SelectionContextReference {
 export interface ComposerContextReferences {
   activeNote: ActiveNoteContextReference | null;
   selection: SelectionContextReference | null;
+  activeNoteSnapshots?: readonly ActiveNoteContextReference[];
   selectionSnapshots?: readonly SelectionContextReference[];
 }
 
@@ -34,7 +35,7 @@ export interface ComposerContextReferenceProvider {
 }
 
 export function emptyComposerContextReferences(): ComposerContextReferences {
-  return { activeNote: null, selection: null, selectionSnapshots: [] };
+  return { activeNote: null, selection: null, activeNoteSnapshots: [], selectionSnapshots: [] };
 }
 
 export function formatComposerContextRange(range: ComposerContextRange): string {
@@ -43,6 +44,10 @@ export function formatComposerContextRange(range: ComposerContextRange): string 
 
 export function selectionContextReferenceMarker(selection: SelectionContextReference): string {
   return `[[${selection.linktext}]] (${formatComposerContextRange(selection.range)})`;
+}
+
+export function activeNoteContextReferenceMarker(activeNote: ActiveNoteContextReference): string {
+  return `[[${activeNote.linktext}]]`;
 }
 
 function formatComposerContextPosition(position: ComposerContextPosition): string {

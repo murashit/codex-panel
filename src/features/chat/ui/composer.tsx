@@ -61,6 +61,9 @@ export interface ComposerCallbacks {
   onInput: (value: string) => void;
   onUpdateSuggestions: () => void;
   onKeydown: (event: KeyboardEvent) => void;
+  onPaste?: (event: ClipboardEvent) => void;
+  onDrop?: (event: DragEvent) => void;
+  onDragOver?: (event: DragEvent) => void;
   onSendOrInterrupt: () => void;
   onHeightChange: () => void;
   onTogglePlan?: () => void;
@@ -155,6 +158,15 @@ export function ComposerShell({
           onSelect={callbacks.onUpdateSuggestions}
           onKeyDown={(event) => {
             callbacks.onKeydown(event);
+          }}
+          onPaste={(event) => {
+            callbacks.onPaste?.(event);
+          }}
+          onDrop={(event) => {
+            callbacks.onDrop?.(event);
+          }}
+          onDragOver={(event) => {
+            callbacks.onDragOver?.(event);
           }}
         />
         <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} />

@@ -81,6 +81,49 @@ describe("app-server turn records", () => {
     ]);
   });
 
+  it("keeps local image attachments out of user transcript text when text is present", () => {
+    expect(
+      transcriptEntriesFromTurnRecords([
+        turn([
+          {
+            type: "userMessage",
+            id: "u1",
+            clientId: null,
+            content: [
+              { type: "text", text: "![[Codex Attachments/diagram.png]]", text_elements: [] },
+              { type: "localImage", path: "Codex Attachments/diagram.png" },
+            ],
+          },
+        ]),
+      ]),
+    ).toEqual([{ kind: "user", text: "![[Codex Attachments/diagram.png]]", timestamp: null }]);
+  });
+
+  it("keeps image attachment stubs when user text does not contain the image reference", () => {
+    expect(
+      transcriptEntriesFromTurnRecords([
+        turn([
+          {
+            type: "userMessage",
+            id: "u1",
+            clientId: null,
+            content: [
+              { type: "text", text: "この画像を見てください", text_elements: [] },
+              { type: "localImage", path: "Codex Attachments/diagram.png" },
+              { type: "image", url: "https://example.com/diagram.png" },
+            ],
+          },
+        ]),
+      ]),
+    ).toEqual([
+      {
+        kind: "user",
+        text: "この画像を見てください\n[local image] Codex Attachments/diagram.png\n[image] https://example.com/diagram.png",
+        timestamp: null,
+      },
+    ]);
+  });
+
   it("extracts assistant-like conversation text for generated turn consumers", () => {
     expect(conversationAssistantTextFromTurnRecord(turn([userMessage("u1", "依頼"), planItem("p1", "計画")]))).toBe("計画");
   });

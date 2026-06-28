@@ -7,6 +7,7 @@ import {
   type RequestMention,
 } from "../../../../domain/chat/input";
 import {
+  type ActiveNoteContextReference,
   type ComposerContextReferences,
   emptyComposerContextReferences,
   formatComposerContextRange,
@@ -69,9 +70,10 @@ export function preparedUserInputWithWikiLinkMentionsSkillsAndContext(
   const mentions: RequestMention[] = [];
   const wikilinkMappings: string[] = [];
   const seenPaths = new Set<string>();
+  const activeNoteSnapshots = contextReferences.activeNoteSnapshots ?? [];
 
   for (const link of parsedWikiLinks(resolvedText)) {
-    const mention = resolveMention(link.target);
+    const mention = activeNoteMentionForLink(link, activeNoteSnapshots) ?? resolveMention(link.target);
     if (!mention || seenPaths.has(mention.path)) continue;
     seenPaths.add(mention.path);
     mentions.push(mention);
@@ -103,6 +105,11 @@ export function preparedUserInputWithWikiLinkMentionsSkillsAndContext(
       additionalContext(wikilinkMappings, contextReplacement.selections),
     ),
   };
+}
+
+function activeNoteMentionForLink(link: ParsedWikiLink, snapshots: readonly ActiveNoteContextReference[]): RequestMention | null {
+  const snapshot = snapshots.find((item) => link.raw.trim() === item.linktext && link.target === item.linktext);
+  return snapshot ? { name: snapshot.name, path: snapshot.path } : null;
 }
 
 function textWithContextReferences(

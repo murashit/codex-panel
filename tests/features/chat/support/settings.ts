@@ -3,6 +3,7 @@ import type { CodexPanelSettings } from "../../../../src/settings/model";
 
 export function chatPanelSettingsAccess(settings: CodexPanelSettings): ChatPanelSettingsAccess {
   return {
+    attachmentFolder: () => settings.attachmentFolder,
     archiveExportEnabled: () => settings.archiveExportEnabled,
     archiveExportSettings: () => ({
       archiveExportFolderTemplate: settings.archiveExportFolderTemplate,

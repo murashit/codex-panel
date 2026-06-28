@@ -1,7 +1,14 @@
 import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
+import {
+  type ComposerAttachment,
+  type ComposerAttachmentHandler,
+  codexInputWithComposerAttachments,
+} from "../application/composer/attachments";
 import type { ComposerBoundaryScrollAction } from "../application/composer/boundary-scroll";
 import {
+  type ActiveNoteContextReference,
+  activeNoteContextReferenceMarker,
   type ComposerContextReferenceProvider,
   type SelectionContextReference,
   selectionContextReferenceMarker,
@@ -27,10 +34,13 @@ import { syncComposerHeight } from "../ui/composer.dom";
 import {
   applyComposerInsertionToElement,
   composerBoundaryScrollActionFromElement,
+  composerFilesFromTransfer,
   composerHasFocus,
   composerInsertionSource,
+  composerRangeInsertionSource,
   composerSuggestionSignatureFromElement,
   composerTextBeforeCursor,
+  composerTransferHasFiles,
   focusComposer,
 } from "./composer-controller.dom";
 import type { ChatPanelComposerShellState } from "./shell-state";
@@ -39,6 +49,7 @@ import type { ChatPanelComposerProjection } from "./surface/composer-projection"
 export interface ChatComposerControllerOptions {
   noteCandidateProvider: NoteCandidateProvider;
   contextReferenceProvider: ComposerContextReferenceProvider;
+  attachmentHandler?: ComposerAttachmentHandler;
   sourcePath: () => string;
   stateStore: ChatStateStore;
   viewId: string;
@@ -53,6 +64,7 @@ export interface ChatComposerControllerOptions {
   toggleFast: () => void;
   onDraftChange: () => void;
   onHeightChange: () => void;
+  onAttachmentError?: (message: string) => void;
 }
 
 export interface ChatComposerRenderActions {
@@ -61,8 +73,14 @@ export interface ChatComposerRenderActions {
 
 export class ChatComposerController {
   private composer: HTMLTextAreaElement | null = null;
+  private attachments: ComposerAttachment[] = [];
+  private pendingAttachmentTransfers = new Set<Promise<void>>();
+  private submitAfterAttachmentTransfersActive = false;
+  private activeNoteContextSnapshots: ActiveNoteContextReference[] = [];
+  private preservedActiveNoteContextSnapshots: readonly ActiveNoteContextReference[] | null = null;
   private selectionContextSnapshots: SelectionContextReference[] = [];
   private preservedSelectionContextSnapshots: readonly SelectionContextReference[] | null = null;
+  private preservedAttachments: readonly ComposerAttachment[] | null = null;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
 
@@ -104,7 +122,9 @@ export class ChatComposerController {
   };
 
   setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean } = {}): void {
+    this.pruneActiveNoteContextSnapshots(text);
     this.pruneSelectionContextSnapshots(text);
+    this.pruneAttachments(text);
     this.dispatch({
       type: "composer/draft-set",
       draft: text,
@@ -134,30 +154,41 @@ export class ChatComposerController {
 
   codexInput(text: string): CodexInput {
     const sourcePath = this.options.sourcePath();
-    return userInputWithWikiLinkMentionsAndSkills(
+    const input = userInputWithWikiLinkMentionsAndSkills(
       text,
       (target) => this.options.noteCandidateProvider.resolveMention(target, sourcePath),
       this.state.connection.availableSkills,
     );
+    return codexInputWithComposerAttachments(text, input, this.activeAttachments(text));
   }
 
   preparedInput(text: string): PreparedComposerInput {
     const sourcePath = this.options.sourcePath();
-    return preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
       text,
       (target) => this.options.noteCandidateProvider.resolveMention(target, sourcePath),
       this.state.connection.availableSkills,
       this.contextReferences(text),
     );
+    return {
+      text: prepared.text,
+      input: codexInputWithComposerAttachments(prepared.text, prepared.input, this.activeAttachments(prepared.text)),
+    };
   }
 
-  async withPreservedContextReferences<T>(operation: () => Promise<T>): Promise<T> {
-    const previous = this.preservedSelectionContextSnapshots;
-    this.preservedSelectionContextSnapshots = [...this.selectionContextSnapshots];
+  async withPreservedComposerReferences<T>(operation: () => Promise<T>): Promise<T> {
+    const previousActiveNoteSnapshots = this.preservedActiveNoteContextSnapshots;
+    const previousSelectionSnapshots = this.preservedSelectionContextSnapshots;
+    const previousAttachments = this.preservedAttachments;
+    this.preservedActiveNoteContextSnapshots = [...(this.preservedActiveNoteContextSnapshots ?? this.activeNoteContextSnapshots)];
+    this.preservedSelectionContextSnapshots = [...(this.preservedSelectionContextSnapshots ?? this.selectionContextSnapshots)];
+    this.preservedAttachments = [...(this.preservedAttachments ?? this.attachments)];
     try {
       return await operation();
     } finally {
-      this.preservedSelectionContextSnapshots = previous;
+      this.preservedActiveNoteContextSnapshots = previousActiveNoteSnapshots;
+      this.preservedSelectionContextSnapshots = previousSelectionSnapshots;
+      this.preservedAttachments = previousAttachments;
     }
   }
 
@@ -234,7 +265,9 @@ export class ChatComposerController {
   }
 
   private handleInput(value: string): void {
+    this.pruneActiveNoteContextSnapshots(value);
     this.pruneSelectionContextSnapshots(value);
+    this.pruneAttachments(value);
     const suggestionState = this.inputSuggestionState();
     this.dispatch({
       type: "composer/input-set",
@@ -286,7 +319,9 @@ export class ChatComposerController {
     if (!source) return;
 
     const insertion = applyComposerSuggestionInsertion(source.value, source.cursor, suggestion, { activation });
+    if (suggestion.activeNoteContext) this.rememberActiveNoteContextSnapshot(suggestion.activeNoteContext);
     if (suggestion.selectionContext) this.rememberSelectionContextSnapshot(suggestion.selectionContext);
+    this.pruneActiveNoteContextSnapshots(insertion.value);
     this.pruneSelectionContextSnapshots(insertion.value);
 
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
@@ -296,6 +331,48 @@ export class ChatComposerController {
 
   private clearSuggestions(): void {
     this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [], selected: 0 });
+  }
+
+  private handleTransferredFiles(files: readonly File[]): void {
+    if (files.length === 0) return;
+    const handler = this.options.attachmentHandler;
+    if (!handler) return;
+
+    const transfer = this.saveTransferredFiles(handler, files);
+    this.pendingAttachmentTransfers.add(transfer);
+    void transfer.finally(() => {
+      this.pendingAttachmentTransfers.delete(transfer);
+    });
+  }
+
+  private async saveTransferredFiles(handler: ComposerAttachmentHandler, files: readonly File[]): Promise<void> {
+    try {
+      const attachments = await handler.saveFiles(files);
+      if (attachments.length === 0) return;
+      this.attachments = [...this.attachments, ...attachments];
+      this.insertAttachmentMarkers(attachments);
+    } catch (error) {
+      this.options.onAttachmentError?.(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private insertAttachmentMarkers(attachments: readonly ComposerAttachment[]): void {
+    const markers = attachments.map((attachment) => attachment.marker);
+    if (markers.length === 0) return;
+
+    const fallbackSource = {
+      value: this.state.composer.draft,
+      start: this.state.composer.draft.length,
+      end: this.state.composer.draft.length,
+    };
+    const source = composerRangeInsertionSource(this.composer) ?? fallbackSource;
+    const insertion = applyAttachmentMarkerInsertion(source.value, source.start, source.end, markers);
+    this.pruneAttachments(insertion.value);
+    this.pruneActiveNoteContextSnapshots(insertion.value);
+    this.pruneSelectionContextSnapshots(insertion.value);
+    this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
+    this.options.onDraftChange();
+    applyComposerInsertionToElement(this.composer, insertion.cursor);
   }
 
   private dismissSuggestions(): void {
@@ -321,12 +398,25 @@ export class ChatComposerController {
 
   private contextReferences(text: string | null = null) {
     const references = this.options.contextReferenceProvider.contextReferences(this.options.sourcePath());
-    const availableSnapshots = this.preservedSelectionContextSnapshots ?? this.selectionContextSnapshots;
+    const availableActiveNoteSnapshots = this.preservedActiveNoteContextSnapshots ?? this.activeNoteContextSnapshots;
+    const availableSelectionSnapshots = this.preservedSelectionContextSnapshots ?? this.selectionContextSnapshots;
+    const activeNoteSnapshots =
+      text === null
+        ? availableActiveNoteSnapshots
+        : availableActiveNoteSnapshots.filter((activeNote) => text.includes(activeNoteContextReferenceMarker(activeNote)));
     const selectionSnapshots =
       text === null
-        ? availableSnapshots
-        : availableSnapshots.filter((selection) => text.includes(selectionContextReferenceMarker(selection)));
-    return { ...references, selectionSnapshots };
+        ? availableSelectionSnapshots
+        : availableSelectionSnapshots.filter((selection) => text.includes(selectionContextReferenceMarker(selection)));
+    return { ...references, activeNoteSnapshots, selectionSnapshots };
+  }
+
+  private rememberActiveNoteContextSnapshot(activeNote: ActiveNoteContextReference): void {
+    const marker = activeNoteContextReferenceMarker(activeNote);
+    this.activeNoteContextSnapshots = [
+      ...this.activeNoteContextSnapshots.filter((snapshot) => activeNoteContextReferenceMarker(snapshot) !== marker),
+      activeNote,
+    ];
   }
 
   private rememberSelectionContextSnapshot(selection: SelectionContextReference): void {
@@ -338,9 +428,35 @@ export class ChatComposerController {
   }
 
   private pruneSelectionContextSnapshots(text: string): void {
-    this.selectionContextSnapshots = this.selectionContextSnapshots.filter((selection) =>
-      text.includes(selectionContextReferenceMarker(selection)),
-    );
+    const snapshots = this.preservedSelectionContextSnapshots ?? this.selectionContextSnapshots;
+    this.selectionContextSnapshots = snapshots.filter((selection) => text.includes(selectionContextReferenceMarker(selection)));
+  }
+
+  private pruneActiveNoteContextSnapshots(text: string): void {
+    const snapshots = this.preservedActiveNoteContextSnapshots ?? this.activeNoteContextSnapshots;
+    this.activeNoteContextSnapshots = snapshots.filter((activeNote) => text.includes(activeNoteContextReferenceMarker(activeNote)));
+  }
+
+  private activeAttachments(text: string): readonly ComposerAttachment[] {
+    const attachments = this.preservedAttachments ?? this.attachments;
+    return attachments.filter((attachment) => text.includes(attachment.marker));
+  }
+
+  private pruneAttachments(text: string): void {
+    this.attachments = [...this.activeAttachments(text)];
+  }
+
+  private async submitAfterAttachmentTransfers(actions: ChatComposerRenderActions): Promise<void> {
+    if (this.submitAfterAttachmentTransfersActive) return;
+    this.submitAfterAttachmentTransfersActive = true;
+    try {
+      while (this.pendingAttachmentTransfers.size > 0) {
+        await Promise.allSettled([...this.pendingAttachmentTransfers]);
+      }
+      actions.submit();
+    } finally {
+      this.submitAfterAttachmentTransfersActive = false;
+    }
   }
 
   private composerCallbacks(actions: ChatComposerRenderActions): ComposerCallbacks {
@@ -360,11 +476,28 @@ export class ChatComposerController {
         }
         if (isComposerSendKey(event, this.options.sendShortcut())) {
           event.preventDefault();
-          actions.submit();
+          void this.submitAfterAttachmentTransfers(actions);
         }
       },
+      onPaste: (event) => {
+        const files = composerFilesFromTransfer(event.clipboardData);
+        if (files.length === 0) return;
+        event.preventDefault();
+        this.handleTransferredFiles(files);
+      },
+      onDrop: (event) => {
+        const files = composerFilesFromTransfer(event.dataTransfer);
+        if (files.length === 0) return;
+        event.preventDefault();
+        this.handleTransferredFiles(files);
+      },
+      onDragOver: (event) => {
+        if (!composerTransferHasFiles(event.dataTransfer)) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      },
       onSendOrInterrupt: () => {
-        actions.submit();
+        void this.submitAfterAttachmentTransfers(actions);
       },
       onHeightChange: () => {
         this.options.onHeightChange();
@@ -386,4 +519,22 @@ export class ChatComposerController {
       },
     };
   }
+}
+
+function applyAttachmentMarkerInsertion(
+  value: string,
+  start: number,
+  end: number,
+  markers: readonly string[],
+): { value: string; cursor: number } {
+  const prefix = value.slice(0, start);
+  const suffix = value.slice(end);
+  const before = prefix && !prefix.endsWith("\n") ? "\n" : "";
+  const after = suffix && !suffix.startsWith("\n") ? "\n" : "";
+  const inserted = markers.join("\n");
+  const nextValue = `${prefix}${before}${inserted}${after}${suffix}`;
+  return {
+    value: nextValue,
+    cursor: prefix.length + before.length + inserted.length,
+  };
 }

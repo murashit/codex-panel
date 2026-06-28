@@ -31,7 +31,7 @@ function createHost(draft: string) {
         return draft;
       },
       setDraft,
-      withPreservedContextReferences: <T>(operation: () => Promise<T>) => operation(),
+      withPreservedComposerReferences: <T>(operation: () => Promise<T>) => operation(),
     },
     slashCommandExecutor: { execute },
     turnSubmission: { sendTurnText },
@@ -78,10 +78,10 @@ describe("submitComposer", () => {
     expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
   });
 
-  it("preserves composer context references until slash command send results are submitted", async () => {
+  it("preserves composer references until slash command send results are submitted", async () => {
     const { host, execute, sendTurnText } = createHost("/refer Other [[Note]] (L1:C1-L1:C2)");
     let preserving = false;
-    host.composer.withPreservedContextReferences = async (operation) => {
+    host.composer.withPreservedComposerReferences = async (operation) => {
       preserving = true;
       try {
         return await operation();

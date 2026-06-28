@@ -25,6 +25,7 @@ interface ChatPanelSettingsRef {
 }
 
 export interface ChatPanelSettingsAccess {
+  attachmentFolder(): string;
   archiveExportEnabled(): boolean;
   archiveExportSettings(): ArchiveExportSettings;
   codexPath(): string;

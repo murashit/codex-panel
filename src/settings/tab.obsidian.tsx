@@ -6,6 +6,7 @@ import { listenDomEvent } from "../shared/ui/dom-events.dom";
 import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root.dom";
 import { SettingsDynamicSectionsController } from "./dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "./host";
+import { DEFAULT_ATTACHMENT_FOLDER } from "./model";
 import type { SettingsSectionsState } from "./section-state";
 import { SettingsTabShell } from "./tab-shell";
 
@@ -79,6 +80,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           showToolbar: this.plugin.settings.showToolbar,
           sendShortcut: this.plugin.settings.sendShortcut,
           scrollThreadFromComposerEdges: this.plugin.settings.scrollThreadFromComposerEdges,
+          attachmentFolder: this.plugin.settings.attachmentFolder,
         }}
         sections={this.settingsSectionsState()}
         actions={{
@@ -96,6 +98,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           },
           setScrollThreadFromComposerEdges: (value) => {
             void this.setScrollThreadFromComposerEdges(value);
+          },
+          setAttachmentFolder: (value) => {
+            void this.setAttachmentFolder(value);
           },
         }}
       />,
@@ -196,6 +201,12 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async setScrollThreadFromComposerEdges(value: boolean): Promise<void> {
     this.plugin.settings.scrollThreadFromComposerEdges = value;
+    await this.plugin.saveSettings();
+    this.renderSettingsShell();
+  }
+
+  private async setAttachmentFolder(value: string): Promise<void> {
+    this.plugin.settings.attachmentFolder = value.trim() || DEFAULT_ATTACHMENT_FOLDER;
     await this.plugin.saveSettings();
     this.renderSettingsShell();
   }

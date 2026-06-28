@@ -8,6 +8,12 @@ export interface ComposerElementInsertion {
   cursor: number;
 }
 
+export interface ComposerElementRangeInsertion {
+  value: string;
+  start: number;
+  end: number;
+}
+
 export function focusComposer(composer: HTMLTextAreaElement | null, options: { preventScroll?: boolean } = {}): void {
   composer?.focus(options);
 }
@@ -34,6 +40,15 @@ export function composerInsertionSource(composer: HTMLTextAreaElement | null): C
   };
 }
 
+export function composerRangeInsertionSource(composer: HTMLTextAreaElement | null): ComposerElementRangeInsertion | null {
+  if (!composer) return null;
+  return {
+    value: composer.value,
+    start: composer.selectionStart,
+    end: composer.selectionEnd,
+  };
+}
+
 export function composerBoundaryScrollActionFromElement(
   event: KeyboardEvent,
   composer: HTMLTextAreaElement | null,
@@ -54,4 +69,26 @@ export function applyComposerInsertionToElement(composer: HTMLTextAreaElement | 
   syncComposerHeight(composer);
   composer.focus();
   composer.setSelectionRange(cursor, cursor);
+}
+
+export function composerFilesFromTransfer(dataTransfer: DataTransfer | null): File[] {
+  if (!dataTransfer) return [];
+  const transfer = dataTransfer as Partial<DataTransfer>;
+  const files = Array.from(transfer.files ?? []).filter((file) => file.size > 0);
+  if (files.length > 0) return files;
+
+  return Array.from(transfer.items ?? [])
+    .filter((item) => item.kind === "file")
+    .flatMap((item) => {
+      const file = item.getAsFile();
+      return file && file.size > 0 ? [file] : [];
+    });
+}
+
+export function composerTransferHasFiles(dataTransfer: DataTransfer | null): boolean {
+  if (!dataTransfer) return false;
+  const transfer = dataTransfer as Partial<DataTransfer>;
+  if (Array.from(transfer.types ?? []).includes("Files")) return true;
+  if (Array.from(transfer.items ?? []).some((item) => item.kind === "file")) return true;
+  return Array.from(transfer.files ?? []).some((file) => file.size > 0);
 }

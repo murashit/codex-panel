@@ -168,7 +168,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
         setDraft: (text, options) => {
           composerController.setDraft(text, options);
         },
-        withPreservedContextReferences: (operation) => composerController.withPreservedContextReferences(operation),
+        withPreservedComposerReferences: (operation) => composerController.withPreservedComposerReferences(operation),
       },
       scroll: {
         showLatest: () => {

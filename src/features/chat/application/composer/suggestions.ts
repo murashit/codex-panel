@@ -5,6 +5,8 @@ import type { Thread } from "../../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import { shortThreadId } from "../../../../shared/id/thread-id";
 import {
+  type ActiveNoteContextReference,
+  activeNoteContextReferenceMarker,
   type ComposerContextReferences,
   formatComposerContextRange,
   type SelectionContextReference,
@@ -20,6 +22,7 @@ export interface ComposerSuggestion {
   appendSpaceOnInsert?: boolean;
   tabCursorOffset?: number;
   suffixOnInsert?: string;
+  activeNoteContext?: ActiveNoteContextReference;
   selectionContext?: SelectionContextReference;
 }
 
@@ -128,8 +131,9 @@ function activeContextReferenceSuggestions(
     suggestions.push({
       display: "Active note",
       detail: references.activeNote.path,
-      replacement: `[[${references.activeNote.linktext}]]`,
+      replacement: activeNoteContextReferenceMarker(references.activeNote),
       start,
+      activeNoteContext: references.activeNote,
     });
   }
   if (references?.selection && "selection".startsWith(query) && query !== "selection") {

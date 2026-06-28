@@ -79,12 +79,14 @@ function transcriptEntriesFromTurnItem(item: TurnItem, turn: TurnRecord): Thread
 }
 
 function userInputText(content: readonly AppServerUserInput[]): string {
-  const hasText = content.some((item) => item.type === "text" && item.text.length > 0);
+  const textItems = content.filter((item) => item.type === "text");
+  const hasText = textItems.some((item) => item.text.length > 0);
+  const textIncludes = (value: string) => value.length > 0 && textItems.some((item) => item.text.includes(value));
   return content
     .map((item) => {
       if (item.type === "text") return item.text;
-      if (item.type === "localImage") return `[local image] ${item.path}`;
-      if (item.type === "image") return `[image] ${item.url}`;
+      if (item.type === "localImage") return hasText && textIncludes(item.path) ? "" : `[local image] ${item.path}`;
+      if (item.type === "image") return hasText && textIncludes(item.url) ? "" : `[image] ${item.url}`;
       if (item.type === "mention") return hasText ? "" : `[@${item.name}] ${item.path}`;
       return hasText ? "" : `[$${item.name}] ${item.path}`;
     })

@@ -66,6 +66,7 @@ describe("settings tab", () => {
       "Composer",
       "Send shortcut",
       "Scroll thread from composer line edges",
+      "Attachment folder",
       "Codex helpers",
       "Automatic thread naming",
       "Selection rewrite",
@@ -134,6 +135,23 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(settingDesc(tab, "Scroll thread from composer line edges")).toContain("Up/Ctrl+P");
+  });
+
+  it("saves the attachment folder setting", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const folder = inputForSetting(tab, "Attachment folder");
+    if (!folder) throw new Error("Missing attachment folder input");
+    expect(folder.type).toBe("text");
+
+    folder.value = "Files/Codex";
+    folder.dispatchEvent(new Event("blur"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(settingDesc(tab, "Attachment folder")).toContain("pasted or dropped");
   });
 
   it("saves archive export settings", async () => {
@@ -1041,6 +1059,7 @@ function settingsTabHost(
     showToolbar: true,
     sendShortcut: options.sendShortcut ?? "enter",
     scrollThreadFromComposerEdges: false,
+    attachmentFolder: "Codex Attachments",
     archiveExportEnabled: false,
     archiveExportFolderTemplate: "Codex Archives",
     archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",

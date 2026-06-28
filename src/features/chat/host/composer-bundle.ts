@@ -1,3 +1,5 @@
+import { Notice } from "obsidian";
+
 import { runtimeConfigOrDefault } from "../../../domain/runtime/config";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatStateStore } from "../application/state/store";
@@ -5,6 +7,7 @@ import { resolveRuntimeControls } from "../domain/runtime/resolution";
 import { ChatComposerController } from "../panel/composer-controller";
 import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../panel/surface/composer-projection";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
+import { createVaultComposerAttachmentHandler } from "./composer-attachments.obsidian";
 import type { ChatPanelEnvironment } from "./contracts";
 import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 import type { ChatPanelThreadLifecycle } from "./thread-bundle";
@@ -64,6 +67,10 @@ function createSessionComposerController(
   return new ChatComposerController({
     noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
     contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app),
+    attachmentHandler: createVaultComposerAttachmentHandler({
+      app: environment.obsidian.app,
+      attachmentFolder: () => environment.plugin.settingsRef.settings.attachmentFolder(),
+    }),
     sourcePath: () => environment.obsidian.app.workspace.getActiveFile()?.path ?? "",
     stateStore,
     viewId: environment.obsidian.viewId,
@@ -88,5 +95,8 @@ function createSessionComposerController(
       environment.plugin.workspace.refreshThreadsViewLiveState();
     },
     onHeightChange: () => undefined,
+    onAttachmentError: (message) => {
+      new Notice(message);
+    },
   });
 }
