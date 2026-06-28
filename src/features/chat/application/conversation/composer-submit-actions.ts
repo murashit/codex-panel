@@ -14,6 +14,7 @@ export interface ComposerSubmitActionsHost {
   composer: {
     readonly trimmedDraft: string;
     setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean }): void;
+    withPreservedContextReferences<T>(operation: () => Promise<T>): Promise<T>;
   };
   slashCommandExecutor: {
     execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined>;
@@ -55,15 +56,17 @@ async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
     if (slashCommandRequiresConnection(slashCommand.command) && !(await host.connection.ensureConnected())) return;
-    host.composer.setDraft("", { clearSuggestions: true });
-    const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args);
-    if (result?.composerDraft !== undefined) {
-      host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
-    }
-    if (result?.sendText) {
-      host.scroll.showLatest();
-      await host.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
-    }
+    await host.composer.withPreservedContextReferences(async () => {
+      host.composer.setDraft("", { clearSuggestions: true });
+      const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args);
+      if (result?.composerDraft !== undefined) {
+        host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
+      }
+      if (result?.sendText) {
+        host.scroll.showLatest();
+        await host.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
+      }
+    });
     return;
   }
 

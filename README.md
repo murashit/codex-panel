@@ -48,6 +48,8 @@ The Threads sidebar gives you a vault-local view of Codex work in progress. It s
 
 The composer understands Obsidian and Codex context together. Wikilink suggestions come from Obsidian file search and recent notes; sent wikilinks resolve to Codex file mentions when possible; rendered vault file links open back in Obsidian.
 
+Use the `@active-note` completion when you want the composer to insert the last active note as a wikilink. Use the `@selection` completion to insert the selected range from the last active Markdown note as `[[note]] (Lx:Cy-Lx:Cy)`; Codex Panel keeps that completed range as the visible prompt text and sends the selected text as additional turn context.
+
 Completions are also available for slash commands, enabled skills such as `$skill-name`, recent threads, models, and supported reasoning efforts. Use `/help` in the composer for the current slash command list. You can reference another non-archived thread without leaving the active panel, or use `/refer` when you want Codex to include recent turns from another thread in a message.
 
 While a turn is running, the panel streams assistant messages, reasoning, commands, tool calls, hooks, file changes, plan updates, and agent activity. You can answer Codex questions, approve commands, respond to MCP and file requests, send steering messages, or interrupt the turn when the composer is empty. If a thread has an active Codex goal, the panel shows it above the message stream and lets you edit, pause, resume, or clear it.

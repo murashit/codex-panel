@@ -156,6 +156,7 @@ describe("executeSlashCommandWithState", () => {
       threads: [thread("019abcde-0000-7000-8000-000000000001", "Other")],
     });
     referThread.mockResolvedValue({
+      text: "prepared summarize",
       input: textInput("referenced summarize"),
       referencedThread: {
         threadId: "019abcde-0000-7000-8000-000000000001",
@@ -167,7 +168,7 @@ describe("executeSlashCommandWithState", () => {
 
     const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
 
-    expect(result?.sendText).toBe("summarize");
+    expect(result?.sendText).toBe("prepared summarize");
     expect(result?.sendInput).toEqual(textInput("referenced summarize"));
     expect(result?.referencedThread?.title).toBe("Other");
   });

@@ -3,6 +3,7 @@
 import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
 import type { SkillMetadata } from "../../../../src/domain/catalog/metadata";
+import type { ComposerContextReferenceProvider } from "../../../../src/features/chat/application/composer/context-references";
 import type { NoteCandidateProvider } from "../../../../src/features/chat/application/composer/note-context";
 import type { ChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
@@ -33,6 +34,7 @@ describe("ChatComposerController", () => {
     }));
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -67,6 +69,7 @@ describe("ChatComposerController", () => {
     });
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -95,6 +98,89 @@ describe("ChatComposerController", () => {
     expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("/");
   });
 
+  it("freezes selection context when inserting the selection suggestion", async () => {
+    const stateStore = createChatStateStore();
+    const parent = document.createElement("div");
+    let references = {
+      activeNote: null,
+      selection: {
+        name: "Alpha",
+        path: "notes/Alpha.md",
+        linktext: "notes/Alpha",
+        range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+        text: "initial selection",
+      },
+    };
+    let controller: ChatComposerController | null = null;
+    const renderShell = vi.fn(() => {
+      if (!controller) throw new Error("Expected controller.");
+      renderComposerController(parent, controller, stateStore);
+    });
+    controller = new ChatComposerController({
+      noteCandidateProvider: noteProvider({
+        resolveMention: (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
+      }),
+      contextReferenceProvider: contextProvider(() => references),
+      sourcePath: () => "",
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
+      canInterrupt: (_state) => false,
+      composerProjection: defaultComposerProjection,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+    stateStore.subscribe(renderShell);
+
+    renderShell();
+    setTextAreaValue(composer(parent), "@sel");
+    composer(parent).setSelectionRange(4, 4);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    references = {
+      activeNote: null,
+      selection: {
+        name: "Beta",
+        path: "notes/Beta.md",
+        linktext: "notes/Beta",
+        range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } },
+        text: "changed selection",
+      },
+    };
+
+    const prepared = controller.preparedInput(composer(parent).value);
+    const completedSelectionReference = composer(parent).value;
+
+    expect(composer(parent).value).toBe("[[notes/Alpha]] (L42:C5-L47:C1)");
+    expect(prepared.input).toContainEqual({
+      type: "additionalContext",
+      key: "codex_panel_obsidian_context",
+      kind: "untrusted",
+      value:
+        "Referenced Obsidian selections for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
+    });
+
+    await controller.withPreservedContextReferences(async () => {
+      controller.setDraft("", { clearSuggestions: true });
+      expect(controller.preparedInput(completedSelectionReference).input).toContainEqual({
+        type: "additionalContext",
+        key: "codex_panel_obsidian_context",
+        kind: "untrusted",
+        value:
+          "Referenced Obsidian selections for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
+      });
+    });
+    expect(controller.preparedInput(completedSelectionReference).input).not.toContainEqual(
+      expect.objectContaining({ key: "codex_panel_obsidian_context" }),
+    );
+  });
+
   it("rerenders suggestion selection from keyboard navigation", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
@@ -105,6 +191,7 @@ describe("ChatComposerController", () => {
     });
     controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -151,6 +238,7 @@ describe("ChatComposerController", () => {
     });
     controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -190,6 +278,7 @@ describe("ChatComposerController", () => {
     const togglePlan = vi.fn();
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -220,6 +309,7 @@ describe("ChatComposerController", () => {
     const submit = vi.fn();
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -248,6 +338,7 @@ describe("ChatComposerController", () => {
     const threadScrollFromComposer = vi.fn();
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -280,6 +371,7 @@ describe("ChatComposerController", () => {
     const threadScrollFromComposer = vi.fn();
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -316,6 +408,7 @@ describe("ChatComposerController", () => {
     const threadScrollFromComposer = vi.fn();
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -348,6 +441,7 @@ describe("ChatComposerController", () => {
     const parent = document.createElement("div");
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
       sourcePath: () => "",
       stateStore,
       viewId: "view",
@@ -377,10 +471,20 @@ describe("ChatComposerController", () => {
   });
 });
 
-function noteProvider(): NoteCandidateProvider {
+function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {
   return {
     candidates: () => [],
     resolveMention: () => null,
+    dispose: vi.fn(),
+    ...overrides,
+  };
+}
+
+function contextProvider(
+  contextReferences: ComposerContextReferenceProvider["contextReferences"] = () => ({ activeNote: null, selection: null }),
+): ComposerContextReferenceProvider {
+  return {
+    contextReferences,
     dispose: vi.fn(),
   };
 }

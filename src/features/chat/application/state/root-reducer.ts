@@ -677,9 +677,28 @@ function composerSuggestionsEqual(left: readonly ComposerSuggestion[], right: re
       item.detail === other.detail &&
       item.replacement === other.replacement &&
       item.start === other.start &&
-      item.appendSpaceOnInsert === other.appendSpaceOnInsert
+      item.appendSpaceOnInsert === other.appendSpaceOnInsert &&
+      composerSuggestionSelectionContextEqual(item.selectionContext, other.selectionContext)
     );
   });
+}
+
+function composerSuggestionSelectionContextEqual(
+  left: ComposerSuggestion["selectionContext"],
+  right: ComposerSuggestion["selectionContext"],
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return (
+    left.name === right.name &&
+    left.path === right.path &&
+    left.linktext === right.linktext &&
+    left.text === right.text &&
+    left.range.from.line === right.range.from.line &&
+    left.range.from.ch === right.range.from.ch &&
+    left.range.to.line === right.range.to.line &&
+    left.range.to.ch === right.range.to.ch
+  );
 }
 
 function patchChatState(state: ChatState, patch: Partial<ChatState>): ChatState {

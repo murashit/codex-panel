@@ -126,7 +126,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
   };
   const reconnect = () => reconnectPanel(reconnectHost);
   const threadReferenceResolver = appServer.threadReferences({
-    codexInput: (text) => composerController.codexInput(text),
+    prepareInput: (text) => composerController.preparedInput(text),
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
   });
@@ -163,10 +163,12 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       },
       composer: {
         codexInput: (text) => composerController.codexInput(text),
+        prepareInput: (text) => composerController.preparedInput(text),
         trimmedDraft: () => composerController.trimmedDraft,
         setDraft: (text, options) => {
           composerController.setDraft(text, options);
         },
+        withPreservedContextReferences: (operation) => composerController.withPreservedContextReferences(operation),
       },
       scroll: {
         showLatest: () => {

@@ -1,6 +1,11 @@
 import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
 import type { ComposerBoundaryScrollAction } from "../application/composer/boundary-scroll";
+import {
+  type ComposerContextReferenceProvider,
+  type SelectionContextReference,
+  selectionContextReferenceMarker,
+} from "../application/composer/context-references";
 import type { NoteCandidateProvider } from "../application/composer/note-context";
 import {
   activeComposerSuggestions,
@@ -10,7 +15,11 @@ import {
   type NoteCandidate,
   nextComposerSuggestionIndex,
 } from "../application/composer/suggestions";
-import { userInputWithWikiLinkMentionsAndSkills } from "../application/composer/wikilink-context";
+import {
+  type PreparedComposerInput,
+  preparedUserInputWithWikiLinkMentionsSkillsAndContext,
+  userInputWithWikiLinkMentionsAndSkills,
+} from "../application/composer/wikilink-context";
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ComposerCallbacks, ComposerShellProps } from "../ui/composer";
@@ -29,6 +38,7 @@ import type { ChatPanelComposerProjection } from "./surface/composer-projection"
 
 export interface ChatComposerControllerOptions {
   noteCandidateProvider: NoteCandidateProvider;
+  contextReferenceProvider: ComposerContextReferenceProvider;
   sourcePath: () => string;
   stateStore: ChatStateStore;
   viewId: string;
@@ -51,6 +61,8 @@ export interface ChatComposerRenderActions {
 
 export class ChatComposerController {
   private composer: HTMLTextAreaElement | null = null;
+  private selectionContextSnapshots: SelectionContextReference[] = [];
+  private preservedSelectionContextSnapshots: readonly SelectionContextReference[] | null = null;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
 
@@ -92,6 +104,7 @@ export class ChatComposerController {
   };
 
   setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean } = {}): void {
+    this.pruneSelectionContextSnapshots(text);
     this.dispatch({
       type: "composer/draft-set",
       draft: text,
@@ -112,6 +125,7 @@ export class ChatComposerController {
   dispose(): void {
     this.composer = null;
     this.options.noteCandidateProvider.dispose();
+    this.options.contextReferenceProvider.dispose();
   }
 
   refreshSuggestions(): void {
@@ -125,6 +139,26 @@ export class ChatComposerController {
       (target) => this.options.noteCandidateProvider.resolveMention(target, sourcePath),
       this.state.connection.availableSkills,
     );
+  }
+
+  preparedInput(text: string): PreparedComposerInput {
+    const sourcePath = this.options.sourcePath();
+    return preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      text,
+      (target) => this.options.noteCandidateProvider.resolveMention(target, sourcePath),
+      this.state.connection.availableSkills,
+      this.contextReferences(text),
+    );
+  }
+
+  async withPreservedContextReferences<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.preservedSelectionContextSnapshots;
+    this.preservedSelectionContextSnapshots = [...this.selectionContextSnapshots];
+    try {
+      return await operation();
+    } finally {
+      this.preservedSelectionContextSnapshots = previous;
+    }
   }
 
   private handleSuggestionKeydown(event: KeyboardEvent): boolean {
@@ -189,7 +223,7 @@ export class ChatComposerController {
       state.threadList.listedThreads,
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
-      { activeThreadId: state.activeThread.id },
+      { activeThreadId: state.activeThread.id, contextReferences: this.contextReferences() },
     );
 
     this.dispatchSuggestions({
@@ -200,6 +234,7 @@ export class ChatComposerController {
   }
 
   private handleInput(value: string): void {
+    this.pruneSelectionContextSnapshots(value);
     const suggestionState = this.inputSuggestionState();
     this.dispatch({
       type: "composer/input-set",
@@ -231,7 +266,7 @@ export class ChatComposerController {
       state.threadList.listedThreads,
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
-      { activeThreadId: state.activeThread.id },
+      { activeThreadId: state.activeThread.id, contextReferences: this.contextReferences() },
     );
     return {
       suggestions,
@@ -251,6 +286,8 @@ export class ChatComposerController {
     if (!source) return;
 
     const insertion = applyComposerSuggestionInsertion(source.value, source.cursor, suggestion, { activation });
+    if (suggestion.selectionContext) this.rememberSelectionContextSnapshot(suggestion.selectionContext);
+    this.pruneSelectionContextSnapshots(insertion.value);
 
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
     this.options.onDraftChange();
@@ -280,6 +317,30 @@ export class ChatComposerController {
 
   private noteCandidates(): NoteCandidate[] {
     return [...this.options.noteCandidateProvider.candidates(this.options.sourcePath())];
+  }
+
+  private contextReferences(text: string | null = null) {
+    const references = this.options.contextReferenceProvider.contextReferences(this.options.sourcePath());
+    const availableSnapshots = this.preservedSelectionContextSnapshots ?? this.selectionContextSnapshots;
+    const selectionSnapshots =
+      text === null
+        ? availableSnapshots
+        : availableSnapshots.filter((selection) => text.includes(selectionContextReferenceMarker(selection)));
+    return { ...references, selectionSnapshots };
+  }
+
+  private rememberSelectionContextSnapshot(selection: SelectionContextReference): void {
+    const marker = selectionContextReferenceMarker(selection);
+    this.selectionContextSnapshots = [
+      ...this.selectionContextSnapshots.filter((snapshot) => selectionContextReferenceMarker(snapshot) !== marker),
+      selection,
+    ];
+  }
+
+  private pruneSelectionContextSnapshots(text: string): void {
+    this.selectionContextSnapshots = this.selectionContextSnapshots.filter((selection) =>
+      text.includes(selectionContextReferenceMarker(selection)),
+    );
   }
 
   private composerCallbacks(actions: ChatComposerRenderActions): ComposerCallbacks {

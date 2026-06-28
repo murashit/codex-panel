@@ -22,7 +22,7 @@ export interface ChatAppServerGatewayHost {
 }
 
 interface ChatThreadReferenceResolverOptions {
-  codexInput(text: string): CodexInput;
+  prepareInput(text: string): { text: string; input: CodexInput };
   addSystemMessage(text: string): void;
   setStatus(status: string): void;
 }
@@ -58,7 +58,7 @@ export function createChatAppServerGateway(host: ChatAppServerGatewayHost): Chat
     threadReferences: (options) =>
       createThreadReferenceResolver({
         currentClient: () => host.currentClient(),
-        codexInput: (text) => options.codexInput(text),
+        prepareInput: (text) => options.prepareInput(text),
         addSystemMessage: (text) => {
           options.addSystemMessage(text);
         },

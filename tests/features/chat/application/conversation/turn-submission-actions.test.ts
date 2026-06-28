@@ -47,7 +47,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
     notifyActiveThreadIdentityChanged: vi.fn(),
     resetThreadTurnPresence: vi.fn(),
     applyPendingThreadSettings: vi.fn().mockResolvedValue(true),
-    codexInput: vi.fn((text: string) => textInput(text)),
+    prepareInput: vi.fn((text: string) => ({ text, input: textInput(text) })),
     setDraft: vi.fn(),
     setStatus: vi.fn(),
     addSystemMessage: vi.fn(),
@@ -105,6 +105,38 @@ describe("TurnSubmissionActions", () => {
       applyPendingThreadSettings.mock.invocationCallOrder[0] ?? 0,
     );
     expect(applyPendingThreadSettings.mock.invocationCallOrder[0]).toBeLessThan(startTurn.mock.invocationCallOrder[0] ?? 0);
+  });
+
+  it("uses prepared visible text for optimistic history and app-server input", async () => {
+    const { host, startTurn, stateStore } = createHost({
+      prepareInput: vi.fn(() => ({
+        text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
+        input: [
+          { type: "text", text: "fix [[notes/Alpha]] (L42:C5-L47:C1)" },
+          { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
+          { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selected text" },
+        ] satisfies CodexInput,
+      })),
+    });
+    resumeThread(stateStore);
+    const actions = createTurnSubmissionActions(host);
+
+    await actions.sendTurnText("fix @selection");
+
+    expect(startTurn).toHaveBeenCalledWith({
+      threadId: "thread",
+      input: [
+        { type: "text", text: "fix [[notes/Alpha]] (L42:C5-L47:C1)" },
+        { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
+        { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "selected text" },
+      ],
+      clientUserMessageId: expect.any(String),
+    });
+    expect(chatStateMessageStreamItems(stateStore.getState())[0]).toMatchObject({
+      kind: "message",
+      text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
+      mentionedFiles: [{ name: "Alpha", path: "notes/Alpha.md" }],
+    });
   });
 
   it("does not restore stale drafts or report stale start failures after the active thread changes", async () => {

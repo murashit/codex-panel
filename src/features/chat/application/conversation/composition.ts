@@ -40,8 +40,10 @@ export interface ConversationTurnActionsContext {
   };
   composer: {
     codexInput: (text: string) => CodexInput;
+    prepareInput: (text: string) => { text: string; input: CodexInput };
     trimmedDraft: () => string;
     setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
+    withPreservedContextReferences: <T>(operation: () => Promise<T>) => Promise<T>;
   };
   scroll: {
     showLatest: () => void;
@@ -83,7 +85,7 @@ export function createConversationTurnActions(
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     resetThreadTurnPresence: thread.resetTurnPresence,
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
-    codexInput: composer.codexInput,
+    prepareInput: composer.prepareInput,
     setDraft: composer.setDraft,
     setStatus: status.set,
     addSystemMessage: status.addSystemMessage,
@@ -123,6 +125,7 @@ export function createConversationTurnActions(
         return composer.trimmedDraft();
       },
       setDraft: composer.setDraft,
+      withPreservedContextReferences: composer.withPreservedContextReferences,
     },
     slashCommandExecutor: {
       execute: (command, args) => executeSlashCommandWithState(slashCommandExecutorHost, command, args),

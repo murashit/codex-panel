@@ -24,7 +24,7 @@ export interface TurnSubmissionActionsHost {
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
-  codexInput: (text: string) => CodexInput;
+  prepareInput: (text: string) => { text: string; input: CodexInput };
   setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
@@ -56,6 +56,7 @@ async function sendTurnText(
   codexInputOverride?: CodexInput,
   referencedThread?: ReferencedThreadMetadata,
 ): Promise<void> {
+  const prepared = codexInputOverride ? { text, input: codexInputOverride } : host.prepareInput(text);
   if (!(await host.turnTransport.ensureConnected())) return;
   if (!(await host.ensureRestoredThreadLoaded())) return;
 
@@ -69,10 +70,10 @@ async function sendTurnText(
         host.addSystemMessage(plan.message);
         return;
       case "steer":
-        await steerCurrentTurn(host, localItemIds, plan, text, codexInputOverride, referencedThread);
+        await steerCurrentTurn(host, localItemIds, plan, text, prepared, referencedThread);
         return;
       case "start-thread-then-turn":
-        if (!(await startThreadForTurn(host, text))) return;
+        if (!(await startThreadForTurn(host, prepared.text))) return;
         break;
       case "start-turn":
         break;
@@ -81,12 +82,11 @@ async function sendTurnText(
     if (!activeThreadId) return;
     if (!(await host.applyPendingThreadSettings())) return;
 
-    const codexInput = codexInputOverride ?? host.codexInput(text);
     optimisticUserId = localItemIds.next("local-user");
     const optimistic = optimisticTurnStart({
       id: optimisticUserId,
-      text,
-      codexInput,
+      text: prepared.text,
+      codexInput: prepared.input,
       referencedThread,
     });
     host.stateStore.dispatch({
@@ -98,7 +98,7 @@ async function sendTurnText(
 
     const response = await host.turnTransport.startTurn({
       threadId: activeThreadId,
-      input: codexInput,
+      input: prepared.input,
       clientUserMessageId: optimisticUserId,
     });
     if (!response) {
@@ -169,10 +169,9 @@ async function steerCurrentTurn(
   localItemIds: LocalIdSource,
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
   text: string,
-  codexInputOverride?: CodexInput,
+  prepared: { text: string; input: CodexInput },
   referencedThread?: ReferencedThreadMetadata,
 ): Promise<void> {
-  const codexInput = codexInputOverride ?? host.codexInput(text);
   const localSteerId = localItemIds.next("local-steer");
   host.setDraft("", { clearSuggestions: true });
 
@@ -180,7 +179,7 @@ async function steerCurrentTurn(
     const steered = await host.turnTransport.steerTurn({
       threadId: plan.threadId,
       turnId: plan.turnId,
-      input: codexInput,
+      input: prepared.input,
       clientUserMessageId: localSteerId,
     });
     if (!steered) return;
@@ -189,10 +188,10 @@ async function steerCurrentTurn(
       type: "message-stream/item-added",
       item: localUserMessageItemFromInput({
         id: localSteerId,
-        text,
+        text: prepared.text,
         turnId: plan.turnId,
         referencedThread,
-        codexInput,
+        codexInput: prepared.input,
       }),
     });
     host.setStatus(STATUS_STEERED_CURRENT_TURN);

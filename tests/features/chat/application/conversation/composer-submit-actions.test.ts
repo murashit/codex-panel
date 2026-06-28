@@ -31,6 +31,7 @@ function createHost(draft: string) {
         return draft;
       },
       setDraft,
+      withPreservedContextReferences: <T>(operation: () => Promise<T>) => operation(),
     },
     slashCommandExecutor: { execute },
     turnSubmission: { sendTurnText },
@@ -75,6 +76,31 @@ describe("submitComposer", () => {
     expect(execute).toHaveBeenCalledWith("clear", "hello");
     expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
+  });
+
+  it("preserves composer context references until slash command send results are submitted", async () => {
+    const { host, execute, sendTurnText } = createHost("/refer Other [[Note]] (L1:C1-L1:C2)");
+    let preserving = false;
+    host.composer.withPreservedContextReferences = async (operation) => {
+      preserving = true;
+      try {
+        return await operation();
+      } finally {
+        preserving = false;
+      }
+    };
+    execute.mockImplementation(async () => {
+      expect(preserving).toBe(true);
+      return { sendText: "[[Note]] (L1:C1-L1:C2)", sendInput: [{ type: "text", text: "referenced input" }] };
+    });
+    sendTurnText.mockImplementation(async () => {
+      expect(preserving).toBe(true);
+    });
+
+    await submitComposer(host);
+
+    expect(preserving).toBe(false);
+    expect(sendTurnText).toHaveBeenCalledWith("[[Note]] (L1:C1-L1:C2)", [{ type: "text", text: "referenced input" }], undefined);
   });
 
   it("does not execute connection-dependent slash commands when connection fails", async () => {

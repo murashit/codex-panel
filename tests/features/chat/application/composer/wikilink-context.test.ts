@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { userInputWithWikiLinkMentionsAndSkills } from "../../../../../src/features/chat/application/composer/wikilink-context";
+import {
+  preparedUserInputWithWikiLinkMentionsSkillsAndContext,
+  userInputWithWikiLinkMentionsAndSkills,
+} from "../../../../../src/features/chat/application/composer/wikilink-context";
 
 const wikilinkContext = (...mappings: string[]) => ({
   type: "additionalContext" as const,
@@ -146,5 +149,62 @@ describe("wikilink context", () => {
       { type: "text", text },
       { type: "skill", name: "First", path: "/skills/first/SKILL.md" },
     ]);
+  });
+
+  it("leaves bare context references as raw text", () => {
+    const text = "整理して @active-note and @selection";
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      text,
+      (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
+      [],
+      {
+        activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "notes/Alpha" },
+        selection: {
+          name: "Alpha",
+          path: "notes/Alpha.md",
+          linktext: "notes/Alpha",
+          range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+          text: "selected text",
+        },
+      },
+    );
+
+    expect(prepared.text).toBe(text);
+    expect(prepared.input).toEqual([{ type: "text", text }]);
+  });
+
+  it("attaches completed selection snapshots without depending on the current editor selection", () => {
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      "整理して [[notes/Alpha]] (L42:C5-L47:C1)",
+      (target) => (target === "notes/Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
+      [],
+      {
+        activeNote: null,
+        selection: {
+          name: "Beta",
+          path: "notes/Beta.md",
+          linktext: "notes/Beta",
+          range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 4 } },
+          text: "current selection",
+        },
+        selectionSnapshots: [
+          {
+            name: "Alpha",
+            path: "notes/Alpha.md",
+            linktext: "notes/Alpha",
+            range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+            text: "completed selection",
+          },
+        ],
+      },
+    );
+
+    expect(prepared.input).toContainEqual({
+      type: "additionalContext",
+      key: "codex_panel_obsidian_context",
+      kind: "untrusted",
+      value:
+        "Referenced Obsidian selections for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ncompleted selection",
+    });
   });
 });

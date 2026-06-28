@@ -7,7 +7,7 @@ import type { ThreadReferenceInput } from "../../application/conversation/slash-
 
 interface ThreadReferenceResolverHost {
   currentClient(): ThreadConversationSummaryClient | null;
-  codexInput(text: string): CodexInput;
+  prepareInput(text: string): { text: string; input: CodexInput };
   addSystemMessage(text: string): void;
   setStatus(status: string): void;
 }
@@ -36,11 +36,12 @@ async function referencedThreadInput(
       host.addSystemMessage("Referenced thread has no readable conversation turns.");
       return null;
     }
-    const reference = referencedThreadPromptBundle(thread, turns, message);
-    const messageInput = host.codexInput(message);
+    const messageInput = host.prepareInput(message);
+    const reference = referencedThreadPromptBundle(thread, turns, messageInput.text);
     host.setStatus(`Referencing ${shortThreadId(thread.id)} (${String(turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`);
     return {
-      input: codexTextInputWithAttachments(reference.prompt, messageInput),
+      text: messageInput.text,
+      input: codexTextInputWithAttachments(reference.prompt, messageInput.input),
       referencedThread: reference.referencedThread,
     };
   } catch (error) {

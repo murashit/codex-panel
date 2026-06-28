@@ -1,6 +1,7 @@
 import { type App, type EventRef, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
+import { VaultComposerContextReferenceProvider } from "../../../../src/features/chat/host/vault-composer-context-reference-provider.obsidian";
 import { VaultNoteCandidateProvider } from "../../../../src/features/chat/host/vault-note-candidate-provider.obsidian";
 
 describe("VaultNoteCandidateProvider", () => {
@@ -169,6 +170,31 @@ describe("VaultNoteCandidateProvider", () => {
     expect(provider.resolveMention("Bases/Projects.base", "Daily/Today.md")).toEqual({ name: "Projects", path: "Bases/Projects.base" });
     expect(getFirstLinkpathDest).toHaveBeenCalledWith("Bases/Projects.base", "Daily/Today.md");
   });
+
+  it("returns active note and selection references from the last markdown view", () => {
+    const file = tFile("notes/Alpha.md", "Alpha");
+    const app = appFixture({
+      activeView: markdownView(file, {
+        selection: "selected text",
+        from: { line: 2, ch: 4 },
+        to: { line: 3, ch: 1 },
+      }),
+      abstractFiles: new Map([["notes/Alpha.md", file]]),
+      linktexts: new Map([["notes/Alpha.md", "Alpha"]]),
+    });
+    const provider = new VaultComposerContextReferenceProvider(app);
+
+    expect(provider.contextReferences("Inbox.md")).toEqual({
+      activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
+      selection: {
+        name: "Alpha",
+        path: "notes/Alpha.md",
+        linktext: "Alpha",
+        range: { from: { line: 2, ch: 4 }, to: { line: 3, ch: 1 } },
+        text: "selected text",
+      },
+    });
+  });
 });
 
 interface AppFixture extends App {
@@ -187,15 +213,17 @@ function appFixture(
     linktexts?: Map<string, string>;
     fileToLinktext?: (file: TFile, sourcePath: string, omitMdExtension?: boolean) => string;
     headings?: Map<string, { heading: string; level: number }[]>;
+    activeFile?: TFile | null;
+    activeView?: unknown;
   } = {},
 ): AppFixture {
-  const refs: { source: "vault" | "metadata"; name: string; callback: () => void; ref: EventRef }[] = [];
+  const refs: { source: "vault" | "metadata" | "workspace"; name: string; callback: () => void; ref: EventRef }[] = [];
   const offref = vi.fn((ref: EventRef) => {
     const index = refs.findIndex((event) => event.ref === ref);
     if (index !== -1) refs.splice(index, 1);
   });
   const on =
-    (source: "vault" | "metadata") =>
+    (source: "vault" | "metadata" | "workspace") =>
     (name: string, callback: () => void): EventRef => {
       const ref = { id: `${source}:${name}:${refs.length.toString()}` } as unknown as EventRef;
       refs.push({ source, name, callback, ref });
@@ -209,6 +237,10 @@ function appFixture(
       }
     },
     workspace: {
+      on: on("workspace"),
+      offref,
+      getActiveFile: () => options.activeFile ?? null,
+      getActiveViewOfType: () => options.activeView ?? null,
       getLastOpenFiles: () => options.lastOpenFiles ?? [],
     },
     metadataCache: {
@@ -229,6 +261,19 @@ function appFixture(
       getAbstractFileByPath: (path: string) => options.abstractFiles?.get(path) ?? null,
     },
   } as unknown as AppFixture;
+}
+
+function markdownView(
+  file: TFile,
+  selection: { selection: string; from: { line: number; ch: number }; to: { line: number; ch: number } },
+): unknown {
+  return {
+    file,
+    editor: {
+      getSelection: () => selection.selection,
+      getCursor: (kind: "from" | "to") => (kind === "from" ? selection.from : selection.to),
+    },
+  };
 }
 
 function tFile(path: string, basename: string): TFile {

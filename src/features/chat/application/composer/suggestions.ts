@@ -4,6 +4,12 @@ import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForMo
 import type { Thread } from "../../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import { shortThreadId } from "../../../../shared/id/thread-id";
+import {
+  type ComposerContextReferences,
+  formatComposerContextRange,
+  type SelectionContextReference,
+  selectionContextReferenceMarker,
+} from "./context-references";
 import { SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
 
 export interface ComposerSuggestion {
@@ -14,10 +20,12 @@ export interface ComposerSuggestion {
   appendSpaceOnInsert?: boolean;
   tabCursorOffset?: number;
   suffixOnInsert?: string;
+  selectionContext?: SelectionContextReference;
 }
 
 export interface ComposerSuggestionOptions {
   activeThreadId?: string | null;
+  contextReferences?: ComposerContextReferences;
 }
 
 export interface NoteCandidate {
@@ -93,6 +101,7 @@ export function activeComposerSuggestions(
 ): ComposerSuggestion[] {
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
+    activeContextReferenceSuggestions(beforeCursor, options.contextReferences) ??
     activeSlashSubcommandSuggestions(beforeCursor) ??
     activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
     modelOverrideSuggestions(beforeCursor, models) ??
@@ -101,6 +110,38 @@ export function activeComposerSuggestions(
     activeSkillSuggestions(beforeCursor, skills) ??
     []
   );
+}
+
+function activeContextReferenceSuggestions(
+  beforeCursor: string,
+  references: ComposerContextReferences | undefined,
+): ComposerSuggestion[] | null {
+  const match = /(^|[\s([{])@([A-Za-z-]{0,120})$/.exec(beforeCursor);
+  if (!match) return null;
+
+  const rawQuery = match[2];
+  if (rawQuery === undefined) return null;
+  const query = rawQuery.toLowerCase();
+  const start = beforeCursor.length - rawQuery.length - 1;
+  const suggestions: ComposerSuggestion[] = [];
+  if (references?.activeNote && "active-note".startsWith(query) && query !== "active-note") {
+    suggestions.push({
+      display: "Active note",
+      detail: references.activeNote.path,
+      replacement: `[[${references.activeNote.linktext}]]`,
+      start,
+    });
+  }
+  if (references?.selection && "selection".startsWith(query) && query !== "selection") {
+    suggestions.push({
+      display: "Selection",
+      detail: `${references.selection.path} ${formatComposerContextRange(references.selection.range)}`,
+      replacement: selectionContextReferenceMarker(references.selection),
+      start,
+      selectionContext: references.selection,
+    });
+  }
+  return suggestions.slice(0, 8);
 }
 
 export function applyComposerSuggestionInsertion(

@@ -1,8 +1,20 @@
 import { parseLinktext } from "obsidian";
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import { codexTextInputWithMentions, type RequestAdditionalContext, type RequestMention } from "../../../../domain/chat/input";
+import {
+  type CodexInput,
+  codexTextInputWithMentions,
+  type RequestAdditionalContext,
+  type RequestMention,
+} from "../../../../domain/chat/input";
+import {
+  type ComposerContextReferences,
+  emptyComposerContextReferences,
+  formatComposerContextRange,
+  type SelectionContextReference,
+  selectionContextReferenceMarker,
+} from "./context-references";
 
-export interface ParsedWikiLink {
+interface ParsedWikiLink {
   raw: string;
   target: string;
   subpath: string;
@@ -12,8 +24,14 @@ export interface ParsedWikiLink {
 export type WikiLinkMentionResolver = (target: string) => { name: string; path: string } | null;
 
 const WIKILINK_ADDITIONAL_CONTEXT_KEY = "codex_panel_wikilinks";
+const OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY = "codex_panel_obsidian_context";
 const WIKILINK_PATTERN = /\[\[([^\]\n]+?)\]\]/g;
 const SKILL_REFERENCE_PATTERN = /(^|[\s([{])\$([^\s\])}.,;!?]{1,120})(?=$|[\s\])}.,;!?])/g;
+
+export interface PreparedComposerInput {
+  text: string;
+  input: CodexInput;
+}
 
 function parsedWikiLinks(text: string): ParsedWikiLink[] {
   const links: ParsedWikiLink[] = [];
@@ -37,11 +55,22 @@ export function userInputWithWikiLinkMentionsAndSkills(
   resolveMention: WikiLinkMentionResolver,
   skills: readonly SkillMetadata[],
 ) {
+  return preparedUserInputWithWikiLinkMentionsSkillsAndContext(text, resolveMention, skills).input;
+}
+
+export function preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+  text: string,
+  resolveMention: WikiLinkMentionResolver,
+  skills: readonly SkillMetadata[],
+  contextReferences: ComposerContextReferences = emptyComposerContextReferences(),
+): PreparedComposerInput {
+  const contextReplacement = textWithContextReferences(text, contextReferences);
+  const resolvedText = contextReplacement.text;
   const mentions: RequestMention[] = [];
   const wikilinkMappings: string[] = [];
   const seenPaths = new Set<string>();
 
-  for (const link of parsedWikiLinks(text)) {
+  for (const link of parsedWikiLinks(resolvedText)) {
     const mention = resolveMention(link.target);
     if (!mention || seenPaths.has(mention.path)) continue;
     seenPaths.add(mention.path);
@@ -49,17 +78,60 @@ export function userInputWithWikiLinkMentionsAndSkills(
     wikilinkMappings.push(`- [[${link.raw}]] -> ${mention.path}`);
   }
 
+  for (const selection of contextReplacement.selections) {
+    if (seenPaths.has(selection.path)) continue;
+    seenPaths.add(selection.path);
+    mentions.push({ name: selection.name, path: selection.path });
+  }
+
   const skillByName = firstEnabledSkillByName(skills);
   const resolvedSkills: RequestMention[] = [];
   const seenSkillPaths = new Set<string>();
-  for (const reference of parsedSkillReferences(text)) {
+  for (const reference of parsedSkillReferences(resolvedText)) {
     const skill = skillByName.get(reference.toLowerCase());
     if (!skill || seenSkillPaths.has(skill.path)) continue;
     seenSkillPaths.add(skill.path);
     resolvedSkills.push({ name: skill.name, path: skill.path });
   }
 
-  return codexTextInputWithMentions(text, mentions, resolvedSkills, wikilinkAdditionalContext(wikilinkMappings));
+  return {
+    text: resolvedText,
+    input: codexTextInputWithMentions(
+      resolvedText,
+      mentions,
+      resolvedSkills,
+      additionalContext(wikilinkMappings, contextReplacement.selections),
+    ),
+  };
+}
+
+function textWithContextReferences(
+  text: string,
+  contextReferences: ComposerContextReferences,
+): { text: string; selections: SelectionContextReference[] } {
+  return {
+    text,
+    selections: selectionsReferencedByText(text, contextReferences.selectionSnapshots ?? []),
+  };
+}
+
+function selectionsReferencedByText(text: string, snapshots: readonly SelectionContextReference[]): SelectionContextReference[] {
+  const selections: SelectionContextReference[] = [];
+  const seen = new Set<string>();
+  for (const snapshot of snapshots) {
+    const marker = selectionContextReferenceMarker(snapshot);
+    if (!text.includes(marker) || seen.has(marker)) continue;
+    seen.add(marker);
+    selections.push(snapshot);
+  }
+  return selections;
+}
+
+function additionalContext(
+  wikilinkMappings: readonly string[],
+  selections: readonly SelectionContextReference[],
+): RequestAdditionalContext[] {
+  return [...wikilinkAdditionalContext(wikilinkMappings), ...obsidianContextAdditionalContext(selections)];
 }
 
 function wikilinkAdditionalContext(mappings: readonly string[]): RequestAdditionalContext[] {
@@ -69,6 +141,25 @@ function wikilinkAdditionalContext(mappings: readonly string[]): RequestAddition
       key: WIKILINK_ADDITIONAL_CONTEXT_KEY,
       kind: "untrusted",
       value: ["Resolved Obsidian wikilinks for the current user input:", ...mappings].join("\n"),
+    },
+  ];
+}
+
+function obsidianContextAdditionalContext(selections: readonly SelectionContextReference[]): RequestAdditionalContext[] {
+  if (selections.length === 0) return [];
+  const references = selections.map((selection) => {
+    const location = `${selection.path} ${formatComposerContextRange(selection.range)}`;
+    return `- ${selectionContextReferenceMarker(selection)} -> ${location}`;
+  });
+  const bodies = selections.flatMap((selection, index) => {
+    const prefix = index === 0 ? [] : [""];
+    return [...prefix, `${selectionContextReferenceMarker(selection)}:`, selection.text];
+  });
+  return [
+    {
+      key: OBSIDIAN_CONTEXT_ADDITIONAL_CONTEXT_KEY,
+      kind: "untrusted",
+      value: ["Referenced Obsidian selections for the current user input:", ...references, "", ...bodies].join("\n"),
     },
   ];
 }

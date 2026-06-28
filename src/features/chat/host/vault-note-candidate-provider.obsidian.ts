@@ -3,6 +3,7 @@ import { stripHeadingForLink, TFile } from "obsidian";
 
 import type { NoteCandidateProvider, WikiLinkMention } from "../application/composer/note-context";
 import type { NoteCandidate } from "../application/composer/suggestions";
+import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
 interface FileCandidate {
   basename: string;
@@ -14,7 +15,7 @@ interface FileCandidate {
 }
 
 interface EventSource {
-  offref(ref: EventRef): void;
+  offref?(ref: EventRef): void;
 }
 
 export class VaultNoteCandidateProvider implements NoteCandidateProvider {
@@ -71,7 +72,7 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
 
   private registerEvent(source: EventSource, ref: EventRef): void {
     this.unregisterEvents.push(() => {
-      source.offref(ref);
+      source.offref?.(ref);
     });
   }
 
@@ -91,18 +92,6 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
     }));
     return this.fileCandidatesCache;
   }
-}
-
-function linktextForFile(app: App, file: TFile, sourcePath: string): string {
-  const linktext = app.metadataCache.fileToLinktext(file, sourcePath, true);
-  const extension = file.extension.toLowerCase();
-  return extension === "md" || extension.length === 0 || linktext.toLowerCase().endsWith(`.${extension}`)
-    ? linktext
-    : `${linktext}.${file.extension}`;
-}
-
-function displayNameForFile(file: TFile): string {
-  return file.extension === "md" ? file.basename : file.name;
 }
 
 function noteHeadings(app: App, file: TFile): NoteCandidate["headings"] {

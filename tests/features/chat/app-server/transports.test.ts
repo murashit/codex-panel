@@ -280,7 +280,7 @@ describe("chat app-server transports", () => {
     const setStatus = vi.fn();
     const resolver = createThreadReferenceResolver({
       currentClient: () => client,
-      codexInput: (text) => textInput(text),
+      prepareInput: (text) => ({ text, input: textInput(text) }),
       addSystemMessage: vi.fn(),
       setStatus,
     });
@@ -301,6 +301,7 @@ describe("chat app-server transports", () => {
       type: "text",
       text: expect.stringContaining("Reference thread history:"),
     });
+    expect(result?.text).toBe("summarize");
     expect(result?.referencedThread).toMatchObject({ title: "Other", includedTurns: 1, turnLimit: 20 });
     expect(setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
   });

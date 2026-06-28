@@ -216,6 +216,39 @@ describe("composer suggestions", () => {
 
   it("uses one active suggestion family at a time", () => {
     expect(activeComposerSuggestions("[[bet", notes, [])[0]?.replacement).toBe("[[Beta Note]]");
+    expect(
+      activeComposerSuggestions("@act", notes, [], [], [], null, {
+        contextReferences: {
+          activeNote: { name: "Beta Note", path: "topics/Beta Note.md", linktext: "Beta Note" },
+          selection: null,
+        },
+      })[0]?.replacement,
+    ).toBe("[[Beta Note]]");
+    expect(
+      activeComposerSuggestions("@sel", notes, [], [], [], null, {
+        contextReferences: {
+          activeNote: null,
+          selection: {
+            name: "Beta Note",
+            path: "topics/Beta Note.md",
+            linktext: "Beta Note",
+            range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+            text: "selected",
+          },
+        },
+      })[0],
+    ).toMatchObject({
+      display: "Selection",
+      detail: "topics/Beta Note.md L42:C5-L47:C1",
+      replacement: "[[Beta Note]] (L42:C5-L47:C1)",
+      selectionContext: {
+        name: "Beta Note",
+        path: "topics/Beta Note.md",
+        linktext: "Beta Note",
+        range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
+        text: "selected",
+      },
+    });
     expect(activeComposerSuggestions("/pla", notes, [])[0]?.replacement).toBe("/plan");
     expect(activeComposerSuggestions("/rea", notes, [])[0]?.replacement).toBe("/reasoning");
     expect(activeComposerSuggestions("/sta", notes, [])[0]?.replacement).toBe("/status");

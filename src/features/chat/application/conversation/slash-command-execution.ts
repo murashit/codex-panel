@@ -73,6 +73,7 @@ export interface SlashCommandExecutionResult {
 }
 
 export interface ThreadReferenceInput {
+  text: string;
   input: CodexInput;
   referencedThread: ReferencedThreadMetadata;
 }
@@ -121,7 +122,7 @@ export async function executeSlashCommand(
       }
       const reference = await context.referThread(thread.thread, parsed.message);
       if (!reference) return;
-      return { sendText: parsed.message, sendInput: reference.input, referencedThread: reference.referencedThread };
+      return { sendText: reference.text, sendInput: reference.input, referencedThread: reference.referencedThread };
     }
     case "fork":
       if (!context.activeThreadId) {

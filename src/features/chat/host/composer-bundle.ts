@@ -8,6 +8,7 @@ import type { ChatMessageScrollController } from "../panel/surface/message-strea
 import type { ChatPanelEnvironment } from "./contracts";
 import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 import type { ChatPanelThreadLifecycle } from "./thread-bundle";
+import { VaultComposerContextReferenceProvider } from "./vault-composer-context-reference-provider.obsidian";
 import { VaultNoteCandidateProvider } from "./vault-note-candidate-provider.obsidian";
 
 interface ChatPanelComposerHost {
@@ -62,6 +63,7 @@ function createSessionComposerController(
   const { environment, stateStore } = host;
   return new ChatComposerController({
     noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
+    contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app),
     sourcePath: () => environment.obsidian.app.workspace.getActiveFile()?.path ?? "",
     stateStore,
     viewId: environment.obsidian.viewId,
