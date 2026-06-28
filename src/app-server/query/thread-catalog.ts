@@ -4,6 +4,7 @@ import type { ObservedResultListener } from "../../shared/query/observed-result"
 type ThreadListObserver = ObservedResultListener<readonly Thread[]>;
 
 interface ThreadCatalogStore {
+  contextKey(): string;
   activeThreadsSnapshot(): readonly Thread[] | null;
   archivedThreadsSnapshot(): readonly Thread[] | null;
   fetchActiveThreads(): Promise<readonly Thread[]>;
@@ -29,6 +30,11 @@ type PendingThreadRemovals = Set<string>;
 interface PendingThreadListFacts {
   readonly upserts: PendingThreadUpserts;
   readonly removals: PendingThreadRemovals;
+}
+
+interface ThreadCatalogFacts {
+  readonly active: PendingThreadListFacts;
+  readonly archived: PendingThreadListFacts;
 }
 
 export type ThreadCatalogEventObserver = (event: ThreadCatalogEvent) => void;
@@ -71,37 +77,49 @@ export interface ThreadCatalogEventSink {
 export interface ThreadCatalog extends ThreadCatalogActiveReader, ThreadCatalogArchivedReader, ThreadCatalogEventSink {}
 
 export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalog {
-  const activeFacts = pendingThreadListFacts();
-  const archivedFacts = pendingThreadListFacts();
+  const factsByContext = new Map<string, ThreadCatalogFacts>();
   const { store } = options;
+  const currentFacts = (): ThreadCatalogFacts => threadCatalogFactsForContext(factsByContext, store.contextKey());
   const apply = (event: ThreadCatalogEvent): void => {
-    applyThreadCatalogEvent(store, activeFacts, archivedFacts, event);
+    const facts = currentFacts();
+    applyThreadCatalogEvent(store, facts.active, facts.archived, event);
     options.onEventApplied?.(event);
   };
 
   return {
     apply,
-    activeSnapshot: () => threadListProjection(store.activeThreadsSnapshot(), activeFacts),
-    loadActive: () => loadThreadList(store.fetchActiveThreads(), activeFacts),
-    refreshActive: () => loadThreadList(store.refreshActiveThreads(), activeFacts),
+    activeSnapshot: () => threadListProjection(store.activeThreadsSnapshot(), currentFacts().active),
+    loadActive: () => loadThreadList(store.fetchActiveThreads(), currentFacts().active),
+    refreshActive: () => loadThreadList(store.refreshActiveThreads(), currentFacts().active),
     observeActive: (observer, observeOptions) =>
       store.observeActiveThreadsResult((result) => {
         observer({
           ...result,
-          value: threadListProjection(result.value, activeFacts),
+          value: threadListProjection(result.value, currentFacts().active),
         });
       }, observeOptions),
-    archivedSnapshot: () => threadListProjection(store.archivedThreadsSnapshot(), archivedFacts),
-    loadArchived: () => loadThreadList(store.fetchArchivedThreads(), archivedFacts),
-    refreshArchived: () => loadThreadList(store.refreshArchivedThreads(), archivedFacts),
+    archivedSnapshot: () => threadListProjection(store.archivedThreadsSnapshot(), currentFacts().archived),
+    loadArchived: () => loadThreadList(store.fetchArchivedThreads(), currentFacts().archived),
+    refreshArchived: () => loadThreadList(store.refreshArchivedThreads(), currentFacts().archived),
     observeArchived: (observer, observeOptions) =>
       store.observeArchivedThreadsResult((result) => {
         observer({
           ...result,
-          value: threadListProjection(result.value, archivedFacts),
+          value: threadListProjection(result.value, currentFacts().archived),
         });
       }, observeOptions),
   };
+}
+
+function threadCatalogFactsForContext(factsByContext: Map<string, ThreadCatalogFacts>, contextKey: string): ThreadCatalogFacts {
+  const existing = factsByContext.get(contextKey);
+  if (existing) return existing;
+  const facts = {
+    active: pendingThreadListFacts(),
+    archived: pendingThreadListFacts(),
+  };
+  factsByContext.set(contextKey, facts);
+  return facts;
 }
 
 function applyThreadCatalogEvent(

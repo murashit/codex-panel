@@ -31,6 +31,11 @@ export class AppServerSharedQueries {
 
   constructor(private readonly options: AppServerSharedQueriesOptions) {}
 
+  contextKey(): string {
+    const context = this.context();
+    return `${context.codexPath}\u0000${context.vaultPath}`;
+  }
+
   activeThreadsSnapshot(): readonly Thread[] | null {
     return this.options.cache.activeThreadsSnapshot(this.context());
   }

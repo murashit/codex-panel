@@ -174,6 +174,22 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
   });
 
+  it("scopes pending lifecycle facts by app-server query context", () => {
+    const context = { codexPath: "codex-a", vaultPath: "/vault" };
+    const { catalog } = catalogFixture({ context: () => context });
+
+    catalog.apply({ type: "thread-started", thread: thread("started-a") });
+    expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
+
+    context.codexPath = "codex-b";
+    expect(catalog.activeSnapshot()).toBeNull();
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread-b")] });
+    expect(catalog.activeSnapshot()).toEqual([thread("thread-b")]);
+
+    context.codexPath = "codex-a";
+    expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
+  });
+
   it("keeps rollback fork metadata until active snapshots catch up to the rollback version", () => {
     const { catalog } = catalogFixture();
     const forkBeforeRollback = thread("forked", false, { name: "Before", preview: "Before rollback", updatedAt: 20 });
@@ -354,12 +370,13 @@ describe("ThreadCatalog", () => {
 function catalogFixture(
   options: {
     fetchThreads?: (context: { codexPath: string; vaultPath: string }, archived: boolean) => Promise<readonly Thread[]>;
+    context?: () => { codexPath: string; vaultPath: string };
     onEventApplied?: ThreadCatalogEventObserver;
   } = {},
 ) {
   const store = new AppServerSharedQueries({
     cache: cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([]))),
-    context: () => ({ codexPath: "codex", vaultPath: "/vault" }),
+    context: options.context ?? (() => ({ codexPath: "codex", vaultPath: "/vault" })),
   });
   const catalog = createThreadCatalog(
     options.onEventApplied
