@@ -10,11 +10,11 @@ npm run fix
 npm run check
 ```
 
-Use this as the normal edit loop. `npm run fix` applies Biome formatting, import organization, safe lint fixes, and Knip's safe unused-code cleanup. `npm run check` is the local preflight for type checking, tests, lint, format/assist checks, unused-code checks, CSS checks, and the production bundle.
+Use this as the normal edit loop. `npm run fix` applies safe mechanical cleanup, and `npm run check` is the local preflight before review.
 
-Use focused scripts for tight loops: `npm run typecheck`, `npm run test`, `npm run build`, or the targeted `npm run check:*` scripts. CI and release preflight run the same `npm run check` command as local development.
+Use focused scripts such as `npm run typecheck`, `npm run test`, or `npm run build` for tight loops. CI and release preflight run the same `npm run check` command as local development.
 
-`npm run check` combines Biome, TypeScript, Vitest, ESLint, Knip unused-code checks, CSS usage checks, and the production build. Biome warnings fail the check. Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
+Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
 
 ## Generated and Loaded Files
 
@@ -33,46 +33,27 @@ The generation script uses `codex app-server generate-ts --experimental` because
 
 ## Source Layout
 
-The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint:
+The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint. Put behavior where its reason to change lives: app-server protocol adaptation at the app-server boundary, generated-independent meaning in domain code, feature-neutral helpers in shared code, feature workflows under their owning feature, and Obsidian lifecycle or workspace wiring at Obsidian-facing boundaries.
 
-- `src/main.ts` and `src/plugin-runtime.ts` own Obsidian plugin registration, lifecycle wiring, and cross-surface runtime coordination.
-- `src/app-server/` owns the app-server boundary through responsibility subfolders such as `connection/`, `protocol/`, `query/`, `routing/`, and `services/`. Do not add root-level app-server modules.
-- `src/features/` contains feature-owned surfaces and workflows. Feature-to-feature imports are acceptable only when the imported feature owns a concrete capability.
-- `src/features/turn-diff/` owns the turn diff Obsidian view, renderer, and persisted view state; chat provides current turn diff state through its workspace contract.
-- `src/workspace/` and `src/settings/` own Obsidian workspace coordination and settings-tab behavior.
-- `src/domain/` contains panel-owned, generated-independent meaning models and pure derivations. Domain code must not import app-server protocol, generated bindings, feature modules, UI, or Obsidian APIs.
-- `src/shared/` contains feature-neutral helpers. Move behavior here only when it is genuinely shared outside one feature.
-- `src/styles/` contains authored CSS modules and `order.json`; `scripts/build-styles.mjs` concatenates them into the ignored root `styles.css` release asset.
-
-Within `src/features/chat/`:
-
-- `domain/` owns chat-local meaning models and pure derivations for message stream items, pending request display facts, runtime intent, and local IDs.
-- `application/` owns chat state transitions and workflow orchestration for composer input, turn submission, thread lifecycle, pending requests, runtime settings, connection status, and reducer state.
-- `app-server/` adapts app-server notifications, requests, thread payloads, diagnostics, and turn items into chat-owned actions, projections, and message stream models.
-- `host/` wires each chat session to Obsidian views, workspace services, app-server clients, plugin settings, shared runtime state, lifecycle cleanup, and cross-surface handles.
-- `panel/` owns the Preact shell, shell-state projection, panel controllers, toolbar/composer/message-stream surface adapters, and Obsidian-facing panel snapshots.
-- `presentation/` owns view-model projection, grouping, formatting, and status text for chat UI surfaces.
-- `ui/` owns Preact and explicit DOM bridge rendering pieces for the composer, toolbar, goal view, and message stream.
-
-Tests should mirror the ownership boundary of the code under test. Keep chat feature tests under `tests/features/chat/app-server/`, `application/`, `domain/`, `host/`, `panel/`, `presentation/`, or `ui/` instead of flattened shortcut folders such as `connection/`, `composer/`, `message-stream/`, `runtime/`, `threads/`, or `conversation/`. Feature-neutral tests belong under `tests/shared/`.
+Within chat, keep state transitions and workflow orchestration separate from app-server adaptation, session/Obsidian wiring, and rendering surfaces. Tests should mirror the ownership boundary of the code under test instead of using flattened shortcut folders that avoid choosing the responsible layer.
 
 ## Placement Rules
 
-Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. Feature-neutral behavior belongs in `src/shared/`, `src/domain/`, or `src/app-server/`.
+Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. Move shared helpers to `src/shared/`, panel-wide meaning models to `src/domain/`, and app-server protocol adaptation to `src/app-server/`.
 
 Generated app-server types should stay behind app-server connection and protocol adapter modules. Chat-local app-server integration modules may consume app-server protocol projections, but not raw generated bindings. If a domain, shared, settings, workspace, or UI module needs app-server payloads, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
 
-Chat application workflows should not import root `src/app-server/` modules or receive `AppServerClient` access directly. Keep app-server client access, connection freshness checks, vault-path injection, and payload projection in `src/features/chat/app-server/` transports or host-owned wiring, then pass chat-owned workflow contracts into application modules. Keep session-level adapter composition at the chat app-server boundary so host bundles consume a composed app-server adapter instead of importing each transport factory.
+Chat application workflows should not import root `src/app-server/` modules or receive `AppServerClient` access directly. Keep app-server client access, connection freshness checks, vault-path injection, and payload projection in `src/features/chat/app-server/` transports or host-owned wiring, then pass chat-owned workflow contracts into application modules. When several host bundles need the same app-server adapter set, compose that set once at the chat app-server boundary instead of reassembling transport factories in each host bundle.
 
-Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only in `src/features/chat/panel/shell-state.tsx`; lint enforces this boundary. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
+Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only for shell-local projection. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
 
-Chat feature folders should keep dependencies flowing toward owned adapters and render surfaces: `application/` must not import app-server, host, panel, presentation, or UI layers; `app-server/` must not import host, panel, presentation, or UI layers; `panel/` must not import app-server adapters or host internals; `presentation/` must not import application, app-server, host, panel, or UI layers; and `ui/` must not import application, app-server, host, or panel layers. Biome enforces these folder-scoped import boundaries with per-folder plugin includes.
+Chat feature dependencies should flow from pure workflow and meaning code toward owned adapters and render surfaces. Lower layers must not reach into host/session wiring, panel internals, or UI implementation details.
 
 Chat modules should not import `src/workspace/` directly; workspace operations enter chat through host contracts, while workspace modules may coordinate concrete Obsidian chat views.
 
-Use DOM reads, writes, measurements, hit-tests, focus/selection operations, and DOM event listener wiring only from explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Normal `.ts` and `.tsx` modules may keep refs and call named adapters, but they should not interpret DOM structure or layout directly. Name bridge files with a `.dom`, `.obsidian`, or `.measure` suffix so Biome can enforce the boundary without file-specific allowlists.
+Use DOM reads, writes, measurements, hit-tests, focus/selection operations, and DOM event listener wiring only from explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Normal modules may keep refs and call named adapters, but they should not interpret DOM structure or layout directly. Name bridge files with a `.dom`, `.obsidian`, or `.measure` suffix.
 
-Use `.tsx` only in rendering-owned source folders: chat panel and UI modules, Obsidian/settings surfaces, shared UI components, and explicit `.dom.tsx` rendering boundaries such as the selection rewrite popover and threads view shell. Non-rendering source should use `.ts`; Biome enforces this so lower-level app-server, domain, application, presentation, workspace, and generic shared modules do not grow JSX dependencies.
+Use `.tsx` only in rendering-owned source folders: chat panel and UI modules, Obsidian/settings surfaces, shared UI components, and explicit `.dom.tsx` rendering boundaries such as the selection rewrite popover and threads view shell. Non-rendering source should use `.ts`.
 
 ## CSS Rules
 
@@ -89,10 +70,8 @@ Prefer functions and factory-created objects over classes. Use a class only when
 ## Common Pitfalls
 
 - Build before Obsidian validation. Obsidian loads ignored root assets, not the TypeScript or authored CSS sources directly.
-- Keep generated app-server types behind `src/app-server/` unless `docs/design.md` documents a boundary exception.
 - Preserve last-known-good app-server state on refresh failure. Do not turn disconnected reads into authoritative empty thread lists, settings snapshots, hook inventories, or diagnostics.
 - Normalize optional and nullable app-server values before display. Users should not see raw `undefined`, `null`, protocol enum gaps, or fallback labels that imply Panel owns a Codex runtime setting.
-- Route chat-visible state through `ChatStateStore` when it must synchronize with app-server notifications, turns, pending requests, runtime settings, history cursors, or open details.
 - Do not use DOM order as message history state. Message stream DOM is a presentation surface, and delayed Markdown rendering can change heights after initial render.
 
 ## API Baselines

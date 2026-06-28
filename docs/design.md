@@ -14,11 +14,9 @@ Panel settings should store only panel-specific preferences. Do not duplicate Co
 
 ## Sources of Truth
 
-The repository checkout is the source of truth for implementation, version control, and release work. Ignored release assets are generated outputs, even when Obsidian loads them at runtime.
-
 `codex app-server` is the source of truth for Codex state. Panel-side caches exist to keep the UI stable across transient failures; failed reads or stale panels must not become authoritative empty state.
 
-The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility. Current optional and nullable fields are still part of the contract and must be normalized before display.
+The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility.
 
 Runtime controls should represent visible user intent layered over Codex's active thread state and effective configuration. They should not become a parallel copy of Codex configuration or policy. Codex-owned policy structures should stay at the app-server boundary unless the panel owns a concrete workflow for them. Diagnostics should include only actionable troubleshooting facts, not broad raw snapshots kept because they are available.
 
@@ -26,7 +24,7 @@ Fast mode is a user-facing runtime intent, not a general service-tier editor. Co
 
 ## Code Boundaries
 
-Generated app-server protocol types should stay behind `src/app-server/`. Services at that boundary adapt protocol payloads into panel-owned domain models or small projections before payloads reach features, workspace coordination, settings, or UI.
+Raw app-server protocol belongs at the app-server boundary. Boundary code should adapt protocol payloads into panel-owned domain models or small projections before those values reach features, workspace coordination, settings, or UI.
 
 Chat application workflows should express turn, thread, goal, runtime-setting, and reference-thread needs as chat-owned contracts. Root app-server clients, RPC method names, connection freshness checks, vault-path injection, and protocol projection belong in chat app-server transports or host wiring, not in application state-transition code.
 
@@ -36,21 +34,19 @@ Server request adapters should normalize method-specific app-server requests int
 
 Source modules should be organized by reason to change, not by the single Obsidian plugin entrypoint. Boundaries should stay close to the state, lifecycle, or external API they own.
 
-Feature-to-feature imports are acceptable when the imported feature owns a real capability. Generic helpers belong in `src/shared/`, generated-independent meaning belongs in `src/domain/`, and protocol adaptation belongs in `src/app-server/`.
-
 Do not hide complexity behind forwarding layers. Add an abstraction only when it owns a lifecycle, boundary, state transition, or reusable domain capability.
 
 ## UI Ownership
 
 Runtime UI composition is Preact-owned. Preact components should render the panel shell, toolbar, message stream, composer, and request controls.
 
-Obsidian and app-server boundaries stay outside Preact components. `ItemView` classes, plugin lifecycle, app-server connections, controllers, `MarkdownRenderer`, editor APIs, notices, and workspace operations belong in boundary modules.
+Obsidian and app-server boundaries stay outside Preact components. External lifecycles, app-server connections, editor/workspace APIs, and rendering bridges belong in boundary modules.
 
-Chat-visible state belongs in `ChatStateStore` and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth for turns, pending requests, runtime settings, history cursors, or open details.
+Chat-visible state belongs in the chat state store and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth for turns, pending requests, runtime settings, history cursors, or open details.
 
-Preact Signals are a shell-local projection adapter, not a second state system. Surface projections should read narrow shell-state contracts instead of making components or presenters depend on broad reducer slices. Domain, application, host, presentation, and component modules should keep using pure selectors, reducer actions, and explicit props rather than importing signals directly.
+Preact Signals are a shell-local projection adapter, not a second state system. Surface projections should read narrow shell-state contracts instead of making components or presenters depend on broad reducer slices.
 
-Imperative DOM bridges are allowed when an external API, host lifecycle, hit-test, focus/selection operation, or measurement problem requires an `HTMLElement`. Normal modules should keep DOM meaning behind named adapters; files that read, measure, write, query, focus, or wire DOM directly should be named with a `.dom`, `.obsidian`, or `.measure` suffix and should not become a second UI composition system inside Preact-owned surfaces.
+Imperative DOM bridges are allowed when an external API, host lifecycle, hit-test, focus/selection operation, or measurement problem requires an `HTMLElement`. They should remain narrow boundary adapters, not a second UI composition system inside Preact-owned surfaces.
 
 ## Interaction Principles
 
