@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../src/app-server/connection/client";
+import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
 import { listThreads } from "../../src/app-server/services/threads";
 
 describe("app-server thread response adapters", () => {
@@ -9,21 +9,27 @@ describe("app-server thread response adapters", () => {
       data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20 }],
     });
     const client = {
-      listThreads: clientListThreads,
-    } as unknown as AppServerClient;
+      request: clientListThreads,
+    } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault", { archived: true })).resolves.toEqual([
       { id: "thread-1", preview: "Preview", name: null, archived: true, createdAt: 10, updatedAt: 20 },
     ]);
-    expect(clientListThreads).toHaveBeenCalledWith("/vault", { archived: true, cursor: null, limit: 100 });
+    expect(clientListThreads).toHaveBeenCalledWith("thread/list", {
+      cwd: "/vault",
+      archived: true,
+      limit: 100,
+      sortKey: "recency_at",
+      sortDirection: "desc",
+    });
   });
 
   it("preserves app-server recency timestamps when available", async () => {
     const client = {
-      listThreads: vi.fn().mockResolvedValue({
+      request: vi.fn().mockResolvedValue({
         data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20, recencyAt: 30 }],
       }),
-    } as unknown as AppServerClient;
+    } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       { id: "thread-1", preview: "Preview", name: null, archived: false, createdAt: 10, updatedAt: 20, recencyAt: 30 },
@@ -32,10 +38,10 @@ describe("app-server thread response adapters", () => {
 
   it("preserves nullable app-server recency timestamps", async () => {
     const client = {
-      listThreads: vi.fn().mockResolvedValue({
+      request: vi.fn().mockResolvedValue({
         data: [{ id: "thread-1", preview: "Preview", name: null, createdAt: 10, updatedAt: 20, recencyAt: null }],
       }),
-    } as unknown as AppServerClient;
+    } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       { id: "thread-1", preview: "Preview", name: null, archived: false, createdAt: 10, updatedAt: 20, recencyAt: null },
@@ -54,24 +60,37 @@ describe("app-server thread response adapters", () => {
         nextCursor: null,
       });
     const client = {
-      listThreads: clientListThreads,
-    } as unknown as AppServerClient;
+      request: clientListThreads,
+    } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault")).resolves.toEqual([
       { id: "thread-1", preview: "First", name: null, archived: false, createdAt: 10, updatedAt: 20 },
       { id: "thread-2", preview: "Second", name: null, archived: false, createdAt: 30, updatedAt: 40 },
     ]);
-    expect(clientListThreads).toHaveBeenNthCalledWith(1, "/vault", { archived: false, cursor: null, limit: 100 });
-    expect(clientListThreads).toHaveBeenNthCalledWith(2, "/vault", { archived: false, cursor: "next", limit: 100 });
+    expect(clientListThreads).toHaveBeenNthCalledWith(1, "thread/list", {
+      cwd: "/vault",
+      archived: false,
+      limit: 100,
+      sortKey: "recency_at",
+      sortDirection: "desc",
+    });
+    expect(clientListThreads).toHaveBeenNthCalledWith(2, "thread/list", {
+      cwd: "/vault",
+      cursor: "next",
+      archived: false,
+      limit: 100,
+      sortKey: "recency_at",
+      sortDirection: "desc",
+    });
   });
 
   it("rejects repeated thread list cursors", async () => {
     const client = {
-      listThreads: vi.fn().mockResolvedValue({
+      request: vi.fn().mockResolvedValue({
         data: [],
         nextCursor: "same",
       }),
-    } as unknown as AppServerClient;
+    } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault")).rejects.toThrow("repeated thread list cursor");
   });

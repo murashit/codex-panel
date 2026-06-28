@@ -8,6 +8,7 @@ import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccessOptions } from "../connection/client-access";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listModelMetadata } from "../services/catalog";
+import { readEffectiveConfig } from "../services/config";
 import { listThreads } from "../services/threads";
 import {
   type AppServerQueryContext,
@@ -268,7 +269,7 @@ export class AppServerQueryCache {
       queryKey: appServerMetadataQueryKey(refreshContext),
       queryFn: async (): Promise<SharedServerMetadata> => {
         return this.runWithClient(refreshContext, async (client) => {
-          const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await client.readEffectiveConfig(refreshContext.vaultPath));
+          const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, refreshContext.vaultPath));
           const [models, skills, rateLimit] = await Promise.all([
             this.readModelMetadataProbe(refreshContext, client),
             readSkillMetadataProbe(client, refreshContext.vaultPath, options.forceSkills ?? false),

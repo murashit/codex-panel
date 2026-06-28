@@ -126,9 +126,17 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
 type MockClient = ReturnType<typeof clientMock>;
 
 function clientMock() {
-  return {
+  const client = {
     setThreadName: vi.fn().mockResolvedValue({}),
     archiveThread: vi.fn().mockResolvedValue({}),
+  };
+  return {
+    ...client,
+    request: vi.fn((method: string, params: { threadId: string; name?: string }) => {
+      if (method === "thread/name/set") return client.setThreadName(params.threadId, params.name);
+      if (method === "thread/archive") return client.archiveThread(params.threadId);
+      throw new Error(`Unexpected app-server request: ${method}`);
+    }),
   };
 }
 

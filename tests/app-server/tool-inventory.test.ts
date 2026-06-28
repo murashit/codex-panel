@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../src/app-server/connection/client";
+import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
 import { readToolInventory } from "../../src/app-server/services/tool-inventory";
+import type { PluginReadParams } from "../../src/generated/app-server/v2/PluginReadParams";
 
 describe("tool inventory", () => {
   it("reads plugin details with exactly one marketplace locator", async () => {
-    const readPlugin = vi.fn(async (params: Parameters<AppServerClient["readPlugin"]>[0]) => ({
+    const readPlugin = vi.fn(async (params: PluginReadParams) => ({
       plugin: {
         skills: params.pluginName === "local-plugin" ? [{ name: "local-skill" }] : [],
         hooks: [],
@@ -14,8 +15,7 @@ describe("tool inventory", () => {
         mcpServers: params.pluginName === "remote-plugin" ? ["remote-server"] : [],
       },
     }));
-    const client = {
-      listApps: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+    const client = toolInventoryClient({
       listInstalledPlugins: vi.fn().mockResolvedValue({
         marketplaces: [
           {
@@ -54,9 +54,7 @@ describe("tool inventory", () => {
         marketplaceLoadErrors: [],
       }),
       readPlugin,
-      listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
-      listSkills: vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", skills: [] }] }),
-    } as unknown as AppServerClient;
+    });
 
     const result = await readToolInventory(client, "/vault");
 
@@ -78,14 +76,11 @@ describe("tool inventory", () => {
   });
 
   it("skips app catalog loading during diagnostics", async () => {
-    const listApps = vi.fn().mockResolvedValue({ data: [], nextCursor: null });
-    const client = toolInventoryClient({
-      listApps,
-    });
+    const client = toolInventoryClient();
 
     const result = await readToolInventory(client, "/vault");
 
-    expect(listApps).not.toHaveBeenCalled();
+    expect(client.request).not.toHaveBeenCalledWith("app/list", expect.anything());
     expect(result.probes.some((probe) => probe.method === "app/list")).toBe(false);
   });
 
@@ -93,7 +88,7 @@ describe("tool inventory", () => {
     let activeReads = 0;
     let maxActiveReads = 0;
     const plugins = Array.from({ length: 10 }, (_, index) => installedPlugin(`plugin-${String(index)}`));
-    const readPlugin = vi.fn(async (params: Parameters<AppServerClient["readPlugin"]>[0]) => {
+    const readPlugin = vi.fn(async (params: PluginReadParams) => {
       activeReads += 1;
       maxActiveReads = Math.max(maxActiveReads, activeReads);
       await Promise.resolve();
@@ -126,27 +121,38 @@ describe("tool inventory", () => {
 
 function toolInventoryClient(
   overrides: Partial<{
-    listApps: ReturnType<typeof vi.fn>;
     listInstalledPlugins: ReturnType<typeof vi.fn>;
     readPlugin: ReturnType<typeof vi.fn>;
   }> = {},
-): AppServerClient {
+): AppServerRequestClient & { request: ReturnType<typeof vi.fn> } {
+  const listInstalledPlugins =
+    overrides.listInstalledPlugins ??
+    vi.fn().mockResolvedValue({
+      marketplaces: [],
+      marketplaceLoadErrors: [],
+    });
+  const readPlugin =
+    overrides.readPlugin ??
+    vi.fn().mockResolvedValue({
+      plugin: { skills: [], hooks: [], apps: [], appTemplates: [], mcpServers: [] },
+    });
+  const request = vi.fn(async (method: string, params: unknown) => {
+    switch (method) {
+      case "plugin/installed":
+        return (listInstalledPlugins as unknown as (params: unknown) => Promise<unknown>)(params);
+      case "plugin/read":
+        return (readPlugin as unknown as (params: unknown) => Promise<unknown>)(params);
+      case "mcpServerStatus/list":
+        return { data: [] };
+      case "skills/list":
+        return { data: [{ cwd: "/vault", skills: [] }] };
+      default:
+        throw new Error(`Unexpected app-server request: ${method}`);
+    }
+  });
   return {
-    listApps: overrides.listApps ?? vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-    listInstalledPlugins:
-      overrides.listInstalledPlugins ??
-      vi.fn().mockResolvedValue({
-        marketplaces: [],
-        marketplaceLoadErrors: [],
-      }),
-    readPlugin:
-      overrides.readPlugin ??
-      vi.fn().mockResolvedValue({
-        plugin: { skills: [], hooks: [], apps: [], appTemplates: [], mcpServers: [] },
-      }),
-    listMcpServerStatus: vi.fn().mockResolvedValue({ data: [] }),
-    listSkills: vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", skills: [] }] }),
-  } as unknown as AppServerClient;
+    request,
+  } as unknown as AppServerRequestClient & { request: ReturnType<typeof vi.fn> };
 }
 
 function installedPlugin(name: string): {

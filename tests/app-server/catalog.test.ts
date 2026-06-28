@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AppServerClient } from "../../src/app-server/connection/client";
 import {
   appServerHookOperationFromHookItem,
   hookItemsFromCatalogHooks,
@@ -7,6 +6,7 @@ import {
   skillMetadataFromCatalogSkills,
 } from "../../src/app-server/protocol/catalog";
 import { listHookCatalog, listSkillCatalog } from "../../src/app-server/services/catalog";
+import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
 import type { SkillMetadata } from "../../src/generated/app-server/v2/SkillMetadata";
@@ -82,7 +82,7 @@ describe("app-server catalog mappers", () => {
 describe("app-server catalog adapters", () => {
   it("returns enabled skill options while preserving total app-server skill count", async () => {
     const client = {
-      listSkills: vi.fn().mockResolvedValue({
+      request: vi.fn(async () => ({
         data: [
           {
             cwd: "/vault",
@@ -92,38 +92,40 @@ describe("app-server catalog adapters", () => {
             ],
           },
         ],
-      }),
-    } as unknown as AppServerClient;
+      })),
+    } as unknown as AppServerRequestClient;
 
     await expect(listSkillCatalog(client, "/vault")).resolves.toMatchObject({
       skills: [{ name: "enabled", description: "Enabled skill", path: "/skills/enabled", enabled: true }],
       totalCount: 2,
     });
+    expect(client.request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: false });
   });
 
   it("uses only hook rows for the requested cwd", async () => {
     const client = {
-      listHooks: vi.fn().mockResolvedValue({
+      request: vi.fn(async () => ({
         data: [
           { cwd: "/other", hooks: [{ key: "other" }], warnings: ["skip"], errors: [{ message: "skip" }] },
           { cwd: "/vault", hooks: [{ key: "vault" }], warnings: ["warn"], errors: [{ message: "err" }] },
         ],
-      }),
-    } as unknown as AppServerClient;
+      })),
+    } as unknown as AppServerRequestClient;
 
     await expect(listHookCatalog(client, "/vault")).resolves.toMatchObject({
       hooks: [{ key: "vault" }],
       warnings: ["warn"],
       errors: ['{"message":"err"}'],
     });
+    expect(client.request).toHaveBeenCalledWith("hooks/list", { cwds: ["/vault"] });
   });
 
   it("does not fall back to unrelated hook rows", async () => {
     const client = {
-      listHooks: vi.fn().mockResolvedValue({
+      request: vi.fn().mockResolvedValue({
         data: [{ cwd: "/other", hooks: [{ key: "other" }], warnings: ["skip"], errors: [{ message: "skip" }] }],
       }),
-    } as unknown as AppServerClient;
+    } as unknown as AppServerRequestClient;
 
     await expect(listHookCatalog(client, "/vault")).resolves.toEqual({
       hooks: [],

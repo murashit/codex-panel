@@ -285,10 +285,13 @@ function cacheWithThreads(
     clientRunner: {
       runWithClient: async (context, operation) => {
         return operation({
-          listThreads: async (_cwd: string, options: { archived?: boolean }) => ({
-            data: await fetchThreads(context, options.archived ?? false),
-            nextCursor: null,
-          }),
+          request: async (method: string, params: { archived?: boolean }) => {
+            if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
+            return {
+              data: await fetchThreads(context, params.archived ?? false),
+              nextCursor: null,
+            };
+          },
         } as never);
       },
     },
@@ -296,11 +299,42 @@ function cacheWithThreads(
 }
 
 function cacheWithClient(client: Record<string, unknown>): AppServerQueryCache {
+  const requestClient = "request" in client ? client : clientWithRequest(client);
   return new AppServerQueryCache({
     clientRunner: {
-      runWithClient: async (_context, operation) => operation(client as never),
+      runWithClient: async (_context, operation) => operation(requestClient as never),
     },
   });
+}
+
+function clientWithRequest(client: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...client,
+    request: async (method: string, params: unknown) => {
+      switch (method) {
+        case "thread/list":
+          return (client["listThreads"] as (cwd: string, options: { archived?: boolean }) => Promise<unknown>)(
+            (params as { cwd: string }).cwd,
+            params as { archived?: boolean },
+          );
+        case "config/read":
+          return (client["readEffectiveConfig"] as (cwd: string) => Promise<unknown>)((params as { cwd: string }).cwd);
+        case "model/list":
+          return (client["listModels"] as (includeHidden: boolean) => Promise<unknown>)(
+            (params as { includeHidden?: boolean }).includeHidden ?? false,
+          );
+        case "skills/list":
+          return (client["listSkills"] as (cwd: string, forceReload?: boolean) => Promise<unknown>)(
+            (params as { cwds: string[] }).cwds[0] ?? "",
+            (params as { forceReload?: boolean }).forceReload,
+          );
+        case "account/rateLimits/read":
+          return (client["readAccountRateLimits"] as () => Promise<unknown>)();
+        default:
+          throw new Error(`Unexpected app-server request: ${method}`);
+      }
+    },
+  };
 }
 
 function metadata(

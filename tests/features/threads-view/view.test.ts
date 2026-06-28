@@ -503,13 +503,35 @@ describe("CodexThreadsView", () => {
 });
 
 function clientFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
+  const client = {
     listThreads: vi.fn().mockResolvedValue({ data: [] }),
     archiveThread: vi.fn().mockResolvedValue({}),
     setThreadName: vi.fn().mockResolvedValue({}),
     threadTurnsList: vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     rejectServerRequest: vi.fn(),
     ...overrides,
+  };
+  return {
+    ...client,
+    request: vi.fn((method: string, params: Record<string, unknown>) => {
+      switch (method) {
+        case "thread/list":
+          return (client.listThreads as (cwd: string, options: unknown) => Promise<unknown>)(params["cwd"] as string, params);
+        case "thread/archive":
+          return (client.archiveThread as (threadId: string) => Promise<unknown>)(params["threadId"] as string);
+        case "thread/name/set":
+          return (client.setThreadName as (threadId: string, name: string) => Promise<unknown>)(
+            params["threadId"] as string,
+            params["name"] as string,
+          );
+        case "thread/turns/list":
+          return (
+            client.threadTurnsList as (threadId: string, cursor: string | null, limit: number, sortDirection?: string) => Promise<unknown>
+          )(params["threadId"] as string, params["cursor"] as string | null, params["limit"] as number, params["sortDirection"] as string);
+        default:
+          throw new Error(`Unexpected app-server request: ${method}`);
+      }
+    }),
   };
 }
 

@@ -8,9 +8,10 @@ import {
   mcpServerStatusSummariesFromStatuses,
 } from "../../domain/server/diagnostics";
 import type { ToolInventoryMarketplaceError, ToolInventoryPlugin, ToolInventorySnapshot } from "../../domain/server/tool-inventory";
-import type { AppServerClient } from "../connection/client";
+import type { ClientRequestParams } from "../connection/rpc-messages";
 import { toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
 import { listSkillCatalog } from "./catalog";
+import type { AppServerRequestClient } from "./request-client";
 
 const PLUGIN_DETAILS_CONCURRENCY = 4;
 
@@ -28,7 +29,7 @@ export interface ReadToolInventoryResult {
 }
 
 export async function readToolInventory(
-  client: AppServerClient,
+  client: AppServerRequestClient,
   cwd: string,
   options: ReadToolInventoryOptions = {},
 ): Promise<ReadToolInventoryResult> {
@@ -74,7 +75,7 @@ function readCachedSkills(
 }
 
 async function readPlugins(
-  client: AppServerClient,
+  client: AppServerRequestClient,
   cwd: string,
   checkedAt: number,
 ): Promise<{
@@ -84,7 +85,7 @@ async function readPlugins(
   probe: DiagnosticProbeResult;
 }> {
   try {
-    const response = await client.listInstalledPlugins(cwd);
+    const response = await client.request("plugin/installed", { cwds: [cwd] });
     const { plugins, marketplaceErrors } = toolInventoryPluginsFromInstalledResponse(response);
     const pluginsWithDetails = await mapLimit(plugins, PLUGIN_DETAILS_CONCURRENCY, (plugin) => readPluginDetails(client, plugin));
     return {
@@ -121,10 +122,10 @@ async function mapLimit<T, R>(items: readonly T[], concurrency: number, fn: (ite
   return results;
 }
 
-async function readPluginDetails(client: AppServerClient, plugin: ToolInventoryPlugin): Promise<ToolInventoryPlugin> {
+async function readPluginDetails(client: AppServerRequestClient, plugin: ToolInventoryPlugin): Promise<ToolInventoryPlugin> {
   if (!isUsablePlugin(plugin)) return plugin;
   try {
-    const response = await client.readPlugin(pluginReadParams(plugin));
+    const response = await client.request("plugin/read", pluginReadParams(plugin));
     return {
       ...plugin,
       details: {
@@ -140,7 +141,7 @@ async function readPluginDetails(client: AppServerClient, plugin: ToolInventoryP
   }
 }
 
-function pluginReadParams(plugin: ToolInventoryPlugin): Parameters<AppServerClient["readPlugin"]>[0] {
+function pluginReadParams(plugin: ToolInventoryPlugin): ClientRequestParams<"plugin/read"> {
   if (plugin.marketplacePath) {
     return {
       pluginName: plugin.name,
@@ -158,12 +159,12 @@ function isUsablePlugin(plugin: ToolInventoryPlugin): boolean {
 }
 
 async function readMcpServers(
-  client: AppServerClient,
+  client: AppServerRequestClient,
   threadId: string | null,
   checkedAt: number,
 ): Promise<{ items: McpServerStatusSummary[] | null; error: string | null; probe: DiagnosticProbeResult }> {
   try {
-    const response = await client.listMcpServerStatus({
+    const response = await client.request("mcpServerStatus/list", {
       detail: "toolsAndAuthOnly",
       limit: 100,
       ...(threadId ? { threadId } : {}),
@@ -189,7 +190,7 @@ function mcpSummary(servers: readonly McpServerStatusSummary[]): string {
 }
 
 async function readSkills(
-  client: AppServerClient,
+  client: AppServerRequestClient,
   cwd: string,
   checkedAt: number,
 ): Promise<{ items: ToolInventorySnapshot["skills"]; error: string | null; probe: DiagnosticProbeResult }> {

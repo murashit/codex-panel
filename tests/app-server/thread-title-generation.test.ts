@@ -2,14 +2,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { AppServerClient, AppServerClientHandlers, AppServerStartStructuredTurnOptions } from "../../src/app-server/connection/client";
-import type { RequestId, ServerNotification } from "../../src/app-server/connection/rpc-messages";
+import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../src/app-server/connection/client";
+import type { ClientRequestParams, RequestId, ServerNotification } from "../../src/app-server/connection/rpc-messages";
 import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
 import type {
   EphemeralStructuredTurnClient,
   EphemeralStructuredTurnClientFactory,
 } from "../../src/app-server/services/ephemeral-structured-turn";
 import { generateThreadTitleWithCodex } from "../../src/app-server/services/thread-title-generation";
+import type { AppServerStartStructuredTurnOptions } from "../../src/app-server/services/turns";
 import type { ServerInitialization } from "../../src/domain/server/initialization";
 import {
   findThreadTitleContext,
@@ -18,12 +19,14 @@ import {
   threadTitleFromGeneratedText,
   threadTitlePrompt,
 } from "../../src/domain/threads/title-generation-model";
+import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelListResponse";
+import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
 
 type InitializeResponse = ServerInitialization;
-type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
-type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
 type Turn = TurnRecord;
-type TurnStartResponse = Awaited<ReturnType<EphemeralStructuredTurnClient["startStructuredTurn"]>>;
+interface TurnStartResponse {
+  turn: TurnRecord;
+}
 
 describe("thread title", () => {
   it("builds title context from a conversation summary", () => {
@@ -244,24 +247,55 @@ class FakeThreadTitleClient implements EphemeralStructuredTurnClient {
 
   async deleteThread(): Promise<void> {}
 
-  async listModels(): Promise<ModelListResponse> {
-    return { data: this.modelList, nextCursor: null };
-  }
-
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {}
 
-  async startEphemeralThread(): Promise<ThreadStartResponse> {
-    return threadStartResponse("thread");
-  }
-
-  async startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
-    this.startStructuredTurnOptions = options;
-    return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
+  async request<M extends TypedClientRequestMethod>(
+    method: M,
+    params: ClientRequestParams<M>,
+    options: { timeoutMs?: number } = {},
+  ): Promise<ClientResponseByMethod[M]> {
+    void options;
+    switch (method) {
+      case "model/list":
+        return { data: this.modelList, nextCursor: null } as unknown as ClientResponseByMethod[M];
+      case "thread/start":
+        return threadStartResponse("thread") as unknown as ClientResponseByMethod[M];
+      case "turn/start":
+        this.startStructuredTurnOptions = structuredTurnOptionsFromParams(params as ClientRequestParams<"turn/start">);
+        return (this.startStructuredTurnImpl
+          ? await this.startStructuredTurnImpl()
+          : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
+      case "thread/delete":
+        await this.deleteThread();
+        return {} as unknown as ClientResponseByMethod[M];
+      default:
+        throw new Error(`Unexpected app-server request: ${method}`);
+    }
   }
 
   emit(notification: ServerNotification): void {
     this.handlers.onNotification(notification);
   }
+}
+
+function structuredTurnOptionsFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions {
+  const textItem = params.input[0];
+  if (!params.cwd || !textItem || textItem.type !== "text" || !params.outputSchema) throw new Error("Expected structured turn params.");
+  return {
+    threadId: params.threadId,
+    cwd: params.cwd,
+    text: textItem.text,
+    outputSchema: params.outputSchema,
+    runtime: {
+      ...(params.serviceTier !== undefined ? { serviceTier: params.serviceTier } : {}),
+      ...(params.collaborationMode !== undefined && params.collaborationMode !== null
+        ? { collaborationMode: params.collaborationMode }
+        : {}),
+      ...(params.model !== undefined ? { model: params.model } : {}),
+      ...(params.effort !== undefined ? { effort: params.effort } : {}),
+      ...(params.approvalsReviewer !== undefined ? { approvalsReviewer: params.approvalsReviewer } : {}),
+    },
+  };
 }
 
 function threadStartResponse(threadId: string): ThreadStartResponse {

@@ -1,4 +1,4 @@
-import { readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/services/threads";
+import { clearThreadGoal, readThreadGoal, recordThreadGoalUserMessage, setThreadGoal } from "../../../../app-server/services/threads";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../../application/threads/goal-transport";
 import type { ConnectedChatAppServerClientHost, CurrentChatAppServerClientHost } from "../connection/client-scope";
 import { chatAppServerClientIsStale, withConnectedChatAppServerClient, withCurrentChatAppServerClient } from "../connection/client-scope";
@@ -21,7 +21,7 @@ export function createChatThreadGoalTransport(host: ConnectedChatAppServerClient
     },
     clearThreadGoal: async (threadId) => {
       const result = await withConnectedChatAppServerClient(host, async (client) => {
-        await client.clearThreadGoal(threadId);
+        await clearThreadGoal(client, threadId);
         return true;
       });
       return result ?? false;

@@ -396,10 +396,13 @@ function cacheWithThreads(
     clientRunner: {
       runWithClient: async (context, operation) => {
         return operation({
-          listThreads: async (_cwd: string, options: { archived?: boolean } = {}) => ({
-            data: await fetchThreads(context, options.archived ?? false),
-            nextCursor: null,
-          }),
+          request: async (method: string, params: { archived?: boolean } = {}) => {
+            if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
+            return {
+              data: await fetchThreads(context, params.archived ?? false),
+              nextCursor: null,
+            };
+          },
         } as never);
       },
     },

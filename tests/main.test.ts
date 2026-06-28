@@ -674,7 +674,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const connectedView = connectedLeaf.view as CodexChatView;
     vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
     const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient").mockResolvedValue("chat-result");
-    const shortLivedClient = { readEffectiveConfig: vi.fn().mockResolvedValue({}) };
+    const shortLivedClient = { request: vi.fn().mockResolvedValue({}) };
     withShortLivedAppServerClientMock.mockImplementation(
       (_codexPath: string, _vaultPath: string, operation: (client: typeof shortLivedClient) => Promise<unknown>) =>
         operation(shortLivedClient),
@@ -682,7 +682,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const plugin = await pluginWithLeaves([connectedLeaf]);
     plugin.settings.codexPath = "codex";
 
-    const result = await plugin.runtime.withClient((client) => client.readEffectiveConfig("/vault") as Promise<unknown>, {
+    const result = await plugin.runtime.withClient((client) => client.request("config/read", { cwd: "/vault", includeLayers: true }), {
       serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
     });
 
@@ -691,7 +691,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledWith("codex", "/vault", expect.any(Function), {
       serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
     });
-    expect(shortLivedClient.readEffectiveConfig).toHaveBeenCalledWith("/vault");
+    expect(shortLivedClient.request).toHaveBeenCalledWith("config/read", { cwd: "/vault", includeLayers: true });
   });
 
   it("refreshes shared thread lists from a remaining connected panel after the archived panel is detached", async () => {
@@ -849,10 +849,13 @@ function chatHostFixture(): CodexChatHost {
 
 function threadListClient(fetchThreads: () => Promise<readonly Thread[]>): never {
   return {
-    listThreads: async () => ({
-      data: await fetchThreads(),
-      nextCursor: null,
-    }),
+    request: async (method: string) => {
+      if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
+      return {
+        data: await fetchThreads(),
+        nextCursor: null,
+      };
+    },
   } as never;
 }
 

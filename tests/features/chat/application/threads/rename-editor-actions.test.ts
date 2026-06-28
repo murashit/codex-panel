@@ -175,7 +175,7 @@ function actionsFixture(
     renameThread: async (threadId: string, value: string) => {
       const name = normalizeExplicitThreadName(value);
       if (!name) return false;
-      await currentClient().setThreadName(threadId, name);
+      await currentClient().request("thread/name/set", { threadId, name });
       stateStore.dispatch({
         type: "thread-list/applied",
         threads: stateStore.getState().threadList.listedThreads.map((thread) => (thread.id === threadId ? { ...thread, name } : thread)),
@@ -189,11 +189,19 @@ function actionsFixture(
 }
 
 function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
+  const setThreadName = options.setThreadName ?? vi.fn().mockResolvedValue({});
   return {
-    setThreadName: options.setThreadName ?? vi.fn().mockResolvedValue({}),
-    threadTurnsList: vi.fn().mockResolvedValue({
-      data: [turnFixture([userMessage("user", "Please name this."), assistantMessage("assistant", "Done.")])],
-      nextCursor: null,
+    request: vi.fn((method: string, params: { threadId: string; name: string }) => {
+      if (method === "thread/name/set") {
+        return (setThreadName as unknown as (threadId: string, name: string) => Promise<unknown>)(params.threadId, params.name);
+      }
+      if (method === "thread/turns/list") {
+        return Promise.resolve({
+          data: [turnFixture([userMessage("user", "Please name this."), assistantMessage("assistant", "Done.")])],
+          nextCursor: null,
+        });
+      }
+      throw new Error(`Unexpected app-server request: ${method}`);
     }),
   } as unknown as AppServerClient;
 }

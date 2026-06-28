@@ -1,5 +1,8 @@
 import type { ThreadCatalogEvent } from "../../../../app-server/query/thread-catalog";
-import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/services/threads";
+import {
+  startThread as startAppServerThread,
+  threadActivationSnapshotFromAppServerResponse,
+} from "../../../../app-server/services/threads";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
 import { resumedThreadAction } from "../../application/state/actions";
@@ -48,7 +51,7 @@ async function startThread(
     host.runtimeSnapshotForState(requestState),
     runtimeConfigOrDefault(requestState.connection.runtimeConfig),
   );
-  const response = await scope.client.startThread({ cwd: host.vaultPath, serviceTier });
+  const response = await startAppServerThread(scope.client, { cwd: host.vaultPath, serviceTier });
   if (scope.isStale()) return null;
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();

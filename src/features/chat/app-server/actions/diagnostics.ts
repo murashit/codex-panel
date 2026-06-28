@@ -1,5 +1,6 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
+import { listModelMetadata } from "../../../../app-server/services/catalog";
 import { readToolInventory } from "../../../../app-server/services/tool-inventory";
 import {
   cloneServerDiagnostics,
@@ -69,8 +70,8 @@ async function refreshServerDiagnostics(
     probes.push(
       probeDiagnostic(
         "model/list",
-        () => client.listModels(false),
-        (response) => `${String(response.data.length)} models`,
+        () => listModelMetadata(client),
+        (models) => `${String(models.length)} models`,
       ),
       readRateLimitDiagnosticProbe(client),
     );

@@ -1,26 +1,26 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import type {
-  AppServerClientHandlers,
-  AppServerStartEphemeralThreadOptions,
-  AppServerStartStructuredTurnOptions,
-} from "../../src/app-server/connection/client";
+import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../src/app-server/connection/client";
+import type { ClientRequestParams } from "../../src/app-server/connection/rpc-messages";
 import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
 import {
   type EphemeralStructuredTurnClient,
   type EphemeralStructuredTurnClientFactory,
   runEphemeralStructuredTurn,
 } from "../../src/app-server/services/ephemeral-structured-turn";
+import type { AppServerStartEphemeralThreadOptions } from "../../src/app-server/services/threads";
+import type { AppServerStartStructuredTurnOptions } from "../../src/app-server/services/turns";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
 import type { RequestId } from "../../src/generated/app-server/RequestId";
 import type { ServerNotification } from "../../src/generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
-import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelListResponse";
 import type { Thread as AppServerThread } from "../../src/generated/app-server/v2/Thread";
 import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
 
-type TurnStartResponse = Awaited<ReturnType<EphemeralStructuredTurnClient["startStructuredTurn"]>>;
+interface TurnStartResponse {
+  turn: TurnRecord;
+}
 
 describe("runEphemeralStructuredTurn", () => {
   it("fills completed turn items from item completion notifications", async () => {
@@ -156,7 +156,7 @@ describe("runEphemeralStructuredTurn", () => {
   it("rejects server requests with the configured message", async () => {
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
       fake.connectImpl = async () => {
-        fake.request(serverRequest(123));
+        fake.emitServerRequest(serverRequest(123));
         return { codexHome: "/tmp/codex" } as InitializeResponse;
       };
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
@@ -186,13 +186,13 @@ describe("runEphemeralStructuredTurn", () => {
       resolveRuntime: async (runtimeClient) => {
         callOrder.push("resolve-runtime");
         expect(runtimeClient).toBe(expectPresent(client.current));
-        await runtimeClient.listModels(false);
+        await runtimeClient.request("model/list", { includeHidden: false, limit: 100 });
         return { model: "gpt-5.1", effort: "low" };
       },
     });
 
     expect(callOrder).toEqual(["resolve-runtime", "start-thread"]);
-    expect(expectPresent(client.current).listModels).toHaveBeenCalledWith(false);
+    expect(expectPresent(client.current).modelListRequests).toEqual([{ includeHidden: false, limit: 100 }]);
     expect(expectPresent(client.current).startStructuredTurnOptions).toEqual({
       threadId: "thread",
       cwd: "/vault",
@@ -316,9 +316,9 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
   startEphemeralThreadOptions: AppServerStartEphemeralThreadOptions | null = null;
   startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
-  readonly listModels = vi.fn(async (): Promise<ModelListResponse> => ({ data: [], nextCursor: null }));
+  readonly modelListRequests: ClientRequestParams<"model/list">[] = [];
   readonly rejectServerRequest = vi.fn();
-  readonly deleteThread = vi.fn(async () => undefined);
+  readonly deleteThread = vi.fn(async (_threadId: string, _options?: { timeoutMs?: number }) => undefined);
   readonly disconnect = vi.fn();
   readonly structuredTurnStarted: Promise<void>;
   private resolveStructuredTurnStarted!: () => void;
@@ -333,22 +333,39 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
     return this.connectImpl ? this.connectImpl() : ({ codexHome: "/tmp/codex" } as InitializeResponse);
   }
 
-  async startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<ThreadStartResponse> {
-    this.startEphemeralThreadOptions = options;
-    return this.startEphemeralThreadImpl ? this.startEphemeralThreadImpl() : threadStartResponse("thread");
-  }
-
-  async startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
-    this.startStructuredTurnOptions = options;
-    this.resolveStructuredTurnStarted();
-    return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
+  async request<M extends TypedClientRequestMethod>(
+    method: M,
+    params: ClientRequestParams<M>,
+    options: { timeoutMs?: number } = {},
+  ): Promise<ClientResponseByMethod[M]> {
+    switch (method) {
+      case "model/list":
+        this.modelListRequests.push(params as ClientRequestParams<"model/list">);
+        return { data: [], nextCursor: null } as unknown as ClientResponseByMethod[M];
+      case "thread/start":
+        this.startEphemeralThreadOptions = ephemeralThreadOptionsFromParams(params as ClientRequestParams<"thread/start">);
+        return (this.startEphemeralThreadImpl
+          ? await this.startEphemeralThreadImpl()
+          : threadStartResponse("thread")) as unknown as ClientResponseByMethod[M];
+      case "turn/start":
+        this.startStructuredTurnOptions = structuredTurnOptionsFromParams(params as ClientRequestParams<"turn/start">);
+        this.resolveStructuredTurnStarted();
+        return (this.startStructuredTurnImpl
+          ? await this.startStructuredTurnImpl()
+          : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
+      case "thread/delete":
+        await this.deleteThread((params as ClientRequestParams<"thread/delete">).threadId, options);
+        return {} as unknown as ClientResponseByMethod[M];
+      default:
+        throw new Error(`Unexpected app-server request: ${method}`);
+    }
   }
 
   emit(notification: ServerNotification): void {
     this.handlers.onNotification(notification);
   }
 
-  request(request: ServerRequest): void {
+  emitServerRequest(request: ServerRequest): void {
     this.handlers.onServerRequest(request, {
       respond: () => undefined,
       reject: (code, message) => {
@@ -356,6 +373,39 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
       },
     });
   }
+}
+
+function ephemeralThreadOptionsFromParams(params: ClientRequestParams<"thread/start">): AppServerStartEphemeralThreadOptions {
+  if (!params.cwd || !params.serviceName || !params.developerInstructions) throw new Error("Expected ephemeral thread params.");
+  return {
+    cwd: params.cwd,
+    serviceName: params.serviceName,
+    developerInstructions: params.developerInstructions,
+  };
+}
+
+function structuredTurnOptionsFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions {
+  const textItem = params.input[0];
+  if (!params.cwd || !textItem || textItem.type !== "text" || !params.outputSchema) throw new Error("Expected structured turn params.");
+  const runtime = structuredTurnRuntimeFromParams(params);
+  return {
+    threadId: params.threadId,
+    cwd: params.cwd,
+    text: textItem.text,
+    outputSchema: params.outputSchema,
+    ...(runtime !== undefined ? { runtime } : {}),
+  };
+}
+
+function structuredTurnRuntimeFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions["runtime"] {
+  const runtime = {
+    ...(params.serviceTier !== undefined ? { serviceTier: params.serviceTier } : {}),
+    ...(params.collaborationMode !== undefined && params.collaborationMode !== null ? { collaborationMode: params.collaborationMode } : {}),
+    ...(params.model !== undefined ? { model: params.model } : {}),
+    ...(params.effort !== undefined ? { effort: params.effort } : {}),
+    ...(params.approvalsReviewer !== undefined ? { approvalsReviewer: params.approvalsReviewer } : {}),
+  };
+  return Object.keys(runtime).length > 0 ? runtime : undefined;
 }
 
 function timerHarness(): {

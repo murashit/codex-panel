@@ -721,14 +721,15 @@ describe("CodexChatView connection lifecycle", () => {
 });
 
 function connectedClient(overrides: Partial<ReturnType<typeof baseClient>> = {}): ReturnType<typeof baseClient> {
-  return {
-    ...baseClient(),
-    ...overrides,
-  };
+  return withClientRequest({ ...baseClientMethods(), ...overrides }) as ReturnType<typeof baseClient>;
 }
 
 function baseClient() {
-  return {
+  return withClientRequest(baseClientMethods());
+}
+
+function baseClientMethods() {
+  const client = {
     readEffectiveConfig: vi.fn().mockResolvedValue({}),
     listModels: vi.fn().mockResolvedValue({ data: [] }),
     listSkills: vi.fn().mockResolvedValue({ data: [] }),
@@ -747,6 +748,84 @@ function baseClient() {
     readThread: vi.fn().mockResolvedValue({ thread: threadFixture("thread-1") }),
     archiveThread: vi.fn().mockResolvedValue({}),
   };
+  return client;
+}
+
+function withClientRequest<T extends Record<string, unknown>>(client: T): T & { request: ReturnType<typeof vi.fn> } {
+  return {
+    ...client,
+    request: vi.fn((method: string, params: Record<string, unknown>) => {
+      switch (method) {
+        case "config/read":
+          return (client["readEffectiveConfig"] as (cwd: unknown) => Promise<unknown>)(params["cwd"]);
+        case "model/list":
+          return (client["listModels"] as (includeHidden: unknown) => Promise<unknown>)(params["includeHidden"] ?? false);
+        case "skills/list":
+          return (client["listSkills"] as (cwd: string) => Promise<unknown>)((params["cwds"] as string[])[0] ?? "");
+        case "account/rateLimits/read":
+          return (client["readAccountRateLimits"] as () => Promise<unknown>)();
+        case "thread/list":
+          return (client["listThreads"] as (cwd: unknown, params: unknown) => Promise<unknown>)(params["cwd"], params);
+        case "thread/start":
+          return (client["startThread"] as (options: unknown) => Promise<unknown>)({
+            cwd: params["cwd"],
+            serviceTier: params["serviceTier"],
+          });
+        case "thread/resume":
+          return (client["resumeThread"] as (threadId: unknown, cwd: unknown) => Promise<unknown>)(params["threadId"], params["cwd"]);
+        case "thread/turns/list":
+          if (params["sortDirection"] === "desc") {
+            return (client["threadTurnsList"] as (threadId: unknown, cursor: unknown, limit: unknown) => Promise<unknown>)(
+              params["threadId"],
+              params["cursor"],
+              params["limit"],
+            );
+          }
+          return (
+            client["threadTurnsList"] as (threadId: unknown, cursor: unknown, limit: unknown, sortDirection?: unknown) => Promise<unknown>
+          )(params["threadId"], params["cursor"], params["limit"], params["sortDirection"]);
+        case "turn/start":
+          return (client["startTurn"] as (options: unknown) => Promise<unknown>)({
+            threadId: params["threadId"],
+            cwd: params["cwd"],
+            input: codexInputFromRequestInput(params["input"] as { type: string; text?: string }[]),
+            clientUserMessageId: params["clientUserMessageId"],
+          });
+        case "thread/fork":
+          return (client["forkThread"] as (threadId: unknown, cwd: unknown) => Promise<unknown>)(params["threadId"], params["cwd"]);
+        case "thread/rollback":
+          return (client["rollbackThread"] as (threadId: unknown) => Promise<unknown>)(params["threadId"]);
+        case "thread/name/set":
+          return (client["setThreadName"] as (threadId: unknown, name: unknown) => Promise<unknown>)(params["threadId"], params["name"]);
+        case "thread/goal/get":
+          return (client["getThreadGoal"] as (threadId: unknown) => Promise<unknown>)(params["threadId"]);
+        case "thread/goal/set":
+          return (client["setThreadGoal"] as (threadId: unknown, goal: unknown) => Promise<unknown>)(params["threadId"], {
+            objective: params["objective"],
+            status: params["status"],
+            tokenBudget: params["tokenBudget"],
+          });
+        case "thread/inject_items":
+          return (client["injectThreadItems"] as (threadId: unknown, items: unknown) => Promise<unknown>)(
+            params["threadId"],
+            params["items"],
+          );
+        case "thread/read":
+          return (client["readThread"] as (threadId: unknown, includeTurns: unknown) => Promise<unknown>)(
+            params["threadId"],
+            params["includeTurns"],
+          );
+        case "thread/archive":
+          return (client["archiveThread"] as (threadId: unknown) => Promise<unknown>)(params["threadId"]);
+        default:
+          throw new Error(`Unexpected app-server request: ${method}`);
+      }
+    }),
+  };
+}
+
+function codexInputFromRequestInput(input: { type: string; text?: string }[]): { type: "text"; text: string }[] {
+  return input.flatMap((item) => (item.type === "text" ? [{ type: "text", text: item.text ?? "" }] : []));
 }
 
 function goalFixture(threadId: string) {

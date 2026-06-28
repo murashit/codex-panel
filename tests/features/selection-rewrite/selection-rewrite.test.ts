@@ -2,13 +2,10 @@
 
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  AppServerClient,
-  AppServerClientHandlers,
-  AppServerStartStructuredTurnOptions,
-} from "../../../src/app-server/connection/client";
-import type { RequestId, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
+import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../../src/app-server/connection/client";
+import type { ClientRequestParams, RequestId, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
 import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
+import type { AppServerStartStructuredTurnOptions } from "../../../src/app-server/services/turns";
 import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
 import type { ServerInitialization } from "../../../src/domain/server/initialization";
 import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
@@ -24,16 +21,18 @@ import { positionSelectionRewritePopover } from "../../../src/features/selection
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
 import { runSelectionRewrite } from "../../../src/features/selection-rewrite/runner";
+import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
+import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
 type InitializeResponse = ServerInitialization;
-type ModelListResponse = Awaited<ReturnType<AppServerClient["listModels"]>>;
-type ThreadStartResponse = Awaited<ReturnType<AppServerClient["startEphemeralThread"]>>;
 type Turn = TurnRecord;
+interface TurnStartResponse {
+  turn: TurnRecord;
+}
 type SelectionRewriteClientFactory = NonNullable<Parameters<typeof runSelectionRewrite>[0]["clientFactory"]>;
 type SelectionRewriteClient = ReturnType<SelectionRewriteClientFactory>;
-type TurnStartResponse = Awaited<ReturnType<SelectionRewriteClient["startStructuredTurn"]>>;
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -814,25 +813,56 @@ class FakeSelectionRewriteClient implements SelectionRewriteClient {
 
   async deleteThread(): Promise<void> {}
 
-  async listModels(): Promise<ModelListResponse> {
-    return this.modelList;
-  }
-
   rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {}
 
-  async startEphemeralThread(): Promise<ThreadStartResponse> {
-    return threadStartResponse("thread");
-  }
-
-  async startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<TurnStartResponse> {
-    this.startStructuredTurnOptions = options;
-    this.resolveStructuredTurnStarted();
-    return this.startStructuredTurnImpl ? this.startStructuredTurnImpl() : { turn: turn([], { id: "turn", status: "inProgress" }) };
+  async request<M extends TypedClientRequestMethod>(
+    method: M,
+    params: ClientRequestParams<M>,
+    options: { timeoutMs?: number } = {},
+  ): Promise<ClientResponseByMethod[M]> {
+    void options;
+    switch (method) {
+      case "model/list":
+        return this.modelList as unknown as ClientResponseByMethod[M];
+      case "thread/start":
+        return threadStartResponse("thread") as unknown as ClientResponseByMethod[M];
+      case "turn/start":
+        this.startStructuredTurnOptions = structuredTurnOptionsFromParams(params as ClientRequestParams<"turn/start">);
+        this.resolveStructuredTurnStarted();
+        return (this.startStructuredTurnImpl
+          ? await this.startStructuredTurnImpl()
+          : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
+      case "thread/delete":
+        await this.deleteThread();
+        return {} as unknown as ClientResponseByMethod[M];
+      default:
+        throw new Error(`Unexpected app-server request: ${method}`);
+    }
   }
 
   emit(notification: ServerNotification): void {
     this.handlers.onNotification(notification);
   }
+}
+
+function structuredTurnOptionsFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions {
+  const textItem = params.input[0];
+  if (!params.cwd || !textItem || textItem.type !== "text" || !params.outputSchema) throw new Error("Expected structured turn params.");
+  return {
+    threadId: params.threadId,
+    cwd: params.cwd,
+    text: textItem.text,
+    outputSchema: params.outputSchema,
+    runtime: {
+      ...(params.serviceTier !== undefined ? { serviceTier: params.serviceTier } : {}),
+      ...(params.collaborationMode !== undefined && params.collaborationMode !== null
+        ? { collaborationMode: params.collaborationMode }
+        : {}),
+      ...(params.model !== undefined ? { model: params.model } : {}),
+      ...(params.effort !== undefined ? { effort: params.effort } : {}),
+      ...(params.approvalsReviewer !== undefined ? { approvalsReviewer: params.approvalsReviewer } : {}),
+    },
+  };
 }
 
 function threadStartResponse(threadId: string): ThreadStartResponse {

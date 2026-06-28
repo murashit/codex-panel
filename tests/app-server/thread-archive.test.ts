@@ -57,9 +57,16 @@ function fakeClient(): AppServerClient & {
   readThread: ReturnType<typeof vi.fn>;
   archiveThread: ReturnType<typeof vi.fn>;
 } {
+  const readThread = vi.fn().mockResolvedValue({ thread: archivedThread() });
+  const archiveThread = vi.fn().mockResolvedValue({});
   return {
-    readThread: vi.fn().mockResolvedValue({ thread: archivedThread() }),
-    archiveThread: vi.fn().mockResolvedValue({}),
+    readThread,
+    archiveThread,
+    request: vi.fn((method: string, params: { threadId: string; includeTurns?: boolean }) => {
+      if (method === "thread/read") return readThread(params.threadId, params.includeTurns);
+      if (method === "thread/archive") return archiveThread(params.threadId);
+      throw new Error(`Unexpected app-server request: ${method}`);
+    }),
   } as unknown as AppServerClient & {
     readThread: ReturnType<typeof vi.fn>;
     archiveThread: ReturnType<typeof vi.fn>;

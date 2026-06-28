@@ -348,9 +348,9 @@ describe("settings tab", () => {
     const initialClient = settingsClient({
       hooks: [hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" })],
     });
-    const trustClient = {
+    const trustClient = withSettingsRequest({
       trustHook: vi.fn().mockResolvedValue({}),
-    };
+    });
     const staleClient = settingsClient();
     staleClient.listHooks.mockReturnValue(staleHooks.promise);
     const newerClient = settingsClient({
@@ -393,9 +393,9 @@ describe("settings tab", () => {
     const fullRefreshClient = settingsClient({
       hooks: [hook({ key: "hook-full", command: "full refresh hook", currentHash: "fullhash" })],
     });
-    const trustClient = {
+    const trustClient = withSettingsRequest({
       trustHook: vi.fn().mockResolvedValue({}),
-    };
+    });
     const hookReloadClient = settingsClient({
       hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
     });
@@ -435,9 +435,9 @@ describe("settings tab", () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
     const applyThreadCatalogEvent = vi.fn();
     const initialClient = settingsClient();
-    const restoreClient = {
+    const restoreClient = withSettingsRequest({
       unarchiveThread: vi.fn(() => staleRestore.promise),
-    };
+    });
     const newerClient = settingsClient();
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
@@ -476,9 +476,9 @@ describe("settings tab", () => {
     const notify = vi.fn();
     const applyThreadCatalogEvent = vi.fn();
     const initialClient = settingsClient();
-    const restoreClient = {
+    const restoreClient = withSettingsRequest({
       unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
-    };
+    });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(initialClient),
@@ -510,9 +510,9 @@ describe("settings tab", () => {
   it("displays restored archived thread state after recording the active catalog event", async () => {
     const snapshots: SettingsDynamicSectionsSnapshot[] = [];
     const initialClient = settingsClient();
-    const restoreClient = {
+    const restoreClient = withSettingsRequest({
       unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
-    };
+    });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(initialClient),
@@ -557,9 +557,9 @@ describe("settings tab", () => {
   it("displays deleted archived thread status after recording the catalog event", async () => {
     const snapshots: SettingsDynamicSectionsSnapshot[] = [];
     const initialClient = settingsClient();
-    const deleteClient = {
+    const deleteClient = withSettingsRequest({
       deleteThread: vi.fn().mockResolvedValue({}),
-    };
+    });
     withShortLivedAppServerClientMock
       .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
         operation(initialClient),
@@ -932,7 +932,7 @@ function hook(overrides: Partial<CatalogHookMetadata> = {}): CatalogHookMetadata
 function settingsClient(
   options: { models?: CatalogModel[]; hooks?: CatalogHookMetadata[]; hooksError?: Error; threads?: ThreadRecord[] } = {},
 ) {
-  return {
+  return withSettingsRequest({
     listModels: vi.fn().mockResolvedValue({ data: options.models ?? [model("gpt-5.4")] }),
     listHooks: vi.fn().mockImplementation(() => {
       if (options.hooksError) return Promise.reject(options.hooksError);
@@ -950,8 +950,50 @@ function settingsClient(
     listThreads: vi.fn().mockResolvedValue({ data: options.threads ?? [appServerThread({ preview: "Archived" })] }),
     setHookEnabled: vi.fn().mockResolvedValue({}),
     trustHook: vi.fn().mockResolvedValue({}),
+    unarchiveThread: vi.fn().mockResolvedValue({ thread: appServerThread({ preview: "Restored" }) }),
     deleteThread: vi.fn().mockResolvedValue({}),
+  });
+}
+
+function withSettingsRequest<T extends Record<string, unknown>>(client: T): T & { request: ReturnType<typeof vi.fn> } {
+  return {
+    ...client,
+    request: vi.fn((method: string, params: unknown) => {
+      switch (method) {
+        case "model/list":
+          return (client["listModels"] as (includeHidden: boolean) => Promise<unknown>)(
+            (params as { includeHidden?: boolean }).includeHidden ?? false,
+          );
+        case "hooks/list":
+          return (client["listHooks"] as (cwd: string) => Promise<unknown>)((params as { cwds: string[] }).cwds[0] ?? "");
+        case "thread/list":
+          return (client["listThreads"] as (cwd: string, options: { archived?: boolean }) => Promise<unknown>)(
+            (params as { cwd: string }).cwd,
+            params as { archived?: boolean },
+          );
+        case "config/batchWrite": {
+          const state = hookStateFromBatchWrite(params);
+          if (state?.enabled === true && state.trusted_hash && client["trustHook"]) {
+            return (client["trustHook"] as () => Promise<unknown>)();
+          }
+          if (client["setHookEnabled"]) return (client["setHookEnabled"] as () => Promise<unknown>)();
+          return Promise.resolve({});
+        }
+        case "thread/unarchive":
+          return (client["unarchiveThread"] as (threadId: string) => Promise<unknown>)((params as { threadId: string }).threadId);
+        case "thread/delete":
+          return (client["deleteThread"] as (threadId: string) => Promise<unknown>)((params as { threadId: string }).threadId);
+        default:
+          throw new Error(`Unexpected app-server request: ${method}`);
+      }
+    }),
   };
+}
+
+function hookStateFromBatchWrite(params: unknown): { enabled?: boolean; trusted_hash?: string } | null {
+  const edit = (params as { edits?: { value?: Record<string, { enabled?: boolean; trusted_hash?: string }> }[] }).edits?.[0];
+  const value = edit?.value;
+  return value ? (Object.values(value)[0] ?? null) : null;
 }
 
 function newSettingsTab(

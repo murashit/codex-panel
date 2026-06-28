@@ -1,11 +1,11 @@
-import type { AppServerClient } from "../../../../app-server/connection/client";
-import { threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/services/threads";
+import type { AppServerRequestClient } from "../../../../app-server/services/request-client";
+import { listThreadTurns, resumeThread, threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/services/threads";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
 import type { ThreadHistoryPage, ThreadResumeSnapshot } from "../../application/threads/thread-loading-transport";
 import { messageStreamItemsFromTurns } from "../mappers/message-stream/turn-items";
 
-type ChatThreadHistoryClient = Pick<AppServerClient, "threadTurnsList">;
-type ChatThreadResumeClient = Pick<AppServerClient, "resumeThread">;
+type ChatThreadHistoryClient = AppServerRequestClient;
+type ChatThreadResumeClient = AppServerRequestClient;
 
 interface AppServerThreadTurnsPage {
   readonly data: ThreadTurnsPage["turns"];
@@ -18,7 +18,7 @@ export async function readChatThreadHistoryPage(
   cursor: string | null,
   limit = 20,
 ): Promise<ThreadHistoryPage> {
-  return chatThreadHistoryPageFromTurnsPage(threadTurnsPageFromAppServerPage(await client.threadTurnsList(threadId, cursor, limit)));
+  return chatThreadHistoryPageFromTurnsPage(threadTurnsPageFromAppServerPage(await listThreadTurns(client, threadId, cursor, limit)));
 }
 
 function chatThreadHistoryPageFromTurnsPage(page: ThreadTurnsPage): ThreadHistoryPage {
@@ -30,7 +30,7 @@ function chatThreadHistoryPageFromTurnsPage(page: ThreadTurnsPage): ThreadHistor
 }
 
 export async function resumeChatThread(client: ChatThreadResumeClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
-  const response = await client.resumeThread(threadId, cwd);
+  const response = await resumeThread(client, threadId, cwd);
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),
     rolloutPath: response.thread.path,

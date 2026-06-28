@@ -1,14 +1,12 @@
 import { listenAbortSignal } from "../../shared/lifecycle/abort-signal";
-import {
-  AppServerClient,
-  type AppServerClientHandlers,
-  type AppServerStartEphemeralThreadOptions,
-  type AppServerStartStructuredTurnOptions,
-} from "../connection/client";
+import { AppServerClient, type AppServerClientHandlers } from "../connection/client";
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import type { ServerNotification } from "../connection/rpc-messages";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
 import type { ModelMetadataClient } from "./catalog";
+import type { AppServerRequestClient } from "./request-client";
+import { deleteThread, startEphemeralThread } from "./threads";
+import { type AppServerStartStructuredTurnOptions, startStructuredTurn } from "./turns";
 
 export type StructuredTurnOutputSchema = AppServerStartStructuredTurnOptions["outputSchema"];
 
@@ -31,11 +29,9 @@ const DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS: EphemeralStructuredTurnTimers = 
 };
 
 export interface EphemeralStructuredTurnClient {
+  request: AppServerRequestClient["request"];
   connect(): Promise<unknown>;
   disconnect(): void;
-  startEphemeralThread(options: AppServerStartEphemeralThreadOptions): Promise<{ thread: { id: string } }>;
-  startStructuredTurn(options: AppServerStartStructuredTurnOptions): Promise<{ turn: TurnRecord }>;
-  deleteThread(threadId: string, options?: { timeoutMs?: number }): Promise<unknown>;
 }
 
 type EphemeralStructuredTurnRuntimeCapableClient = EphemeralStructuredTurnClient & ModelMetadataClient;
@@ -122,7 +118,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     await runAbortable(client.connect());
     const runtime = options.resolveRuntime ? await runAbortable(options.resolveRuntime(client)) : (options.runtime ?? {});
     const threadResponse = await runAbortable(
-      client.startEphemeralThread({
+      startEphemeralThread(client, {
         cwd: options.cwd,
         serviceName: options.serviceName,
         developerInstructions: options.developerInstructions,
@@ -137,7 +133,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
       }),
     };
     const turnResponse = await runAbortable(
-      client.startStructuredTurn({
+      startStructuredTurn(client, {
         threadId,
         cwd: options.cwd,
         text: options.prompt,
@@ -265,7 +261,7 @@ function turnWithCollectedItems(turn: TurnRecord, completedItems: readonly TurnI
 async function deleteEphemeralStructuredTurnThread(client: EphemeralStructuredTurnClient, threadId: string | null): Promise<void> {
   if (!threadId) return;
   try {
-    await client.deleteThread(threadId, { timeoutMs: EPHEMERAL_THREAD_CLEANUP_TIMEOUT_MS });
+    await deleteThread(client, threadId, { timeoutMs: EPHEMERAL_THREAD_CLEANUP_TIMEOUT_MS });
   } catch {
     // Ephemeral helpers must not fail visible workflows because cleanup raced app-server shutdown.
   }

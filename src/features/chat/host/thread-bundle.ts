@@ -2,6 +2,7 @@ import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
+import { readThreadRolloutFile, renameThread as renameAppServerThread } from "../../../app-server/services/threads";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { LocalIdSource } from "../../../shared/id/local-id";
 import { createThreadOperations, type ThreadOperations } from "../../threads/workflows/thread-operations";
@@ -269,7 +270,7 @@ function createSessionAutoTitleCoordinator(
       const client = currentClient();
       if (!client) return false;
 
-      await client.setThreadName(threadId, name);
+      await renameAppServerThread(client, threadId, name);
       if (currentClient() !== client) return false;
       if (options.shouldPublish()) {
         host.environment.plugin.threadCatalog.apply({ type: "thread-renamed", threadId, name });
@@ -438,7 +439,8 @@ function createSessionThreadLifecycle(
       getClosing: host.getClosing,
       recoverTokenUsageFromRollout: (path) =>
         recoverRolloutTokenUsage(path, async (filePath, options) => {
-          const response = await currentClient()?.readFile(filePath, options);
+          const client = currentClient();
+          const response = client ? await readThreadRolloutFile(client, filePath, options) : null;
           return response?.dataBase64 ?? "";
         }),
     },

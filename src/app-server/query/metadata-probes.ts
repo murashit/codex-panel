@@ -37,7 +37,7 @@ export async function readRateLimitMetadataProbe(client: AppServerClient | null)
     };
   }
   try {
-    const response = await client.readAccountRateLimits();
+    const response = await client.request("account/rateLimits/read", undefined);
     return {
       value: rateLimitSnapshotFromAccountRateLimitsResponse(response),
       probe: diagnosticProbeOk("account/rateLimits/read", accountRateLimitsSummaryFromResponse(response), Date.now()),

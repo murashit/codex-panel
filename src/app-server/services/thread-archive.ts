@@ -1,7 +1,7 @@
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
-import type { AppServerClient } from "../connection/client";
+import type { AppServerRequestClient } from "./request-client";
 import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "./thread-archive-markdown";
-import { readThreadForArchiveExport } from "./threads";
+import { archiveThread, readThreadForArchiveExport } from "./threads";
 
 export interface ArchiveThreadOptions {
   settings: ArchiveExportSettings;
@@ -16,7 +16,7 @@ export interface ArchiveThreadResult {
 }
 
 export async function archiveThreadOnAppServer(
-  client: AppServerClient,
+  client: AppServerRequestClient,
   threadId: string,
   options: ArchiveThreadOptions,
 ): Promise<ArchiveThreadResult> {
@@ -30,6 +30,6 @@ export async function archiveThreadOnAppServer(
     exportedPath = result.path;
   }
 
-  await client.archiveThread(threadId);
+  await archiveThread(client, threadId);
   return { exportedPath };
 }

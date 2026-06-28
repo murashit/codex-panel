@@ -2,6 +2,7 @@ import type { AppServerClientAccess } from "../../../app-server/connection/clien
 import type { ThreadCatalogEventSink } from "../../../app-server/query/thread-catalog";
 import { type ArchiveThreadResult, archiveThreadOnAppServer } from "../../../app-server/services/thread-archive";
 import type { ArchiveExportDestination } from "../../../app-server/services/thread-archive-markdown";
+import { renameThread as renameAppServerThread } from "../../../app-server/services/threads";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 
@@ -48,7 +49,7 @@ async function renameThread(
   const name = normalizeExplicitThreadName(value);
   if (!name) return false;
 
-  await host.clientAccess.withClient((client) => client.setThreadName(threadId, name));
+  await host.clientAccess.withClient((client) => renameAppServerThread(client, threadId, name));
   if (options.shouldPublish?.() ?? true) {
     host.catalog.apply({ type: "thread-renamed", threadId, name });
   }

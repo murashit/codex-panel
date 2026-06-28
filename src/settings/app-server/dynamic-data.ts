@@ -3,7 +3,7 @@ import type { AppServerClientAccess } from "../../app-server/connection/client-a
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
 import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../../app-server/query/thread-catalog";
 import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../../app-server/services/catalog";
-import { restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../../app-server/services/threads";
+import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../../app-server/services/threads";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { ObservedResultListener } from "../../shared/query/observed-result";
 import { type SettingsDynamicDataAccess, type SettingsHookCatalog, StaleSettingsDynamicDataContextError } from "../dynamic-data";
@@ -50,7 +50,7 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
       return thread;
     },
     deleteArchivedThread: async (threadId, mutationOptions) => {
-      await withSettingsConnection((client) => client.deleteThread(threadId));
+      await withSettingsConnection((client) => deleteThread(client, threadId));
       if (mutationOptions?.shouldPublish?.() ?? true) {
         options.threadCatalog.apply({ type: "thread-deleted", threadId });
       }

@@ -152,7 +152,7 @@ function coordinatorFixture(
     completedTurnTitleContext: (turnId: string, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
     renameGeneratedTitle: async (threadId: string, value: string, options: { shouldPublish: () => boolean }) => {
-      await currentClient().setThreadName(threadId, value);
+      await currentClient().request("thread/name/set", { threadId, name: value });
       if (options.shouldPublish()) notifyThreadRenamed(threadId, value);
       return true;
     },
@@ -161,8 +161,12 @@ function coordinatorFixture(
 }
 
 function fakeClient(options: { setThreadName?: ReturnType<typeof vi.fn> } = {}): AppServerClient {
+  const setThreadName = options.setThreadName ?? vi.fn().mockResolvedValue({});
   return {
-    setThreadName: options.setThreadName ?? vi.fn().mockResolvedValue({}),
+    request: vi.fn((method: string, params: { threadId: string; name: string }) => {
+      if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
+      return (setThreadName as unknown as (threadId: string, name: string) => Promise<unknown>)(params.threadId, params.name);
+    }),
   } as unknown as AppServerClient;
 }
 

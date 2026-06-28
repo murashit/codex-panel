@@ -1,6 +1,7 @@
 import { normalizeReasoningEffort } from "../../domain/catalog/metadata";
 import type { ApprovalsReviewer, ServiceTier } from "../../domain/runtime/policy";
 import { parseServiceTier } from "../../domain/runtime/policy";
+import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
 import type { ThreadActivationSnapshot } from "../../domain/threads/activation";
 import type { ArchiveThreadInput } from "../../domain/threads/archive-markdown";
 import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
@@ -8,22 +9,25 @@ import type { HistoricalTurn } from "../../domain/threads/history";
 import type { Thread } from "../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT } from "../../domain/threads/reference";
 import type { ThreadConversationSummary } from "../../domain/threads/transcript";
-import type { AppServerClient } from "../connection/client";
+import type { ClientResponseByMethod } from "../connection/client";
+import type { ClientRequestParams } from "../connection/rpc-messages";
 import { type ThreadRecord, threadFromThreadRecord, threadsFromThreadRecords } from "../protocol/thread";
-import { appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
+import { appServerThreadGoalUpdate, appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
+import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
 import {
   chronologicalConversationSummariesFromTurnRecords,
   completedConversationSummariesFromTurnRecords,
   transcriptEntriesFromTurnRecords,
 } from "../protocol/turn";
+import type { AppServerRequestClient } from "./request-client";
 
 const THREAD_LIST_PAGE_LIMIT = 100;
 
 export type ThreadTurnSortDirection = "asc" | "desc";
-export type ThreadConversationSummaryClient = Pick<AppServerClient, "threadTurnsList">;
-export type ThreadForkClient = Pick<AppServerClient, "forkThread">;
-export type ThreadRollbackClient = Pick<AppServerClient, "rollbackThread">;
-export type ThreadCompactionClient = Pick<AppServerClient, "compactThread">;
+export type ThreadConversationSummaryClient = AppServerRequestClient;
+export type ThreadForkClient = AppServerRequestClient;
+export type ThreadRollbackClient = AppServerRequestClient;
+export type ThreadCompactionClient = AppServerRequestClient;
 
 interface ThreadConversationSummaryPage {
   summaries: ThreadConversationSummary[];
@@ -39,14 +43,73 @@ interface ThreadActivationResponse {
   reasoningEffort: string | null;
 }
 
-export async function listThreads(client: AppServerClient, cwd: string, options: { archived?: boolean } = {}): Promise<Thread[]> {
+export interface AppServerStartThreadOptions {
+  cwd: string;
+  serviceTier?: RuntimeServiceTierRequest;
+}
+
+export interface AppServerStartEphemeralThreadOptions {
+  cwd: string;
+  serviceName: string;
+  developerInstructions: string;
+}
+
+interface AppServerThreadListOptions {
+  archived?: boolean;
+  cursor?: string | null;
+  limit?: number | null;
+}
+
+export function startThread(
+  client: AppServerRequestClient,
+  options: AppServerStartThreadOptions,
+): Promise<ClientResponseByMethod["thread/start"]> {
+  const { cwd, serviceTier } = options;
+  return client.request("thread/start", {
+    cwd,
+    serviceName: "codex-panel",
+    ...(serviceTier !== undefined ? { serviceTier } : {}),
+  });
+}
+
+export function startEphemeralThread(
+  client: AppServerRequestClient,
+  options: AppServerStartEphemeralThreadOptions,
+): Promise<ClientResponseByMethod["thread/start"]> {
+  const { cwd, serviceName, developerInstructions } = options;
+  return client.request("thread/start", {
+    cwd,
+    serviceName,
+    developerInstructions,
+    ephemeral: true,
+    sandbox: "read-only",
+    approvalPolicy: "never",
+    multiAgentMode: "none",
+    environments: [],
+  });
+}
+
+export function resumeThread(
+  client: AppServerRequestClient,
+  threadId: string,
+  cwd: string,
+): Promise<ClientResponseByMethod["thread/resume"]> {
+  return client.request("thread/resume", {
+    threadId,
+    cwd,
+    excludeTurns: true,
+    initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
+  });
+}
+
+export async function listThreads(client: AppServerRequestClient, cwd: string, options: { archived?: boolean } = {}): Promise<Thread[]> {
   const archived = options.archived ?? false;
   const records: ThreadRecord[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
 
   for (;;) {
-    const response = await client.listThreads(cwd, {
+    const response = await listThreadPage(client, cwd, {
       archived,
       cursor,
       limit: THREAD_LIST_PAGE_LIMIT,
@@ -68,8 +131,8 @@ export function threadFromAppServerRecord(thread: ThreadRecord, options: { archi
   return threadFromThreadRecord(thread, options);
 }
 
-export async function readThreadForArchiveExport(client: AppServerClient, threadId: string): Promise<ArchiveThreadInput> {
-  const response = await client.readThread(threadId, true);
+export async function readThreadForArchiveExport(client: AppServerRequestClient, threadId: string): Promise<ArchiveThreadInput> {
+  const response = await client.request("thread/read", { threadId, includeTurns: true });
   return {
     ...threadFromThreadRecord(response.thread, { archived: true }),
     transcriptEntries: transcriptEntriesFromTurnRecords(response.thread.turns),
@@ -83,7 +146,7 @@ export async function readCompletedConversationSummariesPage(
   limit: number,
   sortDirection: ThreadTurnSortDirection = "asc",
 ): Promise<ThreadConversationSummaryPage> {
-  const response = await client.threadTurnsList(threadId, cursor, limit, sortDirection);
+  const response = await listThreadTurns(client, threadId, cursor, limit, sortDirection);
   return {
     summaries: completedConversationSummariesFromTurnRecords(response.data),
     nextCursor: response.nextCursor,
@@ -95,7 +158,7 @@ export async function readReferencedThreadConversationSummaries(
   threadId: string,
   limit = REFERENCED_THREAD_TURN_LIMIT,
 ): Promise<ThreadConversationSummary[]> {
-  const response = await client.threadTurnsList(threadId, null, limit);
+  const response = await listThreadTurns(client, threadId, null, limit);
   return chronologicalConversationSummariesFromTurnRecords(response.data);
 }
 
@@ -121,21 +184,33 @@ function threadRollbackSnapshotFromAppServerResponse(response: ThreadRollbackRes
 }
 
 export async function rollbackThread(client: ThreadRollbackClient, threadId: string, numTurns?: number): Promise<ThreadRollbackSnapshot> {
-  const response = numTurns === undefined ? await client.rollbackThread(threadId) : await client.rollbackThread(threadId, numTurns);
+  const response = await client.request("thread/rollback", { threadId, numTurns: numTurns ?? 1 });
   return threadRollbackSnapshotFromAppServerResponse(response);
 }
 
 export async function forkThread(client: ThreadForkClient, threadId: string, cwd: string): Promise<Thread> {
-  const response = await client.forkThread(threadId, cwd);
+  const response = await client.request("thread/fork", {
+    threadId,
+    cwd,
+    excludeTurns: true,
+  });
   return threadFromThreadRecord(response.thread);
 }
 
 export async function compactThread(client: ThreadCompactionClient, threadId: string): Promise<void> {
-  await client.compactThread(threadId);
+  await client.request("thread/compact/start", { threadId });
 }
 
-export async function restoreArchivedThread(client: AppServerClient, threadId: string): Promise<Thread> {
-  const response = await client.unarchiveThread(threadId);
+export async function archiveThread(client: AppServerRequestClient, threadId: string): Promise<void> {
+  await client.request("thread/archive", { threadId });
+}
+
+export async function deleteThread(client: AppServerRequestClient, threadId: string, options: { timeoutMs?: number } = {}): Promise<void> {
+  await client.request("thread/delete", { threadId }, options);
+}
+
+export async function restoreArchivedThread(client: AppServerRequestClient, threadId: string): Promise<Thread> {
+  const response = await client.request("thread/unarchive", { threadId });
   return threadFromThreadRecord(response.thread);
 }
 
@@ -150,16 +225,72 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
   };
 }
 
-export async function readThreadGoal(client: AppServerClient, threadId: string): Promise<ThreadGoal | null> {
-  const response = await client.getThreadGoal(threadId);
+export async function readThreadGoal(client: AppServerRequestClient, threadId: string): Promise<ThreadGoal | null> {
+  const response = await client.request("thread/goal/get", { threadId });
   return threadGoalFromAppServerGoal(response.goal);
 }
 
-export async function setThreadGoal(client: AppServerClient, threadId: string, params: ThreadGoalUpdate): Promise<ThreadGoal | null> {
-  const response = await client.setThreadGoal(threadId, params);
+export async function setThreadGoal(
+  client: AppServerRequestClient,
+  threadId: string,
+  params: ThreadGoalUpdate,
+): Promise<ThreadGoal | null> {
+  const response = await client.request("thread/goal/set", { threadId, ...appServerThreadGoalUpdate(params) });
   return threadGoalFromAppServerGoal(response.goal);
 }
 
-export async function recordThreadGoalUserMessage(client: AppServerClient, threadId: string, objective: string): Promise<void> {
-  await client.injectThreadItems(threadId, [appServerThreadGoalUserHistoryItem(objective)]);
+export async function clearThreadGoal(client: AppServerRequestClient, threadId: string): Promise<void> {
+  await client.request("thread/goal/clear", { threadId });
+}
+
+export async function recordThreadGoalUserMessage(client: AppServerRequestClient, threadId: string, objective: string): Promise<void> {
+  await client.request("thread/inject_items", { threadId, items: [appServerThreadGoalUserHistoryItem(objective)] });
+}
+
+export async function renameThread(client: AppServerRequestClient, threadId: string, name: string): Promise<void> {
+  await client.request("thread/name/set", { threadId, name });
+}
+
+export async function updateThreadSettings(
+  client: AppServerRequestClient,
+  threadId: string,
+  settings: RuntimeSettingsPatch,
+): Promise<void> {
+  await client.request("thread/settings/update", { threadId, ...appServerRuntimeSettingsPatch(settings) });
+}
+
+export function readThreadRolloutFile(
+  client: AppServerRequestClient,
+  path: string,
+  options: { timeoutMs?: number } = {},
+): Promise<ClientResponseByMethod["fs/readFile"]> {
+  return client.request("fs/readFile", { path }, options);
+}
+
+export function listThreadTurns(
+  client: AppServerRequestClient,
+  threadId: string,
+  cursor: string | null = null,
+  limit = 20,
+  sortDirection: ClientRequestParams<"thread/turns/list">["sortDirection"] = "desc",
+  itemsView: ClientRequestParams<"thread/turns/list">["itemsView"] = "full",
+) {
+  return client.request("thread/turns/list", {
+    threadId,
+    cursor,
+    limit,
+    sortDirection,
+    itemsView,
+  });
+}
+
+function listThreadPage(client: AppServerRequestClient, cwd: string, options: AppServerThreadListOptions) {
+  return client.request("thread/list", {
+    cwd,
+    ...(options.cursor ? { cursor: options.cursor } : {}),
+    ...(options.limit === undefined ? {} : { limit: options.limit }),
+    archived: options.archived ?? false,
+    sortKey: "recency_at",
+    sortDirection: "desc",
+  });
 }
