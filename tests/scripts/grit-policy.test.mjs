@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -43,10 +43,13 @@ const CHAT_UI_OUTER_LAYER_MESSAGE =
 const DOM_BOUNDARY_MESSAGE =
   "Keep DOM reads, writes, measurements, hit-tests, focus, and event wiring in files named with a .dom, .obsidian, or .measure suffix.";
 const DOM_EVENTS_IMPORT_MESSAGE = "Import DOM event listener helpers only from explicit .dom, .obsidian, or .measure bridge files.";
+const CHAT_SHELL_READ_MODEL_IMPORT_MESSAGE =
+  "Import chat panel signal read models only from the shell and panel surface rendering adapters.";
+const CHAT_SIGNAL_TYPE_REFERENCE_MESSAGE = "Keep Preact signal types inside the chat panel read-model and surface rendering adapter layer.";
 let appServerBoundaryPolicyReportPromise;
 let renderingAndCssPolicyReportPromise;
 
-describe.concurrent("GritQL source policy", () => {
+describe("GritQL source policy", () => {
   it("keeps Biome wired to every checked-in Grit policy", async () => {
     const gritPolicyPaths = await listRelativeGritPolicyPaths(path.join(repoRoot, "scripts/grit"));
     const configuredGritPluginPaths = projectPluginEntries
@@ -179,6 +182,8 @@ runner = new Runner(() => runner.stop());
     const cwd = await tempBiomeWorkspace([
       "no-implicit-dom-bridges.grit",
       "no-dom-events-imports.grit",
+      "no-chat-shell-read-model-imports.grit",
+      "no-chat-signal-type-references.grit",
       "no-preact-signal-imports.grit",
       "no-state-module-side-effects.grit",
       "no-ui-root-imports.grit",
@@ -186,9 +191,21 @@ runner = new Runner(() => runner.stop());
     await writeFile(
       path.join(cwd, "src/features/chat/panel/shell-read-model.ts"),
       `
-import { signal } from "@preact/signals";
+import { signal, type ReadonlySignal } from "@preact/signals";
 
 export const status = signal("idle");
+export type SurfaceSignal = ReadonlySignal<string>;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/presentation/signal-helper.ts"),
+      `
+import type { ChatPanelComposerReadModel } from "../panel/shell-read-model";
+
+export type BadSignals = ReadonlySignal<string> | Signal<number>;
+export function read(model: ChatPanelComposerReadModel): string | null {
+  return model.activeListedThreadName.value;
+}
 `.trimStart(),
     );
     await writeFile(
@@ -342,8 +359,18 @@ export const render = renderUiRoot;
       path.join(cwd, "src/features/chat/panel/shell.dom.tsx"),
       `
 import { renderUiRoot } from "../../../shared/ui/ui-root.dom";
+import { createChatPanelShellReadModelBinding } from "./shell-read-model";
 
 export const render = renderUiRoot;
+export const binding = createChatPanelShellReadModelBinding;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/panel/composer-controller.ts"),
+      `
+import type { ChatPanelComposerReadModel } from "./shell-read-model";
+
+export type ComposerModel = ChatPanelComposerReadModel;
 `.trimStart(),
     );
     await writeFile(
@@ -384,6 +411,7 @@ export function timestamp(): number {
       [
         "src/features/chat/panel/shell-read-model.ts",
         "src/features/chat/panel/surface/signal-surface.tsx",
+        "src/features/chat/presentation/signal-helper.ts",
         "src/shared/ui/components.tsx",
         "src/shared/ui/signal-escapes.tsx",
         "src/features/chat/ui/dom-bridge-escape.tsx",
@@ -392,6 +420,7 @@ export function timestamp(): number {
         "src/app-server/services/runtime-overrides.ts",
         "src/features/chat/ui/root-import.tsx",
         "src/features/chat/panel/shell.dom.tsx",
+        "src/features/chat/panel/composer-controller.ts",
         "src/features/chat/ui/root-escapes.tsx",
         "src/features/chat/application/state/message-stream.ts",
         "src/features/chat/application/threads/resume-actions.ts",
@@ -401,6 +430,9 @@ export function timestamp(): number {
 
     expect(pluginDiagnostics(report, "src/features/chat/panel/shell-read-model.ts")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/chat/panel/surface/signal-surface.tsx")).toEqual([]);
+    expect([...pluginMessages(report, "src/features/chat/presentation/signal-helper.ts")].sort()).toEqual(
+      [CHAT_SHELL_READ_MODEL_IMPORT_MESSAGE, CHAT_SIGNAL_TYPE_REFERENCE_MESSAGE, CHAT_SIGNAL_TYPE_REFERENCE_MESSAGE].sort(),
+    );
     expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual(["Do not import @preact/signals from this module."]);
     expect(pluginMessages(report, "src/shared/ui/signal-escapes.tsx")).toEqual([
       "Do not import @preact/signals from this module.",
@@ -417,6 +449,7 @@ export function timestamp(): number {
       "Import the Preact root adapter only from explicit root bridge files.",
     ]);
     expect(pluginDiagnostics(report, "src/features/chat/panel/shell.dom.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/panel/composer-controller.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/ui/root-escapes.tsx")).toEqual([
       "Import the Preact root adapter only from explicit root bridge files.",
       "Import the Preact root adapter only from explicit root bridge files.",
@@ -1440,6 +1473,7 @@ export const load = listHookCatalog;
 
 async function tempBiomeWorkspace(plugins) {
   const cwd = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
+  const tempPlugins = await Promise.all(plugins.map((plugin) => tempProjectPluginConfig(cwd, plugin)));
   await mkdir(cwd, { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/domain/message-stream"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/application/state"), { recursive: true });
@@ -1472,7 +1506,7 @@ async function tempBiomeWorkspace(plugins) {
     JSON.stringify({
       $schema: "https://biomejs.dev/schemas/2.5.1/schema.json",
       vcs: { enabled: false },
-      plugins: plugins.map((plugin) => projectPluginConfig(plugin)),
+      plugins: tempPlugins,
       css: { linter: { enabled: true } },
     }),
   );
@@ -1496,16 +1530,20 @@ function biomeLint(files, cwd, options = {}) {
   return report;
 }
 
-function projectPluginConfig(plugin) {
+async function tempProjectPluginConfig(cwd, plugin) {
   const projectPlugin = projectPluginByName.get(plugin);
   if (!projectPlugin) {
     throw new Error(`Missing ${plugin} in biome.jsonc plugins`);
   }
-  const pluginPath = path.resolve(repoRoot, projectPluginPath(projectPlugin));
+  const projectPluginRelativePath = normalizeProjectRelativePath(projectPluginPath(projectPlugin));
+  const projectPluginPathAbsolute = path.resolve(repoRoot, projectPluginPath(projectPlugin));
+  const tempPluginPath = path.join(cwd, projectPluginRelativePath);
+  await mkdir(path.dirname(tempPluginPath), { recursive: true });
+  await copyFile(projectPluginPathAbsolute, tempPluginPath);
   if (typeof projectPlugin === "string") {
-    return pluginPath;
+    return tempPluginPath;
   }
-  return { ...projectPlugin, path: pluginPath };
+  return { ...projectPlugin, path: tempPluginPath };
 }
 
 function projectPluginPath(plugin) {
