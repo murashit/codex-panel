@@ -33,17 +33,17 @@ The generation script uses `codex app-server generate-ts --experimental` because
 
 ## Source Layout
 
-The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint. Put behavior where its reason to change lives: app-server protocol adaptation at the app-server boundary, generated-independent meaning in domain code, feature-neutral helpers in shared code, feature workflows under their owning feature, and Obsidian lifecycle or workspace wiring at Obsidian-facing boundaries.
+The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint. Put behavior where its reason to change lives: app-server protocol adaptation at the app-server boundary, app-server-independent domain models in domain code, feature-neutral helpers in shared code, feature workflows under their owning feature, and Obsidian lifecycle or workspace wiring at Obsidian-facing boundaries.
 
-Within chat, keep state transitions and workflow orchestration separate from app-server adaptation, session/Obsidian wiring, and rendering surfaces. Tests should mirror the ownership boundary of the code under test instead of using flattened shortcut folders that avoid choosing the responsible layer.
+Within chat, keep state transitions and workflow orchestration separate from app-server adaptation, session/Obsidian wiring, and rendering surfaces. Tests should mirror the ownership boundary of the code under test.
 
 ## Placement Rules
 
-Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. Move shared helpers to `src/shared/`, panel-wide meaning models to `src/domain/`, and app-server protocol adaptation to `src/app-server/`.
+Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. Move feature-neutral helpers to `src/shared/`, panel-wide domain models to `src/domain/`, and app-server protocol adaptation to `src/app-server/`.
 
-Generated app-server types should stay behind app-server connection and protocol adapter modules. Chat-local app-server integration modules may consume app-server protocol projections, but not raw generated bindings. If a domain, shared, settings, workspace, or UI module needs app-server payloads, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
+Generated app-server types should stay behind app-server connection and protocol adapter modules. If domain, shared, settings, workspace, or UI code needs app-server data, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
 
-Chat application workflows should not import root `src/app-server/` modules or receive `AppServerClient` access directly. Keep app-server client access, connection freshness checks, vault-path injection, and payload projection in `src/features/chat/app-server/` transports or host-owned wiring, then pass chat-owned workflow contracts into application modules. When several host bundles need the same app-server adapter set, compose that set once at the chat app-server boundary instead of reassembling transport factories in each host bundle.
+Chat application workflows should receive chat-owned contracts, not root `src/app-server/` modules or direct `AppServerClient` access. Keep app-server access, connection freshness checks, vault-path injection, and payload projection in `src/features/chat/app-server/` transports or host-owned wiring.
 
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the shell-state adapter. Use Preact Signals only for shell-local projection. When a surface needs fewer dependencies, add or reuse a named shell-state projection instead of importing `@preact/signals` elsewhere.
 

@@ -6,11 +6,11 @@ This document records durable design direction. User-facing behavior belongs in 
 
 ## Product Boundary
 
-Keep the panel thin. Codex Panel owns the Obsidian experience around Codex: panels, thread display, composing, approvals and user input, vault-aware link handoff, archive export, settings for panel preferences, diagnostics, and selection rewrite review.
+Keep the panel thin. Codex Panel owns the Obsidian experience around Codex: panels, composing, vault-aware link handoff, approvals and user input, file-change review, archive export, panel preferences, diagnostics, and selection rewrite.
 
-Codex owns runtime policy and thread truth. Model defaults, sandboxing, approvals, MCP servers, hooks, providers, network access, thread history, archived threads, effective configuration, goals, and runtime settings should come from Codex through `codex app-server`.
+Codex owns runtime behavior and thread state: models, credentials, sandboxing, approval policy, MCP servers, hooks, providers, network access, thread history, archived state, goals, and runtime settings. The panel should read and update that state through `codex app-server`, not redefine it.
 
-Panel settings should store only panel-specific preferences. Do not duplicate Codex configuration into Obsidian settings just because a value is useful to display or inspect.
+Panel settings should store only panel-specific preferences. Do not mirror Codex configuration in Obsidian settings just to display or inspect it.
 
 ## Sources of Truth
 
@@ -18,19 +18,17 @@ Panel settings should store only panel-specific preferences. Do not duplicate Co
 
 The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility.
 
-Runtime controls should represent visible user intent layered over Codex's active thread state and effective configuration. They should not become a parallel copy of Codex configuration or policy. Codex-owned policy structures should stay at the app-server boundary unless the panel owns a concrete workflow for them. Diagnostics should include only actionable troubleshooting facts, not broad raw snapshots kept because they are available.
-
-Fast mode is a user-facing runtime intent, not a general service-tier editor. Codex owns service tier identifiers, names, and defaults; the panel should express whether the user wants the Fast experience without redefining those semantics.
+Runtime controls should express visible user intent for the active thread. They should not copy Codex configuration, and diagnostics should expose only actionable troubleshooting facts.
 
 ## Code Boundaries
 
 Raw app-server protocol belongs at the app-server boundary. Boundary code should adapt protocol payloads into panel-owned domain models or small projections before those values reach features, workspace coordination, settings, or UI.
 
-Chat application workflows should express turn, thread, goal, runtime-setting, and reference-thread needs as chat-owned contracts. Root app-server clients, RPC method names, connection freshness checks, vault-path injection, and protocol projection belong in chat app-server transports or host wiring, not in application state-transition code.
+Application workflows should depend on feature-owned contracts rather than app-server clients, RPC details, connection checks, vault-path wiring, or raw protocol projections.
 
 Turn stream conversion is the main exception: raw app-server stream payloads may be consumed at the conversion boundary because the event set is broad and changes with Codex. The converter should still reduce them into panel-owned display and diagnostic models before they reach chat state or UI.
 
-Server request adapters should normalize method-specific app-server requests into coarse panel models before they reach pending request state. The UI should handle user-facing intent; app-server-specific decisions and response payloads should remain boundary-owned.
+Server request adapters should turn app-server requests into coarse panel models before they reach pending request state. The UI handles user-facing intent; app-server-specific decisions and response payloads stay boundary-owned.
 
 Source modules should be organized by reason to change, not by the single Obsidian plugin entrypoint. Boundaries should stay close to the state, lifecycle, or external API they own.
 
@@ -42,7 +40,7 @@ Runtime UI composition is Preact-owned. Preact components should render the pane
 
 Obsidian and app-server boundaries stay outside Preact components. External lifecycles, app-server connections, editor/workspace APIs, and rendering bridges belong in boundary modules.
 
-Chat-visible state belongs in the chat state store and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth for turns, pending requests, runtime settings, history cursors, or open details.
+Chat-visible state belongs in the chat state store and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth.
 
 Preact Signals are a shell-local projection adapter, not a second state system. Surface projections should read narrow shell-state contracts instead of making components or presenters depend on broad reducer slices.
 
@@ -52,9 +50,7 @@ Imperative DOM bridges are allowed when an external API, host lifecycle, hit-tes
 
 Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent connection, thread, turn state, composer, and pending requests.
 
-Thread history, archived state, forks, and catalog snapshots should follow app-server semantics. The thread catalog is a read model over app-server list snapshots and lifecycle events; callers submit events instead of choosing cache mutations or refreshes themselves. One list response must not discard newer app-server state. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
-
-Shared app-server resources should follow the same rule. Notifications should describe resource events such as skill changes, sparse rate-limit updates, or MCP startup status updates; the app-server resource actions decide whether to use cached metadata, refresh a probe, or update diagnostics.
+Thread history, archived state, forks, catalog snapshots, and other app-server resources should follow app-server semantics. Panel-side views are read models over app-server snapshots and lifecycle events; stale or partial refreshes must not overwrite newer state. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
 
 Selection rewrite is intentionally scoped to a focused edit-and-review workflow. Avoid expanding it into a broader writing assistant without a separate design decision.
 
