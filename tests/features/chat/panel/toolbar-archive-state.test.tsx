@@ -7,7 +7,6 @@ import type { Thread } from "../../../../src/domain/threads/model";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell.dom";
-import type { ChatPanelComposerSurface } from "../../../../src/features/chat/panel/surface/composer-projection";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
@@ -56,8 +55,10 @@ describe("chat toolbar archive confirmation state", () => {
 
 function toolbarSurface(_store: ReturnType<typeof createChatStateStore>, _toolbarActions: ToolbarPanelActions): ChatPanelToolbarSurface {
   return {
-    state: {
+    connection: {
       connected: () => false,
+    },
+    clock: {
       nowMs: () => 0,
     },
     settings: {
@@ -170,7 +171,6 @@ function surfaceFixture(
 ): {
   toolbar: ChatPanelToolbarSurface;
   goal: ChatPanelGoalSurface;
-  composer: ChatPanelComposerSurface;
 } {
   return {
     toolbar: toolbarSurface(store, toolbarActions),
@@ -184,13 +184,6 @@ function surfaceFixture(
         updateObjectiveDraft: () => undefined,
         setObjectiveExpanded: () => undefined,
         closeEditor: () => undefined,
-      },
-    },
-    composer: {
-      thread: { restoredPlaceholder: () => null },
-      runtime: {
-        requestModel: async () => undefined,
-        requestReasoningEffort: async () => undefined,
       },
     },
   };
@@ -209,7 +202,6 @@ const testMessageStreamContext: MessageStreamContext = {
     activityGroups: new Set(),
     textDetails: new Set(),
     userMessageExpanded: new Set(),
-    goalObjectiveExpanded: new Set(),
     approvalDetails: new Set(),
   },
   forkMenuItemId: null,

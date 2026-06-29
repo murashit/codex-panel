@@ -52,7 +52,7 @@ const CHAT_DISCLOSURE_BUCKETS = [
   "approvalDetails",
 ] as const;
 
-export type ChatDisclosureBucket = (typeof CHAT_DISCLOSURE_BUCKETS)[number];
+type ChatDisclosureBucket = (typeof CHAT_DISCLOSURE_BUCKETS)[number];
 
 export type ChatDisclosureUiState = Readonly<Record<ChatDisclosureBucket, ReadonlySet<string>>>;
 

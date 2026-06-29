@@ -1,4 +1,4 @@
-import { connectionDiagnosticSectionsFromState } from "../application/connection/diagnostic-sections";
+import { appServerDiagnosticSections } from "../application/connection/diagnostic-sections";
 import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-diagnostic-sections";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatState } from "../application/state/root-reducer";
@@ -65,10 +65,12 @@ function effortStatusLines(input: ChatPanelRuntimeProjectionInput): string[] {
 }
 
 function connectionDiagnosticDetails(input: ChatPanelRuntimeProjectionInput): MessageStreamNoticeSection[] {
-  const sections = connectionDiagnosticSectionsFromState({
-    state: input.state(),
+  const state = input.state();
+  const sections = appServerDiagnosticSections({
     connected: input.connected(),
     configuredCommand: input.configuredCommand(),
+    initializeResponse: state.connection.initializeResponse,
+    diagnostics: state.connection.serverDiagnostics,
   });
   return noticeSectionsFromDiagnostics(sections);
 }

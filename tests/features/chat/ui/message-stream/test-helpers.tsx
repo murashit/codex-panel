@@ -108,7 +108,6 @@ export function testDisclosures(
     activityGroups: new Set(overrides.activityGroups),
     textDetails: new Set(overrides.textDetails),
     userMessageExpanded: new Set(overrides.userMessageExpanded),
-    goalObjectiveExpanded: new Set(overrides.goalObjectiveExpanded),
     approvalDetails: new Set(overrides.approvalDetails),
   };
 }

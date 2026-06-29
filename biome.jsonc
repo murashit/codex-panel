@@ -141,7 +141,13 @@
     // Chat state and runtime ownership.
     {
       "path": "./scripts/grit/import-boundaries/no-preact-signal-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/features/chat/panel/shell-state.tsx"]
+      "includes": [
+        "**/src/**/*.ts",
+        "**/src/**/*.tsx",
+        "!**/src/features/chat/panel/shell-read-model.ts",
+        "!**/src/features/chat/panel/surface/**/*.ts",
+        "!**/src/features/chat/panel/surface/**/*.tsx"
+      ]
     },
     {
       "path": "./scripts/grit/runtime/no-state-module-side-effects.grit",

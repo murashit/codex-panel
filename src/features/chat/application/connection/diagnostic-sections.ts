@@ -2,7 +2,6 @@ import { CLIENT_VERSION } from "../../../../constants";
 import type { DiagnosticProbeResult, Diagnostics } from "../../../../domain/server/diagnostics";
 import { type DiagnosticProbeMethod, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { ChatState } from "../state/root-reducer";
 
 const RUNTIME_CHECK_PROBE_METHODS: readonly DiagnosticProbeMethod[] = ["model/list", "account/rateLimits/read"];
 
@@ -17,29 +16,14 @@ export interface DiagnosticSection {
   rows: DiagnosticRow[];
 }
 
-interface ConnectionDiagnosticsInput {
+export interface AppServerDiagnosticSectionsInput {
   connected: boolean;
   configuredCommand: string;
   initializeResponse: ServerInitialization | null;
   diagnostics: Diagnostics;
 }
 
-export interface ConnectionDiagnosticSectionsInput {
-  state: Pick<ChatState, "connection">;
-  connected: boolean;
-  configuredCommand: string;
-}
-
-export function connectionDiagnosticSectionsFromState(input: ConnectionDiagnosticSectionsInput): DiagnosticSection[] {
-  return connectionDiagnosticSections({
-    connected: input.connected,
-    configuredCommand: input.configuredCommand,
-    initializeResponse: input.state.connection.initializeResponse,
-    diagnostics: input.state.connection.serverDiagnostics,
-  });
-}
-
-function connectionDiagnosticSections(input: ConnectionDiagnosticsInput): DiagnosticSection[] {
+export function appServerDiagnosticSections(input: AppServerDiagnosticSectionsInput): DiagnosticSection[] {
   return [
     {
       title: "Process",

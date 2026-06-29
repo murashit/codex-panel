@@ -10,7 +10,6 @@ import type { ChatMessageScrollController } from "../panel/surface/message-strea
 import { createVaultComposerAttachmentHandler } from "./composer-attachments.obsidian";
 import type { ChatPanelEnvironment } from "./contracts";
 import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
-import type { ChatPanelThreadLifecycle } from "./thread-bundle";
 import { VaultComposerContextReferenceProvider } from "./vault-composer-context-reference-provider.obsidian";
 import { VaultNoteCandidateProvider } from "./vault-note-candidate-provider.obsidian";
 
@@ -28,11 +27,10 @@ export interface ChatPanelComposerBundle {
 export function createComposerBundle(
   host: ChatPanelComposerHost,
   input: {
-    threadLifecycle: ChatPanelThreadLifecycle;
     runtimeSettings: ChatPanelRuntimeSettingsActions;
   },
 ): ChatPanelComposerBundle {
-  const surface = createSessionComposerSurface(input.threadLifecycle, input.runtimeSettings);
+  const surface = createSessionComposerSurface(input.runtimeSettings);
   const controller = createSessionComposerController(host, surface, input.runtimeSettings);
 
   return {
@@ -43,14 +41,8 @@ export function createComposerBundle(
   };
 }
 
-function createSessionComposerSurface(
-  threadLifecycle: ChatPanelThreadLifecycle,
-  runtimeSettings: ChatPanelRuntimeSettingsActions,
-): ChatPanelComposerSurface {
+function createSessionComposerSurface(runtimeSettings: ChatPanelRuntimeSettingsActions): ChatPanelComposerSurface {
   return {
-    thread: {
-      restoredPlaceholder: () => threadLifecycle.restoration.placeholder(),
-    },
     runtime: {
       requestModel: (model) => runtimeSettings.requestModelFromUi(model),
       requestReasoningEffort: (effort) => runtimeSettings.requestReasoningEffortFromUi(effort),
@@ -76,10 +68,10 @@ function createSessionComposerController(
     viewId: environment.obsidian.viewId,
     sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
     scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges(),
-    canInterrupt: (state) => {
-      return state.turnBusy && Boolean(state.activeThreadId && state.activeTurnId);
+    canInterrupt: (model) => {
+      return model.turnBusy.value && Boolean(model.activeThreadId.value && model.activeTurnId.value);
     },
-    composerProjection: (state) => chatPanelComposerProjection(composerSurface, state),
+    composerProjection: (model) => chatPanelComposerProjection(composerSurface, model),
     currentModelForSuggestions: () => {
       const current = stateStore.getState();
       const config = runtimeConfigOrDefault(current.connection.runtimeConfig);

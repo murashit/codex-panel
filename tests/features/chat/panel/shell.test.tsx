@@ -4,12 +4,10 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import type { ComposerContextReferenceProvider } from "../../../../src/features/chat/application/composer/context-references";
 import type { NoteCandidateProvider } from "../../../../src/features/chat/application/composer/note-context";
-import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell.dom";
-import type { ChatPanelComposerShellState } from "../../../../src/features/chat/panel/shell-state";
-import type { ChatPanelComposerSurface } from "../../../../src/features/chat/panel/surface/composer-projection";
+import type { ChatPanelComposerReadModel } from "../../../../src/features/chat/panel/shell-read-model";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import { messageStreamViewBlocks } from "../../../../src/features/chat/presentation/message-stream/view-model";
@@ -267,6 +265,12 @@ describe("ChatPanelShell", () => {
     expect(renderMessageStreamState).not.toHaveBeenCalled();
 
     await act(async () => {
+      store.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
+      await settleShellEffects();
+    });
+    expect(renderMessageStreamState).not.toHaveBeenCalled();
+
+    await act(async () => {
       store.dispatch({ type: "active-thread/cwd-set", cwd: "/workspace" });
       await settleShellEffects();
     });
@@ -414,59 +418,65 @@ function shellParts(
     },
     goal: surface.goal,
     messageStream: {
-      renderState: (state) => ({
-        blocks: messageStreamViewBlocks({
-          activeThreadId: state.activeThreadId,
-          activeTurnId: null,
-          historyCursor: state.messageStream.historyCursor,
-          loadingHistory: state.messageStream.loadingHistory,
-          items: messageStreamItems(state.messageStream),
-        }),
-        context: testMessageStreamContext,
-        scrollController: noOpMessageStreamScrollController,
-      }),
+      renderState: (model) => {
+        void model.activeThreadCwd.value;
+        return {
+          blocks: messageStreamViewBlocks({
+            activeThreadId: model.activeThreadId.value,
+            activeTurnId: null,
+            historyCursor: model.historyCursor.value,
+            loadingHistory: model.loadingHistory.value,
+            items: model.items.value,
+          }),
+          context: testMessageStreamContext,
+          scrollController: noOpMessageStreamScrollController,
+        };
+      },
     },
     composer: {
       presenter: {
-        renderState: (state) => ({
-          viewId: "view",
-          draft: state.composer.draft,
-          busy: false,
-          canInterrupt: false,
-          normalPlaceholder: "Ask Codex to work on this task...",
-          suggestions: [],
-          selectedSuggestionIndex: 0,
-          callbacks: {
-            onInput: vi.fn(),
-            onUpdateSuggestions: vi.fn(),
-            onKeydown: vi.fn(),
-            onSendOrInterrupt: vi.fn(),
-            onHeightChange: vi.fn(),
-            onSuggestionHover: vi.fn(),
-            onSuggestionInsert: vi.fn(),
-          },
-          meta: {
-            fatal: null,
-            context: {
-              cells: [
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-                { text: "⣀", placeholder: true },
-              ],
-              percent: "--%",
+        renderState: (model) => {
+          void model.runtimeSnapshot.value;
+          return {
+            viewId: "view",
+            draft: model.draft.value,
+            busy: false,
+            canInterrupt: false,
+            normalPlaceholder: "Ask Codex to work on this task...",
+            suggestions: [],
+            selectedSuggestionIndex: 0,
+            callbacks: {
+              onInput: vi.fn(),
+              onUpdateSuggestions: vi.fn(),
+              onKeydown: vi.fn(),
+              onSendOrInterrupt: vi.fn(),
+              onHeightChange: vi.fn(),
+              onSuggestionHover: vi.fn(),
+              onSuggestionInsert: vi.fn(),
             },
-            statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
-            model: "default",
-            effort: null,
-            planActive: false,
-            autoReviewActive: false,
-            fastActive: false,
-            modelChoices: [],
-            effortChoices: [],
-          },
-          onComposer: () => undefined,
-        }),
+            meta: {
+              fatal: null,
+              context: {
+                cells: [
+                  { text: "⣀", placeholder: true },
+                  { text: "⣀", placeholder: true },
+                  { text: "⣀", placeholder: true },
+                  { text: "⣀", placeholder: true },
+                ],
+                percent: "--%",
+              },
+              statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+              model: "default",
+              effort: null,
+              planActive: false,
+              autoReviewActive: false,
+              fastActive: false,
+              modelChoices: [],
+              effortChoices: [],
+            },
+            onComposer: () => undefined,
+          };
+        },
       },
       actions: {
         submit: vi.fn(),
@@ -505,7 +515,7 @@ function contextProvider(
   };
 }
 
-function composerProjectionFixture(_state: ChatPanelComposerShellState) {
+function composerProjectionFixture(_model: ChatPanelComposerReadModel) {
   return {
     placeholder: "Ask Codex to work on this task...",
     meta: {
@@ -538,7 +548,6 @@ const testMessageStreamContext: MessageStreamContext = {
     activityGroups: new Set(),
     textDetails: new Set(),
     userMessageExpanded: new Set(),
-    goalObjectiveExpanded: new Set(),
     approvalDetails: new Set(),
   },
   forkMenuItemId: null,
@@ -549,12 +558,13 @@ const testMessageStreamContext: MessageStreamContext = {
 function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter" } = {}): {
   toolbar: ChatPanelToolbarSurface;
   goal: ChatPanelGoalSurface;
-  composer: ChatPanelComposerSurface;
 } {
   return {
     toolbar: {
-      state: {
+      connection: {
         connected: options.toolbarConnected ?? (() => false),
+      },
+      clock: {
         nowMs: () => 0,
       },
       settings: {
@@ -573,13 +583,6 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendSho
         updateObjectiveDraft: () => undefined,
         setObjectiveExpanded: () => undefined,
         closeEditor: () => undefined,
-      },
-    },
-    composer: {
-      thread: { restoredPlaceholder: () => null },
-      runtime: {
-        requestModel: async () => undefined,
-        requestReasoningEffort: async () => undefined,
       },
     },
   };

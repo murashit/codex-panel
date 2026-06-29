@@ -43,7 +43,7 @@ import {
   composerTransferHasFiles,
   focusComposer,
 } from "./composer-controller.dom";
-import type { ChatPanelComposerShellState } from "./shell-state";
+import type { ChatPanelComposerReadModel } from "./shell-read-model";
 import type { ChatPanelComposerProjection } from "./surface/composer-projection";
 
 export interface ChatComposerControllerOptions {
@@ -55,8 +55,8 @@ export interface ChatComposerControllerOptions {
   viewId: string;
   sendShortcut: () => SendShortcut;
   scrollThreadFromComposerEdges: () => boolean;
-  canInterrupt: (state: ChatPanelComposerShellState) => boolean;
-  composerProjection: (state: ChatPanelComposerShellState) => ChatPanelComposerProjection;
+  canInterrupt: (model: ChatPanelComposerReadModel) => boolean;
+  composerProjection: (model: ChatPanelComposerReadModel) => ChatPanelComposerProjection;
   currentModelForSuggestions: () => string | null;
   threadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
   togglePlan: () => void;
@@ -97,16 +97,16 @@ export class ChatComposerController {
     return this.composer?.value.trim() ?? this.state.composer.draft.trim();
   }
 
-  renderState(state: ChatPanelComposerShellState, actions: ChatComposerRenderActions): ComposerShellProps {
-    const projection = this.options.composerProjection(state);
+  renderState(model: ChatPanelComposerReadModel, actions: ChatComposerRenderActions): ComposerShellProps {
+    const projection = this.options.composerProjection(model);
     return {
       viewId: this.options.viewId,
-      draft: state.composer.draft,
-      busy: state.turnBusy,
-      canInterrupt: this.options.canInterrupt(state),
+      draft: model.draft.value,
+      busy: model.turnBusy.value,
+      canInterrupt: this.options.canInterrupt(model),
       normalPlaceholder: projection.placeholder,
-      suggestions: state.composer.suggestions,
-      selectedSuggestionIndex: state.composer.suggestSelected,
+      suggestions: model.suggestions.value,
+      selectedSuggestionIndex: model.selectedSuggestionIndex.value,
       pendingSelection: this.pendingSelection,
       onPendingSelectionApplied: this.clearPendingSelection,
       callbacks: this.composerCallbacks(actions),

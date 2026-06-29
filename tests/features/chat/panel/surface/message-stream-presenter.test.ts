@@ -9,7 +9,7 @@ import { type ChatStateStore, createChatStateStore } from "../../../../../src/fe
 import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
   type ChatMessageStreamSurfaceContext,
-  messageStreamSurfaceProjectionFromState,
+  messageStreamSurfaceProjectionFromModel,
 } from "../../../../../src/features/chat/panel/surface/message-stream-projection";
 import {
   type ChatMessageScrollController,
@@ -21,7 +21,7 @@ import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-roo
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { withChatStateMessageStreamItems } from "../../support/message-stream";
-import { messageStreamShellStateFromChatState } from "../../support/shell-state";
+import { messageStreamReadModelFromChatState } from "../../support/shell-read-model";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { installMessageViewportMetrics, pendingApproval } from "../../ui/message-stream/test-helpers";
 
@@ -30,7 +30,7 @@ const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 installObsidianDomShims();
 
 function renderMessageStreamPresenter(parent: HTMLElement, presenter: MessageStreamPresenter, state: ChatState): void {
-  renderUiRoot(parent, h(MessageStreamViewport, { state: presenter.renderState(messageStreamShellStateFromChatState(state)) }));
+  renderUiRoot(parent, h(MessageStreamViewport, { state: presenter.renderState(messageStreamReadModelFromChatState(state)) }));
 }
 
 describe("MessageStreamPresenter scroll pinning", () => {
@@ -50,8 +50,8 @@ describe("MessageStreamPresenter scroll pinning", () => {
       approvalsReviewer: null,
     });
 
-    const projection = messageStreamSurfaceProjectionFromState(
-      messageStreamShellStateFromChatState(store.getState()),
+    const projection = messageStreamSurfaceProjectionFromModel(
+      messageStreamReadModelFromChatState(store.getState()),
       messageStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: (action) => {
@@ -76,7 +76,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     });
 
-    const context = messageStreamSurfaceProjectionFromState(messageStreamShellStateFromChatState(store.getState()), surfaceContext).context;
+    const context = messageStreamSurfaceProjectionFromModel(messageStreamReadModelFromChatState(store.getState()), surfaceContext).context;
     if (!context.onDisclosureToggle) throw new Error("Expected message stream disclosure action");
     context.onDisclosureToggle("textDetails", "message:details", true);
 
@@ -87,8 +87,8 @@ describe("MessageStreamPresenter scroll pinning", () => {
     let state = chatStateFixture();
     state = withChatStateMessageStreamItems(state, [{ id: "system", kind: "system", role: "system", text: "Waiting for approval." }]);
     state = chatStateWith(state, { requests: { approvals: [pendingApproval()] } });
-    const projection = messageStreamSurfaceProjectionFromState(
-      messageStreamShellStateFromChatState(state),
+    const projection = messageStreamSurfaceProjectionFromModel(
+      messageStreamReadModelFromChatState(state),
       messageStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: () => undefined,

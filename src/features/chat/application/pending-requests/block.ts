@@ -34,12 +34,19 @@ interface PendingRequestBlockStateSource {
 }
 
 export function pendingRequestBlockStateFromChatState(state: PendingRequestBlockStateSource): PendingRequestBlockState {
+  return pendingRequestBlockStateFromRequestState(state.requests, state.ui.disclosures.approvalDetails);
+}
+
+export function pendingRequestBlockStateFromRequestState(
+  requests: ChatRequestState,
+  approvalDetails: ReadonlySet<string>,
+): PendingRequestBlockState {
   return {
-    approvals: state.requests.approvals,
-    pendingUserInputs: state.requests.pendingUserInputs,
-    pendingMcpElicitations: state.requests.pendingMcpElicitations,
-    userInputDrafts: state.requests.userInputDrafts,
-    mcpElicitationDrafts: state.requests.mcpElicitationDrafts,
-    approvalDetails: state.ui.disclosures.approvalDetails,
+    approvals: requests.approvals,
+    pendingUserInputs: requests.pendingUserInputs,
+    pendingMcpElicitations: requests.pendingMcpElicitations,
+    userInputDrafts: requests.userInputDrafts,
+    mcpElicitationDrafts: requests.mcpElicitationDrafts,
+    approvalDetails,
   };
 }

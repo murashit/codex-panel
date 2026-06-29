@@ -42,7 +42,7 @@ Obsidian and app-server boundaries stay outside Preact components. External life
 
 Chat-visible state belongs in the chat state store and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth.
 
-Preact Signals are a shell-local projection adapter, not a second state system. Surface projections should read narrow shell-state contracts instead of making components or presenters depend on broad reducer slices.
+Preact Signals are a chat panel rendering adapter, not a second state system. Panel surfaces may read narrow signal-backed read models, but application workflows, domain code, presentation helpers, and pure UI components must not depend on broad reducer slices or reactive state primitives.
 
 Imperative DOM bridges are allowed when an external API, host lifecycle, hit-test, focus/selection operation, or measurement problem requires an `HTMLElement`. They should remain narrow boundary adapters, not a second UI composition system inside Preact-owned surfaces.
 

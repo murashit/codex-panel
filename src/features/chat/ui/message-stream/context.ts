@@ -4,20 +4,13 @@ import type { PlanImplementationTarget } from "../../domain/message-stream/selec
 import type { MessageStreamForkTarget } from "../../presentation/message-stream/text-view";
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
 
-type MessageStreamDisclosureBucket =
-  | "details"
-  | "activityGroups"
-  | "textDetails"
-  | "userMessageExpanded"
-  | "goalObjectiveExpanded"
-  | "approvalDetails";
+export type MessageStreamDisclosureBucket = "details" | "activityGroups" | "textDetails" | "userMessageExpanded" | "approvalDetails";
 
 export interface MessageStreamDisclosureState {
   details: ReadonlySet<string>;
   activityGroups: ReadonlySet<string>;
   textDetails: ReadonlySet<string>;
   userMessageExpanded: ReadonlySet<string>;
-  goalObjectiveExpanded: ReadonlySet<string>;
   approvalDetails: ReadonlySet<string>;
 }
 

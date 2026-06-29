@@ -9,7 +9,7 @@ import { createServerDiagnostics } from "../../../../../src/domain/server/diagno
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
-import { ChatPanelShellStateContext, createChatPanelShellState } from "../../../../../src/features/chat/panel/shell-state";
+import { createChatPanelShellReadModelBinding } from "../../../../../src/features/chat/panel/shell-read-model";
 import type { ChatPanelComposerSurface } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { ChatPanelGoal, type ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/goal-projection";
@@ -18,7 +18,7 @@ import type { ToolbarActions } from "../../../../../src/features/chat/ui/toolbar
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { withChatStateMessageStreamItems } from "../../support/message-stream";
-import { composerShellStateFromChatState } from "../../support/shell-state";
+import { composerReadModelFromChatState } from "../../support/shell-read-model";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 installObsidianDomShims();
@@ -39,9 +39,12 @@ describe("chat panel surface projections", () => {
     });
     state = chatStateWith(state, { connection: { serverDiagnostics: createServerDiagnostics() } });
 
-    const parent = renderWithShellState(
-      state,
-      h(ChatPanelToolbar, { surface: toolbarSurfaceFixture({ archiveExportEnabled: true }), actions: toolbarActionsFixture() }),
+    const parent = renderWithShellReadModel(state, (readModel) =>
+      h(ChatPanelToolbar, {
+        model: readModel.toolbar,
+        surface: toolbarSurfaceFixture({ archiveExportEnabled: true }),
+        actions: toolbarActionsFixture(),
+      }),
     );
 
     expect(parent.querySelector('[data-codex-panel-toolbar-panel="history"]')).not.toBeNull();
@@ -69,9 +72,12 @@ describe("chat panel surface projections", () => {
     state = chatStateWith(state, { runtime: { pending: { model: { kind: "set", value: "gpt-debug" } } } });
 
     const copyDebugDetails = vi.fn<(details: string) => void>();
-    const parent = renderWithShellState(
-      state,
-      h(ChatPanelToolbar, { surface: toolbarSurfaceFixture(), actions: toolbarActionsFixture({ copyDebugDetails }) }),
+    const parent = renderWithShellReadModel(state, (readModel) =>
+      h(ChatPanelToolbar, {
+        model: readModel.toolbar,
+        surface: toolbarSurfaceFixture(),
+        actions: toolbarActionsFixture({ copyDebugDetails }),
+      }),
     );
 
     parent.querySelectorAll<HTMLButtonElement>(".codex-panel__status-panel-item")[2]?.click();
@@ -292,13 +298,13 @@ describe("chat panel surface projections", () => {
       },
     } satisfies ChatPanelGoalSurface;
 
-    const parent = renderWithShellState(state, h(ChatPanelGoal, { surface }));
+    const parent = renderWithShellReadModel(state, (readModel) => h(ChatPanelGoal, { model: readModel.goal, surface }));
     state = chatStateWith(state, { activeThread: { id: "thread-current" } });
     clickLabeledButton(parent, "Pause goal");
     clickLabeledButton(parent, "Clear goal");
 
     state = chatStateWith(state, { activeThread: { goal: { ...goalFixture("thread-rendered"), status: "paused" } } });
-    const resumeParent = renderWithShellState(state, h(ChatPanelGoal, { surface }));
+    const resumeParent = renderWithShellReadModel(state, (readModel) => h(ChatPanelGoal, { model: readModel.goal, surface }));
     clickLabeledButton(resumeParent, "Resume goal");
 
     expect(statuses).toEqual([
@@ -339,23 +345,6 @@ describe("chat panel surface projections", () => {
     expect(composerProjectionFromState(composerSurfaceFixture(), chatStateFixture()).placeholder).toBe("Ask Codex to work on this task...");
   });
 
-  it("uses restored thread names in the composer projection", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = chatStateWith(state, { threadList: { listedThreads: [threadFixture("thread-1", null)] } });
-
-    expect(
-      composerProjectionFromState(
-        composerSurfaceFixture({
-          thread: {
-            restoredPlaceholder: () => ({ threadId: "thread-1", title: "Restored", explicitName: "Restored" }),
-          },
-        }),
-        state,
-      ).placeholder,
-    ).toBe("Ask Codex to work on “Restored”...");
-  });
-
   it("projects goal editor and disclosure state before action wiring", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { goal: goalFixture("thread-1") } });
@@ -364,21 +353,26 @@ describe("chat panel surface projections", () => {
     });
     state = chatStateWith(state, { ui: { disclosures: { goalObjectiveExpanded: new Set(["thread-1"]) } } });
 
-    const parent = renderWithShellState(state, h(ChatPanelGoal, { surface: goalSurfaceFixture() }));
+    const parent = renderWithShellReadModel(state, (readModel) =>
+      h(ChatPanelGoal, { model: readModel.goal, surface: goalSurfaceFixture() }),
+    );
 
     expect(parent.querySelector<HTMLTextAreaElement>(".codex-panel__goal-objective-input")?.value).toBe("Draft goal");
     unmountUiRoot(parent);
   });
 });
 
-function renderWithShellState(state: ChatState, node: ComponentChild): HTMLElement {
+function renderWithShellReadModel(
+  state: ChatState,
+  node: (readModel: ReturnType<typeof createChatPanelShellReadModelBinding>["readModel"]) => ComponentChild,
+): HTMLElement {
   const parent = document.createElement("div");
-  renderUiRoot(parent, h(ChatPanelShellStateContext.Provider, { value: createChatPanelShellState(state) }, node));
+  renderUiRoot(parent, node(createChatPanelShellReadModelBinding(state).readModel));
   return parent;
 }
 
 function composerProjectionFromState(surface: ChatPanelComposerSurface, state: ChatState) {
-  return chatPanelComposerProjection(surface, composerShellStateFromChatState(state));
+  return chatPanelComposerProjection(surface, composerReadModelFromChatState(state));
 }
 
 function clickLabeledButton(parent: HTMLElement, label: string): void {
@@ -389,8 +383,10 @@ function clickLabeledButton(parent: HTMLElement, label: string): void {
 
 function toolbarSurfaceFixture(overrides: { archiveExportEnabled?: boolean } = {}) {
   return {
-    state: {
+    connection: {
       connected: () => true,
+    },
+    clock: {
       nowMs: () => 0,
     },
     settings: {
@@ -456,10 +452,6 @@ function goalSurfaceFixture(): ChatPanelGoalSurface {
 
 function composerSurfaceFixture(overrides: Partial<ChatPanelComposerSurface> = {}): ChatPanelComposerSurface {
   return {
-    thread: {
-      restoredPlaceholder: () => null,
-      ...overrides.thread,
-    },
     runtime: {
       requestModel: async () => undefined,
       requestReasoningEffort: async () => undefined,

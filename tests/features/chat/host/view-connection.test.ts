@@ -590,7 +590,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "After rename" });
   });
 
-  it("does not use restored thread title as a composer name before an explicit rename notification", async () => {
+  it("does not use restored thread identity as a composer name before the thread becomes active", async () => {
     const host = chatHost();
     const view = await chatView({ host });
 
@@ -600,10 +600,14 @@ describe("CodexChatView connection lifecycle", () => {
     expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
 
     host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: "Explicit name" })] });
+    await waitForAsyncWork(() => {
+      expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+    });
+
     view.surface.applyThreadRenamed("thread-1", "Explicit name");
 
     await waitForAsyncWork(() => {
-      expect(composerPlaceholder(view)).toBe("Ask Codex to work on “Explicit name”...");
+      expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
     });
   });
 

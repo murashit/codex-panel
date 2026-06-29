@@ -9,21 +9,26 @@ import type { ChatStateStore } from "../../application/state/store";
 import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/flow-scroll.measure";
 import { MarkdownMessageRenderer, renderStreamMarkdown } from "../../ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/stream-blocks";
-import { type ChatPanelMessageStreamShellState, messageStreamStateFromShellState, useChatPanelShellState } from "../shell-state";
+import type { ChatPanelMessageStreamReadModel } from "../shell-read-model";
 import {
   type ChatMessageStreamSurfaceContext,
   createMessageStreamSurfaceContext,
-  messageStreamSurfaceProjectionFromState,
+  messageStreamSurfaceProjectionFromModel,
 } from "./message-stream-projection";
 
 export interface ChatPanelMessageStreamPresenter {
-  renderState(state: ChatPanelMessageStreamShellState): MessageStreamViewportState;
+  renderState(model: ChatPanelMessageStreamReadModel): MessageStreamViewportState;
 }
 
-export function ChatPanelMessageStream({ presenter }: { presenter: ChatPanelMessageStreamPresenter }): UiNode {
-  const state = messageStreamStateFromShellState(useChatPanelShellState());
+export function ChatPanelMessageStream({
+  model,
+  presenter,
+}: {
+  model: ChatPanelMessageStreamReadModel;
+  presenter: ChatPanelMessageStreamPresenter;
+}): UiNode {
   return h(MessageStreamViewport, {
-    state: presenter.renderState(state),
+    state: presenter.renderState(model),
     rootAttributes: { "data-codex-panel-shell-region": "message-stream" },
   });
 }
@@ -87,12 +92,12 @@ export class MessageStreamPresenter {
     this.options.state.store.dispatch(action);
   }
 
-  renderState(state: ChatPanelMessageStreamShellState): MessageStreamViewportState {
-    return this.renderStateFor(state);
+  renderState(model: ChatPanelMessageStreamReadModel): MessageStreamViewportState {
+    return this.renderStateFor(model);
   }
 
-  private renderStateFor(state: ChatPanelMessageStreamShellState): MessageStreamViewportState {
-    const projection = messageStreamSurfaceProjectionFromState(state, this.messageStreamSurfaceContext());
+  private renderStateFor(model: ChatPanelMessageStreamReadModel): MessageStreamViewportState {
+    const projection = messageStreamSurfaceProjectionFromModel(model, this.messageStreamSurfaceContext());
 
     return {
       blocks: projection.blocks,

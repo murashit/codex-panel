@@ -12,11 +12,11 @@ import type { NoteCandidateProvider } from "../../../../src/features/chat/applic
 import type { ChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { ChatComposerController, type ChatComposerRenderActions } from "../../../../src/features/chat/panel/composer-controller";
-import type { ChatPanelComposerShellState } from "../../../../src/features/chat/panel/shell-state";
+import type { ChatPanelComposerReadModel } from "../../../../src/features/chat/panel/shell-read-model";
 import { ComposerShell } from "../../../../src/features/chat/ui/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/ui-root.dom";
 import { installObsidianDomShims } from "../../../support/dom";
-import { composerShellStateFromChatState } from "../support/shell-state";
+import { composerReadModelFromChatState } from "../support/shell-read-model";
 
 installObsidianDomShims();
 
@@ -26,15 +26,15 @@ function renderComposerController(
   stateStore: ChatStateStore,
   actions: ChatComposerRenderActions = { submit: vi.fn() },
 ): void {
-  renderUiRoot(parent, h(ComposerShell, controller.renderState(composerShellStateFromChatState(stateStore.getState()), actions)));
+  renderUiRoot(parent, h(ComposerShell, controller.renderState(composerReadModelFromChatState(stateStore.getState()), actions)));
 }
 
 describe("ChatComposerController", () => {
   it("derives composer placeholder and meta from the projection", () => {
     const stateStore = createChatStateStore();
-    const projection = vi.fn((state: ChatPanelComposerShellState) => ({
-      placeholder: `Projected ${state.composer.draft || "empty"}`,
-      meta: defaultComposerProjection(state).meta,
+    const projection = vi.fn((model: ChatPanelComposerReadModel) => ({
+      placeholder: `Projected ${model.draft.value || "empty"}`,
+      meta: defaultComposerProjection(model).meta,
     }));
     const controller = new ChatComposerController({
       noteCandidateProvider: noteProvider(),
@@ -55,7 +55,7 @@ describe("ChatComposerController", () => {
       onHeightChange: vi.fn(),
     });
 
-    const props = controller.renderState(composerShellStateFromChatState(stateStore.getState()), { submit: vi.fn() });
+    const props = controller.renderState(composerReadModelFromChatState(stateStore.getState()), { submit: vi.fn() });
 
     expect(props.normalPlaceholder).toBe("Projected empty");
     expect(props.meta.statusSummary).toBe(
@@ -873,7 +873,7 @@ function skill(name: string): SkillMetadata {
   };
 }
 
-function defaultComposerProjection(_state: ChatPanelComposerShellState) {
+function defaultComposerProjection(_model: ChatPanelComposerReadModel) {
   return {
     placeholder: "Ask Codex to work on this task...",
     meta: {

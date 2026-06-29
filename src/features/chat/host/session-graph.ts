@@ -152,7 +152,6 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     notifyActiveThreadIdentityChanged,
   });
   const composer = createComposerBundle(host, {
-    threadLifecycle: threadLifecycle.lifecycle,
     runtimeSettings: runtime.settings,
   });
   const threadActions = createThreadActionBundle(host, {

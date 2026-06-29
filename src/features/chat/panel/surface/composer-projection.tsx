@@ -3,19 +3,12 @@ import { h } from "preact";
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { sortedModelMetadata } from "../../../../domain/catalog/metadata";
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
-import { explicitThreadName } from "../../../../domain/threads/model";
 import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { contextSummary } from "../../presentation/runtime/status";
 import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
-import { type ChatPanelComposerShellState, composerStateFromShellState, useChatPanelShellState } from "../shell-state";
-
-interface RestoredThreadTitleSnapshot {
-  threadId: string;
-  title: string | null;
-  explicitName: string | null;
-}
+import type { ChatPanelComposerReadModel } from "../shell-read-model";
 
 interface ChatPanelComposerContextMeterCell {
   text: string;
@@ -54,9 +47,6 @@ export interface ChatPanelComposerProjection {
 }
 
 export interface ChatPanelComposerSurface {
-  thread: {
-    restoredPlaceholder: () => RestoredThreadTitleSnapshot | null;
-  };
   runtime: {
     requestModel: (model: string) => Promise<void>;
     requestReasoningEffort: (effort: ReasoningEffort) => Promise<void>;
@@ -64,7 +54,7 @@ export interface ChatPanelComposerSurface {
 }
 
 export interface ChatPanelComposerPresenter {
-  renderState(state: ChatPanelComposerShellState, actions: ChatPanelComposerActions): ComposerShellProps;
+  renderState(model: ChatPanelComposerReadModel, actions: ChatPanelComposerActions): ComposerShellProps;
 }
 
 export interface ChatPanelComposerActions {
@@ -72,7 +62,7 @@ export interface ChatPanelComposerActions {
 }
 
 interface RuntimeComposerChoicesInput {
-  state: ChatPanelComposerShellState;
+  readModel: ChatPanelComposerReadModel;
   snapshot: RuntimeSnapshot;
   requestModel: (model: string) => void;
   requestReasoningEffort: (effort: ReasoningEffort) => void;
@@ -83,27 +73,28 @@ function composerPlaceholder(threadName: string | null): string {
 }
 
 export function ChatPanelComposer({
+  model,
   presenter,
   actions,
 }: {
+  model: ChatPanelComposerReadModel;
   presenter: ChatPanelComposerPresenter;
   actions: ChatPanelComposerActions;
 }): UiNode {
-  const state = composerStateFromShellState(useChatPanelShellState());
-  return h(ComposerShell, presenter.renderState(state, actions));
+  return h(ComposerShell, presenter.renderState(model, actions));
 }
 
 export function chatPanelComposerProjection(
   surface: ChatPanelComposerSurface,
-  state: ChatPanelComposerShellState,
+  readModel: ChatPanelComposerReadModel,
 ): ChatPanelComposerProjection {
-  const snapshot = state.runtimeSnapshot;
+  const snapshot = readModel.runtimeSnapshot.value;
   return {
-    placeholder: composerPlaceholder(activeComposerThreadName(state, surface.thread.restoredPlaceholder())),
+    placeholder: composerPlaceholder(activeComposerThreadName(readModel)),
     meta: {
-      ...composerMetaViewModel(state, snapshot),
+      ...composerMetaViewModel(readModel, snapshot),
       ...runtimeComposerChoices({
-        state,
+        readModel,
         snapshot,
         requestModel: (model) => void surface.runtime.requestModel(model),
         requestReasoningEffort: (effort) => void surface.runtime.requestReasoningEffort(effort),
@@ -113,10 +104,11 @@ export function chatPanelComposerProjection(
 }
 
 function composerMetaViewModel(
-  state: ChatPanelComposerShellState,
+  readModel: ChatPanelComposerReadModel,
   snapshot: RuntimeSnapshot,
 ): Omit<ChatPanelComposerMeta, "modelChoices" | "effortChoices"> {
-  if (state.connection.phase.kind === "failed" || state.connection.phase.kind === "disconnected") {
+  const phase = readModel.connection.phase.value;
+  if (phase.kind === "failed" || phase.kind === "disconnected") {
     return {
       fatal: "Codex app-server disconnected",
       context: contextComposerMeter(null),
@@ -129,10 +121,10 @@ function composerMetaViewModel(
     };
   }
 
-  const config = runtimeConfigOrDefault(state.connection.runtimeConfig);
+  const config = runtimeConfigOrDefault(readModel.connection.runtimeConfig.value);
   const resolution = resolveRuntimeControls(snapshot, config);
   const context = contextSummary(snapshot);
-  const model = resolution.model.effective;
+  const selectedModel = resolution.model.effective;
   const effort = resolution.reasoningEffort.effective;
   const composerContext = contextComposerMeter(context?.percent ?? null);
   const compactEffort = effort ? compactReasoningEffortLabel(effort) : null;
@@ -144,13 +136,13 @@ function composerMetaViewModel(
     context: composerContext,
     statusSummary: composerStatusSummary({
       context: composerContext,
-      model: model ?? "default",
+      model: selectedModel ?? "default",
       effort: compactEffort,
       planActive,
       autoReviewActive: reviewActive,
       fastActive,
     }),
-    model: model ?? "default",
+    model: selectedModel ?? "default",
     effort: compactEffort,
     planActive,
     autoReviewActive: reviewActive,
@@ -162,10 +154,10 @@ function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {
   modelChoices: ChatPanelComposerRuntimeChoice[];
   effortChoices: ChatPanelComposerRuntimeChoice[];
 } {
-  const config = runtimeConfigOrDefault(input.state.connection.runtimeConfig);
+  const config = runtimeConfigOrDefault(input.readModel.connection.runtimeConfig.value);
   const resolution = resolveRuntimeControls(input.snapshot, config);
   const effectiveModel = resolution.model.effective;
-  const models = sortedModelMetadata(input.state.connection.availableModels);
+  const models = sortedModelMetadata(input.readModel.connection.availableModels.value);
   const modelChoices: ChatPanelComposerRuntimeChoice[] = models.slice(0, 12).map((model) => ({
     label: model.model,
     selected: effectiveModel === model.model,
@@ -216,13 +208,9 @@ function onOffLabel(active: boolean): string {
   return active ? "on" : "off";
 }
 
-function activeComposerThreadName(state: ChatPanelComposerShellState, restoredThread: RestoredThreadTitleSnapshot | null): string | null {
-  const threadId = restoredThread?.threadId ?? state.activeThreadId ?? null;
-  if (!threadId) return null;
-  const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
-  const listedName = thread ? explicitThreadName(thread) : null;
-  if (listedName) return listedName;
-  return restoredThread?.threadId === threadId ? restoredThread.explicitName : null;
+function activeComposerThreadName(model: ChatPanelComposerReadModel): string | null {
+  const activeThreadId = model.activeThreadId.value;
+  return activeThreadId ? model.activeListedThreadName.value : null;
 }
 
 const CONTEXT_DOT_WIDTH = 4;

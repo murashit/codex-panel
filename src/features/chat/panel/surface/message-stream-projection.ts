@@ -1,15 +1,14 @@
 import type { TurnDiffViewState } from "../../../turn-diff/model";
-import { type PendingRequestBlockActions, pendingRequestBlockStateFromChatState } from "../../application/pending-requests/block";
+import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";
 import type { ChatAction } from "../../application/state/root-reducer";
-import type { ChatDisclosureBucket, ChatDisclosureUiState } from "../../application/state/ui-state";
 import { type ForkCandidate, messageStreamSegmentsEmpty, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
-import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
 import type { MessageStreamTextActionTargets } from "../../presentation/message-stream/text-view";
 import { type MessageStreamViewBlock, messageStreamViewBlocks } from "../../presentation/message-stream/view-model";
-import { type PendingRequestBlockSnapshot, pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/view-model";
-import type { MessageStreamContext } from "../../ui/message-stream/context";
-import type { ChatPanelMessageStreamShellState } from "../shell-state";
+import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
+import type { MessageStreamContext, MessageStreamDisclosureBucket, MessageStreamDisclosureState } from "../../ui/message-stream/context";
+import type { ChatPanelMessageStreamReadModel } from "../shell-read-model";
+import { pendingRequestSurfaceProjectionFromState } from "./pending-request-block-projection";
 
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
@@ -25,7 +24,7 @@ interface ChatMessageStreamRequests {
 
 export interface ChatMessageStreamSurfaceContext {
   vaultPath: string;
-  setDisclosureOpen: (bucket: ChatDisclosureBucket, id: string, open: boolean) => void;
+  setDisclosureOpen: (bucket: MessageStreamDisclosureBucket, id: string, open: boolean) => void;
   setForkMenuItem: (itemId: string | null) => void;
   loadOlderTurns: () => void;
   renderObsidianMarkdown: (element: HTMLElement, text: string) => void;
@@ -49,7 +48,7 @@ export interface MessageStreamSurfaceContextOptions {
 interface MessageStreamStateProjection {
   activeThreadId: string | null;
   workspaceRoot: string;
-  disclosures: ChatDisclosureUiState;
+  disclosures: MessageStreamDisclosureState;
   forkMenuItemId: string | null;
   pendingRequests: { signature: string; snapshot: PendingRequestBlockSnapshot } | null;
   viewBlocks: readonly MessageStreamViewBlock[];
@@ -78,11 +77,11 @@ export function createMessageStreamSurfaceContext(options: MessageStreamSurfaceC
   };
 }
 
-export function messageStreamSurfaceProjectionFromState(
-  state: ChatPanelMessageStreamShellState,
+export function messageStreamSurfaceProjectionFromModel(
+  model: ChatPanelMessageStreamReadModel,
   context: ChatMessageStreamSurfaceContext,
 ): MessageStreamSurfaceProjection {
-  const projection = messageStreamStateProjection(state, context);
+  const projection = messageStreamStateProjection(model, context);
   return {
     blocks: projection.viewBlocks,
     context: messageStreamContextFromProjection(projection, context),
@@ -133,33 +132,38 @@ function messageStreamContextFromProjection(
 }
 
 function messageStreamStateProjection(
-  state: ChatPanelMessageStreamShellState,
+  model: ChatPanelMessageStreamReadModel,
   context: ChatMessageStreamSurfaceContext,
 ): MessageStreamStateProjection {
-  const workspaceRoot = state.activeThreadCwd ?? context.vaultPath;
+  const stableItems = model.stableItems.value;
+  const activeItems = model.activeItems.value;
+  const disclosures = model.disclosures.value;
+  const workspaceRoot = model.activeThreadCwd.value ?? context.vaultPath;
   const textActionTargetsByItemId = textActionTargetsForMessageStreamItems(
-    state.rollbackCandidate,
-    state.forkCandidates,
-    state.implementPlanTarget,
+    model.rollbackCandidate.value,
+    model.forkCandidates.value,
+    model.implementPlanTarget.value,
   );
-  const pendingRequests = messageStreamSegmentsEmpty(state.stableItems, state.activeItems) ? null : pendingRequestBlockFromState(state);
+  const pendingRequests = messageStreamSegmentsEmpty(stableItems, activeItems)
+    ? null
+    : pendingRequestSurfaceProjectionFromState(model.requests.value, disclosures.approvalDetails);
 
   return {
-    activeThreadId: state.activeThreadId,
+    activeThreadId: model.activeThreadId.value,
     workspaceRoot,
-    disclosures: state.ui.disclosures,
-    forkMenuItemId: state.ui.messageActionMenu.forkMenuItemId,
+    disclosures,
+    forkMenuItemId: model.forkMenuItemId.value,
     pendingRequests,
     viewBlocks: messageStreamViewBlocks({
-      activeThreadId: state.activeThreadId,
-      activeTurnId: state.activeTurnId,
-      historyCursor: state.messageStream.historyCursor,
-      loadingHistory: state.messageStream.loadingHistory,
-      items: state.items,
-      stableItems: state.stableItems,
-      activeItems: state.activeItems,
+      activeThreadId: model.activeThreadId.value,
+      activeTurnId: model.activeTurnId.value,
+      historyCursor: model.historyCursor.value,
+      loadingHistory: model.loadingHistory.value,
+      items: model.items.value,
+      stableItems,
+      activeItems,
       workspaceRoot,
-      turnDiffs: state.messageStream.turnDiffs,
+      turnDiffs: model.turnDiffs.value,
       textActionTargetsByItemId,
       pendingRequests,
     }),
@@ -190,21 +194,4 @@ function patchTextActionTargets(
   patch: MessageStreamTextActionTargets,
 ): void {
   byItemId.set(itemId, { ...byItemId.get(itemId), ...patch });
-}
-
-function pendingRequestBlockFromState(
-  state: ChatPanelMessageStreamShellState,
-): { signature: string; snapshot: ReturnType<typeof pendingRequestBlockSnapshotFromState> } | null {
-  const signature = pendingRequestsSignature(
-    state.requests.approvals,
-    state.requests.pendingUserInputs,
-    state.requests.pendingMcpElicitations,
-    state.requests.userInputDrafts,
-    state.requests.mcpElicitationDrafts,
-  );
-  if (!signature) return null;
-  return {
-    signature,
-    snapshot: pendingRequestBlockSnapshotFromState(pendingRequestBlockStateFromChatState(state)),
-  };
 }

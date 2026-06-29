@@ -3,7 +3,7 @@ import { listenDomEvent } from "../../../shared/ui/dom-events.dom";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root.dom";
 import type { ChatStateStore } from "../application/state/store";
 import type { ToolbarActions } from "../ui/toolbar";
-import { type ChatPanelShellState, ChatPanelShellStateContext, createChatPanelShellState, syncChatPanelShellState } from "./shell-state";
+import { type ChatPanelShellReadModelBinding, createChatPanelShellReadModelBinding } from "./shell-read-model";
 import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerPresenter } from "./surface/composer-projection";
 import { ChatPanelGoal, type ChatPanelGoalSurface } from "./surface/goal-projection";
 import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "./surface/message-stream-presenter";
@@ -33,7 +33,7 @@ interface ChatPanelShellMount {
   stateStore: ChatStateStore;
   unsubscribe: () => void;
   stopStatusBarClearanceSync: () => void;
-  shellState: ChatPanelShellState;
+  shellReadModelBinding: ChatPanelShellReadModelBinding;
 }
 
 const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
@@ -63,11 +63,11 @@ function createShellMount(container: HTMLElement, props: ChatPanelShellProps): C
   const mount: ChatPanelShellMount = {
     props,
     stateStore: props.stateStore,
-    shellState: createChatPanelShellState(props.stateStore.getState()),
+    shellReadModelBinding: createChatPanelShellReadModelBinding(props.stateStore.getState()),
     unsubscribe: props.stateStore.subscribe(() => {
       const current = shellMounts.get(container);
       if (!current) return;
-      syncChatPanelShellState(current.shellState, props.stateStore.getState());
+      current.shellReadModelBinding.sync(props.stateStore.getState());
     }),
     stopStatusBarClearanceSync: startStatusBarClearanceSync(container),
   };
@@ -81,7 +81,7 @@ function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount):
     container.replaceChildren();
   }
   syncStatusBarClearance(container);
-  renderUiRoot(container, <ChatPanelShell {...mount.props} shellState={mount.shellState} />);
+  renderUiRoot(container, <ChatPanelShell {...mount.props} shellReadModelBinding={mount.shellReadModelBinding} />);
 }
 
 function uiRootIntact(container: HTMLElement, showToolbar: boolean): boolean {
@@ -104,24 +104,29 @@ function shellRegion(container: HTMLElement, region: string): HTMLElement | null
   return container.querySelector<HTMLElement>(`:scope > [data-codex-panel-shell-region="${region}"]`);
 }
 
-function ChatPanelShell({ showToolbar, parts, shellState }: ChatPanelShellProps & { shellState: ChatPanelShellState }): UiNode {
+function ChatPanelShell({
+  showToolbar,
+  parts,
+  shellReadModelBinding,
+}: ChatPanelShellProps & { shellReadModelBinding: ChatPanelShellReadModelBinding }): UiNode {
+  const readModel = shellReadModelBinding.readModel;
   return (
-    <ChatPanelShellStateContext.Provider value={shellState}>
+    <>
       {showToolbar ? (
         <div className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
-          <ChatPanelToolbar surface={parts.toolbar.surface} actions={parts.toolbar.actions} />
+          <ChatPanelToolbar model={readModel.toolbar} surface={parts.toolbar.surface} actions={parts.toolbar.actions} />
         </div>
       ) : null}
       <div className="codex-panel__body" data-codex-panel-shell-region="body">
         <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
-          <ChatPanelGoal surface={parts.goal} />
+          <ChatPanelGoal model={readModel.goal} surface={parts.goal} />
         </div>
-        <ChatPanelMessageStream presenter={parts.messageStream} />
+        <ChatPanelMessageStream model={readModel.messageStream} presenter={parts.messageStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
-          <ChatPanelComposer presenter={parts.composer.presenter} actions={parts.composer.actions} />
+          <ChatPanelComposer model={readModel.composer} presenter={parts.composer.presenter} actions={parts.composer.actions} />
         </div>
       </div>
-    </ChatPanelShellStateContext.Provider>
+    </>
   );
 }
 

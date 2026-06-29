@@ -69,8 +69,10 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     navigation,
   });
   const toolbarSurface: ChatPanelToolbarSurface = {
-    state: {
+    connection: {
       connected: () => connection.isConnected(),
+    },
+    clock: {
       nowMs: () => Date.now(),
     },
     settings: {

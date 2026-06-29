@@ -137,7 +137,11 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   applyThreadRenamed(threadId: string, name: string | null): void {
+    const previousRestoredExplicitName = this.restoredThread()?.explicitName ?? null;
     this.graph.thread.identity.applyThreadRenameToActiveIdentity(threadId, name);
+    if (this.restoredThread()?.explicitName !== previousRestoredExplicitName) {
+      this.mountOrRepairShell();
+    }
   }
 
   open(): void {

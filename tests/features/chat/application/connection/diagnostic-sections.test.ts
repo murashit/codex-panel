@@ -9,9 +9,8 @@ import {
   upsertMcpServerStatusDiagnostics,
 } from "../../../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
-import { connectionDiagnosticSectionsFromState } from "../../../../../src/features/chat/application/connection/diagnostic-sections";
+import { appServerDiagnosticSections } from "../../../../../src/features/chat/application/connection/diagnostic-sections";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/application/connection/tool-inventory-diagnostic-sections";
-import { chatStateFixture } from "../../support/state";
 
 function diagnosticsWithToolInventory(inventory: ToolInventorySnapshot) {
   let diagnostics = createServerDiagnostics();
@@ -45,20 +44,16 @@ describe("connection diagnostics", () => {
       message: null,
     });
 
-    const sections = connectionDiagnosticSectionsFromState({
+    const sections = appServerDiagnosticSections({
       connected: true,
       configuredCommand: "/opt/homebrew/bin/codex",
-      state: chatStateFixture({
-        connection: {
-          initializeResponse: {
-            userAgent: "codex-cli/0.130.0",
-            codexHome: "/Users/showhey/.codex",
-            platformFamily: "unix",
-            platformOs: "macos",
-          },
-          serverDiagnostics: diagnostics,
-        },
-      }),
+      initializeResponse: {
+        userAgent: "codex-cli/0.130.0",
+        codexHome: "/Users/showhey/.codex",
+        platformFamily: "unix",
+        platformOs: "macos",
+      },
+      diagnostics,
     });
 
     const rows = sections.flatMap((section) => section.rows);

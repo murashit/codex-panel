@@ -3,7 +3,7 @@ import { h } from "preact";
 import type { SendShortcut } from "../../../../shared/ui/keyboard";
 import type { GoalPanelActions, GoalPanelDisplayState, GoalPanelEditorState, GoalPanelOptions } from "../../ui/goal";
 import { GoalPanel } from "../../ui/goal";
-import { type ChatPanelGoalShellState, goalStateFromShellState, useChatPanelShellState } from "../shell-state";
+import type { ChatPanelGoalReadModel } from "../shell-read-model";
 
 interface ChatPanelGoalActions {
   saveObjective: (objective: string, tokenBudget: number | null) => Promise<boolean>;
@@ -20,22 +20,22 @@ export interface ChatPanelGoalSurface {
   actions: ChatPanelGoalActions;
 }
 
-export function ChatPanelGoal({ surface }: { surface: ChatPanelGoalSurface }): UiNode {
-  const props = chatPanelGoalViewModel(surface, goalStateFromShellState(useChatPanelShellState()));
+export function ChatPanelGoal({ model, surface }: { model: ChatPanelGoalReadModel; surface: ChatPanelGoalSurface }): UiNode {
+  const props = chatPanelGoalViewModel(surface, model);
   return h(GoalPanel, props);
 }
 
 interface ChatPanelGoalProjection {
-  goal: ChatPanelGoalShellState["goal"];
+  goal: ChatPanelGoalReadModel["goal"]["value"];
   goalThreadId: string | null;
   editor: GoalPanelEditorState;
   display: GoalPanelDisplayState;
 }
 
-function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPanelGoalProjection {
-  const goal = state.goal;
+function chatPanelGoalProjection(model: ChatPanelGoalReadModel): ChatPanelGoalProjection {
+  const goal = model.goal.value;
   const goalThreadId = goal?.threadId ?? null;
-  const goalEditor = state.goalEditor;
+  const goalEditor = model.goalEditor.value;
   const editor =
     goalEditor.kind === "editing"
       ? { editing: true, objectiveDraft: goalEditor.objectiveDraft, tokenBudgetDraft: goalEditor.tokenBudgetDraft }
@@ -45,22 +45,22 @@ function chatPanelGoalProjection(state: ChatPanelGoalShellState): ChatPanelGoalP
     goalThreadId,
     editor,
     display: {
-      objectiveExpanded: goalThreadId ? state.goalObjectiveExpanded.has(goalThreadId) : false,
+      objectiveExpanded: goalThreadId ? model.goalObjectiveExpanded.value.has(goalThreadId) : false,
     },
   };
 }
 
 function chatPanelGoalViewModel(
   surface: ChatPanelGoalSurface,
-  state: ChatPanelGoalShellState,
+  model: ChatPanelGoalReadModel,
 ): {
-  goal: ChatPanelGoalShellState["goal"];
+  goal: ChatPanelGoalReadModel["goal"]["value"];
   actions: GoalPanelActions;
   options: GoalPanelOptions;
   editor: GoalPanelEditorState;
   display: GoalPanelDisplayState;
 } {
-  const projection = chatPanelGoalProjection(state);
+  const projection = chatPanelGoalProjection(model);
   return {
     goal: projection.goal,
     actions: {

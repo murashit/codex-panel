@@ -184,7 +184,15 @@ runner = new Runner(() => runner.stop());
       "no-ui-root-imports.grit",
     ]);
     await writeFile(
-      path.join(cwd, "src/features/chat/panel/shell-state.tsx"),
+      path.join(cwd, "src/features/chat/panel/shell-read-model.ts"),
+      `
+import { signal } from "@preact/signals";
+
+export const status = signal("idle");
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/panel/surface/signal-surface.tsx"),
       `
 import { signal } from "@preact/signals";
 
@@ -374,7 +382,8 @@ export function timestamp(): number {
 
     const report = biomeLint(
       [
-        "src/features/chat/panel/shell-state.tsx",
+        "src/features/chat/panel/shell-read-model.ts",
+        "src/features/chat/panel/surface/signal-surface.tsx",
         "src/shared/ui/components.tsx",
         "src/shared/ui/signal-escapes.tsx",
         "src/features/chat/ui/dom-bridge-escape.tsx",
@@ -390,7 +399,8 @@ export function timestamp(): number {
       cwd,
     );
 
-    expect(pluginDiagnostics(report, "src/features/chat/panel/shell-state.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/panel/shell-read-model.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/panel/surface/signal-surface.tsx")).toEqual([]);
     expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual(["Do not import @preact/signals from this module."]);
     expect(pluginMessages(report, "src/shared/ui/signal-escapes.tsx")).toEqual([
       "Do not import @preact/signals from this module.",
