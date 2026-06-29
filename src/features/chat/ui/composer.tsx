@@ -9,6 +9,7 @@ import {
   observeComposerMetaStatusOverflow,
   preserveComposerSelection,
   renderComposerMetaIcon,
+  restoreComposerCursor,
   restoreComposerSelection,
   scrollComposerSuggestionIntoView,
   syncComposerHeight,
@@ -22,6 +23,11 @@ export interface ComposerSuggestion {
   appendSpaceOnInsert?: boolean;
   tabCursorOffset?: number;
   suffixOnInsert?: string;
+}
+
+export interface ComposerPendingSelection {
+  value: string;
+  cursor: number;
 }
 
 export interface ComposerMetaViewModel {
@@ -86,6 +92,8 @@ export interface ComposerShellProps {
   meta: ComposerMetaViewModel;
   suggestions: readonly ComposerSuggestion[];
   selectedSuggestionIndex: number;
+  pendingSelection?: ComposerPendingSelection | null;
+  onPendingSelectionApplied?: () => void;
   callbacks: ComposerCallbacks;
   onComposer: (composer: HTMLTextAreaElement | null) => void;
 }
@@ -99,6 +107,8 @@ export function ComposerShell({
   meta,
   suggestions,
   selectedSuggestionIndex,
+  pendingSelection = null,
+  onPendingSelectionApplied,
   callbacks,
   onComposer,
 }: ComposerShellProps): UiNode {
@@ -132,6 +142,11 @@ export function ComposerShell({
     previousDraftRef.current = draft;
     restoreComposerSelection(composerRef.current, preservedSelection);
   });
+  useLayoutEffect(() => {
+    if (!pendingSelection) return;
+    if (pendingSelection.value === draft) restoreComposerCursor(composerRef.current, pendingSelection.cursor);
+    onPendingSelectionApplied?.();
+  }, [draft, pendingSelection, onPendingSelectionApplied]);
   const sendMode = composerSendMode(busy, canInterrupt, draft);
   const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
   const selectedSuggestionId = suggestions.length > 0 ? composerSuggestionOptionId(viewId, normalizedSelectedSuggestionIndex) : undefined;

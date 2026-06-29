@@ -29,7 +29,7 @@ import {
 } from "../application/composer/wikilink-context";
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
-import type { ComposerCallbacks, ComposerShellProps } from "../ui/composer";
+import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../ui/composer";
 import { syncComposerHeight } from "../ui/composer.dom";
 import {
   applyComposerInsertionToElement,
@@ -81,6 +81,7 @@ export class ChatComposerController {
   private selectionContextSnapshots: SelectionContextReference[] = [];
   private preservedSelectionContextSnapshots: readonly SelectionContextReference[] | null = null;
   private preservedAttachments: readonly ComposerAttachment[] | null = null;
+  private pendingSelection: ComposerPendingSelection | null = null;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
 
@@ -106,6 +107,8 @@ export class ChatComposerController {
       normalPlaceholder: projection.placeholder,
       suggestions: state.composer.suggestions,
       selectedSuggestionIndex: state.composer.suggestSelected,
+      pendingSelection: this.pendingSelection,
+      onPendingSelectionApplied: this.clearPendingSelection,
       callbacks: this.composerCallbacks(actions),
       meta: projection.meta,
       onComposer: this.setComposerElement,
@@ -324,10 +327,15 @@ export class ChatComposerController {
     this.pruneActiveNoteContextSnapshots(insertion.value);
     this.pruneSelectionContextSnapshots(insertion.value);
 
+    this.pendingSelection = { value: insertion.value, cursor: insertion.cursor };
     this.dispatch({ type: "composer/draft-set", draft: insertion.value, clearSuggestions: true });
     this.options.onDraftChange();
     applyComposerInsertionToElement(this.composer, insertion.cursor);
   }
+
+  private readonly clearPendingSelection = (): void => {
+    this.pendingSelection = null;
+  };
 
   private clearSuggestions(): void {
     this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [], selected: 0 });

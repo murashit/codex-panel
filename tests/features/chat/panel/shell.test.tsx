@@ -2,9 +2,13 @@
 
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import type { ComposerContextReferenceProvider } from "../../../../src/features/chat/application/composer/context-references";
+import type { NoteCandidateProvider } from "../../../../src/features/chat/application/composer/note-context";
 import { messageStreamItems } from "../../../../src/features/chat/application/state/message-stream";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell.dom";
+import type { ChatPanelComposerShellState } from "../../../../src/features/chat/panel/shell-state";
 import type { ChatPanelComposerSurface } from "../../../../src/features/chat/panel/surface/composer-projection";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
@@ -61,6 +65,69 @@ describe("ChatPanelShell", () => {
 
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("ready");
     expect(container.querySelector(".codex-panel__message-block")?.textContent).toContain("Model set.");
+
+    await act(async () => {
+      unmountChatPanelShell(container);
+    });
+  });
+
+  it("keeps Tab wikilink insertion before closing brackets through shell signal updates", async () => {
+    const store = createChatStateStore();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const notes = [
+      {
+        basename: "Beta Note",
+        displayName: "Beta Note",
+        path: "topics/Beta Note.md",
+        mtime: 30,
+        linktext: "Beta Note",
+        headings: [{ heading: "Overview", linkHeading: "Overview", level: 1 }],
+        recentIndex: null,
+      },
+    ];
+    const parts = shellParts();
+    parts.composer.presenter = new ChatComposerController({
+      noteCandidateProvider: noteProvider({ candidates: () => notes }),
+      contextReferenceProvider: contextProvider(),
+      sourcePath: () => "",
+      stateStore: store,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
+      canInterrupt: (_state) => false,
+      composerProjection: composerProjectionFixture,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+
+    await act(async () => {
+      renderChatPanelShell(container, { ...shellProps(store), parts });
+      await settleShellEffects();
+    });
+
+    await act(async () => {
+      const input = composer(container);
+      setTextAreaValue(input, "[[bet");
+      input.setSelectionRange(5, 5);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await settleShellEffects();
+    });
+
+    await act(async () => {
+      const input = composer(container);
+      input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }));
+      input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Tab" }));
+      await settleShellEffects();
+    });
+
+    expect(composer(container).value).toBe("[[Beta Note]]");
+    expect(composer(container).selectionStart).toBe("[[Beta Note".length);
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -404,6 +471,60 @@ function shellParts(
       actions: {
         submit: vi.fn(),
       },
+    },
+  };
+}
+
+function composer(container: HTMLElement): HTMLTextAreaElement {
+  const input = container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea");
+  if (!input) throw new Error("Expected composer input.");
+  return input;
+}
+
+function setTextAreaValue(textarea: HTMLTextAreaElement, value: string): void {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+  if (!descriptor?.set) throw new Error("Missing textarea value setter.");
+  descriptor.set.call(textarea, value);
+}
+
+function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {
+  return {
+    candidates: () => [],
+    resolveMention: () => null,
+    dispose: vi.fn(),
+    ...overrides,
+  };
+}
+
+function contextProvider(
+  contextReferences: ComposerContextReferenceProvider["contextReferences"] = () => ({ activeNote: null, selection: null }),
+): ComposerContextReferenceProvider {
+  return {
+    contextReferences,
+    dispose: vi.fn(),
+  };
+}
+
+function composerProjectionFixture(_state: ChatPanelComposerShellState) {
+  return {
+    placeholder: "Ask Codex to work on this task...",
+    meta: {
+      fatal: null,
+      context: {
+        cells: [
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: "--%",
+      },
+      statusSummary: "Context unavailable, plan off, auto-review off, fast off, model default, reasoning effort default",
+      model: "default",
+      effort: null,
+      planActive: false,
+      autoReviewActive: false,
+      fastActive: false,
     },
   };
 }

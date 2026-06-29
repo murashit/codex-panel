@@ -102,6 +102,65 @@ describe("ChatComposerController", () => {
     expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("/");
   });
 
+  it("keeps Tab wikilink insertion before closing brackets while Enter lands after them", () => {
+    const stateStore = createChatStateStore();
+    const parent = document.createElement("div");
+    const notes = [
+      {
+        basename: "Beta Note",
+        displayName: "Beta Note",
+        path: "topics/Beta Note.md",
+        mtime: 30,
+        linktext: "Beta Note",
+        headings: [{ heading: "Overview", linkHeading: "Overview", level: 1 }],
+        recentIndex: null,
+      },
+    ];
+    let controller: ChatComposerController | null = null;
+    const renderShell = vi.fn(() => {
+      if (!controller) throw new Error("Expected controller.");
+      renderComposerController(parent, controller, stateStore);
+    });
+    controller = new ChatComposerController({
+      noteCandidateProvider: noteProvider({ candidates: () => notes }),
+      contextReferenceProvider: contextProvider(),
+      sourcePath: () => "",
+      stateStore,
+      viewId: "view",
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
+      canInterrupt: (_state) => false,
+      composerProjection: defaultComposerProjection,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+    stateStore.subscribe(renderShell);
+
+    renderShell();
+    setTextAreaValue(composer(parent), "[[bet");
+    composer(parent).setSelectionRange(5, 5);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Tab" }));
+
+    expect(composer(parent).value).toBe("[[Beta Note]]");
+    expect(composer(parent).selectionStart).toBe("[[Beta Note".length);
+
+    setTextAreaValue(composer(parent), "[[bet");
+    composer(parent).setSelectionRange(5, 5);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Enter" }));
+
+    expect(composer(parent).value).toBe("[[Beta Note]]");
+    expect(composer(parent).selectionStart).toBe("[[Beta Note]]".length);
+  });
+
   it("saves pasted images, inserts an Obsidian embed, and sends a local image attachment", async () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");

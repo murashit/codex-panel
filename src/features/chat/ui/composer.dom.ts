@@ -50,6 +50,11 @@ export function restoreComposerSelection(composer: HTMLTextAreaElement | null, s
   composer.setSelectionRange(selection.start, selection.end, selection.direction);
 }
 
+export function restoreComposerCursor(composer: HTMLTextAreaElement | null, cursor: number): void {
+  if (!composer) return;
+  composer.setSelectionRange(cursor, cursor);
+}
+
 export function observeComposerMetaStatusOverflow(status: HTMLElement): () => void {
   const win = status.win;
   let frame = 0;
