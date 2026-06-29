@@ -4,6 +4,8 @@ Codex Panel brings your existing Codex setup into an Obsidian sidebar, so you ca
 
 If your Codex CLI or Codex.app environment is already configured, Codex Panel gives that setup a persistent Obsidian pane with note-aware links, threads, archives, and editor selections. It stays thin: runtime behavior continues to come from Codex, not from a separate plugin configuration layer.
 
+![Codex Panel](assets/screenshot.webp)
+
 ## Why use it
 
 - Reuse your existing Codex configuration and credentials.
