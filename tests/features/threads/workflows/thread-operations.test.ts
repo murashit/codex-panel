@@ -1,18 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
-import type { ArchiveThreadResult } from "../../../../src/app-server/services/thread-archive";
-import type { ArchiveExportDestination } from "../../../../src/app-server/services/thread-archive-markdown";
-import { createThreadOperations, type ThreadOperationsHost } from "../../../../src/features/threads/workflows/thread-operations";
+import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
+import {
+  type ArchiveThreadResult,
+  createThreadOperations,
+  type ThreadOperationsHost,
+} from "../../../../src/features/threads/workflows/thread-operations";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
-
-const archiveMock = vi.hoisted(() => ({
-  archiveThreadOnAppServer: vi.fn(),
-}));
-
-vi.mock("../../../../src/app-server/services/thread-archive", () => ({
-  archiveThreadOnAppServer: archiveMock.archiveThreadOnAppServer,
-}));
 
 describe("ThreadOperations", () => {
   it("renames a thread and notifies shared surfaces after success", async () => {
@@ -33,19 +29,36 @@ describe("ThreadOperations", () => {
   });
 
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
-    const { operations, catalog, notice } = operationsFixture();
-    archiveMock.archiveThreadOnAppServer.mockResolvedValueOnce({ exportedPath: "Archive/thread.md" } satisfies ArchiveThreadResult);
+    const { operations, catalog, notice, client, archiveDestination } = operationsFixture();
 
     await expect(operations.archiveThread("thread", { saveMarkdown: true, closeOpenPanels: true })).resolves.toEqual({
-      exportedPath: "Archive/thread.md",
+      exportedPath: "Archive/Archived Thread abcdef12.md",
     });
 
-    expect(notice).toHaveBeenCalledWith("Saved archived thread to Archive/thread.md.");
+    expect(client?.request).toHaveBeenCalledWith("thread/read", { threadId: "thread", includeTurns: true });
+    expect(archiveDestination.createMarkdownFile).toHaveBeenCalledWith(
+      "Archive/Archived Thread abcdef12.md",
+      expect.stringContaining('thread_id: "abcdef12-9999"'),
+    );
+    expect(client?.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
+    expect(callOrder(archiveDestination.createMarkdownFile)).toBeLessThan(requestCallOrder(client, "thread/archive"));
+    expect(notice).toHaveBeenCalledWith("Saved archived thread to Archive/Archived Thread abcdef12.md.");
     expect(catalog.apply).toHaveBeenCalledWith({
       type: "thread-archived",
       threadId: "thread",
       options: { closeOpenPanels: true },
     });
+  });
+
+  it("archives without reading transcript history when markdown export is disabled", async () => {
+    const { operations, client, archiveDestinationFactory, archiveExportSettings } = operationsFixture();
+
+    await expect(operations.archiveThread("thread")).resolves.toEqual({ exportedPath: null } satisfies ArchiveThreadResult);
+
+    expect(requestMethods(client)).not.toContain("thread/read");
+    expect(archiveExportSettings).not.toHaveBeenCalled();
+    expect(archiveDestinationFactory).not.toHaveBeenCalled();
+    expect(client?.request).toHaveBeenCalledWith("thread/archive", { threadId: "thread" });
   });
 
   it("does not notify surfaces when an operation has no current client", async () => {
@@ -78,9 +91,10 @@ describe("ThreadOperations", () => {
     const secondClient = clientMock();
     let currentClient: MockClient | null = firstClient;
     const { operations, catalog } = operationsFixture({ client: () => currentClient });
-    archiveMock.archiveThreadOnAppServer.mockImplementationOnce(async () => {
+    firstClient.request.mockImplementationOnce(async (method: string) => {
+      if (method !== "thread/archive") throw new Error(`Unexpected app-server request: ${method}`);
       currentClient = secondClient;
-      return { exportedPath: null } satisfies ArchiveThreadResult;
+      return {};
     });
 
     await expect(operations.archiveThread("thread")).rejects.toThrow("Client changed.");
@@ -90,10 +104,15 @@ describe("ThreadOperations", () => {
 });
 
 function operationsFixture(options: { client?: MockClient | null | (() => MockClient | null) } = {}) {
-  archiveMock.archiveThreadOnAppServer.mockReset();
-  archiveMock.archiveThreadOnAppServer.mockResolvedValue({ exportedPath: null } satisfies ArchiveThreadResult);
   const configuredClient = options.client === undefined ? clientMock() : options.client;
   const currentClient = typeof configuredClient === "function" ? configuredClient : () => configuredClient;
+  const archiveDestination = archiveDestinationMock();
+  const archiveDestinationFactory = vi.fn(() => archiveDestination);
+  const archiveExportSettings = vi.fn(() => ({
+    archiveExportFolderTemplate: "Archive",
+    archiveExportFilenameTemplate: "{{title}} {{shortId}}",
+    archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
+  }));
   const catalog = {
     apply: vi.fn(),
   };
@@ -109,20 +128,24 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
       },
     },
     archiveExport: {
-      settings: () => ({
-        archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
-        archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
-        archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
-      }),
+      settings: archiveExportSettings,
       enabled: () => false,
       vaultPath: "/vault",
       vaultConfigDir: "vault-config",
     },
-    archiveDestination: () => archiveDestinationMock(),
+    archiveDestination: archiveDestinationFactory,
     catalog,
     notice,
   };
-  return { operations: createThreadOperations(host), client: currentClient(), catalog, notice };
+  return {
+    operations: createThreadOperations(host),
+    client: currentClient(),
+    archiveDestination,
+    archiveDestinationFactory,
+    archiveExportSettings,
+    catalog,
+    notice,
+  };
 }
 
 type MockClient = ReturnType<typeof clientMock>;
@@ -131,17 +154,49 @@ function clientMock() {
   return {
     request: vi.fn((method: string, params: { threadId: string; name?: string }) => {
       if (method === "thread/name/set") return Promise.resolve({ threadId: params.threadId, name: params.name });
+      if (method === "thread/read") return Promise.resolve({ thread: archivedThread() });
       if (method === "thread/archive") return Promise.resolve({});
       throw new Error(`Unexpected app-server request: ${method}`);
     }),
   };
 }
 
-function archiveDestinationMock(): ArchiveExportDestination {
+function archiveDestinationMock(): ArchiveExportDestination & {
+  createMarkdownFile: ReturnType<typeof vi.fn<ArchiveExportDestination["createMarkdownFile"]>>;
+} {
   return {
     normalizePath: (path) => path,
     exists: vi.fn().mockResolvedValue(false),
     createFolder: vi.fn().mockResolvedValue(undefined),
-    createMarkdownFile: vi.fn().mockResolvedValue(undefined),
+    createMarkdownFile: vi.fn<ArchiveExportDestination["createMarkdownFile"]>().mockResolvedValue(undefined),
   };
+}
+
+function archivedThread(): ThreadRecord {
+  return {
+    id: "abcdef12-9999",
+    sessionId: "abcdef12-9999",
+    preview: "Archived Thread",
+    source: { kind: "local" },
+    cwd: "/vault",
+    createdAt: 1,
+    updatedAt: 2,
+    name: "Archived Thread",
+    status: "idle",
+    gitInfo: null,
+    turns: [],
+  };
+}
+
+function callOrder(fn: ReturnType<typeof vi.fn>): number {
+  return fn.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY;
+}
+
+function requestMethods(client: { request: ReturnType<typeof vi.fn> } | null): string[] {
+  return client?.request.mock.calls.map(([method]) => method) ?? [];
+}
+
+function requestCallOrder(client: { request: ReturnType<typeof vi.fn> } | null, method: string): number {
+  const index = client?.request.mock.calls.findIndex(([calledMethod]) => calledMethod === method) ?? -1;
+  return index === -1 ? Number.POSITIVE_INFINITY : (client?.request.mock.invocationCallOrder[index] ?? Number.POSITIVE_INFINITY);
 }

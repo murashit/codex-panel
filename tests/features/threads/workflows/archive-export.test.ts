@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "../../src/app-server/services/thread-archive-markdown";
-import type { ArchiveThreadInput } from "../../src/domain/threads/archive-markdown";
-import type { ThreadTranscriptEntry } from "../../src/domain/threads/transcript";
+import type { ArchiveThreadInput } from "../../../../src/domain/threads/archive-markdown";
+import type { ThreadTranscriptEntry } from "../../../../src/domain/threads/transcript";
+import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-export";
 
-describe("thread archive markdown export service", () => {
+describe("archive export workflow", () => {
   it("expands templates, sanitizes paths, creates folders, and preserves existing files", async () => {
     const destination = new MemoryDestination(["Codex Archives/2026-05-18/My-Thread- abcdef12.md"]);
 

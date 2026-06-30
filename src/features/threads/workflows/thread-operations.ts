@@ -1,10 +1,13 @@
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { ThreadCatalogEventSink } from "../../../app-server/query/thread-catalog";
-import { type ArchiveThreadResult, archiveThreadOnAppServer } from "../../../app-server/services/thread-archive";
-import type { ArchiveExportDestination } from "../../../app-server/services/thread-archive-markdown";
-import { renameThread as renameAppServerThread } from "../../../app-server/services/threads";
+import {
+  archiveThread as archiveAppServerThread,
+  readThreadForArchiveExport,
+  renameThread as renameAppServerThread,
+} from "../../../app-server/services/threads";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
+import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "./archive-export";
 
 export interface ThreadOperationsHost {
   clientAccess: AppServerClientAccess;
@@ -24,13 +27,17 @@ interface ArchiveThreadOptions {
   closeOpenPanels?: boolean;
 }
 
+export interface ArchiveThreadResult {
+  exportedPath: string | null;
+}
+
 interface RenameThreadOptions {
   shouldPublish?: () => boolean;
 }
 
 export interface ThreadOperations {
   renameThread(threadId: string, value: string, options?: RenameThreadOptions): Promise<boolean>;
-  archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult | null>;
+  archiveThread(threadId: string, options?: ArchiveThreadOptions): Promise<ArchiveThreadResult>;
 }
 
 export function createThreadOperations(host: ThreadOperationsHost): ThreadOperations {
@@ -60,24 +67,32 @@ async function archiveThread(
   host: ThreadOperationsHost,
   threadId: string,
   options: ArchiveThreadOptions = {},
-): Promise<ArchiveThreadResult | null> {
-  const archiveSettings = host.archiveExport.settings();
-  const result = await host.clientAccess.withClient((client) =>
-    archiveThreadOnAppServer(client, threadId, {
-      settings: archiveSettings,
-      vaultPath: host.archiveExport.vaultPath,
-      vaultConfigDir: host.archiveExport.vaultConfigDir,
-      archiveDestination: () => host.archiveDestination(),
-      saveMarkdown: options.saveMarkdown ?? host.archiveExport.enabled(),
-    }),
-  );
-  if (result.exportedPath) {
-    host.notice(`Saved archived thread to ${result.exportedPath}.`);
+): Promise<ArchiveThreadResult> {
+  const exportedPath = await host.clientAccess.withClient(async (client) => {
+    let path: string | null = null;
+    if (options.saveMarkdown ?? host.archiveExport.enabled()) {
+      const archiveSettings = host.archiveExport.settings();
+      const result = await exportArchivedThreadMarkdown(
+        await readThreadForArchiveExport(client, threadId),
+        {
+          ...archiveSettings,
+          vaultPath: host.archiveExport.vaultPath,
+          vaultConfigDir: host.archiveExport.vaultConfigDir,
+        },
+        host.archiveDestination(),
+      );
+      path = result.path;
+    }
+    await archiveAppServerThread(client, threadId);
+    return path;
+  });
+  if (exportedPath) {
+    host.notice(`Saved archived thread to ${exportedPath}.`);
   }
   host.catalog.apply(
     options.closeOpenPanels === undefined
       ? { type: "thread-archived", threadId }
       : { type: "thread-archived", threadId, options: { closeOpenPanels: options.closeOpenPanels } },
   );
-  return result;
+  return { exportedPath };
 }

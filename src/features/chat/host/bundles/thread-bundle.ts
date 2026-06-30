@@ -180,7 +180,10 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     stateStore,
     operations: {
       renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
-      archiveThread: async (threadId, options) => (await foundation.threadOperations.archiveThread(threadId, options)) !== null,
+      archiveThread: async (threadId, options) => {
+        await foundation.threadOperations.archiveThread(threadId, options);
+        return true;
+      },
     },
     threadTransport: appServer.threadMutation,
     addSystemMessage: status.addSystemMessage,

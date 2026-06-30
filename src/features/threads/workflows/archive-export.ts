@@ -3,8 +3,8 @@ import {
   type ArchiveThreadInput,
   archivedThreadMarkdown,
   archivedThreadTitle,
-} from "../../domain/threads/archive-markdown";
-import { shortThreadId } from "../../shared/id/thread-id";
+} from "../../../domain/threads/archive-markdown";
+import { shortThreadId } from "../../../shared/id/thread-id";
 
 export interface ArchiveExportResult {
   path: string;

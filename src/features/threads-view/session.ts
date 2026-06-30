@@ -3,12 +3,12 @@ import { Notice } from "obsidian";
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../app-server/query/thread-catalog";
-import type { ArchiveExportDestination } from "../../app-server/services/thread-archive-markdown";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedResult } from "../../shared/query/observed-result";
 import { observedInitialError, observedInitialLoading, observedValue } from "../../shared/query/observed-result";
+import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
@@ -326,11 +326,10 @@ export class ThreadsViewSession {
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
     try {
-      const result = await this.operations.archiveThread(threadId, {
+      await this.operations.archiveThread(threadId, {
         saveMarkdown,
         closeOpenPanels: true,
       });
-      if (!result) return;
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
     } catch (error) {
