@@ -5,7 +5,7 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/conversation/plan-implementation";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-rendered-event.dom";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer.obsidian";
 import { deferred } from "../../../../support/async";
 import { attributeValues, textContents, topLevelDetailsSummaries } from "../../../../support/dom";

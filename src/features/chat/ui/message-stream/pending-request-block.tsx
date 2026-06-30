@@ -11,7 +11,11 @@ import type {
   PendingUserInputViewModel,
 } from "../../presentation/pending-requests/view-model";
 import type { PendingRequestBlockActions } from "./context";
-import { applyMcpElicitationFormValidity, focusPendingRequestControl, type McpElicitationValidityMessage } from "./message-stream.dom";
+import {
+  applyMcpElicitationFormValidity,
+  focusPendingRequestControl,
+  type McpElicitationValidityMessage,
+} from "./pending-request-block.dom";
 import { createStatusMessageClassName } from "./status";
 
 export function pendingRequestBlockNode(

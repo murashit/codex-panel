@@ -3,10 +3,10 @@ import type { PendingRequestActions } from "../../application/pending-requests/p
 import type { ChatStateStore } from "../../application/state/store";
 import type { HistoryController } from "../../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
+import type { ChatMessageScrollController } from "../../panel/message-stream-scroll-controller";
 import type { ChatPanelShellParts } from "../../panel/shell.dom";
 import type { ChatPanelGoalSurface } from "../../panel/surface/goal-projection";
 import { MessageStreamPresenter } from "../../panel/surface/message-stream-presenter";
-import type { ChatMessageScrollController } from "../../panel/surface/message-stream-scroll";
 import type { ChatPanelToolbarSurface } from "../../panel/surface/toolbar-projection";
 import { createToolbarUiActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
 import { toolbarOutsidePointerHit } from "../../panel/toolbar-hit-test.dom";

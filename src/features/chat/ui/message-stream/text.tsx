@@ -9,7 +9,7 @@ import type {
   TextItemDetailSectionView,
 } from "../../presentation/message-stream/text-view";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
-import { closeMessageRoleMenuOnOutsidePointer } from "./message-stream.dom";
+import { closeMessageRoleMenuOnOutsidePointer } from "./text.dom";
 import { CollapsibleTextContent, TextContent } from "./text-content.dom";
 
 export function textNode(view: MessageStreamTextView, context: TextItemContext): UiNode {

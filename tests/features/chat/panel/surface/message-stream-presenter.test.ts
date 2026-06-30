@@ -6,15 +6,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import {
+  type ChatMessageScrollController,
+  createChatMessageScrollController,
+} from "../../../../../src/features/chat/panel/message-stream-scroll-controller";
 import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
   type ChatMessageStreamSurfaceContext,
   messageStreamSurfaceProjectionFromModel,
 } from "../../../../../src/features/chat/panel/surface/message-stream-projection";
-import {
-  type ChatMessageScrollController,
-  createChatMessageScrollController,
-} from "../../../../../src/features/chat/panel/surface/message-stream-scroll";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";

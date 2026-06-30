@@ -3,7 +3,7 @@
 import { h, type ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-events";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-rendered-event.dom";
 import {
   MessageStreamFlowFrame,
   type MessageStreamScrollCommand,

@@ -5,8 +5,8 @@ import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot"
 import type { ChatStateStore } from "../../application/state/store";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import { ChatComposerController } from "../../panel/composer-controller";
+import type { ChatMessageScrollController } from "../../panel/message-stream-scroll-controller";
 import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../../panel/surface/composer-projection";
-import type { ChatMessageScrollController } from "../../panel/surface/message-stream-scroll";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
 import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";

@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { listenDomEvent, listenOutsideDomEvent } from "../../../../shared/ui/dom-events.dom";
 import type { MessageStreamTextView } from "../../presentation/message-stream/text-view";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 import type { TextItemContentContext } from "./context";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;

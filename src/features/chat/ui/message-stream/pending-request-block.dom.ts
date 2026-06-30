@@ -1,12 +1,6 @@
-import { listenOutsideDomEvent } from "../../../../shared/ui/dom-events.dom";
-
 export interface McpElicitationValidityMessage {
   fieldId: string;
   message: string;
-}
-
-export function closeMessageRoleMenuOnOutsidePointer(root: HTMLElement, onClose: () => void): () => void {
-  return listenOutsideDomEvent(root, "pointerdown", onClose, true);
 }
 
 export function focusPendingRequestControl(container: HTMLElement | null): void {

@@ -12,8 +12,8 @@ import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/co
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
+import { createChatMessageScrollController } from "../../../../src/features/chat/panel/message-stream-scroll-controller";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
-import { createChatMessageScrollController } from "../../../../src/features/chat/panel/surface/message-stream-scroll";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
 import { installObsidianDomShims } from "../../../support/dom";

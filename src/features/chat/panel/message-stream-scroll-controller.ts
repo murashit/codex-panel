@@ -1,9 +1,9 @@
-import type { ComposerBoundaryScrollAction } from "../../application/composer/boundary-scroll";
+import type { ComposerBoundaryScrollAction } from "../application/composer/boundary-scroll";
 import type {
   MessageStreamScrollCommand,
   MessageStreamScrollControllerBinding,
   MessageStreamScrollPort,
-} from "../../ui/message-stream/flow-scroll.measure";
+} from "../ui/message-stream/flow-scroll.measure";
 
 export interface ChatMessageScrollController extends MessageStreamScrollControllerBinding {
   showLatest(): void;

@@ -12,7 +12,7 @@ import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatComposerController } from "../panel/composer-controller";
-import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
+import type { ChatMessageScrollController } from "../panel/message-stream-scroll-controller";
 import { createComposerBundle } from "./bundles/composer-bundle";
 import { type ChatPanelConnectionBundle, createConnectionBundle } from "./bundles/connection-bundle";
 import { createReconnectAction } from "./bundles/reconnect-bundle";

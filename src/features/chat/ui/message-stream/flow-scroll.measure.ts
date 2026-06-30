@@ -1,7 +1,7 @@
 import { Component, h, type ComponentChild as UiNode } from "preact";
 
 import { disposeDomListeners, listenDomEvent } from "../../../../shared/ui/dom-events.dom";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-events";
+import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 
 type MessageScrollDirection = -1 | 1;
 
