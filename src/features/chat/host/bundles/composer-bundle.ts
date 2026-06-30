@@ -1,17 +1,17 @@
 import { Notice } from "obsidian";
 
-import { runtimeConfigOrDefault } from "../../../domain/runtime/config";
-import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
-import type { ChatStateStore } from "../application/state/store";
-import { resolveRuntimeControls } from "../domain/runtime/resolution";
-import { ChatComposerController } from "../panel/composer-controller";
-import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../panel/surface/composer-projection";
-import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
-import { createVaultComposerAttachmentHandler } from "./composer-attachments.obsidian";
-import type { ChatPanelEnvironment } from "./contracts";
+import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
+import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
+import type { ChatStateStore } from "../../application/state/store";
+import { resolveRuntimeControls } from "../../domain/runtime/resolution";
+import { ChatComposerController } from "../../panel/composer-controller";
+import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../../panel/surface/composer-projection";
+import type { ChatMessageScrollController } from "../../panel/surface/message-stream-scroll";
+import type { ChatPanelEnvironment } from "../contracts";
+import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
+import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
+import { VaultNoteCandidateProvider } from "../obsidian/vault-note-candidate-provider.obsidian";
 import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
-import { VaultComposerContextReferenceProvider } from "./vault-composer-context-reference-provider.obsidian";
-import { VaultNoteCandidateProvider } from "./vault-note-candidate-provider.obsidian";
 
 interface ChatPanelComposerHost {
   environment: ChatPanelEnvironment;

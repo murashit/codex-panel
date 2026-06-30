@@ -9,7 +9,7 @@ import { type ChatStateStore, createChatStateStore } from "../../../../src/featu
 import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
 import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/contracts";
-import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/deferred-work";
+import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";

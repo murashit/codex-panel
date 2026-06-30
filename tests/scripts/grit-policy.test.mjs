@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { copyFile, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -19,8 +19,6 @@ const APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE =
   "Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.";
 const RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE =
   "Keep responsibility-split source roots free of module files; add modules to the matching subfolder instead of the root.";
-const APP_SERVER_ROOT_MODULE_IMPORT_MESSAGE =
-  "Import app-server boundary modules from responsibility subfolders, not src/app-server root modules.";
 const APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE =
   "App-server subfolders must not import sibling root modules; move the dependency into a responsibility subfolder.";
 const SETTINGS_APP_SERVER_BOUNDARY_MESSAGE =
@@ -889,12 +887,8 @@ export const value = statusText;
     expect(pluginDiagnostics(report, "src/settings/app-server/dynamic-data.ts")).toEqual([]);
   });
 
-  it("keeps app-server root from becoming a boundary escape hatch", async () => {
-    const cwd = await tempBiomeWorkspace([
-      "no-responsibility-root-module-files.grit",
-      "no-app-server-root-module-imports.grit",
-      "no-app-server-subfolder-root-imports.grit",
-    ]);
+  it("keeps app-server root modules from becoming boundary escape hatches", async () => {
+    const cwd = await tempBiomeWorkspace(["no-responsibility-root-module-files.grit", "no-app-server-subfolder-root-imports.grit"]);
     await writeFile(
       path.join(cwd, "src/app-server/escape.ts"),
       `
@@ -904,17 +898,25 @@ export type Escape = AppServerClient;
 `.trimStart(),
     );
     await writeFile(
-      path.join(cwd, "src/features/chat/app-server/root-import.ts"),
-      `
-import { listThreads } from "../../../../app-server/threads";
-
-export const read = listThreads;
-`.trimStart(),
-    );
-    await writeFile(
       path.join(cwd, "src/features/chat/host/chat-app-server-root-import.ts"),
       `
 import { createChatAppServerGateway } from "../app-server/session-gateway";
+
+export const gateway = createChatAppServerGateway;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/host/bundles/chat-app-server-root-import.ts"),
+      `
+import { createChatAppServerGateway } from "../../app-server/session-gateway";
+
+export const gateway = createChatAppServerGateway;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/chat/host/session/chat-app-server-root-import.ts"),
+      `
+import { createChatAppServerGateway } from "../../app-server/session-gateway";
 
 export const gateway = createChatAppServerGateway;
 `.trimStart(),
@@ -941,8 +943,9 @@ export const read = listThreads;
     const report = biomeLint(
       [
         "src/app-server/escape.ts",
-        "src/features/chat/app-server/root-import.ts",
         "src/features/chat/host/chat-app-server-root-import.ts",
+        "src/features/chat/host/bundles/chat-app-server-root-import.ts",
+        "src/features/chat/host/session/chat-app-server-root-import.ts",
         "src/app-server/services/root-import.ts",
         "src/app-server/services/allowed.ts",
       ],
@@ -950,8 +953,9 @@ export const read = listThreads;
     );
 
     expect(pluginMessages(report, "src/app-server/escape.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
-    expect(pluginMessages(report, "src/features/chat/app-server/root-import.ts")).toEqual([APP_SERVER_ROOT_MODULE_IMPORT_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/chat/host/chat-app-server-root-import.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/host/bundles/chat-app-server-root-import.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/host/session/chat-app-server-root-import.ts")).toEqual([]);
     expect(pluginMessages(report, "src/app-server/services/root-import.ts")).toEqual([APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE]);
     expect(pluginDiagnostics(report, "src/app-server/services/allowed.ts")).toEqual([]);
   });
@@ -963,7 +967,7 @@ export const read = listThreads;
       "Keep app-server projection RPCs behind app-server facades; consume Panel-owned snapshots or view models here.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/services/threads.ts")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/features/chat/host/connection-bundle.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/host/bundles/connection-bundle.ts")).toEqual([]);
   });
 
   it("keeps CSS on design tokens and scoped selectors", async () => {
@@ -1397,9 +1401,9 @@ export async function read(client: AppServerClient): Promise<void> {
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/chat/host/connection-bundle.ts"),
+    path.join(cwd, "src/features/chat/host/bundles/connection-bundle.ts"),
     `
-import type { AppServerClient } from "../../../app-server/connection/client";
+import type { AppServerClient } from "../../../../app-server/connection/client";
 
 export async function resume(client: AppServerClient): Promise<void> {
   await client.request("thread/resume", { threadId: "thread", cwd: "/vault" });
@@ -1462,7 +1466,7 @@ export const load = listHookCatalog;
       "src/shared/connection-client.ts",
       "src/features/chat/application/threads/history.ts",
       "src/app-server/services/threads.ts",
-      "src/features/chat/host/connection-bundle.ts",
+      "src/features/chat/host/bundles/connection-bundle.ts",
       "src/settings/dynamic-sections-controller.ts",
       "src/settings/adapter-leak.ts",
       "src/settings/app-server/dynamic-data.ts",
@@ -1473,7 +1477,6 @@ export const load = listHookCatalog;
 
 async function tempBiomeWorkspace(plugins) {
   const cwd = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
-  const tempPlugins = await Promise.all(plugins.map((plugin) => tempProjectPluginConfig(cwd, plugin)));
   await mkdir(cwd, { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/domain/message-stream"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/application/state"), { recursive: true });
@@ -1482,6 +1485,8 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/chat/app-server/inbound"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/app-server/mappers/message-stream"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/host"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/chat/host/bundles"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/chat/host/session"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/panel"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/panel/surface"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/presentation"), { recursive: true });
@@ -1506,7 +1511,7 @@ async function tempBiomeWorkspace(plugins) {
     JSON.stringify({
       $schema: "https://biomejs.dev/schemas/2.5.1/schema.json",
       vcs: { enabled: false },
-      plugins: tempPlugins,
+      plugins: plugins.map((plugin) => projectPluginConfig(plugin)),
       css: { linter: { enabled: true } },
     }),
   );
@@ -1530,20 +1535,16 @@ function biomeLint(files, cwd, options = {}) {
   return report;
 }
 
-async function tempProjectPluginConfig(cwd, plugin) {
+function projectPluginConfig(plugin) {
   const projectPlugin = projectPluginByName.get(plugin);
   if (!projectPlugin) {
     throw new Error(`Missing ${plugin} in biome.jsonc plugins`);
   }
-  const projectPluginRelativePath = normalizeProjectRelativePath(projectPluginPath(projectPlugin));
-  const projectPluginPathAbsolute = path.resolve(repoRoot, projectPluginPath(projectPlugin));
-  const tempPluginPath = path.join(cwd, projectPluginRelativePath);
-  await mkdir(path.dirname(tempPluginPath), { recursive: true });
-  await copyFile(projectPluginPathAbsolute, tempPluginPath);
+  const pluginPath = path.resolve(repoRoot, projectPluginPath(projectPlugin));
   if (typeof projectPlugin === "string") {
-    return tempPluginPath;
+    return pluginPath;
   }
-  return { ...projectPlugin, path: tempPluginPath };
+  return { ...projectPlugin, path: pluginPath };
 }
 
 function projectPluginPath(plugin) {

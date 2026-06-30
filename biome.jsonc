@@ -64,10 +64,6 @@
 
     // App-server and generated protocol boundaries.
     {
-      "path": "./scripts/grit/import-boundaries/no-app-server-root-module-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx"]
-    },
-    {
       "path": "./scripts/grit/import-boundaries/no-app-server-subfolder-root-imports.grit",
       "includes": ["**/src/app-server/**/*.ts"]
     },

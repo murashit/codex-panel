@@ -1,11 +1,11 @@
-import type { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import type { ChatAppServerGateway } from "../app-server/session-gateway";
-import { type ChatRuntimeSettingsActions, createChatRuntimeSettingsActions } from "../application/runtime/settings-actions";
-import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
-import type { ChatStateStore } from "../application/state/store";
-import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
-import { type ChatPanelRuntimeProjection, createChatPanelRuntimeProjection } from "../panel/runtime-status-projection";
-import type { ChatPanelEnvironment } from "./contracts";
+import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
+import type { ChatAppServerGateway } from "../../app-server/session-gateway";
+import { type ChatRuntimeSettingsActions, createChatRuntimeSettingsActions } from "../../application/runtime/settings-actions";
+import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
+import type { ChatStateStore } from "../../application/state/store";
+import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
+import { type ChatPanelRuntimeProjection, createChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
+import type { ChatPanelEnvironment } from "../contracts";
 
 export type ChatPanelRuntimeSettingsActions = ChatRuntimeSettingsActions;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { scheduleDeferredDiagnosticsRefresh } from "../../../../src/features/chat/host/connection-bundle";
+import { scheduleDeferredDiagnosticsRefresh } from "../../../../src/features/chat/host/bundles/connection-bundle";
 
 describe("connection bundle deferred diagnostics", () => {
   it("reports deferred diagnostics failures without returning a blocking promise", async () => {

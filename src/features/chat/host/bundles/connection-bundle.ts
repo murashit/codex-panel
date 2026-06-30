@@ -1,26 +1,26 @@
 import { Notice } from "obsidian";
 
-import type { AppServerClient } from "../../../app-server/connection/client";
-import { type ConnectionManager, StaleConnectionError } from "../../../app-server/connection/connection-manager";
-import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
-import type { LocalIdSource } from "../../../shared/id/local-id";
-import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
-import { type ChatServerDiagnosticsActions, createChatServerDiagnosticsActions } from "../app-server/actions/diagnostics";
-import { type ChatServerMetadataActions, createChatServerMetadataActions } from "../app-server/actions/metadata";
-import { type ChatServerThreadActions, createChatServerThreadActions } from "../app-server/actions/threads";
-import { type ChatInboundHandler, createChatInboundHandler } from "../app-server/inbound/handler";
+import type { AppServerClient } from "../../../../app-server/connection/client";
+import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
+import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
+import type { LocalIdSource } from "../../../../shared/id/local-id";
+import type { ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";
+import { type ChatServerDiagnosticsActions, createChatServerDiagnosticsActions } from "../../app-server/actions/diagnostics";
+import { type ChatServerMetadataActions, createChatServerMetadataActions } from "../../app-server/actions/metadata";
+import { type ChatServerThreadActions, createChatServerThreadActions } from "../../app-server/actions/threads";
+import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import {
   type ChatConnectionController,
   createChatConnectionController,
   handleChatConnectionExit,
-} from "../application/connection/connection-controller";
-import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
-import type { ChatConnectionPhase } from "../application/state/root-reducer";
-import type { ChatStateStore } from "../application/state/store";
-import type { AutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
-import type { createThreadGoalSyncActions } from "../application/threads/goal-actions";
-import type { ChatPanelEnvironment } from "./contracts";
-import type { ChatViewDeferredTasks } from "./deferred-work";
+} from "../../application/connection/connection-controller";
+import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
+import type { ChatConnectionPhase } from "../../application/state/root-reducer";
+import type { ChatStateStore } from "../../application/state/store";
+import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import type { createThreadGoalSyncActions } from "../../application/threads/goal-actions";
+import type { ChatPanelEnvironment } from "../contracts";
+import type { ChatViewDeferredTasks } from "../session/deferred-work";
 
 type CurrentAppServerClient = () => AppServerClient | null;
 

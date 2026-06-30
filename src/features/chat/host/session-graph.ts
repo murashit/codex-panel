@@ -13,15 +13,16 @@ import { createStructuredSystemItem, createSystemItem } from "../domain/message-
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatComposerController } from "../panel/composer-controller";
 import type { ChatMessageScrollController } from "../panel/surface/message-stream-scroll";
-import { createComposerBundle } from "./composer-bundle";
-import { type ChatPanelConnectionBundle, createConnectionBundle } from "./connection-bundle";
+import { createComposerBundle } from "./bundles/composer-bundle";
+import { type ChatPanelConnectionBundle, createConnectionBundle } from "./bundles/connection-bundle";
+import { createReconnectAction } from "./bundles/reconnect-bundle";
+import { createRuntimeBundle } from "./bundles/runtime-bundle";
+import { type ChatPanelShellBundle, createShellBundle } from "./bundles/shell-bundle";
+import { createThreadActionBundle, createThreadFoundation, createThreadLifecycleBundle } from "./bundles/thread-bundle";
+import { createTurnBundle } from "./bundles/turn-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
-import type { ChatViewDeferredTasks } from "./deferred-work";
-import { createRuntimeBundle } from "./runtime-bundle";
-import { type ChatPanelSharedStateBinding, createChatPanelSharedStateBinding } from "./shared-state-binding";
-import { type ChatPanelShellBundle, createShellBundle } from "./shell-bundle";
-import { createThreadActionBundle, createThreadFoundation, createThreadLifecycleBundle } from "./thread-bundle";
-import { createTurnBundle } from "./turn-bundle";
+import type { ChatViewDeferredTasks } from "./session/deferred-work";
+import { type ChatPanelSharedStateBinding, createChatPanelSharedStateBinding } from "./session/shared-state-binding";
 
 export interface ChatPanelSessionGraph {
   connection: {
@@ -163,10 +164,17 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     refreshActiveThreads,
     notifyActiveThreadIdentityChanged,
   });
-  const turn = createTurnBundle(host, {
+  const reconnect = createReconnectAction(host, {
     connection,
-    localItemIds,
     ensureConnected,
+    invalidateThreadWork: () => {
+      threadFoundation.invalidateThreadWork();
+    },
+    resumeThread: (threadId) => threadLifecycle.resume.resumeThread(threadId),
+    status,
+  });
+  const turn = createTurnBundle(host, {
+    localItemIds,
     appServer,
     status,
     inboundHandler,
@@ -178,9 +186,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     serverThreads,
     goals: threadLifecycle.goals,
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
-    invalidateThreadWork: () => {
-      threadFoundation.invalidateThreadWork();
-    },
+    reconnect,
     runtimeProjection: runtime.projection,
     refreshDiagnostics: () => connectionController.refreshDiagnostics(),
     refreshLiveState,
@@ -194,7 +200,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     threadActions: threadActions.actions,
     toolbarPanelActions: threadActions.toolbarPanelActions,
     navigation: threadActions.navigation,
-    reconnect: turn.reconnect,
+    reconnect,
     history: threadFoundation.history,
     pendingRequests: turn.pendingRequests,
     turn,

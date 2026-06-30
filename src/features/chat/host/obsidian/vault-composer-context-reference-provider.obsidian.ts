@@ -5,7 +5,7 @@ import type {
   ComposerContextRange,
   ComposerContextReferenceProvider,
   ComposerContextReferences,
-} from "../application/composer/context-references";
+} from "../../application/composer/context-references";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
 interface EventSource {

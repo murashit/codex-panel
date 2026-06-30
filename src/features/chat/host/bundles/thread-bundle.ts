@@ -1,33 +1,33 @@
 import { Notice } from "obsidian";
 
-import { recoverRolloutTokenUsage } from "../../../app-server/services/rollout-token-usage";
-import { normalizeExplicitThreadName } from "../../../domain/threads/model";
-import type { LocalIdSource } from "../../../shared/id/local-id";
-import { createThreadOperations, type ThreadOperations } from "../../threads/workflows/thread-operations";
-import { createThreadTitleService, type ThreadTitleService } from "../../threads/workflows/thread-title-service";
-import type { ChatServerThreadActions } from "../app-server/actions/threads";
-import type { ChatAppServerGateway } from "../app-server/session-gateway";
-import { messageStreamItems } from "../application/state/message-stream";
-import type { ChatStateStore } from "../application/state/store";
-import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
-import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../application/threads/auto-title-coordinator";
-import { createGoalActions, createThreadGoalSyncActions } from "../application/threads/goal-actions";
-import { HistoryController } from "../application/threads/history-controller";
-import { createThreadLifecycleParts } from "../application/threads/lifecycle-parts";
+import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
+import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
+import type { LocalIdSource } from "../../../../shared/id/local-id";
+import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
+import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
+import type { ChatServerThreadActions } from "../../app-server/actions/threads";
+import type { ChatAppServerGateway } from "../../app-server/session-gateway";
+import { messageStreamItems } from "../../application/state/message-stream";
+import type { ChatStateStore } from "../../application/state/store";
+import type { ActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
+import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import { createGoalActions, createThreadGoalSyncActions } from "../../application/threads/goal-actions";
+import { HistoryController } from "../../application/threads/history-controller";
+import { createThreadLifecycleParts } from "../../application/threads/lifecycle-parts";
 import {
   activeThreadRenameTitleContext,
   createThreadRenameEditorActions,
   type ThreadRenameEditorActions,
-} from "../application/threads/rename-editor-actions";
-import type { RestorationController } from "../application/threads/restoration-controller";
-import type { ResumeActions } from "../application/threads/resume-actions";
-import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
-import { createThreadManagementActions, type ThreadManagementActionsHost } from "../application/threads/thread-management-actions";
-import { createThreadNavigationActions } from "../application/threads/thread-navigation-actions";
-import { threadTitleContextFromMessageStreamItems } from "../application/threads/title-context";
-import type { ChatComposerController } from "../panel/composer-controller";
-import { createToolbarPanelActions, type ToolbarPanelActions } from "../panel/toolbar-actions";
-import type { ChatPanelEnvironment } from "./contracts";
+} from "../../application/threads/rename-editor-actions";
+import type { RestorationController } from "../../application/threads/restoration-controller";
+import type { ResumeActions } from "../../application/threads/resume-actions";
+import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
+import { createThreadManagementActions, type ThreadManagementActionsHost } from "../../application/threads/thread-management-actions";
+import { createThreadNavigationActions } from "../../application/threads/thread-navigation-actions";
+import { threadTitleContextFromMessageStreamItems } from "../../application/threads/title-context";
+import type { ChatComposerController } from "../../panel/composer-controller";
+import { createToolbarPanelActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
+import type { ChatPanelEnvironment } from "../contracts";
 
 type ChatPanelGoalSyncActions = ReturnType<typeof createThreadGoalSyncActions>;
 export type ChatPanelGoalActions = ReturnType<typeof createGoalActions>;

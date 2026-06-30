@@ -10,7 +10,7 @@ import { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/surface/message-stream-scroll";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot, ChatWorkspacePanelTurnLifecycle } from "./contracts";
-import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./deferred-work";
+import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
 import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
 
 export class ChatPanelSession implements ChatPanelHandle {

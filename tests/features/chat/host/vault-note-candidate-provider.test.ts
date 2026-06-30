@@ -1,8 +1,8 @@
 import { type App, type EventRef, TFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
-import { VaultComposerContextReferenceProvider } from "../../../../src/features/chat/host/vault-composer-context-reference-provider.obsidian";
-import { VaultNoteCandidateProvider } from "../../../../src/features/chat/host/vault-note-candidate-provider.obsidian";
+import { VaultComposerContextReferenceProvider } from "../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
+import { VaultNoteCandidateProvider } from "../../../../src/features/chat/host/obsidian/vault-note-candidate-provider.obsidian";
 
 describe("VaultNoteCandidateProvider", () => {
   it("builds note candidates from markdown files", () => {

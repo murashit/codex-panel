@@ -3,8 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createServerDiagnostics, diagnosticsWithToolInventory } from "../../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../src/domain/server/tool-inventory";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { createTurnBundle } from "../../../../src/features/chat/host/turn-bundle";
-import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
+import { createTurnBundle } from "../../../../src/features/chat/host/bundles/turn-bundle";
 
 describe("createTurnBundle", () => {
   it("uses cached tool inventory for /tools without refreshing diagnostics", async () => {
@@ -51,24 +50,13 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
   const refreshDiagnostics = vi.fn().mockResolvedValue(undefined);
   const bundle = createTurnBundle(
     {
-      environment: {
-        plugin: {
-          settingsRef: {
-            vaultPath: "/vault",
-          },
-        },
-      },
       stateStore,
-      deferredTasks: {},
-      connectionWork: new ConnectionWorkTracker(),
       messageScrollController: {
         showLatest: vi.fn(),
       },
     } as never,
     {
-      connection: { resetConnection: vi.fn() },
       localItemIds: { next: vi.fn(() => "local-id") },
-      ensureConnected: vi.fn().mockResolvedValue(undefined),
       appServer: {
         connectionAvailable: vi.fn(() => true),
         threadReferences: vi.fn(() => ({ referThread: vi.fn() })),
@@ -100,7 +88,7 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
       serverThreads: {},
       goals: {},
       autoTitleCoordinator: { resetThreadTurnPresence: vi.fn() },
-      invalidateThreadWork: vi.fn(),
+      reconnect: vi.fn(),
       runtimeProjection,
       refreshDiagnostics,
       refreshLiveState: vi.fn(),

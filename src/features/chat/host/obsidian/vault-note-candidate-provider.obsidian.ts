@@ -1,8 +1,8 @@
 import type { App, EventRef } from "obsidian";
 import { stripHeadingForLink, TFile } from "obsidian";
 
-import type { NoteCandidateProvider, WikiLinkMention } from "../application/composer/note-context";
-import type { NoteCandidate } from "../application/composer/suggestions";
+import type { NoteCandidateProvider, WikiLinkMention } from "../../application/composer/note-context";
+import type { NoteCandidate } from "../../application/composer/suggestions";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
 interface FileCandidate {

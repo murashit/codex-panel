@@ -1,7 +1,7 @@
 import { type App, normalizePath, type Vault } from "obsidian";
 
-import { DEFAULT_ATTACHMENT_FOLDER } from "../../../settings/model";
-import type { ComposerAttachment, ComposerAttachmentHandler } from "../application/composer/attachments";
+import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/model";
+import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
 
 interface VaultComposerAttachmentHandlerOptions {
   app: App;
