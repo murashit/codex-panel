@@ -1,11 +1,11 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerClientAccess } from "../app-server/connection/client-access";
+import type { ObservedResultListener } from "../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
 import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
 import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { ModelMetadata } from "../domain/catalog/metadata";
 import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../features/threads/catalog/thread-catalog";
-import type { ObservedResultListener } from "../shared/query/observed-result";
 import { type SettingsDynamicDataAccess, type SettingsHookCatalog, StaleSettingsDynamicDataContextError } from "./dynamic-data";
 
 interface SettingsAppServerQueries {

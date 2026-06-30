@@ -1,7 +1,7 @@
 import type { Ref, ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { listenDomEvent, listenOutsideDomEvent } from "../../../../shared/ui/dom-events.dom";
+import { listenDomEvent, listenOutsideDomEvent } from "../../../../shared/dom/events.dom";
 import type { MessageStreamTextView } from "../../presentation/message-stream/text-view";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 import type { TextItemContentContext } from "./context";

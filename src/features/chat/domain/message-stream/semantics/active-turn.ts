@@ -1,4 +1,4 @@
-import { truncate } from "../../../../../shared/text/preview";
+import { truncate } from "../../../../../domain/display/text-preview";
 import type {
   AgentRunSummary,
   AgentRunSummaryAgent,

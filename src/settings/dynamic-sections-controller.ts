@@ -1,9 +1,9 @@
+import type { ObservedResult } from "../app-server/query/observed-result";
+import { observedValue } from "../app-server/query/observed-result";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
-import type { ObservedResult } from "../shared/query/observed-result";
-import { observedValue } from "../shared/query/observed-result";
 import { isStaleSettingsDynamicDataContextError } from "./dynamic-data";
 import type { SettingsDynamicSectionsHost } from "./host";
 import {

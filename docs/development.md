@@ -31,17 +31,15 @@ npm run check
 
 The generation script uses `codex app-server generate-ts --experimental` because the panel depends on experimental app-server fields. Do not hand-edit generated bindings.
 
-## Source Layout
+## Placement Rules
 
-The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint. Put behavior where its reason to change lives: app-server protocol adaptation at the app-server boundary, app-server-independent domain models in domain code, feature-neutral helpers in shared code, feature workflows under their owning feature, and Obsidian lifecycle or workspace wiring at Obsidian-facing boundaries.
+The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint. Put behavior where its reason to change lives: app-server protocol adaptation at the app-server boundary, app-server-independent domain models in domain code, cross-feature reusable adapters and primitives under `src/shared/`, and feature workflows under their owning feature. Keep shared subfolders named by the boundary or primitive they own, such as DOM, Obsidian, runtime, or UI rendering.
 
 Within chat, keep state transitions and workflow orchestration separate from app-server adaptation, session/Obsidian wiring, and rendering surfaces. Tests should mirror the ownership boundary of the code under test.
 
-## Placement Rules
+Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. When moving behavior across an ownership boundary or adding a new shared classification, update the lint policy and its tests with that boundary in the same change.
 
-Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. Move feature-neutral helpers to `src/shared/`, panel-wide domain models to `src/domain/`, and app-server protocol adaptation to `src/app-server/`.
-
-Generated app-server types should stay behind app-server connection and protocol adapter modules. If domain, shared, settings, workspace, or UI code needs app-server data, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
+Generated app-server types should stay behind app-server connection and protocol adapter modules. If domain, shared code, settings, workspace, or feature code needs app-server data, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
 
 Chat application workflows should receive chat-owned contracts, not root `src/app-server/` modules or direct `AppServerClient` access. Keep app-server access, connection freshness checks, vault-path injection, and payload projection in `src/features/chat/app-server/` transports or host-owned wiring.
 
@@ -53,7 +51,7 @@ Chat modules should not import `src/workspace/` directly; workspace operations e
 
 Use DOM reads, writes, measurements, hit-tests, focus/selection operations, and DOM event listener wiring only from explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Normal modules may keep refs and call named adapters, but they should not interpret DOM structure or layout directly. Name bridge files with a `.dom`, `.obsidian`, or `.measure` suffix.
 
-Use `.tsx` only in rendering-owned source folders: chat panel and UI modules, Obsidian/settings surfaces, shared UI components, and explicit `.dom.tsx` rendering boundaries such as the selection rewrite popover and threads view shell. Non-rendering source should use `.ts`.
+Use `.tsx` only where the module owns rendering or a host rendering bridge. Non-rendering source should use `.ts`; when a new rendering-owned location is intentional, update the source-shape lint policy and its tests rather than relying on convention alone.
 
 ## CSS Rules
 

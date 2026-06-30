@@ -1,8 +1,7 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
-
-import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../shared/ui/components.obsidian";
-import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../shared/dom/preact-root.dom";
+import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../shared/obsidian/components.obsidian";
 import type { ThreadsRowModel } from "./state";
 
 type ButtonProps = ButtonHTMLAttributes & {

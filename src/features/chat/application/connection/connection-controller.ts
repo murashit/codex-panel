@@ -1,7 +1,7 @@
 import type { ServerInitialization } from "../../../../domain/server/initialization";
-import type { ActiveConnectionWork, ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";
 import type { ChatConnectionPhase } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import type { ActiveConnectionWork, ConnectionWorkTracker } from "./connection-work";
 
 const STATUS_CONNECTION_STOPPED = "Codex app-server stopped.";
 const STATUS_CONNECTION_STARTING = "Starting Codex app-server...";

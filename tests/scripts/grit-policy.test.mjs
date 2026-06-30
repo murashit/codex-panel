@@ -79,7 +79,7 @@ export { local };
 `.trimStart(),
     );
     await writeFile(
-      path.join(cwd, "src/shared/iterator.ts"),
+      path.join(cwd, "src/domain/iterator.ts"),
       `
 export function first<T>(iterator: Iterator<T>): T | undefined {
   return iterator.next().value;
@@ -144,7 +144,7 @@ runner = new Runner(() => runner.stop());
     const report = biomeLint(
       [
         "reexports.ts",
-        "src/shared/iterator.ts",
+        "src/domain/iterator.ts",
         "src/features/chat/ui/form-state.tsx",
         "src/features/chat/ui/controlled-form-state.tsx",
         "src/plugin-runtime.ts",
@@ -158,7 +158,7 @@ runner = new Runner(() => runner.stop());
       { line: 1, column: 8, endLine: 1, endColumn: 33 },
       { line: 2, column: 8, endLine: 2, endColumn: 26 },
     ]);
-    expect(pluginMessages(report, "src/shared/iterator.ts")).toEqual([
+    expect(pluginMessages(report, "src/domain/iterator.ts")).toEqual([
       "Avoid reading iterator.next().value directly; use for...of or inspect the typed IteratorResult first.",
     ]);
     expect(pluginMessages(report, "src/features/chat/ui/form-state.tsx")).toEqual([
@@ -183,7 +183,7 @@ runner = new Runner(() => runner.stop());
       "no-chat-signal-type-references.grit",
       "no-preact-signal-imports.grit",
       "no-state-module-side-effects.grit",
-      "no-ui-root-imports.grit",
+      "no-preact-root-imports.grit",
     ]);
     await writeFile(
       path.join(cwd, "src/features/chat/panel/shell-read-model.ts"),
@@ -214,7 +214,7 @@ export const status = signal("idle");
 `.trimStart(),
     );
     await writeFile(
-      path.join(cwd, "src/shared/ui/components.tsx"),
+      path.join(cwd, "src/shared/obsidian/components.obsidian.tsx"),
       `
 import { signal } from '@preact/signals';
 
@@ -331,7 +331,7 @@ export function render(container: HTMLElement): void {
     await writeFile(
       path.join(cwd, "src/features/chat/ui/dom-event-escape.tsx"),
       `
-import { listenDomEvent } from "../../../shared/ui/dom-events.dom";
+import { listenDomEvent } from "../../../shared/dom/events.dom";
 
 export const listen = listenDomEvent;
 `.trimStart(),
@@ -347,7 +347,7 @@ export function onAbort(signal: AbortSignal): void {
     await writeFile(
       path.join(cwd, "src/features/chat/ui/root-import.tsx"),
       `
-import { renderUiRoot } from '../../../shared/ui/ui-root.dom';
+import { renderUiRoot } from '../../../shared/dom/preact-root.dom';
 
 export const render = renderUiRoot;
 `.trimStart(),
@@ -355,7 +355,7 @@ export const render = renderUiRoot;
     await writeFile(
       path.join(cwd, "src/features/chat/panel/shell.dom.tsx"),
       `
-import { renderUiRoot } from "../../../shared/ui/ui-root.dom";
+import { renderUiRoot } from "../../../shared/dom/preact-root.dom";
 import { createChatPanelShellReadModelBinding } from "./shell-read-model";
 
 export const render = renderUiRoot;
@@ -373,15 +373,15 @@ export type ComposerModel = ChatPanelComposerReadModel;
     await writeFile(
       path.join(cwd, "src/features/chat/ui/root-escapes.tsx"),
       `
-import type { RootRenderer } from "../../../shared/ui/ui-root.dom";
+import type { RootRenderer } from "../../../shared/dom/preact-root.dom";
 
 export type { RootRenderer };
 
 export async function loadRoot() {
-  return import("../../../shared/ui/ui-root.dom");
+  return import("../../../shared/dom/preact-root.dom");
 }
 
-const root = await import("../../../shared/ui/ui-root.dom");
+const root = await import("../../../shared/dom/preact-root.dom");
 export const loadedRoot = root;
 `.trimStart(),
     );
@@ -409,7 +409,7 @@ export function timestamp(): number {
         "src/features/chat/panel/shell-read-model.ts",
         "src/features/chat/panel/surface/signal-surface.tsx",
         "src/features/chat/presentation/signal-helper.ts",
-        "src/shared/ui/components.tsx",
+        "src/shared/obsidian/components.obsidian.tsx",
         "src/shared/ui/signal-escapes.tsx",
         "src/features/chat/ui/dom-bridge-escape.tsx",
         "src/features/chat/ui/dom-event-escape.tsx",
@@ -430,7 +430,9 @@ export function timestamp(): number {
     expect([...pluginMessages(report, "src/features/chat/presentation/signal-helper.ts")].sort()).toEqual(
       [CHAT_SHELL_READ_MODEL_IMPORT_MESSAGE, CHAT_SIGNAL_TYPE_REFERENCE_MESSAGE, CHAT_SIGNAL_TYPE_REFERENCE_MESSAGE].sort(),
     );
-    expect(pluginMessages(report, "src/shared/ui/components.tsx")).toEqual(["Do not import @preact/signals from this module."]);
+    expect(pluginMessages(report, "src/shared/obsidian/components.obsidian.tsx")).toEqual([
+      "Do not import @preact/signals from this module.",
+    ]);
     expect(pluginMessages(report, "src/shared/ui/signal-escapes.tsx")).toEqual([
       "Do not import @preact/signals from this module.",
       "Do not import @preact/signals from this module.",
@@ -598,7 +600,7 @@ export const misplaced = true;
 `.trimStart(),
     );
     await writeFile(
-      path.join(cwd, "src/shared/mixed-root.ts"),
+      path.join(cwd, "src/domain/mixed-root.ts"),
       `
 export const misplaced = true;
 `.trimStart(),
@@ -704,7 +706,7 @@ export const value = statusText;
         "src/workspace/chat-internal-escape.ts",
         "src/workspace/chat-host-allowed.ts",
         "src/domain/mixed-root.ts",
-        "src/shared/mixed-root.ts",
+        "src/domain/mixed-root.ts",
         "src/features/chat/mixed-root.ts",
         "src/features/threads/mixed-root.ts",
         "src/features/threads/list/rename-lifecycle.ts",
@@ -738,7 +740,7 @@ export const value = statusText;
     expect(pluginMessages(report, "src/workspace/chat-internal-escape.ts")).toEqual([WORKSPACE_CHAT_INTERNAL_MESSAGE]);
     expect(pluginDiagnostics(report, "src/workspace/chat-host-allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/domain/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
-    expect(pluginMessages(report, "src/shared/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginMessages(report, "src/domain/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
     expect(pluginMessages(report, "src/features/chat/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
     expect(pluginMessages(report, "src/features/threads/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/threads/list/rename-lifecycle.ts")).toEqual([]);
@@ -795,7 +797,9 @@ export const value = statusText;
     expect(pluginDiagnostics(report, "src/features/threads-view/shell.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/turn-diff/render.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/settings/section.tsx")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/shared/ui/diff.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/shared/dom/preact-root.dom.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/shared/obsidian/components.obsidian.tsx")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/shared/ui/diff-view.tsx")).toEqual([]);
   });
 
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
@@ -850,12 +854,12 @@ export const value = statusText;
     const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/app-server/protocol/diagnostics.ts")).toEqual([
-      "Do not import feature modules from this layer. Move shared behavior to shared, domain, or app-server adapters.",
+      "Do not import feature modules from this layer. Move reusable behavior to domain, shared DOM/Obsidian/runtime/UI, or app-server adapters.",
     ]);
-    expect(pluginMessages(report, "src/shared/thread-picker.ts")).toEqual([
-      "Do not import feature modules from this layer. Move shared behavior to shared, domain, or app-server adapters.",
+    expect(pluginMessages(report, "src/shared/obsidian/thread-picker.ts")).toEqual([
+      "Do not import feature modules from this layer. Move reusable behavior to domain, shared DOM/Obsidian/runtime/UI, or app-server adapters.",
     ]);
-    expect(pluginDiagnostics(report, "src/shared/date.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/domain/display/date.ts")).toEqual([]);
   });
 
   it("keeps app-server connection internals behind app-server adapters", async () => {
@@ -873,7 +877,7 @@ export const value = statusText;
         "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
       ]),
     );
-    expect(pluginMessages(report, "src/shared/connection-client.ts")).toEqual([
+    expect(pluginMessages(report, "src/shared/runtime/connection-client.ts")).toEqual([
       "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
   });
@@ -1040,9 +1044,21 @@ export const value = <section />;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/shared/ui/diff.tsx"),
+    path.join(cwd, "src/shared/ui/diff-view.tsx"),
     `
 export const value = <pre />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/shared/dom/preact-root.dom.tsx"),
+    `
+export const value = <div />;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/shared/obsidian/components.obsidian.tsx"),
+    `
+export const value = <button />;
 `.trimStart(),
   );
   await writeFile(
@@ -1107,7 +1123,9 @@ export const value = <pre />;
       "src/features/turn-diff/render.dom.tsx",
       "src/features/chat/ui/message.tsx",
       "src/settings/section.tsx",
-      "src/shared/ui/diff.tsx",
+      "src/shared/dom/preact-root.dom.tsx",
+      "src/shared/obsidian/components.obsidian.tsx",
+      "src/shared/ui/diff-view.tsx",
       "src/styles/bad.css",
       "src/styles/good.css",
     ],
@@ -1264,7 +1282,7 @@ export const response = [appServerUserInputResponse, runtimeMetrics] satisfies u
     `
 import { listThreads } from "../../app-server/services/threads";
 import type { ThreadPickerModal } from "../../features/thread-picker/modal";
-import { copyText } from "../../shared/ui/clipboard";
+import { copyText } from "../../shared/obsidian/clipboard.obsidian";
 import type { App } from "obsidian";
 
 export type Host = App;
@@ -1276,7 +1294,7 @@ export const copy = copyText;
   await writeFile(
     path.join(cwd, "src/domain/threads/format.ts"),
     `
-import { formatDate } from "../../shared/date";
+import { formatDate } from "../display/date";
 
 export const format = formatDate;
 `.trimStart(),
@@ -1323,7 +1341,7 @@ export type Modal = ThreadPickerModal;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/shared/thread-picker.ts"),
+    path.join(cwd, "src/shared/obsidian/thread-picker.ts"),
     `
 import type { ThreadPickerModal } from "../features/thread-picker/modal";
 
@@ -1331,7 +1349,7 @@ export type Modal = ThreadPickerModal;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/shared/date.ts"),
+    path.join(cwd, "src/domain/display/date.ts"),
     `
 import { formatDate } from "./format";
 
@@ -1363,7 +1381,7 @@ export type Client = AppServerClient;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/shared/connection-client.ts"),
+    path.join(cwd, "src/shared/runtime/connection-client.ts"),
     `
 import type { AppServerClient } from "src/app-server/connection/client";
 
@@ -1444,12 +1462,12 @@ export async function read(client: AppServerClient): Promise<void> {
       "src/features/chat/domain/message-stream/items.ts",
       "src/features/chat/domain/message-stream/outer-shapes.ts",
       "src/app-server/protocol/diagnostics.ts",
-      "src/shared/thread-picker.ts",
-      "src/shared/date.ts",
+      "src/shared/obsidian/thread-picker.ts",
+      "src/domain/display/date.ts",
       "src/app-server/protocol/catalog.ts",
       "src/app-server/services/catalog.ts",
       "src/domain/connection-client.ts",
-      "src/shared/connection-client.ts",
+      "src/shared/runtime/connection-client.ts",
       "src/features/chat/application/threads/history.ts",
       "src/app-server/services/threads.ts",
       "src/features/chat/host/bundles/connection-bundle.ts",
@@ -1486,8 +1504,11 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/app-server/connection"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/protocol"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/services"), { recursive: true });
-  await mkdir(path.join(cwd, "src/shared"), { recursive: true });
+  await mkdir(path.join(cwd, "src/shared/dom"), { recursive: true });
+  await mkdir(path.join(cwd, "src/shared/obsidian"), { recursive: true });
+  await mkdir(path.join(cwd, "src/shared/runtime"), { recursive: true });
   await mkdir(path.join(cwd, "src/shared/ui"), { recursive: true });
+  await mkdir(path.join(cwd, "src/domain/display"), { recursive: true });
   await mkdir(path.join(cwd, "src/styles"), { recursive: true });
   await mkdir(path.join(cwd, "tests/app-server"), { recursive: true });
   await writeFile(

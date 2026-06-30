@@ -1,7 +1,8 @@
 import { micromark } from "micromark";
 import { type App, type Component, MarkdownRenderer, Notice } from "obsidian";
 
-import { isAbsoluteFileHref, vaultFileLinkTarget, vaultRelativeFileLinkTarget } from "../../../../shared/obsidian/file-links";
+import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../domain/vault/file-hrefs";
+import { vaultFileLinkTarget } from "../../../../shared/obsidian/vault-file-links.obsidian";
 import { notifyMessageContentRendered } from "./content-rendered-event.dom";
 
 interface MarkdownMessageRendererOptions {

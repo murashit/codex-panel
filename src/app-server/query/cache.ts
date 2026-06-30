@@ -3,7 +3,6 @@ import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
-import type { ObservedResult, ObservedResultListener } from "../../shared/query/observed-result";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccessOptions } from "../connection/client-access";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
@@ -21,6 +20,7 @@ import {
   cloneAppServerQueryContext,
 } from "./keys";
 import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
+import type { ObservedResult, ObservedResultListener } from "./observed-result";
 import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads } from "./snapshots";
 
 const THREAD_LIST_STALE_TIME_MS = 10_000;

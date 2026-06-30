@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ConnectionManager } from "../../../../src/app-server/connection/connection-manager";
+import { ConnectionWorkTracker } from "../../../../src/features/chat/application/connection/connection-work";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createReconnectAction } from "../../../../src/features/chat/host/bundles/reconnect-bundle";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
-import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
 
 describe("createReconnectAction", () => {
   it("wires host connection lifecycle cleanup into panel reconnect", async () => {

@@ -1,7 +1,7 @@
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
-import type { LocalIdSource } from "../../../../shared/id/local-id";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
 import type { GoalMessageStreamItem } from "../../domain/message-stream/items";
+import type { LocalIdSource } from "../local-id-source";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "./goal-transport";
 

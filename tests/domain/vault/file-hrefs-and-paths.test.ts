@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  isExternalFileHref,
-  normalizeFilePath,
-  parseFileHref,
-  pathRelativeToRoot,
-  vaultRelativePath,
-} from "../../../src/shared/path/file-paths";
+import { isExternalFileHref, parseFileHref } from "../../../src/domain/vault/file-hrefs";
+import { normalizeFilePath, pathRelativeToRoot, vaultRelativePath } from "../../../src/domain/vault/paths";
 
 describe("file path helpers", () => {
   it("normalizes separators, duplicate slashes, and leading dot segments", () => {

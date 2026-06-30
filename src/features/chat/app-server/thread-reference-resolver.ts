@@ -1,8 +1,8 @@
 import { readReferencedThreadConversationSummaries, type ThreadConversationSummaryClient } from "../../../app-server/services/threads";
 import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/chat/input";
+import { shortThreadId } from "../../../domain/threads/id";
 import type { Thread } from "../../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadPromptBundle } from "../../../domain/threads/reference";
-import { shortThreadId } from "../../../shared/id/thread-id";
 import type { ThreadReferenceInput } from "../application/conversation/slash-command-execution";
 
 interface ThreadReferenceResolverHost {

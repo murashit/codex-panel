@@ -1,6 +1,6 @@
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
-import type { LocalIdSource } from "../../../../shared/id/local-id";
+import type { LocalIdSource } from "../local-id-source";
 import type { ChatStateStore } from "../state/store";
 import {
   acknowledgeOptimisticTurnStart,

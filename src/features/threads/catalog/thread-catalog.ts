@@ -1,5 +1,5 @@
+import type { ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { Thread } from "../../../domain/threads/model";
-import type { ObservedResultListener } from "../../../shared/query/observed-result";
 
 type ThreadListObserver = ObservedResultListener<readonly Thread[]>;
 

@@ -1,7 +1,7 @@
 import type { App, Component } from "obsidian";
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
-import { copyTextWithNotice } from "../../../../shared/ui/clipboard";
+import { copyTextWithNotice } from "../../../../shared/obsidian/clipboard.obsidian";
 import type { TurnDiffViewState } from "../../../turn-diff/model";
 import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { ChatAction } from "../../application/state/root-reducer";

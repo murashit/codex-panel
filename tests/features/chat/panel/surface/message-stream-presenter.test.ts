@@ -17,7 +17,7 @@ import {
 } from "../../../../../src/features/chat/panel/surface/message-stream-projection";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { withChatStateMessageStreamItems } from "../../support/message-stream";

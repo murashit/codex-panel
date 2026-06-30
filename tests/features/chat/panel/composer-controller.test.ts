@@ -14,7 +14,7 @@ import { createChatStateStore } from "../../../../src/features/chat/application/
 import { ChatComposerController, type ChatComposerRenderActions } from "../../../../src/features/chat/panel/composer-controller";
 import type { ChatPanelComposerReadModel } from "../../../../src/features/chat/panel/shell-read-model";
 import { ComposerShell } from "../../../../src/features/chat/ui/composer";
-import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/ui-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../support/dom";
 import { composerReadModelFromChatState } from "../support/shell-read-model";
 

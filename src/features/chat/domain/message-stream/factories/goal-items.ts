@@ -1,5 +1,5 @@
+import { truncate } from "../../../../../domain/display/text-preview";
 import type { ThreadGoal, ThreadGoalStatus } from "../../../../../domain/threads/goal";
-import { truncate } from "../../../../../shared/text/preview";
 import type { GoalMessageStreamItem } from "../items";
 
 const GOAL_SUMMARY_LIMIT = 140;

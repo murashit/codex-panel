@@ -1,8 +1,8 @@
 import { ItemView, type ViewStateResult } from "obsidian";
 
 import { VIEW_TYPE_CODEX_TURN_DIFF } from "../../constants";
-import { copyTextWithNotice } from "../../shared/ui/clipboard";
-import { unmountUiRoot } from "../../shared/ui/ui-root.dom";
+import { unmountUiRoot } from "../../shared/dom/preact-root.dom";
+import { copyTextWithNotice } from "../../shared/obsidian/clipboard.obsidian";
 import { isPersistedTurnDiffViewState, type PersistedTurnDiffViewState, persistedTurnDiffViewState, type TurnDiffViewState } from "./model";
 import { renderTurnDiffView } from "./render.dom";
 

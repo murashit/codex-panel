@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 import { h } from "preact";
-import type { SendShortcut } from "../../../../shared/ui/keyboard";
+import type { SendShortcut } from "../../../../domain/input/send-shortcut";
 import type { GoalPanelActions, GoalPanelDisplayState, GoalPanelEditorState, GoalPanelOptions } from "../../ui/goal";
 import { GoalPanel } from "../../ui/goal";
 import type { ChatPanelGoalReadModel } from "../shell-read-model";

@@ -1,7 +1,7 @@
 import { ItemView, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_THREADS } from "../../constants";
-import { createObsidianArchiveExportDestination } from "../../shared/obsidian/archive-export-destination";
+import { createObsidianArchiveExportDestination } from "../threads/obsidian/archive-export-destination.obsidian";
 import { type ThreadsViewHost, ThreadsViewSession } from "./session";
 
 export class CodexThreadsView extends ItemView {

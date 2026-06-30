@@ -1,5 +1,5 @@
 import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
-import type { ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";
+import type { ConnectionWorkTracker } from "../../application/connection/connection-work";
 import { type ChatReconnectActionsHost, reconnectPanel } from "../../application/connection/reconnect-actions";
 import type { ChatConnectionPhase } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";

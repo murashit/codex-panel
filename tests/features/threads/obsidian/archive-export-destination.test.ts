@@ -1,7 +1,7 @@
 import type { Vault } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
-import { createObsidianArchiveExportDestination } from "../../../src/shared/obsidian/archive-export-destination";
+import { createObsidianArchiveExportDestination } from "../../../../src/features/threads/obsidian/archive-export-destination.obsidian";
 
 describe("createObsidianArchiveExportDestination", () => {
   it("uses normalized Vault paths for existence checks, folder creation, and file writes", async () => {

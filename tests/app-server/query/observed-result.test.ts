@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ObservedResult } from "../../../src/shared/query/observed-result";
-import { observedInitialError, observedInitialLoading, observedValue } from "../../../src/shared/query/observed-result";
+import type { ObservedResult } from "../../../src/app-server/query/observed-result";
+import { observedInitialError, observedInitialLoading, observedValue } from "../../../src/app-server/query/observed-result";
 
 describe("observed query result helpers", () => {
   it("treats successful empty arrays as current values", () => {

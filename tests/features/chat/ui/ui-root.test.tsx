@@ -3,7 +3,7 @@
 import { useLayoutEffect } from "preact/hooks";
 import { describe, expect, it, vi } from "vitest";
 
-import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/ui/ui-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/dom/preact-root.dom";
 
 describe("Preact root adapter", () => {
   it("reuses roots that render no host children", () => {

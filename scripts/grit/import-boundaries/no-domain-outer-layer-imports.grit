@@ -9,8 +9,8 @@ private pattern js_module_reference() {
 
 private pattern root_outer_layer_source() {
   or {
-    r"^[\"'](?:\.\./)+(?:app-server|settings|workspace|shared/ui|features)(?:/.*)?[\"']$",
-    r"^[\"']src/(?:app-server|settings|workspace|shared/ui|features)(?:/.*)?[\"']$",
+    r"^[\"'](?:\.\./)+(?:app-server|settings|workspace|shared|features)(?:/.*)?[\"']$",
+    r"^[\"']src/(?:app-server|settings|workspace|shared|features)(?:/.*)?[\"']$",
     r"^[\"']obsidian[\"']$"
   }
 }

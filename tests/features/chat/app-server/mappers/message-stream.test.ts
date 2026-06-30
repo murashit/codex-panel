@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TurnItem, TurnRecord } from "../../../../../src/app-server/protocol/turn";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { referencedThreadPromptBundle } from "../../../../../src/domain/threads/reference";
+import { pathRelativeToRoot } from "../../../../../src/domain/vault/paths";
 import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/message-stream/execution-state";
 import { hookRunMessageStreamItem } from "../../../../../src/features/chat/app-server/mappers/message-stream/hook-run-items";
 import {
@@ -18,7 +19,6 @@ import type { MessageStreamItem } from "../../../../../src/features/chat/domain/
 import { activeTurnLiveItems } from "../../../../../src/features/chat/domain/message-stream/semantics/active-turn";
 import { upsertMessageStreamItemById } from "../../../../../src/features/chat/domain/message-stream/updates";
 import { messageStreamLayoutBlocks } from "../../../../../src/features/chat/presentation/message-stream/layout";
-import { pathRelativeToRoot } from "../../../../../src/shared/path/file-paths";
 
 function commandItem(id: string, text: string, turnId: string): MessageStreamItem {
   return {

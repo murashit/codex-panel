@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
-import { listenDomEvent } from "../../../shared/ui/dom-events.dom";
-import { renderUiRoot, unmountUiRoot } from "../../../shared/ui/ui-root.dom";
+import { listenDomEvent } from "../../../shared/dom/events.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../shared/dom/preact-root.dom";
 import type { ChatStateStore } from "../application/state/store";
 import type { ToolbarActions } from "../ui/toolbar";
 import { type ChatPanelShellReadModelBinding, createChatPanelShellReadModelBinding } from "./shell-read-model";

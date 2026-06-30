@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type ComposerSendKeyEvent, isComposerSendKey } from "../../../src/shared/ui/keyboard";
+import { type ComposerSendKeyEvent, isComposerSendKey } from "../../../src/domain/input/send-shortcut";
 
 const baseEvent: ComposerSendKeyEvent = {
   key: "Enter",

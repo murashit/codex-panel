@@ -1,9 +1,9 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { threadFromAppServerRecord } from "../../../../app-server/services/threads";
+import { jsonPreview } from "../../../../domain/display/json-preview";
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
-import { jsonPreview } from "../../../../shared/text/preview";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "../../application/conversation/turn-state";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";

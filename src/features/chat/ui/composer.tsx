@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { IconButton } from "../../../shared/ui/components.obsidian";
+import { IconButton } from "../../../shared/obsidian/components.obsidian";
 import {
   type ComposerMetaPickerState,
   closeComposerMetaPickerOnOutsidePointer,

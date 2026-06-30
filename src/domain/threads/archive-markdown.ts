@@ -1,11 +1,5 @@
-import {
-  isExternalFileHref,
-  isFilesystemAbsolutePath,
-  isVaultConfigPath,
-  normalizeFilePath,
-  parseFileHref,
-  vaultRelativePath,
-} from "../../shared/path/file-paths";
+import { isExternalFileHref, parseFileHref } from "../vault/file-hrefs";
+import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, vaultRelativePath } from "../vault/paths";
 import type { Thread } from "./model";
 import { referencedThreadMetadataFromPrompt } from "./reference";
 import { threadArchiveTitle } from "./title";

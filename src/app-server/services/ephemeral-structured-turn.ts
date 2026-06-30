@@ -1,4 +1,4 @@
-import { listenAbortSignal } from "../../shared/lifecycle/abort-signal";
+import { listenAbortSignal } from "../../shared/runtime/abort-signal";
 import { AppServerClient, type AppServerClientHandlers } from "../connection/client";
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
 import type { ServerNotification } from "../connection/rpc-messages";

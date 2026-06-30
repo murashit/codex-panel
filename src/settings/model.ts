@@ -3,7 +3,7 @@ import { type App, FileSystemAdapter } from "obsidian";
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
 import { normalizeReasoningEffort } from "../domain/catalog/metadata";
-import type { SendShortcut } from "../shared/ui/keyboard";
+import type { SendShortcut } from "../domain/input/send-shortcut";
 
 export interface CodexPanelSettings {
   codexPath: string;

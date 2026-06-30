@@ -1,4 +1,4 @@
-import { jsonPreview } from "../../../../../shared/text/preview";
+import { jsonPreview } from "../../../../../domain/display/json-preview";
 
 interface DetailRow {
   key: string;

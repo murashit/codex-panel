@@ -10,7 +10,7 @@ import {
   type MessageStreamScrollControllerBinding,
   type MessageStreamScrollPort,
 } from "../../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
-import { renderUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
+import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
 
 installObsidianDomShims();

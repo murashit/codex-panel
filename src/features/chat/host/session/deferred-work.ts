@@ -1,4 +1,4 @@
-import { DeferredTask, type DeferredTaskWindow } from "../../../../shared/lifecycle/deferred-task";
+import { DeferredTask, type DeferredTaskWindow } from "../../../../shared/runtime/deferred-task";
 
 export interface ChatViewDeferredTasks {
   scheduleDiagnostics(callback: () => void): void;

@@ -14,9 +14,9 @@ import {
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
-import type { LocalIdSource } from "../../../../shared/id/local-id";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
 import { activeTurnId } from "../../application/conversation/turn-state";
+import type { LocalIdSource } from "../../application/local-id-source";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { createStructuredSystemItem, createSystemItem } from "../../domain/message-stream/factories/system-items";

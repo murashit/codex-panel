@@ -1,6 +1,6 @@
 import type { ComponentChild as UiNode } from "preact";
 
-import { RawDiffView } from "../../../../shared/ui/diff";
+import { RawDiffView } from "../../../../shared/ui/diff-view";
 import type { DetailSection, DetailView } from "../../presentation/message-stream/detail-view";
 import type { MessageStreamDisclosureState } from "./context";
 

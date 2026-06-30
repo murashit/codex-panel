@@ -8,9 +8,9 @@ import {
   type ChatConnectionMetadataActions,
   createChatConnectionController,
 } from "../../../../../src/features/chat/application/connection/connection-controller";
+import { ConnectionWorkTracker } from "../../../../../src/features/chat/application/connection/connection-work";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { ConnectionWorkTracker } from "../../../../../src/shared/lifecycle/connection-work";
 
 function createController({ connected = false } = {}) {
   const stateStore = createChatStateStore(createChatState());

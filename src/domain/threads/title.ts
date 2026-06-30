@@ -1,4 +1,4 @@
-import { shortThreadId } from "../../shared/id/thread-id";
+import { shortThreadId } from "./id";
 import type { Thread } from "./model";
 
 const MAX_ARCHIVED_THREAD_DISPLAY_TITLE_LENGTH = 96;

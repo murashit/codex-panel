@@ -2,8 +2,8 @@ import { type App, Notice, type Plugin, PluginSettingTab } from "obsidian";
 
 import { DEFAULT_CODEX_PATH } from "../constants";
 import type { ReasoningEffort } from "../domain/catalog/metadata";
-import { listenDomEvent } from "../shared/ui/dom-events.dom";
-import { renderUiRoot, unmountUiRoot } from "../shared/ui/ui-root.dom";
+import { listenDomEvent } from "../shared/dom/events.dom";
+import { renderUiRoot, unmountUiRoot } from "../shared/dom/preact-root.dom";
 import { SettingsDynamicSectionsController } from "./dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "./host";
 import { DEFAULT_ATTACHMENT_FOLDER } from "./model";

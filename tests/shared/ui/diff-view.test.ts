@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { unifiedDiffDisplayLines } from "../../../src/shared/ui/diff";
+import { unifiedDiffDisplayLines } from "../../../src/shared/ui/diff-view";
 
 describe("unified diff display lines", () => {
   it("simplifies git diff file headers for turn diff display", () => {

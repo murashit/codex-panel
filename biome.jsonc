@@ -9,43 +9,30 @@
     // Project-wide source shape and placement.
     {
       "path": "./scripts/grit/source-shape/no-handwritten-reexports.grit",
-      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
+      "includes": ["**/*.{ts,tsx,mjs}"]
     },
     {
       "path": "./scripts/grit/source-shape/no-responsibility-root-module-files.grit",
-      "includes": [
-        "**/src/app-server/*.ts",
-        "**/src/app-server/*.tsx",
-        "**/src/domain/*.ts",
-        "**/src/domain/*.tsx",
-        "**/src/features/chat/*.ts",
-        "**/src/features/chat/*.tsx",
-        "**/src/features/threads/*.ts",
-        "**/src/features/threads/*.tsx",
-        "**/src/shared/*.ts",
-        "**/src/shared/*.tsx"
-      ]
+      "includes": ["**/src/{app-server,domain}/*.{ts,tsx}", "**/src/features/{chat,threads}/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/source-shape/no-misplaced-tsx.grit",
       "includes": [
         "**/src/**/*.tsx",
-        "!**/src/features/chat/panel/**",
-        "!**/src/features/chat/ui/**",
-        "!**/src/features/selection-rewrite/*.dom.tsx",
-        "!**/src/features/turn-diff/*.dom.tsx",
-        "!**/src/features/threads-view/*.dom.tsx",
-        "!**/src/settings/**",
-        "!**/src/shared/ui/**"
+        "!**/src/{settings,shared/ui}/**",
+        "!**/src/features/chat/{panel,ui}/**",
+        "!**/src/features/{selection-rewrite,threads-view,turn-diff}/*.dom.tsx",
+        "!**/src/shared/dom/*.dom.tsx",
+        "!**/src/shared/obsidian/*.obsidian.tsx"
       ]
     },
     {
       "path": "./scripts/grit/source-shape/no-self-referential-initializer-callback.grit",
-      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
+      "includes": ["**/*.{ts,tsx,mjs}"]
     },
     {
       "path": "./scripts/grit/source-shape/no-unsafe-iterator-value.grit",
-      "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs"]
+      "includes": ["**/*.{ts,tsx,mjs}"]
     },
     {
       "path": "./scripts/grit/source-shape/no-uncontrolled-preact-form-state.grit",
@@ -59,7 +46,7 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-lower-level-feature-imports.grit",
-      "includes": ["**/src/app-server/**/*.ts", "**/src/shared/**/*.ts", "**/src/shared/**/*.tsx"]
+      "includes": ["**/src/app-server/**/*.ts", "**/src/shared/**/*.{ts,tsx}"]
     },
 
     // App-server and generated protocol boundaries.
@@ -69,17 +56,16 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-app-server-connection-boundary-imports.grit",
-      "includes": ["**/src/app-server/protocol/**/*.ts", "**/src/domain/**/*.ts", "**/src/shared/**/*.ts", "**/src/shared/**/*.tsx"]
+      "includes": ["**/src/app-server/protocol/**/*.ts", "**/src/domain/**/*.ts", "**/src/shared/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-app-server-protocol-boundary-imports.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/**"]
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/**"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-generated-app-server-boundary-imports.grit",
       "includes": [
-        "**/src/**/*.ts",
-        "**/src/**/*.tsx",
+        "**/src/**/*.{ts,tsx}",
         "!**/src/app-server/connection/**",
         "!**/src/app-server/protocol/server-requests.ts",
         "!**/src/app-server/protocol/turn.ts"
@@ -87,16 +73,16 @@
     },
     {
       "path": "./scripts/grit/runtime/no-app-server-direct-rpcs.grit",
-      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/**", "!**/src/features/chat/app-server/**"]
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/**", "!**/src/features/chat/app-server/**"]
     },
     // Workspace and feature coordination boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-chat-workspace-boundary-imports.grit",
-      "includes": ["**/src/features/chat/**/*.ts", "**/src/features/chat/**/*.tsx"]
+      "includes": ["**/src/features/chat/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-feature-workspace-boundary-imports.grit",
-      "includes": ["**/src/features/**/*.ts", "**/src/features/**/*.tsx", "!**/src/features/chat/**"]
+      "includes": ["**/src/features/**/*.{ts,tsx}", "!**/src/features/chat/**"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-workspace-chat-internal-imports.grit",
@@ -118,7 +104,7 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-panel-runtime-boundary-imports.grit",
-      "includes": ["**/src/features/chat/panel/**/*.ts", "**/src/features/chat/panel/**/*.tsx"]
+      "includes": ["**/src/features/chat/panel/**/*.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-presentation-outer-layer-imports.grit",
@@ -126,40 +112,34 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-ui-outer-layer-imports.grit",
-      "includes": ["**/src/features/chat/ui/**/*.ts", "**/src/features/chat/ui/**/*.tsx"]
+      "includes": ["**/src/features/chat/ui/**/*.{ts,tsx}"]
     },
 
     // Chat state and runtime ownership.
     {
       "path": "./scripts/grit/import-boundaries/no-preact-signal-imports.grit",
       "includes": [
-        "**/src/**/*.ts",
-        "**/src/**/*.tsx",
+        "**/src/**/*.{ts,tsx}",
         "!**/src/features/chat/panel/shell-read-model.ts",
-        "!**/src/features/chat/panel/surface/**/*.ts",
-        "!**/src/features/chat/panel/surface/**/*.tsx"
+        "!**/src/features/chat/panel/surface/**/*.{ts,tsx}"
       ]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-shell-read-model-imports.grit",
       "includes": [
-        "**/src/features/chat/**/*.ts",
-        "**/src/features/chat/**/*.tsx",
+        "**/src/features/chat/**/*.{ts,tsx}",
         "!**/src/features/chat/panel/shell-read-model.ts",
         "!**/src/features/chat/panel/shell.dom.tsx",
         "!**/src/features/chat/panel/composer-controller.ts",
-        "!**/src/features/chat/panel/surface/**/*.ts",
-        "!**/src/features/chat/panel/surface/**/*.tsx"
+        "!**/src/features/chat/panel/surface/**/*.{ts,tsx}"
       ]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-signal-type-references.grit",
       "includes": [
-        "**/src/features/chat/**/*.ts",
-        "**/src/features/chat/**/*.tsx",
+        "**/src/features/chat/**/*.{ts,tsx}",
         "!**/src/features/chat/panel/shell-read-model.ts",
-        "!**/src/features/chat/panel/surface/**/*.ts",
-        "!**/src/features/chat/panel/surface/**/*.tsx"
+        "!**/src/features/chat/panel/surface/**/*.{ts,tsx}"
       ]
     },
     {
@@ -170,40 +150,15 @@
     // DOM bridge and Preact root boundaries.
     {
       "path": "./scripts/grit/dom/no-implicit-dom-bridges.grit",
-      "includes": [
-        "**/src/**/*.ts",
-        "**/src/**/*.tsx",
-        "!**/src/**/*.dom.ts",
-        "!**/src/**/*.dom.tsx",
-        "!**/src/**/*.obsidian.ts",
-        "!**/src/**/*.obsidian.tsx",
-        "!**/src/**/*.measure.ts",
-        "!**/src/**/*.measure.tsx"
-      ]
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/**/*.{dom,obsidian,measure}.{ts,tsx}"]
     },
     {
       "path": "./scripts/grit/dom/no-dom-events-imports.grit",
-      "includes": [
-        "**/src/**/*.ts",
-        "**/src/**/*.tsx",
-        "!**/src/**/*.dom.ts",
-        "!**/src/**/*.dom.tsx",
-        "!**/src/**/*.obsidian.ts",
-        "!**/src/**/*.obsidian.tsx",
-        "!**/src/**/*.measure.ts",
-        "!**/src/**/*.measure.tsx"
-      ]
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/**/*.{dom,obsidian,measure}.{ts,tsx}"]
     },
     {
-      "path": "./scripts/grit/dom/no-ui-root-imports.grit",
-      "includes": [
-        "**/src/**/*.ts",
-        "**/src/**/*.tsx",
-        "!**/src/**/*.dom.ts",
-        "!**/src/**/*.dom.tsx",
-        "!**/src/**/*.obsidian.ts",
-        "!**/src/**/*.obsidian.tsx"
-      ]
+      "path": "./scripts/grit/dom/no-preact-root-imports.grit",
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/**/*.{dom,obsidian}.{ts,tsx}"]
     },
 
     // CSS source policy.

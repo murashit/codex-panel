@@ -1,7 +1,7 @@
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { Thread } from "../../../../domain/threads/model";
-import type { LocalIdSource } from "../../../../shared/id/local-id";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { ChatStateStore } from "../state/store";
 import type { GoalActions } from "../threads/goal-actions";

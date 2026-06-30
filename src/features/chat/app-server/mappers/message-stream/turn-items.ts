@@ -4,10 +4,10 @@ import {
   type TurnRecord,
   turnUserItemText,
 } from "../../../../../app-server/protocol/turn";
+import { jsonPreview } from "../../../../../domain/display/json-preview";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
 import type { ThreadConversationSummary } from "../../../../../domain/threads/transcript";
-import { jsonPreview } from "../../../../../shared/text/preview";
 import { fileMentionsFromInput } from "../../../domain/message-stream/format/file-mentions";
 import { normalizeProposedPlanMarkdown } from "../../../domain/message-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/message-stream/format/user-message-text";

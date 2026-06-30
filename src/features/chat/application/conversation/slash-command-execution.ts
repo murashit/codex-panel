@@ -2,10 +2,10 @@ import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { normalizeReasoningEffort } from "../../../../domain/catalog/metadata";
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
+import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
-import { shortThreadId } from "../../../../shared/id/thread-id";
 import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import {

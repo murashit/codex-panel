@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StaleAppServerSharedQueryContextError } from "../../../../src/app-server/query/shared-queries";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
+import { ConnectionWorkTracker } from "../../../../src/features/chat/application/connection/connection-work";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
@@ -15,7 +16,6 @@ import { ChatComposerController } from "../../../../src/features/chat/panel/comp
 import { createChatMessageScrollController } from "../../../../src/features/chat/panel/message-stream-scroll-controller";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { ConnectionWorkTracker } from "../../../../src/shared/lifecycle/connection-work";
 import { installObsidianDomShims } from "../../../support/dom";
 import { chatPanelSettingsAccess } from "../support/settings";
 

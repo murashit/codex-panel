@@ -1,3 +1,4 @@
+import { jsonPreview } from "../../domain/display/json-preview";
 import type {
   ApprovalAction,
   ApprovalActionIntent,
@@ -12,9 +13,8 @@ import type {
   PendingUserInput,
   PendingUserInputQuestion,
 } from "../../domain/pending-requests/model";
+import { pathRelativeToRoot } from "../../domain/vault/paths";
 import type { ServerRequest as GeneratedServerRequest } from "../../generated/app-server/ServerRequest";
-import { pathRelativeToRoot } from "../../shared/path/file-paths";
-import { jsonPreview } from "../../shared/text/preview";
 
 interface AppServerGrantedPermissionProfile {
   network?: unknown;

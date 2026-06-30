@@ -1,7 +1,7 @@
 import { setIcon } from "obsidian";
 
-import { disposeDomListeners, listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../../shared/ui/dom-events.dom";
-import { syncTextareaHeight } from "../../../shared/ui/textarea-autogrow.measure";
+import { disposeDomListeners, listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../../shared/dom/events.dom";
+import { syncTextareaHeight } from "../../../shared/dom/textarea-autogrow.measure";
 
 const COMPOSER_META_EFFORT_HIDDEN_CLASS = "is-effort-hidden";
 const COMPOSER_META_MODEL_HIDDEN_CLASS = "is-model-hidden";

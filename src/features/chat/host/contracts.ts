@@ -2,12 +2,12 @@ import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerQueryContext } from "../../../app-server/query/keys";
+import type { ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
+import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { PendingRequestCounts } from "../../../domain/pending-requests/aggregate";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
-import type { ObservedResultListener } from "../../../shared/query/observed-result";
-import type { SendShortcut } from "../../../shared/ui/keyboard";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../../threads/workflows/archive-export";
 import type { TurnDiffViewState } from "../../turn-diff/model";

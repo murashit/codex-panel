@@ -19,7 +19,7 @@ import type {
 import type { MessageStreamScrollControllerBinding } from "../../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/ui/ui-root.dom";
+import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 
 export function messageStreamBlocks(context: TestMessageStreamContext): [MessageStreamViewBlock, ...MessageStreamViewBlock[]] {
   const normalized = normalizeMessageStreamContext(context);

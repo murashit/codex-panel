@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ConnectionWorkTracker } from "../../../src/shared/lifecycle/connection-work";
+import { ConnectionWorkTracker } from "../../../../../src/features/chat/application/connection/connection-work";
 
 describe("ConnectionWorkTracker", () => {
   it("tracks active connection work by identity", () => {

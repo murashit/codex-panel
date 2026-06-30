@@ -1,9 +1,9 @@
 import { prepareFuzzySearch, type SearchResult, sortSearchResults } from "obsidian";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
+import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
-import { shortThreadId } from "../../../../shared/id/thread-id";
 import {
   type ActiveNoteContextReference,
   activeNoteContextReferenceMarker,

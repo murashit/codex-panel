@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
+import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createGoalActions } from "../../../../../src/features/chat/application/threads/goal-actions";
 import type { ThreadGoalTransport } from "../../../../../src/features/chat/application/threads/goal-transport";
-import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 

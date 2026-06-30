@@ -1,8 +1,8 @@
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
-import { createLocalIdSource, type LocalIdSource } from "../../../shared/id/local-id";
-import type { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
 import { createChatAppServerGateway } from "../app-server/session-gateway";
+import type { ConnectionWorkTracker } from "../application/connection/connection-work";
+import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
 import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";

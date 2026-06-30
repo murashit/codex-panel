@@ -1,4 +1,3 @@
-import type { LocalIdSource } from "../../../../shared/id/local-id";
 import type { ChatServerThreadActions } from "../../app-server/actions/threads";
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
@@ -6,6 +5,7 @@ import {
   type ConversationTurnActions as ChatPanelConversationTurnActions,
   createConversationTurnActions,
 } from "../../application/conversation/composition";
+import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";

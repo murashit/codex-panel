@@ -1,4 +1,4 @@
-import { copyTextWithNotice } from "../../../shared/ui/clipboard";
+import { copyTextWithNotice } from "../../../shared/obsidian/clipboard.obsidian";
 import type { ChatConnectionController } from "../application/connection/connection-controller";
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";

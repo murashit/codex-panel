@@ -1,4 +1,4 @@
-import { shortThreadId } from "../../../../shared/id/thread-id";
+import { shortThreadId } from "../../../../domain/threads/id";
 import type {
   AgentRunSummary,
   AgentRunSummaryAgent,

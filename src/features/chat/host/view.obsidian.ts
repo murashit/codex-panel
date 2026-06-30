@@ -1,8 +1,8 @@
 import { ItemView, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL } from "../../../constants";
-import { createLocalIdSource } from "../../../shared/id/local-id";
-import { createObsidianArchiveExportDestination } from "../../../shared/obsidian/archive-export-destination";
+import { createObsidianArchiveExportDestination } from "../../threads/obsidian/archive-export-destination.obsidian";
+import { createLocalIdSource } from "../application/local-id-source";
 import type { ChatPanelHandle, CodexChatHost } from "./contracts";
 import { ChatPanelSession } from "./session";
 

@@ -1,9 +1,8 @@
 import type { ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-
+import { isComposerSendKey, type SendShortcut } from "../../../domain/input/send-shortcut";
 import type { ThreadGoal, ThreadGoalStatus } from "../../../domain/threads/goal";
-import { IconButton } from "../../../shared/ui/components.obsidian";
-import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
+import { IconButton } from "../../../shared/obsidian/components.obsidian";
 import {
   closeGoalEditorOnOutsidePointer,
   collapseGoalObjectiveOnOutsidePointer,

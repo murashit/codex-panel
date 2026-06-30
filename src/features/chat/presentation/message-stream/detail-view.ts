@@ -1,6 +1,6 @@
-import { shortThreadId } from "../../../../shared/id/thread-id";
-import { pathRelativeToRoot } from "../../../../shared/path/file-paths";
-import { truncate } from "../../../../shared/text/preview";
+import { truncate } from "../../../../domain/display/text-preview";
+import { shortThreadId } from "../../../../domain/threads/id";
+import { pathRelativeToRoot } from "../../../../domain/vault/paths";
 import type {
   AgentMessageStreamItem,
   ApprovalResultMessageStreamItem,

@@ -1,5 +1,5 @@
 import { type Editor, MarkdownView, Notice, type Plugin } from "obsidian";
-import type { SendShortcut } from "../../shared/ui/keyboard";
+import type { SendShortcut } from "../../domain/input/send-shortcut";
 import type { SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
 import { SelectionRewritePopover } from "./popover.dom";
 

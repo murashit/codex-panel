@@ -3,8 +3,6 @@ import { Notice } from "obsidian";
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
-import type { LocalIdSource } from "../../../../shared/id/local-id";
-import type { ConnectionWorkTracker } from "../../../../shared/lifecycle/connection-work";
 import { type ChatServerDiagnosticsActions, createChatServerDiagnosticsActions } from "../../app-server/actions/diagnostics";
 import { type ChatServerMetadataActions, createChatServerMetadataActions } from "../../app-server/actions/metadata";
 import { type ChatServerThreadActions, createChatServerThreadActions } from "../../app-server/actions/threads";
@@ -14,6 +12,8 @@ import {
   createChatConnectionController,
   handleChatConnectionExit,
 } from "../../application/connection/connection-controller";
+import type { ConnectionWorkTracker } from "../../application/connection/connection-work";
+import type { LocalIdSource } from "../../application/local-id-source";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import type { ChatConnectionPhase } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";

@@ -2,7 +2,7 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import { type AppServerQueryContext, appServerQueryContextMatches, appServerQueryContextRawEquals } from "../../../app-server/query/keys";
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
-import { ConnectionWorkTracker } from "../../../shared/lifecycle/connection-work";
+import { ConnectionWorkTracker } from "../application/connection/connection-work";
 import type { ChatState } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
 import { parseRestoredThreadState, type RestoredThreadPlaceholderState } from "../application/threads/restored-thread-lifecycle";

@@ -1,4 +1,4 @@
-import { truncate } from "../../shared/text/preview";
+import { truncate } from "../display/text-preview";
 import type { ThreadConversationSummary } from "./transcript";
 
 const THREAD_TITLE_CONTEXT_MAX_CHARS = 4_000;

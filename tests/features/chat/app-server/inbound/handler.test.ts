@@ -9,11 +9,11 @@ import {
   createChatInboundHandler,
 } from "../../../../../src/features/chat/app-server/inbound/handler";
 import { pendingTurnStart } from "../../../../../src/features/chat/application/conversation/turn-state";
+import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
 import type { ThreadCatalogEvent } from "../../../../../src/features/threads/catalog/thread-catalog";
-import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 

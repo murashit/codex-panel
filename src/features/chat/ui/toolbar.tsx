@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../../shared/ui/components.obsidian";
+import { IconButton, ObsidianToolbarAction, type ObsidianToolbarActionProps } from "../../../shared/obsidian/components.obsidian";
 import type { RateLimitSummary } from "../presentation/runtime/status";
 import { focusToolbarRenameInput } from "./toolbar.dom";
 

@@ -2,11 +2,11 @@ import { Notice } from "obsidian";
 
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
-import type { LocalIdSource } from "../../../../shared/id/local-id";
 import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatServerThreadActions } from "../../app-server/actions/threads";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
+import type { LocalIdSource } from "../../application/local-id-source";
 import { messageStreamItems } from "../../application/state/message-stream";
 import type { ChatStateStore } from "../../application/state/store";
 import type { ActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";

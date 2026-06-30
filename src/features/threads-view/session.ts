@@ -1,12 +1,12 @@
 import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
+import type { ObservedResult } from "../../app-server/query/observed-result";
+import { observedInitialError, observedInitialLoading, observedValue } from "../../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
-import type { ObservedResult } from "../../shared/query/observed-result";
-import { observedInitialError, observedInitialLoading, observedValue } from "../../shared/query/observed-result";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";

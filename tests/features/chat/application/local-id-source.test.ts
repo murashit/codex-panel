@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createLocalIdSource } from "../../src/shared/id/local-id";
+import { createLocalIdSource } from "../../../../src/features/chat/application/local-id-source";
 
 describe("local ID source", () => {
   it("generates monotonic IDs per source with a stable prefix and timestamp", () => {

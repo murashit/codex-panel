@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { ServerNotification } from "../../../../src/app-server/connection/rpc-messages";
 import { modelMetadataFromCatalogModels } from "../../../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import type { ObservedResult } from "../../../../src/app-server/query/observed-result";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
@@ -12,7 +13,6 @@ import type { Thread } from "../../../../src/domain/threads/model";
 import type { CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadCatalogEvent } from "../../../../src/features/threads/catalog/thread-catalog";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import type { ObservedResult } from "../../../../src/shared/query/observed-result";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";

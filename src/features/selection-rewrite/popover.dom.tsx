@@ -1,13 +1,12 @@
 import { type Editor, Notice } from "obsidian";
 import type { TargetedKeyboardEvent, ComponentChild as UiNode } from "preact";
-
-import { IconButton } from "../../shared/ui/components.obsidian";
-import { DiffLineList, unifiedDiffDisplayLines } from "../../shared/ui/diff";
-import { listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../shared/ui/dom-events.dom";
-import { isComposerSendKey, type SendShortcut } from "../../shared/ui/keyboard";
-import { syncTextareaHeight } from "../../shared/ui/textarea-autogrow.measure";
-import { textareaCursorAtVisualBoundary } from "../../shared/ui/textarea-caret.measure";
-import { renderUiRoot, unmountUiRoot } from "../../shared/ui/ui-root.dom";
+import { isComposerSendKey, type SendShortcut } from "../../domain/input/send-shortcut";
+import { listenDomEscapeKey, listenDomEvent, listenOutsideDomEvent } from "../../shared/dom/events.dom";
+import { renderUiRoot, unmountUiRoot } from "../../shared/dom/preact-root.dom";
+import { syncTextareaHeight } from "../../shared/dom/textarea-autogrow.measure";
+import { textareaCursorAtVisualBoundary } from "../../shared/dom/textarea-caret.measure";
+import { IconButton } from "../../shared/obsidian/components.obsidian";
+import { DiffLineList, unifiedDiffDisplayLines } from "../../shared/ui/diff-view";
 import { buildSelectionUnifiedDiff } from "./diff";
 import {
   canApplySelectionRewrite,

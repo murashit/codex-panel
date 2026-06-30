@@ -1,4 +1,4 @@
-import { DeferredTask, type DeferredTaskWindow } from "../../shared/lifecycle/deferred-task";
+import { DeferredTask, type DeferredTaskWindow } from "../../shared/runtime/deferred-task";
 
 export type ThreadsViewRefreshLifecycleState = { kind: "idle" } | { kind: "loading" };
 export type ActiveThreadsViewRefresh = Extract<ThreadsViewRefreshLifecycleState, { kind: "loading" }>;

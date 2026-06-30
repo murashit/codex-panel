@@ -2,7 +2,7 @@ import { ButtonComponent, DropdownComponent, ExtraButtonComponent, setIcon, Text
 import type { ButtonHTMLAttributes, HTMLAttributes, Ref, ComponentChild as UiNode } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
-import { disposeDomListeners, listenDomEvent } from "./dom-events.dom";
+import { disposeDomListeners, listenDomEvent } from "../dom/events.dom";
 
 interface ObsidianIconProps {
   icon: string;

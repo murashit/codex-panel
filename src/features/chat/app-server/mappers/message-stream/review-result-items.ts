@@ -1,4 +1,4 @@
-import { pathRelativeToRoot } from "../../../../../shared/path/file-paths";
+import { pathRelativeToRoot } from "../../../../../domain/vault/paths";
 import { permissionRows } from "../../../domain/message-stream/format/permission-rows";
 import type { ExecutionState, MessageStreamAuditFact, MessageStreamItem } from "../../../domain/message-stream/items";
 import { type ExecutionStateByStatus, executionStateFromStatus, RUNNING_EXECUTION_STATE } from "./execution-state";

@@ -7,9 +7,9 @@ import {
   createTurnSubmissionActions,
   type TurnSubmissionActionsHost,
 } from "../../../../../src/features/chat/application/conversation/turn-submission-actions";
+import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { chatStateMessageStreamItems } from "../../support/message-stream";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];

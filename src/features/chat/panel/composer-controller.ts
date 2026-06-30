@@ -1,5 +1,5 @@
 import type { CodexInput } from "../../../domain/chat/input";
-import { isComposerSendKey, type SendShortcut } from "../../../shared/ui/keyboard";
+import { isComposerSendKey, type SendShortcut } from "../../../domain/input/send-shortcut";
 import {
   type ComposerAttachment,
   type ComposerAttachmentHandler,

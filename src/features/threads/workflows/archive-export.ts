@@ -1,6 +1,6 @@
 import { type ArchiveExportSettings, type ArchiveThreadInput, archivedThreadMarkdown } from "../../../domain/threads/archive-markdown";
+import { shortThreadId } from "../../../domain/threads/id";
 import { threadArchiveTitle } from "../../../domain/threads/title";
-import { shortThreadId } from "../../../shared/id/thread-id";
 
 export interface ArchiveExportResult {
   path: string;

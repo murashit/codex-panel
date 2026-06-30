@@ -193,7 +193,7 @@ describe("message stream rendering and message action menu", () => {
             auditFacts: [
               { key: "status", value: "approved" },
               { key: "action", value: "apply patch" },
-              { key: "files", value: "src/ui/detail-view.ts\nsrc/ui/message-stream.ts" },
+              { key: "files", value: "src/shared/ui/detail-view.ts\nsrc/shared/ui/message-stream.ts" },
             ],
           },
         },
@@ -209,7 +209,9 @@ describe("message stream rendering and message action menu", () => {
     expect(element.textContent).not.toContain("▶Review");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("statusapproved");
     expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("actionapply patch");
-    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain("filessrc/ui/detail-view.ts\nsrc/ui/message-stream.ts");
+    expect(element.querySelector(".codex-panel__meta-grid")?.textContent).toContain(
+      "filessrc/shared/ui/detail-view.ts\nsrc/shared/ui/message-stream.ts",
+    );
     expect(textContents(element, ".codex-panel__output-title")).toEqual([]);
   });
 
