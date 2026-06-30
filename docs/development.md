@@ -10,9 +10,9 @@ npm run fix
 npm run check
 ```
 
-Use this as the normal edit loop. `npm run fix` applies safe mechanical cleanup, and `npm run check` is the local preflight before review.
+Use this as the normal edit loop: make the change, run `npm run fix`, then run `npm run check`. `npm run fix` applies safe mechanical cleanup, and `npm run check` is the local preflight before review.
 
-Use focused scripts such as `npm run typecheck`, `npm run test`, or `npm run build` for tight loops. CI and release preflight run the same `npm run check` command as local development.
+Use focused scripts such as `npm run typecheck`, `npm run test`, or `npm run build` only when diagnosing a specific failure or when a full check would obscure the signal while iterating. Do not treat focused scripts as a substitute for the final `npm run check`. CI and release preflight run the same `npm run check` command as local development.
 
 Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
 
