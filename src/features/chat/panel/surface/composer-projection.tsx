@@ -7,39 +7,13 @@ import { compactReasoningEffortLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { contextSummary } from "../../presentation/runtime/status";
-import { ComposerShell, type ComposerShellProps } from "../../ui/composer";
+import { type ComposerMetaViewModel, ComposerShell, type ComposerShellProps } from "../../ui/composer";
 import type { ChatPanelComposerReadModel } from "../shell-read-model";
 
-interface ChatPanelComposerContextMeterCell {
-  text: string;
-  placeholder: boolean;
-}
-
-interface ChatPanelComposerContextMeter {
-  cells: ChatPanelComposerContextMeterCell[];
-  percent: string;
-}
-
-interface ChatPanelComposerRuntimeChoice {
-  label: string;
-  selected?: boolean;
-  disabled?: boolean;
-  meta?: string;
-  onClick: () => void;
-}
-
-interface ChatPanelComposerMeta {
-  fatal: string | null;
-  context: ChatPanelComposerContextMeter;
-  statusSummary: string;
-  model: string;
-  effort: string | null;
-  planActive: boolean;
-  autoReviewActive: boolean;
-  fastActive: boolean;
-  modelChoices?: ChatPanelComposerRuntimeChoice[];
-  effortChoices?: ChatPanelComposerRuntimeChoice[];
-}
+type ChatPanelComposerMeta = ComposerMetaViewModel;
+type ChatPanelComposerContextMeter = ComposerMetaViewModel["context"];
+type ChatPanelComposerContextMeterCell = ComposerMetaViewModel["context"]["cells"][number];
+type ChatPanelComposerRuntimeChoice = NonNullable<ComposerMetaViewModel["modelChoices"]>[number];
 
 export interface ChatPanelComposerProjection {
   placeholder: string;

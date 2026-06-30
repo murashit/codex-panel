@@ -32,36 +32,24 @@ export function createRuntimeBundle(
   },
 ): ChatPanelRuntimeBundle {
   return {
-    settings: createSessionRuntimeSettingsActions(host, input.appServer, input.status),
-    projection: createSessionRuntimeProjection(host, input.connection),
+    settings: createChatRuntimeSettingsActions({
+      stateStore: host.stateStore,
+      runtimeTransport: input.appServer.runtimeSettings,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      collaborationModeLabel: () => collaborationModeLabel(host.stateStore),
+      addSystemMessage: (text) => {
+        input.status.addSystemMessage(text);
+      },
+    }),
+    projection: createChatPanelRuntimeProjection({
+      state: () => host.stateStore.getState(),
+      connected: () => input.connection.isConnected(),
+      configuredCommand: () => host.environment.plugin.settingsRef.settings.codexPath(),
+      nowMs: () => Date.now(),
+    }),
   };
-}
-
-function createSessionRuntimeSettingsActions(
-  host: ChatPanelRuntimeHost,
-  appServer: ChatAppServerGateway,
-  status: ChatPanelRuntimeStatus,
-): ChatPanelRuntimeSettingsActions {
-  return createChatRuntimeSettingsActions({
-    stateStore: host.stateStore,
-    runtimeTransport: appServer.runtimeSettings,
-    runtimeSnapshotForState: runtimeSnapshotForChatState,
-    collaborationModeLabel: () => collaborationModeLabel(host.stateStore),
-    addSystemMessage: (text) => {
-      status.addSystemMessage(text);
-    },
-  });
 }
 
 function collaborationModeLabel(stateStore: ChatStateStore): string {
   return formatCollaborationModeLabel(stateStore.getState().runtime.pending.collaborationMode);
-}
-
-function createSessionRuntimeProjection(host: ChatPanelRuntimeHost, connection: ConnectionManager): ChatPanelRuntimeProjection {
-  return createChatPanelRuntimeProjection({
-    state: () => host.stateStore.getState(),
-    connected: () => connection.isConnected(),
-    configuredCommand: () => host.environment.plugin.settingsRef.settings.codexPath(),
-    nowMs: () => Date.now(),
-  });
 }

@@ -30,33 +30,14 @@ export function createComposerBundle(
     runtimeSettings: ChatPanelRuntimeSettingsActions;
   },
 ): ChatPanelComposerBundle {
-  const surface = createSessionComposerSurface(input.runtimeSettings);
-  const controller = createSessionComposerController(host, surface, input.runtimeSettings);
-
-  return {
-    controller,
-    dispose: () => {
-      controller.dispose();
-    },
-  };
-}
-
-function createSessionComposerSurface(runtimeSettings: ChatPanelRuntimeSettingsActions): ChatPanelComposerSurface {
-  return {
-    runtime: {
-      requestModel: (model) => runtimeSettings.requestModelFromUi(model),
-      requestReasoningEffort: (effort) => runtimeSettings.requestReasoningEffortFromUi(effort),
-    },
-  };
-}
-
-function createSessionComposerController(
-  host: ChatPanelComposerHost,
-  composerSurface: ChatPanelComposerSurface,
-  runtimeSettings: ChatPanelRuntimeSettingsActions,
-): ChatComposerController {
   const { environment, stateStore } = host;
-  return new ChatComposerController({
+  const surface = {
+    runtime: {
+      requestModel: (model: string) => input.runtimeSettings.requestModelFromUi(model),
+      requestReasoningEffort: (effort) => input.runtimeSettings.requestReasoningEffortFromUi(effort),
+    },
+  } satisfies ChatPanelComposerSurface;
+  const controller = new ChatComposerController({
     noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
     contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app),
     attachmentHandler: createVaultComposerAttachmentHandler({
@@ -71,7 +52,7 @@ function createSessionComposerController(
     canInterrupt: (model) => {
       return model.turnBusy.value && Boolean(model.activeThreadId.value && model.activeTurnId.value);
     },
-    composerProjection: (model) => chatPanelComposerProjection(composerSurface, model),
+    composerProjection: (model) => chatPanelComposerProjection(surface, model),
     currentModelForSuggestions: () => {
       const current = stateStore.getState();
       const config = runtimeConfigOrDefault(current.connection.runtimeConfig);
@@ -80,9 +61,9 @@ function createSessionComposerController(
     threadScrollFromComposer: (action) => {
       host.messageScrollController.scrollFromComposer(action);
     },
-    togglePlan: () => void runtimeSettings.toggleCollaborationMode(),
-    toggleAutoReview: () => void runtimeSettings.toggleAutoReview(),
-    toggleFast: () => void runtimeSettings.toggleFastMode(),
+    togglePlan: () => void input.runtimeSettings.toggleCollaborationMode(),
+    toggleAutoReview: () => void input.runtimeSettings.toggleAutoReview(),
+    toggleFast: () => void input.runtimeSettings.toggleFastMode(),
     onDraftChange: () => {
       environment.plugin.workspace.refreshThreadsViewLiveState();
     },
@@ -91,4 +72,11 @@ function createSessionComposerController(
       new Notice(message);
     },
   });
+
+  return {
+    controller,
+    dispose: () => {
+      controller.dispose();
+    },
+  };
 }
