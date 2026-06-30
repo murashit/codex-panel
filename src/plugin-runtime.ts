@@ -22,7 +22,7 @@ import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/turn-diff/model";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
-import { createSettingsAppServerDynamicData } from "./settings/app-server/dynamic-data";
+import { createSettingsAppServerDynamicData } from "./settings/app-server-dynamic-data";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import type { CodexPanelSettings } from "./settings/model";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";

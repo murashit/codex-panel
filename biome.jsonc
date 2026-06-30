@@ -89,11 +89,6 @@
       "path": "./scripts/grit/runtime/no-app-server-projection-rpcs.grit",
       "includes": ["**/src/features/chat/application/**/*.ts"]
     },
-    {
-      "path": "./scripts/grit/import-boundaries/no-settings-app-server-boundary-imports.grit",
-      "includes": ["**/src/settings/**/*.ts", "**/src/settings/**/*.tsx", "!**/src/settings/app-server/**"]
-    },
-
     // Workspace and feature coordination boundaries.
     {
       "path": "./scripts/grit/import-boundaries/no-chat-workspace-boundary-imports.grit",

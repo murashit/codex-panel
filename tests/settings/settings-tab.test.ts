@@ -9,7 +9,7 @@ import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ThreadCatalogEvent } from "../../src/app-server/query/thread-catalog";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
-import { createSettingsAppServerDynamicData } from "../../src/settings/app-server/dynamic-data";
+import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";

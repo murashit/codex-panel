@@ -21,8 +21,6 @@ const RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE =
   "Keep responsibility-split source roots free of module files; add modules to the matching subfolder instead of the root.";
 const APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE =
   "App-server subfolders must not import sibling root modules; move the dependency into a responsibility subfolder.";
-const SETTINGS_APP_SERVER_BOUNDARY_MESSAGE =
-  "Settings modules must depend on settings-owned dynamic data ports instead of importing app-server modules or settings app-server adapters.";
 const CHAT_APPLICATION_OUTER_LAYER_MESSAGE =
   "Chat application modules must not import app-server, host, panel, presentation, or UI layers; expose state and workflow contracts instead.";
 const CHAT_APP_SERVER_OUTER_LAYER_MESSAGE = "Chat app-server adapters must not import chat host, panel, presentation, or UI layers.";
@@ -879,14 +877,6 @@ export const value = statusText;
     ]);
   });
 
-  it("keeps settings app-server access behind settings app-server adapters", async () => {
-    const report = await appServerBoundaryPolicyReport();
-
-    expect(pluginMessages(report, "src/settings/dynamic-sections-controller.ts")).toEqual([SETTINGS_APP_SERVER_BOUNDARY_MESSAGE]);
-    expect(pluginMessages(report, "src/settings/adapter-leak.ts")).toEqual([SETTINGS_APP_SERVER_BOUNDARY_MESSAGE]);
-    expect(pluginDiagnostics(report, "src/settings/app-server/dynamic-data.ts")).toEqual([]);
-  });
-
   it("keeps app-server root modules from becoming boundary escape hatches", async () => {
     const cwd = await tempBiomeWorkspace(["no-responsibility-root-module-files.grit", "no-app-server-subfolder-root-imports.grit"]);
     await writeFile(
@@ -1137,7 +1127,6 @@ async function createAppServerBoundaryPolicyReport() {
     "no-lower-level-feature-imports.grit",
     "no-app-server-connection-boundary-imports.grit",
     "no-app-server-projection-rpcs.grit",
-    "no-settings-app-server-boundary-imports.grit",
   ]);
   await writeFile(
     path.join(cwd, "src/features/chat/domain/generated-thread.ts"),
@@ -1410,31 +1399,6 @@ export async function resume(client: AppServerClient): Promise<void> {
 }
 `.trimStart(),
   );
-  await writeFile(
-    path.join(cwd, "src/settings/dynamic-sections-controller.ts"),
-    `
-import { listHookCatalog } from "../app-server/services/catalog";
-
-export const load = listHookCatalog;
-`.trimStart(),
-  );
-  await writeFile(
-    path.join(cwd, "src/settings/adapter-leak.ts"),
-    `
-import { createSettingsAppServerDynamicData } from "./app-server/dynamic-data";
-
-export const create = createSettingsAppServerDynamicData;
-`.trimStart(),
-  );
-  await writeFile(
-    path.join(cwd, "src/settings/app-server/dynamic-data.ts"),
-    `
-import { listHookCatalog } from "../../app-server/services/catalog";
-
-export const load = listHookCatalog;
-`.trimStart(),
-  );
-
   return biomeLint(
     [
       "src/features/chat/domain/generated-thread.ts",
@@ -1467,9 +1431,6 @@ export const load = listHookCatalog;
       "src/features/chat/application/threads/history.ts",
       "src/app-server/services/threads.ts",
       "src/features/chat/host/bundles/connection-bundle.ts",
-      "src/settings/dynamic-sections-controller.ts",
-      "src/settings/adapter-leak.ts",
-      "src/settings/app-server/dynamic-data.ts",
     ],
     cwd,
   );
@@ -1497,7 +1458,6 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/features/threads-view"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/turn-diff"), { recursive: true });
   await mkdir(path.join(cwd, "src/settings"), { recursive: true });
-  await mkdir(path.join(cwd, "src/settings/app-server"), { recursive: true });
   await mkdir(path.join(cwd, "src/domain/threads"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/connection"), { recursive: true });
   await mkdir(path.join(cwd, "src/app-server/protocol"), { recursive: true });

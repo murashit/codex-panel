@@ -1,12 +1,12 @@
-import type { AppServerClient } from "../../app-server/connection/client";
-import type { AppServerClientAccess } from "../../app-server/connection/client-access";
-import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
-import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../../app-server/query/thread-catalog";
-import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../../app-server/services/catalog";
-import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../../app-server/services/threads";
-import type { ModelMetadata } from "../../domain/catalog/metadata";
-import type { ObservedResultListener } from "../../shared/query/observed-result";
-import { type SettingsDynamicDataAccess, type SettingsHookCatalog, StaleSettingsDynamicDataContextError } from "../dynamic-data";
+import type { AppServerClient } from "../app-server/connection/client";
+import type { AppServerClientAccess } from "../app-server/connection/client-access";
+import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
+import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../app-server/query/thread-catalog";
+import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
+import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
+import type { ModelMetadata } from "../domain/catalog/metadata";
+import type { ObservedResultListener } from "../shared/query/observed-result";
+import { type SettingsDynamicDataAccess, type SettingsHookCatalog, StaleSettingsDynamicDataContextError } from "./dynamic-data";
 
 interface SettingsAppServerQueries {
   modelsSnapshot(): readonly ModelMetadata[] | null;
