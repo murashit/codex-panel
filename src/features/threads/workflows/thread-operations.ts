@@ -1,5 +1,4 @@
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import type { ThreadCatalogEventSink } from "../../../app-server/query/thread-catalog";
 import {
   archiveThread as archiveAppServerThread,
   readThreadForArchiveExport,
@@ -7,6 +6,7 @@ import {
 } from "../../../app-server/services/threads";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
+import type { ThreadCatalogEventSink } from "../catalog/thread-catalog";
 import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "./archive-export";
 
 export interface ThreadOperationsHost {
@@ -24,7 +24,6 @@ export interface ThreadOperationsHost {
 
 interface ArchiveThreadOptions {
   saveMarkdown?: boolean;
-  closeOpenPanels?: boolean;
 }
 
 export interface ArchiveThreadResult {
@@ -89,10 +88,6 @@ async function archiveThread(
   if (exportedPath) {
     host.notice(`Saved archived thread to ${exportedPath}.`);
   }
-  host.catalog.apply(
-    options.closeOpenPanels === undefined
-      ? { type: "thread-archived", threadId }
-      : { type: "thread-archived", threadId, options: { closeOpenPanels: options.closeOpenPanels } },
-  );
+  host.catalog.apply({ type: "thread-archived", threadId });
   return { exportedPath };
 }

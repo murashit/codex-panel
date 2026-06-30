@@ -6,9 +6,9 @@ import type { AppServerClientAccessOptions } from "../../src/app-server/connecti
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
-import type { ThreadCatalogEvent } from "../../src/app-server/query/thread-catalog";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
+import type { ThreadCatalogEvent } from "../../src/features/threads/catalog/thread-catalog";
 import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";

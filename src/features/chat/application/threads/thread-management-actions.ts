@@ -28,7 +28,7 @@ export interface ThreadManagementActionsHost {
 
 interface ThreadManagementOperations {
   renameThread(threadId: string, value: string): Promise<boolean>;
-  archiveThread(threadId: string, options?: { saveMarkdown?: boolean; closeOpenPanels?: boolean }): Promise<boolean>;
+  archiveThread(threadId: string, options?: { saveMarkdown?: boolean }): Promise<boolean>;
 }
 
 export interface ThreadManagementActions {

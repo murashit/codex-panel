@@ -296,8 +296,10 @@ describe("CodexThreadsView", () => {
       "thread/archive": archiveThread,
     });
     const applyThreadCatalogEvent = vi.fn();
+    const closeOpenPanelsForThread = vi.fn();
     const host = threadsHost({
       threadCatalog: { apply: applyThreadCatalogEvent },
+      closeOpenPanelsForThread,
     });
     const view = await threadsView(host);
 
@@ -310,8 +312,8 @@ describe("CodexThreadsView", () => {
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
         type: "thread-archived",
         threadId: "thread",
-        options: { closeOpenPanels: true },
       });
+      expect(closeOpenPanelsForThread).toHaveBeenCalledWith("thread");
     });
   });
 
@@ -554,6 +556,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     openPanelActivities: vi.fn(() => []),
+    closeOpenPanelsForThread: vi.fn(),
     threadCatalog: {
       apply: vi.fn(),
       loadActive: vi.fn(async () => []),

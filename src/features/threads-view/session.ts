@@ -2,12 +2,12 @@ import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
-import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../app-server/query/thread-catalog";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import type { ObservedResult } from "../../shared/query/observed-result";
 import { observedInitialError, observedInitialLoading, observedValue } from "../../shared/query/observed-result";
+import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
@@ -36,6 +36,7 @@ export interface ThreadsViewHost {
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
+  closeOpenPanelsForThread(threadId: string): void;
 }
 
 type ThreadsViewThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
@@ -328,8 +329,8 @@ export class ThreadsViewSession {
     try {
       await this.operations.archiveThread(threadId, {
         saveMarkdown,
-        closeOpenPanels: true,
       });
+      this.host.closeOpenPanelsForThread(threadId);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
     } catch (error) {

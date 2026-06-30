@@ -1,9 +1,9 @@
 import { type App, Notice, Platform, SuggestModal } from "obsidian";
 
-import type { ThreadCatalogActiveReader } from "../../app-server/query/thread-catalog";
 import { type Thread, threadRecencyAt } from "../../domain/threads/model";
 import { threadDisplayTitle } from "../../domain/threads/title";
 import { shortThreadId } from "../../shared/id/thread-id";
+import type { ThreadCatalogActiveReader } from "../threads/catalog/thread-catalog";
 
 export interface ThreadPickerHost {
   readonly app: App;

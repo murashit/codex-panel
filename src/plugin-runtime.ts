@@ -5,7 +5,6 @@ import { withShortLivedAppServerClient } from "./app-server/connection/short-liv
 import { AppServerQueryCache } from "./app-server/query/cache";
 import { type AppServerQueryContext, appServerQueryContextIsComplete } from "./app-server/query/keys";
 import { AppServerSharedQueries } from "./app-server/query/shared-queries";
-import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./app-server/query/thread-catalog";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { hasPendingRequests } from "./domain/pending-requests/aggregate";
 import type {
@@ -17,6 +16,7 @@ import type {
   CodexChatHost,
 } from "./features/chat/host/contracts";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
+import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
@@ -157,6 +157,9 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       openNewPanel: () => this.panels.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
       openPanelActivities: () => this.openPanelActivities(),
+      closeOpenPanelsForThread: (threadId) => {
+        this.closeOpenPanelsForThread(threadId);
+      },
     };
   }
 
@@ -221,12 +224,15 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     }
   }
 
-  private applyThreadArchived(threadId: string, archiveOptions: { closeOpenPanels?: boolean } = {}): void {
-    const leavesToClose = archiveOptions.closeOpenPanels ? this.panels.panelLeavesForThread(threadId) : [];
+  private applyThreadArchived(threadId: string): void {
     for (const view of this.panels.panelViews()) {
       const surface: ChatSharedThreadSurface = view.surface;
       surface.applyThreadArchived(threadId);
     }
+  }
+
+  private closeOpenPanelsForThread(threadId: string): void {
+    const leavesToClose = this.panels.panelLeavesForThread(threadId);
     for (const leaf of leavesToClose) {
       leaf.detach();
     }
@@ -242,7 +248,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   private applyThreadCatalogSurfaceEvent(event: ThreadCatalogEvent): void {
     switch (event.type) {
       case "thread-archived":
-        this.applyThreadArchived(event.threadId, event.options);
+        this.applyThreadArchived(event.threadId);
         return;
       case "thread-renamed":
         this.applyThreadRenamed(event.threadId, event.name);

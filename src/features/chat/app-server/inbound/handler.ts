@@ -1,5 +1,4 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import type { ThreadCatalogEvent } from "../../../../app-server/query/thread-catalog";
 import {
   routeServerRequest,
   serverRequestApprovalResponse,
@@ -16,6 +15,7 @@ import {
 } from "../../../../domain/pending-requests/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { LocalIdSource } from "../../../../shared/id/local-id";
+import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
 import { activeTurnId } from "../../application/conversation/turn-state";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";

@@ -31,7 +31,7 @@ describe("ThreadOperations", () => {
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
     const { operations, catalog, notice, client, archiveDestination } = operationsFixture();
 
-    await expect(operations.archiveThread("thread", { saveMarkdown: true, closeOpenPanels: true })).resolves.toEqual({
+    await expect(operations.archiveThread("thread", { saveMarkdown: true })).resolves.toEqual({
       exportedPath: "Archive/Archived Thread abcdef12.md",
     });
 
@@ -46,7 +46,6 @@ describe("ThreadOperations", () => {
     expect(catalog.apply).toHaveBeenCalledWith({
       type: "thread-archived",
       threadId: "thread",
-      options: { closeOpenPanels: true },
     });
   });
 

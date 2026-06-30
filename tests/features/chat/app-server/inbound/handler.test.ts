@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { ServerNotification, ServerRequest } from "../../../../../src/app-server/connection/rpc-messages";
 import { appServerApprovalRequest, appServerUserInputRequest } from "../../../../../src/app-server/protocol/server-requests";
 import type { TurnRecord } from "../../../../../src/app-server/protocol/turn";
-import type { ThreadCatalogEvent } from "../../../../../src/app-server/query/thread-catalog";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
 import {
   type ChatInboundHandler,
@@ -13,6 +12,7 @@ import { pendingTurnStart } from "../../../../../src/features/chat/application/c
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
+import type { ThreadCatalogEvent } from "../../../../../src/features/threads/catalog/thread-catalog";
 import { createLocalIdSource } from "../../../../../src/shared/id/local-id";
 import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";

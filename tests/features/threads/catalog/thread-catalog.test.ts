@@ -1,9 +1,9 @@
 import { describe, expect, it, type Mock, vi } from "vitest";
 
-import { AppServerQueryCache } from "../../src/app-server/query/cache";
-import { AppServerSharedQueries } from "../../src/app-server/query/shared-queries";
-import { createThreadCatalog, type ThreadCatalogEventObserver } from "../../src/app-server/query/thread-catalog";
-import type { Thread } from "../../src/domain/threads/model";
+import { AppServerQueryCache } from "../../../../src/app-server/query/cache";
+import { AppServerSharedQueries } from "../../../../src/app-server/query/shared-queries";
+import type { Thread } from "../../../../src/domain/threads/model";
+import { createThreadCatalog, type ThreadCatalogEventObserver } from "../../../../src/features/threads/catalog/thread-catalog";
 
 describe("ThreadCatalog", () => {
   it("applies active thread snapshot replacement events through the catalog boundary", () => {
@@ -79,7 +79,7 @@ describe("ThreadCatalog", () => {
     catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
     catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
 
-    catalog.apply({ type: "thread-archived", threadId: "thread", options: { closeOpenPanels: true } });
+    catalog.apply({ type: "thread-archived", threadId: "thread" });
 
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
     expect(catalog.archivedSnapshot()).toEqual([{ ...thread("thread"), archived: true }, thread("archived", true)]);
@@ -320,7 +320,7 @@ describe("ThreadCatalog", () => {
     catalog.apply({ type: "thread-started", thread: thread("started") });
     catalog.apply({ type: "thread-touched", threadId: "existing", recencyAt: 20 });
     catalog.apply({ type: "thread-renamed", threadId: "started", name: "Started" });
-    catalog.apply({ type: "thread-archived", threadId: "existing", options: { closeOpenPanels: true } });
+    catalog.apply({ type: "thread-archived", threadId: "existing" });
 
     expect(catalog.activeSnapshot()).toEqual([{ ...thread("started"), name: "Started" }]);
     expect(catalog.archivedSnapshot()).toEqual([thread("existing", true, { recencyAt: 20 }), thread("archived", true)]);

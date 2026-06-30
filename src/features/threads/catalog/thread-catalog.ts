@@ -1,5 +1,5 @@
-import type { Thread } from "../../domain/threads/model";
-import type { ObservedResultListener } from "../../shared/query/observed-result";
+import type { Thread } from "../../../domain/threads/model";
+import type { ObservedResultListener } from "../../../shared/query/observed-result";
 
 type ThreadListObserver = ObservedResultListener<readonly Thread[]>;
 
@@ -51,7 +51,7 @@ export type ThreadCatalogEvent =
   | { type: "thread-forked"; thread: Thread }
   | { type: "thread-touched"; threadId: string; recencyAt?: number | null }
   | { type: "thread-renamed"; threadId: string; name: string | null }
-  | { type: "thread-archived"; threadId: string; options?: { closeOpenPanels?: boolean } }
+  | { type: "thread-archived"; threadId: string }
   | { type: "thread-deleted"; threadId: string }
   | { type: "thread-restored"; thread: Thread }
   | { type: "thread-unarchived"; threadId: string };

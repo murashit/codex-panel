@@ -496,7 +496,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(secondArchived).toHaveBeenCalledWith("thread-1");
   });
 
-  it("closes matching chat panels only when archive notification requests it", async () => {
+  it("keeps catalog archive notifications separate from explicit panel close requests", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const restoredMatchingLeaf = leaf({ state: { threadId: "thread-1", threadTitle: "Restored" } });
     const matchingLeaf = leaf();
@@ -515,7 +515,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(matchingLeaf.detach).not.toHaveBeenCalled();
     expect(otherLeaf.detach).not.toHaveBeenCalled();
 
-    threadCatalog(plugin).apply({ type: "thread-archived", threadId: "thread-1", options: { closeOpenPanels: true } });
+    plugin.runtime.threadsHost().closeOpenPanelsForThread("thread-1");
 
     expect(restoredMatchingLeaf.detach).toHaveBeenCalledOnce();
     expect(matchingLeaf.detach).toHaveBeenCalledOnce();
