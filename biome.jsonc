@@ -86,8 +86,8 @@
       ]
     },
     {
-      "path": "./scripts/grit/runtime/no-app-server-projection-rpcs.grit",
-      "includes": ["**/src/features/chat/application/**/*.ts"]
+      "path": "./scripts/grit/runtime/no-app-server-direct-rpcs.grit",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/src/app-server/**", "!**/src/features/chat/app-server/**"]
     },
     // Workspace and feature coordination boundaries.
     {

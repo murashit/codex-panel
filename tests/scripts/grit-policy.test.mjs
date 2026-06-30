@@ -42,6 +42,7 @@ const DOM_EVENTS_IMPORT_MESSAGE = "Import DOM event listener helpers only from e
 const CHAT_SHELL_READ_MODEL_IMPORT_MESSAGE =
   "Import chat panel signal read models only from the shell and panel surface rendering adapters.";
 const CHAT_SIGNAL_TYPE_REFERENCE_MESSAGE = "Keep Preact signal types inside the chat panel read-model and surface rendering adapter layer.";
+const APP_SERVER_DIRECT_RPC_MESSAGE = "Keep direct app-server RPC calls behind app-server services and chat app-server adapters.";
 let appServerBoundaryPolicyReportPromise;
 let renderingAndCssPolicyReportPromise;
 
@@ -950,14 +951,14 @@ export const read = listThreads;
     expect(pluginDiagnostics(report, "src/app-server/services/allowed.ts")).toEqual([]);
   });
 
-  it("keeps chat application app-server projection RPCs behind facades", async () => {
+  it("keeps direct app-server RPCs behind app-server boundary adapters", async () => {
     const report = await appServerBoundaryPolicyReport();
 
-    expect(pluginMessages(report, "src/features/chat/application/threads/history.ts")).toEqual([
-      "Keep app-server projection RPCs behind app-server facades; consume Panel-owned snapshots or view models here.",
-    ]);
+    expect(pluginMessages(report, "src/features/chat/application/threads/history.ts")).toEqual([APP_SERVER_DIRECT_RPC_MESSAGE]);
+    expect(pluginMessages(report, "src/features/chat/host/bundles/connection-bundle.ts")).toEqual([APP_SERVER_DIRECT_RPC_MESSAGE]);
+    expect(pluginMessages(report, "src/settings/runtime-config.ts")).toEqual([APP_SERVER_DIRECT_RPC_MESSAGE]);
     expect(pluginDiagnostics(report, "src/app-server/services/threads.ts")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/features/chat/host/bundles/connection-bundle.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/app-server/transports/threads.ts")).toEqual([]);
   });
 
   it("keeps CSS on design tokens and scoped selectors", async () => {
@@ -1126,7 +1127,7 @@ async function createAppServerBoundaryPolicyReport() {
     "no-domain-outer-layer-imports.grit",
     "no-lower-level-feature-imports.grit",
     "no-app-server-connection-boundary-imports.grit",
-    "no-app-server-projection-rpcs.grit",
+    "no-app-server-direct-rpcs.grit",
   ]);
   await writeFile(
     path.join(cwd, "src/features/chat/domain/generated-thread.ts"),
@@ -1399,6 +1400,27 @@ export async function resume(client: AppServerClient): Promise<void> {
 }
 `.trimStart(),
   );
+  await writeFile(
+    path.join(cwd, "src/settings/runtime-config.ts"),
+    `
+import type { AppServerClient } from "../app-server/connection/client";
+
+export async function read(client: AppServerClient): Promise<void> {
+  await client.request("config/read", { cwd: "/vault", includeLayers: true });
+}
+`.trimStart(),
+  );
+  await mkdir(path.join(cwd, "src/features/chat/app-server/transports"), { recursive: true });
+  await writeFile(
+    path.join(cwd, "src/features/chat/app-server/transports/threads.ts"),
+    `
+import type { AppServerClient } from "../../../../app-server/connection/client";
+
+export async function read(client: AppServerClient): Promise<void> {
+  await client.request("thread/turns/list", { threadId: "thread", cursor: null, limit: 20 });
+}
+`.trimStart(),
+  );
   return biomeLint(
     [
       "src/features/chat/domain/generated-thread.ts",
@@ -1431,6 +1453,8 @@ export async function resume(client: AppServerClient): Promise<void> {
       "src/features/chat/application/threads/history.ts",
       "src/app-server/services/threads.ts",
       "src/features/chat/host/bundles/connection-bundle.ts",
+      "src/settings/runtime-config.ts",
+      "src/features/chat/app-server/transports/threads.ts",
     ],
     cwd,
   );

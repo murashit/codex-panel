@@ -1,0 +1,5 @@
+language js
+
+`$target.request($...)` as $stmt where {
+  register_diagnostic(span=$stmt, message="Keep direct app-server RPC calls behind app-server services and chat app-server adapters.", severity="error")
+}
