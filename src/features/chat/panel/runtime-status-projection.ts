@@ -1,15 +1,15 @@
-import { appServerDiagnosticSections } from "../application/connection/diagnostic-sections";
-import { toolInventoryDiagnosticSections } from "../application/connection/tool-inventory-diagnostic-sections";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatState } from "../application/state/root-reducer";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
+import { appServerDiagnosticSections } from "../presentation/runtime/diagnostic-sections";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
   statusSummaryLines as buildStatusSummaryLines,
 } from "../presentation/runtime/status";
+import { toolInventoryDiagnosticSections } from "../presentation/runtime/tool-inventory-diagnostic-sections";
 
 export interface ChatPanelRuntimeProjection {
   connectionDiagnosticDetails: () => MessageStreamNoticeSection[];

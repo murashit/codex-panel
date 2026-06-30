@@ -22,9 +22,9 @@ import type { SharedServerMetadata } from "../../../../../src/domain/server/meta
 import { createChatServerDiagnosticsActions } from "../../../../../src/features/chat/app-server/actions/diagnostics";
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/app-server/actions/metadata";
 import { createChatServerThreadActions } from "../../../../../src/features/chat/app-server/actions/threads";
-import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/application/connection/tool-inventory-diagnostic-sections";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/tool-inventory-diagnostic-sections";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 type ThreadStartResponse = ClientResponseByMethod["thread/start"];

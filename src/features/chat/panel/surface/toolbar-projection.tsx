@@ -4,10 +4,10 @@ import { h } from "preact";
 import { CLIENT_VERSION } from "../../../../constants";
 import type { Thread } from "../../../../domain/threads/model";
 import { threadRowCoreProjection } from "../../../threads/list/row-projection";
-import { appServerDiagnosticSections } from "../../application/connection/diagnostic-sections";
-import { toolInventoryDiagnosticSections } from "../../application/connection/tool-inventory-diagnostic-sections";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import { appServerDiagnosticSections } from "../../presentation/runtime/diagnostic-sections";
 import { rateLimitSummary } from "../../presentation/runtime/status";
+import { toolInventoryDiagnosticSections } from "../../presentation/runtime/tool-inventory-diagnostic-sections";
 import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
 import type { ChatPanelToolbarReadModel } from "../shell-read-model";
 

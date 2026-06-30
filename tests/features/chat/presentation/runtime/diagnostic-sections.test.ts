@@ -9,8 +9,8 @@ import {
   upsertMcpServerStatusDiagnostics,
 } from "../../../../../src/domain/server/diagnostics";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
-import { appServerDiagnosticSections } from "../../../../../src/features/chat/application/connection/diagnostic-sections";
-import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/application/connection/tool-inventory-diagnostic-sections";
+import { appServerDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/diagnostic-sections";
+import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/tool-inventory-diagnostic-sections";
 
 function diagnosticsWithToolInventory(inventory: ToolInventorySnapshot) {
   let diagnostics = createServerDiagnostics();
