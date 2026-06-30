@@ -475,12 +475,12 @@ export function timestamp(): number {
       path.join(cwd, "src/features/chat/application/outer.ts"),
       `
 import type { Host } from "../host/contracts";
-import type { ChatThreadHistoryPage } from "../app-server/threads/projection";
+import type { ThreadHistoryTransport } from "../app-server/transports/thread-loading-transport";
 import type { ToolbarPanelActions } from "../panel/toolbar-actions";
 import { statusText } from "../presentation/runtime/status";
 import { Toolbar } from "../ui/toolbar";
 
-export type Escape = ChatThreadHistoryPage | Host | ToolbarPanelActions;
+export type Escape = ThreadHistoryTransport | Host | ToolbarPanelActions;
 export const values = [statusText, Toolbar] satisfies unknown[];
 `.trimStart(),
     );

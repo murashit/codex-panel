@@ -1,8 +1,8 @@
 import { compactThread, forkThread, rollbackThread } from "../../../../app-server/services/threads";
 import type { ThreadMutationTransport, ThreadRollbackSnapshot } from "../../application/threads/thread-mutation-transport";
-import type { ConnectedChatAppServerClientHost } from "../connection/client-scope";
-import { withConnectedChatAppServerClient } from "../connection/client-scope";
 import { messageStreamItemsFromTurns } from "../mappers/message-stream/turn-items";
+import type { ConnectedChatAppServerClientHost } from "./client-scope";
+import { withConnectedChatAppServerClient } from "./client-scope";
 
 interface ChatThreadMutationTransportHost extends ConnectedChatAppServerClientHost {
   vaultPath: string;

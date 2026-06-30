@@ -8,12 +8,12 @@ import type { RuntimeSettingsTransport } from "../application/runtime/settings-t
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../application/threads/goal-transport";
 import type { ThreadHistoryTransport, ThreadResumeTransport } from "../application/threads/thread-loading-transport";
 import type { ThreadMutationTransport } from "../application/threads/thread-mutation-transport";
-import { createChatThreadGoalReadTransport, createChatThreadGoalTransport } from "./goals/transport";
-import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./references/thread-reference-resolver";
-import { createChatRuntimeSettingsTransport } from "./runtime/thread-settings-transport";
-import { createChatThreadHistoryTransport, createChatThreadResumeTransport } from "./threads/loading-transport";
-import { createChatThreadMutationTransport } from "./threads/transport";
-import { createChatTurnTransport } from "./turns/transport";
+import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
+import { createChatThreadGoalReadTransport, createChatThreadGoalTransport } from "./transports/goal-transport";
+import { createChatThreadHistoryTransport, createChatThreadResumeTransport } from "./transports/thread-loading-transport";
+import { createChatThreadMutationTransport } from "./transports/thread-mutation-transport";
+import { createChatRuntimeSettingsTransport } from "./transports/thread-settings-transport";
+import { createChatTurnTransport } from "./transports/turn-transport";
 
 export interface ChatAppServerGatewayHost {
   vaultPath: string;

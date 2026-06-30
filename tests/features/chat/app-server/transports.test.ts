@@ -4,15 +4,18 @@ import type { AppServerClient, ClientResponseByMethod } from "../../../../src/ap
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/chat/input";
-import { createChatThreadGoalReadTransport, createChatThreadGoalTransport } from "../../../../src/features/chat/app-server/goals/transport";
-import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/references/thread-reference-resolver";
-import { createChatRuntimeSettingsTransport } from "../../../../src/features/chat/app-server/runtime/thread-settings-transport";
+import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/thread-reference-resolver";
+import {
+  createChatThreadGoalReadTransport,
+  createChatThreadGoalTransport,
+} from "../../../../src/features/chat/app-server/transports/goal-transport";
 import {
   createChatThreadHistoryTransport,
   createChatThreadResumeTransport,
-} from "../../../../src/features/chat/app-server/threads/loading-transport";
-import { createChatThreadMutationTransport } from "../../../../src/features/chat/app-server/threads/transport";
-import { createChatTurnTransport } from "../../../../src/features/chat/app-server/turns/transport";
+} from "../../../../src/features/chat/app-server/transports/thread-loading-transport";
+import { createChatThreadMutationTransport } from "../../../../src/features/chat/app-server/transports/thread-mutation-transport";
+import { createChatRuntimeSettingsTransport } from "../../../../src/features/chat/app-server/transports/thread-settings-transport";
+import { createChatTurnTransport } from "../../../../src/features/chat/app-server/transports/turn-transport";
 import { deferred } from "../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];

@@ -1,8 +1,15 @@
 import type { AppServerRequestClient } from "../../../../app-server/services/request-client";
 import { listThreadTurns, resumeThread, threadActivationSnapshotFromAppServerResponse } from "../../../../app-server/services/threads";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
-import type { ThreadHistoryPage, ThreadResumeSnapshot } from "../../application/threads/thread-loading-transport";
+import type {
+  ThreadHistoryPage,
+  ThreadHistoryTransport,
+  ThreadResumeSnapshot,
+  ThreadResumeTransport,
+} from "../../application/threads/thread-loading-transport";
 import { messageStreamItemsFromTurns } from "../mappers/message-stream/turn-items";
+import type { ConnectedChatAppServerClientHost, CurrentChatAppServerClientHost } from "./client-scope";
+import { withConnectedChatAppServerClient, withCurrentChatAppServerClient } from "./client-scope";
 
 type ChatThreadHistoryClient = AppServerRequestClient;
 type ChatThreadResumeClient = AppServerRequestClient;
@@ -12,7 +19,25 @@ interface AppServerThreadTurnsPage {
   readonly nextCursor: string | null;
 }
 
-export async function readChatThreadHistoryPage(
+interface ChatThreadResumeTransportHost extends ConnectedChatAppServerClientHost {
+  vaultPath: string;
+}
+
+export function createChatThreadHistoryTransport(host: CurrentChatAppServerClientHost): ThreadHistoryTransport {
+  return {
+    readHistoryPage: (threadId, cursor, limit): Promise<ThreadHistoryPage | null> =>
+      withCurrentChatAppServerClient(host, (client) => readChatThreadHistoryPage(client, threadId, cursor, limit)),
+  };
+}
+
+export function createChatThreadResumeTransport(host: ChatThreadResumeTransportHost): ThreadResumeTransport {
+  return {
+    resumeThread: (threadId): Promise<ThreadResumeSnapshot | null> =>
+      withConnectedChatAppServerClient(host, (client) => resumeChatThread(client, threadId, host.vaultPath)),
+  };
+}
+
+async function readChatThreadHistoryPage(
   client: ChatThreadHistoryClient,
   threadId: string,
   cursor: string | null,
@@ -29,7 +54,7 @@ function chatThreadHistoryPageFromTurnsPage(page: ThreadTurnsPage): ThreadHistor
   };
 }
 
-export async function resumeChatThread(client: ChatThreadResumeClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
+async function resumeChatThread(client: ChatThreadResumeClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
   const response = await resumeThread(client, threadId, cwd);
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),
