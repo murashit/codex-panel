@@ -4,7 +4,7 @@ import { type Diagnostics, diagnosticProbeError, diagnosticProbeOk } from "../..
 import { accountRateLimitsSummaryFromResponse, rateLimitSnapshotFromAccountRateLimitsResponse } from "../protocol/runtime-metrics";
 import { listSkillCatalog } from "../services/catalog";
 import type { AppServerRequestClient } from "../services/request-client";
-import { readAccountRateLimits } from "../services/runtime-metrics";
+import { readAccountRateLimits } from "../services/runtime-metadata";
 
 interface MetadataProbeResult<T, K extends keyof Diagnostics["probes"]> {
   value: T;

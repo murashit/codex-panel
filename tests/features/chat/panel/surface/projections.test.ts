@@ -10,7 +10,7 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatPanelShellReadModelBinding } from "../../../../../src/features/chat/panel/shell-read-model";
-import type { ChatPanelComposerSurface } from "../../../../../src/features/chat/panel/surface/composer-projection";
+import type { ChatPanelComposerProjectionActions } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { ChatPanelGoal, type ChatPanelGoalSurface } from "../../../../../src/features/chat/panel/surface/goal-projection";
 import { ChatPanelToolbar } from "../../../../../src/features/chat/panel/surface/toolbar-projection";
@@ -135,7 +135,7 @@ describe("chat panel surface projections", () => {
       },
     });
 
-    expect(composerProjectionFromState(composerSurfaceFixture(), state).meta).toMatchObject({
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), state).meta).toMatchObject({
       fatal: null,
       context: {
         cells: [
@@ -170,7 +170,7 @@ describe("chat panel surface projections", () => {
     ]);
     state = chatStateWith(state, { connection: { runtimeConfig: runtimeConfigFixture({ model: "gpt-5.5" }) } });
 
-    expect(composerProjectionFromState(composerSurfaceFixture(), state).meta).toMatchObject({
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), state).meta).toMatchObject({
       fatal: null,
       context: {
         cells: [
@@ -200,7 +200,7 @@ describe("chat panel surface projections", () => {
       },
     });
 
-    expect(composerProjectionFromState(composerSurfaceFixture(), state).meta).toMatchObject({
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), state).meta).toMatchObject({
       context: {
         cells: [
           { text: "⣀", placeholder: true },
@@ -218,7 +218,7 @@ describe("chat panel surface projections", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { connection: { phase: { kind: "failed", message: "Connection failed." } } });
 
-    expect(composerProjectionFromState(composerSurfaceFixture(), state).meta).toMatchObject({
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), state).meta).toMatchObject({
       fatal: "Codex app-server disconnected",
       context: {
         cells: [
@@ -247,14 +247,12 @@ describe("chat panel surface projections", () => {
     const selectedEfforts: string[] = [];
 
     const choices = composerProjectionFromState(
-      composerSurfaceFixture({
-        runtime: {
-          requestModel: async (model) => {
-            selectedModels.push(model);
-          },
-          requestReasoningEffort: async (effort) => {
-            selectedEfforts.push(effort);
-          },
+      composerProjectionActionsFixture({
+        requestModel: async (model) => {
+          selectedModels.push(model);
+        },
+        requestReasoningEffort: async (effort) => {
+          selectedEfforts.push(effort);
         },
       }),
       state,
@@ -323,7 +321,7 @@ describe("chat panel surface projections", () => {
     });
     state = chatStateWith(state, { connection: { availableModels: [modelFixture("gpt-5.5")] } });
 
-    const projection = composerProjectionFromState(composerSurfaceFixture(), state);
+    const projection = composerProjectionFromState(composerProjectionActionsFixture(), state);
 
     expect(projection).toMatchObject({
       placeholder: "Ask Codex to work on this task...",
@@ -341,8 +339,12 @@ describe("chat panel surface projections", () => {
     activeState = chatStateWith(activeState, { activeThread: { id: "thread-1" } });
     activeState = chatStateWith(activeState, { threadList: { listedThreads: [threadFixture("thread-1", "Active")] } });
 
-    expect(composerProjectionFromState(composerSurfaceFixture(), activeState).placeholder).toBe("Ask Codex to work on “Active”...");
-    expect(composerProjectionFromState(composerSurfaceFixture(), chatStateFixture()).placeholder).toBe("Ask Codex to work on this task...");
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState).placeholder).toBe(
+      "Ask Codex to work on “Active”...",
+    );
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture()).placeholder).toBe(
+      "Ask Codex to work on this task...",
+    );
   });
 
   it("projects goal editor and disclosure state before action wiring", () => {
@@ -371,8 +373,8 @@ function renderWithShellReadModel(
   return parent;
 }
 
-function composerProjectionFromState(surface: ChatPanelComposerSurface, state: ChatState) {
-  return chatPanelComposerProjection(surface, composerReadModelFromChatState(state));
+function composerProjectionFromState(actions: ChatPanelComposerProjectionActions, state: ChatState) {
+  return chatPanelComposerProjection(composerReadModelFromChatState(state), actions);
 }
 
 function clickLabeledButton(parent: HTMLElement, label: string): void {
@@ -450,13 +452,11 @@ function goalSurfaceFixture(): ChatPanelGoalSurface {
   };
 }
 
-function composerSurfaceFixture(overrides: Partial<ChatPanelComposerSurface> = {}): ChatPanelComposerSurface {
+function composerProjectionActionsFixture(overrides: Partial<ChatPanelComposerProjectionActions> = {}): ChatPanelComposerProjectionActions {
   return {
-    runtime: {
-      requestModel: async () => undefined,
-      requestReasoningEffort: async () => undefined,
-      ...overrides.runtime,
-    },
+    requestModel: async () => undefined,
+    requestReasoningEffort: async () => undefined,
+    ...overrides,
   };
 }
 

@@ -1,6 +1,5 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import { readFileBase64 as readAppServerFileBase64 } from "../../../app-server/services/files";
 import { renameThread as renameAppServerThread } from "../../../app-server/services/threads";
 import type { CodexInput } from "../../../domain/chat/input";
 import type { ChatTurnTransport } from "../application/conversation/turn-transport";
@@ -90,8 +89,8 @@ async function readCurrentClientFileBase64(
 ): Promise<string> {
   const client = host.currentClient();
   if (!client) return "";
-  const data = await readAppServerFileBase64(client, path, options);
-  return host.currentClient() === client ? data : "";
+  const response = await client.request("fs/readFile", { path }, options);
+  return host.currentClient() === client ? response.dataBase64 : "";
 }
 
 async function renameCurrentClientThread(host: ChatAppServerGatewayHost, threadId: string, name: string): Promise<boolean> {

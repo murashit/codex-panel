@@ -3,6 +3,7 @@ import type { PendingRequestActions } from "../../application/pending-requests/p
 import type { ChatStateStore } from "../../application/state/store";
 import type { HistoryController } from "../../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
+import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatMessageScrollController } from "../../panel/message-stream-scroll-controller";
 import type { ChatPanelShellParts } from "../../panel/shell.dom";
 import type { ChatPanelGoalSurface } from "../../panel/surface/goal-projection";
@@ -11,7 +12,6 @@ import type { ChatPanelToolbarSurface } from "../../panel/surface/toolbar-projec
 import { createToolbarUiActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
 import { toolbarOutsidePointerHit } from "../../panel/toolbar-hit-test.dom";
 import type { ChatPanelEnvironment } from "../contracts";
-import type { ChatPanelComposerBundle } from "./composer-bundle";
 import type { ChatPanelConnectionBundle } from "./connection-bundle";
 import type { ChatPanelGoalActions, ChatPanelThreadActions, ChatPanelThreadNavigationActions } from "./thread-bundle";
 import type { ChatPanelTurnBundle } from "./turn-bundle";
@@ -34,7 +34,7 @@ interface ChatPanelShellBundleInput {
   history: HistoryController;
   pendingRequests: PendingRequestActions;
   turn: ChatPanelTurnBundle;
-  composer: ChatPanelComposerBundle;
+  composerController: ChatComposerController;
 }
 
 export interface ChatPanelShellBundle {
@@ -56,7 +56,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     history,
     pendingRequests,
     turn,
-    composer,
+    composerController,
   } = input;
   const { environment, stateStore } = host;
   const toolbarActions = createToolbarUiActions({
@@ -124,7 +124,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     goal: goalSurface,
     messageStream: messageStreamPresenter,
     composer: {
-      presenter: composer.controller,
+      presenter: composerController,
       actions: {
         submit: () => void turn.turnActions.composerSubmit.submit(),
       },

@@ -1,9 +1,5 @@
-import {
-  type ArchiveExportSettings,
-  type ArchiveThreadInput,
-  archivedThreadMarkdown,
-  archivedThreadTitle,
-} from "../../../domain/threads/archive-markdown";
+import { type ArchiveExportSettings, type ArchiveThreadInput, archivedThreadMarkdown } from "../../../domain/threads/archive-markdown";
+import { threadArchiveTitle } from "../../../domain/threads/title";
 import { shortThreadId } from "../../../shared/id/thread-id";
 
 export interface ArchiveExportResult {
@@ -43,7 +39,7 @@ export async function exportArchivedThreadMarkdown(
 }
 
 function templateContext(thread: ArchiveThreadInput, now: Date): TemplateContext {
-  const title = sanitizePathSegment(archivedThreadTitle(thread));
+  const title = sanitizePathSegment(threadArchiveTitle(thread));
   return {
     date: formatDate(now),
     time: formatTime(now),

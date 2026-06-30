@@ -6,7 +6,7 @@ import type { ChatStateStore } from "../../application/state/store";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatMessageScrollController } from "../../panel/message-stream-scroll-controller";
-import { type ChatPanelComposerSurface, chatPanelComposerProjection } from "../../panel/surface/composer-projection";
+import { chatPanelComposerProjection } from "../../panel/surface/composer-projection";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
 import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
@@ -19,25 +19,14 @@ interface ChatPanelComposerHost {
   messageScrollController: ChatMessageScrollController;
 }
 
-export interface ChatPanelComposerBundle {
-  controller: ChatComposerController;
-  dispose(): void;
-}
-
-export function createComposerBundle(
+export function createChatComposerController(
   host: ChatPanelComposerHost,
   input: {
     runtimeSettings: ChatPanelRuntimeSettingsActions;
   },
-): ChatPanelComposerBundle {
+): ChatComposerController {
   const { environment, stateStore } = host;
-  const surface = {
-    runtime: {
-      requestModel: (model: string) => input.runtimeSettings.requestModelFromUi(model),
-      requestReasoningEffort: (effort) => input.runtimeSettings.requestReasoningEffortFromUi(effort),
-    },
-  } satisfies ChatPanelComposerSurface;
-  const controller = new ChatComposerController({
+  return new ChatComposerController({
     noteCandidateProvider: new VaultNoteCandidateProvider(environment.obsidian.app),
     contextReferenceProvider: new VaultComposerContextReferenceProvider(environment.obsidian.app),
     attachmentHandler: createVaultComposerAttachmentHandler({
@@ -52,7 +41,11 @@ export function createComposerBundle(
     canInterrupt: (model) => {
       return model.turnBusy.value && Boolean(model.activeThreadId.value && model.activeTurnId.value);
     },
-    composerProjection: (model) => chatPanelComposerProjection(surface, model),
+    composerProjection: (model) =>
+      chatPanelComposerProjection(model, {
+        requestModel: (modelId) => input.runtimeSettings.requestModelFromUi(modelId),
+        requestReasoningEffort: (effort) => input.runtimeSettings.requestReasoningEffortFromUi(effort),
+      }),
     currentModelForSuggestions: () => {
       const current = stateStore.getState();
       const config = runtimeConfigOrDefault(current.connection.runtimeConfig);
@@ -72,11 +65,4 @@ export function createComposerBundle(
       new Notice(message);
     },
   });
-
-  return {
-    controller,
-    dispose: () => {
-      controller.dispose();
-    },
-  };
 }

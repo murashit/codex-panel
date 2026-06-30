@@ -13,7 +13,7 @@ import { createStructuredSystemItem, createSystemItem } from "../domain/message-
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatComposerController } from "../panel/composer-controller";
 import type { ChatMessageScrollController } from "../panel/message-stream-scroll-controller";
-import { createComposerBundle } from "./bundles/composer-bundle";
+import { createChatComposerController } from "./bundles/composer-bundle";
 import { type ChatPanelConnectionBundle, createConnectionBundle } from "./bundles/connection-bundle";
 import { createReconnectAction } from "./bundles/reconnect-bundle";
 import { createRuntimeBundle } from "./bundles/runtime-bundle";
@@ -152,13 +152,13 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });
-  const composer = createComposerBundle(host, {
+  const composerController = createChatComposerController(host, {
     runtimeSettings: runtime.settings,
   });
   const threadActions = createThreadActionBundle(host, {
     appServer,
     status,
-    composerController: composer.controller,
+    composerController,
     foundation: threadFoundation,
     lifecycle: threadLifecycle,
     refreshActiveThreads,
@@ -181,7 +181,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     threadLifecycle: threadLifecycle.lifecycle,
     threadActions: threadActions.actions,
     navigation: threadActions.navigation,
-    composerController: composer.controller,
+    composerController,
     runtimeSettings: runtime.settings,
     serverThreads,
     goals: threadLifecycle.goals,
@@ -204,7 +204,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     history: threadFoundation.history,
     pendingRequests: turn.pendingRequests,
     turn,
-    composer,
+    composerController,
   });
   const refreshSharedThreads = async (): Promise<void> => {
     try {
@@ -233,7 +233,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       identity: threadLifecycle.identity,
     },
     composer: {
-      controller: composer.controller,
+      controller: composerController,
     },
     shell,
     actions: {
@@ -244,7 +244,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       startNewThread: () => threadActions.navigation.startNewThread(),
       dispose: () => {
         shell.dispose();
-        composer.dispose();
+        composerController.dispose();
       },
     },
     runtime: {

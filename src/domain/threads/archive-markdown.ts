@@ -35,7 +35,7 @@ export function archivedThreadMarkdown(
   exportedAt = new Date(),
   settings?: Partial<ArchiveExportSettings>,
 ): string {
-  const title = archivedThreadTitle(thread);
+  const title = threadArchiveTitle(thread);
   const tags = normalizedArchiveTags(settings?.archiveExportTags ?? "");
   const lines = [
     "---",
@@ -51,10 +51,6 @@ export function archivedThreadMarkdown(
   ];
   const markdown = `${trimTrailingBlankLines(lines).join("\n")}\n`;
   return settings?.vaultPath ? normalizeExportedMarkdownLinks(markdown, settings.vaultPath, settings.vaultConfigDir) : markdown;
-}
-
-export function archivedThreadTitle(thread: ArchiveThreadInput): string {
-  return threadArchiveTitle(thread);
 }
 
 function normalizeExportedMarkdownLinks(markdown: string, vaultPath: string, vaultConfigDir: string | null | undefined): string {

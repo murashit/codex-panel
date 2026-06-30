@@ -8,7 +8,7 @@ import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccessOptions } from "../connection/client-access";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listModelMetadata } from "../services/catalog";
-import { readEffectiveConfig } from "../services/config";
+import { readEffectiveConfig } from "../services/runtime-metadata";
 import { listThreads } from "../services/threads";
 import {
   type AppServerQueryContext,

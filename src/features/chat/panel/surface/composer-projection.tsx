@@ -20,11 +20,9 @@ export interface ChatPanelComposerProjection {
   meta: ChatPanelComposerMeta;
 }
 
-export interface ChatPanelComposerSurface {
-  runtime: {
-    requestModel: (model: string) => Promise<void>;
-    requestReasoningEffort: (effort: ReasoningEffort) => Promise<void>;
-  };
+export interface ChatPanelComposerProjectionActions {
+  requestModel: (model: string) => Promise<void>;
+  requestReasoningEffort: (effort: ReasoningEffort) => Promise<void>;
 }
 
 export interface ChatPanelComposerPresenter {
@@ -59,8 +57,8 @@ export function ChatPanelComposer({
 }
 
 export function chatPanelComposerProjection(
-  surface: ChatPanelComposerSurface,
   readModel: ChatPanelComposerReadModel,
+  actions: ChatPanelComposerProjectionActions,
 ): ChatPanelComposerProjection {
   const snapshot = readModel.runtimeSnapshot.value;
   return {
@@ -70,8 +68,8 @@ export function chatPanelComposerProjection(
       ...runtimeComposerChoices({
         readModel,
         snapshot,
-        requestModel: (model) => void surface.runtime.requestModel(model),
-        requestReasoningEffort: (effort) => void surface.runtime.requestReasoningEffort(effort),
+        requestModel: (model) => void actions.requestModel(model),
+        requestReasoningEffort: (effort) => void actions.requestReasoningEffort(effort),
       }),
     },
   };
