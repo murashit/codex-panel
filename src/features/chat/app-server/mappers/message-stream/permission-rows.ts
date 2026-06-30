@@ -1,21 +1,17 @@
 import { jsonPreview } from "../../../../../domain/display/json-preview";
+import type { MessageStreamAuditFact } from "../../../domain/message-stream/items";
 
-interface DetailRow {
-  key: string;
-  value: string;
-}
-
-export interface MessageStreamPermissionProfile {
+export interface AutoReviewPermissionProfile {
   network?: { enabled?: boolean | null } | null;
   fileSystem?: {
-    entries?: readonly { path: MessageStreamFileSystemPath; access?: unknown }[] | null;
+    entries?: readonly { path: AutoReviewFileSystemPath; access?: unknown }[] | null;
     read?: unknown;
     write?: unknown;
     globScanMaxDepth?: unknown;
   } | null;
 }
 
-type MessageStreamFileSystemPath =
+type AutoReviewFileSystemPath =
   | { type: "path"; path: string }
   | { type: "glob_pattern"; pattern: string }
   | {
@@ -26,8 +22,8 @@ type MessageStreamFileSystemPath =
         | { kind: string };
     };
 
-export function permissionRows(permissions: MessageStreamPermissionProfile): DetailRow[] {
-  const rows: DetailRow[] = [];
+export function autoReviewPermissionRows(permissions: AutoReviewPermissionProfile): MessageStreamAuditFact[] {
+  const rows: MessageStreamAuditFact[] = [];
   const networkEnabled = permissions.network?.enabled;
   if (typeof networkEnabled === "boolean") {
     rows.push({ key: "network", value: networkEnabled ? "enabled" : "disabled" });
@@ -49,7 +45,7 @@ export function permissionRows(permissions: MessageStreamPermissionProfile): Det
   return rows;
 }
 
-function addOptional(rows: DetailRow[], key: string, value: unknown): void {
+function addOptional(rows: MessageStreamAuditFact[], key: string, value: unknown): void {
   if (value === null || value === undefined) return;
   if (Array.isArray(value) && value.length === 0) return;
   rows.push({ key, value: stringValue(value) });
@@ -65,7 +61,7 @@ function stringValue(value: unknown, fallback = ""): string {
   return jsonPreview(value);
 }
 
-function fileSystemPathLabel(path: MessageStreamFileSystemPath): string {
+function fileSystemPathLabel(path: AutoReviewFileSystemPath): string {
   if (path.type === "path") return path.path;
   if (path.type === "glob_pattern") return path.pattern;
 

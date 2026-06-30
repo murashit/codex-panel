@@ -5,6 +5,7 @@ import { referencedThreadPromptBundle } from "../../../../../src/domain/threads/
 import { pathRelativeToRoot } from "../../../../../src/domain/vault/paths";
 import { collabAgentStateExecutionState } from "../../../../../src/features/chat/app-server/mappers/message-stream/execution-state";
 import { hookRunMessageStreamItem } from "../../../../../src/features/chat/app-server/mappers/message-stream/hook-run-items";
+import { autoReviewPermissionRows } from "../../../../../src/features/chat/app-server/mappers/message-stream/permission-rows";
 import {
   createAutoReviewResultItem,
   createReviewResultItem,
@@ -14,7 +15,6 @@ import {
   messageStreamItemFromTurnItem,
   messageStreamItemsFromTurns,
 } from "../../../../../src/features/chat/app-server/mappers/message-stream/turn-items";
-import { permissionRows } from "../../../../../src/features/chat/domain/message-stream/format/permission-rows";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
 import { activeTurnLiveItems } from "../../../../../src/features/chat/domain/message-stream/semantics/active-turn";
 import { upsertMessageStreamItemById } from "../../../../../src/features/chat/domain/message-stream/updates";
@@ -754,10 +754,10 @@ describe("turn item conversion preserves app-server semantics", () => {
   });
 });
 
-describe("permission detail rows", () => {
+describe("auto-review permission detail rows", () => {
   it("formats app-server permission paths without exposing raw payloads", () => {
     expect(
-      permissionRows({
+      autoReviewPermissionRows({
         network: { enabled: true },
         fileSystem: {
           entries: [

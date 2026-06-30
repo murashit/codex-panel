@@ -1,7 +1,7 @@
 import { pathRelativeToRoot } from "../../../../../domain/vault/paths";
-import { permissionRows } from "../../../domain/message-stream/format/permission-rows";
 import type { ExecutionState, MessageStreamAuditFact, MessageStreamItem } from "../../../domain/message-stream/items";
 import { type ExecutionStateByStatus, executionStateFromStatus, RUNNING_EXECUTION_STATE } from "./execution-state";
+import { type AutoReviewPermissionProfile, autoReviewPermissionRows } from "./permission-rows";
 
 const AUTO_REVIEW_STATES: ExecutionStateByStatus = {
   inProgress: RUNNING_EXECUTION_STATE,
@@ -48,7 +48,7 @@ type AutoReviewAction =
       connectorName: string | null;
       toolTitle: string | null;
     }
-  | { type: "requestPermissions"; reason: string | null; permissions: Parameters<typeof permissionRows>[0] };
+  | { type: "requestPermissions"; reason: string | null; permissions: AutoReviewPermissionProfile };
 
 export function createReviewResultItem(id: string, text: string): MessageStreamItem {
   const parsed = parseAutomaticApprovalReviewMessage(text);
@@ -174,7 +174,7 @@ function autoReviewActionRows(action: AutoReviewAction): MessageStreamAuditFact[
   return [
     { key: "action", value: "request permissions" },
     ...(action.reason ? [{ key: "reason", value: action.reason }] : []),
-    ...permissionRows(action.permissions),
+    ...autoReviewPermissionRows(action.permissions),
   ];
 }
 
