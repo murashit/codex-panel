@@ -1,12 +1,10 @@
 import type { SkillMetadata } from "../../domain/catalog/metadata";
+import { type DiagnosticProbeResult, diagnosticProbeError, diagnosticProbeOk } from "../../domain/server/diagnostics";
 import {
-  type DiagnosticProbeResult,
-  diagnosticProbeError,
-  diagnosticProbeOk,
   type McpServerDiagnostic,
   type McpServerStatusSummary,
   mcpServerStatusSummariesFromStatuses,
-} from "../../domain/server/diagnostics";
+} from "../../domain/server/mcp-status";
 import type { ToolInventoryMarketplaceError, ToolInventoryPlugin, ToolInventorySnapshot } from "../../domain/server/tool-inventory";
 import { toolInventoryPluginsFromInstalledResponse } from "../protocol/tool-inventory";
 import { listSkillCatalog } from "./catalog";

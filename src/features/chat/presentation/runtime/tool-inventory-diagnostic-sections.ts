@@ -1,5 +1,6 @@
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
-import type { Diagnostics, McpServerDiagnostic, McpServerStatusSummary } from "../../../../domain/server/diagnostics";
+import type { Diagnostics } from "../../../../domain/server/diagnostics";
+import type { McpServerDiagnostic, McpServerStatusSummary } from "../../../../domain/server/mcp-status";
 import type { ToolInventoryPlugin, ToolInventorySnapshot } from "../../../../domain/server/tool-inventory";
 import type { DiagnosticRow, DiagnosticSection } from "./diagnostic-sections";
 

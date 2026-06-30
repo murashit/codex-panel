@@ -16,8 +16,8 @@ import {
   diagnosticProbeError,
   diagnosticProbeOk,
   diagnosticsWithProbe,
-  type McpServerStatus,
 } from "../../../../../src/domain/server/diagnostics";
+import type { McpServerStatus } from "../../../../../src/domain/server/mcp-status";
 import type { SharedServerMetadata } from "../../../../../src/domain/server/metadata";
 import { createChatServerDiagnosticsActions } from "../../../../../src/features/chat/app-server/actions/diagnostics";
 import { createChatServerMetadataActions } from "../../../../../src/features/chat/app-server/actions/metadata";

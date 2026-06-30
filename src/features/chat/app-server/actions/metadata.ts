@@ -4,12 +4,8 @@ import {
   readSkillMetadataProbe,
 } from "../../../../app-server/query/metadata-probes";
 import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
-import {
-  cloneServerDiagnostics,
-  diagnosticsWithProbe,
-  type McpServerStartupStatus,
-  upsertMcpServerDiagnostic,
-} from "../../../../domain/server/diagnostics";
+import { cloneServerDiagnostics, diagnosticsWithProbe, upsertMcpServerDiagnostic } from "../../../../domain/server/diagnostics";
+import type { McpServerStartupStatus } from "../../../../domain/server/mcp-status";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { type ChatServerActionsHost, captureChatServerClientScope } from "./host";
 

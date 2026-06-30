@@ -4,12 +4,12 @@ import {
   createServerDiagnostics,
   diagnosticProbeError,
   diagnosticProbeOk,
-  mcpServerStatusSummariesFromStatuses,
   serverIdentity,
   serverPlatform,
   upsertMcpServerDiagnostic,
 } from "../../src/domain/server/diagnostics";
 import type { ServerInitialization } from "../../src/domain/server/initialization";
+import { mcpServerStatusSummariesFromStatuses } from "../../src/domain/server/mcp-status";
 
 describe("app-server diagnostics", () => {
   it("formats initialize metadata", () => {

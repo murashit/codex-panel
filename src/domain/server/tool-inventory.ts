@@ -1,5 +1,5 @@
 import type { SkillMetadata } from "../catalog/metadata";
-import type { McpServerDiagnostic, McpServerStatusSummary } from "./diagnostics";
+import { cloneMcpServerStatusSummary, type McpServerDiagnostic, type McpServerStatusSummary } from "./mcp-status";
 
 export interface ToolInventoryPlugin {
   readonly id: string;
@@ -40,8 +40,4 @@ export function cloneToolInventorySnapshot(snapshot: ToolInventorySnapshot): Too
     mcpDiagnostics: snapshot.mcpDiagnostics.map((diagnostic) => ({ ...diagnostic })),
     skills: snapshot.skills ? snapshot.skills.map((skill) => ({ ...skill })) : null,
   };
-}
-
-function cloneMcpServerStatusSummary(server: McpServerStatusSummary): McpServerStatusSummary {
-  return server.codexAppIds ? { ...server, codexAppIds: [...server.codexAppIds] } : { ...server };
 }
