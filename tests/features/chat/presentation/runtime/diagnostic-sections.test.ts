@@ -23,12 +23,9 @@ function diagnosticsWithToolInventory(inventory: ToolInventorySnapshot) {
 describe("connection diagnostics", () => {
   it("formats connection rows and runtime checks for /doctor", () => {
     let diagnostics = createServerDiagnostics();
-    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeOk("model/list", "12 models", 1));
-    diagnostics = diagnosticsWithProbe(
-      diagnostics,
-      diagnosticProbeError("account/rateLimits/read", new Error("rate limit request failed"), 2),
-    );
-    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeError("skills/list", new Error("unknown method skills/list"), 3));
+    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeOk("models", "12 models", 1));
+    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeError("rateLimits", new Error("rate limit request failed"), 2));
+    diagnostics = diagnosticsWithProbe(diagnostics, diagnosticProbeError("skills", new Error("unknown method skills/list"), 3));
     diagnostics = upsertMcpServerDiagnostic(diagnostics, {
       name: "github",
       startupStatus: "failed",
@@ -59,15 +56,11 @@ describe("connection diagnostics", () => {
     const rows = sections.flatMap((section) => section.rows);
     expect(sections.map((section) => section.title)).toEqual(["Process", "Runtime Checks"]);
     expect(rows.map((row) => `${row.label}: ${row.value}`)).toEqual(
-      expect.arrayContaining([
-        "connection: connected",
-        "model/list: ok (12 models)",
-        "account/rateLimits/read: failed - rate limit request failed",
-      ]),
+      expect.arrayContaining(["connection: connected", "Models: ok (12 models)", "Rate limits: failed - rate limit request failed"]),
     );
-    expect(rows.find((row) => row.label === "account/rateLimits/read")?.level).toBe("error");
-    expect(rows.find((row) => row.label === "skills/list")).toBeUndefined();
-    expect(rows.find((row) => row.label === "mcpServerStatus/list")).toBeUndefined();
+    expect(rows.find((row) => row.label === "Rate limits")?.level).toBe("error");
+    expect(rows.find((row) => row.label === "Skills")).toBeUndefined();
+    expect(rows.find((row) => row.label === "MCP servers")).toBeUndefined();
     expect(rows.find((row) => row.label === "mcp github")).toBeUndefined();
   });
 

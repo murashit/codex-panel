@@ -192,12 +192,12 @@ export class AppServerQueryCache {
     const probes = metadata.serverDiagnostics.probes;
     const next = cloneSharedServerMetadata({
       ...metadata,
-      availableModels: probes["model/list"].status === "ok" ? metadata.availableModels : (this.modelsSnapshot(context) ?? []),
-      availableSkills: probes["skills/list"].status === "ok" ? metadata.availableSkills : (previous?.availableSkills ?? []),
-      rateLimit: probes["account/rateLimits/read"].status === "ok" ? metadata.rateLimit : (previous?.rateLimit ?? null),
+      availableModels: probes.models.status === "ok" ? metadata.availableModels : (this.modelsSnapshot(context) ?? []),
+      availableSkills: probes.skills.status === "ok" ? metadata.availableSkills : (previous?.availableSkills ?? []),
+      rateLimit: probes.rateLimits.status === "ok" ? metadata.rateLimit : (previous?.rateLimit ?? null),
     });
     this.client.setQueryData(appServerMetadataQueryKey(context), cloneSharedServerMetadata(next));
-    if (probes["model/list"].status === "ok") {
+    if (probes.models.status === "ok") {
       this.client.setQueryData(appServerModelsQueryKey(context), cloneModelMetadata(next.availableModels));
     }
     return cloneSharedServerMetadata(next);
@@ -315,15 +315,15 @@ export class AppServerQueryCache {
     client: AppServerClient,
   ): Promise<{
     value: readonly ModelMetadata[];
-    probe: SharedServerMetadata["serverDiagnostics"]["probes"]["model/list"];
+    probe: SharedServerMetadata["serverDiagnostics"]["probes"]["models"];
   }> {
     try {
       const models = cloneModelMetadata(await this.client.fetchQuery(this.modelsQueryOptionsWithClient(context, client)));
-      return { value: models, probe: diagnosticProbeOk("model/list", `${String(models.length)} models`, Date.now()) };
+      return { value: models, probe: diagnosticProbeOk("models", `${String(models.length)} models`, Date.now()) };
     } catch (error) {
       return {
         value: this.modelsSnapshot(context) ?? [],
-        probe: diagnosticProbeError("model/list", error, Date.now()),
+        probe: diagnosticProbeError("models", error, Date.now()),
       };
     }
   }

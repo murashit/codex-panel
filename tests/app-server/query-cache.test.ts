@@ -39,12 +39,12 @@ describe("AppServerQueryCache", () => {
     expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
     expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(42);
-    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["skills/list"].status).toBe("failed");
-    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("failed");
+    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.skills.status).toBe("failed");
+    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.rateLimits.status).toBe("failed");
 
     cache.writeAppServerMetadata(context, metadata({ availableModels: [], modelProbeStatus: "failed" }));
     expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
-    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.models.status).toBe("failed");
   });
 
   it("does not accept failed metadata resource payloads as cache truth", () => {
@@ -65,7 +65,7 @@ describe("AppServerQueryCache", () => {
 
     const cached = cache.appServerMetadataSnapshot(context);
     expect(cached?.runtimeConfig).not.toBeNull();
-    expect(cached?.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    expect(cached?.serverDiagnostics.probes.models.status).toBe("failed");
     expect(cached?.availableModels).toEqual([]);
     expect(cached?.availableSkills).toEqual([]);
     expect(cached?.rateLimit).toBeNull();
@@ -192,7 +192,7 @@ describe("AppServerQueryCache", () => {
     expect(metadata?.availableModels.map((model) => model.model)).toEqual(["gpt-meta"]);
     expect(metadata?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(metadata?.rateLimit?.primary?.usedPercent).toBe(64);
-    expect(metadata?.serverDiagnostics.probes["model/list"].status).toBe("ok");
+    expect(metadata?.serverDiagnostics.probes.models.status).toBe("ok");
     expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-meta"]);
   });
 
@@ -237,7 +237,7 @@ describe("AppServerQueryCache", () => {
     const metadataSnapshot = await cache.refreshAppServerMetadata(context);
 
     expect(metadataSnapshot?.availableModels.map((model) => model.model)).toEqual(["gpt-cached"]);
-    expect(metadataSnapshot?.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    expect(metadataSnapshot?.serverDiagnostics.probes.models.status).toBe("failed");
     expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-cached"]);
   });
 
@@ -329,20 +329,20 @@ function metadata(
   diagnostics = diagnosticsWithProbe(
     diagnostics,
     overrides.modelProbeStatus === "failed"
-      ? diagnosticProbeError("model/list", new Error("offline"), 1)
-      : diagnosticProbeOk("model/list", "1 models", 1),
+      ? diagnosticProbeError("models", new Error("offline"), 1)
+      : diagnosticProbeOk("models", "1 models", 1),
   );
   diagnostics = diagnosticsWithProbe(
     diagnostics,
     overrides.skillsProbeStatus === "failed"
-      ? diagnosticProbeError("skills/list", new Error("offline"), 1)
-      : diagnosticProbeOk("skills/list", "0 skills", 1),
+      ? diagnosticProbeError("skills", new Error("offline"), 1)
+      : diagnosticProbeOk("skills", "0 skills", 1),
   );
   diagnostics = diagnosticsWithProbe(
     diagnostics,
     overrides.rateLimitProbeStatus === "failed"
-      ? diagnosticProbeError("account/rateLimits/read", new Error("offline"), 1)
-      : diagnosticProbeOk("account/rateLimits/read", "available", 1),
+      ? diagnosticProbeError("rateLimits", new Error("offline"), 1)
+      : diagnosticProbeOk("rateLimits", "available", 1),
   );
   return {
     runtimeConfig: overrides.runtimeConfig ?? emptyRuntimeConfigSnapshot(),

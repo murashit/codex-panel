@@ -4,8 +4,8 @@ import { listModelMetadata } from "../../../../app-server/services/catalog";
 import { readToolInventory } from "../../../../app-server/services/tool-inventory";
 import {
   cloneServerDiagnostics,
-  type DiagnosticProbeMethod,
-  type Diagnostics,
+  type DiagnosticProbeId,
+  type DiagnosticProbeResult,
   diagnosticProbeError,
   diagnosticProbeOk,
   diagnosticsWithProbe,
@@ -21,7 +21,7 @@ interface RefreshServerDiagnosticsOptions {
 }
 
 interface DiagnosticProbeSnapshot {
-  probe: Diagnostics["probes"][DiagnosticProbeMethod];
+  probe: DiagnosticProbeResult;
 }
 
 export interface ChatServerDiagnosticsActionsHost extends ChatServerActionsHost {
@@ -58,7 +58,7 @@ async function refreshServerDiagnostics(
   const cachedSkillsProbe =
     options.forceResourceProbes === true
       ? undefined
-      : (metadataSnapshot?.serverDiagnostics.probes["skills/list"] ?? state.connection.serverDiagnostics.probes["skills/list"]);
+      : (metadataSnapshot?.serverDiagnostics.probes.skills ?? state.connection.serverDiagnostics.probes.skills);
   const toolInventory = readToolInventory(client, host.vaultPath, {
     threadId: activeThreadId,
     mcpDiagnostics: initialDiagnostics.mcpServers,
@@ -69,7 +69,7 @@ async function refreshServerDiagnostics(
   if (options.forceResourceProbes === true && options.appServerMetadataSnapshot !== true) {
     probes.push(
       probeDiagnostic(
-        "model/list",
+        "models",
         () => listModelMetadata(client),
         (models) => `${String(models.length)} models`,
       ),
@@ -108,16 +108,16 @@ function currentMetadataDiagnostics(host: ChatServerDiagnosticsActionsHost): Sha
 }
 
 async function probeDiagnostic<T>(
-  method: DiagnosticProbeMethod,
+  id: DiagnosticProbeId,
   request: () => Promise<T>,
   summarize: (response: T) => string | null,
 ): Promise<DiagnosticProbeSnapshot> {
   try {
     const response = await request();
     return {
-      probe: diagnosticProbeOk(method, summarize(response), Date.now()),
+      probe: diagnosticProbeOk(id, summarize(response), Date.now()),
     };
   } catch (error) {
-    return { probe: diagnosticProbeError(method, error, Date.now()) };
+    return { probe: diagnosticProbeError(id, error, Date.now()) };
   }
 }

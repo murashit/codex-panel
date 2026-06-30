@@ -1,9 +1,9 @@
 import { CLIENT_VERSION } from "../../../../constants";
-import type { DiagnosticProbeResult, Diagnostics } from "../../../../domain/server/diagnostics";
-import { type DiagnosticProbeMethod, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
+import type { DiagnosticProbeId, DiagnosticProbeResult, Diagnostics } from "../../../../domain/server/diagnostics";
+import { diagnosticProbeLabel, serverIdentity, serverPlatform } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 
-const RUNTIME_CHECK_PROBE_METHODS: readonly DiagnosticProbeMethod[] = ["model/list", "account/rateLimits/read"];
+const RUNTIME_CHECK_PROBE_IDS: readonly DiagnosticProbeId[] = ["models", "rateLimits"];
 
 export interface DiagnosticRow {
   label: string;
@@ -38,7 +38,7 @@ export function appServerDiagnosticSections(input: AppServerDiagnosticSectionsIn
     },
     {
       title: "Runtime Checks",
-      rows: RUNTIME_CHECK_PROBE_METHODS.map((method) => diagnosticProbeRow(input.diagnostics.probes[method])),
+      rows: RUNTIME_CHECK_PROBE_IDS.map((id) => diagnosticProbeRow(input.diagnostics.probes[id])),
     },
   ];
 }
@@ -46,7 +46,7 @@ export function appServerDiagnosticSections(input: AppServerDiagnosticSectionsIn
 function diagnosticProbeRow(probe: DiagnosticProbeResult): DiagnosticRow {
   const detail = probe.message ? ` - ${probe.message}` : probe.summary ? ` (${probe.summary})` : "";
   return {
-    label: probe.method,
+    label: diagnosticProbeLabel(probe.id),
     value: `${probe.status}${detail}`,
     level: probe.status === "failed" ? "error" : probe.status === "unknown" ? "warning" : "normal",
   };

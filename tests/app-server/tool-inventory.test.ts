@@ -59,7 +59,7 @@ describe("tool inventory", () => {
     const result = await readToolInventory(client, "/vault");
 
     expect(client.request).not.toHaveBeenCalledWith("app/list", expect.anything());
-    expect(result.probes.some((probe) => probe.method === "app/list")).toBe(false);
+    expect(result.probes.some((probe) => probe.id === "apps")).toBe(false);
   });
 
   it("preserves plugin order from installed plugin summaries", async () => {

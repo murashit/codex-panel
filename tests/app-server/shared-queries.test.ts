@@ -194,7 +194,7 @@ function model(modelId: string): ModelMetadata {
 }
 
 function serverMetadata(overrides: Partial<SharedServerMetadata> = {}): SharedServerMetadata {
-  const diagnostics = diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "0 models", 1));
+  const diagnostics = diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "0 models", 1));
   return {
     runtimeConfig: null,
     availableModels: [],

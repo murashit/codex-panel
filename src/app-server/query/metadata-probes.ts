@@ -11,8 +11,8 @@ interface MetadataProbeResult<T, K extends keyof Diagnostics["probes"]> {
   probe: Diagnostics["probes"][K];
 }
 
-export type SkillMetadataProbeResult = MetadataProbeResult<SkillMetadata[], "skills/list">;
-export type RateLimitMetadataProbeResult = MetadataProbeResult<RateLimitSnapshot | null, "account/rateLimits/read">;
+export type SkillMetadataProbeResult = MetadataProbeResult<SkillMetadata[], "skills">;
+export type RateLimitMetadataProbeResult = MetadataProbeResult<RateLimitSnapshot | null, "rateLimits">;
 
 export async function readSkillMetadataProbe(
   client: AppServerRequestClient | null,
@@ -20,13 +20,13 @@ export async function readSkillMetadataProbe(
   forceReload = false,
 ): Promise<SkillMetadataProbeResult> {
   if (!client) {
-    return { value: [], probe: diagnosticProbeError("skills/list", new Error("Codex app-server is not connected."), Date.now()) };
+    return { value: [], probe: diagnosticProbeError("skills", new Error("Codex app-server is not connected."), Date.now()) };
   }
   try {
     const catalog = await listSkillCatalog(client, vaultPath, { forceReload });
-    return { value: catalog.skills, probe: diagnosticProbeOk("skills/list", `${String(catalog.totalCount)} skills`, Date.now()) };
+    return { value: catalog.skills, probe: diagnosticProbeOk("skills", `${String(catalog.totalCount)} skills`, Date.now()) };
   } catch (error) {
-    return { value: [], probe: diagnosticProbeError("skills/list", error, Date.now()) };
+    return { value: [], probe: diagnosticProbeError("skills", error, Date.now()) };
   }
 }
 
@@ -34,16 +34,16 @@ export async function readRateLimitMetadataProbe(client: AppServerRequestClient 
   if (!client) {
     return {
       value: null,
-      probe: diagnosticProbeError("account/rateLimits/read", new Error("Codex app-server is not connected."), Date.now()),
+      probe: diagnosticProbeError("rateLimits", new Error("Codex app-server is not connected."), Date.now()),
     };
   }
   try {
     const response = await readAccountRateLimits(client);
     return {
       value: rateLimitSnapshotFromAccountRateLimitsResponse(response),
-      probe: diagnosticProbeOk("account/rateLimits/read", accountRateLimitsSummaryFromResponse(response), Date.now()),
+      probe: diagnosticProbeOk("rateLimits", accountRateLimitsSummaryFromResponse(response), Date.now()),
     };
   } catch (error) {
-    return { value: null, probe: diagnosticProbeError("account/rateLimits/read", error, Date.now()) };
+    return { value: null, probe: diagnosticProbeError("rateLimits", error, Date.now()) };
   }
 }

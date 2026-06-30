@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createServerDiagnostics,
   diagnosticProbeError,
+  diagnosticProbeLabel,
   diagnosticProbeOk,
   serverIdentity,
   serverPlatform,
@@ -27,43 +28,37 @@ describe("app-server diagnostics", () => {
   it("creates generic capability probe defaults", () => {
     const diagnostics = createServerDiagnostics();
 
-    expect(Object.keys(diagnostics.probes)).toEqual([
-      "model/list",
-      "skills/list",
-      "app/list",
-      "plugin/installed",
-      "account/rateLimits/read",
-      "mcpServerStatus/list",
-    ]);
-    expect(diagnostics.probes["model/list"]).toMatchObject({
-      method: "model/list",
+    expect(Object.keys(diagnostics.probes)).toEqual(["models", "skills", "apps", "plugins", "rateLimits", "mcpServers"]);
+    expect(diagnostics.probes.models).toMatchObject({
+      id: "models",
       status: "unknown",
       message: null,
       summary: null,
       checkedAt: null,
     });
+    expect(diagnosticProbeLabel("models")).toBe("Models");
   });
 
   it("classifies ok and failed capability probes", () => {
-    expect(diagnosticProbeOk("skills/list", "3 skills", 123)).toEqual({
-      method: "skills/list",
+    expect(diagnosticProbeOk("skills", "3 skills", 123)).toEqual({
+      id: "skills",
       status: "ok",
       message: null,
       summary: "3 skills",
       checkedAt: 123,
     });
-    expect(diagnosticProbeError("plugin/installed", new Error("boom"), 456)).toMatchObject({
-      method: "plugin/installed",
+    expect(diagnosticProbeError("plugins", new Error("boom"), 456)).toMatchObject({
+      id: "plugins",
       status: "failed",
       message: "boom",
       checkedAt: 456,
     });
-    expect(diagnosticProbeError("model/list", new Error("unknown provider failure"), 792).status).toBe("failed");
+    expect(diagnosticProbeError("models", new Error("unknown provider failure"), 792).status).toBe("failed");
   });
 
   it("shortens error messages and tracks MCP server diagnostics", () => {
-    expect(diagnosticProbeError("model/list", "a\n b\t c", 1).message).toBe("a b c");
-    expect(diagnosticProbeError("model/list", "x".repeat(200), 1).message).toHaveLength(160);
+    expect(diagnosticProbeError("models", "a\n b\t c", 1).message).toBe("a b c");
+    expect(diagnosticProbeError("models", "x".repeat(200), 1).message).toHaveLength(160);
 
     let diagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
       name: "github",

@@ -253,10 +253,10 @@ describe("chat app-server actions", () => {
       rateLimit: rateLimitFixture(),
       serverDiagnostics: diagnosticsWithProbe(
         diagnosticsWithProbe(
-          diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "1 models", 1)),
-          diagnosticProbeOk("skills/list", "1 skills", 1),
+          diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "1 models", 1)),
+          diagnosticProbeOk("skills", "1 skills", 1),
         ),
-        diagnosticProbeOk("account/rateLimits/read", "available", 1),
+        diagnosticProbeOk("rateLimits", "available", 1),
       ),
     });
     const refreshAppServerMetadata = vi.fn<() => Promise<SharedServerMetadata | null>>().mockResolvedValue(refreshedMetadata);
@@ -289,15 +289,15 @@ describe("chat app-server actions", () => {
 
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
     expect(listMcpServerStatus).toHaveBeenCalledWith({ detail: "toolsAndAuthOnly", limit: 100 });
-    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
+    expect(stateStore.getState().connection.serverDiagnostics.probes.models).toMatchObject({
       status: "ok",
       summary: "1 models",
     });
-    expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"]).toMatchObject({
+    expect(stateStore.getState().connection.serverDiagnostics.probes.skills).toMatchObject({
       status: "ok",
       summary: "1 skills",
     });
-    expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"]).toMatchObject({
+    expect(stateStore.getState().connection.serverDiagnostics.probes.rateLimits).toMatchObject({
       status: "ok",
       summary: "available",
     });
@@ -325,7 +325,7 @@ describe("chat app-server actions", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const metadataCache = metadataCacheHost({
       current: serverMetadataFixture({
-        serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("model/list", "cached models", 1)),
+        serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "cached models", 1)),
       }),
     });
     const listModels = vi.fn().mockResolvedValue({ data: [modelFixture("gpt-direct")] });
@@ -350,7 +350,7 @@ describe("chat app-server actions", () => {
     expect(listModels).not.toHaveBeenCalled();
     expect(listSkills).not.toHaveBeenCalled();
     expect(readAccountRateLimits).not.toHaveBeenCalled();
-    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
+    expect(stateStore.getState().connection.serverDiagnostics.probes.models).toMatchObject({
       status: "ok",
       summary: "cached models",
     });
@@ -380,7 +380,7 @@ describe("chat app-server actions", () => {
     expect(listModels).toHaveBeenCalledWith({ includeHidden: false, limit: 100 });
     expect(listSkills).toHaveBeenCalledWith({ cwds: ["/vault"], forceReload: false });
     expect(readAccountRateLimits).toHaveBeenCalledWith(undefined);
-    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"]).toMatchObject({
+    expect(stateStore.getState().connection.serverDiagnostics.probes.models).toMatchObject({
       status: "ok",
       summary: "1 models",
     });
@@ -410,7 +410,7 @@ describe("chat app-server actions", () => {
 
     await refreshing;
     expect(listMcpServerStatus).toHaveBeenCalledWith({ detail: "toolsAndAuthOnly", limit: 100 });
-    expect(stateStore.getState().connection.serverDiagnostics.probes["mcpServerStatus/list"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.probes.mcpServers.status).toBe("unknown");
     expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([]);
     expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
@@ -438,7 +438,7 @@ describe("chat app-server actions", () => {
     const stateStore = createChatStateStore(state);
     const metadata = serverMetadataFixture({
       availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-cached")]),
-      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("model/list", new Error("offline"), 1)),
+      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("models", new Error("offline"), 1)),
     });
     const controller = createChatServerMetadataActions({
       stateStore,
@@ -451,7 +451,7 @@ describe("chat app-server actions", () => {
     await controller.refreshAppServerMetadata();
 
     expect(stateStore.getState().connection.availableModels.map((model) => model.model)).toEqual(["gpt-cached"]);
-    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    expect(stateStore.getState().connection.serverDiagnostics.probes.models.status).toBe("failed");
   });
 
   it("does not use chat state as a second model source when metadata model refresh fails", async () => {
@@ -460,7 +460,7 @@ describe("chat app-server actions", () => {
     const stateStore = createChatStateStore(state);
     const metadata = serverMetadataFixture({
       availableModels: [],
-      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("model/list", new Error("offline"), 1)),
+      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("models", new Error("offline"), 1)),
     });
     const controller = createChatServerMetadataActions({
       stateStore,
@@ -473,7 +473,7 @@ describe("chat app-server actions", () => {
     await controller.refreshAppServerMetadata();
 
     expect(stateStore.getState().connection.availableModels).toEqual([]);
-    expect(stateStore.getState().connection.serverDiagnostics.probes["model/list"].status).toBe("failed");
+    expect(stateStore.getState().connection.serverDiagnostics.probes.models.status).toBe("failed");
   });
 
   it("does not apply or publish refreshed skills after the client changes", async () => {
@@ -500,7 +500,7 @@ describe("chat app-server actions", () => {
     await refreshing;
     expect(listSkills).toHaveBeenCalledWith({ cwds: ["/vault"], forceReload: true });
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
-    expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.probes.skills.status).toBe("unknown");
     expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
@@ -523,7 +523,7 @@ describe("chat app-server actions", () => {
 
     expect(listSkills).toHaveBeenCalledWith({ cwds: ["/vault"], forceReload: true });
     expect(stateStore.getState().connection.availableSkills).toEqual(previousSkills);
-    expect(stateStore.getState().connection.serverDiagnostics.probes["skills/list"]).toMatchObject({ status: "failed" });
+    expect(stateStore.getState().connection.serverDiagnostics.probes.skills).toMatchObject({ status: "failed" });
   });
 
   it("publishes refreshed rate limits from sparse update notifications", async () => {
@@ -570,7 +570,7 @@ describe("chat app-server actions", () => {
     await controller.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
 
     expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
-    expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"]).toMatchObject({ status: "failed" });
+    expect(stateStore.getState().connection.serverDiagnostics.probes.rateLimits).toMatchObject({ status: "failed" });
   });
 
   it("does not apply or publish sparse rate limit refreshes after the client changes", async () => {
@@ -600,7 +600,7 @@ describe("chat app-server actions", () => {
 
     await refreshing;
     expect(stateStore.getState().connection.rateLimit).toBeNull();
-    expect(stateStore.getState().connection.serverDiagnostics.probes["account/rateLimits/read"].status).toBe("unknown");
+    expect(stateStore.getState().connection.serverDiagnostics.probes.rateLimits.status).toBe("unknown");
     expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 

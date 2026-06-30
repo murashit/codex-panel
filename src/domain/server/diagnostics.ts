@@ -2,20 +2,20 @@ import type { ServerInitialization } from "./initialization";
 import { type McpServerDiagnostic, type McpServerStatusSummary, mcpServerDiagnosticFromStatus } from "./mcp-status";
 import { cloneToolInventorySnapshot, type ToolInventorySnapshot } from "./tool-inventory";
 
-const DIAGNOSTIC_PROBE_METHODS = [
-  "model/list",
-  "skills/list",
-  "app/list",
-  "plugin/installed",
-  "account/rateLimits/read",
-  "mcpServerStatus/list",
-] as const;
+const DIAGNOSTIC_PROBE_DEFINITIONS = {
+  models: { label: "Models" },
+  skills: { label: "Skills" },
+  apps: { label: "Apps" },
+  plugins: { label: "Plugins" },
+  rateLimits: { label: "Rate limits" },
+  mcpServers: { label: "MCP servers" },
+} as const;
 
-export type DiagnosticProbeMethod = (typeof DIAGNOSTIC_PROBE_METHODS)[number];
+export type DiagnosticProbeId = keyof typeof DIAGNOSTIC_PROBE_DEFINITIONS;
 type DiagnosticProbeStatus = "unknown" | "ok" | "failed";
 
 export interface DiagnosticProbeResult {
-  readonly method: DiagnosticProbeMethod;
+  readonly id: DiagnosticProbeId;
   readonly status: DiagnosticProbeStatus;
   readonly message: string | null;
   readonly summary: string | null;
@@ -23,17 +23,16 @@ export interface DiagnosticProbeResult {
 }
 
 export interface Diagnostics {
-  readonly probes: Readonly<Record<DiagnosticProbeMethod, DiagnosticProbeResult>>;
+  readonly probes: Readonly<Record<DiagnosticProbeId, DiagnosticProbeResult>>;
   readonly mcpServers: readonly McpServerDiagnostic[];
   readonly toolInventory: ToolInventorySnapshot | null;
 }
 
 export function createServerDiagnostics(): Diagnostics {
   return {
-    probes: Object.fromEntries(DIAGNOSTIC_PROBE_METHODS.map((method) => [method, createDiagnosticProbeResult(method)])) as Record<
-      DiagnosticProbeMethod,
-      DiagnosticProbeResult
-    >,
+    probes: Object.fromEntries(
+      Object.keys(DIAGNOSTIC_PROBE_DEFINITIONS).map((id) => [id, createDiagnosticProbeResult(id as DiagnosticProbeId)]),
+    ) as Record<DiagnosticProbeId, DiagnosticProbeResult>,
     mcpServers: [],
     toolInventory: null,
   };
@@ -52,7 +51,7 @@ export function diagnosticsWithProbe(diagnostics: Diagnostics, probe: Diagnostic
     ...diagnostics,
     probes: {
       ...diagnostics.probes,
-      [probe.method]: probe,
+      [probe.id]: probe,
     },
   };
 }
@@ -64,9 +63,9 @@ export function diagnosticsWithToolInventory(diagnostics: Diagnostics, toolInven
   };
 }
 
-function createDiagnosticProbeResult(method: DiagnosticProbeMethod): DiagnosticProbeResult {
+function createDiagnosticProbeResult(id: DiagnosticProbeId): DiagnosticProbeResult {
   return {
-    method,
+    id,
     status: "unknown",
     message: null,
     summary: null,
@@ -74,9 +73,9 @@ function createDiagnosticProbeResult(method: DiagnosticProbeMethod): DiagnosticP
   };
 }
 
-export function diagnosticProbeOk(method: DiagnosticProbeMethod, summary: string | null, checkedAt: number): DiagnosticProbeResult {
+export function diagnosticProbeOk(id: DiagnosticProbeId, summary: string | null, checkedAt: number): DiagnosticProbeResult {
   return {
-    method,
+    id,
     status: "ok",
     message: null,
     summary,
@@ -84,14 +83,18 @@ export function diagnosticProbeOk(method: DiagnosticProbeMethod, summary: string
   };
 }
 
-export function diagnosticProbeError(method: DiagnosticProbeMethod, error: unknown, checkedAt: number): DiagnosticProbeResult {
+export function diagnosticProbeError(id: DiagnosticProbeId, error: unknown, checkedAt: number): DiagnosticProbeResult {
   return {
-    method,
+    id,
     status: "failed",
     message: shortErrorMessage(error),
     summary: null,
     checkedAt,
   };
+}
+
+export function diagnosticProbeLabel(id: DiagnosticProbeId): string {
+  return DIAGNOSTIC_PROBE_DEFINITIONS[id].label;
 }
 
 export function serverIdentity(initializeResponse: ServerInitialization | null): string {

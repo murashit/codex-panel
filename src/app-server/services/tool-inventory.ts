@@ -65,7 +65,7 @@ function readCachedSkills(
   return {
     items: [...skills],
     error: null,
-    probe: probe ?? diagnosticProbeOk("skills/list", `${String(skills.length)} skills`, checkedAt),
+    probe: probe ?? diagnosticProbeOk("skills", `${String(skills.length)} skills`, checkedAt),
   };
 }
 
@@ -86,14 +86,14 @@ async function readPlugins(
       items: plugins,
       marketplaceErrors,
       error: null,
-      probe: diagnosticProbeOk("plugin/installed", `${String(plugins.length)} plugins`, checkedAt),
+      probe: diagnosticProbeOk("plugins", `${String(plugins.length)} plugins`, checkedAt),
     };
   } catch (error) {
     return {
       items: null,
       marketplaceErrors: [],
       error: shortErrorMessage(error),
-      probe: diagnosticProbeError("plugin/installed", error, checkedAt),
+      probe: diagnosticProbeError("plugins", error, checkedAt),
     };
   }
 }
@@ -113,13 +113,13 @@ async function readMcpServers(
     return {
       items: servers,
       error: null,
-      probe: diagnosticProbeOk("mcpServerStatus/list", mcpSummary(servers), checkedAt),
+      probe: diagnosticProbeOk("mcpServers", mcpSummary(servers), checkedAt),
     };
   } catch (error) {
     return {
       items: null,
       error: shortErrorMessage(error),
-      probe: diagnosticProbeError("mcpServerStatus/list", error, checkedAt),
+      probe: diagnosticProbeError("mcpServers", error, checkedAt),
     };
   }
 }
@@ -139,10 +139,10 @@ async function readSkills(
     return {
       items: catalog.skills,
       error: null,
-      probe: diagnosticProbeOk("skills/list", `${String(catalog.totalCount)} skills`, checkedAt),
+      probe: diagnosticProbeOk("skills", `${String(catalog.totalCount)} skills`, checkedAt),
     };
   } catch (error) {
-    return { items: null, error: shortErrorMessage(error), probe: diagnosticProbeError("skills/list", error, checkedAt) };
+    return { items: null, error: shortErrorMessage(error), probe: diagnosticProbeError("skills", error, checkedAt) };
   }
 }
 
