@@ -2,46 +2,29 @@ import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimePermissionState, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-
-interface RuntimePermissionRow {
-  label: string;
-  value: string;
-}
-
-interface RuntimePermissionSection {
-  title: string;
-  rows: RuntimePermissionRow[];
-}
-
-interface RuntimePermissionDetails {
-  title: string;
-  sections: RuntimePermissionSection[];
-}
+import type { DiagnosticRow, DiagnosticSection } from "./diagnostic-sections";
 
 interface RuntimePermissionSectionsInput {
   snapshot: RuntimeSnapshot;
   vaultPath: string;
 }
 
-export function runtimePermissionDetails(input: RuntimePermissionSectionsInput): RuntimePermissionDetails {
+export function runtimePermissionSections(input: RuntimePermissionSectionsInput): DiagnosticSection[] {
   const config = runtimeConfigOrDefault(input.snapshot.runtimeConfig);
   const resolution = resolveRuntimeControls(input.snapshot, config);
-  return {
-    title: "Permissions & Approvals",
-    sections: [
-      {
-        title: "Permissions",
-        rows: accessRows(resolution.permissions.effective, input.vaultPath),
-      },
-      {
-        title: "Approvals",
-        rows: approvalRows(resolution.permissions.effective, resolution.approvalsReviewer.effective),
-      },
-    ],
-  };
+  return [
+    {
+      title: "Permissions",
+      rows: accessRows(resolution.permissions.effective, input.vaultPath),
+    },
+    {
+      title: "Approvals",
+      rows: approvalRows(resolution.permissions.effective, resolution.approvalsReviewer.effective),
+    },
+  ];
 }
 
-function accessRows(permissions: RuntimePermissionState, vaultPath: string): RuntimePermissionRow[] {
+function accessRows(permissions: RuntimePermissionState, vaultPath: string): DiagnosticRow[] {
   return [
     { label: "Profile", value: profileLabel(permissions) },
     { label: "Sandbox", value: sandboxLabel(permissions.sandboxPolicy) },
@@ -50,7 +33,7 @@ function accessRows(permissions: RuntimePermissionState, vaultPath: string): Run
   ];
 }
 
-function approvalRows(permissions: RuntimePermissionState, reviewer: string | null): RuntimePermissionRow[] {
+function approvalRows(permissions: RuntimePermissionState, reviewer: string | null): DiagnosticRow[] {
   return [
     { label: "Approval policy", value: approvalPolicyLabel(permissions.approvalPolicy) },
     {

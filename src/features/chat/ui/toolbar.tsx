@@ -42,8 +42,7 @@ export interface ToolbarViewModel {
   openPanel: "history" | "chat-actions" | "status" | null;
   threads: ToolbarThreadRow[];
   connectLabel: string;
-  runtimePermissionsTitle: string;
-  runtimePermissions: ToolbarStatusSection[];
+  permissionsAndApprovals: ToolbarStatusSection[];
   diagnostics: ToolbarStatusSection[];
   toolInventory: ToolbarStatusSection[];
 }
@@ -196,7 +195,7 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
       </div>
       <RateLimitPanel rateLimit={model.rateLimit} />
       <DiagnosticSectionsPanel title="Connection diagnostics" sections={model.diagnostics} />
-      <DiagnosticSectionsPanel title={model.runtimePermissionsTitle} sections={model.runtimePermissions} />
+      <DiagnosticSectionsPanel title="Permissions & Approvals" sections={model.permissionsAndApprovals} />
       <DiagnosticSectionsPanel title="Codex capabilities" sections={model.toolInventory} />
     </>
   );
@@ -252,8 +251,8 @@ function RateLimitPanel({ rateLimit }: { rateLimit: RateLimitSummary | null }): 
 
 function DiagnosticSectionsPanel({ title, sections }: { title: string; sections: ToolbarStatusSection[] }): UiNode {
   return (
-    <div className="codex-panel__connection-diagnostics">
-      <div className="codex-panel__connection-diagnostics-title">{title}</div>
+    <div className="codex-panel__status-diagnostics">
+      <div className="codex-panel__status-diagnostics-title">{title}</div>
       {sections.map((section) => (
         <DiagnosticSection key={section.title} section={section} />
       ))}
@@ -263,7 +262,7 @@ function DiagnosticSectionsPanel({ title, sections }: { title: string; sections:
 
 function DiagnosticRows({ rows }: { rows: ToolbarStatusRow[] }): UiNode {
   return (
-    <dl className="codex-panel__connection-diagnostics-list">
+    <dl className="codex-panel__status-diagnostics-list">
       {rows.map((row) => (
         <DiagnosticRow key={`${row.label}:${row.value}:${row.level ?? "normal"}`} row={row} />
       ))}
@@ -274,7 +273,7 @@ function DiagnosticRows({ rows }: { rows: ToolbarStatusRow[] }): UiNode {
 function DiagnosticSection({ section }: { section: ToolbarStatusSection }): UiNode {
   return (
     <>
-      {section.title ? <div className="codex-panel__connection-diagnostics-section">{section.title}</div> : null}
+      {section.title ? <div className="codex-panel__status-diagnostics-section">{section.title}</div> : null}
       <DiagnosticRows rows={section.rows} />
     </>
   );
@@ -286,10 +285,10 @@ function DiagnosticRow({ row }: { row: ToolbarStatusRow }): UiNode {
     <div
       className={
         level === "error"
-          ? "codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--error"
+          ? "codex-panel__status-diagnostics-row codex-panel__status-diagnostics-row--error"
           : level === "warning"
-            ? "codex-panel__connection-diagnostics-row codex-panel__connection-diagnostics-row--warning"
-            : "codex-panel__connection-diagnostics-row"
+            ? "codex-panel__status-diagnostics-row codex-panel__status-diagnostics-row--warning"
+            : "codex-panel__status-diagnostics-row"
       }
     >
       <dt>{row.label}</dt>

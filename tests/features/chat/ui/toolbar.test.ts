@@ -167,7 +167,7 @@ describe("Toolbar decisions", () => {
       toolbarActions({ refreshStatus }),
     );
 
-    expect([...parent.querySelectorAll(".codex-panel__connection-diagnostics-title")].map((title) => title.textContent)).toEqual([
+    expect([...parent.querySelectorAll(".codex-panel__status-diagnostics-title")].map((title) => title.textContent)).toEqual([
       "Connection diagnostics",
       "Permissions & Approvals",
       "Codex capabilities",
@@ -179,7 +179,7 @@ describe("Toolbar decisions", () => {
     expect(parent.textContent).toContain("Copy debug details");
     expect(parent.textContent).toContain("Refresh");
     expect(parent.textContent).toContain("codex-cli/1.2.3");
-    expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")?.textContent).toContain("model/list failed");
+    expect(parent.querySelector(".codex-panel__status-diagnostics-row--error")?.textContent).toContain("model/list failed");
     const statusItems = [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")];
     expect(parent.querySelector(".codex-panel__status-panel-items")?.tagName).toBe("DIV");
     expect(parent.querySelector(".codex-panel__status-panel-items")?.getAttribute("aria-label")).toBeNull();
@@ -198,8 +198,7 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         statusPanelOpen: true,
         openPanel: "status",
-        runtimePermissionsTitle: "Permissions & Approvals",
-        runtimePermissions: [
+        permissionsAndApprovals: [
           {
             title: "Permissions",
             rows: [
@@ -225,14 +224,14 @@ describe("Toolbar decisions", () => {
     expect(parent.textContent).toContain("Permissions & Approvals");
     expect(parent.textContent).toContain("Permissions");
     expect(parent.textContent).toContain("Approvals");
-    expect(
-      [...parent.querySelectorAll(".codex-panel__connection-diagnostics-section")].map((section) => section.textContent),
-    ).not.toContain("Current thread");
+    expect([...parent.querySelectorAll(".codex-panel__status-diagnostics-section")].map((section) => section.textContent)).not.toContain(
+      "Current thread",
+    );
     expect(parent.textContent).toContain(":workspace");
     expect(parent.textContent).toContain("workspace-write");
     expect(parent.textContent).toContain("auto_review");
-    expect(parent.querySelector(".codex-panel__connection-diagnostics-row--warning")).toBeNull();
-    expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")).toBeNull();
+    expect(parent.querySelector(".codex-panel__status-diagnostics-row--warning")).toBeNull();
+    expect(parent.querySelector(".codex-panel__status-diagnostics-row--error")).toBeNull();
   });
 
   it("copies raw debug details from the status menu", () => {
@@ -411,8 +410,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     openPanel: null,
     threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
     connectLabel: "Reconnect",
-    runtimePermissionsTitle: "Permissions & Approvals",
-    runtimePermissions: [{ title: "Permissions", rows: [{ label: "Thread", value: "(none)" }] }],
+    permissionsAndApprovals: [{ title: "Permissions", rows: [{ label: "Thread", value: "(none)" }] }],
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
     toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "not loaded", level: "warning" }] }],
     ...overrides,

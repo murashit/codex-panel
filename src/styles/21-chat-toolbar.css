@@ -217,12 +217,12 @@
   color: var(--codex-panel-color-danger);
 }
 
-.codex-panel__connection-diagnostics {
+.codex-panel__status-diagnostics {
   margin-top: var(--codex-panel-panel-gap);
   padding-top: var(--codex-panel-item-gap);
 }
 
-.codex-panel__connection-diagnostics-title {
+.codex-panel__status-diagnostics-title {
   padding: var(--codex-panel-section-label-padding);
   color: var(--codex-panel-section-label-color);
   font-size: var(--codex-panel-section-label-size);
@@ -230,7 +230,7 @@
   line-height: var(--codex-panel-section-label-line-height);
 }
 
-.codex-panel__connection-diagnostics-section {
+.codex-panel__status-diagnostics-section {
   padding: var(--codex-panel-section-label-block-padding);
   color: var(--codex-panel-section-label-color);
   font-size: var(--codex-panel-section-label-size);
@@ -238,37 +238,37 @@
   line-height: var(--codex-panel-section-label-line-height);
 }
 
-.codex-panel__connection-diagnostics-title + .codex-panel__connection-diagnostics-section {
+.codex-panel__status-diagnostics-title + .codex-panel__status-diagnostics-section {
   padding-top: 0;
 }
 
-.codex-panel__connection-diagnostics-list {
+.codex-panel__status-diagnostics-list {
   margin: 0;
   cursor: text;
   user-select: text;
 }
 
-.codex-panel__connection-diagnostics-row {
+.codex-panel__status-diagnostics-row {
   display: grid;
   grid-template-columns: minmax(0, 36%) minmax(0, 1fr);
   gap: var(--codex-panel-section-gap);
   padding: var(--codex-panel-control-gap) var(--codex-panel-section-gap);
 }
 
-.codex-panel__connection-diagnostics-row dt,
-.codex-panel__connection-diagnostics-row dd {
+.codex-panel__status-diagnostics-row dt,
+.codex-panel__status-diagnostics-row dd {
   margin: 0;
   min-width: 0;
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
 }
 
-.codex-panel__connection-diagnostics-row dt {
+.codex-panel__status-diagnostics-row dt {
   color: var(--codex-panel-text-faint);
   overflow-wrap: anywhere;
 }
 
-.codex-panel__connection-diagnostics-row dd {
+.codex-panel__status-diagnostics-row dd {
   color: var(--codex-panel-text-muted);
   overflow-wrap: anywhere;
   cursor: text;
@@ -276,11 +276,11 @@
   white-space: pre-wrap;
 }
 
-.codex-panel__connection-diagnostics-row--warning dd {
+.codex-panel__status-diagnostics-row--warning dd {
   color: var(--codex-panel-color-warning);
 }
 
-.codex-panel__connection-diagnostics-row--error dd {
+.codex-panel__status-diagnostics-row--error dd {
   color: var(--codex-panel-color-danger);
 }
 

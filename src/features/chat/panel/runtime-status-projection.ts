@@ -4,7 +4,7 @@ import type { MessageStreamNoticeSection } from "../domain/message-stream/items"
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { appServerDiagnosticSections } from "../presentation/runtime/diagnostic-sections";
-import { runtimePermissionDetails } from "../presentation/runtime/permission-sections";
+import { runtimePermissionSections } from "../presentation/runtime/permission-sections";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
@@ -86,10 +86,10 @@ function toolInventoryDetails(input: ChatPanelRuntimeProjectionInput): MessageSt
 function permissionDetails(input: ChatPanelRuntimeProjectionInput): MessageStreamNoticeSection[] {
   const state = input.state();
   return noticeSectionsFromDiagnostics(
-    runtimePermissionDetails({
+    runtimePermissionSections({
       snapshot: runtimeSnapshot(state),
       vaultPath: input.vaultPath(),
-    }).sections,
+    }),
   );
 }
 
