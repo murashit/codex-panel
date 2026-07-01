@@ -36,11 +36,9 @@ function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["servi
       pending: {
         model: { kind: "unchanged" },
         reasoningEffort: { kind: "unchanged" },
-        permissions: {
-          approvalPolicy: { kind: "unchanged" },
-          permissionProfile: { kind: "unchanged" },
-          reviewer: { kind: "unchanged" },
-        },
+        permissionProfile: { kind: "unchanged" },
+        approvalPolicy: { kind: "unchanged" },
+        approvalsReviewer: { kind: "unchanged" },
         collaborationMode: "default",
         fastMode: { kind: "unchanged" },
       },

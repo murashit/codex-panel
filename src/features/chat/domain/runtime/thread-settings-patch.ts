@@ -60,25 +60,25 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
     "serviceTier",
     runtimeSettingsPatchValue(serviceTierPatchIntent(snapshot, resolution, "thread-update")),
   );
-  if (snapshot.pending.permissions.approvalPolicy.kind !== "unchanged") {
+  if (snapshot.pending.approvalPolicy.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(
       update,
       "approvalPolicy",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.permissions.approvalPolicy)),
+      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.approvalPolicy)),
     );
   }
-  if (snapshot.pending.permissions.permissionProfile.kind !== "unchanged") {
+  if (snapshot.pending.permissionProfile.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(
       update,
       "permissions",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.permissions.permissionProfile)),
+      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.permissionProfile)),
     );
   }
-  if (snapshot.pending.permissions.reviewer.kind !== "unchanged") {
+  if (snapshot.pending.approvalsReviewer.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(
       update,
       "approvalsReviewer",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.permissions.reviewer)),
+      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.approvalsReviewer)),
     );
   }
   if (resolution.collaborationMode.dirty) {

@@ -31,7 +31,7 @@ export function runtimePermissionDetails(input: RuntimePermissionSectionsInput):
     sections: [
       {
         title: "",
-        rows: permissionRows(resolution.permissions.effective, resolution.permissions.reviewer.effective, input.vaultPath),
+        rows: permissionRows(resolution.permissions.effective, resolution.approvalsReviewer.effective, input.vaultPath),
       },
     ],
   };

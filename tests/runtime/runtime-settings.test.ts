@@ -99,7 +99,7 @@ describe("runtime settings", () => {
     });
   });
 
-  it("resolves permissions through runtime controls without falling active threads back to config", () => {
+  it("treats active thread permissions as authoritative over startup config", () => {
     const configured = runtimeSnapshot({
       runtimeConfig: runtimeConfigFixture({
         default_permissions: ":workspace",
@@ -110,7 +110,6 @@ describe("runtime settings", () => {
       scope: "new-thread",
       source: "config",
       active: null,
-      reviewer: { effective: null, source: "none" },
       effective: {
         activePermissionProfile: { id: ":workspace", extends: null },
         approvalPolicy: "on-request",
@@ -128,7 +127,6 @@ describe("runtime settings", () => {
     expect(resolveRuntimeControls(activeUnreported, snapshotConfig(activeUnreported)).permissions).toMatchObject({
       scope: "current-thread",
       source: "active-thread",
-      reviewer: { effective: null, source: "none" },
       effective: {
         activePermissionProfile: null,
         approvalPolicy: null,
@@ -144,16 +142,18 @@ describe("runtime settings", () => {
         activePermissionProfile: { id: ":read-only", extends: null },
         approvalsReviewer: "user",
       },
-      pending: { permissions: { reviewer: setRuntimeIntentValue("auto_review") } },
+      pending: { approvalsReviewer: setRuntimeIntentValue("auto_review") },
     });
-    expect(resolveRuntimeControls(activeReported, snapshotConfig(activeReported)).permissions).toMatchObject({
-      scope: "current-thread",
-      source: "active-thread",
-      reviewer: { effective: "auto_review", source: "pending" },
-      effective: {
-        activePermissionProfile: { id: ":read-only", extends: null },
-        approvalPolicy: "never",
-        sandboxPolicy: { type: "readOnly", networkAccess: false },
+    expect(resolveRuntimeControls(activeReported, snapshotConfig(activeReported))).toMatchObject({
+      approvalsReviewer: { effective: "auto_review", source: "pending" },
+      permissions: {
+        scope: "current-thread",
+        source: "active-thread",
+        effective: {
+          activePermissionProfile: { id: ":read-only", extends: null },
+          approvalPolicy: "never",
+          sandboxPolicy: { type: "readOnly", networkAccess: false },
+        },
       },
     });
   });
@@ -167,10 +167,8 @@ describe("runtime settings", () => {
         activePermissionProfile: null,
       },
       pending: {
-        permissions: {
-          approvalPolicy: setRuntimeIntentValue("never"),
-          permissionProfile: setRuntimeIntentValue(":workspace"),
-        },
+        approvalPolicy: setRuntimeIntentValue("never"),
+        permissionProfile: setRuntimeIntentValue(":workspace"),
       },
     });
 
@@ -207,7 +205,7 @@ describe("runtime settings", () => {
         activePermissionProfile: { id: ":workspace", extends: null },
         sandboxPolicy: null,
       },
-      pending: { permissions: { permissionProfile: resetRuntimeIntentToConfig() } },
+      pending: { permissionProfile: resetRuntimeIntentToConfig() },
     });
 
     expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot)).permissions).toMatchObject({
@@ -348,7 +346,7 @@ describe("runtime settings", () => {
     const reviewerSnapshot = runtimeSnapshot({
       pending: {
         collaborationMode: "plan",
-        permissions: { reviewer: setRuntimeIntentValue("auto_review") },
+        approvalsReviewer: setRuntimeIntentValue("auto_review"),
       },
     });
     const activeRuntimeSnapshot = runtimeSnapshot({
@@ -383,7 +381,7 @@ describe("runtime settings", () => {
 
   it("resolves auto-review mode from requested, active, then effective config", () => {
     const requested = runtimeSnapshot({
-      pending: { permissions: { reviewer: setRuntimeIntentValue("user") } },
+      pending: { approvalsReviewer: setRuntimeIntentValue("user") },
       active: { approvalsReviewer: "auto_review" },
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "guardian_subagent" }),
     });
@@ -419,7 +417,7 @@ describe("runtime settings", () => {
 
   it("uses requested reviewer above active and configured reviewers", () => {
     const snapshot = runtimeSnapshot({
-      pending: { permissions: { reviewer: setRuntimeIntentValue("user") } },
+      pending: { approvalsReviewer: setRuntimeIntentValue("user") },
       active: { approvalsReviewer: "user" },
       runtimeConfig: runtimeConfigFixture({ approvals_reviewer: "auto_review" }),
     });
@@ -563,7 +561,7 @@ describe("runtime settings", () => {
         ...active.pending,
         model: setRuntimeIntentValue("gpt-pending"),
         reasoningEffort: setRuntimeIntentValue("low"),
-        permissions: { reviewer: setRuntimeIntentValue("guardian_subagent") },
+        approvalsReviewer: setRuntimeIntentValue("guardian_subagent"),
         fastMode: setRuntimeIntentValue("enabled"),
       },
     });
@@ -571,19 +569,19 @@ describe("runtime settings", () => {
     expect(resolveRuntimeControls(configured, snapshotConfig(configured))).toMatchObject({
       model: { effective: "gpt-config", source: "config" },
       reasoningEffort: { effective: "medium", source: "config" },
-      permissions: { reviewer: { effective: "auto_review", source: "config" } },
+      approvalsReviewer: { effective: "auto_review", source: "config" },
       serviceTier: { effective: "fast", source: "config" },
     });
     expect(resolveRuntimeControls(active, snapshotConfig(active))).toMatchObject({
       model: { effective: "gpt-active", source: "active-thread" },
       reasoningEffort: { effective: "high", source: "active-thread" },
-      permissions: { reviewer: { effective: "user", source: "active-thread" } },
+      approvalsReviewer: { effective: "user", source: "active-thread" },
       serviceTier: { effective: "flex", source: "active-thread" },
     });
     expect(resolveRuntimeControls(pending, snapshotConfig(pending))).toMatchObject({
       model: { effective: "gpt-pending", source: "pending" },
       reasoningEffort: { effective: "low", source: "pending" },
-      permissions: { reviewer: { effective: "guardian_subagent", source: "pending" } },
+      approvalsReviewer: { effective: "guardian_subagent", source: "pending" },
       serviceTier: { effective: "fast", source: "pending" },
       fastMode: { active: true, source: "pending", serviceTierRequestValue: "fast" },
     });
@@ -616,7 +614,7 @@ describe("runtime settings", () => {
   });
 
   it("resolves requested approval reviewer without adding it to turn runtime settings", () => {
-    const snapshot = runtimeSnapshot({ pending: { permissions: { reviewer: setRuntimeIntentValue("auto_review") } } });
+    const snapshot = runtimeSnapshot({ pending: { approvalsReviewer: setRuntimeIntentValue("auto_review") } });
 
     expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
@@ -859,9 +857,7 @@ describe("runtime settings", () => {
 
 interface RuntimeSnapshotPatch extends Partial<Omit<RuntimeSnapshot, "active" | "pending">> {
   active?: Partial<RuntimeSnapshot["active"]>;
-  pending?: Partial<Omit<RuntimeSnapshot["pending"], "permissions">> & {
-    permissions?: Partial<RuntimeSnapshot["pending"]["permissions"]>;
-  };
+  pending?: Partial<RuntimeSnapshot["pending"]>;
 }
 
 function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot {
@@ -888,11 +884,9 @@ function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot 
     pending: {
       model: { kind: "unchanged" },
       reasoningEffort: { kind: "unchanged" },
-      permissions: {
-        approvalPolicy: { kind: "unchanged" },
-        permissionProfile: { kind: "unchanged" },
-        reviewer: { kind: "unchanged" },
-      },
+      permissionProfile: { kind: "unchanged" },
+      approvalPolicy: { kind: "unchanged" },
+      approvalsReviewer: { kind: "unchanged" },
       collaborationMode: "default",
       fastMode: { kind: "unchanged" },
     },
@@ -912,10 +906,6 @@ function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot 
     pending: {
       ...snapshot.pending,
       ...pending,
-      permissions: {
-        ...snapshot.pending.permissions,
-        ...(pending?.permissions ?? {}),
-      },
     },
   };
 }

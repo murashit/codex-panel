@@ -52,7 +52,7 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
-    expect(store.getState().runtime.pending.permissions.reviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(store.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(store.getState().runtime.pending.collaborationMode).toBe("default");
     expect(messages).toEqual([
       "Fast mode on for subsequent turns.",

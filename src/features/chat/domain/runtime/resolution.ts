@@ -42,7 +42,6 @@ interface RuntimePermissionsResolution {
   readonly configured: RuntimePermissionState;
   readonly active: RuntimePermissionState | null;
   readonly effective: RuntimePermissionState;
-  readonly reviewer: RuntimeLayeredValue<ApprovalsReviewer>;
   readonly source: RuntimeValueSource;
 }
 
@@ -54,6 +53,7 @@ export interface RuntimeControlsResolution {
   readonly fastMode: FastModeResolution;
   readonly collaborationMode: CollaborationModeResolution;
   readonly permissions: RuntimePermissionsResolution;
+  readonly approvalsReviewer: RuntimeLayeredValue<ApprovalsReviewer>;
   readonly supportedReasoningEfforts: readonly ReasoningEffort[];
 }
 
@@ -71,14 +71,14 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
   const reviewer = resolveRuntimeValue({
     configured: config.approvalsReviewer,
     active: snapshot.active.approvalsReviewer,
-    pending: snapshot.pending.permissions.reviewer,
+    pending: snapshot.pending.approvalsReviewer,
   });
   const serviceTiers = findModelMetadataByIdOrName(snapshot.availableModels, model.effective)?.serviceTiers ?? [];
   const serviceTier = resolveServiceTier(snapshot, config);
   const fastMode = resolveFastMode(snapshot.pending.fastMode, serviceTier, serviceTiers);
   const collaborationMode = resolveCollaborationMode(snapshot, model.effective);
-  const permissions = resolveRuntimePermissions(snapshot, config, reviewer);
-  const autoReview = resolveAutoReview(permissions.reviewer);
+  const permissions = resolveRuntimePermissions(snapshot, config);
+  const autoReview = resolveAutoReview(reviewer);
 
   return {
     model,
@@ -88,6 +88,7 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     fastMode,
     collaborationMode,
     permissions,
+    approvalsReviewer: reviewer,
     supportedReasoningEfforts: supportedEffortsForModelMetadata(findModelMetadataByIdOrName(snapshot.availableModels, model.effective)),
   };
 }
@@ -99,33 +100,39 @@ function resolveAutoReview(reviewer: RuntimeLayeredValue<ApprovalsReviewer>): Au
   };
 }
 
-function resolveRuntimePermissions(
-  snapshot: RuntimeSnapshot,
-  config: RuntimeConfigSnapshot,
-  reviewer: RuntimeLayeredValue<ApprovalsReviewer>,
-): RuntimePermissionsResolution {
+function resolveRuntimePermissions(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimePermissionsResolution {
   const configured = cloneRuntimePermissionState(config.startupPermissions);
   const scope = snapshot.activeThreadId ? "current-thread" : "new-thread";
   const baseSource = snapshot.activeThreadId ? "active-thread" : "config";
   if (snapshot.activeThreadId) {
     const active = cloneRuntimePermissionState(snapshot.active);
-    const { effective, source } = resolveRuntimePermissionState(active, configured, snapshot.pending.permissions, baseSource);
+    const { effective, source } = resolveRuntimePermissionState(
+      active,
+      configured,
+      snapshot.pending.approvalPolicy,
+      snapshot.pending.permissionProfile,
+      baseSource,
+    );
     return {
       scope,
       configured,
       active,
       effective,
-      reviewer,
       source,
     };
   }
-  const { effective, source } = resolveRuntimePermissionState(configured, configured, snapshot.pending.permissions, baseSource);
+  const { effective, source } = resolveRuntimePermissionState(
+    configured,
+    configured,
+    snapshot.pending.approvalPolicy,
+    snapshot.pending.permissionProfile,
+    baseSource,
+  );
   return {
     scope,
     configured,
     active: null,
     effective,
-    reviewer,
     source,
   };
 }
@@ -133,18 +140,19 @@ function resolveRuntimePermissions(
 function resolveRuntimePermissionState(
   base: RuntimePermissionState,
   configured: RuntimePermissionState,
-  pending: RuntimeSnapshot["pending"]["permissions"],
+  approvalPolicyIntent: RuntimeSnapshot["pending"]["approvalPolicy"],
+  permissionProfileIntent: RuntimeSnapshot["pending"]["permissionProfile"],
   baseSource: RuntimeValueSource,
 ): Pick<RuntimePermissionsResolution, "effective" | "source"> {
   let effective = cloneRuntimePermissionState(base);
   let source = baseSource;
-  const approvalPolicy = runtimePermissionIntentValue(pending.approvalPolicy, configured.approvalPolicy);
+  const approvalPolicy = runtimePermissionIntentValue(approvalPolicyIntent, configured.approvalPolicy);
   if (approvalPolicy !== undefined) {
     effective = { ...effective, approvalPolicy };
     source = "pending";
   }
   const configuredPermissionProfile = configured.activePermissionProfile?.id ?? null;
-  const permissionProfile = runtimePermissionIntentValue(pending.permissionProfile, configuredPermissionProfile);
+  const permissionProfile = runtimePermissionIntentValue(permissionProfileIntent, configuredPermissionProfile);
   if (permissionProfile !== undefined) {
     effective = {
       ...effective,

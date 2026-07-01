@@ -126,11 +126,9 @@ describe("chat panel surface projections", () => {
     state = chatStateWith(state, {
       runtime: {
         pending: {
-          permissions: {
-            approvalPolicy: { kind: "unchanged" },
-            permissionProfile: { kind: "unchanged" },
-            reviewer: { kind: "set", value: "auto_review" },
-          },
+          approvalsReviewer: { kind: "set", value: "auto_review" },
+          approvalPolicy: { kind: "unchanged" },
+          permissionProfile: { kind: "unchanged" },
         },
       },
     });

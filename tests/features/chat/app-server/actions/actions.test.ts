@@ -105,7 +105,7 @@ describe("chat app-server actions", () => {
     expect(stateStore.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(stateStore.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(stateStore.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
-    expect(stateStore.getState().runtime.pending.permissions.reviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(stateStore.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(stateStore.getState().runtime.pending.collaborationMode).toBe("plan");
   });
 
