@@ -1,9 +1,16 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, type ModelMetadata, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
-import { cloneRuntimePermissionState, type RuntimePermissionState } from "../../../../domain/runtime/permissions";
+import { cloneRuntimePermissionState, type RuntimeApprovalPolicy, type RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
 import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
-import { effectiveCollaborationMode, type PendingRuntimeIntent, type RequestedFastMode } from "./intent";
+import {
+  effectiveCollaborationMode,
+  type PendingRuntimeIntent,
+  type RequestedFastMode,
+  resetRuntimeIntentToConfig,
+  setRuntimeIntentValue,
+  unchangedRuntimeIntent,
+} from "./intent";
 import type { RuntimeSnapshot } from "./snapshot";
 
 type RuntimeValueSource = "pending" | "active-thread" | "config" | "none";
@@ -12,6 +19,18 @@ interface RuntimeLayeredValue<T> {
   readonly configured: T | null;
   readonly active: T | null;
   readonly pending: PendingRuntimeIntent<T>;
+  readonly confirmed: T | null;
+  readonly confirmedSource: RuntimeValueSource;
+  readonly effective: T | null;
+  readonly source: RuntimeValueSource;
+}
+
+interface RuntimeNullableLayeredValue<T> {
+  readonly configured: T | null;
+  readonly active: T | null;
+  readonly pending: PendingRuntimeIntent<T | null>;
+  readonly confirmed: T | null;
+  readonly confirmedSource: RuntimeValueSource;
   readonly effective: T | null;
   readonly source: RuntimeValueSource;
 }
@@ -19,30 +38,28 @@ interface RuntimeLayeredValue<T> {
 interface FastModeResolution {
   readonly requested: PendingRuntimeIntent<RequestedFastMode>;
   readonly active: boolean;
+  readonly confirmedActive: boolean;
   readonly source: RuntimeValueSource;
+  readonly confirmedSource: RuntimeValueSource;
   readonly effectiveServiceTier: ServiceTier | null;
+  readonly confirmedServiceTier: ServiceTier | null;
   readonly serviceTierRequestValue: string;
 }
 
 interface AutoReviewResolution {
   readonly active: boolean;
+  readonly confirmedActive: boolean;
   readonly source: RuntimeValueSource;
+  readonly confirmedSource: RuntimeValueSource;
 }
 
 interface CollaborationModeResolution {
   readonly active: RuntimeSnapshot["active"]["collaborationMode"];
-  readonly selected: RuntimeSnapshot["pending"]["collaborationMode"];
-  readonly effective: RuntimeSnapshot["pending"]["collaborationMode"];
+  readonly pending: RuntimeSnapshot["pending"]["collaborationMode"];
+  readonly confirmed: NonNullable<RuntimeSnapshot["active"]["collaborationMode"]>;
+  readonly effective: NonNullable<RuntimeSnapshot["active"]["collaborationMode"]>;
   readonly dirty: boolean;
   readonly blockedReason: "missing-model" | null;
-}
-
-interface RuntimePermissionsResolution {
-  readonly scope: "new-thread" | "current-thread";
-  readonly configured: RuntimePermissionState;
-  readonly active: RuntimePermissionState | null;
-  readonly effective: RuntimePermissionState;
-  readonly source: RuntimeValueSource;
 }
 
 export interface RuntimeControlsResolution {
@@ -52,7 +69,9 @@ export interface RuntimeControlsResolution {
   readonly serviceTier: RuntimeLayeredValue<ServiceTier>;
   readonly fastMode: FastModeResolution;
   readonly collaborationMode: CollaborationModeResolution;
-  readonly permissions: RuntimePermissionsResolution;
+  readonly permissionProfile: RuntimeLayeredValue<string>;
+  readonly sandboxPolicy: RuntimeNullableLayeredValue<RuntimeSandboxPolicy>;
+  readonly approvalPolicy: RuntimeLayeredValue<RuntimeApprovalPolicy>;
   readonly approvalsReviewer: RuntimeLayeredValue<ApprovalsReviewer>;
   readonly supportedReasoningEfforts: readonly ReasoningEffort[];
 }
@@ -77,7 +96,19 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
   const serviceTier = resolveServiceTier(snapshot, config);
   const fastMode = resolveFastMode(snapshot.pending.fastMode, serviceTier, serviceTiers);
   const collaborationMode = resolveCollaborationMode(snapshot, model.effective);
-  const permissions = resolveRuntimePermissions(snapshot, config);
+  const permissionProfile = resolveRuntimePermissionValue({
+    configured: config.startupPermissions.activePermissionProfile?.id ?? null,
+    active: snapshot.active.activePermissionProfile?.id ?? null,
+    pending: snapshot.pending.permissionProfile,
+    activeKnown: snapshot.activeThreadId !== null && snapshot.active.permissionProfileKnown,
+  });
+  const approvalPolicy = resolveRuntimePermissionValue({
+    configured: config.startupPermissions.approvalPolicy,
+    active: snapshot.active.approvalPolicy,
+    pending: snapshot.pending.approvalPolicy,
+    activeKnown: snapshot.activeThreadId !== null && snapshot.active.approvalPolicyKnown,
+  });
+  const sandboxPolicy = resolveRuntimeSandboxPolicy(snapshot, config);
   const autoReview = resolveAutoReview(reviewer);
 
   return {
@@ -87,7 +118,9 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     serviceTier,
     fastMode,
     collaborationMode,
-    permissions,
+    permissionProfile,
+    sandboxPolicy,
+    approvalPolicy,
     approvalsReviewer: reviewer,
     supportedReasoningEfforts: supportedEffortsForModelMetadata(findModelMetadataByIdOrName(snapshot.availableModels, model.effective)),
   };
@@ -96,78 +129,86 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
 function resolveAutoReview(reviewer: RuntimeLayeredValue<ApprovalsReviewer>): AutoReviewResolution {
   return {
     active: reviewer.effective === "auto_review" || reviewer.effective === "guardian_subagent",
+    confirmedActive: reviewer.confirmed === "auto_review" || reviewer.confirmed === "guardian_subagent",
     source: reviewer.source,
+    confirmedSource: reviewer.confirmedSource,
   };
 }
 
-function resolveRuntimePermissions(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimePermissionsResolution {
-  const configured = cloneRuntimePermissionState(config.startupPermissions);
-  const scope = snapshot.activeThreadId ? "current-thread" : "new-thread";
-  const baseSource = snapshot.activeThreadId ? "active-thread" : "config";
-  if (snapshot.activeThreadId) {
-    const active = cloneRuntimePermissionState(snapshot.active);
-    const { effective, source } = resolveRuntimePermissionState(
-      active,
-      configured,
-      snapshot.pending.approvalPolicy,
-      snapshot.pending.permissionProfile,
-      baseSource,
-    );
-    return {
-      scope,
-      configured,
-      active,
-      effective,
-      source,
-    };
-  }
-  const { effective, source } = resolveRuntimePermissionState(
-    configured,
-    configured,
-    snapshot.pending.approvalPolicy,
-    snapshot.pending.permissionProfile,
-    baseSource,
-  );
-  return {
-    scope,
-    configured,
-    active: null,
-    effective,
-    source,
-  };
+function resolveRuntimeSandboxPolicy(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigSnapshot,
+): RuntimeNullableLayeredValue<RuntimeSandboxPolicy> {
+  const pending = sandboxPolicyIntentFromPermissionProfile(snapshot.pending.permissionProfile, config);
+  return resolveNullableRuntimePermissionValue({
+    configured: cloneRuntimeSandboxPolicy(config.startupPermissions.sandboxPolicy),
+    active: cloneRuntimeSandboxPolicy(snapshot.active.sandboxPolicy),
+    pending,
+    activeKnown: snapshot.activeThreadId !== null && snapshot.active.sandboxPolicyKnown,
+  });
 }
 
-function resolveRuntimePermissionState(
-  base: RuntimePermissionState,
-  configured: RuntimePermissionState,
-  approvalPolicyIntent: RuntimeSnapshot["pending"]["approvalPolicy"],
-  permissionProfileIntent: RuntimeSnapshot["pending"]["permissionProfile"],
-  baseSource: RuntimeValueSource,
-): Pick<RuntimePermissionsResolution, "effective" | "source"> {
-  let effective = cloneRuntimePermissionState(base);
-  let source = baseSource;
-  const approvalPolicy = runtimePermissionIntentValue(approvalPolicyIntent, configured.approvalPolicy);
-  if (approvalPolicy !== undefined) {
-    effective = { ...effective, approvalPolicy };
-    source = "pending";
+function sandboxPolicyIntentFromPermissionProfile(
+  intent: PendingRuntimeIntent<string>,
+  config: RuntimeConfigSnapshot,
+): PendingRuntimeIntent<RuntimeSandboxPolicy | null> {
+  if (intent.kind === "set") {
+    return setRuntimeIntentValue(sandboxPolicyForPermissionProfile(intent.value, config));
   }
-  const configuredPermissionProfile = configured.activePermissionProfile?.id ?? null;
-  const permissionProfile = runtimePermissionIntentValue(permissionProfileIntent, configuredPermissionProfile);
-  if (permissionProfile !== undefined) {
-    effective = {
-      ...effective,
-      sandboxPolicy: permissionProfile === configuredPermissionProfile ? configured.sandboxPolicy : null,
-      activePermissionProfile: permissionProfile ? { id: permissionProfile, extends: null } : null,
-    };
-    source = "pending";
-  }
-  return { effective: cloneRuntimePermissionState(effective), source };
+  if (intent.kind === "resetToConfig") return resetRuntimeIntentToConfig();
+  return unchangedRuntimeIntent();
 }
 
-function runtimePermissionIntentValue<T>(intent: PendingRuntimeIntent<T>, configured: T | null): T | null | undefined {
-  if (intent.kind === "set") return intent.value;
-  if (intent.kind === "resetToConfig") return configured;
-  return undefined;
+function sandboxPolicyForPermissionProfile(profile: string, config: RuntimeConfigSnapshot): RuntimeSandboxPolicy | null {
+  return profile === config.startupPermissions.activePermissionProfile?.id
+    ? cloneRuntimeSandboxPolicy(config.startupPermissions.sandboxPolicy)
+    : null;
+}
+
+function cloneRuntimeSandboxPolicy(value: RuntimeSandboxPolicy | null): RuntimeSandboxPolicy | null {
+  return cloneRuntimePermissionState({ approvalPolicy: null, activePermissionProfile: null, sandboxPolicy: value }).sandboxPolicy;
+}
+
+function resolveRuntimePermissionValue<T>(input: {
+  configured: T | null | undefined;
+  active: T | null | undefined;
+  pending: PendingRuntimeIntent<T>;
+  activeKnown: boolean;
+}): RuntimeLayeredValue<T> {
+  if (input.pending.kind !== "unchanged") {
+    const value = resolveRuntimeValue({
+      configured: input.configured,
+      active: input.active,
+      pending: input.pending,
+    });
+    return { ...value, ...confirmedRuntimeValue(input.configured, input.active, input.activeKnown) };
+  }
+  const configured = input.configured ?? null;
+  const active = input.active ?? null;
+  const pending = input.pending;
+  const { confirmed, confirmedSource } = confirmedRuntimeValue(input.configured, input.active, input.activeKnown);
+  return { configured, active, pending, confirmed, confirmedSource, effective: confirmed, source: confirmedSource };
+}
+
+function resolveNullableRuntimePermissionValue<T>(input: {
+  configured: T | null | undefined;
+  active: T | null | undefined;
+  pending: PendingRuntimeIntent<T | null>;
+  activeKnown: boolean;
+}): RuntimeNullableLayeredValue<T> {
+  if (input.pending.kind !== "unchanged") {
+    const value = resolveRuntimeValue({
+      configured: input.configured,
+      active: input.active,
+      pending: input.pending,
+    });
+    return { ...value, ...confirmedRuntimeValue(input.configured, input.active, input.activeKnown) };
+  }
+  const configured = input.configured ?? null;
+  const active = input.active ?? null;
+  const pending = input.pending;
+  const { confirmed, confirmedSource } = confirmedRuntimeValue(input.configured, input.active, input.activeKnown);
+  return { configured, active, pending, confirmed, confirmedSource, effective: confirmed, source: confirmedSource };
 }
 
 function resolveRuntimeValue<T>(input: {
@@ -178,19 +219,26 @@ function resolveRuntimeValue<T>(input: {
   const configured = input.configured ?? null;
   const active = input.active ?? null;
   const pending = input.pending ?? ({ kind: "unchanged" } satisfies PendingRuntimeIntent<T>);
+  const { confirmed, confirmedSource } = confirmedRuntimeValue(configured, active, active !== null);
   if (pending.kind === "set") {
-    return { configured, active, pending, effective: pending.value, source: "pending" };
+    return { configured, active, pending, confirmed, confirmedSource, effective: pending.value, source: "pending" };
   }
   if (pending.kind === "resetToConfig") {
-    return { configured, active, pending, effective: configured, source: "config" };
+    return { configured, active, pending, confirmed, confirmedSource, effective: configured, source: "config" };
   }
-  if (active !== null) {
-    return { configured, active, pending, effective: active, source: "active-thread" };
-  }
-  if (configured !== null) {
-    return { configured, active, pending, effective: configured, source: "config" };
-  }
-  return { configured, active, pending, effective: null, source: "none" };
+  return { configured, active, pending, confirmed, confirmedSource, effective: confirmed, source: confirmedSource };
+}
+
+function confirmedRuntimeValue<T>(
+  configured: T | null | undefined,
+  active: T | null | undefined,
+  activeKnown: boolean,
+): Pick<RuntimeLayeredValue<T>, "confirmed" | "confirmedSource"> {
+  const configuredValue = configured ?? null;
+  const activeValue = active ?? null;
+  if (activeKnown) return { confirmed: activeValue, confirmedSource: "active-thread" };
+  if (configuredValue !== null) return { confirmed: configuredValue, confirmedSource: "config" };
+  return { confirmed: null, confirmedSource: "none" };
 }
 
 function resolveServiceTier(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): RuntimeLayeredValue<ServiceTier> {
@@ -220,10 +268,17 @@ function serviceTierValue(
   effective: ServiceTier | null,
   source: RuntimeValueSource,
 ): RuntimeLayeredValue<ServiceTier> {
+  const { confirmed, confirmedSource } = confirmedRuntimeValue(
+    config.serviceTier,
+    snapshot.active.serviceTier,
+    snapshot.activeThreadId !== null && snapshot.active.serviceTierKnown,
+  );
   return {
     configured: config.serviceTier,
     active: snapshot.active.serviceTier,
     pending: { kind: "unchanged" },
+    confirmed,
+    confirmedSource,
     effective,
     source,
   };
@@ -237,20 +292,25 @@ function resolveFastMode(
   return {
     requested,
     active: isFastServiceTier(serviceTier.effective, serviceTiers),
+    confirmedActive: isFastServiceTier(serviceTier.confirmed, serviceTiers),
     source: serviceTier.source,
+    confirmedSource: serviceTier.confirmedSource,
     effectiveServiceTier: serviceTier.effective,
+    confirmedServiceTier: serviceTier.confirmed,
     serviceTierRequestValue: serviceTiers.find((tier) => tier.name.trim().toLowerCase() === "fast")?.id ?? "fast",
   };
 }
 
 function resolveCollaborationMode(snapshot: RuntimeSnapshot, model: string | null): CollaborationModeResolution {
   const active = snapshot.active.collaborationMode;
-  const selected = snapshot.pending.collaborationMode;
-  const effective = effectiveCollaborationMode(active);
-  const dirty = selected !== effective;
+  const pending = snapshot.pending.collaborationMode;
+  const confirmed = effectiveCollaborationMode(active);
+  const effective = pending.kind === "set" ? pending.value : confirmed;
+  const dirty = pending.kind === "set";
   return {
     active,
-    selected,
+    pending,
+    confirmed,
     effective,
     dirty,
     blockedReason: dirty && !model ? "missing-model" : null,

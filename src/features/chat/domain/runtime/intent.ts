@@ -2,6 +2,7 @@ import type { ModeKind } from "../../../../domain/runtime/thread-settings";
 
 export type CollaborationModeSelection = ModeKind;
 export type ActiveCollaborationMode = CollaborationModeSelection | null;
+export type CollaborationModeIntent = { readonly kind: "unchanged" } | { readonly kind: "set"; readonly value: CollaborationModeSelection };
 
 // Pending runtime intents are panel-side user requests, not app-server protocol values.
 // They are projected for display and reduced into panel-owned runtime settings patches before app-server protocol adaptation.
@@ -23,10 +24,23 @@ export function resetRuntimeIntentToConfig<T>(): PendingRuntimeIntent<T> {
   return { kind: "resetToConfig" };
 }
 
+export function unchangedCollaborationModeIntent(): CollaborationModeIntent {
+  return { kind: "unchanged" };
+}
+
+export function setCollaborationModeIntent(value: CollaborationModeSelection): CollaborationModeIntent {
+  return { kind: "set", value };
+}
+
 export function nextCollaborationMode(mode: CollaborationModeSelection): CollaborationModeSelection {
   return mode === "plan" ? "default" : "plan";
 }
 
 export function effectiveCollaborationMode(mode: ActiveCollaborationMode): CollaborationModeSelection {
   return mode ?? "default";
+}
+
+export function collaborationModeIntentValue(intent: CollaborationModeIntent, active: ActiveCollaborationMode): CollaborationModeSelection {
+  if (intent.kind === "set") return intent.value;
+  return effectiveCollaborationMode(active);
 }

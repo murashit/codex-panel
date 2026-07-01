@@ -22,6 +22,9 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
       cwd: "/vault",
       model: "gpt-test",
       serviceTier: null,
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalsReviewer: "user",
       reasoningEffort: null,
       approvalPolicy: null,
@@ -120,6 +123,9 @@ describe("ResumeActions", () => {
     const { actions, host, resumeThread, stateStore } = createActions();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -165,6 +171,9 @@ describe("ResumeActions", () => {
     await actions.resumeThread("thread");
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,

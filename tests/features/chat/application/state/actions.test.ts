@@ -17,6 +17,9 @@ describe("chat thread resume helpers", () => {
         reasoningEffort: "high",
         serviceTier: "fast",
         serviceTierKnown: true,
+        approvalPolicyKnown: true,
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
         approvalsReviewer: "user",
         approvalPolicy: "on-request",
         sandboxPolicy: {
@@ -34,6 +37,9 @@ describe("chat thread resume helpers", () => {
 
     expect(action).toMatchObject({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       thread: resumed,
       cwd: "/vault",
       model: "gpt-5.5",
@@ -65,6 +71,9 @@ describe("chat thread resume helpers", () => {
 
     expect(action).toMatchObject({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: "on-request",
       sandboxPolicy: {
         type: "workspaceWrite",
@@ -87,6 +96,9 @@ function responseFixture(thread: Thread): ThreadActivationSnapshot {
     model: "gpt-5.5",
     serviceTier: "fast",
     cwd: "/vault",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
     approvalsReviewer: "user",
     reasoningEffort: "high",
     approvalPolicy: "on-request",

@@ -1,7 +1,9 @@
+import { runtimeConfigOrDefault } from "../../../domain/runtime/config";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatState } from "../application/state/root-reducer";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
+import { resolveRuntimeControls } from "../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { appServerDiagnosticSections } from "../presentation/runtime/diagnostic-sections";
 import { runtimePermissionSections } from "../presentation/runtime/permission-sections";
@@ -103,7 +105,10 @@ function noticeSectionsFromDiagnostics(
 }
 
 function collaborationModeLabel(state: ChatState): string {
-  return formatCollaborationModeLabel(state.runtime.pending.collaborationMode);
+  const snapshot = runtimeSnapshot(state);
+  return formatCollaborationModeLabel(
+    resolveRuntimeControls(snapshot, runtimeConfigOrDefault(snapshot.runtimeConfig)).collaborationMode.effective,
+  );
 }
 
 function runtimeSnapshot(state: ChatState): RuntimeSnapshot {

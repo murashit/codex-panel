@@ -10,6 +10,7 @@ import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/ap
 import type { ActiveThreadSettingsAppliedAction } from "../../../../../src/features/chat/application/state/actions";
 import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatRuntimeSettingsActions", () => {
@@ -35,6 +36,36 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual([]);
   });
 
+  it("commits pending permission profile updates into active permission state", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, {
+      runtime: {
+        active: {
+          activePermissionProfile: { id: ":read-only", extends: null },
+          sandboxPolicy: { type: "readOnly", networkAccess: false },
+        },
+        pending: {
+          permissionProfile: setRuntimeIntentValue(":workspace"),
+        },
+      },
+    });
+    const store = createChatStateStore(state);
+    const transport = settingsTransportFixture();
+    const messages: string[] = [];
+    const controller = runtimeControllerFixture(store, transport, messages);
+
+    await expect(controller.applyPendingThreadSettings()).resolves.toBe(true);
+
+    expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", { permissions: ":workspace" });
+    expect(store.getState().runtime.pending.permissionProfile).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.activePermissionProfile).toEqual({ id: ":workspace", extends: null });
+    expect(store.getState().runtime.active.permissionProfileKnown).toBe(true);
+    expect(store.getState().runtime.active.sandboxPolicy).toBeNull();
+    expect(store.getState().runtime.active.sandboxPolicyKnown).toBe(true);
+    expect(messages).toEqual([]);
+  });
+
   it("reserves thread runtime settings when no thread is active", async () => {
     const store = createChatStateStore(chatStateFixture());
     const transport = settingsTransportFixture();
@@ -53,7 +84,7 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(store.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(store.getState().runtime.pending.collaborationMode).toBe("default");
+    expect(store.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "default" });
     expect(messages).toEqual([
       "Fast mode on for subsequent turns.",
       "Auto-review on for subsequent turns.",
@@ -154,7 +185,7 @@ describe("createChatRuntimeSettingsActions", () => {
     await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
 
     expect(transport.updateThreadSettings).not.toHaveBeenCalled();
-    expect(store.getState().runtime.pending.collaborationMode).toBe("plan");
+    expect(store.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "plan" });
     expect(store.getState().runtime.active.collaborationMode).toBeNull();
     expect(messages).toEqual(["Plan mode is selected, but No effective model is available. Sending without a mode override."]);
   });
@@ -163,7 +194,7 @@ describe("createChatRuntimeSettingsActions", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: "plan" } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } } } });
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
@@ -172,7 +203,7 @@ describe("createChatRuntimeSettingsActions", () => {
     controller.requestDefaultCollaborationModeForNextTurn();
 
     expect(transport.updateThreadSettings).not.toHaveBeenCalled();
-    expect(store.getState().runtime.pending.collaborationMode).toBe("default");
+    expect(store.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "default" });
     expect(store.getState().runtime.active.collaborationMode).toBe("plan");
     expect(messages).toEqual([]);
   });
@@ -425,6 +456,9 @@ function threadSettings(
     collaborationMode: "default",
     serviceTier,
     approvalsReviewer,
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
     approvalPolicy: null,
     sandboxPolicy: null,
     activePermissionProfile: null,

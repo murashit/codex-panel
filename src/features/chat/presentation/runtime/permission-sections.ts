@@ -1,5 +1,5 @@
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
-import type { RuntimePermissionState, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
+import type { RuntimeApprovalPolicy, RuntimeSandboxPolicy } from "../../../../domain/runtime/permissions";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import type { DiagnosticRow, DiagnosticSection } from "./diagnostic-sections";
@@ -15,37 +15,37 @@ export function runtimePermissionSections(input: RuntimePermissionSectionsInput)
   return [
     {
       title: "Permissions",
-      rows: accessRows(resolution.permissions.effective, input.vaultPath),
+      rows: accessRows(resolution.permissionProfile.confirmed, resolution.sandboxPolicy.confirmed, input.vaultPath),
     },
     {
       title: "Approvals",
-      rows: approvalRows(resolution.permissions.effective, resolution.approvalsReviewer.effective),
+      rows: approvalRows(resolution.approvalPolicy.confirmed, resolution.autoReview.confirmedActive),
     },
   ];
 }
 
-function accessRows(permissions: RuntimePermissionState, vaultPath: string): DiagnosticRow[] {
+function accessRows(profile: string | null, sandbox: RuntimeSandboxPolicy | null, vaultPath: string): DiagnosticRow[] {
   return [
-    { label: "Profile", value: profileLabel(permissions) },
-    { label: "Sandbox", value: sandboxLabel(permissions.sandboxPolicy) },
-    { label: "Network", value: networkLabel(permissions.sandboxPolicy) },
-    { label: "Extra writable roots", value: writableRootsLabel(permissions.sandboxPolicy, vaultPath) },
+    { label: "Profile", value: profileLabel(profile, sandbox) },
+    { label: "Sandbox", value: sandboxLabel(sandbox) },
+    { label: "Network", value: networkLabel(sandbox) },
+    { label: "Extra writable roots", value: writableRootsLabel(sandbox, vaultPath) },
   ];
 }
 
-function approvalRows(permissions: RuntimePermissionState, reviewer: string | null): DiagnosticRow[] {
+function approvalRows(policy: RuntimeApprovalPolicy | null, autoReview: boolean): DiagnosticRow[] {
   return [
-    { label: "Approval policy", value: approvalPolicyLabel(permissions.approvalPolicy) },
+    { label: "Approval policy", value: approvalPolicyLabel(policy) },
     {
-      label: "Reviewer",
-      value: reviewer ?? "(Codex default)",
+      label: "Auto review",
+      value: autoReview ? "on" : "off",
     },
   ];
 }
 
-function profileLabel(permissions: RuntimePermissionState): string {
-  if (permissions.activePermissionProfile) return permissions.activePermissionProfile.id;
-  if (permissions.sandboxPolicy) return "(legacy sandbox)";
+function profileLabel(profile: string | null, sandbox: RuntimeSandboxPolicy | null): string {
+  if (profile) return profile;
+  if (sandbox) return "(legacy sandbox)";
   return "(not reported)";
 }
 
@@ -84,7 +84,7 @@ function displayRoot(root: string, vaultPath: string): string {
   return root;
 }
 
-function approvalPolicyLabel(policy: RuntimePermissionState["approvalPolicy"]): string {
+function approvalPolicyLabel(policy: RuntimeApprovalPolicy | null): string {
   if (!policy) return "(not reported)";
   if (typeof policy === "string") return policy;
 

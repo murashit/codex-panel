@@ -225,6 +225,9 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
   return {
     thread: threadFromThreadRecord(response.thread),
     cwd: response.cwd,
+    approvalPolicyKnown: "approvalPolicy" in response,
+    sandboxPolicyKnown: "sandbox" in response || "sandboxPolicy" in response,
+    permissionProfileKnown: "activePermissionProfile" in response,
     model: response.model,
     reasoningEffort: normalizeReasoningEffort(response.reasoningEffort),
     serviceTier: parseServiceTier(response.serviceTier),

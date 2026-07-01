@@ -53,6 +53,9 @@ function runtimeWithPatch(runtime: ChatState["runtime"], patch: RuntimePatch): C
     active: {
       ...runtime.active,
       ...(patch.active && "serviceTier" in patch.active ? { serviceTierKnown: true } : {}),
+      ...(patch.active && "approvalPolicy" in patch.active ? { approvalPolicyKnown: true } : {}),
+      ...(patch.active && "sandboxPolicy" in patch.active ? { sandboxPolicyKnown: true } : {}),
+      ...(patch.active && "activePermissionProfile" in patch.active ? { permissionProfileKnown: true } : {}),
       ...patch.active,
     },
     pending: {

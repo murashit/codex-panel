@@ -212,7 +212,7 @@ describe("Toolbar decisions", () => {
             title: "Approvals",
             rows: [
               { label: "Approval policy", value: "on-request" },
-              { label: "Reviewer", value: "auto_review" },
+              { label: "Auto review", value: "on" },
             ],
           },
         ],
@@ -229,7 +229,7 @@ describe("Toolbar decisions", () => {
     );
     expect(parent.textContent).toContain(":workspace");
     expect(parent.textContent).toContain("workspace-write");
-    expect(parent.textContent).toContain("auto_review");
+    expect(parent.textContent).toContain("on");
     expect(parent.querySelector(".codex-panel__status-diagnostics-row--warning")).toBeNull();
     expect(parent.querySelector(".codex-panel__status-diagnostics-row--error")).toBeNull();
   });

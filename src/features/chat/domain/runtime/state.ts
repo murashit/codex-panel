@@ -1,18 +1,23 @@
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
 import {
+  initialRuntimePermissionKnownState,
   initialRuntimePermissionState,
   type RuntimeApprovalPolicy,
+  type RuntimePermissionKnownState,
   type RuntimePermissionState,
 } from "../../../../domain/runtime/permissions";
 import { type ApprovalsReviewer, parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import {
   type ActiveCollaborationMode,
+  type CollaborationModeIntent,
   type CollaborationModeSelection,
   type PendingRuntimeIntent,
   type RequestedFastMode,
   resetRuntimeIntentToConfig,
+  setCollaborationModeIntent,
   setRuntimeIntentValue,
+  unchangedCollaborationModeIntent,
   unchangedRuntimeIntent,
 } from "./intent";
 
@@ -21,7 +26,7 @@ export interface ChatRuntimeState {
   readonly pending: PendingRuntimeIntentState;
 }
 
-export interface ActiveThreadRuntimeState extends RuntimePermissionState {
+export interface ActiveThreadRuntimeState extends RuntimePermissionState, RuntimePermissionKnownState {
   readonly serviceTierKnown: boolean;
   readonly model: string | null;
   readonly reasoningEffort: ReasoningEffort | null;
@@ -36,13 +41,14 @@ export interface PendingRuntimeIntentState {
   readonly permissionProfile: PendingRuntimeIntent<string>;
   readonly approvalPolicy: PendingRuntimeIntent<RuntimeApprovalPolicy>;
   readonly approvalsReviewer: PendingRuntimeIntent<ApprovalsReviewer>;
-  readonly collaborationMode: CollaborationModeSelection;
+  readonly collaborationMode: CollaborationModeIntent;
   readonly fastMode: PendingRuntimeIntent<RequestedFastMode>;
 }
 
 export function initialActiveChatRuntimeState(): ActiveThreadRuntimeState {
   return {
     ...initialRuntimePermissionState(),
+    ...initialRuntimePermissionKnownState(),
     serviceTierKnown: false,
     model: null,
     reasoningEffort: null,
@@ -67,7 +73,7 @@ function initialPendingRuntimeIntentState(): PendingRuntimeIntentState {
     permissionProfile: unchangedRuntimeIntent(),
     approvalPolicy: unchangedRuntimeIntent(),
     approvalsReviewer: unchangedRuntimeIntent(),
-    collaborationMode: "default",
+    collaborationMode: unchangedCollaborationModeIntent(),
     fastMode: unchangedRuntimeIntent(),
   };
 }
@@ -141,7 +147,7 @@ export function setSelectedCollaborationModeRuntimeState(
 ): ChatRuntimeState {
   return {
     ...state,
-    pending: { ...state.pending, collaborationMode },
+    pending: { ...state.pending, collaborationMode: setCollaborationModeIntent(collaborationMode) },
   };
 }
 
@@ -154,7 +160,17 @@ export function commitAppliedRuntimeSettingsPatchState(state: ChatRuntimeState, 
       ...("effort" in update ? { reasoningEffort: normalizeReasoningEffort(update.effort) } : {}),
       ...("serviceTier" in update ? { serviceTier: parseServiceTier(update.serviceTier), serviceTierKnown: true } : {}),
       ...("approvalsReviewer" in update ? { approvalsReviewer: update.approvalsReviewer ?? null } : {}),
-      ...("approvalPolicy" in update ? { approvalPolicy: update.approvalPolicy ?? null } : {}),
+      ...("approvalPolicy" in update
+        ? { approvalPolicy: update.approvalPolicy ?? null, approvalPolicyKnown: update.approvalPolicy !== null }
+        : {}),
+      ...("permissions" in update
+        ? {
+            activePermissionProfile: update.permissions ? { id: update.permissions, extends: null } : null,
+            sandboxPolicy: null,
+            permissionProfileKnown: update.permissions !== null,
+            sandboxPolicyKnown: update.permissions !== null,
+          }
+        : {}),
       ...(update.collaborationMode ? { collaborationMode: update.collaborationMode.mode } : {}),
     },
     pending: {
@@ -165,6 +181,7 @@ export function commitAppliedRuntimeSettingsPatchState(state: ChatRuntimeState, 
       ...("approvalPolicy" in update ? { approvalPolicy: unchangedRuntimeIntent<RuntimeApprovalPolicy>() } : {}),
       ...("approvalsReviewer" in update ? { approvalsReviewer: unchangedRuntimeIntent<ApprovalsReviewer>() } : {}),
       ...("permissions" in update ? { permissionProfile: unchangedRuntimeIntent<string>() } : {}),
+      ...("collaborationMode" in update ? { collaborationMode: unchangedCollaborationModeIntent() } : {}),
     },
   };
 }

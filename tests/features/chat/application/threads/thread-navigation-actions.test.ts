@@ -11,6 +11,9 @@ import {
 function resumeThreadState(stateStore: ChatStateStore, threadId: string): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
     approvalPolicy: null,
     sandboxPolicy: null,
     activePermissionProfile: null,

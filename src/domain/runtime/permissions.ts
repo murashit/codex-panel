@@ -38,11 +38,25 @@ export interface RuntimePermissionState {
   readonly activePermissionProfile: RuntimeActivePermissionProfile | null;
 }
 
+export interface RuntimePermissionKnownState {
+  readonly approvalPolicyKnown: boolean;
+  readonly sandboxPolicyKnown: boolean;
+  readonly permissionProfileKnown: boolean;
+}
+
 export function initialRuntimePermissionState(): RuntimePermissionState {
   return {
     approvalPolicy: null,
     sandboxPolicy: null,
     activePermissionProfile: null,
+  };
+}
+
+export function initialRuntimePermissionKnownState(): RuntimePermissionKnownState {
+  return {
+    approvalPolicyKnown: false,
+    sandboxPolicyKnown: false,
+    permissionProfileKnown: false,
   };
 }
 

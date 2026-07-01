@@ -44,6 +44,9 @@ describe("createActiveThreadIdentitySync", () => {
     const { controller, host, restoredClear, stateStore } = createController();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -69,6 +72,9 @@ describe("createActiveThreadIdentitySync", () => {
     const { controller, host, restoredClear, stateStore } = createController();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -107,6 +113,9 @@ describe("createActiveThreadIdentitySync", () => {
     const { controller, host, restoredRename, stateStore } = createController();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,

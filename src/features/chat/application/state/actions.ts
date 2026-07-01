@@ -1,5 +1,9 @@
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
-import { type RuntimePermissionState, runtimePermissionStateOrDefault } from "../../../../domain/runtime/permissions";
+import {
+  type RuntimePermissionKnownState,
+  type RuntimePermissionState,
+  runtimePermissionStateOrDefault,
+} from "../../../../domain/runtime/permissions";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
@@ -27,6 +31,9 @@ interface ResumedThreadFromActiveRuntimeParams {
     | "serviceTier"
     | "serviceTierKnown"
     | "approvalsReviewer"
+    | "approvalPolicyKnown"
+    | "sandboxPolicyKnown"
+    | "permissionProfileKnown"
     | "approvalPolicy"
     | "sandboxPolicy"
     | "activePermissionProfile"
@@ -35,7 +42,7 @@ interface ResumedThreadFromActiveRuntimeParams {
   items?: readonly MessageStreamItem[];
 }
 
-export interface ActiveThreadResumedAction extends RuntimePermissionState {
+export interface ActiveThreadResumedAction extends RuntimePermissionState, RuntimePermissionKnownState {
   type: "active-thread/resumed";
   thread: Thread;
   cwd: string;
@@ -50,7 +57,7 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState {
   preserveRequestedRuntimeSettings?: boolean;
 }
 
-export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionState {
+export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionState, RuntimePermissionKnownState {
   type: "active-thread/settings-applied";
   cwd: string;
   model: string | null;
@@ -121,6 +128,9 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
     response: {
       thread: params.thread,
       cwd: params.cwd,
+      approvalPolicyKnown: params.runtime.approvalPolicyKnown,
+      sandboxPolicyKnown: params.runtime.sandboxPolicyKnown,
+      permissionProfileKnown: params.runtime.permissionProfileKnown,
       model: params.runtime.model,
       reasoningEffort: params.runtime.reasoningEffort,
       serviceTier: params.runtime.serviceTier,
@@ -147,6 +157,9 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     serviceTier: response.serviceTier,
     serviceTierKnown: params.serviceTierKnown ?? true,
     approvalsReviewer: response.approvalsReviewer,
+    approvalPolicyKnown: response.approvalPolicyKnown,
+    sandboxPolicyKnown: response.sandboxPolicyKnown,
+    permissionProfileKnown: response.permissionProfileKnown,
     ...permissions,
     ...(params.items ? { items: params.items } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
@@ -164,6 +177,9 @@ export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettings
     collaborationMode: settings.collaborationMode.mode,
     serviceTier: parseServiceTier(settings.serviceTier),
     approvalsReviewer: settings.approvalsReviewer,
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
     ...permissions,
   };
 }

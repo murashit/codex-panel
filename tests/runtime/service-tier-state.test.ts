@@ -23,6 +23,9 @@ function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["servi
       runtimeConfig: config,
       activeThreadId: "thread",
       active: {
+        approvalPolicyKnown: false,
+        sandboxPolicyKnown: false,
+        permissionProfileKnown: false,
         serviceTierKnown: true,
         model: "gpt-5.5",
         reasoningEffort: null,
@@ -39,7 +42,7 @@ function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["servi
         permissionProfile: { kind: "unchanged" },
         approvalPolicy: { kind: "unchanged" },
         approvalsReviewer: { kind: "unchanged" },
-        collaborationMode: "default",
+        collaborationMode: { kind: "unchanged" },
         fastMode: { kind: "unchanged" },
       },
       tokenUsage: null,

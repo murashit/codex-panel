@@ -100,7 +100,7 @@ function composerMetaViewModel(
   const effort = resolution.reasoningEffort.effective;
   const composerContext = contextComposerMeter(context?.percent ?? null);
   const compactEffort = effort ? compactReasoningEffortLabel(effort) : null;
-  const planActive = resolution.collaborationMode.selected === "plan";
+  const planActive = resolution.collaborationMode.effective === "plan";
   const reviewActive = resolution.autoReview.active;
   const fastActive = resolution.fastMode.active;
   return {

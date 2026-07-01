@@ -149,7 +149,8 @@ describe("chat panel surface projections", () => {
     );
     expect(parent.textContent).toContain(":workspace");
     expect(parent.textContent).toContain("on-request");
-    expect(parent.textContent).toContain("auto_review");
+    expect(parent.textContent).toContain("off");
+    expect(parent.textContent).not.toContain("auto_review");
     expect(parent.textContent).not.toContain("user -> auto_review");
     unmountUiRoot(parent);
   });
@@ -157,7 +158,7 @@ describe("chat panel surface projections", () => {
   it("builds composer meta from context and runtime state", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: "plan" } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } } } });
     state = chatStateWith(state, {
       connection: {
         runtimeConfig: runtimeConfigFixture({

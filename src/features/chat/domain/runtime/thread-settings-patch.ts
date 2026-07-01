@@ -95,7 +95,7 @@ function requestedTurnCollaborationModeSettings(resolution: RuntimeControlsResol
   const effort = resolution.reasoningEffort.effective;
   if (!model) return { collaborationMode: null, warning: "missing-model" };
   return {
-    collaborationMode: runtimeCollaborationModeSettings(resolution.collaborationMode.selected, model, effort),
+    collaborationMode: runtimeCollaborationModeSettings(resolution.collaborationMode.effective, model, effort),
     warning: null,
   };
 }

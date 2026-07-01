@@ -106,7 +106,7 @@ describe("chat app-server actions", () => {
     expect(stateStore.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(stateStore.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(stateStore.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(stateStore.getState().runtime.pending.collaborationMode).toBe("plan");
+    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "plan" });
   });
 
   it("can skip newly started thread goal sync when the caller sets the first goal", async () => {

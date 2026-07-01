@@ -82,6 +82,9 @@ describe("thread management actions", () => {
     host.threadTransport.compactThread.mockReturnValue(compact.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -100,6 +103,9 @@ describe("thread management actions", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -241,6 +247,9 @@ describe("thread management actions", () => {
     host.threadTransport.forkThread.mockReturnValue(fork.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -264,6 +273,9 @@ describe("thread management actions", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -325,6 +337,9 @@ describe("thread management actions", () => {
     const host = hostMock({ items: turnItems() });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -360,6 +375,9 @@ describe("thread management actions", () => {
     host.threadTransport.rollbackThread.mockReturnValue(rollback.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -384,6 +402,9 @@ describe("thread management actions", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -412,6 +433,9 @@ describe("thread management actions", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,

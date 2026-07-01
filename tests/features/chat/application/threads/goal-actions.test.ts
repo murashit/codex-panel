@@ -187,6 +187,9 @@ describe("createGoalActions", () => {
     const startThread = vi.fn().mockImplementation(async () => {
       stateStore.dispatch({
         type: "active-thread/resumed",
+        approvalPolicyKnown: true,
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
         approvalPolicy: null,
         sandboxPolicy: null,
         activePermissionProfile: null,

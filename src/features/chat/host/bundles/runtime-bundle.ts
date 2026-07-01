@@ -3,6 +3,7 @@ import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import { type ChatRuntimeSettingsActions, createChatRuntimeSettingsActions } from "../../application/runtime/settings-actions";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import type { ChatStateStore } from "../../application/state/store";
+import { collaborationModeIntentValue } from "../../domain/runtime/intent";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../../domain/runtime/labels";
 import { type ChatPanelRuntimeProjection, createChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
 import type { ChatPanelEnvironment } from "../contracts";
@@ -52,5 +53,6 @@ export function createRuntimeBundle(
 }
 
 function collaborationModeLabel(stateStore: ChatStateStore): string {
-  return formatCollaborationModeLabel(stateStore.getState().runtime.pending.collaborationMode);
+  const runtime = stateStore.getState().runtime;
+  return formatCollaborationModeLabel(collaborationModeIntentValue(runtime.pending.collaborationMode, runtime.active.collaborationMode));
 }

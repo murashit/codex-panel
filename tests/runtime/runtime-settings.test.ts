@@ -99,22 +99,17 @@ describe("runtime settings", () => {
     });
   });
 
-  it("treats active thread permissions as authoritative over startup config", () => {
+  it("falls back to startup permissions until active thread permissions are reported", () => {
     const configured = runtimeSnapshot({
       runtimeConfig: runtimeConfigFixture({
         default_permissions: ":workspace",
         approval_policy: "on-request",
       }),
     });
-    expect(resolveRuntimeControls(configured, snapshotConfig(configured)).permissions).toMatchObject({
-      scope: "new-thread",
-      source: "config",
-      active: null,
-      effective: {
-        activePermissionProfile: { id: ":workspace", extends: null },
-        approvalPolicy: "on-request",
-        sandboxPolicy: null,
-      },
+    expect(resolveRuntimeControls(configured, snapshotConfig(configured))).toMatchObject({
+      permissionProfile: { effective: ":workspace", source: "config" },
+      sandboxPolicy: { effective: null, source: "none" },
+      approvalPolicy: { effective: "on-request", source: "config" },
     });
 
     const activeUnreported = runtimeSnapshot({
@@ -124,19 +119,18 @@ describe("runtime settings", () => {
         approval_policy: "on-request",
       }),
     });
-    expect(resolveRuntimeControls(activeUnreported, snapshotConfig(activeUnreported)).permissions).toMatchObject({
-      scope: "current-thread",
-      source: "active-thread",
-      effective: {
-        activePermissionProfile: null,
-        approvalPolicy: null,
-        sandboxPolicy: null,
-      },
+    expect(resolveRuntimeControls(activeUnreported, snapshotConfig(activeUnreported))).toMatchObject({
+      permissionProfile: { configured: ":workspace", active: null, effective: ":workspace", source: "config" },
+      sandboxPolicy: { configured: null, active: null, effective: null, source: "none" },
+      approvalPolicy: { configured: "on-request", active: null, effective: "on-request", source: "config" },
     });
 
     const activeReported = runtimeSnapshot({
       activeThreadId: "thread",
       active: {
+        approvalPolicyKnown: true,
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
         approvalPolicy: "never",
         sandboxPolicy: { type: "readOnly", networkAccess: false },
         activePermissionProfile: { id: ":read-only", extends: null },
@@ -146,15 +140,26 @@ describe("runtime settings", () => {
     });
     expect(resolveRuntimeControls(activeReported, snapshotConfig(activeReported))).toMatchObject({
       approvalsReviewer: { effective: "auto_review", source: "pending" },
-      permissions: {
-        scope: "current-thread",
-        source: "active-thread",
-        effective: {
-          activePermissionProfile: { id: ":read-only", extends: null },
-          approvalPolicy: "never",
-          sandboxPolicy: { type: "readOnly", networkAccess: false },
-        },
+      permissionProfile: { effective: ":read-only", source: "active-thread" },
+      sandboxPolicy: { effective: { type: "readOnly", networkAccess: false }, source: "active-thread" },
+      approvalPolicy: { effective: "never", source: "active-thread" },
+    });
+
+    const approvalOnlyReported = runtimeSnapshot({
+      activeThreadId: "thread",
+      runtimeConfig: runtimeConfigFixture({
+        default_permissions: ":workspace",
+        approval_policy: "on-request",
+      }),
+      active: {
+        approvalPolicyKnown: true,
+        approvalPolicy: "never",
       },
+    });
+    expect(resolveRuntimeControls(approvalOnlyReported, snapshotConfig(approvalOnlyReported))).toMatchObject({
+      permissionProfile: { effective: ":workspace", source: "config" },
+      sandboxPolicy: { effective: null, source: "none" },
+      approvalPolicy: { effective: "never", source: "active-thread" },
     });
   });
 
@@ -162,6 +167,9 @@ describe("runtime settings", () => {
     const snapshot = runtimeSnapshot({
       activeThreadId: "thread",
       active: {
+        approvalPolicyKnown: true,
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
         approvalPolicy: "on-request",
         sandboxPolicy: { type: "readOnly", networkAccess: false },
         activePermissionProfile: null,
@@ -172,14 +180,10 @@ describe("runtime settings", () => {
       },
     });
 
-    expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot)).permissions).toMatchObject({
-      scope: "current-thread",
-      source: "pending",
-      effective: {
-        activePermissionProfile: { id: ":workspace", extends: null },
-        approvalPolicy: "never",
-        sandboxPolicy: null,
-      },
+    expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot))).toMatchObject({
+      permissionProfile: { effective: ":workspace", source: "pending" },
+      sandboxPolicy: { effective: null, source: "pending" },
+      approvalPolicy: { effective: "never", source: "pending" },
     });
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: {
@@ -202,22 +206,23 @@ describe("runtime settings", () => {
         },
       }),
       active: {
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
         activePermissionProfile: { id: ":workspace", extends: null },
         sandboxPolicy: null,
       },
       pending: { permissionProfile: resetRuntimeIntentToConfig() },
     });
 
-    expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot)).permissions).toMatchObject({
-      scope: "current-thread",
-      source: "pending",
-      effective: {
-        activePermissionProfile: null,
-        sandboxPolicy: {
+    expect(resolveRuntimeControls(snapshot, snapshotConfig(snapshot))).toMatchObject({
+      permissionProfile: { effective: null, source: "config" },
+      sandboxPolicy: {
+        effective: {
           type: "workspaceWrite",
           writableRoots: ["/vault"],
           networkAccess: false,
         },
+        source: "config",
       },
     });
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
@@ -261,7 +266,9 @@ describe("runtime settings", () => {
   });
 
   it("treats unreported thread collaboration mode as default without losing the unknown state", () => {
-    const snapshot = runtimeSnapshot({ active: { collaborationMode: null }, pending: { collaborationMode: "default" } });
+    const snapshot = runtimeSnapshot({
+      active: { collaborationMode: null },
+    });
 
     expect(snapshot.active.collaborationMode).toBeNull();
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toEqual({
@@ -269,7 +276,7 @@ describe("runtime settings", () => {
       collaborationModeWarning: null,
     });
 
-    expect(snapshot.pending.collaborationMode).toBe("default");
+    expect(snapshot.pending.collaborationMode).toEqual({ kind: "unchanged" });
   });
 
   it("keeps model reset tied to config when active thread model differs", () => {
@@ -293,7 +300,7 @@ describe("runtime settings", () => {
   it("builds the Plan collaboration mode payload from selected runtime settings", () => {
     const snapshot = runtimeSnapshot({
       pending: {
-        collaborationMode: "plan",
+        collaborationMode: { kind: "set", value: "plan" },
         model: setRuntimeIntentValue("gpt-5.5"),
         reasoningEffort: setRuntimeIntentValue("high"),
       },
@@ -316,7 +323,7 @@ describe("runtime settings", () => {
 
   it("uses the explicit config for collaboration mode thread settings", () => {
     const snapshot = runtimeSnapshot({
-      pending: { collaborationMode: "plan" },
+      pending: { collaborationMode: { kind: "set", value: "plan" } },
       runtimeConfig: runtimeConfigFixture({
         model: "snapshot-model",
         model_reasoning_effort: "low",
@@ -345,12 +352,12 @@ describe("runtime settings", () => {
   it("keeps collaboration mode settings separate from reviewer and direct runtime intents", () => {
     const reviewerSnapshot = runtimeSnapshot({
       pending: {
-        collaborationMode: "plan",
+        collaborationMode: { kind: "set", value: "plan" },
         approvalsReviewer: setRuntimeIntentValue("auto_review"),
       },
     });
     const activeRuntimeSnapshot = runtimeSnapshot({
-      pending: { collaborationMode: "plan" },
+      pending: { collaborationMode: { kind: "set", value: "plan" } },
       active: { model: "gpt-5-active", serviceTier: "fast" },
       runtimeConfig: runtimeConfigFixture({}),
     });
@@ -541,6 +548,15 @@ describe("runtime settings", () => {
       runtimeConfig: runtimeConfigFixture({
         model: "gpt-config",
         model_reasoning_effort: "medium",
+        default_permissions: ":workspace",
+        approval_policy: "on-request",
+        sandbox_mode: "workspace-write",
+        sandbox_workspace_write: {
+          writable_roots: ["/vault"],
+          network_access: false,
+          exclude_tmpdir_env_var: false,
+          exclude_slash_tmp: false,
+        },
         approvals_reviewer: "auto_review",
         service_tier: "fast",
       }),
@@ -549,8 +565,14 @@ describe("runtime settings", () => {
       ...configured,
       activeThreadId: "thread",
       active: {
+        approvalPolicyKnown: true,
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
         model: "gpt-active",
         reasoningEffort: "high",
+        activePermissionProfile: { id: ":read-only", extends: null },
+        sandboxPolicy: { type: "readOnly", networkAccess: false },
+        approvalPolicy: "never",
         approvalsReviewer: "user",
         serviceTier: "flex",
       },
@@ -561,6 +583,8 @@ describe("runtime settings", () => {
         ...active.pending,
         model: setRuntimeIntentValue("gpt-pending"),
         reasoningEffort: setRuntimeIntentValue("low"),
+        permissionProfile: setRuntimeIntentValue(":workspace"),
+        approvalPolicy: setRuntimeIntentValue("on-failure"),
         approvalsReviewer: setRuntimeIntentValue("guardian_subagent"),
         fastMode: setRuntimeIntentValue("enabled"),
       },
@@ -569,45 +593,67 @@ describe("runtime settings", () => {
     expect(resolveRuntimeControls(configured, snapshotConfig(configured))).toMatchObject({
       model: { effective: "gpt-config", source: "config" },
       reasoningEffort: { effective: "medium", source: "config" },
+      permissionProfile: { effective: null, source: "none" },
+      sandboxPolicy: { effective: { type: "workspaceWrite", writableRoots: ["/vault"], networkAccess: false }, source: "config" },
+      approvalPolicy: { effective: "on-request", source: "config" },
       approvalsReviewer: { effective: "auto_review", source: "config" },
       serviceTier: { effective: "fast", source: "config" },
     });
     expect(resolveRuntimeControls(active, snapshotConfig(active))).toMatchObject({
       model: { effective: "gpt-active", source: "active-thread" },
       reasoningEffort: { effective: "high", source: "active-thread" },
+      permissionProfile: { effective: ":read-only", source: "active-thread" },
+      sandboxPolicy: { effective: { type: "readOnly", networkAccess: false }, source: "active-thread" },
+      approvalPolicy: { effective: "never", source: "active-thread" },
       approvalsReviewer: { effective: "user", source: "active-thread" },
       serviceTier: { effective: "flex", source: "active-thread" },
     });
     expect(resolveRuntimeControls(pending, snapshotConfig(pending))).toMatchObject({
-      model: { effective: "gpt-pending", source: "pending" },
-      reasoningEffort: { effective: "low", source: "pending" },
-      approvalsReviewer: { effective: "guardian_subagent", source: "pending" },
-      serviceTier: { effective: "fast", source: "pending" },
-      fastMode: { active: true, source: "pending", serviceTierRequestValue: "fast" },
+      model: { confirmed: "gpt-active", confirmedSource: "active-thread", effective: "gpt-pending", source: "pending" },
+      reasoningEffort: { confirmed: "high", confirmedSource: "active-thread", effective: "low", source: "pending" },
+      permissionProfile: { confirmed: ":read-only", confirmedSource: "active-thread", effective: ":workspace", source: "pending" },
+      sandboxPolicy: {
+        confirmed: { type: "readOnly", networkAccess: false },
+        confirmedSource: "active-thread",
+        effective: null,
+        source: "pending",
+      },
+      approvalPolicy: { confirmed: "never", confirmedSource: "active-thread", effective: "on-failure", source: "pending" },
+      approvalsReviewer: { confirmed: "user", confirmedSource: "active-thread", effective: "guardian_subagent", source: "pending" },
+      serviceTier: { confirmed: "flex", confirmedSource: "active-thread", effective: "fast", source: "pending" },
+      fastMode: {
+        active: true,
+        confirmedActive: false,
+        source: "pending",
+        confirmedSource: "active-thread",
+        serviceTierRequestValue: "fast",
+      },
     });
   });
 
   it("reports collaboration mode dirtiness and missing model blockers from the resolved runtime", () => {
     const blocked = runtimeSnapshot({
-      pending: { collaborationMode: "plan" },
+      pending: { collaborationMode: { kind: "set", value: "plan" } },
       runtimeConfig: runtimeConfigFixture({}),
     });
     const ready = runtimeSnapshot({
       pending: {
-        collaborationMode: "plan",
+        collaborationMode: { kind: "set", value: "plan" },
         model: setRuntimeIntentValue("gpt-5.5"),
       },
     });
 
     expect(resolveRuntimeControls(blocked, snapshotConfig(blocked)).collaborationMode).toMatchObject({
-      selected: "plan",
-      effective: "default",
+      pending: { kind: "set", value: "plan" },
+      confirmed: "default",
+      effective: "plan",
       dirty: true,
       blockedReason: "missing-model",
     });
     expect(resolveRuntimeControls(ready, snapshotConfig(ready)).collaborationMode).toMatchObject({
-      selected: "plan",
-      effective: "default",
+      pending: { kind: "set", value: "plan" },
+      confirmed: "default",
+      effective: "plan",
       dirty: true,
       blockedReason: null,
     });
@@ -615,8 +661,10 @@ describe("runtime settings", () => {
 
   it("resolves requested approval reviewer without adding it to turn runtime settings", () => {
     const snapshot = runtimeSnapshot({ pending: { approvalsReviewer: setRuntimeIntentValue("auto_review") } });
+    const resolution = resolveRuntimeControls(snapshot, snapshotConfig(snapshot));
 
     expect(autoReviewActive(snapshot, snapshotConfig(snapshot))).toBe(true);
+    expect(resolution.autoReview).toMatchObject({ active: true, confirmedActive: false, source: "pending", confirmedSource: "none" });
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: { approvalsReviewer: "auto_review" },
     });
@@ -871,6 +919,9 @@ function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot 
     }),
     activeThreadId: null,
     active: {
+      approvalPolicyKnown: false,
+      sandboxPolicyKnown: false,
+      permissionProfileKnown: false,
       serviceTierKnown: false,
       model: null,
       reasoningEffort: null,
@@ -887,7 +938,7 @@ function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot 
       permissionProfile: { kind: "unchanged" },
       approvalPolicy: { kind: "unchanged" },
       approvalsReviewer: { kind: "unchanged" },
-      collaborationMode: "default",
+      collaborationMode: { kind: "unchanged" },
       fastMode: { kind: "unchanged" },
     },
     tokenUsage: null,

@@ -90,6 +90,9 @@ describe("executeSlashCommandWithState", () => {
     });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -110,6 +113,9 @@ describe("executeSlashCommandWithState", () => {
     const { compactThread, host, stateStore } = createHost({ connectionAvailable: () => false });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,

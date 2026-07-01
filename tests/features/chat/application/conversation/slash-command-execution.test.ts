@@ -563,7 +563,7 @@ describe("slash commands", () => {
   it("shows permissions and approvals as shared structured sections", async () => {
     const details = [
       { title: "Permissions", auditFacts: [{ key: "Profile", value: "workspace-write" }] },
-      { title: "Approvals", auditFacts: [{ key: "Reviewer", value: "auto_review" }] },
+      { title: "Approvals", auditFacts: [{ key: "Auto review", value: "on" }] },
     ];
     const ctx = context({ permissionDetails: () => details });
 

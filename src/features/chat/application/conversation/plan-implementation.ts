@@ -20,7 +20,12 @@ export function implementPlanTargetFromState(state: {
   runtime: { pending: Pick<ChatRuntimeState["pending"], "collaborationMode"> };
   messageStream: Pick<ChatMessageStreamState, "stableItems" | "activeSegment">;
 }): PlanImplementationTarget | null {
-  if (!state.activeThread.id || chatTurnBusy(state) || state.runtime.pending.collaborationMode !== "plan") {
+  if (
+    !state.activeThread.id ||
+    chatTurnBusy(state) ||
+    state.runtime.pending.collaborationMode.kind !== "set" ||
+    state.runtime.pending.collaborationMode.value !== "plan"
+  ) {
     return null;
   }
   return latestImplementablePlanTargetFromItems(messageStreamItems(state.messageStream));

@@ -19,7 +19,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
     state = chatStateWith(state, { runtime: { active: { approvalsReviewer: "auto_review" } } });
     state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: "plan" } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } } } });
     state = chatStateWith(state, { activeThread: { goal: goal("thread") } });
     state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
     state = chatStateWith(state, { messageStream: { loadingHistory: true } });
@@ -56,7 +56,7 @@ describe("chatReducer", () => {
     expect(next.runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.fastMode).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "unchanged" });
-    expect(next.runtime.pending.collaborationMode).toBe("default");
+    expect(next.runtime.pending.collaborationMode).toEqual({ kind: "unchanged" });
     expect(activeTurnId(next)).toBeNull();
     expect(chatStateMessageStreamItems(next)).toEqual([]);
     expect(next.messageStream.turnDiffs.size).toBe(0);
@@ -91,7 +91,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { composer: { suggestions: [suggestion("/plan")] } });
     state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
     state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: "plan" } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } } } });
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["previous:details"]) } } });
     state = chatStateWith(state, { ui: { messageActionMenu: { forkMenuItemId: "previous" } } });
@@ -102,6 +102,9 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -129,7 +132,7 @@ describe("chatReducer", () => {
     expect(next.composer.suggestions).toEqual([]);
     expect(next.composer.suggestionsDismissedSignature).toBeNull();
     expect(next.runtime.active.collaborationMode).toBeNull();
-    expect(next.runtime.pending.collaborationMode).toBe("default");
+    expect(next.runtime.pending.collaborationMode).toEqual({ kind: "unchanged" });
     expect(uiDisclosureCount(next)).toBe(0);
     expect(next.ui.messageActionMenu.forkMenuItemId).toBeNull();
     expect(next.ui.goalEditor.kind).toBe("closed");
@@ -145,6 +148,9 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -166,7 +172,7 @@ describe("chatReducer", () => {
     expect(next.runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(next.runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(next.runtime.pending.collaborationMode).toBe("plan");
+    expect(next.runtime.pending.collaborationMode).toEqual({ kind: "set", value: "plan" });
     expect(next.runtime.active.collaborationMode).toBeNull();
   });
 
@@ -176,6 +182,9 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -650,6 +659,9 @@ describe("chatReducer", () => {
   it("preserves unknown service tier state when resuming from active runtime", () => {
     const state = chatReducer(chatStateFixture(), {
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -715,6 +727,9 @@ describe("chatReducer", () => {
 
     panelA.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,
@@ -731,6 +746,9 @@ describe("chatReducer", () => {
 
     panelB.dispatch({
       type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
       approvalPolicy: null,
       sandboxPolicy: null,
       activePermissionProfile: null,

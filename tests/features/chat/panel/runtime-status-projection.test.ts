@@ -75,7 +75,50 @@ describe("createChatPanelRuntimeProjection", () => {
         title: "Approvals",
         auditFacts: [
           { key: "Approval policy", value: "on-request" },
-          { key: "Reviewer", value: "auto_review" },
+          { key: "Auto review", value: "on" },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps pending approval reviewer out of diagnostic permission details", () => {
+    const state = chatStateWith(chatStateFixture(), {
+      activeThread: { id: "thread-1" },
+      connection: {
+        runtimeConfig: runtimeConfigFixture({
+          approvals_reviewer: "user",
+          approval_policy: "on-request",
+        }),
+      },
+      runtime: {
+        pending: {
+          approvalsReviewer: { kind: "set", value: "auto_review" },
+        },
+      },
+    });
+    const projection = createChatPanelRuntimeProjection({
+      state: () => state,
+      connected: () => true,
+      configuredCommand: () => "codex",
+      vaultPath: () => "/vault",
+      nowMs: () => 0,
+    });
+
+    expect(projection.permissionDetails()).toEqual([
+      {
+        title: "Permissions",
+        auditFacts: [
+          { key: "Profile", value: "(not reported)" },
+          { key: "Sandbox", value: "(not reported)" },
+          { key: "Network", value: "(not reported)" },
+          { key: "Extra writable roots", value: "(not reported)" },
+        ],
+      },
+      {
+        title: "Approvals",
+        auditFacts: [
+          { key: "Approval policy", value: "on-request" },
+          { key: "Auto review", value: "off" },
         ],
       },
     ]);

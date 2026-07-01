@@ -30,6 +30,9 @@ const streamingPlanItem = (id: string): MessageStreamItem => ({
 function resumeThread(stateStore: ChatStateStore, items: readonly MessageStreamItem[]): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
     approvalPolicy: null,
     sandboxPolicy: null,
     activePermissionProfile: null,
@@ -99,7 +102,7 @@ describe("implementPlan", () => {
 
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
-    expect(stateStore.getState().runtime.pending.collaborationMode).toBe("default");
+    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "default" });
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(sendTurnText).toHaveBeenCalledWith("Please implement this plan.");
   });
