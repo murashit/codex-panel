@@ -168,8 +168,8 @@ describe("Toolbar decisions", () => {
     );
 
     expect([...parent.querySelectorAll(".codex-panel__connection-diagnostics-title")].map((title) => title.textContent)).toEqual([
-      "Connection",
-      "Permissions: Current Thread",
+      "Connection diagnostics",
+      "Permissions & Approvals",
       "Codex capabilities",
     ]);
     expect(parent.textContent).toContain("Codex capabilities");
@@ -198,15 +198,20 @@ describe("Toolbar decisions", () => {
       toolbarModel({
         statusPanelOpen: true,
         openPanel: "status",
-        runtimePermissionsTitle: "Permissions: Current Thread",
+        runtimePermissionsTitle: "Permissions & Approvals",
         runtimePermissions: [
           {
-            title: "",
+            title: "Permissions",
             rows: [
               { label: "Profile", value: ":workspace" },
               { label: "Sandbox", value: "workspace-write" },
               { label: "Network", value: "blocked" },
               { label: "Extra writable roots", value: "Vault" },
+            ],
+          },
+          {
+            title: "Approvals",
+            rows: [
               { label: "Approval policy", value: "on-request" },
               { label: "Reviewer", value: "auto_review" },
             ],
@@ -217,7 +222,9 @@ describe("Toolbar decisions", () => {
       toolbarActions(),
     );
 
-    expect(parent.textContent).toContain("Permissions: Current Thread");
+    expect(parent.textContent).toContain("Permissions & Approvals");
+    expect(parent.textContent).toContain("Permissions");
+    expect(parent.textContent).toContain("Approvals");
     expect(
       [...parent.querySelectorAll(".codex-panel__connection-diagnostics-section")].map((section) => section.textContent),
     ).not.toContain("Current thread");
@@ -404,8 +411,8 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     openPanel: null,
     threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
     connectLabel: "Reconnect",
-    runtimePermissionsTitle: "Permissions: Current Thread",
-    runtimePermissions: [{ title: "", rows: [{ label: "Thread", value: "(none)" }] }],
+    runtimePermissionsTitle: "Permissions & Approvals",
+    runtimePermissions: [{ title: "Permissions", rows: [{ label: "Thread", value: "(none)" }] }],
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
     toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "not loaded", level: "warning" }] }],
     ...overrides,

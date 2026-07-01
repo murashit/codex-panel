@@ -27,27 +27,31 @@ export function runtimePermissionDetails(input: RuntimePermissionSectionsInput):
   const config = runtimeConfigOrDefault(input.snapshot.runtimeConfig);
   const resolution = resolveRuntimeControls(input.snapshot, config);
   return {
-    title: permissionPanelTitle(resolution.permissions.scope),
+    title: "Permissions & Approvals",
     sections: [
       {
-        title: "",
-        rows: permissionRows(resolution.permissions.effective, resolution.approvalsReviewer.effective, input.vaultPath),
+        title: "Permissions",
+        rows: accessRows(resolution.permissions.effective, input.vaultPath),
+      },
+      {
+        title: "Approvals",
+        rows: approvalRows(resolution.permissions.effective, resolution.approvalsReviewer.effective),
       },
     ],
   };
 }
 
-function permissionPanelTitle(scope: "new-thread" | "current-thread"): string {
-  return scope === "current-thread" ? "Permissions: Current Thread" : "Permissions: New Thread";
-}
-
-function permissionRows(permissions: RuntimePermissionState, reviewer: string | null, vaultPath: string): RuntimePermissionRow[] {
+function accessRows(permissions: RuntimePermissionState, vaultPath: string): RuntimePermissionRow[] {
   return [
     { label: "Profile", value: profileLabel(permissions) },
-    ...extendsRows(permissions),
     { label: "Sandbox", value: sandboxLabel(permissions.sandboxPolicy) },
     { label: "Network", value: networkLabel(permissions.sandboxPolicy) },
     { label: "Extra writable roots", value: writableRootsLabel(permissions.sandboxPolicy, vaultPath) },
+  ];
+}
+
+function approvalRows(permissions: RuntimePermissionState, reviewer: string | null): RuntimePermissionRow[] {
+  return [
     { label: "Approval policy", value: approvalPolicyLabel(permissions.approvalPolicy) },
     {
       label: "Reviewer",
@@ -60,11 +64,6 @@ function profileLabel(permissions: RuntimePermissionState): string {
   if (permissions.activePermissionProfile) return permissions.activePermissionProfile.id;
   if (permissions.sandboxPolicy) return "(legacy sandbox)";
   return "(not reported)";
-}
-
-function extendsRows(permissions: RuntimePermissionState): RuntimePermissionRow[] {
-  const extendsProfile = permissions.activePermissionProfile?.extends;
-  return extendsProfile ? [{ label: "Extends", value: extendsProfile }] : [];
 }
 
 function sandboxLabel(sandbox: RuntimeSandboxPolicy | null): string {

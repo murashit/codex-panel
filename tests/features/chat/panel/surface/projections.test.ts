@@ -141,7 +141,9 @@ describe("chat panel surface projections", () => {
       }),
     );
 
-    expect(parent.textContent).toContain("Permissions: New Thread");
+    expect(parent.textContent).toContain("Permissions & Approvals");
+    expect(parent.textContent).toContain("Permissions");
+    expect(parent.textContent).toContain("Approvals");
     expect(
       [...parent.querySelectorAll(".codex-panel__connection-diagnostics-section")].map((section) => section.textContent),
     ).not.toContain("New thread");

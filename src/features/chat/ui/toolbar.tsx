@@ -195,7 +195,7 @@ function StatusPanel({ model, actions }: { model: ToolbarViewModel; actions: Too
         />
       </div>
       <RateLimitPanel rateLimit={model.rateLimit} />
-      <DiagnosticSectionsPanel title="Connection" sections={model.diagnostics} />
+      <DiagnosticSectionsPanel title="Connection diagnostics" sections={model.diagnostics} />
       <DiagnosticSectionsPanel title={model.runtimePermissionsTitle} sections={model.runtimePermissions} />
       <DiagnosticSectionsPanel title="Codex capabilities" sections={model.toolInventory} />
     </>
