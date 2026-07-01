@@ -1,7 +1,7 @@
 {
   "id": "codex-panel",
   "name": "Codex Panel",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "minAppVersion": "1.12.0",
   "description": "Codex in your sidebar.",
   "author": "murashit",
