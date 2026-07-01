@@ -82,6 +82,9 @@ describe("thread management actions", () => {
     host.threadTransport.compactThread.mockReturnValue(compact.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("source"),
       cwd: "/vault",
       model: null,
@@ -97,6 +100,9 @@ describe("thread management actions", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("other"),
       cwd: "/vault",
       model: null,
@@ -235,6 +241,9 @@ describe("thread management actions", () => {
     host.threadTransport.forkThread.mockReturnValue(fork.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("source"),
       cwd: "/vault",
       model: null,
@@ -255,6 +264,9 @@ describe("thread management actions", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("other"),
       cwd: "/vault",
       model: null,
@@ -313,6 +325,9 @@ describe("thread management actions", () => {
     const host = hostMock({ items: turnItems() });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("source"),
       cwd: "/vault",
       model: null,
@@ -345,6 +360,9 @@ describe("thread management actions", () => {
     host.threadTransport.rollbackThread.mockReturnValue(rollback.promise);
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("source"),
       cwd: "/vault",
       model: null,
@@ -366,6 +384,9 @@ describe("thread management actions", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("other"),
       cwd: "/vault",
       model: null,
@@ -391,6 +412,9 @@ describe("thread management actions", () => {
     });
     host.stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("source"),
       cwd: "/vault",
       model: null,

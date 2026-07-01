@@ -1703,6 +1703,9 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().runtime.active.model).toBe("gpt-5.5");
       expect(handler.currentState().runtime.active.serviceTier).toBe("fast");
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("auto_review");
+      expect(handler.currentState().runtime.active.approvalPolicy).toBe("on-request");
+      expect(handler.currentState().runtime.active.sandboxPolicy).toEqual({ type: "readOnly", networkAccess: false });
+      expect(handler.currentState().runtime.active.activePermissionProfile).toBeNull();
       expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
     });
 
@@ -1713,6 +1716,9 @@ describe("ChatInboundHandler", () => {
       state = chatStateWith(state, { runtime: { active: { model: "gpt-active" } } });
       state = chatStateWith(state, { runtime: { active: { serviceTier: "flex" } } });
       state = chatStateWith(state, { runtime: { active: { approvalsReviewer: "user" } } });
+      state = chatStateWith(state, { runtime: { active: { approvalPolicy: "on-request" } } });
+      state = chatStateWith(state, { runtime: { active: { sandboxPolicy: { type: "readOnly", networkAccess: false } } } });
+      state = chatStateWith(state, { runtime: { active: { activePermissionProfile: null } } });
       const handler = handlerForState(state);
 
       handler.handleNotification({
@@ -1744,6 +1750,9 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().runtime.active.model).toBe("gpt-active");
       expect(handler.currentState().runtime.active.serviceTier).toBe("flex");
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("user");
+      expect(handler.currentState().runtime.active.approvalPolicy).toBe("on-request");
+      expect(handler.currentState().runtime.active.sandboxPolicy).toEqual({ type: "readOnly", networkAccess: false });
+      expect(handler.currentState().runtime.active.activePermissionProfile).toBeNull();
     });
 
     it("syncs null service tier from settings notifications", () => {

@@ -11,6 +11,9 @@ describe("createReconnectAction", () => {
     const stateStore = createChatStateStore();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: { id: "thread-1" } as never,
       cwd: "/vault",
       model: null,

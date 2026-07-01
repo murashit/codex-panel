@@ -1,4 +1,5 @@
 import type { ReasoningEffort } from "../catalog/metadata";
+import { cloneRuntimePermissionState, initialRuntimePermissionState, type RuntimePermissionState } from "./permissions";
 import type { ApprovalsReviewer, ServiceTier } from "./policy";
 
 export type ReasoningSummary = "auto" | "concise" | "detailed" | "none";
@@ -13,6 +14,7 @@ export interface RuntimeConfigSnapshot {
   readonly verbosity: Verbosity | null;
   readonly serviceTier: ServiceTier | null;
   readonly approvalsReviewer: ApprovalsReviewer | null;
+  readonly startupPermissions: RuntimePermissionState;
   readonly modelContextWindow: number | null;
   readonly autoCompactTokenLimit: number | null;
 }
@@ -27,13 +29,17 @@ export function emptyRuntimeConfigSnapshot(): RuntimeConfigSnapshot {
     verbosity: null,
     serviceTier: null,
     approvalsReviewer: null,
+    startupPermissions: initialRuntimePermissionState(),
     modelContextWindow: null,
     autoCompactTokenLimit: null,
   };
 }
 
 export function cloneRuntimeConfigSnapshot(config: RuntimeConfigSnapshot): RuntimeConfigSnapshot {
-  return { ...config };
+  return {
+    ...config,
+    startupPermissions: cloneRuntimePermissionState(config.startupPermissions),
+  };
 }
 
 export function runtimeConfigOrDefault(runtimeConfig: RuntimeConfigSnapshot | null): RuntimeConfigSnapshot {

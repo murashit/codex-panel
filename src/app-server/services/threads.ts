@@ -1,4 +1,5 @@
 import { normalizeReasoningEffort } from "../../domain/catalog/metadata";
+import { type RuntimePermissionState, runtimePermissionStateOrDefault } from "../../domain/runtime/permissions";
 import type { ApprovalsReviewer, ServiceTier } from "../../domain/runtime/policy";
 import { parseServiceTier } from "../../domain/runtime/policy";
 import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../domain/runtime/thread-settings";
@@ -34,13 +35,14 @@ interface ThreadConversationSummaryPage {
   nextCursor: string | null;
 }
 
-interface ThreadActivationResponse {
+interface ThreadActivationResponse extends Partial<RuntimePermissionState> {
   thread: ThreadRecord;
   cwd: string;
   model: string | null;
   serviceTier: ServiceTier | null;
   approvalsReviewer: ApprovalsReviewer | null;
   reasoningEffort: string | null;
+  sandbox?: RuntimePermissionState["sandboxPolicy"];
 }
 
 export interface AppServerStartThreadOptions {
@@ -215,6 +217,11 @@ export async function restoreArchivedThread(client: AppServerRequestClient, thre
 }
 
 export function threadActivationSnapshotFromAppServerResponse(response: ThreadActivationResponse): ThreadActivationSnapshot {
+  const permissions = runtimePermissionStateOrDefault({
+    approvalPolicy: response.approvalPolicy ?? null,
+    sandboxPolicy: response.sandbox ?? response.sandboxPolicy ?? null,
+    activePermissionProfile: response.activePermissionProfile ?? null,
+  });
   return {
     thread: threadFromThreadRecord(response.thread),
     cwd: response.cwd,
@@ -222,6 +229,7 @@ export function threadActivationSnapshotFromAppServerResponse(response: ThreadAc
     reasoningEffort: normalizeReasoningEffort(response.reasoningEffort),
     serviceTier: parseServiceTier(response.serviceTier),
     approvalsReviewer: response.approvalsReviewer,
+    ...permissions,
   };
 }
 

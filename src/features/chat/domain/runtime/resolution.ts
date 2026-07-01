@@ -1,6 +1,7 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, type ModelMetadata, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
+import { cloneRuntimePermissionState, type RuntimePermissionState } from "../../../../domain/runtime/permissions";
 import type { ApprovalsReviewer, ServiceTier } from "../../../../domain/runtime/policy";
 import { effectiveCollaborationMode, type PendingRuntimeIntent, type RequestedFastMode } from "./intent";
 import type { RuntimeSnapshot } from "./snapshot";
@@ -25,7 +26,6 @@ interface FastModeResolution {
 
 interface AutoReviewResolution {
   readonly active: boolean;
-  readonly reviewer: ApprovalsReviewer | null;
   readonly source: RuntimeValueSource;
 }
 
@@ -37,14 +37,23 @@ interface CollaborationModeResolution {
   readonly blockedReason: "missing-model" | null;
 }
 
+interface RuntimePermissionsResolution {
+  readonly scope: "new-thread" | "current-thread";
+  readonly configured: RuntimePermissionState;
+  readonly active: RuntimePermissionState | null;
+  readonly effective: RuntimePermissionState;
+  readonly reviewer: RuntimeLayeredValue<ApprovalsReviewer>;
+  readonly source: RuntimeValueSource;
+}
+
 export interface RuntimeControlsResolution {
   readonly model: RuntimeLayeredValue<string>;
   readonly reasoningEffort: RuntimeLayeredValue<ReasoningEffort>;
-  readonly approvalsReviewer: RuntimeLayeredValue<ApprovalsReviewer>;
   readonly autoReview: AutoReviewResolution;
   readonly serviceTier: RuntimeLayeredValue<ServiceTier>;
   readonly fastMode: FastModeResolution;
   readonly collaborationMode: CollaborationModeResolution;
+  readonly permissions: RuntimePermissionsResolution;
   readonly supportedReasoningEfforts: readonly ReasoningEffort[];
 }
 
@@ -59,35 +68,98 @@ export function resolveRuntimeControls(snapshot: RuntimeSnapshot, config: Runtim
     active: snapshot.active.reasoningEffort,
     pending: snapshot.pending.reasoningEffort,
   });
-  const approvalsReviewer = resolveRuntimeValue({
+  const reviewer = resolveRuntimeValue({
     configured: config.approvalsReviewer,
     active: snapshot.active.approvalsReviewer,
-    pending: snapshot.pending.approvalsReviewer,
+    pending: snapshot.pending.permissions.reviewer,
   });
-  const autoReview = resolveAutoReview(approvalsReviewer);
   const serviceTiers = findModelMetadataByIdOrName(snapshot.availableModels, model.effective)?.serviceTiers ?? [];
   const serviceTier = resolveServiceTier(snapshot, config);
   const fastMode = resolveFastMode(snapshot.pending.fastMode, serviceTier, serviceTiers);
   const collaborationMode = resolveCollaborationMode(snapshot, model.effective);
+  const permissions = resolveRuntimePermissions(snapshot, config, reviewer);
+  const autoReview = resolveAutoReview(permissions.reviewer);
 
   return {
     model,
     reasoningEffort,
-    approvalsReviewer,
     autoReview,
     serviceTier,
     fastMode,
     collaborationMode,
+    permissions,
     supportedReasoningEfforts: supportedEffortsForModelMetadata(findModelMetadataByIdOrName(snapshot.availableModels, model.effective)),
   };
 }
 
-function resolveAutoReview(approvalsReviewer: RuntimeLayeredValue<ApprovalsReviewer>): AutoReviewResolution {
+function resolveAutoReview(reviewer: RuntimeLayeredValue<ApprovalsReviewer>): AutoReviewResolution {
   return {
-    active: approvalsReviewer.effective === "auto_review" || approvalsReviewer.effective === "guardian_subagent",
-    reviewer: approvalsReviewer.effective,
-    source: approvalsReviewer.source,
+    active: reviewer.effective === "auto_review" || reviewer.effective === "guardian_subagent",
+    source: reviewer.source,
   };
+}
+
+function resolveRuntimePermissions(
+  snapshot: RuntimeSnapshot,
+  config: RuntimeConfigSnapshot,
+  reviewer: RuntimeLayeredValue<ApprovalsReviewer>,
+): RuntimePermissionsResolution {
+  const configured = cloneRuntimePermissionState(config.startupPermissions);
+  const scope = snapshot.activeThreadId ? "current-thread" : "new-thread";
+  const baseSource = snapshot.activeThreadId ? "active-thread" : "config";
+  if (snapshot.activeThreadId) {
+    const active = cloneRuntimePermissionState(snapshot.active);
+    const { effective, source } = resolveRuntimePermissionState(active, configured, snapshot.pending.permissions, baseSource);
+    return {
+      scope,
+      configured,
+      active,
+      effective,
+      reviewer,
+      source,
+    };
+  }
+  const { effective, source } = resolveRuntimePermissionState(configured, configured, snapshot.pending.permissions, baseSource);
+  return {
+    scope,
+    configured,
+    active: null,
+    effective,
+    reviewer,
+    source,
+  };
+}
+
+function resolveRuntimePermissionState(
+  base: RuntimePermissionState,
+  configured: RuntimePermissionState,
+  pending: RuntimeSnapshot["pending"]["permissions"],
+  baseSource: RuntimeValueSource,
+): Pick<RuntimePermissionsResolution, "effective" | "source"> {
+  let effective = cloneRuntimePermissionState(base);
+  let source = baseSource;
+  const approvalPolicy = runtimePermissionIntentValue(pending.approvalPolicy, configured.approvalPolicy);
+  if (approvalPolicy !== undefined) {
+    effective = { ...effective, approvalPolicy };
+    source = "pending";
+  }
+  const configuredPermissionProfile = configured.activePermissionProfile?.id ?? null;
+  const permissionProfile = runtimePermissionIntentValue(pending.permissionProfile, configuredPermissionProfile);
+  if (permissionProfile !== undefined) {
+    effective = {
+      ...effective,
+      sandboxPolicy: permissionProfile === configuredPermissionProfile ? configured.sandboxPolicy : null,
+      activePermissionProfile: permissionProfile ? { id: permissionProfile, extends: null } : null,
+    };
+    source = "pending";
+  }
+  return { effective: cloneRuntimePermissionState(effective), source };
+}
+
+function runtimePermissionIntentValue<T>(intent: PendingRuntimeIntent<T>, configured: T | null): T | null | undefined {
+  if (intent.kind === "set") return intent.value;
+  if (intent.kind === "resetToConfig") return configured;
+  return undefined;
 }
 
 function resolveRuntimeValue<T>(input: {

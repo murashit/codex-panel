@@ -42,6 +42,9 @@ describe("MessageStreamPresenter scroll pinning", () => {
     const store = createChatStateStore(chatStateFixture());
     store.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: { id: "thread-1", preview: "", archived: false, createdAt: 1, updatedAt: 1, name: "Thread" },
       cwd: "/repo",
       model: null,

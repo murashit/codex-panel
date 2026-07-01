@@ -60,6 +60,9 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
 function resumeThread(stateStore: ReturnType<typeof createChatStateStore>) {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
     thread: thread("thread"),
     cwd: "/vault",
     model: null,

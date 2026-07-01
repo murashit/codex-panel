@@ -18,6 +18,15 @@ describe("chat thread resume helpers", () => {
         serviceTier: "fast",
         serviceTierKnown: true,
         approvalsReviewer: "user",
+        approvalPolicy: "on-request",
+        sandboxPolicy: {
+          type: "workspaceWrite",
+          writableRoots: ["/vault"],
+          networkAccess: false,
+          excludeTmpdirEnvVar: false,
+          excludeSlashTmp: false,
+        },
+        activePermissionProfile: { id: ":workspace", extends: null },
       },
       listedThreads: [existing],
       items: [loading],
@@ -32,6 +41,15 @@ describe("chat thread resume helpers", () => {
       serviceTier: "fast",
       serviceTierKnown: true,
       approvalsReviewer: "user",
+      approvalPolicy: "on-request",
+      sandboxPolicy: {
+        type: "workspaceWrite",
+        writableRoots: ["/vault"],
+        networkAccess: false,
+        excludeTmpdirEnvVar: false,
+        excludeSlashTmp: false,
+      },
+      activePermissionProfile: { id: ":workspace", extends: null },
       items: [loading],
     });
     expect(action.listedThreads?.map((thread) => thread.id)).toEqual(["thread", "existing"]);
@@ -47,6 +65,15 @@ describe("chat thread resume helpers", () => {
 
     expect(action).toMatchObject({
       type: "active-thread/resumed",
+      approvalPolicy: "on-request",
+      sandboxPolicy: {
+        type: "workspaceWrite",
+        writableRoots: ["/vault"],
+        networkAccess: false,
+        excludeTmpdirEnvVar: false,
+        excludeSlashTmp: false,
+      },
+      activePermissionProfile: { id: ":workspace", extends: null },
       thread: resumed,
       preserveRequestedRuntimeSettings: true,
     });
@@ -62,6 +89,15 @@ function responseFixture(thread: Thread): ThreadActivationSnapshot {
     cwd: "/vault",
     approvalsReviewer: "user",
     reasoningEffort: "high",
+    approvalPolicy: "on-request",
+    sandboxPolicy: {
+      type: "workspaceWrite",
+      writableRoots: ["/vault"],
+      networkAccess: false,
+      excludeTmpdirEnvVar: false,
+      excludeSlashTmp: false,
+    },
+    activePermissionProfile: { id: ":workspace", extends: null },
   };
 }
 

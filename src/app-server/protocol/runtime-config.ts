@@ -1,5 +1,6 @@
 import { normalizeReasoningEffort } from "../../domain/catalog/metadata";
 import type { ReasoningSummary, RuntimeConfigSnapshot, Verbosity } from "../../domain/runtime/config";
+import type { RuntimeApprovalPolicy, RuntimePermissionState, RuntimeSandboxPolicy } from "../../domain/runtime/permissions";
 import { approvalsReviewerOrNull, parseServiceTier } from "../../domain/runtime/policy";
 
 interface ConfigLayerRecord {
@@ -28,8 +29,56 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadRes
     verbosity: verbosityOrNull(config["model_verbosity"]),
     serviceTier: parseServiceTier(config["service_tier"]),
     approvalsReviewer: approvalsReviewerOrNull(config["approvals_reviewer"]),
+    startupPermissions: startupPermissionsFromConfig(config),
     modelContextWindow: numberOrNull(config["model_context_window"]),
     autoCompactTokenLimit: numberOrNull(config["model_auto_compact_token_limit"]),
+  };
+}
+
+function startupPermissionsFromConfig(config: Record<string, unknown>): RuntimePermissionState {
+  return {
+    approvalPolicy: approvalPolicyOrNull(config["approval_policy"]),
+    sandboxPolicy: sandboxPolicyFromConfig(config),
+    activePermissionProfile: permissionProfileFromConfig(config),
+  };
+}
+
+function permissionProfileFromConfig(config: Record<string, unknown>): RuntimePermissionState["activePermissionProfile"] {
+  if (typeof config["sandbox_mode"] === "string") return null;
+  const profile = nonEmptyStringOrNull(config["default_permissions"]);
+  return profile ? { id: profile, extends: null } : null;
+}
+
+function sandboxPolicyFromConfig(config: Record<string, unknown>): RuntimeSandboxPolicy | null {
+  const mode = config["sandbox_mode"];
+  if (mode === "danger-full-access") return { type: "dangerFullAccess" };
+  if (mode === "read-only") return { type: "readOnly", networkAccess: false };
+  if (mode !== "workspace-write") return null;
+
+  const workspaceWrite = recordOrNull(config["sandbox_workspace_write"]);
+  return {
+    type: "workspaceWrite",
+    writableRoots: stringArrayOrEmpty(workspaceWrite?.["writable_roots"]),
+    networkAccess: booleanOrFalse(workspaceWrite?.["network_access"]),
+    excludeTmpdirEnvVar: booleanOrFalse(workspaceWrite?.["exclude_tmpdir_env_var"]),
+    excludeSlashTmp: booleanOrFalse(workspaceWrite?.["exclude_slash_tmp"]),
+  };
+}
+
+function approvalPolicyOrNull(value: unknown): RuntimeApprovalPolicy | null {
+  if (value === "untrusted" || value === "on-failure" || value === "on-request" || value === "never") return value;
+  if (!value || typeof value !== "object") return null;
+  const granular = (value as Record<string, unknown>)["granular"];
+  if (!granular || typeof granular !== "object") return null;
+  const granularRecord = granular as Record<string, unknown>;
+  return {
+    granular: {
+      sandbox_approval: booleanOrFalse(granularRecord["sandbox_approval"]),
+      rules: booleanOrFalse(granularRecord["rules"]),
+      skill_approval: booleanOrFalse(granularRecord["skill_approval"]),
+      request_permissions: booleanOrFalse(granularRecord["request_permissions"]),
+      mcp_elicitations: booleanOrFalse(granularRecord["mcp_elicitations"]),
+    },
   };
 }
 
@@ -53,6 +102,18 @@ function numberOrNull(value: unknown): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value === "bigint") return Number(value);
   return null;
+}
+
+function recordOrNull(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function stringArrayOrEmpty(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length > 0) : [];
+}
+
+function booleanOrFalse(value: unknown): boolean {
+  return value === true;
 }
 
 function reasoningSummaryOrNull(value: unknown): ReasoningSummary | null {

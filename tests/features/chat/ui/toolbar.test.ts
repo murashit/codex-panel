@@ -167,7 +167,11 @@ describe("Toolbar decisions", () => {
       toolbarActions({ refreshStatus }),
     );
 
-    expect(parent.querySelector(".codex-panel__connection-diagnostics-title")?.textContent).toBe("Connection");
+    expect([...parent.querySelectorAll(".codex-panel__connection-diagnostics-title")].map((title) => title.textContent)).toEqual([
+      "Connection",
+      "Permissions: Current Thread",
+      "Codex capabilities",
+    ]);
     expect(parent.textContent).toContain("Codex capabilities");
     expect(parent.textContent).toContain("Tool providers");
     expect(parent.textContent).toContain("Process");
@@ -184,6 +188,44 @@ describe("Toolbar decisions", () => {
     expect(statusItems.every((item) => item.getAttribute("aria-selected") === null)).toBe(true);
     statusItems.find((item) => item.textContent.includes("Refresh"))?.click();
     expect(refreshStatus).toHaveBeenCalled();
+  });
+
+  it("renders runtime permissions in the status menu without severity styling", () => {
+    const parent = document.createElement("div");
+
+    mountToolbar(
+      parent,
+      toolbarModel({
+        statusPanelOpen: true,
+        openPanel: "status",
+        runtimePermissionsTitle: "Permissions: Current Thread",
+        runtimePermissions: [
+          {
+            title: "",
+            rows: [
+              { label: "Profile", value: ":workspace" },
+              { label: "Sandbox", value: "workspace-write" },
+              { label: "Network", value: "blocked" },
+              { label: "Extra writable roots", value: "Vault" },
+              { label: "Approval policy", value: "on-request" },
+              { label: "Reviewer", value: "auto_review" },
+            ],
+          },
+        ],
+        toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "loaded" }] }],
+      }),
+      toolbarActions(),
+    );
+
+    expect(parent.textContent).toContain("Permissions: Current Thread");
+    expect(
+      [...parent.querySelectorAll(".codex-panel__connection-diagnostics-section")].map((section) => section.textContent),
+    ).not.toContain("Current thread");
+    expect(parent.textContent).toContain(":workspace");
+    expect(parent.textContent).toContain("workspace-write");
+    expect(parent.textContent).toContain("auto_review");
+    expect(parent.querySelector(".codex-panel__connection-diagnostics-row--warning")).toBeNull();
+    expect(parent.querySelector(".codex-panel__connection-diagnostics-row--error")).toBeNull();
   });
 
   it("copies raw debug details from the status menu", () => {
@@ -362,6 +404,8 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
     openPanel: null,
     threads: [{ title: "Thread", threadId: "thread", selected: true, disabled: false, canArchive: true, rename: null }],
     connectLabel: "Reconnect",
+    runtimePermissionsTitle: "Permissions: Current Thread",
+    runtimePermissions: [{ title: "", rows: [{ label: "Thread", value: "(none)" }] }],
     diagnostics: [{ title: "Process", rows: [{ label: "Codex App Server", value: "codex-cli/test" }] }],
     toolInventory: [{ title: "Tool providers", rows: [{ label: "Tool providers", value: "not loaded", level: "warning" }] }],
     ...overrides,

@@ -55,7 +55,7 @@ describe("chatReducer", () => {
     expect(next.runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.fastMode).toEqual({ kind: "unchanged" });
-    expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "unchanged" });
+    expect(next.runtime.pending.permissions.reviewer).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.collaborationMode).toBe("default");
     expect(activeTurnId(next)).toBeNull();
     expect(chatStateMessageStreamItems(next)).toEqual([]);
@@ -102,6 +102,9 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("resumed-thread"),
       cwd: "/vault",
       model: "gpt-5.1",
@@ -142,6 +145,9 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("started-thread"),
       cwd: "/vault",
       model: "gpt-5",
@@ -159,7 +165,7 @@ describe("chatReducer", () => {
     expect(next.runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(next.runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(next.runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
-    expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(next.runtime.pending.permissions.reviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(next.runtime.pending.collaborationMode).toBe("plan");
     expect(next.runtime.active.collaborationMode).toBeNull();
   });
@@ -170,6 +176,9 @@ describe("chatReducer", () => {
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("resumed-thread"),
       cwd: "/vault",
       model: null,
@@ -620,7 +629,7 @@ describe("chatReducer", () => {
     expect(next.runtime.active.serviceTierKnown).toBe(true);
     expect(next.runtime.pending.fastMode).toEqual({ kind: "unchanged" });
     expect(next.runtime.active.approvalsReviewer).toBe("auto_review");
-    expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "unchanged" });
+    expect(next.runtime.pending.permissions.reviewer).toEqual({ kind: "unchanged" });
     expect(next.runtime.active.collaborationMode).toBe("plan");
   });
 
@@ -641,6 +650,9 @@ describe("chatReducer", () => {
   it("preserves unknown service tier state when resuming from active runtime", () => {
     const state = chatReducer(chatStateFixture(), {
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("thread"),
       cwd: "/vault",
       model: "gpt-5.1",
@@ -664,7 +676,7 @@ describe("chatReducer", () => {
 
     expect(state.runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(state.runtime.active.serviceTier).toBe("flex");
-    expect(state.runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
+    expect(state.runtime.pending.permissions.reviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(state.runtime.active.approvalsReviewer).toBe("user");
   });
 
@@ -683,7 +695,7 @@ describe("chatReducer", () => {
     expect(state.runtime.pending.model).toEqual({ kind: "resetToConfig" });
     expect(state.runtime.pending.reasoningEffort).toEqual({ kind: "resetToConfig" });
     expect(state.runtime.pending.fastMode).toEqual({ kind: "unchanged" });
-    expect(state.runtime.pending.approvalsReviewer).toEqual({ kind: "unchanged" });
+    expect(state.runtime.pending.permissions.reviewer).toEqual({ kind: "unchanged" });
   });
 
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {
@@ -703,6 +715,9 @@ describe("chatReducer", () => {
 
     panelA.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("thread-a"),
       cwd: "/vault",
       model: null,
@@ -716,6 +731,9 @@ describe("chatReducer", () => {
 
     panelB.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("thread-b"),
       cwd: "/vault",
       model: null,

@@ -6,6 +6,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import { threadRowCoreProjection } from "../../../threads/list/row-projection";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { appServerDiagnosticSections } from "../../presentation/runtime/diagnostic-sections";
+import { runtimePermissionDetails } from "../../presentation/runtime/permission-sections";
 import { rateLimitSummary } from "../../presentation/runtime/status";
 import { toolInventoryDiagnosticSections } from "../../presentation/runtime/tool-inventory-diagnostic-sections";
 import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
@@ -75,6 +76,10 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
   const projection = toolbarStateProjection(input);
   const limit = rateLimitSummary(snapshot, input.nowMs);
   const diagnostics = model.diagnostics.value;
+  const permissions = runtimePermissionDetails({
+    snapshot,
+    vaultPath: input.vaultPath,
+  });
   return {
     newChatDisabled: projection.newChatDisabled,
     chatActionsOpen: projection.chatActionsOpen,
@@ -85,6 +90,8 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
     openPanel: projection.openPanel,
     threads: projection.threads,
     connectLabel: input.connected ? "Reconnect" : "Connect",
+    runtimePermissionsTitle: permissions.title,
+    runtimePermissions: permissions.sections,
     diagnostics: appServerDiagnosticSections({
       connected: input.connected,
       configuredCommand: input.configuredCommand,

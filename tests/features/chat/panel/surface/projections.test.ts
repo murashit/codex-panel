@@ -111,6 +111,49 @@ describe("chat panel surface projections", () => {
     unmountUiRoot(parent);
   });
 
+  it("renders new thread permission baseline in the status panel before a thread is active", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { ui: { toolbarPanel: "status-panel" } });
+    state = chatStateWith(state, {
+      connection: {
+        runtimeConfig: runtimeConfigFixture({
+          default_permissions: ":workspace",
+          approval_policy: "on-request",
+          approvals_reviewer: "user",
+        }),
+      },
+    });
+    state = chatStateWith(state, {
+      runtime: {
+        pending: {
+          permissions: {
+            approvalPolicy: { kind: "unchanged" },
+            permissionProfile: { kind: "unchanged" },
+            reviewer: { kind: "set", value: "auto_review" },
+          },
+        },
+      },
+    });
+
+    const parent = renderWithShellReadModel(state, (readModel) =>
+      h(ChatPanelToolbar, {
+        model: readModel.toolbar,
+        surface: toolbarSurfaceFixture(),
+        actions: toolbarActionsFixture(),
+      }),
+    );
+
+    expect(parent.textContent).toContain("Permissions: New Thread");
+    expect(
+      [...parent.querySelectorAll(".codex-panel__connection-diagnostics-section")].map((section) => section.textContent),
+    ).not.toContain("New thread");
+    expect(parent.textContent).toContain(":workspace");
+    expect(parent.textContent).toContain("on-request");
+    expect(parent.textContent).toContain("auto_review");
+    expect(parent.textContent).not.toContain("user -> auto_review");
+    unmountUiRoot(parent);
+  });
+
   it("builds composer meta from context and runtime state", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });

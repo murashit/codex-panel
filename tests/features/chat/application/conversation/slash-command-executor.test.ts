@@ -89,6 +89,9 @@ describe("executeSlashCommandWithState", () => {
     });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("thread", "Thread"),
       cwd: "/vault",
       model: null,
@@ -106,6 +109,9 @@ describe("executeSlashCommandWithState", () => {
     const { compactThread, host, stateStore } = createHost({ connectionAvailable: () => false });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("thread", "Thread"),
       cwd: "/vault",
       model: null,

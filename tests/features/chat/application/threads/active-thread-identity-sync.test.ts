@@ -44,6 +44,9 @@ describe("createActiveThreadIdentitySync", () => {
     const { controller, host, restoredClear, stateStore } = createController();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("thread"),
       cwd: "/vault",
       model: null,
@@ -66,6 +69,9 @@ describe("createActiveThreadIdentitySync", () => {
     const { controller, host, restoredClear, stateStore } = createController();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("active"),
       cwd: "/vault",
       model: null,
@@ -101,6 +107,9 @@ describe("createActiveThreadIdentitySync", () => {
     const { controller, host, restoredRename, stateStore } = createController();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("thread", "Old"),
       cwd: "/vault",
       model: null,

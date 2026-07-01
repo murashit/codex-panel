@@ -151,6 +151,9 @@ describe("submitComposer", () => {
     const { host, interruptTurn, showLatest, stateStore } = createHost("");
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: thread("thread"),
       cwd: "/vault",
       model: null,

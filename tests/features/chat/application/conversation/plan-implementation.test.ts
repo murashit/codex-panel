@@ -30,6 +30,9 @@ const streamingPlanItem = (id: string): MessageStreamItem => ({
 function resumeThread(stateStore: ChatStateStore, items: readonly MessageStreamItem[]): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
     thread: { id: "thread", cliVersion: "test" } as never,
     cwd: "/vault",
     model: null,

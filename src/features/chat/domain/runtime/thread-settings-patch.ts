@@ -60,11 +60,25 @@ export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: R
     "serviceTier",
     runtimeSettingsPatchValue(serviceTierPatchIntent(snapshot, resolution, "thread-update")),
   );
-  if (snapshot.pending.approvalsReviewer.kind !== "unchanged") {
+  if (snapshot.pending.permissions.approvalPolicy.kind !== "unchanged") {
+    applyRuntimeSettingsPatchValue(
+      update,
+      "approvalPolicy",
+      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.permissions.approvalPolicy)),
+    );
+  }
+  if (snapshot.pending.permissions.permissionProfile.kind !== "unchanged") {
+    applyRuntimeSettingsPatchValue(
+      update,
+      "permissions",
+      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.permissions.permissionProfile)),
+    );
+  }
+  if (snapshot.pending.permissions.reviewer.kind !== "unchanged") {
     applyRuntimeSettingsPatchValue(
       update,
       "approvalsReviewer",
-      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.approvalsReviewer)),
+      runtimeSettingsPatchValue(runtimeSettingsPatchIntentFromPending(snapshot.pending.permissions.reviewer)),
     );
   }
   if (resolution.collaborationMode.dirty) {

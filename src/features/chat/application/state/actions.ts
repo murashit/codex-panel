@@ -1,4 +1,5 @@
 import { normalizeReasoningEffort, type ReasoningEffort } from "../../../../domain/catalog/metadata";
+import { type RuntimePermissionState, runtimePermissionStateOrDefault } from "../../../../domain/runtime/permissions";
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
@@ -19,12 +20,22 @@ interface ResumedThreadActionParams {
 interface ResumedThreadFromActiveRuntimeParams {
   thread: Thread;
   cwd: string;
-  runtime: Pick<ActiveThreadRuntimeState, "model" | "reasoningEffort" | "serviceTier" | "serviceTierKnown" | "approvalsReviewer">;
+  runtime: Pick<
+    ActiveThreadRuntimeState,
+    | "model"
+    | "reasoningEffort"
+    | "serviceTier"
+    | "serviceTierKnown"
+    | "approvalsReviewer"
+    | "approvalPolicy"
+    | "sandboxPolicy"
+    | "activePermissionProfile"
+  >;
   listedThreads?: readonly Thread[];
   items?: readonly MessageStreamItem[];
 }
 
-export interface ActiveThreadResumedAction {
+export interface ActiveThreadResumedAction extends RuntimePermissionState {
   type: "active-thread/resumed";
   thread: Thread;
   cwd: string;
@@ -39,7 +50,7 @@ export interface ActiveThreadResumedAction {
   preserveRequestedRuntimeSettings?: boolean;
 }
 
-export interface ActiveThreadSettingsAppliedAction {
+export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionState {
   type: "active-thread/settings-applied";
   cwd: string;
   model: string | null;
@@ -49,7 +60,7 @@ export interface ActiveThreadSettingsAppliedAction {
   approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
 }
 
-export interface ActiveThreadSettingsAppliedActionSettings {
+export interface ActiveThreadSettingsAppliedActionSettings extends RuntimePermissionState {
   cwd: string;
   model: string | null;
   effort: string | null;
@@ -114,6 +125,9 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
       reasoningEffort: params.runtime.reasoningEffort,
       serviceTier: params.runtime.serviceTier,
       approvalsReviewer: params.runtime.approvalsReviewer,
+      approvalPolicy: params.runtime.approvalPolicy,
+      sandboxPolicy: params.runtime.sandboxPolicy,
+      activePermissionProfile: params.runtime.activePermissionProfile,
     },
     serviceTierKnown: params.runtime.serviceTierKnown,
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
@@ -123,6 +137,7 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
 
 export function resumedThreadAction(params: ResumedThreadActionParams): ActiveThreadResumedAction {
   const { response } = params;
+  const permissions = runtimePermissionStateOrDefault(response);
   return {
     type: "active-thread/resumed",
     thread: response.thread,
@@ -132,6 +147,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     serviceTier: response.serviceTier,
     serviceTierKnown: params.serviceTierKnown ?? true,
     approvalsReviewer: response.approvalsReviewer,
+    ...permissions,
     ...(params.items ? { items: params.items } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
@@ -139,6 +155,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
 }
 
 export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettingsAppliedActionSettings): ActiveThreadSettingsAppliedAction {
+  const permissions = runtimePermissionStateOrDefault(settings);
   return {
     type: "active-thread/settings-applied",
     cwd: settings.cwd,
@@ -147,5 +164,6 @@ export function activeThreadSettingsAppliedAction(settings: ActiveThreadSettings
     collaborationMode: settings.collaborationMode.mode,
     serviceTier: parseServiceTier(settings.serviceTier),
     approvalsReviewer: settings.approvalsReviewer,
+    ...permissions,
   };
 }

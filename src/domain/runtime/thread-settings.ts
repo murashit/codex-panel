@@ -1,4 +1,5 @@
 import type { ReasoningEffort } from "../catalog/metadata";
+import type { RuntimeApprovalPolicy } from "./permissions";
 import type { ApprovalsReviewer } from "./policy";
 
 export type RuntimeServiceTierRequest = string | null | undefined;
@@ -15,7 +16,9 @@ export interface CollaborationMode {
 
 export interface RuntimeSettingsPatch {
   cwd?: string | null;
+  approvalPolicy?: RuntimeApprovalPolicy | null;
   approvalsReviewer?: ApprovalsReviewer | null;
+  permissions?: string | null;
   model?: string | null;
   serviceTier?: string | null;
   effort?: ReasoningEffort | null;

@@ -158,6 +158,9 @@ describe("createChatPanelSessionGraph actions", () => {
     });
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: threadFixture({ id: "thread-1", preview: "Active" }),
       cwd: "/vault",
       model: null,

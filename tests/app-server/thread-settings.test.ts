@@ -54,6 +54,7 @@ describe("app-server thread settings", () => {
         },
       },
     });
+    expect(appServerRuntimeSettingsPatch({ permissions: ":workspace" })).toEqual({ permissions: ":workspace" });
   });
 
   it.each([

@@ -24,6 +24,9 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
       serviceTier: null,
       approvalsReviewer: "user",
       reasoningEffort: null,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
     },
     rolloutPath: null,
     initialHistoryPage: null,
@@ -117,6 +120,9 @@ describe("ResumeActions", () => {
     const { actions, host, resumeThread, stateStore } = createActions();
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: panelThread("active"),
       cwd: "/vault",
       model: null,
@@ -159,6 +165,9 @@ describe("ResumeActions", () => {
     await actions.resumeThread("thread");
     stateStore.dispatch({
       type: "active-thread/resumed",
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
       thread: second.activation.thread,
       cwd: "/vault",
       model: null,

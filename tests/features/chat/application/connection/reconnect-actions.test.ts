@@ -8,6 +8,9 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
   stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
   stateStore.dispatch({
     type: "active-thread/resumed",
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
     thread: { id: "thread" } as never,
     cwd: "/vault",
     model: null,

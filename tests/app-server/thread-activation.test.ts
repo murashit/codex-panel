@@ -17,6 +17,9 @@ describe("app-server thread activation", () => {
       serviceTier: "fast",
       approvalsReviewer: "user",
       reasoningEffort: "high",
+      approvalPolicy: "on-request",
+      sandboxPolicy: { type: "readOnly", networkAccess: false },
+      activePermissionProfile: null,
     });
   });
 });
