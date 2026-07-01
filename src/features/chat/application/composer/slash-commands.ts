@@ -130,6 +130,13 @@ export const SLASH_COMMANDS = [
     detail: "Show current thread, context, and usage limits.",
   },
   {
+    command: "/permissions",
+    usage: "/permissions",
+    argsKind: "none",
+    surface: "diagnostic",
+    detail: "Show current permissions and approval settings.",
+  },
+  {
     command: "/doctor",
     usage: "/doctor",
     argsKind: "none",

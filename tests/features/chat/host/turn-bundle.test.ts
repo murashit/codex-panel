@@ -45,6 +45,7 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
     modelStatusLines: vi.fn(() => []),
     effortStatusLines: vi.fn(() => []),
     statusSummaryLines: vi.fn(() => []),
+    permissionDetails: vi.fn(() => []),
     toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] }]),
   };
   const refreshDiagnostics = vi.fn().mockResolvedValue(undefined);

@@ -52,6 +52,7 @@ export interface SlashCommandExecutionPorts {
     clear: GoalActions["clear"];
   };
   statusSummaryLines: () => string[];
+  permissionDetails: () => MessageStreamNoticeSection[];
   connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
   toolInventoryDetails: () => MessageStreamNoticeSection[] | Promise<MessageStreamNoticeSection[]>;
   modelStatusLines: () => string[];
@@ -182,6 +183,9 @@ export async function executeSlashCommand(
       return await executeGoalCommand(args, context);
     case "status":
       context.addStructuredSystemMessage("Thread status", detailsFromLines(context.statusSummaryLines()));
+      return;
+    case "permissions":
+      context.addStructuredSystemMessage("Permissions & Approvals", context.permissionDetails());
       return;
     case "doctor":
       context.addStructuredSystemMessage("Connection diagnostics", context.connectionDiagnosticDetails());

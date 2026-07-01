@@ -45,6 +45,7 @@ export function createRuntimeBundle(
       state: () => host.stateStore.getState(),
       connected: () => input.connection.isConnected(),
       configuredCommand: () => host.environment.plugin.settingsRef.settings.codexPath(),
+      vaultPath: () => host.environment.plugin.settingsRef.vaultPath,
       nowMs: () => Date.now(),
     }),
   };

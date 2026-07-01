@@ -26,6 +26,7 @@ export interface ConversationTurnActionsContext {
   };
   runtime: {
     connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
+    permissionDetails: () => MessageStreamNoticeSection[];
     modelStatusLines: () => string[];
     effortStatusLines: () => string[];
     statusSummaryLines: () => string[];
@@ -105,6 +106,7 @@ export function createConversationTurnActions(
     addStructuredSystemMessage: status.addStructuredSystemMessage,
     setStatus: status.set,
     statusSummaryLines: runtime.statusSummaryLines,
+    permissionDetails: runtime.permissionDetails,
     connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,
     toolInventoryDetails: runtime.toolInventoryDetails,
     modelStatusLines: runtime.modelStatusLines,

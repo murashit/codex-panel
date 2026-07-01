@@ -25,6 +25,7 @@ describe("createChatPanelRuntimeProjection", () => {
       state: () => state,
       connected: () => true,
       configuredCommand: () => "codex",
+      vaultPath: () => "/vault",
       nowMs: () => 0,
     });
 
@@ -32,6 +33,52 @@ describe("createChatPanelRuntimeProjection", () => {
     expect(projection.modelStatusLines()).toContain("Model: gpt-5.5");
     expect(projection.modelStatusLines()).toContain("Mode: Default");
     expect(projection.effortStatusLines()).toContain("Supported: high");
+  });
+
+  it("builds slash-command permission details from chat state", () => {
+    const state = chatStateWith(chatStateFixture(), {
+      activeThread: { id: "thread-1" },
+      runtime: {
+        active: {
+          activePermissionProfile: { id: "workspace-write", extends: null },
+          sandboxPolicy: {
+            type: "workspaceWrite",
+            writableRoots: ["/vault/Notes"],
+            networkAccess: false,
+            excludeTmpdirEnvVar: false,
+            excludeSlashTmp: false,
+          },
+          approvalPolicy: "on-request",
+          approvalsReviewer: "auto_review",
+        },
+      },
+    });
+    const projection = createChatPanelRuntimeProjection({
+      state: () => state,
+      connected: () => true,
+      configuredCommand: () => "codex",
+      vaultPath: () => "/vault",
+      nowMs: () => 0,
+    });
+
+    expect(projection.permissionDetails()).toEqual([
+      {
+        title: "Permissions",
+        auditFacts: [
+          { key: "Profile", value: "workspace-write" },
+          { key: "Sandbox", value: "workspace-write" },
+          { key: "Network", value: "blocked" },
+          { key: "Extra writable roots", value: "Vault/Notes" },
+        ],
+      },
+      {
+        title: "Approvals",
+        auditFacts: [
+          { key: "Approval policy", value: "on-request" },
+          { key: "Reviewer", value: "auto_review" },
+        ],
+      },
+    ]);
   });
 });
 

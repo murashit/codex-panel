@@ -47,6 +47,7 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
       clear: vi.fn().mockResolvedValue(true),
     },
     statusSummaryLines: () => ["status"],
+    permissionDetails: () => [{ title: "Permissions", auditFacts: [{ key: "Profile", value: "read-only" }] }],
     connectionDiagnosticDetails: () => [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }],
     toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github" }] }]),
     modelStatusLines: () => ["model"],
@@ -559,6 +560,28 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/status does not take arguments. Usage: /status");
   });
 
+  it("shows permissions and approvals as shared structured sections", async () => {
+    const details = [
+      { title: "Permissions", auditFacts: [{ key: "Profile", value: "workspace-write" }] },
+      { title: "Approvals", auditFacts: [{ key: "Reviewer", value: "auto_review" }] },
+    ];
+    const ctx = context({ permissionDetails: () => details });
+
+    await executeSlashCommand("permissions", "", ctx);
+
+    expect(ctx.addSystemMessage).not.toHaveBeenCalled();
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Permissions & Approvals", details);
+  });
+
+  it("rejects /permissions arguments", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("permissions", "anything", ctx);
+
+    expect(ctx.addStructuredSystemMessage).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/permissions does not take arguments. Usage: /permissions");
+  });
+
   it("shows doctor diagnostics as shared structured sections", async () => {
     const details = [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }];
     const ctx = context({ connectionDiagnosticDetails: () => details });
@@ -596,6 +619,7 @@ describe("slash commands", () => {
 
   it("documents status and doctor as separate commands", () => {
     expect(slashCommandHelpValue("/status")).toBe("Show current thread, context, and usage limits.");
+    expect(slashCommandHelpValue("/permissions")).toBe("Show current permissions and approval settings.");
     expect(slashCommandHelpValue("/doctor")).toBe("Show Codex CLI and Codex App Server diagnostics.");
   });
 

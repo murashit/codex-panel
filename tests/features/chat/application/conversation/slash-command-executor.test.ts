@@ -62,6 +62,7 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
     addStructuredSystemMessage: vi.fn(),
     setStatus: vi.fn(),
     statusSummaryLines: () => [],
+    permissionDetails: () => [],
     connectionDiagnosticDetails: () => [],
     toolInventoryDetails: vi.fn(() => []),
     modelStatusLines: () => [],

@@ -4,6 +4,7 @@ import type { MessageStreamNoticeSection } from "../domain/message-stream/items"
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import { appServerDiagnosticSections } from "../presentation/runtime/diagnostic-sections";
+import { runtimePermissionDetails } from "../presentation/runtime/permission-sections";
 import {
   effortStatusLines as buildEffortStatusLines,
   modelStatusLines as buildModelStatusLines,
@@ -13,6 +14,7 @@ import { toolInventoryDiagnosticSections } from "../presentation/runtime/tool-in
 
 export interface ChatPanelRuntimeProjection {
   connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
+  permissionDetails: () => MessageStreamNoticeSection[];
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
   statusSummaryLines: () => string[];
@@ -23,12 +25,14 @@ interface ChatPanelRuntimeProjectionInput {
   state: () => ChatState;
   connected: () => boolean;
   configuredCommand: () => string;
+  vaultPath: () => string;
   nowMs: () => number;
 }
 
 export function createChatPanelRuntimeProjection(input: ChatPanelRuntimeProjectionInput): ChatPanelRuntimeProjection {
   return {
     connectionDiagnosticDetails: () => connectionDiagnosticDetails(input),
+    permissionDetails: () => permissionDetails(input),
     modelStatusLines: () => modelStatusLines(input),
     effortStatusLines: () => effortStatusLines(input),
     statusSummaryLines: () => statusSummaryLines(input),
@@ -77,6 +81,16 @@ function connectionDiagnosticDetails(input: ChatPanelRuntimeProjectionInput): Me
 
 function toolInventoryDetails(input: ChatPanelRuntimeProjectionInput): MessageStreamNoticeSection[] {
   return noticeSectionsFromDiagnostics(toolInventoryDiagnosticSections(input.state().connection.serverDiagnostics));
+}
+
+function permissionDetails(input: ChatPanelRuntimeProjectionInput): MessageStreamNoticeSection[] {
+  const state = input.state();
+  return noticeSectionsFromDiagnostics(
+    runtimePermissionDetails({
+      snapshot: runtimeSnapshot(state),
+      vaultPath: input.vaultPath(),
+    }).sections,
+  );
 }
 
 function noticeSectionsFromDiagnostics(

@@ -105,6 +105,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
         modelStatusLines: runtimeProjection.modelStatusLines,
         effortStatusLines: runtimeProjection.effortStatusLines,
         statusSummaryLines: runtimeProjection.statusSummaryLines,
+        permissionDetails: runtimeProjection.permissionDetails,
         toolInventoryDetails: async () => {
           if (host.stateStore.getState().connection.serverDiagnostics.toolInventory) {
             return runtimeProjection.toolInventoryDetails();
