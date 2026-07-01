@@ -7,6 +7,7 @@ interface AppServerSpawnSpec {
   command: string;
   args: string[];
   killProcessTreeOnStop: boolean;
+  windowsVerbatimArguments?: boolean;
 }
 
 export interface AppServerTransport {
@@ -35,8 +36,9 @@ export function createAppServerSpawnSpec(
   const comSpec = options.comSpec?.trim() || process.env["ComSpec"]?.trim() || process.env["COMSPEC"]?.trim() || "cmd.exe";
   return {
     command: comSpec,
-    args: ["/d", "/c", `${quoteWindowsCmdArgument(codexPath)} app-server`],
+    args: ["/d", "/s", "/c", `"${quoteWindowsCmdArgument(codexPath)} app-server"`],
     killProcessTreeOnStop: true,
+    windowsVerbatimArguments: true,
   };
 }
 
@@ -70,6 +72,7 @@ export class StdioAppServerTransport implements AppServerTransport {
     this.process = spawn(launch.command, launch.args, {
       cwd: this.cwd,
       stdio: ["pipe", "pipe", "pipe"],
+      windowsVerbatimArguments: launch.windowsVerbatimArguments,
     });
 
     this.process.once("error", (error) => {

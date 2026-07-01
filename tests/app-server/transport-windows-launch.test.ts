@@ -34,9 +34,10 @@ describe("StdioAppServerTransport Windows launch", () => {
       onError: vi.fn(),
     }).start();
 
-    expect(spawnMock).toHaveBeenCalledWith(String.raw`C:\Windows\System32\cmd.exe`, ["/d", "/c", `"${codexCmd}" app-server`], {
+    expect(spawnMock).toHaveBeenCalledWith(String.raw`C:\Windows\System32\cmd.exe`, ["/d", "/s", "/c", `""${codexCmd}" app-server"`], {
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
+      windowsVerbatimArguments: true,
     });
   });
 

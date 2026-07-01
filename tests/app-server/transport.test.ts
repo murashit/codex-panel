@@ -35,8 +35,9 @@ describe("createAppServerSpawnSpec", () => {
 
     expect(createAppServerSpawnSpec(codexBat, { platform: "win32", comSpec: " " })).toEqual({
       command: "cmd.exe",
-      args: ["/d", "/c", `"${codexBat}" app-server`],
+      args: ["/d", "/s", "/c", `""${codexBat}" app-server"`],
       killProcessTreeOnStop: true,
+      windowsVerbatimArguments: true,
     });
   });
 });
