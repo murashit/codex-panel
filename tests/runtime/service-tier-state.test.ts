@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
+import { unchangedCollaborationModeIntent } from "../../src/features/chat/domain/runtime/intent";
 import { resolveRuntimeControls } from "../../src/features/chat/domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
 
@@ -42,7 +43,7 @@ function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["servi
         permissionProfile: { kind: "unchanged" },
         approvalPolicy: { kind: "unchanged" },
         approvalsReviewer: { kind: "unchanged" },
-        collaborationMode: { kind: "unchanged" },
+        collaborationMode: unchangedCollaborationModeIntent(),
         fastMode: { kind: "unchanged" },
       },
       tokenUsage: null,

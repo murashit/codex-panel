@@ -9,6 +9,7 @@ import { createServerDiagnostics } from "../../../../../src/domain/server/diagno
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { createChatPanelShellReadModelBinding } from "../../../../../src/features/chat/panel/shell-read-model";
 import type { ChatPanelComposerProjectionActions } from "../../../../../src/features/chat/panel/surface/composer-projection";
 import { chatPanelComposerProjection } from "../../../../../src/features/chat/panel/surface/composer-projection";
@@ -158,7 +159,7 @@ describe("chat panel surface projections", () => {
   it("builds composer meta from context and runtime state", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
     state = chatStateWith(state, {
       connection: {
         runtimeConfig: runtimeConfigFixture({

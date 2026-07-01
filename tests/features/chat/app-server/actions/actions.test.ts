@@ -24,6 +24,7 @@ import { createChatServerMetadataActions } from "../../../../../src/features/cha
 import { createChatServerThreadActions } from "../../../../../src/features/chat/app-server/actions/threads";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/tool-inventory-diagnostic-sections";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -106,7 +107,7 @@ describe("chat app-server actions", () => {
     expect(stateStore.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(stateStore.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(stateStore.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "plan" });
+    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
   });
 
   it("can skip newly started thread goal sync when the caller sets the first goal", async () => {

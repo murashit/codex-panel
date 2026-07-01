@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import { type ConfigReadResult, runtimeConfigSnapshotFromAppServerConfig } from "../../src/app-server/protocol/runtime-config";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../src/domain/runtime/config";
-import { resetRuntimeIntentToConfig, setRuntimeIntentValue } from "../../src/features/chat/domain/runtime/intent";
+import {
+  resetRuntimeIntentToConfig,
+  setCollaborationModeIntent,
+  setRuntimeIntentValue,
+  unchangedCollaborationModeIntent,
+} from "../../src/features/chat/domain/runtime/intent";
 import {
   compactReasoningEffortLabel,
   modelOverrideMessage,
@@ -300,7 +305,7 @@ describe("runtime settings", () => {
   it("builds the Plan collaboration mode payload from selected runtime settings", () => {
     const snapshot = runtimeSnapshot({
       pending: {
-        collaborationMode: { kind: "set", value: "plan" },
+        collaborationMode: setCollaborationModeIntent("plan"),
         model: setRuntimeIntentValue("gpt-5.5"),
         reasoningEffort: setRuntimeIntentValue("high"),
       },
@@ -323,7 +328,7 @@ describe("runtime settings", () => {
 
   it("uses the explicit config for collaboration mode thread settings", () => {
     const snapshot = runtimeSnapshot({
-      pending: { collaborationMode: { kind: "set", value: "plan" } },
+      pending: { collaborationMode: setCollaborationModeIntent("plan") },
       runtimeConfig: runtimeConfigFixture({
         model: "snapshot-model",
         model_reasoning_effort: "low",
@@ -352,12 +357,12 @@ describe("runtime settings", () => {
   it("keeps collaboration mode settings separate from reviewer and direct runtime intents", () => {
     const reviewerSnapshot = runtimeSnapshot({
       pending: {
-        collaborationMode: { kind: "set", value: "plan" },
+        collaborationMode: setCollaborationModeIntent("plan"),
         approvalsReviewer: setRuntimeIntentValue("auto_review"),
       },
     });
     const activeRuntimeSnapshot = runtimeSnapshot({
-      pending: { collaborationMode: { kind: "set", value: "plan" } },
+      pending: { collaborationMode: setCollaborationModeIntent("plan") },
       active: { model: "gpt-5-active", serviceTier: "fast" },
       runtimeConfig: runtimeConfigFixture({}),
     });
@@ -633,25 +638,25 @@ describe("runtime settings", () => {
 
   it("reports collaboration mode dirtiness and missing model blockers from the resolved runtime", () => {
     const blocked = runtimeSnapshot({
-      pending: { collaborationMode: { kind: "set", value: "plan" } },
+      pending: { collaborationMode: setCollaborationModeIntent("plan") },
       runtimeConfig: runtimeConfigFixture({}),
     });
     const ready = runtimeSnapshot({
       pending: {
-        collaborationMode: { kind: "set", value: "plan" },
+        collaborationMode: setCollaborationModeIntent("plan"),
         model: setRuntimeIntentValue("gpt-5.5"),
       },
     });
 
     expect(resolveRuntimeControls(blocked, snapshotConfig(blocked)).collaborationMode).toMatchObject({
-      pending: { kind: "set", value: "plan" },
+      pending: setCollaborationModeIntent("plan"),
       confirmed: "default",
       effective: "plan",
       dirty: true,
       blockedReason: "missing-model",
     });
     expect(resolveRuntimeControls(ready, snapshotConfig(ready)).collaborationMode).toMatchObject({
-      pending: { kind: "set", value: "plan" },
+      pending: setCollaborationModeIntent("plan"),
       confirmed: "default",
       effective: "plan",
       dirty: true,
@@ -938,7 +943,7 @@ function runtimeSnapshot(overrides: RuntimeSnapshotPatch = {}): RuntimeSnapshot 
       permissionProfile: { kind: "unchanged" },
       approvalPolicy: { kind: "unchanged" },
       approvalsReviewer: { kind: "unchanged" },
-      collaborationMode: { kind: "unchanged" },
+      collaborationMode: unchangedCollaborationModeIntent(),
       fastMode: { kind: "unchanged" },
     },
     tokenUsage: null,

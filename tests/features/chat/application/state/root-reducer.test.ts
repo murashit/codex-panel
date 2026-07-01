@@ -6,6 +6,7 @@ import { messageStreamItems } from "../../../../../src/features/chat/application
 import { type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -19,7 +20,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
     state = chatStateWith(state, { runtime: { active: { approvalsReviewer: "auto_review" } } });
     state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
     state = chatStateWith(state, { activeThread: { goal: goal("thread") } });
     state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
     state = chatStateWith(state, { messageStream: { loadingHistory: true } });
@@ -91,7 +92,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { composer: { suggestions: [suggestion("/plan")] } });
     state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
     state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["previous:details"]) } } });
     state = chatStateWith(state, { ui: { messageActionMenu: { forkMenuItemId: "previous" } } });
@@ -172,7 +173,7 @@ describe("chatReducer", () => {
     expect(next.runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(next.runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(next.runtime.pending.collaborationMode).toEqual({ kind: "set", value: "plan" });
+    expect(next.runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
     expect(next.runtime.active.collaborationMode).toBeNull();
   });
 

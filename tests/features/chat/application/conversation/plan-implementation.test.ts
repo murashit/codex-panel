@@ -8,6 +8,7 @@ import {
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 
 const planItem = (id: string): MessageStreamItem => ({
   id,
@@ -102,7 +103,7 @@ describe("implementPlan", () => {
 
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(requestDefaultCollaborationModeForNextTurn).toHaveBeenCalledOnce();
-    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "default" });
+    expect(stateStore.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("default"));
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(sendTurnText).toHaveBeenCalledWith("Please implement this plan.");
   });

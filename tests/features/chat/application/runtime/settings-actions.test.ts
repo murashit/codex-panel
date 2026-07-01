@@ -10,7 +10,7 @@ import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/ap
 import type { ActiveThreadSettingsAppliedAction } from "../../../../../src/features/chat/application/state/actions";
 import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
+import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatRuntimeSettingsActions", () => {
@@ -84,7 +84,7 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(store.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
-    expect(store.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "default" });
+    expect(store.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("default"));
     expect(messages).toEqual([
       "Fast mode on for subsequent turns.",
       "Auto-review on for subsequent turns.",
@@ -185,7 +185,7 @@ describe("createChatRuntimeSettingsActions", () => {
     await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
 
     expect(transport.updateThreadSettings).not.toHaveBeenCalled();
-    expect(store.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "plan" });
+    expect(store.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
     expect(store.getState().runtime.active.collaborationMode).toBeNull();
     expect(messages).toEqual(["Plan mode is selected, but No effective model is available. Sending without a mode override."]);
   });
@@ -194,7 +194,7 @@ describe("createChatRuntimeSettingsActions", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } } } });
+    state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
@@ -203,7 +203,7 @@ describe("createChatRuntimeSettingsActions", () => {
     controller.requestDefaultCollaborationModeForNextTurn();
 
     expect(transport.updateThreadSettings).not.toHaveBeenCalled();
-    expect(store.getState().runtime.pending.collaborationMode).toEqual({ kind: "set", value: "default" });
+    expect(store.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("default"));
     expect(store.getState().runtime.active.collaborationMode).toBe("plan");
     expect(messages).toEqual([]);
   });

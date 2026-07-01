@@ -10,7 +10,7 @@ import type { ServerInitialization } from "../../../../domain/server/initializat
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
 import type { MessageStreamItem } from "../../domain/message-stream/items";
-import type { CollaborationModeSelection, RequestedFastMode } from "../../domain/runtime/intent";
+import { type CollaborationModeSelection, type RequestedFastMode, unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
 import {
   type ChatRuntimeState,
   clearRequestedApprovalsReviewerRuntimeState,
@@ -368,7 +368,7 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
       },
       pending: {
         ...state.runtime.pending,
-        collaborationMode: { kind: "unchanged" },
+        collaborationMode: unchangedCollaborationModeIntent(),
       },
     },
   });

@@ -5,6 +5,7 @@ import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/conversation/plan-implementation";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/message-stream/content-rendered-event.dom";
 import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/message-stream/markdown-renderer.obsidian";
 import { deferred } from "../../../../support/async";
@@ -799,7 +800,7 @@ describe("message stream rendering and message action menu", () => {
     const baseState = {
       activeThread: { id: "thread" },
       turn: { lifecycle: { kind: "idle" as const } },
-      runtime: { pending: { collaborationMode: { kind: "set", value: "plan" } as const } },
+      runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } },
       messageStream: {
         stableItems: [
           firstPlan,
@@ -819,7 +820,7 @@ describe("message stream rendering and message action menu", () => {
 
     expect(implementPlanTargetFromState(baseState)).toEqual({ itemId: secondPlan.id });
     expect(
-      implementPlanTargetFromState({ ...baseState, runtime: { pending: { collaborationMode: { kind: "set", value: "default" } } } }),
+      implementPlanTargetFromState({ ...baseState, runtime: { pending: { collaborationMode: setCollaborationModeIntent("default") } } }),
     ).toBeNull();
     expect(implementPlanTargetFromState({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
   });
