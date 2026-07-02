@@ -30,9 +30,7 @@ approvalsReviewer?: ApprovalsReviewer | null, sandbox?: SandboxMode | null,
  */
 permissions?: string | null, config?: { [key in string]?: JsonValue } | null, serviceName?: string | null, baseInstructions?: string | null, developerInstructions?: string | null, personality?: Personality | null,
 /**
- * Set the initial multi-agent mode for this thread. `none` leaves the
- * multi-agent tools available without injecting mode instructions.
- * Omitted defaults to `explicitRequestOnly`.
+ * @deprecated Ignored. Use Ultra reasoning effort for proactive multi-agent behavior.
  */
 multiAgentMode?: MultiAgentMode | null, ephemeral?: boolean | null, sessionStartSource?: ThreadStartSource | null,
 /**

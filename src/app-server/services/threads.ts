@@ -86,7 +86,6 @@ export function startEphemeralThread(
     ephemeral: true,
     sandbox: "read-only",
     approvalPolicy: "never",
-    multiAgentMode: "none",
     environments: [],
   });
 }
