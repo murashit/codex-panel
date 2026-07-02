@@ -6,7 +6,7 @@ import type { TurnDiffViewState } from "../../../turn-diff/model";
 import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
-import type { MessageStreamScrollControllerBinding } from "../../ui/message-stream/flow-scroll.measure";
+import type { MessageStreamScrollPortBinding } from "../../ui/message-stream/flow-scroll.measure";
 import { MarkdownMessageRenderer, renderStreamMarkdown } from "../../ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/stream-blocks";
 import type { ChatPanelMessageStreamReadModel } from "../shell-read-model";
@@ -59,7 +59,7 @@ interface MessageStreamPresenterWorkspaceContext {
 }
 
 interface MessageStreamPresenterScrollContext {
-  controller: MessageStreamScrollControllerBinding;
+  portBinding: MessageStreamScrollPortBinding;
   dispose: () => void;
 }
 
@@ -102,7 +102,7 @@ export class MessageStreamPresenter {
     return {
       blocks: projection.blocks,
       context: projection.context,
-      scrollController: this.options.scroll.controller,
+      scrollPortBinding: this.options.scroll.portBinding,
     };
   }
 

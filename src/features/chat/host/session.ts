@@ -7,7 +7,7 @@ import type { ChatState } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
 import { parseRestoredThreadState, type RestoredThreadPlaceholderState } from "../application/threads/restored-thread-lifecycle";
 import { ChatResumeWorkTracker } from "../application/threads/resume-work";
-import { type ChatMessageScrollController, createChatMessageScrollController } from "../panel/message-stream-scroll-controller";
+import { type ChatMessageStreamScrollBinding, createChatMessageStreamScrollBinding } from "../panel/message-stream-scroll-binding";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot, ChatWorkspacePanelTurnLifecycle } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
@@ -20,7 +20,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly connectionWork = new ConnectionWorkTracker();
   private readonly resumeWork = new ChatResumeWorkTracker();
-  private readonly messageScrollController: ChatMessageScrollController = createChatMessageScrollController();
+  private readonly messageScrollBinding: ChatMessageStreamScrollBinding = createChatMessageStreamScrollBinding();
   private observedAppServerContext: AppServerQueryContext;
   private opened = false;
   private closing = false;
@@ -175,7 +175,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async connect(): Promise<void> {
-    await this.graph.connection.controller.ensureConnected();
+    await this.graph.connection.actions.ensureConnected();
   }
 
   async startNewThread(): Promise<void> {
@@ -202,7 +202,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
     this.deferredTasks.scheduleAppServerWarmup(() => {
       if (!shouldWarmup() || this.closing) return;
-      void this.graph.connection.controller.ensureConnected();
+      void this.graph.connection.actions.ensureConnected();
     });
   }
 
@@ -251,7 +251,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       deferredTasks: this.deferredTasks,
       resumeWork: this.resumeWork,
       connectionWork: this.connectionWork,
-      messageScrollController: this.messageScrollController,
+      messageScrollBinding: this.messageScrollBinding,
       getClosing: () => this.closing,
       viewWindow: () => this.viewWindow(),
     });

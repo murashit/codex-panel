@@ -20,7 +20,7 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = createChatRuntimeSettingsActions({
+    const actions = createChatRuntimeSettingsActions({
       stateStore: store,
       runtimeTransport: transport,
       runtimeSnapshotForState: runtimeSnapshotFixture,
@@ -28,7 +28,7 @@ describe("createChatRuntimeSettingsActions", () => {
       addSystemMessage: (text) => messages.push(text),
     });
 
-    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(true);
+    await expect(actions.requestModel("gpt-5.5")).resolves.toBe(true);
 
     expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
@@ -53,9 +53,9 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await expect(controller.applyPendingThreadSettings()).resolves.toBe(true);
+    await expect(actions.applyPendingThreadSettings()).resolves.toBe(true);
 
     expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", { permissions: ":workspace" });
     expect(store.getState().runtime.pending.permissionProfile).toEqual({ kind: "unchanged" });
@@ -70,14 +70,14 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(chatStateFixture());
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(true);
-    await expect(controller.requestReasoningEffort("high")).resolves.toBe(true);
-    await controller.enableFastMode();
-    await controller.enableAutoReview();
-    await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
-    controller.requestDefaultCollaborationModeForNextTurn();
+    await expect(actions.requestModel("gpt-5.5")).resolves.toBe(true);
+    await expect(actions.requestReasoningEffort("high")).resolves.toBe(true);
+    await actions.enableFastMode();
+    await actions.enableAutoReview();
+    await expect(actions.setCollaborationMode("plan")).resolves.toBe(true);
+    actions.requestDefaultCollaborationModeForNextTurn();
 
     expect(transport.updateThreadSettings).not.toHaveBeenCalled();
     expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
@@ -99,9 +99,9 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await controller.toggleFastMode();
+    await actions.toggleFastMode();
 
     expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", { serviceTier: "fast" });
     expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "unchanged" });
@@ -116,11 +116,11 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await controller.enableFastMode();
+    await actions.enableFastMode();
     store.dispatch({ type: "active-thread/settings-applied", ...threadSettings("fast") });
-    await controller.disableFastMode();
+    await actions.disableFastMode();
 
     expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { serviceTier: "fast" });
     expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { serviceTier: null });
@@ -135,15 +135,15 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await controller.disableFastMode();
+    await actions.disableFastMode();
 
     expect(transport.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: null });
     expect(store.getState().runtime.active.serviceTier).toBeNull();
     expect(store.getState().runtime.active.serviceTierKnown).toBe(true);
 
-    await controller.toggleFastMode();
+    await actions.toggleFastMode();
 
     expect(transport.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "fast" });
     expect(messages).toEqual(["Fast mode off for subsequent turns.", "Fast mode on for subsequent turns."]);
@@ -159,15 +159,15 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await controller.toggleFastMode();
+    await actions.toggleFastMode();
 
     expect(transport.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: "priority" });
     expect(store.getState().runtime.active.serviceTier).toBe("priority");
 
     store.dispatch({ type: "active-thread/settings-applied", ...threadSettings("priority") });
-    await controller.toggleFastMode();
+    await actions.toggleFastMode();
 
     expect(transport.updateThreadSettings).toHaveBeenLastCalledWith("thread", { serviceTier: null });
     expect(store.getState().runtime.active.serviceTier).toBeNull();
@@ -180,9 +180,9 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
+    await expect(actions.setCollaborationMode("plan")).resolves.toBe(true);
 
     expect(transport.updateThreadSettings).not.toHaveBeenCalled();
     expect(store.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
@@ -198,9 +198,9 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    controller.requestDefaultCollaborationModeForNextTurn();
+    actions.requestDefaultCollaborationModeForNextTurn();
 
     expect(transport.updateThreadSettings).not.toHaveBeenCalled();
     expect(store.getState().runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("default"));
@@ -223,7 +223,7 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = createChatRuntimeSettingsActions({
+    const actions = createChatRuntimeSettingsActions({
       stateStore: store,
       runtimeTransport: transport,
       runtimeSnapshotForState: (state) => ({ ...runtimeSnapshotFixture(state), runtimeConfig: null }),
@@ -231,7 +231,7 @@ describe("createChatRuntimeSettingsActions", () => {
       addSystemMessage: (text) => messages.push(text),
     });
 
-    await expect(controller.setCollaborationMode("plan")).resolves.toBe(true);
+    await expect(actions.setCollaborationMode("plan")).resolves.toBe(true);
 
     expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", {
       collaborationMode: {
@@ -252,9 +252,9 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture({ updateThreadSettings: vi.fn().mockRejectedValue(new Error("nope")) });
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
+    await expect(actions.requestModel("gpt-5.5")).resolves.toBe(false);
 
     expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
     expect(store.getState().runtime.active.model).toBeNull();
@@ -267,9 +267,9 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture({ updateThreadSettings: vi.fn().mockResolvedValue(false) });
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
+    await expect(actions.requestModel("gpt-5.5")).resolves.toBe(false);
 
     expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
     expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
@@ -284,9 +284,9 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture({ updateThreadSettings: vi.fn().mockRejectedValue(new Error("nope")) });
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await controller.enableFastMode();
+    await actions.enableFastMode();
 
     expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(store.getState().ui.toolbarPanel).toBe("status-panel");
@@ -304,9 +304,9 @@ describe("createChatRuntimeSettingsActions", () => {
       }),
     });
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
+    await expect(actions.requestModel("gpt-5.5")).resolves.toBe(false);
 
     expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
     expect(store.getState().activeThread.id).toBeNull();
@@ -326,9 +326,9 @@ describe("createChatRuntimeSettingsActions", () => {
       }),
     });
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await expect(controller.requestModel("gpt-5.5")).resolves.toBe(false);
+    await expect(actions.requestModel("gpt-5.5")).resolves.toBe(false);
 
     expect(store.getState().activeThread.id).toBeNull();
     expect(store.getState().runtime.active.model).toBeNull();
@@ -349,12 +349,12 @@ describe("createChatRuntimeSettingsActions", () => {
         .mockImplementationOnce(() => secondUpdate.promise),
     });
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    const firstRequest = controller.requestModel("gpt-old");
+    const firstRequest = actions.requestModel("gpt-old");
     expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" });
 
-    const secondRequest = controller.requestModel("gpt-new");
+    const secondRequest = actions.requestModel("gpt-new");
     expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" });
 
     secondUpdate.resolve();
@@ -376,9 +376,9 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await expect(controller.resetModelToConfig()).resolves.toBe(true);
+    await expect(actions.resetModelToConfig()).resolves.toBe(true);
 
     expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", { model: null });
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
@@ -391,11 +391,11 @@ describe("createChatRuntimeSettingsActions", () => {
     const store = createChatStateStore(state);
     const transport = settingsTransportFixture();
     const messages: string[] = [];
-    const controller = runtimeControllerFixture(store, transport, messages);
+    const actions = runtimeActionsFixture(store, transport, messages);
 
-    await controller.enableAutoReview();
+    await actions.enableAutoReview();
     store.dispatch({ type: "active-thread/settings-applied", ...threadSettings(null, "auto_review") });
-    await controller.disableAutoReview();
+    await actions.disableAutoReview();
 
     expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { approvalsReviewer: "auto_review" });
     expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { approvalsReviewer: "user" });
@@ -403,7 +403,7 @@ describe("createChatRuntimeSettingsActions", () => {
   });
 });
 
-function runtimeControllerFixture(
+function runtimeActionsFixture(
   store: ReturnType<typeof createChatStateStore>,
   transport: RuntimeSettingsTransport,
   messages: string[],

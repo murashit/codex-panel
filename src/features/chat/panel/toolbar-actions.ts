@@ -1,5 +1,5 @@
 import { copyTextWithNotice } from "../../../shared/obsidian/clipboard.obsidian";
-import type { ChatConnectionController } from "../application/connection/connection-controller";
+import type { ChatConnectionActions } from "../application/connection/connection-actions";
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { GoalActions } from "../application/threads/goal-actions";
@@ -26,7 +26,7 @@ export interface ToolbarPanelActions {
 }
 
 export interface ToolbarUiActionDependencies {
-  connectionController: ChatConnectionController;
+  connectionActions: ChatConnectionActions;
   reconnectPanel: () => Promise<void>;
   threadActions: ThreadManagementActions;
   goals: GoalActions;
@@ -146,7 +146,7 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
         void deps.reconnectPanel();
       },
       refreshStatus: () => {
-        void deps.connectionController.refreshStatusPanel();
+        void deps.connectionActions.refreshStatusPanel();
       },
       copyDebugDetails: (details) => {
         void copyTextWithNotice(details, "Copied debug details.", "Could not copy debug details.");

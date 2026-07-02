@@ -8,10 +8,10 @@ import { type ChatServerMetadataActions, createChatServerMetadataActions } from 
 import { type ChatServerThreadActions, createChatServerThreadActions } from "../../app-server/actions/threads";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import {
-  type ChatConnectionController,
-  createChatConnectionController,
+  type ChatConnectionActions,
+  createChatConnectionActions,
   handleChatConnectionExit,
-} from "../../application/connection/connection-controller";
+} from "../../application/connection/connection-actions";
 import type { ConnectionWorkTracker } from "../../application/connection/connection-work";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
@@ -56,7 +56,7 @@ interface ChatPanelConnectionBundleHost {
 export interface ChatPanelConnectionBundle {
   connection: {
     manager: ConnectionManager;
-    controller: ChatConnectionController;
+    actions: ChatConnectionActions;
   };
   inboundHandler: ChatInboundHandler;
   serverActions: {
@@ -192,7 +192,7 @@ export function createConnectionBundle(
       host.refreshLiveState();
     },
   };
-  const connectionController = createChatConnectionController({
+  const connectionActions = createChatConnectionActions({
     ...connectionExitHost,
     connection: {
       connect: () =>
@@ -255,7 +255,7 @@ export function createConnectionBundle(
   return {
     connection: {
       manager: connection,
-      controller: connectionController,
+      actions: connectionActions,
     },
     inboundHandler,
     serverActions: {

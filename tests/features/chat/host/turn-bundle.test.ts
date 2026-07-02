@@ -52,7 +52,7 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
   const bundle = createTurnBundle(
     {
       stateStore,
-      messageScrollController: {
+      messageScrollBinding: {
         showLatest: vi.fn(),
       },
     } as never,

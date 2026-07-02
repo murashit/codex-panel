@@ -16,7 +16,7 @@ describe("createGoalActions", () => {
     const currentGoal = goal();
     const goalTransport = goalTransportFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
     const refreshLiveState = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -26,7 +26,7 @@ describe("createGoalActions", () => {
       refreshLiveState,
     });
 
-    await controller.syncThreadGoal("thread");
+    await actions.syncThreadGoal("thread");
 
     expect(stateStore.getState().activeThread.goal).toEqual(currentGoal);
     expect(refreshLiveState).toHaveBeenCalledOnce();
@@ -38,7 +38,7 @@ describe("createGoalActions", () => {
     const stateStore = createChatStateStore(state);
     const addSystemMessage = vi.fn();
     const goalTransport = goalTransportFixture({ readThreadGoal: vi.fn().mockRejectedValue(new Error("offline")) });
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -48,7 +48,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await controller.syncThreadGoal("thread");
+    await actions.syncThreadGoal("thread");
 
     expect(stateStore.getState().activeThread.id).toBe("thread");
     expect(stateStore.getState().activeThread.goal).toBeNull();
@@ -69,7 +69,7 @@ describe("createGoalActions", () => {
     const { setThreadGoal, clearThreadGoal } = goalTransport;
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -79,9 +79,9 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await controller.setObjective("thread", " Updated ", 250);
-    await controller.setStatus("thread", "paused");
-    await controller.clear("thread");
+    await actions.setObjective("thread", " Updated ", 250);
+    await actions.setStatus("thread", "paused");
+    await actions.clear("thread");
 
     expect(setThreadGoal).toHaveBeenCalledWith("thread", { objective: "Updated", status: "active", tokenBudget: 250 });
     expect(setThreadGoal).toHaveBeenCalledWith("thread", { status: "paused" });
@@ -101,7 +101,7 @@ describe("createGoalActions", () => {
     const update = deferred<never>();
     const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockReturnValue(update.promise) });
     const addSystemMessage = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -111,7 +111,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    const pending = controller.setStatus("thread", "paused");
+    const pending = actions.setStatus("thread", "paused");
     await Promise.resolve();
     stateStore.dispatch({ type: "active-thread/cleared" });
     update.reject(new Error("offline"));
@@ -128,7 +128,7 @@ describe("createGoalActions", () => {
     const clear = deferred<never>();
     const goalTransport = goalTransportFixture({ clearThreadGoal: vi.fn().mockReturnValue(clear.promise) });
     const addSystemMessage = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -138,7 +138,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    const pending = controller.clear("thread");
+    const pending = actions.clear("thread");
     await Promise.resolve();
     stateStore.dispatch({ type: "active-thread/cleared" });
     clear.reject(new Error("offline"));
@@ -154,7 +154,7 @@ describe("createGoalActions", () => {
     const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal()) });
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -164,7 +164,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await controller.setObjective("thread", "Finish", null);
+    await actions.setObjective("thread", "Finish", null);
 
     expect(addSystemMessage).not.toHaveBeenCalledWith("Goal set.");
     expect(addGoalEvent).toHaveBeenCalledWith(
@@ -202,7 +202,7 @@ describe("createGoalActions", () => {
       });
       return { threadId: "thread-new" };
     });
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -212,7 +212,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await expect(controller.saveObjective(" Plan release ", null)).resolves.toBe(true);
+    await expect(actions.saveObjective(" Plan release ", null)).resolves.toBe(true);
 
     expect(startThread).toHaveBeenCalledWith("Plan release", { syncGoal: false });
     expect(setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Plan release", status: "active", tokenBudget: null });
@@ -224,7 +224,7 @@ describe("createGoalActions", () => {
     const goalTransport = goalTransportFixture();
     const startThread = vi.fn().mockResolvedValue({ threadId: "thread" });
     const addSystemMessage = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -234,7 +234,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await expect(controller.saveObjective("   ", null)).resolves.toBe(false);
+    await expect(actions.saveObjective("   ", null)).resolves.toBe(false);
 
     expect(addSystemMessage).toHaveBeenCalledWith("Goal objective cannot be empty.");
     expect(goalTransport.ensureConnected).not.toHaveBeenCalled();
@@ -250,7 +250,7 @@ describe("createGoalActions", () => {
       recordThreadGoalUserMessage: vi.fn().mockRejectedValue(new Error("offline")),
     });
     const addSystemMessage = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -260,7 +260,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await controller.setObjective("thread", "Finish", null);
+    await actions.setObjective("thread", "Finish", null);
 
     expect(addSystemMessage).toHaveBeenCalledWith("Could not record goal message: offline");
   });
@@ -277,7 +277,7 @@ describe("createGoalActions", () => {
       }),
     });
     const addSystemMessage = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -287,7 +287,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await controller.setObjective("thread", "Finish", null);
+    await actions.setObjective("thread", "Finish", null);
 
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
@@ -299,7 +299,7 @@ describe("createGoalActions", () => {
     const stateStore = createChatStateStore(state);
     const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal({ objective: "Updated" })) });
     const addGoalEvent = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -309,7 +309,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await controller.setObjective("thread", "Updated", null);
+    await actions.setObjective("thread", "Updated", null);
 
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
     expect(goalTransport.recordThreadGoalUserMessage).not.toHaveBeenCalled();
@@ -323,7 +323,7 @@ describe("createGoalActions", () => {
     const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal()) });
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -333,7 +333,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await controller.setStatus("thread", "active");
+    await actions.setStatus("thread", "active");
 
     expect(addSystemMessage).not.toHaveBeenCalledWith("Goal resumed.");
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "resumed: Finish", objective: "Finish" }));
@@ -346,7 +346,7 @@ describe("createGoalActions", () => {
     const currentGoal = goal();
     const goalTransport = goalTransportFixture({ readThreadGoal: vi.fn().mockResolvedValue(currentGoal) });
     const addSystemMessage = vi.fn();
-    const controller = createGoalActions({
+    const actions = createGoalActions({
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
@@ -356,7 +356,7 @@ describe("createGoalActions", () => {
       refreshLiveState: vi.fn(),
     });
 
-    await controller.syncThreadGoal("thread");
+    await actions.syncThreadGoal("thread");
 
     expect(stateStore.getState().activeThread.goal).toEqual(currentGoal);
     expect(addSystemMessage).not.toHaveBeenCalled();

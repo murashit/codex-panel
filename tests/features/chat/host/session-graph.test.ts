@@ -13,7 +13,7 @@ import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/co
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
-import { createChatMessageScrollController } from "../../../../src/features/chat/panel/message-stream-scroll-controller";
+import { createChatMessageStreamScrollBinding } from "../../../../src/features/chat/panel/message-stream-scroll-binding";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { installObsidianDomShims } from "../../../support/dom";
@@ -224,7 +224,7 @@ describe("createChatPanelSessionGraph actions", () => {
       deferredTasks: createChatViewDeferredTasks(() => window),
       resumeWork,
       connectionWork: new ConnectionWorkTracker(),
-      messageScrollController: createChatMessageScrollController(),
+      messageScrollBinding: createChatMessageStreamScrollBinding(),
       getClosing: () => false,
       viewWindow: () => window,
     });

@@ -26,7 +26,7 @@ function resumeThreadState(stateStore: ChatStateStore, threadId: string): void {
   });
 }
 
-function createController(overrides: Partial<ThreadNavigationActionsHost> = {}) {
+function createActionsHarness(overrides: Partial<ThreadNavigationActionsHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
   const host: ThreadNavigationActionsHost = {
     stateStore,
@@ -40,15 +40,15 @@ function createController(overrides: Partial<ThreadNavigationActionsHost> = {}) 
     focusComposer: vi.fn(),
     ...overrides,
   };
-  return { controller: createThreadNavigationActions(host), host, stateStore };
+  return { actions: createThreadNavigationActions(host), host, stateStore };
 }
 
 describe("ThreadNavigationActions", () => {
   it("starts a blank chat by clearing active thread identity", async () => {
-    const { controller, host, stateStore } = createController();
+    const { actions, host, stateStore } = createActionsHarness();
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
 
-    await controller.startNewThread();
+    await actions.startNewThread();
 
     expect(host.identity.clearActiveThreadIdentity).toHaveBeenCalledOnce();
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
@@ -57,12 +57,12 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("ignores blank chat navigation while a turn is running", async () => {
-    const { controller, host, stateStore } = createController();
+    const { actions, host, stateStore } = createActionsHarness();
     resumeThreadState(stateStore, "active");
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
-    await controller.startNewThread();
+    await actions.startNewThread();
 
     expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
@@ -70,11 +70,11 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("focuses an already open thread without resuming it", async () => {
-    const { controller, host } = createController({
+    const { actions, host } = createActionsHarness({
       focusThreadInOpenView: vi.fn().mockResolvedValue(true),
     });
 
-    await controller.selectThread("thread");
+    await actions.selectThread("thread");
 
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
     expect(host.focusThreadInOpenView).toHaveBeenCalledWith("thread");
@@ -82,20 +82,20 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("resumes the thread when it is not already open", async () => {
-    const { controller, host } = createController();
+    const { actions, host } = createActionsHarness();
 
-    await controller.selectThread("thread");
+    await actions.selectThread("thread");
 
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
   });
 
   it("blocks switching away while a turn is running", async () => {
-    const { controller, host, stateStore } = createController();
+    const { actions, host, stateStore } = createActionsHarness();
     resumeThreadState(stateStore, "active");
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
-    await controller.selectThread("other");
+    await actions.selectThread("other");
 
     expect(host.addSystemMessage).toHaveBeenCalledWith("Finish or interrupt the current turn before switching threads.");
     expect(host.closeForThreadSelection).not.toHaveBeenCalled();
@@ -104,10 +104,10 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("closes the toolbar panel before selecting from the toolbar", async () => {
-    const { controller, host, stateStore } = createController();
+    const { actions, host, stateStore } = createActionsHarness();
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
 
-    await controller.selectThreadFromToolbar("thread");
+    await actions.selectThreadFromToolbar("thread");
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
@@ -115,12 +115,12 @@ describe("ThreadNavigationActions", () => {
   });
 
   it("ignores toolbar selection while another thread is busy", async () => {
-    const { controller, host, stateStore } = createController();
+    const { actions, host, stateStore } = createActionsHarness();
     resumeThreadState(stateStore, "active");
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
     stateStore.dispatch({ type: "turn/started", threadId: "active", turnId: "turn" });
 
-    await controller.selectThreadFromToolbar("other");
+    await actions.selectThreadFromToolbar("other");
 
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
     expect(host.addSystemMessage).not.toHaveBeenCalled();

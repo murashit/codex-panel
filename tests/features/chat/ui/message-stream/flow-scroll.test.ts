@@ -7,8 +7,8 @@ import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat
 import {
   MessageStreamFlowFrame,
   type MessageStreamScrollCommand,
-  type MessageStreamScrollControllerBinding,
   type MessageStreamScrollPort,
+  type MessageStreamScrollPortBinding,
 } from "../../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
 import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
@@ -265,11 +265,11 @@ interface CapturedScrollToOptions {
   behavior: ScrollBehavior | undefined;
 }
 
-interface TestMessageStreamScrollController extends MessageStreamScrollControllerBinding {
+interface TestMessageStreamScrollPortBinding extends MessageStreamScrollPortBinding {
   dispatch(command: MessageStreamScrollCommand): void;
 }
 
-function createTestMessageStreamScrollController(): TestMessageStreamScrollController {
+function createTestMessageStreamScrollPortBinding(): TestMessageStreamScrollPortBinding {
   let port: MessageStreamScrollPort | null = null;
   return {
     mountScrollPort(nextPort) {
@@ -292,7 +292,7 @@ function renderFlowMessageStream(
     viewport?: { width: number; height: number };
   } = {},
 ): {
-  controller: TestMessageStreamScrollController;
+  controller: TestMessageStreamScrollPortBinding;
   messages: HTMLElement;
   render: (nextKeys: readonly string[], nextHeights: Record<string, number>) => void;
   setHeights: (nextHeights: Record<string, number>) => void;
@@ -301,7 +301,7 @@ function renderFlowMessageStream(
 } {
   const parent = document.createElement("div");
   document.body.append(parent);
-  const controller = createTestMessageStreamScrollController();
+  const controller = createTestMessageStreamScrollPortBinding();
   let currentHeights = heights;
   let currentKeys = keys;
   let viewport = options.viewport ?? { width: 240, height: 100 };
@@ -314,7 +314,7 @@ function renderFlowMessageStream(
         parent,
         h(MessageStreamFlowFrame, {
           blocks: nextKeys.map((key) => ({ key })),
-          scrollController: controller,
+          scrollPortBinding: controller,
           renderBlockContent: (block) => options.blockNode?.(block.key) ?? h("div", null, block.key),
         }),
       );

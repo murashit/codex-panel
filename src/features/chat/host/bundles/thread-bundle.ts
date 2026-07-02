@@ -44,7 +44,7 @@ interface ChatPanelThreadHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
   resumeWork: ChatResumeWorkTracker;
-  messageScrollController: {
+  messageScrollBinding: {
     showLatest(): void;
   };
   getClosing: () => boolean;
@@ -268,7 +268,7 @@ function createSessionHistoryController(
     historyTransport: appServer.threadHistory,
     addSystemMessage: status.addSystemMessage,
     showLatestPageAtBottom: () => {
-      host.messageScrollController.showLatest();
+      host.messageScrollBinding.showLatest();
     },
     setThreadTurnPresence: (hadTurns) => {
       autoTitleCoordinator.resetThreadTurnPresence(hadTurns);

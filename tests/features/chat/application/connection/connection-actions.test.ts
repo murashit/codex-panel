@@ -2,17 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import {
+  type ChatConnectionActionsHost,
   type ChatConnectionAdapter,
-  type ChatConnectionControllerHost,
   type ChatConnectionDiagnosticsActions,
   type ChatConnectionMetadataActions,
-  createChatConnectionController,
-} from "../../../../../src/features/chat/application/connection/connection-controller";
+  createChatConnectionActions,
+} from "../../../../../src/features/chat/application/connection/connection-actions";
 import { ConnectionWorkTracker } from "../../../../../src/features/chat/application/connection/connection-work";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 
-function createController({ connected = false } = {}) {
+function createActionsHarness({ connected = false } = {}) {
   const stateStore = createChatStateStore(createChatState());
   let isConnected = connected;
   const connect = vi.fn().mockImplementation(async () => {
@@ -31,7 +31,7 @@ function createController({ connected = false } = {}) {
   const diagnostics = {
     refreshServerDiagnostics,
   } satisfies ChatConnectionDiagnosticsActions;
-  const host: ChatConnectionControllerHost = {
+  const host: ChatConnectionActionsHost = {
     stateStore,
     connection,
     connectionWork: new ConnectionWorkTracker(),
@@ -53,7 +53,7 @@ function createController({ connected = false } = {}) {
   };
   return {
     connect,
-    controller: createChatConnectionController(host),
+    actions: createChatConnectionActions(host),
     host,
     refreshAppServerMetadata,
     refreshServerDiagnostics,
@@ -61,11 +61,11 @@ function createController({ connected = false } = {}) {
   };
 }
 
-describe("ChatConnectionController", () => {
+describe("ChatConnectionActions", () => {
   it("connects once and publishes startup metadata", async () => {
-    const { connect, controller, host, refreshAppServerMetadata, stateStore } = createController();
+    const { connect, actions, host, refreshAppServerMetadata, stateStore } = createActionsHarness();
 
-    await controller.ensureConnected();
+    await actions.ensureConnected();
 
     expect(connect).toHaveBeenCalledOnce();
     expect(stateStore.getState().connection.initializeResponse).toEqual({
@@ -81,9 +81,9 @@ describe("ChatConnectionController", () => {
   });
 
   it("refreshes metadata before server diagnostics", async () => {
-    const { controller, host, refreshAppServerMetadata, refreshServerDiagnostics } = createController({ connected: true });
+    const { actions, host, refreshAppServerMetadata, refreshServerDiagnostics } = createActionsHarness({ connected: true });
 
-    await controller.refreshDiagnostics();
+    await actions.refreshDiagnostics();
 
     expect(host.clearDeferredDiagnostics).toHaveBeenCalledTimes(2);
     expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
@@ -91,28 +91,28 @@ describe("ChatConnectionController", () => {
   });
 
   it("refreshes active threads without refreshing metadata", async () => {
-    const { controller, host, refreshAppServerMetadata } = createController({ connected: true });
+    const { actions, host, refreshAppServerMetadata } = createActionsHarness({ connected: true });
 
-    await controller.refreshActiveThreads();
+    await actions.refreshActiveThreads();
 
     expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
     expect(refreshAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("ignores stale shared query failures while refreshing active threads", async () => {
-    const { controller, host } = createController({ connected: true });
+    const { actions, host } = createActionsHarness({ connected: true });
     const error = new Error("stale");
     vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(error);
     host.isStaleSharedQueryError = vi.fn((candidate) => candidate === error);
 
-    await controller.refreshActiveThreads();
+    await actions.refreshActiveThreads();
 
     expect(host.isStaleSharedQueryError).toHaveBeenCalledWith(error);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("clears disconnected connection state on server exit while keeping last startup metadata", () => {
-    const { controller, host, stateStore } = createController({ connected: true });
+    const { actions, host, stateStore } = createActionsHarness({ connected: true });
     const initializeResponse = { codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" } as const;
     const runtimeConfig = { ...emptyRuntimeConfigSnapshot(), model: "gpt-5.1" };
     stateStore.dispatch({ type: "connection/initialized", initializeResponse });
@@ -128,7 +128,7 @@ describe("ChatConnectionController", () => {
       runtimeConfig,
     });
 
-    controller.handleExit();
+    actions.handleExit();
 
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Codex app-server stopped.", {
@@ -152,11 +152,11 @@ describe("ChatConnectionController", () => {
   });
 
   it("explains missing configured command failures", async () => {
-    const { controller, connect, host } = createController();
+    const { actions, connect, host } = createActionsHarness();
     const error = Object.assign(new Error("spawn codex ENOENT"), { code: "ENOENT", syscall: "spawn" });
     connect.mockRejectedValueOnce(error);
 
-    await controller.ensureConnected();
+    await actions.ensureConnected();
 
     expect(host.setStatus).toHaveBeenCalledWith("Connection failed.", {
       kind: "failed",
@@ -170,12 +170,12 @@ describe("ChatConnectionController", () => {
   });
 
   it("ignores stale connection failures during startup", async () => {
-    const { controller, connect, host } = createController();
+    const { actions, connect, host } = createActionsHarness();
     const error = new Error("stale connection");
     connect.mockRejectedValueOnce(error);
     host.isStaleConnectionError = vi.fn((candidate) => candidate === error);
 
-    await controller.ensureConnected();
+    await actions.ensureConnected();
 
     expect(host.isStaleConnectionError).toHaveBeenCalledWith(error);
     expect(host.setStatus).toHaveBeenCalledWith("Starting Codex app-server...", { kind: "connecting" });

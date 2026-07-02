@@ -4,7 +4,7 @@ import type { ChatStateStore } from "../../application/state/store";
 import type { HistoryController } from "../../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
 import type { ChatComposerController } from "../../panel/composer-controller";
-import type { ChatMessageScrollController } from "../../panel/message-stream-scroll-controller";
+import type { ChatMessageStreamScrollBinding } from "../../panel/message-stream-scroll-binding";
 import type { ChatPanelShellParts } from "../../panel/shell.dom";
 import type { ChatPanelGoalSurface } from "../../panel/surface/goal-projection";
 import { MessageStreamPresenter } from "../../panel/surface/message-stream-presenter";
@@ -19,12 +19,12 @@ import type { ChatPanelTurnBundle } from "./turn-bundle";
 interface ChatPanelShellBundleHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
-  messageScrollController: ChatMessageScrollController;
+  messageScrollBinding: ChatMessageStreamScrollBinding;
 }
 
 interface ChatPanelShellBundleInput {
   connection: ConnectionManager;
-  connectionController: ChatPanelConnectionBundle["connection"]["controller"];
+  connectionActions: ChatPanelConnectionBundle["connection"]["actions"];
   goals: ChatPanelGoalActions;
   rename: ThreadRenameEditorActions;
   threadActions: ChatPanelThreadActions;
@@ -46,7 +46,7 @@ export interface ChatPanelShellBundle {
 export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPanelShellBundleInput): ChatPanelShellBundle {
   const {
     connection,
-    connectionController,
+    connectionActions,
     goals,
     rename,
     threadActions,
@@ -60,7 +60,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
   } = input;
   const { environment, stateStore } = host;
   const toolbarActions = createToolbarUiActions({
-    connectionController,
+    connectionActions,
     reconnectPanel: reconnect,
     threadActions,
     goals,
@@ -97,9 +97,9 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       vaultPath: environment.plugin.settingsRef.vaultPath,
     },
     scroll: {
-      controller: host.messageScrollController,
+      portBinding: host.messageScrollBinding,
       dispose: () => {
-        host.messageScrollController.dispose();
+        host.messageScrollBinding.dispose();
       },
     },
     history: {

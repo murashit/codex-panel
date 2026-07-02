@@ -16,7 +16,7 @@ import type {
   PendingRequestBlockActions,
   PendingRequestBlockContext,
 } from "../../../../../src/features/chat/ui/message-stream/context";
-import type { MessageStreamScrollControllerBinding } from "../../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
+import type { MessageStreamScrollPortBinding } from "../../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
 import { pendingRequestBlockNode } from "../../../../../src/features/chat/ui/message-stream/pending-request-block";
 import { MessageStreamViewport } from "../../../../../src/features/chat/ui/message-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
@@ -175,14 +175,14 @@ export function renderMessageStreamBlocksInAct(parent: HTMLElement, blocks: Mess
         state={{
           blocks,
           context,
-          scrollController: noOpMessageStreamScrollController,
+          scrollPortBinding: noOpMessageStreamScrollPortBinding,
         }}
       />,
     );
   });
 }
 
-const noOpMessageStreamScrollController: MessageStreamScrollControllerBinding = {
+const noOpMessageStreamScrollPortBinding: MessageStreamScrollPortBinding = {
   mountScrollPort: () => () => undefined,
 };
 

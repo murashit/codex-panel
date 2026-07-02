@@ -1,17 +1,17 @@
 import type { ComposerBoundaryScrollAction } from "../application/composer/boundary-scroll";
 import type {
   MessageStreamScrollCommand,
-  MessageStreamScrollControllerBinding,
   MessageStreamScrollPort,
+  MessageStreamScrollPortBinding,
 } from "../ui/message-stream/flow-scroll.measure";
 
-export interface ChatMessageScrollController extends MessageStreamScrollControllerBinding {
+export interface ChatMessageStreamScrollBinding extends MessageStreamScrollPortBinding {
   showLatest(): void;
   scrollFromComposer(action: ComposerBoundaryScrollAction): void;
   dispose(): void;
 }
 
-export function createChatMessageScrollController(): ChatMessageScrollController {
+export function createChatMessageStreamScrollBinding(): ChatMessageStreamScrollBinding {
   let scrollPort: MessageStreamScrollPort | null = null;
 
   const dispatch = (command: MessageStreamScrollCommand): void => {

@@ -7,9 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
-  type ChatMessageScrollController,
-  createChatMessageScrollController,
-} from "../../../../../src/features/chat/panel/message-stream-scroll-controller";
+  type ChatMessageStreamScrollBinding,
+  createChatMessageStreamScrollBinding,
+} from "../../../../../src/features/chat/panel/message-stream-scroll-binding";
 import { MessageStreamPresenter } from "../../../../../src/features/chat/panel/surface/message-stream-presenter";
 import {
   type ChatMessageStreamSurfaceContext,
@@ -213,7 +213,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter, scrollController } = messageStreamPresenter(state);
+    const { presenter, scrollPortBinding } = messageStreamPresenter(state);
 
     renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
@@ -223,7 +223,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
-    scrollController.showLatest();
+    scrollPortBinding.showLatest();
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(0);
@@ -245,7 +245,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter, scrollController } = messageStreamPresenter(state);
+    const { presenter, scrollPortBinding } = messageStreamPresenter(state);
 
     const messages = parent.createDiv({ cls: "codex-panel__messages" });
     let scrollTop = 0;
@@ -275,7 +275,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     await settleMessageRender(messages);
     expect(messages.scrollTop).toBe(0);
 
-    scrollController.showLatest();
+    scrollPortBinding.showLatest();
     expect(messages.scrollTop).toBe(0);
 
     layoutSettled = true;
@@ -285,15 +285,15 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 
   it("accepts scroll commands when no message stream viewport is mounted", () => {
-    const { presenter, scrollController } = messageStreamPresenter();
+    const { presenter, scrollPortBinding } = messageStreamPresenter();
 
     expect(() => {
-      scrollController.showLatest();
-      scrollController.scrollFromComposer({ kind: "scroll-by", direction: 1, amount: "text-lines" });
-      scrollController.scrollFromComposer({ kind: "scroll-by", direction: -1, amount: "page" });
-      scrollController.scrollFromComposer({ kind: "scroll-to", edge: "start" });
+      scrollPortBinding.showLatest();
+      scrollPortBinding.scrollFromComposer({ kind: "scroll-by", direction: 1, amount: "text-lines" });
+      scrollPortBinding.scrollFromComposer({ kind: "scroll-by", direction: -1, amount: "page" });
+      scrollPortBinding.scrollFromComposer({ kind: "scroll-to", edge: "start" });
       presenter.dispose();
-      scrollController.showLatest();
+      scrollPortBinding.showLatest();
     }).not.toThrow();
   });
 
@@ -312,7 +312,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter, scrollController } = messageStreamPresenter(state);
+    const { presenter, scrollPortBinding } = messageStreamPresenter(state);
     renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
     installMessageViewportMetrics(messages);
@@ -321,8 +321,8 @@ describe("MessageStreamPresenter scroll pinning", () => {
     unmountUiRoot(parent);
 
     expect(() => {
-      scrollController.showLatest();
-      scrollController.scrollFromComposer({ kind: "scroll-by", direction: 1, amount: "page" });
+      scrollPortBinding.showLatest();
+      scrollPortBinding.scrollFromComposer({ kind: "scroll-by", direction: 1, amount: "page" });
     }).not.toThrow();
   });
 
@@ -341,7 +341,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter, scrollController } = messageStreamPresenter(state);
+    const { presenter, scrollPortBinding } = messageStreamPresenter(state);
     renderMessageStreamPresenter(parent, presenter, state);
     const oldMessages = messageViewport(parent);
     installMessageViewportMetrics(oldMessages, { clientHeight: 100, scrollHeight: 1000 });
@@ -354,7 +354,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     const newMessages = messageViewport(parent);
     installMessageViewportMetrics(newMessages, { clientHeight: 100, scrollHeight: 1000 });
     await settleMessageRender(newMessages);
-    scrollController.showLatest();
+    scrollPortBinding.showLatest();
 
     expect(newMessages.scrollTop).toBe(900);
     expect(oldMessages.scrollTop).toBe(125);
@@ -375,12 +375,12 @@ describe("MessageStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter, scrollController } = messageStreamPresenter(state, vi.fn(), "/vault");
+    const { presenter, scrollPortBinding } = messageStreamPresenter(state, vi.fn(), "/vault");
 
     renderMessageStreamPresenter(parent, presenter, state);
     const messages = messageViewport(parent);
     installMessageViewportMetrics(messages, { clientHeight: 100, scrollHeight: 1000 });
-    scrollController.showLatest();
+    scrollPortBinding.showLatest();
     await settleMessageRender(messages);
 
     expect(messages.scrollTop).toBe(900);
@@ -608,7 +608,7 @@ async function renderedInternalLink(
 
 interface TestMessageStreamPresenter {
   presenter: MessageStreamPresenter;
-  scrollController: ChatMessageScrollController;
+  scrollPortBinding: ChatMessageStreamScrollBinding;
 }
 
 function messageStreamPresenter(
@@ -618,7 +618,7 @@ function messageStreamPresenter(
   vaultFiles: string[] = [],
 ): TestMessageStreamPresenter {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
-  const scrollController = createChatMessageScrollController();
+  const scrollPortBinding = createChatMessageStreamScrollBinding();
   const presenter = new MessageStreamPresenter({
     obsidian: {
       app: {
@@ -640,9 +640,9 @@ function messageStreamPresenter(
       vaultPath,
     },
     scroll: {
-      controller: scrollController,
+      portBinding: scrollPortBinding,
       dispose: () => {
-        scrollController.dispose();
+        scrollPortBinding.dispose();
       },
     },
     history: {
@@ -666,7 +666,7 @@ function messageStreamPresenter(
       consumePendingAutoFocus: () => false,
     },
   });
-  return { presenter, scrollController };
+  return { presenter, scrollPortBinding };
 }
 
 function testStoreForState(state: ChatState): ChatStateStore {

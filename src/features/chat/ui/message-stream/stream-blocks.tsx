@@ -7,7 +7,7 @@ import type {
 } from "../../presentation/message-stream/view-model";
 import type { MessageStreamContext, PendingRequestBlockContext } from "./context";
 import { detailNode } from "./detail";
-import { MessageStreamFlowFrame, type MessageStreamScrollControllerBinding } from "./flow-scroll.measure";
+import { MessageStreamFlowFrame, type MessageStreamScrollPortBinding } from "./flow-scroll.measure";
 import { pendingRequestBlockNode } from "./pending-request-block";
 import { agentRunSummaryNode, statusNode } from "./status";
 import { textNode } from "./text";
@@ -15,7 +15,7 @@ import { textNode } from "./text";
 export interface MessageStreamViewportState {
   blocks: readonly MessageStreamViewBlock[];
   context: MessageStreamContext;
-  scrollController: MessageStreamScrollControllerBinding;
+  scrollPortBinding: MessageStreamScrollPortBinding;
 }
 
 interface MessageStreamViewportProps {
@@ -24,11 +24,11 @@ interface MessageStreamViewportProps {
 }
 
 export function MessageStreamViewport({ state, rootAttributes }: MessageStreamViewportProps): UiNode {
-  const { blocks, context, scrollController } = state;
+  const { blocks, context, scrollPortBinding } = state;
   return (
     <MessageStreamFlowFrame
       blocks={blocks}
-      scrollController={scrollController}
+      scrollPortBinding={scrollPortBinding}
       renderBlockContent={(block) => <MessageStreamBlockContent block={block} context={context} />}
       {...(rootAttributes ? { rootAttributes } : {})}
     />

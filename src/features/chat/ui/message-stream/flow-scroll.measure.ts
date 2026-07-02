@@ -17,7 +17,7 @@ export interface MessageStreamScrollPort {
   dispatchScrollCommand(command: MessageStreamScrollCommand): void;
 }
 
-export interface MessageStreamScrollControllerBinding {
+export interface MessageStreamScrollPortBinding {
   mountScrollPort(port: MessageStreamScrollPort): () => void;
 }
 
@@ -28,7 +28,7 @@ export interface MessageStreamFlowBlockIdentity {
 export interface MessageStreamFlowFrameProps<Block extends MessageStreamFlowBlockIdentity> {
   blocks: readonly Block[];
   rootAttributes?: Partial<Record<`data-${string}`, string>>;
-  scrollController: MessageStreamScrollControllerBinding;
+  scrollPortBinding: MessageStreamScrollPortBinding;
   renderBlockContent: (block: Block) => UiNode;
 }
 
@@ -71,7 +71,7 @@ export class MessageStreamFlowFrame<Block extends MessageStreamFlowBlockIdentity
     _previousState: Readonly<Record<string, never>>,
     snapshot: MessageFlowSnapshot | null,
   ): void {
-    if (previousProps.scrollController !== this.props.scrollController) this.mountScrollPort();
+    if (previousProps.scrollPortBinding !== this.props.scrollPortBinding) this.mountScrollPort();
     if (this.runtime.container !== this.scrollElement) attachMessageFlowContainer(this.runtime, this.scrollElement);
     completeMessageFlowRender(this.runtime, snapshot);
   }
@@ -119,7 +119,7 @@ export class MessageStreamFlowFrame<Block extends MessageStreamFlowBlockIdentity
 
   private mountScrollPort(): void {
     this.unmountScrollPort?.();
-    this.unmountScrollPort = this.props.scrollController.mountScrollPort(this.scrollPort);
+    this.unmountScrollPort = this.props.scrollPortBinding.mountScrollPort(this.scrollPort);
   }
 }
 

@@ -48,7 +48,7 @@ function resumeThread(stateStore: ChatStateStore, items: readonly MessageStreamI
   stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
 }
 
-function createController() {
+function createPlanImplementationHost() {
   const stateStore = createChatStateStore(createChatState());
   const ensureConnected = vi.fn().mockResolvedValue(true);
   const sendTurnText = vi.fn().mockResolvedValue(undefined);
@@ -94,7 +94,7 @@ describe("implementPlan", () => {
   });
 
   it("switches out of plan mode and submits the implementation prompt", async () => {
-    const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createController();
+    const { host, ensureConnected, requestDefaultCollaborationModeForNextTurn, sendTurnText, stateStore } = createPlanImplementationHost();
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);
     stateStore.dispatch({ type: "ui/panel-set", panel: "status-panel" });
@@ -109,7 +109,7 @@ describe("implementPlan", () => {
   });
 
   it("ignores stale plan items", async () => {
-    const { host, ensureConnected, sendTurnText, stateStore } = createController();
+    const { host, ensureConnected, sendTurnText, stateStore } = createPlanImplementationHost();
     const first = planItem("first");
     const latest = planItem("latest");
     resumeThread(stateStore, [first, latest]);

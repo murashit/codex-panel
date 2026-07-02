@@ -52,7 +52,7 @@ describe("chat app-server actions", () => {
       }),
     );
 
-    const controller = createChatServerThreadActions({
+    const actions = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -61,7 +61,7 @@ describe("chat app-server actions", () => {
       syncThreadGoal,
     });
 
-    await controller.startThread("first prompt");
+    await actions.startThread("first prompt");
 
     expect(stateStore.getState().threadList.listedThreads).toEqual([optimistic, existingThread]);
     expect(applyThreadCatalogEvent).toHaveBeenCalledWith({ type: "thread-started", thread: optimistic });
@@ -86,7 +86,7 @@ describe("chat app-server actions", () => {
     });
     const client = startThreadClient(startThread);
 
-    const controller = createChatServerThreadActions({
+    const actions = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -95,7 +95,7 @@ describe("chat app-server actions", () => {
       syncThreadGoal: vi.fn(),
     });
 
-    await controller.startThread("first prompt");
+    await actions.startThread("first prompt");
 
     expect(startThread).toHaveBeenCalledWith({
       cwd: "/vault",
@@ -125,7 +125,7 @@ describe("chat app-server actions", () => {
       }),
     );
 
-    const controller = createChatServerThreadActions({
+    const actions = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -134,7 +134,7 @@ describe("chat app-server actions", () => {
       syncThreadGoal,
     });
 
-    await controller.startThread("first goal", { syncGoal: false });
+    await actions.startThread("first goal", { syncGoal: false });
 
     expect(syncThreadGoal).not.toHaveBeenCalled();
   });
@@ -154,7 +154,7 @@ describe("chat app-server actions", () => {
     });
     const client = startThreadClient(startThread);
 
-    const controller = createChatServerThreadActions({
+    const actions = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -163,7 +163,7 @@ describe("chat app-server actions", () => {
       syncThreadGoal: vi.fn(),
     });
 
-    await controller.startThread();
+    await actions.startThread();
 
     expect(startThread).toHaveBeenCalledWith({
       cwd: "/vault",
@@ -187,7 +187,7 @@ describe("chat app-server actions", () => {
       }),
     );
 
-    const controller = createChatServerThreadActions({
+    const actions = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -196,7 +196,7 @@ describe("chat app-server actions", () => {
       syncThreadGoal: () => undefined,
     });
 
-    await controller.startThread("local preview");
+    await actions.startThread("local preview");
 
     expect(applyThreadCatalogEvent).toHaveBeenCalledWith({ type: "thread-started", thread: threadFromThreadRecord(started) });
   });
@@ -209,7 +209,7 @@ describe("chat app-server actions", () => {
     let currentClient = firstClient;
     const applyThreadCatalogEvent = vi.fn();
     const syncThreadGoal = vi.fn();
-    const controller = createChatServerThreadActions({
+    const actions = createChatServerThreadActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
@@ -218,7 +218,7 @@ describe("chat app-server actions", () => {
       syncThreadGoal,
     });
 
-    const starting = controller.startThread("local preview");
+    const starting = actions.startThread("local preview");
     currentClient = secondClient;
     start.resolve({
       thread: threadFixture("stale-started"),
@@ -419,7 +419,7 @@ describe("chat app-server actions", () => {
   it("does not apply or publish app-server metadata when the client changes before refresh completes", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const refreshAppServerMetadata = vi.fn().mockResolvedValue(null);
-    const controller = createChatServerMetadataActions({
+    const actions = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => ({}) as AppServerClient,
@@ -427,7 +427,7 @@ describe("chat app-server actions", () => {
       refreshAppServerMetadata,
     });
 
-    const refreshing = controller.refreshAppServerMetadata();
+    const refreshing = actions.refreshAppServerMetadata();
 
     await expect(refreshing).resolves.toBeNull();
     expect(stateStore.getState().connection.availableModels).toEqual([]);
@@ -441,7 +441,7 @@ describe("chat app-server actions", () => {
       availableModels: modelMetadataFromCatalogModels([modelFixture("gpt-cached")]),
       serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("models", new Error("offline"), 1)),
     });
-    const controller = createChatServerMetadataActions({
+    const actions = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => ({}) as AppServerClient,
@@ -449,7 +449,7 @@ describe("chat app-server actions", () => {
       refreshAppServerMetadata: async () => metadata,
     });
 
-    await controller.refreshAppServerMetadata();
+    await actions.refreshAppServerMetadata();
 
     expect(stateStore.getState().connection.availableModels.map((model) => model.model)).toEqual(["gpt-cached"]);
     expect(stateStore.getState().connection.serverDiagnostics.probes.models.status).toBe("failed");
@@ -463,7 +463,7 @@ describe("chat app-server actions", () => {
       availableModels: [],
       serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeError("models", new Error("offline"), 1)),
     });
-    const controller = createChatServerMetadataActions({
+    const actions = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => ({}) as AppServerClient,
@@ -471,7 +471,7 @@ describe("chat app-server actions", () => {
       refreshAppServerMetadata: async () => metadata,
     });
 
-    await controller.refreshAppServerMetadata();
+    await actions.refreshAppServerMetadata();
 
     expect(stateStore.getState().connection.availableModels).toEqual([]);
     expect(stateStore.getState().connection.serverDiagnostics.probes.models.status).toBe("failed");
@@ -485,7 +485,7 @@ describe("chat app-server actions", () => {
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
     const updateAppServerMetadata = vi.fn(() => null);
-    const controller = createChatServerMetadataActions({
+    const actions = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
@@ -494,7 +494,7 @@ describe("chat app-server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    const refreshing = controller.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+    const refreshing = actions.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
     currentClient = secondClient;
     skillRefresh.resolve({ data: [{ skills: [skillFixture("stale-skill")] }] });
 
@@ -512,7 +512,7 @@ describe("chat app-server actions", () => {
     const stateStore = createChatStateStore(state);
     const listSkills = vi.fn().mockRejectedValue(new Error("offline"));
     const client = requestClient({ "skills/list": listSkills });
-    const controller = createChatServerMetadataActions({
+    const actions = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -520,7 +520,7 @@ describe("chat app-server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    await controller.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+    await actions.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
 
     expect(listSkills).toHaveBeenCalledWith({ cwds: ["/vault"], forceReload: true });
     expect(stateStore.getState().connection.availableSkills).toEqual(previousSkills);
@@ -535,7 +535,7 @@ describe("chat app-server actions", () => {
     const client = requestClient({
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: rateLimit, rateLimitsByLimitId: null }),
     });
-    const controller = createChatServerMetadataActions({
+    const actions = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -543,7 +543,7 @@ describe("chat app-server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    await controller.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
+    await actions.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
 
     expect(stateStore.getState().connection.rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
     expect(cachedMetadata.current?.rateLimit).toStrictEqual(rateLimit);
@@ -560,7 +560,7 @@ describe("chat app-server actions", () => {
     const client = requestClient({
       "account/rateLimits/read": vi.fn().mockRejectedValue(new Error("offline")),
     });
-    const controller = createChatServerMetadataActions({
+    const actions = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => client,
@@ -568,7 +568,7 @@ describe("chat app-server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    await controller.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
+    await actions.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
 
     expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
     expect(stateStore.getState().connection.serverDiagnostics.probes.rateLimits).toMatchObject({ status: "failed" });
@@ -583,7 +583,7 @@ describe("chat app-server actions", () => {
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
     const updateAppServerMetadata = vi.fn(() => null);
-    const controller = createChatServerMetadataActions({
+    const actions = createChatServerMetadataActions({
       stateStore,
       vaultPath: "/vault",
       currentClient: () => currentClient,
@@ -592,7 +592,7 @@ describe("chat app-server actions", () => {
       refreshAppServerMetadata: async () => null,
     });
 
-    const refreshing = controller.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
+    const refreshing = actions.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
     currentClient = secondClient;
     rateLimitRefresh.resolve({
       rateLimits: rateLimitFixture({ primary: { usedPercent: 88, windowDurationMins: 300, resetsAt: null } }),

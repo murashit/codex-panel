@@ -12,7 +12,7 @@ import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatComposerController } from "../panel/composer-controller";
-import type { ChatMessageScrollController } from "../panel/message-stream-scroll-controller";
+import type { ChatMessageStreamScrollBinding } from "../panel/message-stream-scroll-binding";
 import { createChatComposerController } from "./bundles/composer-bundle";
 import { type ChatPanelConnectionBundle, createConnectionBundle } from "./bundles/connection-bundle";
 import { createReconnectAction } from "./bundles/reconnect-bundle";
@@ -27,7 +27,7 @@ import { type ChatPanelSharedStateBinding, createChatPanelSharedStateBinding } f
 export interface ChatPanelSessionGraph {
   connection: {
     manager: ConnectionManager;
-    controller: ChatPanelConnectionBundle["connection"]["controller"];
+    actions: ChatPanelConnectionBundle["connection"]["actions"];
   };
   thread: {
     resume: ResumeActions;
@@ -63,7 +63,7 @@ interface ChatPanelSessionGraphHost {
   deferredTasks: ChatViewDeferredTasks;
   resumeWork: ChatResumeWorkTracker;
   connectionWork: ConnectionWorkTracker;
-  messageScrollController: ChatMessageScrollController;
+  messageScrollBinding: ChatMessageStreamScrollBinding;
   getClosing: () => boolean;
   viewWindow: () => Window;
 }
@@ -74,7 +74,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
   let ensureConnected: () => Promise<void> = async () => {
-    throw new Error("Codex app-server connection controller is not initialized.");
+    throw new Error("Codex app-server connection actions are not initialized.");
   };
   const connectedClient = async () => {
     await ensureConnected();
@@ -130,12 +130,12 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     },
   );
   const {
-    connection: { controller: connectionController },
+    connection: { actions: connectionActions },
     inboundHandler,
   } = connectionBundle;
   const { threads: serverThreads } = connectionBundle.serverActions;
-  ensureConnected = () => connectionController.ensureConnected();
-  const refreshActiveThreads = () => connectionController.refreshActiveThreads();
+  ensureConnected = () => connectionActions.ensureConnected();
+  const refreshActiveThreads = () => connectionActions.refreshActiveThreads();
   const runtime = createRuntimeBundle(host, {
     connection,
     appServer,
@@ -188,13 +188,13 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
     reconnect,
     runtimeProjection: runtime.projection,
-    refreshDiagnostics: () => connectionController.refreshDiagnostics(),
+    refreshDiagnostics: () => connectionActions.refreshDiagnostics(),
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });
   const shell = createShellBundle(host, {
     connection,
-    connectionController,
+    connectionActions,
     goals: threadLifecycle.goals,
     rename: threadLifecycle.rename,
     threadActions: threadActions.actions,
@@ -225,7 +225,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   return {
     connection: {
       manager: connection,
-      controller: connectionController,
+      actions: connectionActions,
     },
     thread: {
       resume: threadLifecycle.resume,

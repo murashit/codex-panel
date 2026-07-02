@@ -28,7 +28,7 @@ interface ChatPanelTurnStatus {
 
 interface ChatPanelTurnHost {
   stateStore: ChatStateStore;
-  messageScrollController: {
+  messageScrollBinding: {
     showLatest(): void;
   };
 }
@@ -135,7 +135,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       },
       scroll: {
         showLatest: () => {
-          host.messageScrollController.showLatest();
+          host.messageScrollBinding.showLatest();
         },
       },
     },

@@ -42,7 +42,7 @@ import {
   composerTextBeforeCursor,
   composerTransferHasFiles,
   focusComposer,
-} from "./composer-controller.dom";
+} from "./composer-element.dom";
 import type { ChatPanelComposerReadModel } from "./shell-read-model";
 import type { ChatPanelComposerProjection } from "./surface/composer-projection";
 

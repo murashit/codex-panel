@@ -17,7 +17,7 @@ function thread(id: string, name: string | null = null): Thread {
   };
 }
 
-function createController(options: { restoredThreadPending?: boolean } = {}) {
+function createIdentitySyncHarness(options: { restoredThreadPending?: boolean } = {}) {
   const stateStore = createChatStateStore(createChatState());
   const restoredPlaceholder = vi.fn<() => RestoredThreadPlaceholderState | null>(() => null);
   const restoredClear = vi.fn();
@@ -36,12 +36,12 @@ function createController(options: { restoredThreadPending?: boolean } = {}) {
     notifyActiveThreadIdentityChanged: vi.fn(),
     refreshTabHeader: vi.fn(),
   };
-  return { controller: createActiveThreadIdentitySync(host), host, restoredClear, restoredPlaceholder, restoredRename, stateStore };
+  return { sync: createActiveThreadIdentitySync(host), host, restoredClear, restoredPlaceholder, restoredRename, stateStore };
 }
 
 describe("createActiveThreadIdentitySync", () => {
   it("clears active thread identity as a complete archive transaction", () => {
-    const { controller, host, restoredClear, stateStore } = createController();
+    const { sync, host, restoredClear, stateStore } = createIdentitySyncHarness();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -58,7 +58,7 @@ describe("createActiveThreadIdentitySync", () => {
       approvalsReviewer: null,
     });
 
-    controller.applyThreadArchiveToActiveIdentity("thread");
+    sync.applyThreadArchiveToActiveIdentity("thread");
 
     expect(stateStore.getState().activeThread.id).toBeNull();
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
@@ -69,7 +69,7 @@ describe("createActiveThreadIdentitySync", () => {
   });
 
   it("ignores archive notifications for non-active threads without identity side effects", () => {
-    const { controller, host, restoredClear, stateStore } = createController();
+    const { sync, host, restoredClear, stateStore } = createIdentitySyncHarness();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -86,7 +86,7 @@ describe("createActiveThreadIdentitySync", () => {
       approvalsReviewer: null,
     });
 
-    controller.applyThreadArchiveToActiveIdentity("other");
+    sync.applyThreadArchiveToActiveIdentity("other");
 
     expect(stateStore.getState().activeThread.id).toBe("active");
     expect(host.invalidateThreadWork).not.toHaveBeenCalled();
@@ -97,9 +97,9 @@ describe("createActiveThreadIdentitySync", () => {
   });
 
   it("clears pending restored thread identity when that thread is archived", () => {
-    const { controller, host, restoredClear, stateStore } = createController({ restoredThreadPending: true });
+    const { sync, host, restoredClear, stateStore } = createIdentitySyncHarness({ restoredThreadPending: true });
 
-    controller.applyThreadArchiveToActiveIdentity("thread");
+    sync.applyThreadArchiveToActiveIdentity("thread");
 
     expect(stateStore.getState().activeThread.id).toBeNull();
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
@@ -110,7 +110,7 @@ describe("createActiveThreadIdentitySync", () => {
   });
 
   it("routes active thread rename notifications through active identity refresh", () => {
-    const { controller, host, restoredRename, stateStore } = createController();
+    const { sync, host, restoredRename, stateStore } = createIdentitySyncHarness();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -127,7 +127,7 @@ describe("createActiveThreadIdentitySync", () => {
       approvalsReviewer: null,
     });
 
-    controller.applyThreadRenameToActiveIdentity("thread", "New");
+    sync.applyThreadRenameToActiveIdentity("thread", "New");
 
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.refreshTabHeader).not.toHaveBeenCalled();
@@ -135,7 +135,7 @@ describe("createActiveThreadIdentitySync", () => {
   });
 
   it("routes pending restored thread rename notifications through active identity refresh", () => {
-    const { controller, host, restoredPlaceholder, restoredRename } = createController({ restoredThreadPending: true });
+    const { sync, host, restoredPlaceholder, restoredRename } = createIdentitySyncHarness({ restoredThreadPending: true });
     restoredPlaceholder.mockReturnValue({
       kind: "placeholder",
       threadId: "thread",
@@ -144,7 +144,7 @@ describe("createActiveThreadIdentitySync", () => {
       loading: null,
     });
 
-    controller.applyThreadRenameToActiveIdentity("thread", "New");
+    sync.applyThreadRenameToActiveIdentity("thread", "New");
 
     expect(restoredRename).toHaveBeenCalledWith("thread", "New");
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
@@ -152,10 +152,10 @@ describe("createActiveThreadIdentitySync", () => {
   });
 
   it("ignores rename notifications for inactive and unrestored threads without identity side effects", () => {
-    const { controller, host, restoredPlaceholder, restoredRename, stateStore } = createController();
+    const { sync, host, restoredPlaceholder, restoredRename, stateStore } = createIdentitySyncHarness();
     stateStore.dispatch({ type: "thread-list/applied", threads: [thread("thread", "Old")] });
 
-    controller.applyThreadRenameToActiveIdentity("other", "New");
+    sync.applyThreadRenameToActiveIdentity("other", "New");
 
     expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Old");
     expect(restoredPlaceholder).toHaveBeenCalledOnce();

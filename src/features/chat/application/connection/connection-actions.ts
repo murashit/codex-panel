@@ -21,7 +21,7 @@ export interface ChatConnectionDiagnosticsActions {
   refreshServerDiagnostics: (options?: { appServerMetadataSnapshot?: boolean; forceResourceProbes?: boolean }) => Promise<void>;
 }
 
-export interface ChatConnectionControllerHost {
+export interface ChatConnectionActionsHost {
   stateStore: ChatStateStore;
   connection: ChatConnectionAdapter;
   connectionWork: ConnectionWorkTracker;
@@ -43,7 +43,7 @@ export interface ChatConnectionControllerHost {
 }
 
 type ChatConnectionExitHost = Pick<
-  ChatConnectionControllerHost,
+  ChatConnectionActionsHost,
   "connectionWork" | "invalidateThreadWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence" | "refreshLiveState"
 >;
 
@@ -56,7 +56,7 @@ export function handleChatConnectionExit(host: ChatConnectionExitHost): void {
   host.refreshLiveState();
 }
 
-export interface ChatConnectionController {
+export interface ChatConnectionActions {
   ensureConnected(): Promise<void>;
   invalidate(): void;
   handleExit(): void;
@@ -65,8 +65,8 @@ export interface ChatConnectionController {
   refreshStatusPanel(): Promise<void>;
 }
 
-export function createChatConnectionController(host: ChatConnectionControllerHost): ChatConnectionController {
-  const controller: ChatConnectionController = {
+export function createChatConnectionActions(host: ChatConnectionActionsHost): ChatConnectionActions {
+  const actions: ChatConnectionActions = {
     ensureConnected: () => ensureConnected(host),
     invalidate: () => {
       host.connectionWork.invalidate();
@@ -75,13 +75,13 @@ export function createChatConnectionController(host: ChatConnectionControllerHos
       handleChatConnectionExit(host);
     },
     refreshActiveThreads: () => refreshActiveThreads(host),
-    refreshDiagnostics: () => refreshDiagnostics(host, controller),
-    refreshStatusPanel: () => refreshStatusPanel(host, controller),
+    refreshDiagnostics: () => refreshDiagnostics(host, actions),
+    refreshStatusPanel: () => refreshStatusPanel(host, actions),
   };
-  return controller;
+  return actions;
 }
 
-async function ensureConnected(host: ChatConnectionControllerHost): Promise<void> {
+async function ensureConnected(host: ChatConnectionActionsHost): Promise<void> {
   const connecting = host.connectionWork.active();
   if (connecting?.promise) return connecting.promise;
 
@@ -99,7 +99,7 @@ async function ensureConnected(host: ChatConnectionControllerHost): Promise<void
   }
 }
 
-async function refreshActiveThreads(host: ChatConnectionControllerHost): Promise<void> {
+async function refreshActiveThreads(host: ChatConnectionActionsHost): Promise<void> {
   if (!host.connection.isConnected()) return;
   try {
     await host.refreshSharedThreads();
@@ -110,12 +110,9 @@ async function refreshActiveThreads(host: ChatConnectionControllerHost): Promise
   }
 }
 
-async function refreshDiagnostics(
-  host: ChatConnectionControllerHost,
-  controller: Pick<ChatConnectionController, "ensureConnected">,
-): Promise<void> {
+async function refreshDiagnostics(host: ChatConnectionActionsHost, actions: Pick<ChatConnectionActions, "ensureConnected">): Promise<void> {
   host.clearDeferredDiagnostics();
-  await controller.ensureConnected();
+  await actions.ensureConnected();
   if (!host.connection.isConnected()) return;
   host.clearDeferredDiagnostics();
   await host.metadata.refreshAppServerMetadata();
@@ -123,18 +120,18 @@ async function refreshDiagnostics(
 }
 
 async function refreshStatusPanel(
-  host: ChatConnectionControllerHost,
-  controller: Pick<ChatConnectionController, "refreshActiveThreads" | "refreshDiagnostics">,
+  host: ChatConnectionActionsHost,
+  actions: Pick<ChatConnectionActions, "refreshActiveThreads" | "refreshDiagnostics">,
 ): Promise<void> {
   try {
-    await controller.refreshDiagnostics();
+    await actions.refreshDiagnostics();
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
-  await controller.refreshActiveThreads();
+  await actions.refreshActiveThreads();
 }
 
-async function initializeConnection(host: ChatConnectionControllerHost, connection: ActiveConnectionWork): Promise<void> {
+async function initializeConnection(host: ChatConnectionActionsHost, connection: ActiveConnectionWork): Promise<void> {
   host.setStatus(STATUS_CONNECTION_STARTING, { kind: "connecting" });
   try {
     const initialization = await host.connection.connect();
