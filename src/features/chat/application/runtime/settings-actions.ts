@@ -38,6 +38,8 @@ export interface ChatRuntimeSettingsActions {
   resetReasoningEffortToConfig: () => Promise<boolean>;
   requestReasoningEffortFromUi: (effort: ReasoningEffort) => Promise<void>;
   resetReasoningEffortToConfigFromUi: () => Promise<void>;
+  requestPermissionProfile: (permissionProfile: string) => Promise<boolean>;
+  resetPermissionProfileToConfig: () => Promise<boolean>;
   enableFastMode: () => Promise<void>;
   disableFastMode: () => Promise<void>;
   toggleFastMode: () => Promise<void>;
@@ -59,6 +61,8 @@ export function createChatRuntimeSettingsActions(host: RuntimeSettingsActionsHos
     resetReasoningEffortToConfig: () => resetReasoningEffortToConfig(host),
     requestReasoningEffortFromUi: (effort) => requestReasoningEffortFromUi(host, effort),
     resetReasoningEffortToConfigFromUi: () => resetReasoningEffortToConfigFromUi(host),
+    requestPermissionProfile: (permissionProfile) => requestPermissionProfile(host, permissionProfile),
+    resetPermissionProfileToConfig: () => resetPermissionProfileToConfig(host),
     enableFastMode: () => setFastMode(host, "enabled"),
     disableFastMode: () => setFastMode(host, "disabled"),
     toggleFastMode: () => toggleFastMode(host),
@@ -133,6 +137,16 @@ async function requestReasoningEffortFromUi(host: RuntimeSettingsActionsHost, ef
 
 async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsActionsHost): Promise<void> {
   await runRuntimeUiCommand(host, () => resetReasoningEffortToConfig(host), reasoningEffortOverrideMessage(null));
+}
+
+async function requestPermissionProfile(host: RuntimeSettingsActionsHost, permissionProfile: string): Promise<boolean> {
+  dispatch(host, { type: "runtime/permission-profile-requested", permissionProfile });
+  return applyPendingThreadSettings(host);
+}
+
+async function resetPermissionProfileToConfig(host: RuntimeSettingsActionsHost): Promise<boolean> {
+  dispatch(host, { type: "runtime/permission-profile-reset-to-config" });
+  return applyPendingThreadSettings(host);
 }
 
 async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {

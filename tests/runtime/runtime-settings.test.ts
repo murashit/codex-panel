@@ -18,6 +18,7 @@ import { resolveRuntimeControls } from "../../src/features/chat/domain/runtime/r
 import type { RuntimeSnapshot } from "../../src/features/chat/domain/runtime/snapshot";
 import {
   pendingRuntimeSettingsPatch,
+  permissionProfileRequestForThreadStart,
   serviceTierRequestForThreadStart,
 } from "../../src/features/chat/domain/runtime/thread-settings-patch";
 import { contextSummary, rateLimitSummary } from "../../src/features/chat/presentation/runtime/status";
@@ -78,10 +79,31 @@ describe("runtime settings", () => {
     expect(clonedPolicy.granular).not.toBe(originalPolicy.granular);
   });
 
-  it("uses legacy sandbox config instead of default permissions when both are reported", () => {
+  it("keeps default permissions separate from legacy sandbox fields", () => {
     expect(
       runtimeConfigFixture({
-        default_permissions: ":workspace",
+        default_permissions: "DevProfile",
+        approval_policy: "on-request",
+        sandbox_mode: "workspace-write",
+        sandbox_workspace_write: {
+          writable_roots: ["/vault"],
+          network_access: false,
+          exclude_tmpdir_env_var: false,
+          exclude_slash_tmp: false,
+        },
+      }),
+    ).toMatchObject({
+      startupPermissions: {
+        activePermissionProfile: { id: "DevProfile", extends: null },
+        approvalPolicy: "on-request",
+        sandboxPolicy: null,
+      },
+    });
+  });
+
+  it("uses legacy sandbox config when default permissions are not reported", () => {
+    expect(
+      runtimeConfigFixture({
         approval_policy: "on-request",
         sandbox_mode: "workspace-write",
         sandbox_workspace_write: {
@@ -233,6 +255,33 @@ describe("runtime settings", () => {
     expect(pendingRuntimeSettingsPatch(snapshot, snapshotConfig(snapshot))).toMatchObject({
       update: { permissions: null },
     });
+  });
+
+  it("selects config permission profiles for empty-panel thread starts", () => {
+    const configured = runtimeSnapshot({
+      runtimeConfig: runtimeConfigFixture({
+        default_permissions: ":workspace",
+      }),
+    });
+
+    expect(permissionProfileRequestForThreadStart(configured, snapshotConfig(configured))).toBe(":workspace");
+
+    const pending = runtimeSnapshot({
+      runtimeConfig: runtimeConfigFixture({
+        default_permissions: ":workspace",
+      }),
+      pending: { permissionProfile: setRuntimeIntentValue(":read-only") },
+    });
+
+    expect(permissionProfileRequestForThreadStart(pending, snapshotConfig(pending))).toBe(":read-only");
+
+    const legacySandbox = runtimeSnapshot({
+      runtimeConfig: runtimeConfigFixture({
+        sandbox_mode: "workspace-write",
+      }),
+    });
+
+    expect(permissionProfileRequestForThreadStart(legacySandbox, snapshotConfig(legacySandbox))).toBeUndefined();
   });
 
   it("keeps runtime defaults, resets, and collaboration mode semantics distinct", () => {
@@ -598,8 +647,8 @@ describe("runtime settings", () => {
     expect(resolveRuntimeControls(configured, snapshotConfig(configured))).toMatchObject({
       model: { effective: "gpt-config", source: "config" },
       reasoningEffort: { effective: "medium", source: "config" },
-      permissionProfile: { effective: null, source: "none" },
-      sandboxPolicy: { effective: { type: "workspaceWrite", writableRoots: ["/vault"], networkAccess: false }, source: "config" },
+      permissionProfile: { effective: ":workspace", source: "config" },
+      sandboxPolicy: { effective: null, source: "none" },
       approvalPolicy: { effective: "on-request", source: "config" },
       approvalsReviewer: { effective: "auto_review", source: "config" },
       serviceTier: { effective: "fast", source: "config" },

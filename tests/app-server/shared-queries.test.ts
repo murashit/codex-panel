@@ -199,6 +199,7 @@ function serverMetadata(overrides: Partial<SharedServerMetadata> = {}): SharedSe
     runtimeConfig: null,
     availableModels: [],
     availableSkills: [],
+    availablePermissionProfiles: [],
     rateLimit: null,
     serverDiagnostics: diagnostics,
     ...overrides,

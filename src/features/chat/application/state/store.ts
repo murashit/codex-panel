@@ -35,6 +35,7 @@ function cloneChatState(state: ChatState): ChatState {
       ...state.connection,
       availableModels: [...state.connection.availableModels],
       availableSkills: [...state.connection.availableSkills],
+      availablePermissionProfiles: state.connection.availablePermissionProfiles.map((profile) => ({ ...profile })),
     },
     threadList: {
       listedThreads: [...state.threadList.listedThreads],

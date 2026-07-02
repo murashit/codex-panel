@@ -5,6 +5,7 @@ import type { AppServerQueryContext } from "../../src/app-server/query/keys";
 import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
+import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
 import {
   createServerDiagnostics,
   diagnosticProbeError,
@@ -19,6 +20,7 @@ describe("AppServerQueryCache", () => {
     const context = cacheContext();
     const goodMetadata = metadata({
       availableSkills: [skillMetadata("writer")],
+      availablePermissionProfiles: [permissionProfile(":workspace")],
       rateLimit: rateLimit(42),
     });
 
@@ -30,14 +32,17 @@ describe("AppServerQueryCache", () => {
       metadata({
         availableModels: [modelMetadata("gpt-5.6")],
         availableSkills: [skillMetadata("failed-skill")],
+        availablePermissionProfiles: [permissionProfile(":failed")],
         rateLimit: rateLimit(90),
         skillsProbeStatus: "failed",
+        permissionProfilesProbeStatus: "failed",
         rateLimitProbeStatus: "failed",
       }),
     );
 
     expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
     expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(cache.appServerMetadataSnapshot(context)?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":workspace"]);
     expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(42);
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.skills.status).toBe("failed");
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.rateLimits.status).toBe("failed");
@@ -56,9 +61,11 @@ describe("AppServerQueryCache", () => {
       metadata({
         availableModels: [modelMetadata("failed-model")],
         availableSkills: [skillMetadata("writer")],
+        availablePermissionProfiles: [permissionProfile(":workspace")],
         rateLimit: rateLimit(90),
         modelProbeStatus: "failed",
         skillsProbeStatus: "failed",
+        permissionProfilesProbeStatus: "failed",
         rateLimitProbeStatus: "failed",
       }),
     );
@@ -68,6 +75,7 @@ describe("AppServerQueryCache", () => {
     expect(cached?.serverDiagnostics.probes.models.status).toBe("failed");
     expect(cached?.availableModels).toEqual([]);
     expect(cached?.availableSkills).toEqual([]);
+    expect(cached?.availablePermissionProfiles).toEqual([]);
     expect(cached?.rateLimit).toBeNull();
     expect(cache.modelsSnapshot(context)).toBeNull();
   });
@@ -184,6 +192,7 @@ describe("AppServerQueryCache", () => {
       "config/read": vi.fn().mockResolvedValue({}),
       "model/list": vi.fn().mockResolvedValue({ data: [catalogModel("gpt-meta")] }),
       "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [catalogSkill("writer")] }] }),
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [permissionProfile(":workspace")], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(64), rateLimitsByLimitId: null }),
     });
 
@@ -191,6 +200,7 @@ describe("AppServerQueryCache", () => {
 
     expect(metadata?.availableModels.map((model) => model.model)).toEqual(["gpt-meta"]);
     expect(metadata?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(metadata?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":workspace"]);
     expect(metadata?.rateLimit?.primary?.usedPercent).toBe(64);
     expect(metadata?.serverDiagnostics.probes.models.status).toBe("ok");
     expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-meta"]);
@@ -204,6 +214,7 @@ describe("AppServerQueryCache", () => {
       "config/read": vi.fn().mockResolvedValue({}),
       "model/list": listModels,
       "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
 
@@ -230,6 +241,7 @@ describe("AppServerQueryCache", () => {
       "config/read": vi.fn().mockResolvedValue({}),
       "model/list": vi.fn().mockRejectedValue(new Error("offline")),
       "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
     cache.writeAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-cached")] }));
@@ -318,10 +330,12 @@ function metadata(
   overrides: {
     availableModels?: readonly ModelMetadata[];
     availableSkills?: readonly SkillMetadata[];
+    availablePermissionProfiles?: readonly RuntimePermissionProfileSummary[];
     rateLimit?: RateLimitSnapshot | null;
     runtimeConfig?: RuntimeConfigSnapshot | null;
     modelProbeStatus?: "ok" | "failed";
     skillsProbeStatus?: "ok" | "failed";
+    permissionProfilesProbeStatus?: "ok" | "failed";
     rateLimitProbeStatus?: "ok" | "failed";
   } = {},
 ): SharedServerMetadata {
@@ -344,10 +358,17 @@ function metadata(
       ? diagnosticProbeError("rateLimits", new Error("offline"), 1)
       : diagnosticProbeOk("rateLimits", "available", 1),
   );
+  diagnostics = diagnosticsWithProbe(
+    diagnostics,
+    overrides.permissionProfilesProbeStatus === "failed"
+      ? diagnosticProbeError("permissionProfiles", new Error("offline"), 1)
+      : diagnosticProbeOk("permissionProfiles", "0 profiles", 1),
+  );
   return {
     runtimeConfig: overrides.runtimeConfig ?? emptyRuntimeConfigSnapshot(),
     availableModels: overrides.availableModels ?? [modelMetadata("gpt-5.5")],
     availableSkills: overrides.availableSkills ?? [],
+    availablePermissionProfiles: overrides.availablePermissionProfiles ?? [],
     rateLimit: overrides.rateLimit ?? null,
     serverDiagnostics: diagnostics,
   };
@@ -355,6 +376,10 @@ function metadata(
 
 function skillMetadata(name: string): SkillMetadata {
   return { name, description: "", path: `/tmp/${name}`, enabled: true };
+}
+
+function permissionProfile(id: string): RuntimePermissionProfileSummary {
+  return { id, description: null, allowed: true };
 }
 
 function rateLimit(usedPercent: number): RateLimitSnapshot {

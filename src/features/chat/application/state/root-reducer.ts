@@ -2,6 +2,7 @@ import type { ModelMetadata, ReasoningEffort, SkillMetadata } from "../../../../
 import type { PendingRequestId } from "../../../../domain/pending-requests/model";
 import type { RuntimeConfigSnapshot } from "../../../../domain/runtime/config";
 import type { RateLimitSnapshot, ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { Diagnostics } from "../../../../domain/server/diagnostics";
@@ -21,8 +22,10 @@ import {
   requestApprovalsReviewerRuntimeState,
   requestFastModeRuntimeState,
   requestModelRuntimeState,
+  requestPermissionProfileRuntimeState,
   requestReasoningEffortRuntimeState,
   resetModelToConfigRuntimeState,
+  resetPermissionProfileToConfigRuntimeState,
   resetReasoningEffortToConfigRuntimeState,
   setSelectedCollaborationModeRuntimeState,
 } from "../../domain/runtime/state";
@@ -93,6 +96,7 @@ interface ChatConnectionState {
   readonly serverDiagnostics: Diagnostics;
   readonly availableModels: readonly ModelMetadata[];
   readonly availableSkills: readonly SkillMetadata[];
+  readonly availablePermissionProfiles: readonly RuntimePermissionProfileSummary[];
 }
 
 interface ChatThreadListState {
@@ -136,6 +140,7 @@ type ConnectionAction =
       runtimeConfig?: RuntimeConfigSnapshot | null;
       availableModels?: readonly ModelMetadata[];
       availableSkills?: readonly SkillMetadata[];
+      availablePermissionProfiles?: readonly RuntimePermissionProfileSummary[];
       rateLimit?: RateLimitSnapshot | null;
       serverDiagnostics?: Diagnostics;
     };
@@ -151,6 +156,8 @@ type RuntimeAction =
   | { type: "runtime/model-reset-to-config" }
   | { type: "runtime/reasoning-effort-requested"; effort: ReasoningEffort }
   | { type: "runtime/reasoning-effort-reset-to-config" }
+  | { type: "runtime/permission-profile-requested"; permissionProfile: string }
+  | { type: "runtime/permission-profile-reset-to-config" }
   | { type: "runtime/fast-mode-requested"; fastMode: RequestedFastMode }
   | { type: "runtime/fast-mode-request-cleared" }
   | { type: "runtime/approvals-reviewer-requested"; approvalsReviewer: ApprovalsReviewer }
@@ -495,6 +502,7 @@ function clearConnectionScopedState(state: ChatState): ChatState {
       rateLimit: null,
       availableModels: [],
       availableSkills: [],
+      availablePermissionProfiles: [],
     },
     threadList: initialThreadListState(),
   });
@@ -525,6 +533,7 @@ function reduceConnectionSlice(state: ChatConnectionState, action: ChatSliceActi
         ...definedPatch("runtimeConfig", action.runtimeConfig),
         ...definedPatch("availableModels", action.availableModels),
         ...definedPatch("availableSkills", action.availableSkills),
+        ...definedPatch("availablePermissionProfiles", action.availablePermissionProfiles),
         ...definedPatch("rateLimit", action.rateLimit),
         ...definedPatch("serverDiagnostics", action.serverDiagnostics),
       });
@@ -562,6 +571,10 @@ function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): C
       return patchObject(state, requestReasoningEffortRuntimeState(state, action.effort));
     case "runtime/reasoning-effort-reset-to-config":
       return patchObject(state, resetReasoningEffortToConfigRuntimeState(state));
+    case "runtime/permission-profile-requested":
+      return patchObject(state, requestPermissionProfileRuntimeState(state, action.permissionProfile));
+    case "runtime/permission-profile-reset-to-config":
+      return patchObject(state, resetPermissionProfileToConfigRuntimeState(state));
     case "runtime/fast-mode-requested":
       return patchObject(state, requestFastModeRuntimeState(state, action.fastMode));
     case "runtime/fast-mode-request-cleared":
@@ -619,6 +632,7 @@ function initialConnectionState(): ChatConnectionState {
     rateLimit: null,
     availableModels: [],
     availableSkills: [],
+    availablePermissionProfiles: [],
   };
 }
 

@@ -71,6 +71,7 @@ describe("chat app-server actions", () => {
   it("keeps empty-panel runtime reservations when starting the first thread", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     stateStore.dispatch({ type: "runtime/model-requested", model: "gpt-5.5" });
+    stateStore.dispatch({ type: "runtime/permission-profile-requested", permissionProfile: ":workspace" });
     stateStore.dispatch({ type: "runtime/reasoning-effort-requested", effort: "high" });
     stateStore.dispatch({ type: "runtime/fast-mode-requested", fastMode: "enabled" });
     stateStore.dispatch({ type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
@@ -99,11 +100,13 @@ describe("chat app-server actions", () => {
 
     expect(startThread).toHaveBeenCalledWith({
       cwd: "/vault",
+      permissions: ":workspace",
       serviceName: "codex-panel",
       serviceTier: "fast",
     });
     expect(stateStore.getState().runtime.active.model).toBe("gpt-5");
     expect(stateStore.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(stateStore.getState().runtime.pending.permissionProfile).toEqual({ kind: "set", value: ":workspace" });
     expect(stateStore.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(stateStore.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(stateStore.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
@@ -169,6 +172,49 @@ describe("chat app-server actions", () => {
       cwd: "/vault",
       serviceName: "codex-panel",
       serviceTier: "flex",
+    });
+  });
+
+  it("starts threads with permission profile from explicit config", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      connection: {
+        runtimeConfig: {
+          ...emptyRuntimeConfigSnapshot(),
+          startupPermissions: {
+            ...emptyRuntimeConfigSnapshot().startupPermissions,
+            activePermissionProfile: { id: ":workspace", extends: null },
+          },
+        },
+      },
+    });
+    const stateStore = createChatStateStore(state);
+    const started = threadFixture("started");
+    const startThread = vi.fn().mockResolvedValue({
+      thread: started,
+      cwd: "/vault",
+      model: "gpt-5",
+      serviceTier: null,
+      approvalsReviewer: null,
+      reasoningEffort: null,
+    });
+    const client = startThreadClient(startThread);
+
+    const actions = createChatServerThreadActions({
+      stateStore,
+      vaultPath: "/vault",
+      currentClient: () => client,
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      applyThreadCatalogEvent: vi.fn(),
+      syncThreadGoal: vi.fn(),
+    });
+
+    await actions.startThread();
+
+    expect(startThread).toHaveBeenCalledWith({
+      cwd: "/vault",
+      permissions: ":workspace",
+      serviceName: "codex-panel",
     });
   });
 
@@ -757,6 +803,7 @@ function serverMetadataFixture(overrides: Partial<SharedServerMetadata> = {}): S
     runtimeConfig: emptyRuntimeConfigSnapshot(),
     availableModels: [],
     availableSkills: [],
+    availablePermissionProfiles: [],
     rateLimit: null,
     serverDiagnostics: createServerDiagnostics(),
     ...overrides,

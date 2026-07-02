@@ -7,7 +7,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
-import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
+import { modelOverrideMessage, permissionProfileOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import {
   type SlashCommandName,
   type SlashCommandSubcommandDefinition,
@@ -42,6 +42,8 @@ export interface SlashCommandExecutionPorts {
     toggleAutoReview: ChatRuntimeSettingsActions["toggleAutoReview"];
     requestModel: ChatRuntimeSettingsActions["requestModel"];
     resetModelToConfig: ChatRuntimeSettingsActions["resetModelToConfig"];
+    requestPermissionProfile: ChatRuntimeSettingsActions["requestPermissionProfile"];
+    resetPermissionProfileToConfig: ChatRuntimeSettingsActions["resetPermissionProfileToConfig"];
     requestReasoningEffort: ChatRuntimeSettingsActions["requestReasoningEffort"];
     resetReasoningEffortToConfig: ChatRuntimeSettingsActions["resetReasoningEffortToConfig"];
   };
@@ -184,9 +186,17 @@ export async function executeSlashCommand(
     case "status":
       context.addStructuredSystemMessage("Thread status", detailsFromLines(context.statusSummaryLines()));
       return;
-    case "permissions":
+    case "permissions": {
+      const requested = parsePermissionProfileOverride(args);
+      if (requested !== undefined) {
+        const applied = await applyPermissionProfileOverride(context, requested);
+        if (applied === false) return;
+        context.addSystemMessage(permissionProfileOverrideMessage(requested));
+        return;
+      }
       context.addStructuredSystemMessage("Permissions & Approvals", context.permissionDetails());
       return;
+    }
     case "doctor":
       context.addStructuredSystemMessage("Connection diagnostics", context.connectionDiagnosticDetails());
       return;
@@ -238,6 +248,15 @@ function applyModelOverride(
   return requested === null ? context.runtimeSettings.resetModelToConfig() : context.runtimeSettings.requestModel(requested);
 }
 
+function applyPermissionProfileOverride(
+  context: SlashCommandExecutionContext,
+  requested: string | null,
+): boolean | undefined | Promise<boolean | undefined> {
+  return requested === null
+    ? context.runtimeSettings.resetPermissionProfileToConfig()
+    : context.runtimeSettings.requestPermissionProfile(requested);
+}
+
 function applyReasoningEffortOverride(
   context: SlashCommandExecutionContext,
   requested: ReasoningEffort | null,
@@ -252,6 +271,13 @@ function parseModelOverride(args: string): string | null | undefined {
   if (!model) return undefined;
   if (DEFAULT_RUNTIME_SETTING_ALIASES.has(model.toLowerCase())) return null;
   return model;
+}
+
+function parsePermissionProfileOverride(args: string): string | null | undefined {
+  const profile = args.trim();
+  if (!profile) return undefined;
+  if (profile.toLowerCase() === "default") return null;
+  return profile;
 }
 
 function parseReasoningEffortOverride(args: string): ReasoningEffort | null | undefined {

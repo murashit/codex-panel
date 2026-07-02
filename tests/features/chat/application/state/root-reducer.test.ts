@@ -6,7 +6,7 @@ import { messageStreamItems } from "../../../../../src/features/chat/application
 import { type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
-import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
+import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
@@ -19,6 +19,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { runtime: { active: { reasoningEffort: "high" } } });
     state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
     state = chatStateWith(state, { runtime: { active: { approvalsReviewer: "auto_review" } } });
+    state = chatStateWith(state, { runtime: { active: { activePermissionProfile: { id: ":workspace", extends: null } } } });
     state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
     state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
     state = chatStateWith(state, { activeThread: { goal: goal("thread") } });
@@ -40,6 +41,7 @@ describe("chatReducer", () => {
       ui: { goalEditor: { kind: "editing", threadId: "thread", objectiveDraft: "draft", tokenBudgetDraft: null } },
     });
     let pendingState = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.2" });
+    pendingState = chatReducer(pendingState, { type: "runtime/permission-profile-requested", permissionProfile: ":read-only" });
     pendingState = chatReducer(pendingState, { type: "runtime/reasoning-effort-requested", effort: "medium" });
     pendingState = chatReducer(pendingState, { type: "runtime/fast-mode-requested", fastMode: "disabled" });
     pendingState = chatReducer(pendingState, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "user" });
@@ -52,8 +54,10 @@ describe("chatReducer", () => {
     expect(next.runtime.active.reasoningEffort).toBeNull();
     expect(next.runtime.active.serviceTier).toBeNull();
     expect(next.runtime.active.approvalsReviewer).toBeNull();
+    expect(next.runtime.active.activePermissionProfile).toBeNull();
     expect(next.runtime.active.collaborationMode).toBeNull();
     expect(next.runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(next.runtime.pending.permissionProfile).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.fastMode).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "unchanged" });
@@ -142,6 +146,7 @@ describe("chatReducer", () => {
   it("preserves empty-panel runtime reservations when thread activation explicitly requests it", () => {
     let state = chatStateFixture();
     state = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.5" });
+    state = chatReducer(state, { type: "runtime/permission-profile-requested", permissionProfile: ":workspace" });
     state = chatReducer(state, { type: "runtime/reasoning-effort-requested", effort: "high" });
     state = chatReducer(state, { type: "runtime/fast-mode-requested", fastMode: "enabled" });
     state = chatReducer(state, { type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
@@ -170,11 +175,24 @@ describe("chatReducer", () => {
     expect(next.runtime.active.serviceTier).toBe("fast");
     expect(next.runtime.active.approvalsReviewer).toBe("user");
     expect(next.runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(next.runtime.pending.permissionProfile).toEqual({ kind: "set", value: ":workspace" });
     expect(next.runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(next.runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });
     expect(next.runtime.pending.collaborationMode).toEqual(setCollaborationModeIntent("plan"));
     expect(next.runtime.active.collaborationMode).toBeNull();
+  });
+
+  it("keeps reset and set permission profile requests explicit", () => {
+    let state = chatStateFixture();
+
+    state = chatReducer(state, { type: "runtime/permission-profile-requested", permissionProfile: ":workspace" });
+
+    expect(state.runtime.pending.permissionProfile).toEqual(setRuntimeIntentValue(":workspace"));
+
+    state = chatReducer(state, { type: "runtime/permission-profile-reset-to-config" });
+
+    expect(state.runtime.pending.permissionProfile).toEqual({ kind: "resetToConfig" });
   });
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {

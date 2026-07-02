@@ -36,6 +36,8 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
       toggleAutoReview: vi.fn(),
       requestModel: vi.fn(),
       resetModelToConfig: vi.fn(),
+      requestPermissionProfile: vi.fn(),
+      resetPermissionProfileToConfig: vi.fn(),
       requestReasoningEffort: vi.fn(),
       resetReasoningEffortToConfig: vi.fn(),
     },
@@ -508,6 +510,7 @@ describe("slash commands", () => {
           { key: "/plan [message]", value: "Toggle Plan mode, optionally with a message." },
           { key: "/goal", value: "Show or manage the current thread goal." },
           { key: "/goal set <objective>", value: "Create or update the thread goal." },
+          { key: "/permissions [profile|default]", value: "Show or set the permission profile for subsequent turns." },
           { key: "/model [model|default]", value: "Show or set the model for subsequent turns." },
         ]),
       },
@@ -573,13 +576,45 @@ describe("slash commands", () => {
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Permissions & Approvals", details);
   });
 
-  it("rejects /permissions arguments", async () => {
+  it("sets the permission profile for /permissions arguments", async () => {
     const ctx = context();
 
-    await executeSlashCommand("permissions", "anything", ctx);
+    await executeSlashCommand("permissions", ":workspace", ctx);
 
     expect(ctx.addStructuredSystemMessage).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/permissions does not take arguments. Usage: /permissions");
+    expect(ctx.runtimeSettings.requestPermissionProfile).toHaveBeenCalledWith(":workspace");
+    expect(ctx.runtimeSettings.resetPermissionProfileToConfig).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Permission profile set to :workspace for subsequent turns.");
+  });
+
+  it("routes default permission profile through reset", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("permissions", "default", ctx);
+
+    expect(ctx.runtimeSettings.resetPermissionProfileToConfig).toHaveBeenCalledOnce();
+    expect(ctx.runtimeSettings.requestPermissionProfile).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Permission profile reset to default for subsequent turns.");
+  });
+
+  it.each(["reset", "clear", "off"])("treats permission profile alias-like value %s as a profile id", async (profile) => {
+    const ctx = context();
+
+    await executeSlashCommand("permissions", profile, ctx);
+
+    expect(ctx.runtimeSettings.requestPermissionProfile).toHaveBeenCalledWith(profile);
+    expect(ctx.runtimeSettings.resetPermissionProfileToConfig).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith(`Permission profile set to ${profile} for subsequent turns.`);
+  });
+
+  it("does not announce permission profile changes when applying them fails", async () => {
+    const ctx = context();
+    ctx.runtimeSettings.requestPermissionProfile = vi.fn().mockResolvedValue(false);
+
+    await executeSlashCommand("permissions", ":workspace", ctx);
+
+    expect(ctx.runtimeSettings.requestPermissionProfile).toHaveBeenCalledWith(":workspace");
+    expect(ctx.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("shows doctor diagnostics as shared structured sections", async () => {
@@ -619,7 +654,7 @@ describe("slash commands", () => {
 
   it("documents status and doctor as separate commands", () => {
     expect(slashCommandHelpValue("/status")).toBe("Show current thread, context, and usage limits.");
-    expect(slashCommandHelpValue("/permissions")).toBe("Show current permissions and approval settings.");
+    expect(slashCommandHelpValue("/permissions [profile|default]")).toBe("Show or set the permission profile for subsequent turns.");
     expect(slashCommandHelpValue("/doctor")).toBe("Show Codex CLI and Codex App Server diagnostics.");
   });
 

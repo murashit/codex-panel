@@ -1,6 +1,7 @@
 import { prepareFuzzySearch, type SearchResult, sortSearchResults } from "obsidian";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
+import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
@@ -29,6 +30,7 @@ export interface ComposerSuggestion {
 export interface ComposerSuggestionOptions {
   activeThreadId?: string | null;
   contextReferences?: ComposerContextReferences;
+  permissionProfiles?: readonly RuntimePermissionProfileSummary[];
 }
 
 export interface NoteCandidate {
@@ -109,6 +111,7 @@ export function activeComposerSuggestions(
     activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
     modelOverrideSuggestions(beforeCursor, models) ??
     reasoningEffortOverrideSuggestions(beforeCursor, models, currentModel) ??
+    permissionProfileOverrideSuggestions(beforeCursor, options.permissionProfiles ?? []) ??
     activeSlashCommandSuggestions(beforeCursor) ??
     activeSkillSuggestions(beforeCursor, skills) ??
     []
@@ -488,15 +491,65 @@ function reasoningEffortOverrideSuggestions(
   return suggestions.filter((item) => item.display.toLowerCase().startsWith(query)).slice(0, 8);
 }
 
-function activeCommandArgumentCompletionQuery(beforeCursor: string, pattern: RegExp): { query: string; start: number } | null {
+function permissionProfileOverrideSuggestions(
+  beforeCursor: string,
+  profiles: readonly RuntimePermissionProfileSummary[],
+): ComposerSuggestion[] | null {
+  const completion = activeCommandArgumentCompletionQuery(beforeCursor, /^\/permissions\s+([^\n]{0,120})$/);
+  if (!completion) return null;
+
+  const { query, rawQuery, start } = completion;
+  const allowedProfiles = profiles.filter((profile) => profile.allowed);
+  if (query === "default" || allowedProfiles.some((profile) => profile.id === rawQuery)) return null;
+  const suggestions = [
+    {
+      display: "default",
+      detail: "Reset permission profile",
+      replacement: "default",
+      start,
+      appendSpaceOnInsert: true,
+    },
+    ...allowedProfiles.map((profile) => ({
+      display: profile.id,
+      detail: profile.description ?? "Permission profile",
+      replacement: profile.id,
+      start,
+      appendSpaceOnInsert: true,
+    })),
+  ];
+
+  return permissionProfileSuggestionsForQuery(suggestions, query).slice(0, 8);
+}
+
+function permissionProfileSuggestionsForQuery(suggestions: ComposerSuggestion[], query: string): ComposerSuggestion[] {
+  if (query.length === 0) return suggestions;
+
+  return suggestions
+    .map((suggestion) => ({ suggestion, score: permissionProfileSuggestionScore(suggestion, query) }))
+    .filter((item): item is { suggestion: ComposerSuggestion; score: number } => item.score !== null)
+    .sort((left, right) => left.score - right.score)
+    .map((item) => item.suggestion);
+}
+
+function permissionProfileSuggestionScore(suggestion: ComposerSuggestion, query: string): number | null {
+  if (suggestion.display.toLowerCase().startsWith(query)) return 0;
+  if (suggestion.display === "default") return null;
+  return suggestion.detail.toLowerCase().includes(query) ? 1 : null;
+}
+
+function activeCommandArgumentCompletionQuery(
+  beforeCursor: string,
+  pattern: RegExp,
+): { query: string; rawQuery: string; start: number } | null {
   const match = pattern.exec(beforeCursor);
   if (!match) return null;
 
   const rawQuery = match[1];
   if (rawQuery === undefined) return null;
-  const query = rawQuery.trim().toLowerCase();
+  const trimmedQuery = rawQuery.trim();
+  const query = trimmedQuery.toLowerCase();
   if (query.length > 0 && /\s$/.test(rawQuery)) return null;
-  return { query, start: beforeCursor.length - rawQuery.length };
+  return { query, rawQuery: trimmedQuery, start: beforeCursor.length - rawQuery.length };
 }
 
 function activeSkillSuggestions(beforeCursor: string, skills: readonly SkillMetadata[]): ComposerSuggestion[] | null {

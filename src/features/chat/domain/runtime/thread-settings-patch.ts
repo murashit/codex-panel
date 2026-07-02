@@ -36,6 +36,11 @@ export function serviceTierRequestForThreadStart(snapshot: RuntimeSnapshot, conf
   return runtimeSettingsPatchValue(serviceTierPatchIntent(snapshot, resolveRuntimeControls(snapshot, config), "thread-start"));
 }
 
+export function permissionProfileRequestForThreadStart(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): string | undefined {
+  if (snapshot.pending.permissionProfile.kind === "set") return snapshot.pending.permissionProfile.value;
+  return config.startupPermissions.activePermissionProfile?.id ?? undefined;
+}
+
 export function pendingRuntimeSettingsPatch(snapshot: RuntimeSnapshot, config: RuntimeConfigSnapshot): PendingRuntimeSettingsPatch {
   const update: RuntimeSettingsPatch = {};
   const resolution = resolveRuntimeControls(snapshot, config);

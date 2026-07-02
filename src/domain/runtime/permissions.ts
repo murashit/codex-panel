@@ -44,6 +44,12 @@ export interface RuntimePermissionKnownState {
   readonly permissionProfileKnown: boolean;
 }
 
+export interface RuntimePermissionProfileSummary {
+  readonly id: string;
+  readonly description: string | null;
+  readonly allowed: boolean;
+}
+
 export function initialRuntimePermissionState(): RuntimePermissionState {
   return {
     approvalPolicy: null,

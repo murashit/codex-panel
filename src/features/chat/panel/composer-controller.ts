@@ -257,7 +257,11 @@ export class ChatComposerController {
       state.threadList.listedThreads,
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
-      { activeThreadId: state.activeThread.id, contextReferences: this.contextReferences() },
+      {
+        activeThreadId: state.activeThread.id,
+        contextReferences: this.contextReferences(),
+        permissionProfiles: state.connection.availablePermissionProfiles,
+      },
     );
 
     this.dispatchSuggestions({
@@ -302,7 +306,11 @@ export class ChatComposerController {
       state.threadList.listedThreads,
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
-      { activeThreadId: state.activeThread.id, contextReferences: this.contextReferences() },
+      {
+        activeThreadId: state.activeThread.id,
+        contextReferences: this.contextReferences(),
+        permissionProfiles: state.connection.availablePermissionProfiles,
+      },
     );
     return {
       suggestions,

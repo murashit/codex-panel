@@ -61,6 +61,7 @@ function applyAppServerMetadata(host: ChatServerMetadataActionsHost, metadata: S
     runtimeConfig: metadata.runtimeConfig,
     availableModels: metadata.availableModels,
     availableSkills: metadata.availableSkills,
+    availablePermissionProfiles: metadata.availablePermissionProfiles,
     rateLimit: metadata.rateLimit,
     serverDiagnostics: metadata.serverDiagnostics,
   });

@@ -13,6 +13,7 @@ import type { HooksListResponse } from "../../generated/app-server/v2/HooksListR
 import type { ListMcpServerStatusResponse } from "../../generated/app-server/v2/ListMcpServerStatusResponse";
 import type { ModelListResponse } from "../../generated/app-server/v2/ModelListResponse";
 import type { ModelProviderCapabilitiesReadResponse } from "../../generated/app-server/v2/ModelProviderCapabilitiesReadResponse";
+import type { PermissionProfileListResponse } from "../../generated/app-server/v2/PermissionProfileListResponse";
 import type { PluginInstalledResponse } from "../../generated/app-server/v2/PluginInstalledResponse";
 import type { PluginReadResponse } from "../../generated/app-server/v2/PluginReadResponse";
 import type { SkillsListResponse } from "../../generated/app-server/v2/SkillsListResponse";
@@ -82,6 +83,7 @@ export interface ClientResponseByMethod {
   "plugin/installed": PluginInstalledResponse;
   "plugin/read": PluginReadResponse;
   "model/list": ModelListResponse;
+  "permissionProfile/list": PermissionProfileListResponse;
   "account/rateLimits/read": GetAccountRateLimitsResponse;
   "mcpServerStatus/list": ListMcpServerStatusResponse;
   "collaborationMode/list": CollaborationModeListResponse;

@@ -124,6 +124,7 @@ describe("composer suggestions", () => {
     { input: "/plan", expected: { command: "plan", args: "" } },
     { input: "/plan OK、実装してください", expected: { command: "plan", args: "OK、実装してください" } },
     { input: "/model gpt-5.5", expected: { command: "model", args: "gpt-5.5" } },
+    { input: "/permissions :workspace", expected: { command: "permissions", args: ":workspace" } },
     { input: "/reasoning high", expected: { command: "reasoning", args: "high" } },
     { input: "/new", expected: null },
     { input: "/unknown", expected: null },
@@ -444,6 +445,52 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/reasoning x", notes, [], [], models, "gpt-5.4-mini")).toEqual([]);
     expect(activeComposerSuggestions("/reasoning high", notes, [], [], models, "gpt-5.5")).toEqual([]);
     expect(activeComposerSuggestions("/reasoning high ", notes, [], [], models, "gpt-5.5")).toEqual([]);
+  });
+
+  it("suggests existing allowed permission profiles for /permissions", () => {
+    const permissionProfiles = [
+      { id: ":read-only", description: "Read only", allowed: true },
+      { id: ":workspace", description: "Workspace write", allowed: true },
+      { id: "DevProfile", description: "Developer profile", allowed: true },
+      { id: "reset", description: "Reset-like profile", allowed: true },
+      { id: "blocked", description: null, allowed: false },
+    ];
+
+    expect(
+      suggestionReplacements(
+        activeComposerSuggestions("/permissions ", notes, [], [], [], null, {
+          permissionProfiles,
+        }),
+      ),
+    ).toEqual(["default", ":read-only", ":workspace", "DevProfile", "reset"]);
+    expect(
+      activeComposerSuggestions("/permissions :r", notes, [], [], [], null, {
+        permissionProfiles,
+      })[0],
+    ).toMatchObject({
+      display: ":read-only",
+      detail: "Read only",
+      replacement: ":read-only",
+      appendSpaceOnInsert: true,
+    });
+    expect(
+      activeComposerSuggestions("/permissions work", notes, [], [], [], null, {
+        permissionProfiles,
+      })[0],
+    ).toMatchObject({
+      replacement: ":workspace",
+    });
+    expect(activeComposerSuggestions("/permissions blocked", notes, [], [], [], null, { permissionProfiles })).toEqual([]);
+    expect(activeComposerSuggestions("/permissions devprofile", notes, [], [], [], null, { permissionProfiles })[0]).toMatchObject({
+      replacement: "DevProfile",
+    });
+    expect(activeComposerSuggestions("/permissions res", notes, [], [], [], null, { permissionProfiles })[0]).toMatchObject({
+      replacement: "reset",
+    });
+    expect(activeComposerSuggestions("/permissions DevProfile", notes, [], [], [], null, { permissionProfiles })).toEqual([]);
+    expect(activeComposerSuggestions("/permissions reset", notes, [], [], [], null, { permissionProfiles })).toEqual([]);
+    expect(activeComposerSuggestions("/permissions :read-only", notes, [], [], [], null, { permissionProfiles })).toEqual([]);
+    expect(activeComposerSuggestions("/permissions :read-only ", notes, [], [], [], null, { permissionProfiles })).toEqual([]);
   });
 
   it("does not suggest fixed reasoning effort fallbacks without model support metadata", () => {

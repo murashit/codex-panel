@@ -26,6 +26,7 @@ export function cloneSharedServerMetadata(metadata: SharedServerMetadata): Share
     rateLimit: metadata.rateLimit ? cloneRateLimitSnapshot(metadata.rateLimit) : null,
     availableModels: cloneModelMetadata(metadata.availableModels),
     availableSkills: metadata.availableSkills.map((skill) => ({ ...skill })),
+    availablePermissionProfiles: metadata.availablePermissionProfiles.map((profile) => ({ ...profile })),
     serverDiagnostics: {
       probes: { ...metadata.serverDiagnostics.probes },
       mcpServers: metadata.serverDiagnostics.mcpServers.map((server) => ({ ...server })),

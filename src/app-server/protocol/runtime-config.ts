@@ -36,15 +36,15 @@ export function runtimeConfigSnapshotFromAppServerConfig(response: ConfigReadRes
 }
 
 function startupPermissionsFromConfig(config: Record<string, unknown>): RuntimePermissionState {
+  const activePermissionProfile = permissionProfileFromConfig(config);
   return {
     approvalPolicy: approvalPolicyOrNull(config["approval_policy"]),
-    sandboxPolicy: sandboxPolicyFromConfig(config),
-    activePermissionProfile: permissionProfileFromConfig(config),
+    sandboxPolicy: activePermissionProfile ? null : sandboxPolicyFromConfig(config),
+    activePermissionProfile,
   };
 }
 
 function permissionProfileFromConfig(config: Record<string, unknown>): RuntimePermissionState["activePermissionProfile"] {
-  if (typeof config["sandbox_mode"] === "string") return null;
   const profile = nonEmptyStringOrNull(config["default_permissions"]);
   return profile ? { id: profile, extends: null } : null;
 }

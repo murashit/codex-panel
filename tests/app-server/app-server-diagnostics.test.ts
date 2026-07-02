@@ -28,7 +28,15 @@ describe("app-server diagnostics", () => {
   it("creates generic capability probe defaults", () => {
     const diagnostics = createServerDiagnostics();
 
-    expect(Object.keys(diagnostics.probes)).toEqual(["models", "skills", "apps", "plugins", "rateLimits", "mcpServers"]);
+    expect(Object.keys(diagnostics.probes)).toEqual([
+      "models",
+      "skills",
+      "permissionProfiles",
+      "apps",
+      "plugins",
+      "rateLimits",
+      "mcpServers",
+    ]);
     expect(diagnostics.probes.models).toMatchObject({
       id: "models",
       status: "unknown",
@@ -37,6 +45,7 @@ describe("app-server diagnostics", () => {
       checkedAt: null,
     });
     expect(diagnosticProbeLabel("models")).toBe("Models");
+    expect(diagnosticProbeLabel("permissionProfiles")).toBe("Permission profiles");
   });
 
   it("classifies ok and failed capability probes", () => {

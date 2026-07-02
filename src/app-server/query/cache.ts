@@ -19,7 +19,7 @@ import {
   archivedThreadsQueryKey,
   cloneAppServerQueryContext,
 } from "./keys";
-import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
+import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
 import type { ObservedResult, ObservedResultListener } from "./observed-result";
 import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads } from "./snapshots";
 
@@ -194,6 +194,8 @@ export class AppServerQueryCache {
       ...metadata,
       availableModels: probes.models.status === "ok" ? metadata.availableModels : (this.modelsSnapshot(context) ?? []),
       availableSkills: probes.skills.status === "ok" ? metadata.availableSkills : (previous?.availableSkills ?? []),
+      availablePermissionProfiles:
+        probes.permissionProfiles.status === "ok" ? metadata.availablePermissionProfiles : (previous?.availablePermissionProfiles ?? []),
       rateLimit: probes.rateLimits.status === "ok" ? metadata.rateLimit : (previous?.rateLimit ?? null),
     });
     this.client.setQueryData(appServerMetadataQueryKey(context), cloneSharedServerMetadata(next));
@@ -273,12 +275,13 @@ export class AppServerQueryCache {
       queryFn: async (): Promise<SharedServerMetadata> => {
         return this.runWithClient(refreshContext, async (client) => {
           const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, refreshContext.vaultPath));
-          const [models, skills, rateLimit] = await Promise.all([
+          const [models, skills, permissionProfiles, rateLimit] = await Promise.all([
             this.readModelMetadataProbe(refreshContext, client),
             readSkillMetadataProbe(client, refreshContext.vaultPath, options.forceSkills ?? false),
+            readPermissionProfileMetadataProbe(client, refreshContext.vaultPath),
             readRateLimitMetadataProbe(client),
           ]);
-          const diagnostics = [models.probe, skills.probe, rateLimit.probe].reduce(
+          const diagnostics = [models.probe, skills.probe, permissionProfiles.probe, rateLimit.probe].reduce(
             (current, probe) => diagnosticsWithProbe(current, probe),
             this.appServerMetadataSnapshot(refreshContext)?.serverDiagnostics ?? createServerDiagnostics(),
           );
@@ -286,6 +289,7 @@ export class AppServerQueryCache {
             runtimeConfig,
             availableModels: models.value,
             availableSkills: skills.value,
+            availablePermissionProfiles: permissionProfiles.value,
             rateLimit: rateLimit.value,
             serverDiagnostics: diagnostics,
           };

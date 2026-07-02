@@ -15,7 +15,7 @@ export function runtimePermissionSections(input: RuntimePermissionSectionsInput)
   return [
     {
       title: "Permissions",
-      rows: accessRows(resolution.permissionProfile.confirmed, resolution.sandboxPolicy.confirmed, input.vaultPath),
+      rows: accessRows(resolution.permissionProfile.effective, resolution.sandboxPolicy.effective, input.vaultPath),
     },
     {
       title: "Approvals",

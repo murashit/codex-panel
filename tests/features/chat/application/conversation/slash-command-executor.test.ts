@@ -49,6 +49,8 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
       toggleAutoReview: vi.fn(),
       requestModel: vi.fn(),
       resetModelToConfig: vi.fn(),
+      requestPermissionProfile: vi.fn(),
+      resetPermissionProfileToConfig: vi.fn(),
       requestReasoningEffort: vi.fn(),
       resetReasoningEffortToConfig: vi.fn(),
     },

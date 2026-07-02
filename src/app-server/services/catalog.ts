@@ -1,4 +1,6 @@
 import type { HookItem, ModelMetadata, SkillMetadata } from "../../domain/catalog/metadata";
+import type { RuntimePermissionProfileSummary } from "../../domain/runtime/permissions";
+import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import {
   type AppServerHookOperation,
@@ -25,6 +27,29 @@ export async function listModelMetadata(client: ModelMetadataClient, options: { 
     limit: 100,
   });
   return modelMetadataFromCatalogModels(response.data);
+}
+
+export async function listPermissionProfiles(client: AppServerRequestClient, cwd: string): Promise<RuntimePermissionProfileSummary[]> {
+  const profiles: RuntimePermissionProfileSummary[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  for (;;) {
+    const response: ClientResponseByMethod["permissionProfile/list"] = await client.request("permissionProfile/list", {
+      cwd,
+      cursor,
+      limit: 100,
+    });
+    profiles.push(...response.data.map((profile) => ({ ...profile })));
+    cursor = response.nextCursor ?? null;
+    if (!cursor) break;
+    if (seenCursors.has(cursor)) {
+      throw new Error("Codex app-server returned a repeated permission profile list cursor.");
+    }
+    seenCursors.add(cursor);
+  }
+
+  return profiles;
 }
 
 export async function listSkillCatalog(

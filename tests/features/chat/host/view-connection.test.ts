@@ -150,6 +150,7 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(client, "config/read", 1);
     expect(fetchModels).toHaveBeenCalledTimes(1);
     expectRequestTimes(client, "skills/list", 1);
+    expectRequestTimes(client, "permissionProfile/list", 1);
     expectRequestTimes(client, "account/rateLimits/read", 1);
     expectRequestTimes(client, "thread/list", 1);
   });
@@ -421,6 +422,7 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(client, "config/read", 1);
     expect(fetchModels).toHaveBeenCalledOnce();
     expectRequestTimes(client, "skills/list", 1);
+    expectRequestTimes(client, "permissionProfile/list", 1);
     expectRequestTimes(client, "account/rateLimits/read", 1);
     expect(client.request).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault",
@@ -446,6 +448,7 @@ describe("CodexChatView connection lifecycle", () => {
               runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-cached" },
               availableModels: [],
               availableSkills: [{ name: "writer", enabled: true }],
+              availablePermissionProfiles: [],
               rateLimit: null,
               serverDiagnostics: createServerDiagnostics(),
             }) as never,
@@ -771,6 +774,7 @@ function baseClientHandlers(): RequestHandlers {
     "config/read": vi.fn().mockResolvedValue({}),
     "model/list": vi.fn().mockResolvedValue({ data: [] }),
     "skills/list": vi.fn().mockResolvedValue({ data: [] }),
+    "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: null }),
     "thread/list": vi.fn().mockResolvedValue({ data: [] }),
     "thread/start": vi.fn().mockResolvedValue(startedThread("thread-new")),
@@ -1049,6 +1053,11 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       data: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }[];
     };
     if (!connectionStillCurrent()) return null;
+    const permissionProfilesResponse = (await client.request("permissionProfile/list", { cwd: vaultPath, cursor: null, limit: 100 })) as {
+      data: { id: string; description: string | null; allowed: boolean }[];
+      nextCursor: string | null;
+    };
+    if (!connectionStillCurrent()) return null;
     await client.request("account/rateLimits/read", undefined);
     if (!connectionStillCurrent()) return null;
     return {
@@ -1063,6 +1072,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
             enabled: skill.enabled ?? true,
           })),
       ),
+      availablePermissionProfiles: permissionProfilesResponse.data.map((profile) => ({ ...profile })),
       rateLimit: null,
       serverDiagnostics: createServerDiagnostics(),
     };

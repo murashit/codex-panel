@@ -46,7 +46,7 @@ Each panel can keep a separate conversation, so related work can stay open side 
 
 The composer understands Obsidian links. It suggests vault files and recent notes, keeps wikilinks readable, includes linked files with your prompt, and opens file links from Codex replies back in Obsidian. Use `@active-note` or `@selection` to include the active note or current Markdown selection without pasting it manually. Paste or drop files to save them in the attachment folder and reference them from the same prompt.
 
-Completions cover slash commands, `$skill-name` skills, recent threads, models, and reasoning levels. Use `/help` for the current command list.
+Completions cover slash commands, `$skill-name` skills, recent threads, models, reasoning levels, and permission profiles. Use `/help` for the current command list.
 
 While a turn is running, the panel streams the conversation, reasoning, tool activity, file changes, plans, and agent activity. You can answer Codex questions, approve commands, respond to requests, steer or interrupt the turn, and manage active goals above the message stream.
 

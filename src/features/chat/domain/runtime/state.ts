@@ -113,6 +113,20 @@ export function resetReasoningEffortToConfigRuntimeState(state: ChatRuntimeState
   };
 }
 
+export function requestPermissionProfileRuntimeState(state: ChatRuntimeState, permissionProfile: string): ChatRuntimeState {
+  return {
+    ...state,
+    pending: { ...state.pending, permissionProfile: setRuntimeIntentValue(permissionProfile) },
+  };
+}
+
+export function resetPermissionProfileToConfigRuntimeState(state: ChatRuntimeState): ChatRuntimeState {
+  return {
+    ...state,
+    pending: { ...state.pending, permissionProfile: resetRuntimeIntentToConfig() },
+  };
+}
+
 export function requestFastModeRuntimeState(state: ChatRuntimeState, fastMode: RequestedFastMode): ChatRuntimeState {
   return {
     ...state,

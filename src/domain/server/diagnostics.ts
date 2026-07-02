@@ -5,6 +5,7 @@ import { cloneToolInventorySnapshot, type ToolInventorySnapshot } from "./tool-i
 const DIAGNOSTIC_PROBE_DEFINITIONS = {
   models: { label: "Models" },
   skills: { label: "Skills" },
+  permissionProfiles: { label: "Permission profiles" },
   apps: { label: "Apps" },
   plugins: { label: "Plugins" },
   rateLimits: { label: "Rate limits" },

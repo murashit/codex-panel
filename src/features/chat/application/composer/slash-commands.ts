@@ -131,10 +131,10 @@ export const SLASH_COMMANDS = [
   },
   {
     command: "/permissions",
-    usage: "/permissions",
-    argsKind: "none",
-    surface: "diagnostic",
-    detail: "Show current permissions and approval settings.",
+    usage: "/permissions [profile|default]",
+    argsKind: "showOrSet",
+    surface: "threadSetting",
+    detail: "Show or set the permission profile for subsequent turns.",
   },
   {
     command: "/doctor",

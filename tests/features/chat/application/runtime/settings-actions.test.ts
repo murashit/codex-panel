@@ -66,6 +66,33 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual([]);
   });
 
+  it("requests and resets permission profiles through thread settings", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, {
+      runtime: {
+        active: {
+          activePermissionProfile: { id: ":read-only", extends: null },
+          sandboxPolicy: { type: "readOnly", networkAccess: false },
+        },
+      },
+    });
+    const store = createChatStateStore(state);
+    const transport = settingsTransportFixture();
+    const messages: string[] = [];
+    const actions = runtimeActionsFixture(store, transport, messages);
+
+    await expect(actions.requestPermissionProfile(":workspace")).resolves.toBe(true);
+    await expect(actions.resetPermissionProfileToConfig()).resolves.toBe(true);
+
+    expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { permissions: ":workspace" });
+    expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { permissions: null });
+    expect(store.getState().runtime.pending.permissionProfile).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.active.activePermissionProfile).toBeNull();
+    expect(store.getState().runtime.active.permissionProfileKnown).toBe(false);
+    expect(messages).toEqual([]);
+  });
+
   it("reserves thread runtime settings when no thread is active", async () => {
     const store = createChatStateStore(chatStateFixture());
     const transport = settingsTransportFixture();
@@ -73,6 +100,7 @@ describe("createChatRuntimeSettingsActions", () => {
     const actions = runtimeActionsFixture(store, transport, messages);
 
     await expect(actions.requestModel("gpt-5.5")).resolves.toBe(true);
+    await expect(actions.requestPermissionProfile(":workspace")).resolves.toBe(true);
     await expect(actions.requestReasoningEffort("high")).resolves.toBe(true);
     await actions.enableFastMode();
     await actions.enableAutoReview();
@@ -81,6 +109,7 @@ describe("createChatRuntimeSettingsActions", () => {
 
     expect(transport.updateThreadSettings).not.toHaveBeenCalled();
     expect(store.getState().runtime.pending.model).toEqual({ kind: "set", value: "gpt-5.5" });
+    expect(store.getState().runtime.pending.permissionProfile).toEqual({ kind: "set", value: ":workspace" });
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
     expect(store.getState().runtime.pending.fastMode).toEqual({ kind: "set", value: "enabled" });
     expect(store.getState().runtime.pending.approvalsReviewer).toEqual({ kind: "set", value: "auto_review" });

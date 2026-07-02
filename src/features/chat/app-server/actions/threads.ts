@@ -8,7 +8,7 @@ import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog
 import { resumedThreadAction } from "../../application/state/actions";
 import type { ChatState } from "../../application/state/root-reducer";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import { serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
+import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import { type ChatServerActionsHost, captureChatServerClientScope } from "./host";
 
 interface StartedThreadSummary {
@@ -47,11 +47,11 @@ async function startThread(
   const scope = captureChatServerClientScope(host);
   if (!scope.client) return null;
   const requestState = host.stateStore.getState();
-  const serviceTier = serviceTierRequestForThreadStart(
-    host.runtimeSnapshotForState(requestState),
-    runtimeConfigOrDefault(requestState.connection.runtimeConfig),
-  );
-  const response = await startAppServerThread(scope.client, { cwd: host.vaultPath, serviceTier });
+  const runtimeSnapshot = host.runtimeSnapshotForState(requestState);
+  const runtimeConfig = runtimeConfigOrDefault(requestState.connection.runtimeConfig);
+  const serviceTier = serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig);
+  const permissions = permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig);
+  const response = await startAppServerThread(scope.client, { cwd: host.vaultPath, serviceTier, permissions });
   if (scope.isStale()) return null;
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();

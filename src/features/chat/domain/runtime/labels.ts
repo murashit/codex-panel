@@ -21,6 +21,12 @@ export function reasoningEffortOverrideMessage(effort: ReasoningEffort | null): 
     : `Reasoning effort set to ${effort} for subsequent turns.`;
 }
 
+export function permissionProfileOverrideMessage(permissionProfile: string | null): string {
+  return permissionProfile === null
+    ? "Permission profile reset to default for subsequent turns."
+    : `Permission profile set to ${permissionProfile} for subsequent turns.`;
+}
+
 export function pendingRuntimeSettingLabel(
   setting: { kind: "unchanged" } | { kind: "set"; value: unknown } | { kind: "resetToConfig" },
 ): string {
