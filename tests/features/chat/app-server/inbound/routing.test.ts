@@ -70,7 +70,7 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, "threadLifecycle", { activeThreadId: "thread-other", activeTurnId: "turn-active" });
   });
 
-  it("translates run recency runtime effects to thread catalog events at the inbound boundary", () => {
+  it("translates run-started runtime outcomes to thread catalog events at the inbound boundary", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
     state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
@@ -82,6 +82,24 @@ describe("chat inbound routing", () => {
         type: "apply-thread-catalog-event",
         event: { type: "thread-touched", threadId: "thread-active", recencyAt: null },
       },
+    ]);
+  });
+
+  it("translates run-completed runtime outcomes to thread follow-up effects at the inbound boundary", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+
+    const plan = planChatNotification(state, turnCompletedNotification(), (prefix) => `${prefix}-1`);
+
+    expect(plan.effects).toEqual([
+      {
+        type: "maybe-name-thread",
+        threadId: "thread-active",
+        turnId: "turn-active",
+        completedSummary: { userText: "hello", assistantText: "done" },
+      },
+      { type: "refresh-threads" },
     ]);
   });
 
@@ -455,6 +473,28 @@ function turnStartedNotification(): ServerNotification {
         durationMs: null,
         itemsView: "full",
         items: [],
+      },
+    },
+  };
+}
+
+function turnCompletedNotification(): ServerNotification {
+  return {
+    method: "turn/completed",
+    params: {
+      threadId: "thread-active",
+      turn: {
+        id: "turn-active",
+        status: "completed",
+        error: null,
+        startedAt: null,
+        completedAt: 2,
+        durationMs: 1,
+        itemsView: "full",
+        items: [
+          { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+          { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+        ],
       },
     },
   };

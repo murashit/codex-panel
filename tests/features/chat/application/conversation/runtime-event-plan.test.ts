@@ -17,14 +17,14 @@ function applyActions(state: ChatState, actions: readonly ChatAction[]): ChatSta
 }
 
 describe("ConversationRuntimeEvent planner", () => {
-  it("keeps run recency updates as conversation-owned effects", () => {
+  it("reports run starts as conversation-owned outcomes", () => {
     const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
 
     const plan = planConversationRuntimeEvents(state, [
       { type: "runStarted", threadId: "thread-active", runId: "turn-active", recencyAt: 123 },
     ]);
 
-    expect(plan.effects).toEqual([{ type: "thread-recency-touched", threadId: "thread-active", recencyAt: 123 }]);
+    expect(plan.outcomes).toEqual([{ type: "run-started", threadId: "thread-active", runId: "turn-active", recencyAt: 123 }]);
   });
 
   it("reconciles completed run snapshots with optimistic local user messages", () => {
@@ -68,14 +68,13 @@ describe("ConversationRuntimeEvent planner", () => {
     const next = applyActions(state, plan.actions);
 
     expect(chatStateMessageStreamItems(next).map((item) => item.id)).toEqual(["u1", "a1"]);
-    expect(plan.effects).toEqual([
+    expect(plan.outcomes).toEqual([
       {
-        type: "maybe-name-thread",
+        type: "run-completed",
         threadId: "thread-active",
-        turnId: "turn-active",
+        runId: "turn-active",
         completedSummary: { userText: "hello", assistantText: "done" },
       },
-      { type: "refresh-threads" },
     ]);
   });
 

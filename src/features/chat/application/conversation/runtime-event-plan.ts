@@ -6,31 +6,30 @@ import { type ChatAction, type ChatState, chatReducer } from "../state/root-redu
 import type { ConversationRuntimeEvent } from "./runtime-events";
 import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "./turn-state";
 
-export type ConversationRuntimeEffect =
-  | { type: "refresh-threads" }
-  | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ConversationRuntimeEventCompletedSummary }
-  | { type: "thread-recency-touched"; threadId: string; recencyAt: number | null };
+export type ConversationRuntimeOutcome =
+  | { type: "run-started"; threadId: string; runId: string; recencyAt: number | null }
+  | { type: "run-completed"; threadId: string; runId: string; completedSummary: ConversationRuntimeEventCompletedSummary };
 
 type ConversationRuntimeEventCompletedSummary = Extract<ConversationRuntimeEvent, { type: "runCompleted" }>["completedSummary"];
 
 export interface ConversationRuntimePlan {
   actions: readonly ChatAction[];
-  effects: readonly ConversationRuntimeEffect[];
+  outcomes: readonly ConversationRuntimeOutcome[];
 }
 
-const EMPTY_PLAN: ConversationRuntimePlan = { actions: [], effects: [] };
+const EMPTY_PLAN: ConversationRuntimePlan = { actions: [], outcomes: [] };
 
 export function planConversationRuntimeEvents(state: ChatState, events: readonly ConversationRuntimeEvent[]): ConversationRuntimePlan {
   let currentState = state;
   const actions: ChatAction[] = [];
-  const effects: ConversationRuntimeEffect[] = [];
+  const outcomes: ConversationRuntimeOutcome[] = [];
   for (const event of events) {
     const plan = planConversationRuntimeEvent(currentState, event);
     actions.push(...plan.actions);
-    effects.push(...plan.effects);
+    outcomes.push(...plan.outcomes);
     currentState = reducePlannedActions(currentState, plan.actions);
   }
-  return actions.length === 0 && effects.length === 0 ? EMPTY_PLAN : { actions, effects };
+  return actions.length === 0 && outcomes.length === 0 ? EMPTY_PLAN : { actions, outcomes };
 }
 
 function planConversationRuntimeEvent(state: ChatState, event: ConversationRuntimeEvent): ConversationRuntimePlan {
@@ -109,10 +108,11 @@ function runStartedPlan(state: ChatState, event: Extract<ConversationRuntimeEven
         items: messageStreamItemsWithPendingPromptSubmitHooks(state, event.runId),
       },
     ],
-    effects: [
+    outcomes: [
       {
-        type: "thread-recency-touched",
+        type: "run-started",
         threadId: event.threadId,
+        runId: event.runId,
         recencyAt: event.recencyAt,
       },
     ],
@@ -137,9 +137,13 @@ function runCompletedPlan(state: ChatState, event: Extract<ConversationRuntimeEv
         ),
       },
     ],
-    effects: [
-      { type: "maybe-name-thread", threadId: event.threadId, turnId: event.runId, completedSummary: event.completedSummary },
-      { type: "refresh-threads" },
+    outcomes: [
+      {
+        type: "run-completed",
+        threadId: event.threadId,
+        runId: event.runId,
+        completedSummary: event.completedSummary,
+      },
     ],
   };
 }
@@ -150,7 +154,7 @@ function completedItemPlan(item: MessageStreamItem, runId: string): Conversation
       { type: "message-stream/item-upserted", item },
       ...(item.kind === "reasoning" ? ([{ type: "message-stream/reasoning-completed", turnId: runId }] satisfies ChatAction[]) : []),
     ],
-    effects: [],
+    outcomes: [],
   };
 }
 
@@ -229,5 +233,5 @@ function reducePlannedAction(state: ChatState, action: ChatAction): ChatState {
 }
 
 function actionPlan(action: ChatAction): ConversationRuntimePlan {
-  return { actions: [action], effects: [] };
+  return { actions: [action], outcomes: [] };
 }

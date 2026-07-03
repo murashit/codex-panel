@@ -3,7 +3,7 @@ import { threadFromAppServerRecord } from "../../../../app-server/services/threa
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
-import { type ConversationRuntimeEffect, planConversationRuntimeEvents } from "../../application/conversation/runtime-event-plan";
+import { type ConversationRuntimeOutcome, planConversationRuntimeEvents } from "../../application/conversation/runtime-event-plan";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
@@ -12,10 +12,13 @@ import { type DiagnosticStatusNotification, routeServerNotification, type Thread
 import { conversationRuntimeEventsFromNotification } from "./runtime-events";
 
 export type ChatNotificationEffect =
-  | Exclude<ConversationRuntimeEffect, { type: "thread-recency-touched" }>
+  | { type: "refresh-threads" }
+  | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ConversationRuntimeCompletedSummary }
   | { type: "refresh-server-diagnostics"; forceResourceProbes?: boolean }
   | { type: "apply-app-server-resource-event"; event: AppServerResourceEvent }
   | { type: "apply-thread-catalog-event"; event: ThreadCatalogEvent };
+
+type ConversationRuntimeCompletedSummary = Extract<ConversationRuntimeOutcome, { type: "run-completed" }>["completedSummary"];
 
 export interface ChatNotificationPlan {
   actions: readonly ChatAction[];
@@ -58,19 +61,28 @@ function runtimeEventsPlan(
   localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   const plan = planConversationRuntimeEvents(state, conversationRuntimeEventsFromNotification(notification, localItemId));
-  return { actions: plan.actions, effects: plan.effects.map(chatNotificationEffectFromConversationRuntimeEffect) };
+  return { actions: plan.actions, effects: plan.outcomes.flatMap(chatNotificationEffectsFromConversationRuntimeOutcome) };
 }
 
-function chatNotificationEffectFromConversationRuntimeEffect(effect: ConversationRuntimeEffect): ChatNotificationEffect {
-  switch (effect.type) {
-    case "thread-recency-touched":
-      return {
-        type: "apply-thread-catalog-event",
-        event: { type: "thread-touched", threadId: effect.threadId, recencyAt: effect.recencyAt },
-      };
-    case "refresh-threads":
-    case "maybe-name-thread":
-      return effect;
+function chatNotificationEffectsFromConversationRuntimeOutcome(outcome: ConversationRuntimeOutcome): readonly ChatNotificationEffect[] {
+  switch (outcome.type) {
+    case "run-started":
+      return [
+        {
+          type: "apply-thread-catalog-event",
+          event: { type: "thread-touched", threadId: outcome.threadId, recencyAt: outcome.recencyAt },
+        },
+      ];
+    case "run-completed":
+      return [
+        {
+          type: "maybe-name-thread",
+          threadId: outcome.threadId,
+          turnId: outcome.runId,
+          completedSummary: outcome.completedSummary,
+        },
+        { type: "refresh-threads" },
+      ];
   }
 }
 
