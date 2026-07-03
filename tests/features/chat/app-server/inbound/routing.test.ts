@@ -70,6 +70,21 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, "threadLifecycle", { activeThreadId: "thread-other", activeTurnId: "turn-active" });
   });
 
+  it("translates run recency runtime effects to thread catalog events at the inbound boundary", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-active" } });
+    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
+
+    const plan = planChatNotification(state, turnStartedNotification(), (prefix) => `${prefix}-1`);
+
+    expect(plan.effects).toEqual([
+      {
+        type: "apply-thread-catalog-event",
+        event: { type: "thread-touched", threadId: "thread-active", recencyAt: null },
+      },
+    ]);
+  });
+
   it.each([
     { name: "command approval", request: commandApprovalRequest(), kind: "approval" },
     { name: "file change approval", request: fileChangeApprovalRequest(), kind: "approval" },

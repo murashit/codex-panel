@@ -5,7 +5,7 @@ import {
   type ThreadRenameGeneratingState,
   type ThreadRenameLifecycleState,
   transitionThreadRenameLifecycleState,
-} from "../../../../src/features/threads/list/rename-lifecycle";
+} from "../../../src/domain/threads/rename-lifecycle";
 
 describe("thread rename lifecycle", () => {
   it("keeps late generation callbacks scoped to the active unchanged generation", () => {

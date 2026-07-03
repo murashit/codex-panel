@@ -60,11 +60,11 @@ const STREAM_UPDATE_NOTIFICATION_METHODS = [
   "guardianWarning",
 ] as const;
 
-export type StreamUpdateNotificationMethod = (typeof STREAM_UPDATE_NOTIFICATION_METHODS)[number];
+type StreamUpdateNotificationMethod = (typeof STREAM_UPDATE_NOTIFICATION_METHODS)[number];
 
 const TURN_LIFECYCLE_NOTIFICATION_METHODS = ["turn/started", "turn/completed"] as const;
 
-export type TurnLifecycleNotificationMethod = (typeof TURN_LIFECYCLE_NOTIFICATION_METHODS)[number];
+type TurnLifecycleNotificationMethod = (typeof TURN_LIFECYCLE_NOTIFICATION_METHODS)[number];
 
 const THREAD_LIFECYCLE_NOTIFICATION_METHODS = [
   "thread/started",
@@ -77,7 +77,7 @@ const THREAD_LIFECYCLE_NOTIFICATION_METHODS = [
   "thread/settings/updated",
 ] as const;
 
-export type ThreadLifecycleNotificationMethod = (typeof THREAD_LIFECYCLE_NOTIFICATION_METHODS)[number];
+type ThreadLifecycleNotificationMethod = (typeof THREAD_LIFECYCLE_NOTIFICATION_METHODS)[number];
 
 const DIAGNOSTIC_STATUS_NOTIFICATION_METHODS = [
   "thread/tokenUsage/updated",
@@ -88,7 +88,7 @@ const DIAGNOSTIC_STATUS_NOTIFICATION_METHODS = [
   "mcpServer/startupStatus/updated",
 ] as const;
 
-export type DiagnosticStatusNotificationMethod = (typeof DIAGNOSTIC_STATUS_NOTIFICATION_METHODS)[number];
+type DiagnosticStatusNotificationMethod = (typeof DIAGNOSTIC_STATUS_NOTIFICATION_METHODS)[number];
 
 const USER_VISIBLE_NOTICE_NOTIFICATION_METHODS = [
   "thread/compacted",
@@ -101,7 +101,7 @@ const USER_VISIBLE_NOTICE_NOTIFICATION_METHODS = [
   "windowsSandbox/setupCompleted",
 ] as const;
 
-export type UserVisibleNoticeNotificationMethod = (typeof USER_VISIBLE_NOTICE_NOTIFICATION_METHODS)[number];
+type UserVisibleNoticeNotificationMethod = (typeof USER_VISIBLE_NOTICE_NOTIFICATION_METHODS)[number];
 
 const IGNORED_SERVER_NOTIFICATION_METHODS = [
   "thread/status/changed",

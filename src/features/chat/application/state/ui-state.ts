@@ -7,7 +7,7 @@ import {
   type ThreadRenameLifecycleState,
   threadRenameGenerationStillActive,
   transitionThreadRenameLifecycleState,
-} from "../../../threads/list/rename-lifecycle";
+} from "../../../../domain/threads/rename-lifecycle";
 import type { DisclosureSetAction } from "./actions";
 import { patchObject } from "./patch";
 

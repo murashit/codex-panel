@@ -22,7 +22,7 @@ const RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE =
 const APP_SERVER_SUBFOLDER_ROOT_IMPORT_MESSAGE =
   "App-server subfolders must not import sibling root modules; move the dependency into a responsibility subfolder.";
 const CHAT_APPLICATION_OUTER_LAYER_MESSAGE =
-  "Chat application modules must not import app-server, host, panel, presentation, or UI layers; expose state and workflow contracts instead.";
+  "Chat application modules must not import app-server, sibling feature, host, panel, presentation, or UI layers; expose state and workflow contracts instead.";
 const CHAT_APP_SERVER_OUTER_LAYER_MESSAGE = "Chat app-server adapters must not import chat host, panel, presentation, or UI layers.";
 const CHAT_WORKSPACE_BOUNDARY_MESSAGE =
   "Chat modules must not import workspace modules; pass workspace capabilities through chat host contracts.";
@@ -504,6 +504,15 @@ export type Escape = AppServerClient;
 `.trimStart(),
     );
     await writeFile(
+      path.join(cwd, "src/features/chat/application/sibling-feature.ts"),
+      `
+import type { ThreadRenameLifecycleState } from "../../../threads/list/rename-lifecycle";
+import type { ThreadPickerItem } from "../../../thread-picker/model";
+
+export type Escape = ThreadRenameLifecycleState | ThreadPickerItem;
+`.trimStart(),
+    );
+    await writeFile(
       path.join(cwd, "src/features/chat/app-server/outer.ts"),
       `
 import type { Host } from "../host/contracts";
@@ -695,6 +704,7 @@ export const value = statusText;
         "src/features/chat/application/outer.ts",
         "src/features/chat/application/allowed.ts",
         "src/features/chat/application/root-app-server.ts",
+        "src/features/chat/application/sibling-feature.ts",
         "src/features/chat/app-server/outer.ts",
         "src/features/chat/app-server/allowed.ts",
         "src/features/chat/host/workspace-escape.ts",
@@ -725,6 +735,9 @@ export const value = statusText;
     );
     expect(pluginDiagnostics(report, "src/features/chat/application/allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/application/root-app-server.ts")).toEqual([CHAT_APPLICATION_OUTER_LAYER_MESSAGE]);
+    expect(pluginMessages(report, "src/features/chat/application/sibling-feature.ts")).toEqual(
+      Array.from({ length: 2 }, () => CHAT_APPLICATION_OUTER_LAYER_MESSAGE),
+    );
     expect(pluginMessages(report, "src/features/chat/app-server/outer.ts")).toEqual(
       Array.from({ length: 4 }, () => CHAT_APP_SERVER_OUTER_LAYER_MESSAGE),
     );

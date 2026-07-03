@@ -9,7 +9,7 @@ private pattern js_module_reference() {
 
 js_module_reference() as $stmt where {
   $stmt <: contains `$source` where {
-    $source <: r"^[\"'](?:(?:\.\./)+(?:app-server|host|panel|presentation|ui)|src/(?:app-server|features/chat/(?:app-server|host|panel|presentation|ui)))(?:/.*)?[\"']$"
+    $source <: r"^[\"'](?:(?:\.\./)+(?:app-server|host|panel|presentation|ui)|(?:\.\./){2,}(?:selection-rewrite|thread-picker|threads|threads-view|turn-diff)|src/(?:app-server|features/(?:chat/(?:app-server|host|panel|presentation|ui)|selection-rewrite|thread-picker|threads|threads-view|turn-diff)))(?:/.*)?[\"']$"
   },
-  register_diagnostic(span=$stmt, message="Chat application modules must not import app-server, host, panel, presentation, or UI layers; expose state and workflow contracts instead.", severity="error")
+  register_diagnostic(span=$stmt, message="Chat application modules must not import app-server, sibling feature, host, panel, presentation, or UI layers; expose state and workflow contracts instead.", severity="error")
 }
