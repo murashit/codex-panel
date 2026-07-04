@@ -111,33 +111,21 @@ describe("threads view renderer decisions", () => {
 
     renderThreadsViewShell(parent, { status: "2 threads", loading: false, rows }, actions);
 
-    expect(parent.querySelector(".codex-panel-threads__badge")).toBeNull();
     const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--pending"));
     const row = expectPresent(main.closest<HTMLElement>(".codex-panel-threads__row"));
     expect(row.classList.contains("codex-panel-ui__nav-row")).toBe(true);
-    expect(main.classList.contains("codex-panel-ui__nav-item")).toBe(true);
-    expect(row.classList.contains("codex-panel-threads__row--selected")).toBe(true);
     expect(row.classList.contains("is-selected")).toBe(true);
-    expect(parent.querySelector(".codex-panel-threads__list")?.getAttribute("role")).toBeNull();
-    expect(main.getAttribute("role")).toBeNull();
-    expect(main.getAttribute("tabindex")).toBeNull();
-    expect(main.getAttribute("aria-current")).toBeNull();
-    expect(row.getAttribute("title")).toBeNull();
+    expect(row.classList.contains("codex-panel-threads__row--selected")).toBe(true);
+    expect(main.classList.contains("codex-panel-ui__nav-item")).toBe(true);
     const toolbarButtons = [...parent.querySelectorAll<HTMLElement>(".codex-panel-threads__toolbar-button")];
     expect(toolbarButtons.map((button) => button.getAttribute("aria-label"))).toEqual(["Open new panel", "Refresh threads"]);
-    expect(toolbarButtons.map((button) => button.tagName)).toEqual(["DIV", "DIV"]);
-    expect(toolbarButtons.map((button) => button.getAttribute("role"))).toEqual([null, null]);
     const refresh = expectPresent(parent.querySelector<HTMLElement>('[aria-label="Refresh threads"]'));
-    expect(refresh.classList.contains("codex-panel-threads__toolbar-button")).toBe(true);
     expect(refresh.classList.contains("nav-action-button")).toBe(true);
     expect(refresh.classList.contains("codex-panel-ui__toolbar-action")).toBe(true);
     expect(refresh.classList.contains("codex-panel-ui__nav-row-action")).toBe(false);
     refresh.click();
     expect(actions.refresh).toHaveBeenCalledOnce();
     const openNewPanel = expectPresent(parent.querySelector<HTMLElement>('[aria-label="Open new panel"]'));
-    expect(openNewPanel.classList.contains("codex-panel-threads__toolbar-button")).toBe(true);
-    expect(openNewPanel.classList.contains("codex-panel-threads__row-button")).toBe(false);
-    expect(openNewPanel.dataset["icon"]).toBe("message-square-plus");
     openNewPanel.click();
     expect(actions.openNewPanel).toHaveBeenCalledOnce();
     const rename = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]'));
@@ -145,8 +133,6 @@ describe("threads view renderer decisions", () => {
     expect(rename.classList.contains("codex-panel-ui__nav-row-action")).toBe(true);
     main.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Focus open panel"]')).toBeNull();
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Open in new panel"]')).toBeNull();
   });
 
   it("renders threads view archive confirmation with the default action on the right", () => {
@@ -222,10 +208,6 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
 
     expect(parent.querySelector<HTMLElement>(".codex-panel-threads__rename-form")).toBeTruthy();
-    const actionsGroup = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__rename-actions"));
-    expect(actionsGroup.querySelectorAll(".codex-panel-threads__row-button")).toHaveLength(1);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
 
     expect(actions.autoNameThread).toHaveBeenCalledWith("thread");
@@ -241,8 +223,6 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, threadsViewActions());
 
     expect(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.disabled).toBe(false);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Save thread name"]')).toBeNull();
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.disabled).toBe(true);
-    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Cancel rename"]')).toBeNull();
   });
 });

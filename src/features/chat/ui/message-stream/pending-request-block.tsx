@@ -11,11 +11,7 @@ import type {
   PendingUserInputViewModel,
 } from "../../presentation/pending-requests/view-model";
 import type { PendingRequestBlockActions } from "./context";
-import {
-  applyMcpElicitationFormValidity,
-  focusPendingRequestControl,
-  type McpElicitationValidityMessage,
-} from "./pending-request-block.dom";
+import { focusPendingRequestControl } from "./pending-request-block.dom";
 import { createStatusMessageClassName } from "./status";
 
 export function pendingRequestBlockNode(
@@ -109,7 +105,7 @@ function McpElicitationCard({
 }): UiNode {
   const formRef = useRef<HTMLFormElement | null>(null);
   const accept = () => {
-    if (elicitation.mode === "form" && !validateMcpElicitationForm(formRef.current, elicitation, mcpElicitationDrafts)) return;
+    if (elicitation.mode === "form" && formRef.current && !formRef.current.reportValidity()) return;
     actions.resolveMcpElicitation(elicitation.requestId, "accept");
   };
   return (
@@ -153,32 +149,6 @@ function McpElicitationCard({
       </div>
     </PendingRequestCard>
   );
-}
-
-function validateMcpElicitationForm(
-  form: HTMLFormElement | null,
-  elicitation: PendingMcpElicitationViewModel,
-  drafts: ReadonlyMap<string, string>,
-): boolean {
-  const messages: McpElicitationValidityMessage[] = [];
-  for (const field of elicitation.fields) {
-    if (field.type !== "multi-select") continue;
-    const selectedCount = selectedMcpElicitationValues(drafts.get(field.draftKey) ?? field.defaultDraft).size;
-    const message = mcpElicitationMultiSelectValidationMessage(field, selectedCount);
-    if (!message) continue;
-    messages.push({ fieldId: field.id, message });
-  }
-  return applyMcpElicitationFormValidity(form, messages);
-}
-
-function mcpElicitationMultiSelectValidationMessage(field: PendingMcpElicitationFieldViewModel, selectedCount: number): string | null {
-  if (typeof field.minItems === "number" && selectedCount < field.minItems) {
-    return `Select at least ${String(field.minItems)} option${field.minItems === 1 ? "" : "s"}.`;
-  }
-  if (typeof field.maxItems === "number" && selectedCount > field.maxItems) {
-    return `Select no more than ${String(field.maxItems)} option${field.maxItems === 1 ? "" : "s"}.`;
-  }
-  return null;
 }
 
 function ApprovalCard({
@@ -458,7 +428,6 @@ function McpElicitationFieldControl({
                   className="codex-panel__mcp-elicitation-checkbox"
                   type="checkbox"
                   value={option.value}
-                  data-mcp-elicitation-field={field.id}
                   checked={selected.has(option.value)}
                   onChange={(event) => {
                     const next = new Set(selected);
@@ -484,8 +453,6 @@ function McpElicitationFieldControl({
           className="codex-panel__mcp-elicitation-input"
           type="number"
           step={field.type === "integer" ? "1" : "any"}
-          min={field.minimum ?? undefined}
-          max={field.maximum ?? undefined}
           required={field.required}
           value={current}
           onInput={(event) => {
@@ -498,9 +465,7 @@ function McpElicitationFieldControl({
         <input
           id={controlId}
           className="codex-panel__mcp-elicitation-input"
-          type={field.format === "email" ? "email" : field.format === "uri" ? "url" : field.format === "date" ? "date" : "text"}
-          minLength={field.minLength ?? undefined}
-          maxLength={field.maxLength ?? undefined}
+          type="text"
           required={field.required}
           value={current}
           onInput={(event) => {

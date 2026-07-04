@@ -547,7 +547,7 @@ describe("pending request renderer decisions", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("does not accept MCP multi-select fields below minItems", () => {
+  it("accepts MCP multi-select fields without panel-side cardinality validation", () => {
     const parent = document.createElement("div");
     const resolveMcpElicitation = vi.fn();
 
@@ -568,15 +568,12 @@ describe("pending request renderer decisions", () => {
       }),
     );
 
-    const options = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-options"));
-    const label = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-label"));
-    expect(options.tagName).toBe("FIELDSET");
-    expect(options.getAttribute("aria-labelledby")).toBe(label.id);
+    expect(parent.querySelectorAll<HTMLInputElement>(".codex-panel__mcp-elicitation-checkbox")).toHaveLength(2);
     actEvent(() => {
       expectPresent(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")).click();
     });
 
-    expect(resolveMcpElicitation).not.toHaveBeenCalled();
+    expect(resolveMcpElicitation).toHaveBeenCalledWith(53, "accept");
     unmountUiRootInAct(parent);
   });
 
@@ -722,9 +719,6 @@ function pendingMcpElicitation({
           description: "Issue title",
           type: "string",
           required: true,
-          format: null,
-          minLength: null,
-          maxLength: null,
           defaultValue,
         },
       ],
@@ -779,8 +773,6 @@ function pendingMcpMultiSelectElicitation(): PendingRequestBlockSnapshot["pendin
             { value: "bug", label: "Bug" },
             { value: "docs", label: "Docs" },
           ],
-          minItems: 1,
-          maxItems: 2,
           defaultValue: [],
         },
       ],

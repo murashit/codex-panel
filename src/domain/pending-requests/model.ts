@@ -89,15 +89,10 @@ interface PendingMcpElicitationFieldBase {
 export type PendingMcpElicitationField =
   | (PendingMcpElicitationFieldBase & {
       type: "string";
-      format: string | null;
-      minLength: number | null;
-      maxLength: number | null;
       defaultValue: string;
     })
   | (PendingMcpElicitationFieldBase & {
       type: "number" | "integer";
-      minimum: number | null;
-      maximum: number | null;
       defaultValue: number | null;
     })
   | (PendingMcpElicitationFieldBase & {
@@ -112,8 +107,6 @@ export type PendingMcpElicitationField =
   | (PendingMcpElicitationFieldBase & {
       type: "multi-select";
       options: readonly PendingMcpElicitationOption[];
-      minItems: number | null;
-      maxItems: number | null;
       defaultValue: readonly string[];
     });
 

@@ -53,16 +53,12 @@ type AppServerMcpElicitationPrimitiveSchema =
       title?: unknown;
       description?: unknown;
       default?: unknown;
-      minimum?: unknown;
-      maximum?: unknown;
     }
   | {
       type: "array";
       title?: unknown;
       description?: unknown;
       default?: unknown;
-      minItems?: unknown;
-      maxItems?: unknown;
       items?: unknown;
     }
   | {
@@ -70,12 +66,8 @@ type AppServerMcpElicitationPrimitiveSchema =
       title?: unknown;
       description?: unknown;
       default?: unknown;
-      format?: unknown;
-      minLength?: unknown;
-      maxLength?: unknown;
       oneOf?: unknown;
       enum?: unknown;
-      enumNames?: unknown;
     };
 
 interface NormalizedMcpElicitationParams {
@@ -542,6 +534,10 @@ function nullableString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function asRecordOrNull(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
@@ -608,10 +604,6 @@ function normalizeMcpElicitationParams(params: McpElicitationParams): Normalized
   }
 }
 
-function numberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
 function mcpElicitationFieldsFromRequestedSchema(schema: unknown): PendingMcpElicitationField[] {
   const record = asRecordOrNull(schema);
   const properties = asRecordOrNull(record?.["properties"]);
@@ -651,17 +643,13 @@ function mcpElicitationFieldFromSchema(
       return {
         ...base,
         type: schema.type,
-        minimum: numberOrNull(schema.minimum),
-        maximum: numberOrNull(schema.maximum),
-        defaultValue: numberOrNull(schema.default),
+        defaultValue: typeof schema.default === "number" && Number.isFinite(schema.default) ? schema.default : null,
       };
     case "array":
       return {
         ...base,
         type: "multi-select",
         options: multiSelectOptions(schema),
-        minItems: bigintToNumberOrNull(schema.minItems),
-        maxItems: bigintToNumberOrNull(schema.maxItems),
         defaultValue: stringArrayOrEmpty(schema.default),
       };
     case "string": {
@@ -677,9 +665,6 @@ function mcpElicitationFieldFromSchema(
       return {
         ...base,
         type: "string",
-        format: nullableString(schema.format),
-        minLength: numberOrNull(schema.minLength),
-        maxLength: numberOrNull(schema.maxLength),
         defaultValue: typeof schema.default === "string" ? schema.default : "",
       };
     }
@@ -694,7 +679,7 @@ function singleSelectOptions(schema: Extract<AppServerMcpElicitationPrimitiveSch
     });
     if (options.length > 0) return options;
   }
-  return enumOptions(schema.enum, schema.enumNames);
+  return enumOptions(schema.enum);
 }
 
 function multiSelectOptions(schema: Extract<AppServerMcpElicitationPrimitiveSchema, { type: "array" }>): PendingMcpElicitationOption[] {
@@ -707,7 +692,7 @@ function multiSelectOptions(schema: Extract<AppServerMcpElicitationPrimitiveSche
     });
     if (options.length > 0) return options;
   }
-  return enumOptions(items?.["enum"], null);
+  return enumOptions(items?.["enum"]);
 }
 
 function stringArrayOrEmpty(value: unknown): readonly string[] {
@@ -720,12 +705,11 @@ function stringArrayOrEmpty(value: unknown): readonly string[] {
   return strings;
 }
 
-function enumOptions(values: unknown, labels: unknown): PendingMcpElicitationOption[] {
+function enumOptions(values: unknown): PendingMcpElicitationOption[] {
   if (!Array.isArray(values)) return [];
-  const labelValues = Array.isArray(labels) ? labels : [];
-  return values.flatMap((value, index) => {
+  return values.flatMap((value) => {
     if (typeof value !== "string") return [];
-    return [{ value, label: nonEmptyString(labelValues[index]) ?? value }];
+    return [{ value, label: value }];
   });
 }
 
@@ -734,11 +718,6 @@ function selectOption(value: unknown): PendingMcpElicitationOption | null {
   const optionValue = nullableString(record?.["const"]);
   if (optionValue === null) return null;
   return { value: optionValue, label: nonEmptyString(record?.["title"]) ?? optionValue };
-}
-
-function bigintToNumberOrNull(value: unknown): number | null {
-  if (typeof value === "bigint") return Number(value);
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function toJsonContent(content: Record<string, McpElicitationContentValue> | null): unknown {

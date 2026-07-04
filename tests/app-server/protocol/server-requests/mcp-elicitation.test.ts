@@ -42,8 +42,6 @@ describe("MCP elicitation request model", () => {
         expect.objectContaining({
           id: "labels",
           type: "multi-select",
-          minItems: 1,
-          maxItems: 2,
           options: [
             { value: "bug", label: "Bug" },
             { value: "docs", label: "Docs" },
@@ -116,14 +114,13 @@ describe("MCP elicitation request model", () => {
     });
     expect(input.params.fields.find((field) => field.id === "brokenSelect")).toMatchObject({
       type: "string",
-      format: null,
       defaultValue: "",
     });
     expect(input.params.fields.find((field) => field.id === "enumSelect")).toMatchObject({
       type: "single-select",
       options: [
-        { value: "low", label: "Low" },
-        { value: "high", label: "High" },
+        { value: "low", label: "low" },
+        { value: "high", label: "high" },
       ],
     });
     expect(input.params.fields.find((field) => field.id === "labels")).toMatchObject({
@@ -165,8 +162,6 @@ function formRequest(): ServerRequest {
           labels: {
             type: "array",
             title: "Labels",
-            minItems: 1,
-            maxItems: 2,
             items: {
               anyOf: [
                 { const: "bug", title: "Bug" },
@@ -238,8 +233,8 @@ function malformedSchemaRequest(): ServerRequest {
         properties: {
           unsupported: { type: "object", title: "Unsupported" },
           badDefault: { type: "boolean", title: "Bad default", default: "yes" },
-          brokenSelect: { type: "string", title: "Broken select", oneOf: { const: "low", title: "Low" }, format: 1 },
-          enumSelect: { type: "string", title: "Enum select", enum: ["low", 1, "high"], enumNames: ["Low", "One", "High"] },
+          brokenSelect: { type: "string", title: "Broken select", oneOf: { const: "low", title: "Low" } },
+          enumSelect: { type: "string", title: "Enum select", enum: ["low", 1, "high"] },
           labels: {
             type: "array",
             title: "Labels",

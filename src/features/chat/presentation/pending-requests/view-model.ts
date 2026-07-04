@@ -76,13 +76,6 @@ export interface PendingMcpElicitationFieldViewModel {
   defaultDraft: string;
   draftKey: string;
   options: readonly PendingMcpElicitationOptionViewModel[] | null;
-  format?: string | null;
-  minimum?: number | null;
-  maximum?: number | null;
-  minLength?: number | null;
-  maxLength?: number | null;
-  minItems?: number | null;
-  maxItems?: number | null;
 }
 
 export interface PendingMcpElicitationViewModel {
@@ -205,22 +198,7 @@ function pendingMcpElicitationViewModel(elicitation: PendingMcpElicitation): Pen
       defaultDraft: mcpElicitationFieldDefaultDraft(field),
       draftKey: mcpElicitationDraftKey(elicitation.requestId, field.id),
       options: "options" in field ? field.options : null,
-      ...mcpElicitationFieldConstraints(field),
     })),
     url: null,
   };
-}
-
-function mcpElicitationFieldConstraints(field: PendingMcpElicitationField): Partial<PendingMcpElicitationFieldViewModel> {
-  switch (field.type) {
-    case "string":
-      return { format: field.format, minLength: field.minLength, maxLength: field.maxLength };
-    case "number":
-    case "integer":
-      return { minimum: field.minimum, maximum: field.maximum };
-    case "multi-select":
-      return { minItems: field.minItems, maxItems: field.maxItems };
-    default:
-      return {};
-  }
 }
