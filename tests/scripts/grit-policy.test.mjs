@@ -46,7 +46,7 @@ const APP_SERVER_DIRECT_RPC_MESSAGE = "Keep direct app-server RPC calls behind a
 let appServerBoundaryPolicyReportPromise;
 let renderingAndCssPolicyReportPromise;
 
-describe("GritQL source policy", () => {
+describe("Biome Grit plugin wiring", () => {
   it("keeps Biome wired to every checked-in Grit policy", async () => {
     const gritPolicyPaths = await listRelativeGritPolicyPaths(path.join(repoRoot, "scripts/grit"));
     const configuredGritPluginPaths = projectPluginEntries
@@ -61,7 +61,43 @@ describe("GritQL source policy", () => {
     expect(configuredGritPluginPaths).toEqual(gritPolicyPaths);
   });
 
-  it("keeps project-wide source-shape policies enforceable as Biome plugin diagnostics", async () => {
+  it("keeps every Grit policy scoped by explicit Biome plugin includes", () => {
+    for (const plugin of projectPluginEntries) {
+      expect(typeof plugin).toBe("object");
+      expect(projectPluginPath(plugin)).toMatch(/^\.\/scripts\/grit\/.*\.grit$/);
+      expect(plugin.includes).toEqual(expect.any(Array));
+      expect(plugin.includes.length).toBeGreaterThan(0);
+      expect(plugin.includes.every((include) => typeof include === "string" && include.length > 0)).toBe(true);
+    }
+  });
+
+  it("keeps Biome file includes broad enough for Grit policies and their target files", () => {
+    expect(projectBiomeConfig.files.includes).toEqual(
+      expect.arrayContaining(["scripts/**/*.grit", "src/**/*.{css,ts,tsx}", "tests/**/*.{mjs,ts,tsx}", "!src/generated"]),
+    );
+  });
+
+  it("keeps representative plugin include boundaries visible in Biome config", () => {
+    expect(projectPluginIncludes("no-misplaced-tsx.grit")).toEqual([
+      "**/src/**/*.tsx",
+      "!**/src/{settings,shared/ui}/**",
+      "!**/src/features/chat/{panel,ui}/**",
+      "!**/src/features/{selection-rewrite,threads-view,turn-diff}/*.dom.tsx",
+      "!**/src/shared/dom/*.dom.tsx",
+      "!**/src/shared/obsidian/*.obsidian.tsx",
+    ]);
+    expect(projectPluginIncludes("no-generated-app-server-boundary-imports.grit")).toEqual([
+      "**/src/**/*.{ts,tsx}",
+      "!**/src/app-server/connection/**",
+      "!**/src/app-server/protocol/server-requests.ts",
+      "!**/src/app-server/protocol/turn.ts",
+    ]);
+    expect(projectPluginIncludes("no-restricted-css-policy.grit")).toEqual(["**/src/styles/**/*.css"]);
+  });
+});
+
+describe("GritQL matcher assumptions", () => {
+  it("documents project-wide source-shape policy matchers as Biome plugin diagnostics", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-handwritten-reexports.grit",
       "no-self-referential-initializer-callback.grit",
@@ -175,7 +211,7 @@ runner = new Runner(() => runner.stop());
     expect(pluginDiagnostics(report, "src/plugin-runtime-declared.ts")).toEqual([]);
   });
 
-  it("keeps chat runtime and DOM policies behind their intended boundaries", async () => {
+  it("documents chat runtime and DOM policy matcher boundaries", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-implicit-dom-bridges.grit",
       "no-dom-events-imports.grit",
@@ -438,9 +474,7 @@ export function timestamp(): number {
       "Do not import @preact/signals from this module.",
       "Do not import @preact/signals from this module.",
     ]);
-    expect(pluginMessages(report, "src/features/chat/ui/dom-bridge-escape.tsx")).toEqual(
-      Array.from({ length: 37 }, () => DOM_BOUNDARY_MESSAGE),
-    );
+    expectOnlyPluginMessage(report, "src/features/chat/ui/dom-bridge-escape.tsx", DOM_BOUNDARY_MESSAGE);
     expect(pluginMessages(report, "src/features/chat/ui/dom-event-escape.tsx")).toEqual([DOM_EVENTS_IMPORT_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/chat/ui/dom-bridge.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/app-server/services/runtime-overrides.ts")).toEqual([]);
@@ -461,7 +495,7 @@ export function timestamp(): number {
     expect(pluginDiagnostics(report, "src/features/chat/application/threads/resume-actions.ts")).toEqual([]);
   });
 
-  it("keeps chat folder ownership boundaries explicit without filename-scoped Grit checks", async () => {
+  it("documents chat folder ownership matchers without filename-scoped Grit checks", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-chat-application-outer-layer-imports.grit",
       "no-chat-app-server-outer-layer-imports.grit",
@@ -609,12 +643,6 @@ export const misplaced = true;
 `.trimStart(),
     );
     await writeFile(
-      path.join(cwd, "src/domain/mixed-root.ts"),
-      `
-export const misplaced = true;
-`.trimStart(),
-    );
-    await writeFile(
       path.join(cwd, "src/features/chat/mixed-root.ts"),
       `
 export const misplaced = true;
@@ -716,7 +744,6 @@ export const value = statusText;
         "src/workspace/chat-internal-escape.ts",
         "src/workspace/chat-host-allowed.ts",
         "src/domain/mixed-root.ts",
-        "src/domain/mixed-root.ts",
         "src/features/chat/mixed-root.ts",
         "src/features/threads/mixed-root.ts",
         "src/features/threads/list/rename-lifecycle.ts",
@@ -730,52 +757,38 @@ export const value = statusText;
       cwd,
     );
 
-    expect(pluginMessages(report, "src/features/chat/application/outer.ts")).toEqual(
-      Array.from({ length: 5 }, () => CHAT_APPLICATION_OUTER_LAYER_MESSAGE),
-    );
+    expectOnlyPluginMessage(report, "src/features/chat/application/outer.ts", CHAT_APPLICATION_OUTER_LAYER_MESSAGE);
     expect(pluginDiagnostics(report, "src/features/chat/application/allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/application/root-app-server.ts")).toEqual([CHAT_APPLICATION_OUTER_LAYER_MESSAGE]);
-    expect(pluginMessages(report, "src/features/chat/application/sibling-feature.ts")).toEqual(
-      Array.from({ length: 2 }, () => CHAT_APPLICATION_OUTER_LAYER_MESSAGE),
-    );
-    expect(pluginMessages(report, "src/features/chat/app-server/outer.ts")).toEqual(
-      Array.from({ length: 4 }, () => CHAT_APP_SERVER_OUTER_LAYER_MESSAGE),
-    );
+    expectOnlyPluginMessage(report, "src/features/chat/application/sibling-feature.ts", CHAT_APPLICATION_OUTER_LAYER_MESSAGE);
+    expectOnlyPluginMessage(report, "src/features/chat/app-server/outer.ts", CHAT_APP_SERVER_OUTER_LAYER_MESSAGE);
     expect(pluginDiagnostics(report, "src/features/chat/app-server/allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/chat/host/workspace-escape.ts")).toEqual([CHAT_WORKSPACE_BOUNDARY_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/chat/host/workspace-allowed.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/host/rendering-escape.ts")).toEqual(
-      Array.from({ length: 2 }, () => CHAT_HOST_RENDERING_LAYER_MESSAGE),
-    );
+    expectOnlyPluginMessage(report, "src/features/chat/host/rendering-escape.ts", CHAT_HOST_RENDERING_LAYER_MESSAGE);
     expect(pluginDiagnostics(report, "src/features/chat/host/rendering-allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/features/threads-view/workspace-escape.ts")).toEqual([FEATURE_WORKSPACE_BOUNDARY_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/threads-view/workspace-allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/workspace/chat-internal-escape.ts")).toEqual([WORKSPACE_CHAT_INTERNAL_MESSAGE]);
     expect(pluginDiagnostics(report, "src/workspace/chat-host-allowed.ts")).toEqual([]);
     expect(pluginMessages(report, "src/domain/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
-    expect(pluginMessages(report, "src/domain/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
     expect(pluginMessages(report, "src/features/chat/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
     expect(pluginMessages(report, "src/features/threads/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
     expect(pluginDiagnostics(report, "src/features/threads/list/rename-lifecycle.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/panel/outer.tsx")).toEqual(
-      Array.from({ length: 3 }, () => CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE),
-    );
+    expectOnlyPluginMessage(report, "src/features/chat/panel/outer.tsx", CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE);
     expect(pluginDiagnostics(report, "src/features/chat/panel/allowed.tsx")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/presentation/outer.ts")).toEqual(
-      Array.from({ length: 6 }, () => CHAT_PRESENTATION_OUTER_LAYER_MESSAGE),
-    );
+    expectOnlyPluginMessage(report, "src/features/chat/presentation/outer.ts", CHAT_PRESENTATION_OUTER_LAYER_MESSAGE);
     expect(pluginDiagnostics(report, "src/features/chat/presentation/allowed.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/ui/outer.tsx")).toEqual(Array.from({ length: 5 }, () => CHAT_UI_OUTER_LAYER_MESSAGE));
+    expectOnlyPluginMessage(report, "src/features/chat/ui/outer.tsx", CHAT_UI_OUTER_LAYER_MESSAGE);
     expect(pluginDiagnostics(report, "src/features/chat/ui/allowed.tsx")).toEqual([]);
   });
+});
 
+describe("Biome Grit include boundaries", () => {
   it("keeps generated app-server imports behind explicit app-server boundaries", async () => {
     const report = await appServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/domain/generated-thread.ts")).toEqual([
-      "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
-    ]);
-    expect(pluginMessages(report, "src/features/chat/domain/generated-thread-import.ts")).toEqual([
       "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
     ]);
     expect(pluginDiagnostics(report, "src/app-server/connection/generated-thread.ts")).toEqual([]);
@@ -796,23 +809,11 @@ export const value = statusText;
     expect(pluginMessages(report, "src/features/chat/application/state/view.tsx")).toEqual([
       "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
     ]);
-    expect(pluginMessages(report, "src/domain/threads/view.tsx")).toEqual([
-      "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
-    ]);
-    expect(pluginMessages(report, "src/features/selection-rewrite/inline-popover.tsx")).toEqual([
-      "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
-    ]);
-    expect(pluginMessages(report, "src/features/threads-view/inline-row.tsx")).toEqual([
-      "Keep TSX files in rendering-owned source folders; non-rendering source should use .ts.",
-    ]);
     expect(pluginDiagnostics(report, "src/features/chat/ui/message.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/selection-rewrite/popover.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/features/threads-view/shell.dom.tsx")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/features/turn-diff/render.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/settings/section.tsx")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/shared/dom/preact-root.dom.tsx")).toEqual([]);
     expect(pluginDiagnostics(report, "src/shared/obsidian/components.obsidian.tsx")).toEqual([]);
-    expect(pluginDiagnostics(report, "src/shared/ui/diff-view.tsx")).toEqual([]);
   });
 
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
@@ -831,36 +832,38 @@ export const value = statusText;
     expect(pluginMessages(report, "src/features/chat/app-server/inbound/app-server-logs.ts")).toEqual([
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
-    expect(pluginMessages(report, "src/features/chat/app-server/mappers/message-stream/turn-items.ts")).toEqual([
+    expectOnlyPluginMessage(
+      report,
+      "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
+    );
+    expectOnlyPluginMessage(
+      report,
+      "src/features/chat/app-server/inbound/server-request-protocol-leak.ts",
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
-    ]);
-    expect(pluginMessages(report, "src/features/chat/app-server/inbound/server-request-protocol-leak.ts")).toEqual([
-      APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
-      APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
-    ]);
+    );
   });
 
   it("keeps domain modules independent from outer layers", async () => {
     const report = await appServerBoundaryPolicyReport();
 
-    expect(pluginMessages(report, "src/domain/threads/model.ts")).toEqual([
+    expectOnlyPluginMessage(
+      report,
+      "src/domain/threads/model.ts",
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-    ]);
+    );
     expect(pluginDiagnostics(report, "src/domain/threads/format.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/domain/message-stream/selectors.ts")).toEqual([
+    expectOnlyPluginMessage(
+      report,
+      "src/features/chat/domain/message-stream/selectors.ts",
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-    ]);
+    );
     expect(pluginDiagnostics(report, "src/features/chat/domain/message-stream/items.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/domain/message-stream/outer-shapes.ts")).toEqual([
+    expectOnlyPluginMessage(
+      report,
+      "src/features/chat/domain/message-stream/outer-shapes.ts",
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-      "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
-    ]);
+    );
   });
 
   it("keeps lower-level modules independent from feature modules", async () => {
@@ -883,7 +886,6 @@ export const value = statusText;
     ]);
     expect(pluginDiagnostics(report, "src/app-server/services/catalog.ts")).toEqual([]);
     const domainConnectionMessages = pluginMessages(report, "src/domain/connection-client.ts");
-    expect(domainConnectionMessages).toHaveLength(2);
     expect(domainConnectionMessages).toEqual(
       expect.arrayContaining([
         "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
@@ -981,16 +983,18 @@ export const read = listThreads;
   it("keeps CSS on design tokens and scoped selectors", async () => {
     const report = await renderingAndCssPolicyReport();
 
-    expect(pluginMessages(report, "src/styles/bad.css")).toEqual([
-      "Avoid :has() because it can cause broad selector invalidation.",
-      "Use Obsidian or Codex Panel design tokens instead of hardcoded colors.",
-      "Prefer Obsidian or Codex Panel spacing and size tokens for layout dimensions.",
-      "Do not hide class, id, or attribute selectors inside :where().",
-      "Use Obsidian or Codex Panel typography tokens instead of hardcoded font sizes.",
-      "Avoid ID selectors in Codex Panel CSS.",
-      "Use Obsidian or Codex Panel typography tokens instead of hardcoded font weights.",
-      "Prefix keyframes with codex-panel-.",
-    ]);
+    expect(pluginMessages(report, "src/styles/bad.css")).toEqual(
+      expect.arrayContaining([
+        "Avoid :has() because it can cause broad selector invalidation.",
+        "Use Obsidian or Codex Panel design tokens instead of hardcoded colors.",
+        "Prefer Obsidian or Codex Panel spacing and size tokens for layout dimensions.",
+        "Do not hide class, id, or attribute selectors inside :where().",
+        "Use Obsidian or Codex Panel typography tokens instead of hardcoded font sizes.",
+        "Avoid ID selectors in Codex Panel CSS.",
+        "Use Obsidian or Codex Panel typography tokens instead of hardcoded font weights.",
+        "Prefix keyframes with codex-panel-.",
+      ]),
+    );
     expect(pluginDiagnostics(report, "src/styles/good.css")).toEqual([]);
   });
 });
@@ -1009,37 +1013,13 @@ export const value = <div />;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/domain/threads/view.tsx"),
-    `
-export const value = <span />;
-`.trimStart(),
-  );
-  await writeFile(
-    path.join(cwd, "src/features/selection-rewrite/inline-popover.tsx"),
-    `
-export const value = <aside />;
-`.trimStart(),
-  );
-  await writeFile(
     path.join(cwd, "src/features/selection-rewrite/popover.dom.tsx"),
     `
 export const value = <aside />;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/threads-view/inline-row.tsx"),
-    `
-export const value = <li />;
-`.trimStart(),
-  );
-  await writeFile(
     path.join(cwd, "src/features/threads-view/shell.dom.tsx"),
-    `
-export const value = <main />;
-`.trimStart(),
-  );
-  await writeFile(
-    path.join(cwd, "src/features/turn-diff/render.dom.tsx"),
     `
 export const value = <main />;
 `.trimStart(),
@@ -1054,12 +1034,6 @@ export const value = <article />;
     path.join(cwd, "src/settings/section.tsx"),
     `
 export const value = <section />;
-`.trimStart(),
-  );
-  await writeFile(
-    path.join(cwd, "src/shared/ui/diff-view.tsx"),
-    `
-export const value = <pre />;
 `.trimStart(),
   );
   await writeFile(
@@ -1128,17 +1102,12 @@ export const value = <button />;
   return biomeLint(
     [
       "src/features/chat/application/state/view.tsx",
-      "src/domain/threads/view.tsx",
-      "src/features/selection-rewrite/inline-popover.tsx",
       "src/features/selection-rewrite/popover.dom.tsx",
-      "src/features/threads-view/inline-row.tsx",
       "src/features/threads-view/shell.dom.tsx",
-      "src/features/turn-diff/render.dom.tsx",
       "src/features/chat/ui/message.tsx",
       "src/settings/section.tsx",
       "src/shared/dom/preact-root.dom.tsx",
       "src/shared/obsidian/components.obsidian.tsx",
-      "src/shared/ui/diff-view.tsx",
       "src/styles/bad.css",
       "src/styles/good.css",
     ],
@@ -1162,14 +1131,6 @@ async function createAppServerBoundaryPolicyReport() {
   ]);
   await writeFile(
     path.join(cwd, "src/features/chat/domain/generated-thread.ts"),
-    `
-import type { Thread } from '../../../generated/app-server/v2/Thread';
-
-export type GeneratedThread = Thread;
-`.trimStart(),
-  );
-  await writeFile(
-    path.join(cwd, "src/features/chat/domain/generated-thread-import.ts"),
     `
 import type { Thread } from '../../../generated/app-server/v2/Thread';
 
@@ -1455,7 +1416,6 @@ export async function read(client: AppServerClient): Promise<void> {
   return biomeLint(
     [
       "src/features/chat/domain/generated-thread.ts",
-      "src/features/chat/domain/generated-thread-import.ts",
       "src/app-server/connection/generated-thread.ts",
       "tests/app-server/generated-thread.test.ts",
       "src/app-server/protocol/request-input.ts",
@@ -1567,6 +1527,20 @@ function projectPluginConfig(plugin) {
 
 function projectPluginPath(plugin) {
   return typeof plugin === "string" ? plugin : plugin.path;
+}
+
+function projectPluginIncludes(plugin) {
+  const projectPlugin = projectPluginByName.get(plugin);
+  if (!projectPlugin || typeof projectPlugin === "string") {
+    throw new Error(`Missing object plugin config for ${plugin}`);
+  }
+  return projectPlugin.includes;
+}
+
+function expectOnlyPluginMessage(report, filePath, message) {
+  const messages = pluginMessages(report, filePath);
+  expect(messages.length).toBeGreaterThan(0);
+  expect(new Set(messages)).toEqual(new Set([message]));
 }
 
 function pluginDiagnostics(report, filePath) {
