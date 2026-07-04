@@ -1,4 +1,3 @@
-import type { CodexInput } from "../../../domain/chat/input";
 import { isComposerSendKey, type SendShortcut } from "../../../domain/input/send-shortcut";
 import {
   type ComposerAttachment,
@@ -13,6 +12,7 @@ import {
   type SelectionContextReference,
   selectionContextReferenceMarker,
 } from "../application/composer/context-references";
+import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { NoteCandidateProvider } from "../application/composer/note-context";
 import {
   activeComposerSuggestions,
@@ -25,7 +25,6 @@ import {
 import {
   type PreparedComposerInput,
   preparedUserInputWithWikiLinkMentionsSkillsAndContext,
-  userInputWithWikiLinkMentionsAndSkills,
 } from "../application/composer/wikilink-context";
 import type { ChatAction, ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
@@ -53,6 +52,7 @@ export interface ChatComposerControllerOptions {
   sourcePath: () => string;
   stateStore: ChatStateStore;
   viewId: string;
+  attachActiveNoteOnSend: () => boolean;
   sendShortcut: () => SendShortcut;
   scrollThreadFromComposerEdges: () => boolean;
   canInterrupt: (model: ChatPanelComposerReadModel) => boolean;
@@ -77,10 +77,7 @@ export class ChatComposerController {
   private pendingAttachmentTransfers = new Set<Promise<void>>();
   private submitAfterAttachmentTransfersActive = false;
   private activeNoteContextSnapshots: ActiveNoteContextReference[] = [];
-  private preservedActiveNoteContextSnapshots: readonly ActiveNoteContextReference[] | null = null;
   private selectionContextSnapshots: SelectionContextReference[] = [];
-  private preservedSelectionContextSnapshots: readonly SelectionContextReference[] | null = null;
-  private preservedAttachments: readonly ComposerAttachment[] | null = null;
   private pendingSelection: ComposerPendingSelection | null = null;
 
   constructor(private readonly options: ChatComposerControllerOptions) {}
@@ -155,44 +152,31 @@ export class ChatComposerController {
     this.updateSuggestions();
   }
 
-  codexInput(text: string): CodexInput {
+  captureInputSnapshot(): ComposerInputSnapshot {
     const sourcePath = this.options.sourcePath();
-    const input = userInputWithWikiLinkMentionsAndSkills(
-      text,
-      (target) => this.options.noteCandidateProvider.resolveMention(target, sourcePath),
-      this.state.connection.availableSkills,
-    );
-    return codexInputWithComposerAttachments(text, input, this.activeAttachments(text));
-  }
-
-  preparedInput(text: string): PreparedComposerInput {
-    const sourcePath = this.options.sourcePath();
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
-      text,
-      (target) => this.options.noteCandidateProvider.resolveMention(target, sourcePath),
-      this.state.connection.availableSkills,
-      this.contextReferences(text),
-    );
     return {
-      text: prepared.text,
-      input: codexInputWithComposerAttachments(prepared.text, prepared.input, this.activeAttachments(prepared.text)),
+      sourcePath,
+      availableSkills: this.state.connection.availableSkills,
+      attachActiveNoteOnSend: this.options.attachActiveNoteOnSend(),
+      contextReferences: this.options.contextReferenceProvider.contextReferences(sourcePath),
+      activeNoteSnapshots: [...this.activeNoteContextSnapshots],
+      selectionSnapshots: [...this.selectionContextSnapshots],
+      attachments: [...this.attachments],
     };
   }
 
-  async withPreservedComposerReferences<T>(operation: () => Promise<T>): Promise<T> {
-    const previousActiveNoteSnapshots = this.preservedActiveNoteContextSnapshots;
-    const previousSelectionSnapshots = this.preservedSelectionContextSnapshots;
-    const previousAttachments = this.preservedAttachments;
-    this.preservedActiveNoteContextSnapshots = [...(this.preservedActiveNoteContextSnapshots ?? this.activeNoteContextSnapshots)];
-    this.preservedSelectionContextSnapshots = [...(this.preservedSelectionContextSnapshots ?? this.selectionContextSnapshots)];
-    this.preservedAttachments = [...(this.preservedAttachments ?? this.attachments)];
-    try {
-      return await operation();
-    } finally {
-      this.preservedActiveNoteContextSnapshots = previousActiveNoteSnapshots;
-      this.preservedSelectionContextSnapshots = previousSelectionSnapshots;
-      this.preservedAttachments = previousAttachments;
-    }
+  preparedInput(text: string, snapshot: ComposerInputSnapshot = this.captureInputSnapshot()): PreparedComposerInput {
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      text,
+      (target) => this.options.noteCandidateProvider.resolveMention(target, snapshot.sourcePath),
+      snapshot.availableSkills,
+      this.contextReferencesFromSnapshot(snapshot, text),
+      { attachActiveNoteOnSend: snapshot.attachActiveNoteOnSend },
+    );
+    return {
+      text: prepared.text,
+      input: codexInputWithComposerAttachments(prepared.text, prepared.input, snapshot.attachments),
+    };
   }
 
   private handleSuggestionKeydown(event: KeyboardEvent): boolean {
@@ -413,9 +397,12 @@ export class ChatComposerController {
   }
 
   private contextReferences(text: string | null = null) {
-    const references = this.options.contextReferenceProvider.contextReferences(this.options.sourcePath());
-    const availableActiveNoteSnapshots = this.preservedActiveNoteContextSnapshots ?? this.activeNoteContextSnapshots;
-    const availableSelectionSnapshots = this.preservedSelectionContextSnapshots ?? this.selectionContextSnapshots;
+    return this.contextReferencesFromSnapshot(this.captureInputSnapshot(), text);
+  }
+
+  private contextReferencesFromSnapshot(snapshot: ComposerInputSnapshot, text: string | null = null) {
+    const availableActiveNoteSnapshots = snapshot.activeNoteSnapshots;
+    const availableSelectionSnapshots = snapshot.selectionSnapshots;
     const activeNoteSnapshots =
       text === null
         ? availableActiveNoteSnapshots
@@ -424,7 +411,7 @@ export class ChatComposerController {
       text === null
         ? availableSelectionSnapshots
         : availableSelectionSnapshots.filter((selection) => text.includes(selectionContextReferenceMarker(selection)));
-    return { ...references, activeNoteSnapshots, selectionSnapshots };
+    return { ...snapshot.contextReferences, activeNoteSnapshots, selectionSnapshots };
   }
 
   private rememberActiveNoteContextSnapshot(activeNote: ActiveNoteContextReference): void {
@@ -444,18 +431,19 @@ export class ChatComposerController {
   }
 
   private pruneSelectionContextSnapshots(text: string): void {
-    const snapshots = this.preservedSelectionContextSnapshots ?? this.selectionContextSnapshots;
-    this.selectionContextSnapshots = snapshots.filter((selection) => text.includes(selectionContextReferenceMarker(selection)));
+    this.selectionContextSnapshots = this.selectionContextSnapshots.filter((selection) =>
+      text.includes(selectionContextReferenceMarker(selection)),
+    );
   }
 
   private pruneActiveNoteContextSnapshots(text: string): void {
-    const snapshots = this.preservedActiveNoteContextSnapshots ?? this.activeNoteContextSnapshots;
-    this.activeNoteContextSnapshots = snapshots.filter((activeNote) => text.includes(activeNoteContextReferenceMarker(activeNote)));
+    this.activeNoteContextSnapshots = this.activeNoteContextSnapshots.filter((activeNote) =>
+      text.includes(activeNoteContextReferenceMarker(activeNote)),
+    );
   }
 
   private activeAttachments(text: string): readonly ComposerAttachment[] {
-    const attachments = this.preservedAttachments ?? this.attachments;
-    return attachments.filter((attachment) => text.includes(attachment.marker));
+    return this.attachments.filter((attachment) => text.includes(attachment.marker));
   }
 
   private pruneAttachments(text: string): void {

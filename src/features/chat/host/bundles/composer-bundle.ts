@@ -36,6 +36,7 @@ export function createChatComposerController(
     sourcePath: () => environment.obsidian.app.workspace.getActiveFile()?.path ?? "",
     stateStore,
     viewId: environment.obsidian.viewId,
+    attachActiveNoteOnSend: () => environment.plugin.settingsRef.settings.attachActiveNoteOnSend(),
     sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
     scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges(),
     canInterrupt: (model) => {

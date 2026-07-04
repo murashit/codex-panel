@@ -24,6 +24,8 @@ function createHost(draft: string) {
   const execute = vi.fn().mockResolvedValue(undefined);
   const showLatest = vi.fn();
   const ensureConnected = vi.fn().mockResolvedValue(true);
+  const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+  const captureInputSnapshot = vi.fn(() => inputSnapshot);
   const host = {
     stateStore,
     composer: {
@@ -31,7 +33,7 @@ function createHost(draft: string) {
         return draft;
       },
       setDraft,
-      withPreservedComposerReferences: <T>(operation: () => Promise<T>) => operation(),
+      captureInputSnapshot,
     },
     slashCommandExecutor: { execute },
     turnSubmission: { sendTurnText },
@@ -45,18 +47,29 @@ function createHost(draft: string) {
     },
     scroll: { showLatest },
   };
-  return { host, ensureConnected, execute, interruptTurn, sendTurnText, setDraft, showLatest, stateStore };
+  return {
+    host,
+    captureInputSnapshot,
+    ensureConnected,
+    execute,
+    inputSnapshot,
+    interruptTurn,
+    sendTurnText,
+    setDraft,
+    showLatest,
+    stateStore,
+  };
 }
 
 describe("submitComposer", () => {
   it("sends plain drafts as turn text", async () => {
-    const { host, ensureConnected, sendTurnText, showLatest } = createHost("hello");
+    const { host, ensureConnected, inputSnapshot, sendTurnText, showLatest } = createHost("hello");
 
     await submitComposer(host);
 
     expect(showLatest).toHaveBeenCalledOnce();
     expect(ensureConnected).not.toHaveBeenCalled();
-    expect(sendTurnText).toHaveBeenCalledWith("hello");
+    expect(sendTurnText).toHaveBeenCalledWith({ text: "hello", inputSnapshot });
     const [showLatestOrder] = showLatest.mock.invocationCallOrder;
     const [sendTurnTextOrder] = sendTurnText.mock.invocationCallOrder;
     if (showLatestOrder === undefined || sendTurnTextOrder === undefined) {
@@ -66,41 +79,38 @@ describe("submitComposer", () => {
   });
 
   it("executes slash commands and forwards command send results", async () => {
-    const { host, ensureConnected, execute, sendTurnText, setDraft, showLatest } = createHost("/clear hello");
+    const { host, ensureConnected, execute, inputSnapshot, sendTurnText, setDraft, showLatest } = createHost("/clear hello");
     execute.mockResolvedValue({ sendText: "hello" });
 
     await submitComposer(host);
 
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(execute).toHaveBeenCalledWith("clear", "hello");
+    expect(execute).toHaveBeenCalledWith("clear", "hello", inputSnapshot);
     expect(showLatest).toHaveBeenCalledOnce();
-    expect(sendTurnText).toHaveBeenCalledWith("hello", undefined, undefined);
+    expect(sendTurnText).toHaveBeenCalledWith({
+      text: "hello",
+      inputSnapshot,
+    });
   });
 
-  it("preserves composer references until slash command send results are submitted", async () => {
-    const { host, execute, sendTurnText } = createHost("/refer Other [[Note]] (L1:C1-L1:C2)");
-    let preserving = false;
-    host.composer.withPreservedComposerReferences = async (operation) => {
-      preserving = true;
-      try {
-        return await operation();
-      } finally {
-        preserving = false;
-      }
-    };
-    execute.mockImplementation(async () => {
-      expect(preserving).toBe(true);
+  it("passes the same input snapshot through slash command send results", async () => {
+    const { host, execute, inputSnapshot, sendTurnText } = createHost("/refer Other [[Note]] (L1:C1-L1:C2)");
+    execute.mockImplementation(async (_command, _args, snapshot) => {
+      expect(snapshot).toBe(inputSnapshot);
       return { sendText: "[[Note]] (L1:C1-L1:C2)", sendInput: [{ type: "text", text: "referenced input" }] };
     });
-    sendTurnText.mockImplementation(async () => {
-      expect(preserving).toBe(true);
+    sendTurnText.mockImplementation(async (request) => {
+      expect(request.inputSnapshot).toBe(inputSnapshot);
     });
 
     await submitComposer(host);
 
-    expect(preserving).toBe(false);
-    expect(sendTurnText).toHaveBeenCalledWith("[[Note]] (L1:C1-L1:C2)", [{ type: "text", text: "referenced input" }], undefined);
+    expect(sendTurnText).toHaveBeenCalledWith({
+      text: "[[Note]] (L1:C1-L1:C2)",
+      inputSnapshot,
+      codexInputOverride: [{ type: "text", text: "referenced input" }],
+    });
   });
 
   it("does not execute connection-dependent slash commands when connection fails", async () => {
@@ -121,7 +131,7 @@ describe("submitComposer", () => {
 
     expect(ensureConnected).not.toHaveBeenCalled();
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(execute).toHaveBeenCalledWith("reconnect", "");
+    expect(execute).toHaveBeenCalledWith("reconnect", "", expect.any(Object));
   });
 
   it("executes compact without a connected client preflight", async () => {
@@ -131,7 +141,7 @@ describe("submitComposer", () => {
 
     expect(ensureConnected).not.toHaveBeenCalled();
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(execute).toHaveBeenCalledWith("compact", "");
+    expect(execute).toHaveBeenCalledWith("compact", "", expect.any(Object));
   });
 
   it("restores slash command composer drafts from command results", async () => {

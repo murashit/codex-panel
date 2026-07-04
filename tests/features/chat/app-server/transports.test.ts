@@ -6,6 +6,7 @@ import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/t
 import type { CodexInput } from "../../../../src/domain/chat/input";
 import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/thread-reference-resolver";
+import { preparedUserInputWithWikiLinkMentionsSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
 import { deferred } from "../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -31,6 +32,50 @@ describe("chat app-server transports", () => {
       threadId: "thread",
       cwd: "/vault",
       input: [{ type: "text", text: "hello", text_elements: [] }],
+      clientUserMessageId: "local-user",
+    });
+  });
+
+  it("starts turns with wikilink and active note context in one app-server payload", async () => {
+    const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    }).turn;
+    const text = "Compare [[Alpha]] with the active note.";
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      text,
+      (target) => (target === "Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
+      [],
+      {
+        activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
+        selection: null,
+      },
+      { attachActiveNoteOnSend: true },
+    );
+
+    await transport.startTurn({
+      threadId: "thread",
+      input: prepared.input,
+      clientUserMessageId: "local-user",
+    });
+
+    expect(request).toHaveBeenCalledWith("turn/start", {
+      threadId: "thread",
+      cwd: "/vault",
+      input: [
+        { type: "text", text, text_elements: [] },
+        { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
+        { type: "mention", name: "<active note>", path: "notes/Alpha.md" },
+      ],
+      additionalContext: {
+        codex_panel_obsidian_context: {
+          kind: "untrusted",
+          value:
+            "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Alpha]] -> notes/Alpha.md\n\nAttached active note:\n- <active note> -> notes/Alpha.md",
+        },
+      },
       clientUserMessageId: "local-user",
     });
   });
@@ -266,9 +311,11 @@ describe("chat app-server transports", () => {
     });
     const client = { request } as unknown as AppServerClient;
     const setStatus = vi.fn();
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const prepareInput = vi.fn((text: string) => ({ text, input: textInput(text) }));
     const resolver = createThreadReferenceResolver({
       currentClient: () => client,
-      prepareInput: (text) => ({ text, input: textInput(text) }),
+      prepareInput,
       addSystemMessage: vi.fn(),
       setStatus,
     });
@@ -276,6 +323,7 @@ describe("chat app-server transports", () => {
     const result = await resolver.referThread(
       { id: "019abcde-0000-7000-8000-000000000001", preview: "", name: "Other", createdAt: 1, updatedAt: 1, archived: false },
       "summarize",
+      inputSnapshot,
     );
 
     expect(request).toHaveBeenCalledWith("thread/turns/list", {
@@ -290,6 +338,7 @@ describe("chat app-server transports", () => {
       text: expect.stringContaining("Reference thread history:"),
     });
     expect(result?.text).toBe("summarize");
+    expect(prepareInput).toHaveBeenCalledWith("summarize", inputSnapshot);
     expect(result?.referencedThread).toMatchObject({ title: "Other", includedTurns: 1, turnLimit: 20 });
     expect(setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
   });

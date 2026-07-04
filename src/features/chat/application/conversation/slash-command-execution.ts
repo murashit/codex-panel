@@ -8,6 +8,7 @@ import type { ReferencedThreadMetadata } from "../../../../domain/threads/refere
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import { modelOverrideMessage, permissionProfileOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
+import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import {
   type SlashCommandName,
   type SlashCommandSubcommandDefinition,
@@ -64,8 +65,9 @@ export interface SlashCommandExecutionPorts {
 export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts {
   activeThreadId: string | null;
   listedThreads: readonly Thread[];
-  referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
+  inputSnapshot?: ComposerInputSnapshot;
 }
 
 export interface SlashCommandExecutionResult {
@@ -123,7 +125,11 @@ export async function executeSlashCommand(
         context.addSystemMessage("Use the current thread directly instead of referencing it.");
         return;
       }
-      const reference = await context.referThread(thread.thread, parsed.message);
+      if (!context.inputSnapshot) {
+        context.addSystemMessage("Cannot reference a thread without composer input context.");
+        return;
+      }
+      const reference = await context.referThread(thread.thread, parsed.message, context.inputSnapshot);
       if (!reference) return;
       return { sendText: reference.text, sendInput: reference.input, referencedThread: reference.referencedThread };
     }

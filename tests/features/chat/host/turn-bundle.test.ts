@@ -79,9 +79,8 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
           return "/tools";
         },
         setDraft: vi.fn(),
-        codexInput: vi.fn(),
         preparedInput: vi.fn(),
-        withPreservedComposerReferences: vi.fn((operation) => operation()),
+        captureInputSnapshot: vi.fn(() => ({ sourcePath: "snapshot.md" })),
         hasFocus: vi.fn(() => false),
         focusComposer: vi.fn(),
       },

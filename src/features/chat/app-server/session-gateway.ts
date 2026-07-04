@@ -1,6 +1,7 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { CodexInput } from "../../../domain/chat/input";
+import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
 import { type ChatSessionTransports, createChatSessionTransports } from "./transports/session-transports";
 
@@ -11,7 +12,7 @@ export interface ChatAppServerGatewayHost {
 }
 
 interface ChatThreadReferenceResolverOptions {
-  prepareInput(text: string): { text: string; input: CodexInput };
+  prepareInput(text: string, snapshot: ComposerInputSnapshot): { text: string; input: CodexInput };
   addSystemMessage(text: string): void;
   setStatus(status: string): void;
 }
@@ -32,7 +33,7 @@ export function createChatAppServerGateway(host: ChatAppServerGatewayHost): Chat
     threadReferences: (options) =>
       createThreadReferenceResolver({
         currentClient: () => host.currentClient(),
-        prepareInput: (text) => options.prepareInput(text),
+        prepareInput: (text, snapshot) => options.prepareInput(text, snapshot),
         addSystemMessage: (text) => {
           options.addSystemMessage(text);
         },

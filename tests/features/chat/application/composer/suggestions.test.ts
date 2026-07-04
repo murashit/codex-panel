@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ModelMetadata, ReasoningEffort } from "../../../../../src/domain/catalog/metadata";
+import type { ModelMetadata, ReasoningEffort, SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { emptyComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -9,7 +10,10 @@ import {
   nextComposerSuggestionIndex,
   parseSlashCommand,
 } from "../../../../../src/features/chat/application/composer/suggestions";
-import { userInputWithWikiLinkMentionsAndSkills } from "../../../../../src/features/chat/application/composer/wikilink-context";
+import {
+  preparedUserInputWithWikiLinkMentionsSkillsAndContext,
+  type WikiLinkMentionResolver,
+} from "../../../../../src/features/chat/application/composer/wikilink-context";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
@@ -18,6 +22,12 @@ function expectPresent<T>(value: T | null | undefined): T {
 
 function wikiLinkSuggestions(query: string, notes: Parameters<typeof activeComposerSuggestions>[1]) {
   return activeComposerSuggestions(`[[${query}`, notes, []);
+}
+
+function userInputWithWikiLinkMentionsAndSkills(text: string, resolveMention: WikiLinkMentionResolver, skills: readonly SkillMetadata[]) {
+  return preparedUserInputWithWikiLinkMentionsSkillsAndContext(text, resolveMention, skills, emptyComposerContextReferences(), {
+    attachActiveNoteOnSend: false,
+  }).input;
 }
 
 function thread(overrides: Partial<Thread> = {}): Thread {
@@ -185,9 +195,9 @@ describe("composer suggestions", () => {
       { type: "mention", name: "Diagram", path: "Assets/Diagram.png" },
       {
         type: "additionalContext",
-        key: "codex_panel_wikilinks",
+        key: "codex_panel_obsidian_context",
         kind: "untrusted",
-        value: "Resolved Obsidian wikilinks for the current user input:\n- [[Assets/Diagram.png]] -> Assets/Diagram.png",
+        value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Assets/Diagram.png]] -> Assets/Diagram.png",
       },
     ]);
   });

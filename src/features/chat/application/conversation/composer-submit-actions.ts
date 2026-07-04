@@ -1,10 +1,10 @@
-import type { CodexInput } from "../../../../domain/chat/input";
-import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import { type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
 import { parseSlashCommand } from "../composer/suggestions";
 import type { ChatStateStore } from "../state/store";
 import type { SlashCommandExecutionResult } from "./slash-command-execution";
 import { submissionStateSnapshot } from "./submission-state";
+import type { TurnSubmissionRequest } from "./turn-submission-actions";
 import type { ChatTurnTransport } from "./turn-transport";
 
 const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
@@ -14,13 +14,17 @@ export interface ComposerSubmitActionsHost {
   composer: {
     readonly trimmedDraft: string;
     setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean }): void;
-    withPreservedComposerReferences<T>(operation: () => Promise<T>): Promise<T>;
+    captureInputSnapshot(): ComposerInputSnapshot;
   };
   slashCommandExecutor: {
-    execute(command: SlashCommandName, args: string): Promise<SlashCommandExecutionResult | undefined>;
+    execute(
+      command: SlashCommandName,
+      args: string,
+      inputSnapshot: ComposerInputSnapshot,
+    ): Promise<SlashCommandExecutionResult | undefined>;
   };
   turnSubmission: {
-    sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadMetadata): Promise<void>;
+    sendTurnText(request: TurnSubmissionRequest): Promise<void>;
   };
   connection: {
     ensureConnected: () => Promise<boolean>;
@@ -52,26 +56,30 @@ export async function submitComposer(host: ComposerSubmitActionsHost): Promise<v
 async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
   const text = host.composer.trimmedDraft;
   if (!text) return;
+  const inputSnapshot = host.composer.captureInputSnapshot();
 
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
     if (slashCommandRequiresConnection(slashCommand.command) && !(await host.connection.ensureConnected())) return;
-    await host.composer.withPreservedComposerReferences(async () => {
-      host.composer.setDraft("", { clearSuggestions: true });
-      const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args);
-      if (result?.composerDraft !== undefined) {
-        host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
-      }
-      if (result?.sendText) {
-        host.scroll.showLatest();
-        await host.turnSubmission.sendTurnText(result.sendText, result.sendInput, result.referencedThread);
-      }
-    });
+    host.composer.setDraft("", { clearSuggestions: true });
+    const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args, inputSnapshot);
+    if (result?.composerDraft !== undefined) {
+      host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
+    }
+    if (result?.sendText) {
+      host.scroll.showLatest();
+      await host.turnSubmission.sendTurnText({
+        text: result.sendText,
+        inputSnapshot,
+        ...(result.sendInput !== undefined ? { codexInputOverride: result.sendInput } : {}),
+        ...(result.referencedThread !== undefined ? { referencedThread: result.referencedThread } : {}),
+      });
+    }
     return;
   }
 
   host.scroll.showLatest();
-  await host.turnSubmission.sendTurnText(text);
+  await host.turnSubmission.sendTurnText({ text, inputSnapshot });
 }
 
 async function interruptTurn(host: ComposerSubmitActionsHost): Promise<void> {

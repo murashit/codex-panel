@@ -91,6 +91,7 @@ describe("ChatPanelShell", () => {
       sourcePath: () => "",
       stateStore: store,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),

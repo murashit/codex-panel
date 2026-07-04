@@ -66,6 +66,7 @@ describe("settings tab", () => {
       "Composer",
       "Send shortcut",
       "Scroll thread from composer line edges",
+      "Attach active note on send",
       "Attachment folder",
       "Codex helpers",
       "Automatic thread naming",
@@ -135,6 +136,23 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(settingDesc(tab, "Scroll thread from composer line edges")).toContain("Up/Ctrl+P");
+  });
+
+  it("saves the active note attachment setting", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const toggle = inputForSetting(tab, "Attach active note on send");
+    if (!toggle) throw new Error("Missing active note attachment toggle");
+    expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(settingDesc(tab, "Attach active note on send")).toContain("current active note");
   });
 
   it("saves the attachment folder setting", async () => {
@@ -1059,6 +1077,7 @@ function settingsTabHost(
     showToolbar: true,
     sendShortcut: options.sendShortcut ?? "enter",
     scrollThreadFromComposerEdges: false,
+    attachActiveNoteOnSend: false,
     attachmentFolder: "Codex Attachments",
     archiveExportEnabled: false,
     archiveExportFolderTemplate: "Codex Archives",

@@ -1,6 +1,7 @@
 import type { CodexInput } from "../../../../domain/chat/input";
 import type { Thread } from "../../../../domain/threads/model";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { ChatStateStore } from "../state/store";
@@ -18,7 +19,7 @@ export interface ConversationTurnActionsContext {
   localItemIds: LocalIdSource;
   connectionAvailable: () => boolean;
   turnTransport: ChatTurnTransport;
-  referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -40,11 +41,10 @@ export interface ConversationTurnActionsContext {
     resetTurnPresence: (hadTurns: boolean) => void;
   };
   composer: {
-    codexInput: (text: string) => CodexInput;
-    prepareInput: (text: string) => { text: string; input: CodexInput };
+    prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
+    captureInputSnapshot: () => ComposerInputSnapshot;
     trimmedDraft: () => string;
     setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
-    withPreservedComposerReferences: <T>(operation: () => Promise<T>) => Promise<T>;
   };
   scroll: {
     showLatest: () => void;
@@ -115,7 +115,7 @@ export function createConversationTurnActions(
   const planImplementationHost: PlanImplementationHost = {
     stateStore,
     ensureConnected: () => turnTransport.ensureConnected(),
-    sendTurnText: (text) => turnSubmission.sendTurnText(text),
+    sendTurnText: (text) => turnSubmission.sendTurnText({ text }),
     requestDefaultCollaborationModeForNextTurn: () => {
       refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
     },
@@ -127,10 +127,10 @@ export function createConversationTurnActions(
         return composer.trimmedDraft();
       },
       setDraft: composer.setDraft,
-      withPreservedComposerReferences: composer.withPreservedComposerReferences,
+      captureInputSnapshot: composer.captureInputSnapshot,
     },
     slashCommandExecutor: {
-      execute: (command, args) => executeSlashCommandWithState(slashCommandExecutorHost, command, args),
+      execute: (command, args, inputSnapshot) => executeSlashCommandWithState(slashCommandExecutorHost, command, args, inputSnapshot),
     },
     turnSubmission,
     connection: {

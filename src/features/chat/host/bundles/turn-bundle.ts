@@ -88,7 +88,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     refreshLiveState,
   });
   const threadReferenceResolver = appServer.threadReferences({
-    prepareInput: (text) => composerController.preparedInput(text),
+    prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
   });
@@ -98,7 +98,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       localItemIds,
       connectionAvailable: () => appServer.connectionAvailable(),
       turnTransport: appServer.turn,
-      referThread: (thread, message) => threadReferenceResolver.referThread(thread, message),
+      referThread: (thread, message, snapshot) => threadReferenceResolver.referThread(thread, message, snapshot),
       status,
       runtime: {
         connectionDiagnosticDetails: runtimeProjection.connectionDiagnosticDetails,
@@ -125,13 +125,12 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
         },
       },
       composer: {
-        codexInput: (text) => composerController.codexInput(text),
-        prepareInput: (text) => composerController.preparedInput(text),
+        prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
+        captureInputSnapshot: () => composerController.captureInputSnapshot(),
         trimmedDraft: () => composerController.trimmedDraft,
         setDraft: (text, options) => {
           composerController.setDraft(text, options);
         },
-        withPreservedComposerReferences: (operation) => composerController.withPreservedComposerReferences(operation),
       },
       scroll: {
         showLatest: () => {

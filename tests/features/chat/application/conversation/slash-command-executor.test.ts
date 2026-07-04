@@ -151,7 +151,7 @@ describe("executeSlashCommandWithState", () => {
     expect(host.reconnect).toHaveBeenCalledOnce();
   });
 
-  it("reports unreadable referenced threads", async () => {
+  it("does not reference threads without a captured input snapshot", async () => {
     const { host, referThread, stateStore } = createHost();
     stateStore.dispatch({
       type: "thread-list/applied",
@@ -160,12 +160,14 @@ describe("executeSlashCommandWithState", () => {
 
     const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
 
-    expect(referThread).toHaveBeenCalledWith(expect.objectContaining({ id: "other" }), "summarize");
+    expect(referThread).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Cannot reference a thread without composer input context.");
     expect(result).toBeUndefined();
   });
 
   it("forwards readable referenced thread input to turn submission", async () => {
     const { host, referThread, stateStore } = createHost();
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     stateStore.dispatch({
       type: "thread-list/applied",
       threads: [thread("019abcde-0000-7000-8000-000000000001", "Other")],
@@ -181,8 +183,13 @@ describe("executeSlashCommandWithState", () => {
       },
     });
 
-    const result = await executeSlashCommandWithState(host, "refer", "Other summarize");
+    const result = await executeSlashCommandWithState(host, "refer", "Other summarize", inputSnapshot);
 
+    expect(referThread).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "019abcde-0000-7000-8000-000000000001" }),
+      "summarize",
+      inputSnapshot,
+    );
     expect(result?.sendText).toBe("prepared summarize");
     expect(result?.sendInput).toEqual(textInput("referenced summarize"));
     expect(result?.referencedThread?.title).toBe("Other");

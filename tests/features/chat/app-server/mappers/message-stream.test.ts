@@ -121,6 +121,27 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it("keeps active note mentions visible even when a wikilink resolves to the same path", () => {
+    const userMessage: TurnItem = {
+      type: "userMessage",
+      id: "u1",
+      clientId: null,
+      content: [
+        { type: "text", text: "Read [[Alpha]].", text_elements: [] },
+        { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
+        { type: "mention", name: "Alpha duplicate", path: "thoughts/Alpha.md" },
+        { type: "mention", name: "<active note>", path: "thoughts/Alpha.md" },
+      ],
+    };
+
+    expect(messageStreamItemFromTurnItem(userMessage)).toMatchObject({
+      mentionedFiles: [
+        { name: "Alpha", path: "thoughts/Alpha.md" },
+        { name: "Active note", path: "thoughts/Alpha.md" },
+      ],
+    });
+  });
+
   it("hides persisted /refer context in displayed user messages", () => {
     const { prompt: text } = referencedThreadPromptBundle(
       { id: "thread-reference", name: "参照元", preview: "", archived: false, createdAt: 1, updatedAt: 1 } satisfies Thread,

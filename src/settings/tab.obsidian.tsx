@@ -80,6 +80,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           showToolbar: this.plugin.settings.showToolbar,
           sendShortcut: this.plugin.settings.sendShortcut,
           scrollThreadFromComposerEdges: this.plugin.settings.scrollThreadFromComposerEdges,
+          attachActiveNoteOnSend: this.plugin.settings.attachActiveNoteOnSend,
           attachmentFolder: this.plugin.settings.attachmentFolder,
         }}
         sections={this.settingsSectionsState()}
@@ -98,6 +99,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           },
           setScrollThreadFromComposerEdges: (value) => {
             void this.setScrollThreadFromComposerEdges(value);
+          },
+          setAttachActiveNoteOnSend: (value) => {
+            void this.setAttachActiveNoteOnSend(value);
           },
           setAttachmentFolder: (value) => {
             void this.setAttachmentFolder(value);
@@ -201,6 +205,12 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async setScrollThreadFromComposerEdges(value: boolean): Promise<void> {
     this.plugin.settings.scrollThreadFromComposerEdges = value;
+    await this.plugin.saveSettings();
+    this.renderSettingsShell();
+  }
+
+  private async setAttachActiveNoteOnSend(value: boolean): Promise<void> {
+    this.plugin.settings.attachActiveNoteOnSend = value;
     await this.plugin.saveSettings();
     this.renderSettingsShell();
   }

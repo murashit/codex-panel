@@ -198,7 +198,7 @@ function MentionedFiles({
   files: readonly MentionedFileTextView[];
   context: TextItemDetailStateContext;
 }): UiNode {
-  const label = files.length === 1 ? "Mentioned 1 file" : `Mentioned ${String(files.length)} files`;
+  const label = `Context · ${String(files.length)} ${files.length === 1 ? "item" : "items"}`;
   return (
     <RememberedDetails
       wrapperClassName="codex-panel__mentioned-files"

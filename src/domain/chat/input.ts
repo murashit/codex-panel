@@ -3,6 +3,8 @@ export interface RequestMention {
   path: string;
 }
 
+export const ACTIVE_NOTE_MENTION_NAME = "<active note>";
+
 export interface RequestAdditionalContext {
   key: string;
   value: string;
@@ -19,6 +21,10 @@ export type CodexInputItem =
 
 export type CodexInput = CodexInputItem[];
 type UserInputImageDetail = "auto" | "low" | "high" | "original";
+
+export function codexTextInput(text: string): CodexInput {
+  return [{ type: "text", text }];
+}
 
 export function codexTextInputWithMentions(
   text: string,
@@ -41,8 +47,4 @@ export function codexTextInputWithMentions(
 
 export function codexTextInputWithAttachments(text: string, input: readonly CodexInputItem[]): CodexInput {
   return [...codexTextInput(text), ...input.filter((item) => item.type !== "text")];
-}
-
-function codexTextInput(text: string): CodexInput {
-  return [{ type: "text", text }];
 }

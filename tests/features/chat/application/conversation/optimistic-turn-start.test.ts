@@ -42,9 +42,9 @@ describe("optimistic turn start helpers", () => {
       { type: "mention" as const, name: "Note", path: "Note.md" },
       {
         type: "additionalContext" as const,
-        key: "codex_panel_wikilinks",
+        key: "codex_panel_obsidian_context",
         kind: "untrusted" as const,
-        value: "Resolved Obsidian wikilinks for the current user input:\n- [[Note]] -> Note.md",
+        value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Note]] -> Note.md",
       },
     ];
 
@@ -52,6 +52,23 @@ describe("optimistic turn start helpers", () => {
       text,
       copyText: text,
       mentionedFiles: [{ name: "Note", path: "Note.md" }],
+    });
+  });
+
+  it("keeps active note mentions visible even when the same file is mentioned explicitly", () => {
+    const text = "Read [[Note]].";
+    const input = [
+      { type: "text" as const, text },
+      { type: "mention" as const, name: "Note", path: "Note.md" },
+      { type: "mention" as const, name: "Note duplicate", path: "Note.md" },
+      { type: "mention" as const, name: "<active note>", path: "Note.md" },
+    ];
+
+    expect(localUserMessageItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
+      mentionedFiles: [
+        { name: "Note", path: "Note.md" },
+        { name: "Active note", path: "Note.md" },
+      ],
     });
   });
 

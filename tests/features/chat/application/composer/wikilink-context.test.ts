@@ -1,16 +1,31 @@
 import { describe, expect, it } from "vitest";
 
+import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
+import type { CodexInput } from "../../../../../src/domain/chat/input";
+import { emptyComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
 import {
   preparedUserInputWithWikiLinkMentionsSkillsAndContext,
-  userInputWithWikiLinkMentionsAndSkills,
+  type WikiLinkMentionResolver,
 } from "../../../../../src/features/chat/application/composer/wikilink-context";
 
-const wikilinkContext = (...mappings: string[]) => ({
+const obsidianContext = (...sections: string[]) => ({
   type: "additionalContext" as const,
-  key: "codex_panel_wikilinks",
+  key: "codex_panel_obsidian_context",
   kind: "untrusted" as const,
-  value: ["Resolved Obsidian wikilinks for the current user input:", ...mappings].join("\n"),
+  value: ["Obsidian context for the current user input:", ...sections].join("\n"),
 });
+
+const wikilinkContext = (...mappings: string[]) => obsidianContext("Resolved wikilinks:", ...mappings);
+
+function userInputWithWikiLinkMentionsAndSkills(
+  text: string,
+  resolveMention: WikiLinkMentionResolver,
+  skills: readonly SkillMetadata[],
+): CodexInput {
+  return preparedUserInputWithWikiLinkMentionsSkillsAndContext(text, resolveMention, skills, emptyComposerContextReferences(), {
+    attachActiveNoteOnSend: false,
+  }).input;
+}
 
 describe("wikilink context", () => {
   it("parses aliases, subpaths, and duplicate links", () => {
@@ -167,6 +182,7 @@ describe("wikilink context", () => {
           text: "selected text",
         },
       },
+      { attachActiveNoteOnSend: false },
     );
 
     expect(prepared.text).toBe(text);
@@ -174,13 +190,114 @@ describe("wikilink context", () => {
   });
 
   it("resolves completed active-note snapshots without depending on the current link context", () => {
-    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext("整理して [[Alpha]]", () => null, [], {
-      activeNote: null,
-      selection: null,
-      activeNoteSnapshots: [{ name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" }],
-    });
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      "整理して [[Alpha]]",
+      () => null,
+      [],
+      {
+        activeNote: null,
+        selection: null,
+        activeNoteSnapshots: [{ name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" }],
+      },
+      { attachActiveNoteOnSend: false },
+    );
 
     expect(prepared.input).toContainEqual({ type: "mention", name: "Alpha", path: "notes/Alpha.md" });
+  });
+
+  it("attaches the active note on send when enabled without changing visible text", () => {
+    const text = "Rewrite the introduction.";
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      text,
+      () => null,
+      [],
+      {
+        activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
+        selection: null,
+      },
+      { attachActiveNoteOnSend: true },
+    );
+
+    expect(prepared.text).toBe(text);
+    expect(prepared.input).toEqual([
+      { type: "text", text },
+      { type: "mention", name: "<active note>", path: "notes/Alpha.md" },
+      {
+        type: "additionalContext",
+        key: "codex_panel_obsidian_context",
+        kind: "untrusted",
+        value: "Obsidian context for the current user input:\nAttached active note:\n- <active note> -> notes/Alpha.md",
+      },
+    ]);
+  });
+
+  it("keeps wikilinks and active note in one Obsidian context when both are present", () => {
+    const text = "Compare [[Beta]] with the current note.";
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      text,
+      (target) => (target === "Beta" ? { name: "Beta", path: "notes/Beta.md" } : null),
+      [],
+      {
+        activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
+        selection: null,
+      },
+      { attachActiveNoteOnSend: true },
+    );
+
+    expect(prepared.text).toBe(text);
+    expect(prepared.input).toEqual([
+      { type: "text", text },
+      { type: "mention", name: "Beta", path: "notes/Beta.md" },
+      { type: "mention", name: "<active note>", path: "notes/Alpha.md" },
+      {
+        type: "additionalContext",
+        key: "codex_panel_obsidian_context",
+        kind: "untrusted",
+        value:
+          "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Beta]] -> notes/Beta.md\n\nAttached active note:\n- <active note> -> notes/Alpha.md",
+      },
+    ]);
+  });
+
+  it("keeps wikilinks, selections, and active note in one Obsidian context", () => {
+    const text = "Compare [[Beta]] with [[Gamma]] (L2:C1-L2:C6).";
+    const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
+      text,
+      (target) => {
+        if (target === "Beta") return { name: "Beta", path: "notes/Beta.md" };
+        if (target === "Gamma") return { name: "Gamma", path: "notes/Gamma.md" };
+        return null;
+      },
+      [],
+      {
+        activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
+        selection: null,
+        selectionSnapshots: [
+          {
+            name: "Gamma",
+            path: "notes/Gamma.md",
+            linktext: "Gamma",
+            range: { from: { line: 1, ch: 0 }, to: { line: 1, ch: 5 } },
+            text: "selected gamma",
+          },
+        ],
+      },
+      { attachActiveNoteOnSend: true },
+    );
+
+    expect(prepared.input).toEqual([
+      { type: "text", text },
+      { type: "mention", name: "Beta", path: "notes/Beta.md" },
+      { type: "mention", name: "Gamma", path: "notes/Gamma.md" },
+      { type: "mention", name: "<active note>", path: "notes/Alpha.md" },
+      {
+        type: "additionalContext",
+        key: "codex_panel_obsidian_context",
+        kind: "untrusted",
+        value:
+          "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Beta]] -> notes/Beta.md\n- [[Gamma]] -> notes/Gamma.md\n\nReferenced selections:\n- [[Gamma]] (L2:C1-L2:C6) -> notes/Gamma.md L2:C1-L2:C6\n\n[[Gamma]] (L2:C1-L2:C6):\nselected gamma\n\nAttached active note:\n- <active note> -> notes/Alpha.md",
+      },
+    ]);
   });
 
   it("attaches completed selection snapshots without depending on the current editor selection", () => {
@@ -207,6 +324,7 @@ describe("wikilink context", () => {
           },
         ],
       },
+      { attachActiveNoteOnSend: false },
     );
 
     expect(prepared.input).toContainEqual({
@@ -214,7 +332,7 @@ describe("wikilink context", () => {
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
       value:
-        "Referenced Obsidian selections for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ncompleted selection",
+        "Obsidian context for the current user input:\nResolved wikilinks:\n- [[notes/Alpha]] -> notes/Alpha.md\n\nReferenced selections:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ncompleted selection",
     });
   });
 });

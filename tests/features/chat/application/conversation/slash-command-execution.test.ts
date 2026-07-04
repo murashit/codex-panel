@@ -145,15 +145,29 @@ describe("slash commands", () => {
     const target = thread({ id: "thread-alpha", name: "Alpha" });
     const input = [{ type: "text" as const, text: "context\n質問です" }];
     const referencedThread = { threadId: "thread-alpha", title: "Alpha", includedTurns: 2, turnLimit: 20 };
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     const ctx = context({
+      inputSnapshot,
       listedThreads: [thread({ id: "thread-current", name: "Current" }), target],
       referThread: vi.fn().mockResolvedValue({ text: "質問です", input, referencedThread }),
     });
 
     const result = await executeSlashCommand("refer", "thread-alpha 質問です", ctx);
 
-    expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です");
+    expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です", inputSnapshot);
     expect(result).toEqual({ sendText: "質問です", sendInput: input, referencedThread });
+  });
+
+  it("rejects /refer when no composer input snapshot is available", async () => {
+    const target = thread({ id: "thread-alpha", name: "Alpha" });
+    const ctx = context({
+      listedThreads: [thread({ id: "thread-current", name: "Current" }), target],
+    });
+
+    await executeSlashCommand("refer", "thread-alpha 質問です", ctx);
+
+    expect(ctx.referThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Cannot reference a thread without composer input context.");
   });
 
   it("rejects /refer without both thread and message", async () => {

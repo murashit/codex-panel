@@ -1211,7 +1211,7 @@ describe("message stream rendering and message action menu", () => {
     const summary = user.querySelector<HTMLElement>(".codex-panel__mentioned-files summary");
 
     expect(user.querySelector(".codex-panel__message-content")?.textContent).toBe("Read [[Alpha]].");
-    expect(summary?.textContent).toBe("Mentioned 1 file");
+    expect(summary?.textContent).toBe("Context · 1 item");
     expect(summary?.tabIndex).toBe(-1);
     expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("Alpha");
     expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("thoughts/Alpha.md");

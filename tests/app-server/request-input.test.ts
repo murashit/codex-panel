@@ -9,7 +9,13 @@ describe("app-server request input", () => {
         "Use [[Note]] and $Skill",
         [{ name: "Note", path: "Note.md" }],
         [{ name: "Skill", path: ".codex/skills/skill/SKILL.md" }],
-        [{ key: "codex_panel_wikilinks", kind: "untrusted", value: "Resolved Obsidian wikilinks:\n- [[Note]] -> Note.md" }],
+        [
+          {
+            key: "codex_panel_obsidian_context",
+            kind: "untrusted",
+            value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Note]] -> Note.md",
+          },
+        ],
       ),
     ).toEqual([
       { type: "text", text: "Use [[Note]] and $Skill" },
@@ -17,9 +23,9 @@ describe("app-server request input", () => {
       { type: "skill", name: "Skill", path: ".codex/skills/skill/SKILL.md" },
       {
         type: "additionalContext",
-        key: "codex_panel_wikilinks",
+        key: "codex_panel_obsidian_context",
         kind: "untrusted",
-        value: "Resolved Obsidian wikilinks:\n- [[Note]] -> Note.md",
+        value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Note]] -> Note.md",
       },
     ]);
   });
@@ -28,13 +34,13 @@ describe("app-server request input", () => {
     const input: CodexInput = [
       { type: "text", text: "visible request" },
       { type: "mention", name: "Note", path: "Note.md" },
-      { type: "additionalContext", key: "codex_panel_wikilinks", kind: "untrusted", value: "- [[Note]] -> Note.md" },
+      { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "- [[Note]] -> Note.md" },
     ];
 
     expect(codexTextInputWithAttachments("rewritten prompt", input)).toEqual([
       { type: "text", text: "rewritten prompt" },
       { type: "mention", name: "Note", path: "Note.md" },
-      { type: "additionalContext", key: "codex_panel_wikilinks", kind: "untrusted", value: "- [[Note]] -> Note.md" },
+      { type: "additionalContext", key: "codex_panel_obsidian_context", kind: "untrusted", value: "- [[Note]] -> Note.md" },
     ]);
   });
 
@@ -43,7 +49,7 @@ describe("app-server request input", () => {
       "Use [[Note]]",
       [{ name: "Note", path: "Note.md" }],
       [],
-      [{ key: "codex_panel_wikilinks", kind: "untrusted", value: "- [[Note]] -> Note.md" }],
+      [{ key: "codex_panel_obsidian_context", kind: "untrusted", value: "- [[Note]] -> Note.md" }],
     );
 
     expect(toAppServerUserInput(input)).toEqual([
@@ -51,7 +57,7 @@ describe("app-server request input", () => {
       { type: "mention", name: "Note", path: "Note.md" },
     ]);
     expect(additionalContextFromCodexInput(input)).toEqual({
-      codex_panel_wikilinks: { kind: "untrusted", value: "- [[Note]] -> Note.md" },
+      codex_panel_obsidian_context: { kind: "untrusted", value: "- [[Note]] -> Note.md" },
     });
   });
 });

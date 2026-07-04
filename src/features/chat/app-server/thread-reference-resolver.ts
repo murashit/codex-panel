@@ -3,22 +3,23 @@ import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/
 import { shortThreadId } from "../../../domain/threads/id";
 import type { Thread } from "../../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadPromptBundle } from "../../../domain/threads/reference";
+import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { ThreadReferenceInput } from "../application/conversation/slash-command-execution";
 
 interface ThreadReferenceResolverHost {
   currentClient(): ThreadConversationSummaryClient | null;
-  prepareInput(text: string): { text: string; input: CodexInput };
+  prepareInput(text: string, snapshot: ComposerInputSnapshot): { text: string; input: CodexInput };
   addSystemMessage(text: string): void;
   setStatus(status: string): void;
 }
 
 export interface ThreadReferenceResolver {
-  referThread(thread: Thread, message: string): Promise<ThreadReferenceInput | null>;
+  referThread(thread: Thread, message: string, snapshot: ComposerInputSnapshot): Promise<ThreadReferenceInput | null>;
 }
 
 export function createThreadReferenceResolver(host: ThreadReferenceResolverHost): ThreadReferenceResolver {
   return {
-    referThread: (thread, message) => referencedThreadInput(host, thread, message),
+    referThread: (thread, message, snapshot) => referencedThreadInput(host, thread, message, snapshot),
   };
 }
 
@@ -26,6 +27,7 @@ async function referencedThreadInput(
   host: ThreadReferenceResolverHost,
   thread: Thread,
   message: string,
+  snapshot: ComposerInputSnapshot,
 ): Promise<ThreadReferenceInput | null> {
   const client = host.currentClient();
   if (!client) return null;
@@ -36,7 +38,7 @@ async function referencedThreadInput(
       host.addSystemMessage("Referenced thread has no readable conversation turns.");
       return null;
     }
-    const messageInput = host.prepareInput(message);
+    const messageInput = host.prepareInput(message, snapshot);
     const reference = referencedThreadPromptBundle(thread, turns, messageInput.text);
     host.setStatus(`Referencing ${shortThreadId(thread.id)} (${String(turns.length)}/${String(REFERENCED_THREAD_TURN_LIMIT)} turns).`);
     return {

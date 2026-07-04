@@ -80,7 +80,7 @@ describe("TurnSubmissionActions", () => {
     const { host, startTurn, stateStore } = createHost();
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText("hello");
+    await actions.sendTurnText({ text: "hello" });
 
     expect(host.startThread).toHaveBeenCalledWith("hello");
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
@@ -90,6 +90,7 @@ describe("TurnSubmissionActions", () => {
       input: textInput("hello"),
       clientUserMessageId: expect.stringMatching(/^local-user-\d+-[A-Za-z0-9_-]+-[a-z0-9]+$/),
     });
+    expect(host.prepareInput).not.toHaveBeenCalled();
     expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.setDraft).toHaveBeenCalledWith("");
     expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
@@ -104,7 +105,7 @@ describe("TurnSubmissionActions", () => {
     host.applyPendingThreadSettings = applyPendingThreadSettings;
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText("hello");
+    await actions.sendTurnText({ text: "hello" });
 
     expect(applyPendingThreadSettings).toHaveBeenCalledOnce();
     expect(vi.mocked(host.startThread).mock.invocationCallOrder[0]).toBeLessThan(
@@ -114,6 +115,7 @@ describe("TurnSubmissionActions", () => {
   });
 
   it("uses prepared visible text for optimistic history and app-server input", async () => {
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     const { host, startTurn, stateStore } = createHost({
       prepareInput: vi.fn(() => ({
         text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
@@ -127,8 +129,9 @@ describe("TurnSubmissionActions", () => {
     resumeThread(stateStore);
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText("fix @selection");
+    await actions.sendTurnText({ text: "fix @selection", inputSnapshot });
 
+    expect(host.prepareInput).toHaveBeenCalledWith("fix @selection", inputSnapshot);
     expect(startTurn).toHaveBeenCalledWith({
       threadId: "thread",
       input: [
@@ -145,6 +148,17 @@ describe("TurnSubmissionActions", () => {
     });
   });
 
+  it("prepares turn input with the provided composer input snapshot", async () => {
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const { host, stateStore } = createHost();
+    resumeThread(stateStore);
+    const actions = createTurnSubmissionActions(host);
+
+    await actions.sendTurnText({ text: "hello", inputSnapshot });
+
+    expect(host.prepareInput).toHaveBeenCalledWith("hello", inputSnapshot);
+  });
+
   it("does not restore stale drafts or report stale start failures after the active thread changes", async () => {
     const { host, startTurn, stateStore } = createHost();
     resumeThread(stateStore);
@@ -154,7 +168,7 @@ describe("TurnSubmissionActions", () => {
     });
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText("hello");
+    await actions.sendTurnText({ text: "hello" });
 
     expect(host.setDraft).toHaveBeenCalledWith("");
     expect(host.setDraft).not.toHaveBeenCalledWith("hello");
@@ -167,7 +181,7 @@ describe("TurnSubmissionActions", () => {
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText("follow up");
+    await actions.sendTurnText({ text: "follow up" });
 
     expect(steerTurn).toHaveBeenCalledWith({
       threadId: "thread",
@@ -196,7 +210,7 @@ describe("TurnSubmissionActions", () => {
     });
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText("follow up");
+    await actions.sendTurnText({ text: "follow up" });
 
     expect(host.addSystemMessage).toHaveBeenCalledWith("Current turn is not steerable yet.");
     expect(steerTurn).not.toHaveBeenCalled();
@@ -212,8 +226,8 @@ describe("TurnSubmissionActions", () => {
         resumeThread(host.stateStore);
       }
 
-      await createTurnSubmissionActions(first.host).sendTurnText("first");
-      await createTurnSubmissionActions(second.host).sendTurnText("second");
+      await createTurnSubmissionActions(first.host).sendTurnText({ text: "first" });
+      await createTurnSubmissionActions(second.host).sendTurnText({ text: "second" });
 
       const firstId = first.startTurn.mock.calls[0]?.[0].clientUserMessageId;
       const secondId = second.startTurn.mock.calls[0]?.[0].clientUserMessageId;
@@ -235,7 +249,7 @@ describe("TurnSubmissionActions", () => {
     });
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText("follow up");
+    await actions.sendTurnText({ text: "follow up" });
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
@@ -253,7 +267,7 @@ describe("TurnSubmissionActions", () => {
     });
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText("follow up");
+    await actions.sendTurnText({ text: "follow up" });
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });

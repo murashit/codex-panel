@@ -42,6 +42,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -77,6 +78,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -127,6 +129,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -186,6 +189,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -238,6 +242,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -256,15 +261,14 @@ describe("ChatComposerController", () => {
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
     await flushComposerAttachment();
     const marker = composer(parent).value;
+    const snapshot = controller.captureInputSnapshot();
 
-    await controller.withPreservedComposerReferences(async () => {
-      controller.setDraft("", { clearSuggestions: true });
-      expect(controller.preparedInput(`Inspect ${marker}`).input).toEqual([
-        { type: "text", text: `Inspect ${marker}` },
-        { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },
-        { type: "localImage", path: "Codex Attachments/diagram.png" },
-      ]);
-    });
+    controller.setDraft("", { clearSuggestions: true });
+    expect(controller.preparedInput(`Inspect ${marker}`, snapshot).input).toEqual([
+      { type: "text", text: `Inspect ${marker}` },
+      { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },
+      { type: "localImage", path: "Codex Attachments/diagram.png" },
+    ]);
   });
 
   it("accepts protected file dragovers before dropped files are readable", () => {
@@ -276,6 +280,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -335,6 +340,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -390,6 +396,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -434,6 +441,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "Inbox.md",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -453,8 +461,9 @@ describe("ChatComposerController", () => {
     composer(parent).setSelectionRange(7, 7);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-    references = { activeNote: null, selection: null };
     const completedActiveNoteReference = composer(parent).value;
+    const snapshot = controller.captureInputSnapshot();
+    references = { activeNote: null, selection: null };
 
     expect(completedActiveNoteReference).toBe("[[Alpha]]");
     expect(controller.preparedInput(completedActiveNoteReference).input).toContainEqual({
@@ -463,14 +472,56 @@ describe("ChatComposerController", () => {
       path: "notes/Alpha.md",
     });
 
-    await controller.withPreservedComposerReferences(async () => {
-      controller.setDraft("", { clearSuggestions: true });
-      expect(controller.preparedInput(completedActiveNoteReference).input).toContainEqual({
-        type: "mention",
-        name: "Alpha",
-        path: "notes/Alpha.md",
-      });
+    controller.setDraft("", { clearSuggestions: true });
+    expect(controller.preparedInput(completedActiveNoteReference, snapshot).input).toContainEqual({
+      type: "mention",
+      name: "Alpha",
+      path: "notes/Alpha.md",
     });
+  });
+
+  it("uses the captured active note when slash commands prepare input asynchronously", () => {
+    const stateStore = createChatStateStore();
+    let references: ComposerContextReferences = {
+      activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
+      selection: null,
+    };
+    const controller = new ChatComposerController({
+      noteCandidateProvider: noteProvider({ resolveMention: () => null }),
+      contextReferenceProvider: contextProvider(() => references),
+      sourcePath: () => "Inbox.md",
+      stateStore,
+      viewId: "view",
+      attachActiveNoteOnSend: () => true,
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
+      canInterrupt: (_state) => false,
+      composerProjection: defaultComposerProjection,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+
+    const snapshot = controller.captureInputSnapshot();
+    references = {
+      activeNote: { name: "Beta", path: "notes/Beta.md", linktext: "Beta" },
+      selection: null,
+    };
+
+    expect(controller.preparedInput("Rewrite intro", snapshot).input).toEqual([
+      { type: "text", text: "Rewrite intro" },
+      { type: "mention", name: "<active note>", path: "notes/Alpha.md" },
+      {
+        type: "additionalContext",
+        key: "codex_panel_obsidian_context",
+        kind: "untrusted",
+        value: "Obsidian context for the current user input:\nAttached active note:\n- <active note> -> notes/Alpha.md",
+      },
+    ]);
   });
 
   it("freezes selection context when inserting the selection suggestion", async () => {
@@ -499,6 +550,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -518,6 +570,8 @@ describe("ChatComposerController", () => {
     composer(parent).setSelectionRange(4, 4);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    const completedSelectionReference = composer(parent).value;
+    const snapshot = controller.captureInputSnapshot();
     references = {
       activeNote: null,
       selection: {
@@ -529,8 +583,7 @@ describe("ChatComposerController", () => {
       },
     };
 
-    const prepared = controller.preparedInput(composer(parent).value);
-    const completedSelectionReference = composer(parent).value;
+    const prepared = controller.preparedInput(completedSelectionReference, snapshot);
 
     expect(composer(parent).value).toBe("[[notes/Alpha]] (L42:C5-L47:C1)");
     expect(prepared.input).toContainEqual({
@@ -538,22 +591,23 @@ describe("ChatComposerController", () => {
       key: "codex_panel_obsidian_context",
       kind: "untrusted",
       value:
-        "Referenced Obsidian selections for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
+        "Obsidian context for the current user input:\nResolved wikilinks:\n- [[notes/Alpha]] -> notes/Alpha.md\n\nReferenced selections:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
     });
 
-    await controller.withPreservedComposerReferences(async () => {
-      controller.setDraft("", { clearSuggestions: true });
-      expect(controller.preparedInput(completedSelectionReference).input).toContainEqual({
-        type: "additionalContext",
-        key: "codex_panel_obsidian_context",
-        kind: "untrusted",
-        value:
-          "Referenced Obsidian selections for the current user input:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
-      });
+    controller.setDraft("", { clearSuggestions: true });
+    expect(controller.preparedInput(completedSelectionReference, snapshot).input).toContainEqual({
+      type: "additionalContext",
+      key: "codex_panel_obsidian_context",
+      kind: "untrusted",
+      value:
+        "Obsidian context for the current user input:\nResolved wikilinks:\n- [[notes/Alpha]] -> notes/Alpha.md\n\nReferenced selections:\n- [[notes/Alpha]] (L42:C5-L47:C1) -> notes/Alpha.md L42:C5-L47:C1\n\n[[notes/Alpha]] (L42:C5-L47:C1):\ninitial selection",
     });
-    expect(controller.preparedInput(completedSelectionReference).input).not.toContainEqual(
-      expect.objectContaining({ key: "codex_panel_obsidian_context" }),
-    );
+    expect(controller.preparedInput(completedSelectionReference).input).toContainEqual({
+      type: "additionalContext",
+      key: "codex_panel_obsidian_context",
+      kind: "untrusted",
+      value: "Obsidian context for the current user input:\nResolved wikilinks:\n- [[notes/Alpha]] -> notes/Alpha.md",
+    });
   });
 
   it("rerenders suggestion selection from keyboard navigation", () => {
@@ -570,6 +624,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -617,6 +672,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -657,6 +713,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -688,6 +745,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),
@@ -717,6 +775,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer,
@@ -750,6 +809,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer,
@@ -787,6 +847,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer,
@@ -820,6 +881,7 @@ describe("ChatComposerController", () => {
       sourcePath: () => "",
       stateStore,
       viewId: "view",
+      attachActiveNoteOnSend: () => false,
       sendShortcut: () => "enter",
       scrollThreadFromComposerEdges: () => false,
       threadScrollFromComposer: vi.fn(),

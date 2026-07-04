@@ -1,5 +1,6 @@
-import type { CodexInput } from "../../../../domain/chat/input";
+import { type CodexInput, codexTextInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatStateStore } from "../state/store";
 import {
@@ -24,7 +25,7 @@ export interface TurnSubmissionActionsHost {
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
-  prepareInput: (text: string) => { text: string; input: CodexInput };
+  prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
   setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
@@ -39,24 +40,29 @@ type TurnSubmissionPlan =
   | { kind: "start-turn"; threadId: string };
 
 export interface TurnSubmissionActions {
-  sendTurnText(text: string, codexInputOverride?: CodexInput, referencedThread?: ReferencedThreadMetadata): Promise<void>;
+  sendTurnText(request: TurnSubmissionRequest): Promise<void>;
+}
+
+export interface TurnSubmissionRequest {
+  text: string;
+  inputSnapshot?: ComposerInputSnapshot;
+  codexInputOverride?: CodexInput;
+  referencedThread?: ReferencedThreadMetadata;
 }
 
 export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): TurnSubmissionActions {
   return {
-    sendTurnText: (text, codexInputOverride, referencedThread) =>
-      sendTurnText(host, host.localItemIds, text, codexInputOverride, referencedThread),
+    sendTurnText: (request) => sendTurnText(host, host.localItemIds, request),
   };
 }
 
-async function sendTurnText(
-  host: TurnSubmissionActionsHost,
-  localItemIds: LocalIdSource,
-  text: string,
-  codexInputOverride?: CodexInput,
-  referencedThread?: ReferencedThreadMetadata,
-): Promise<void> {
-  const prepared = codexInputOverride ? { text, input: codexInputOverride } : host.prepareInput(text);
+async function sendTurnText(host: TurnSubmissionActionsHost, localItemIds: LocalIdSource, request: TurnSubmissionRequest): Promise<void> {
+  const { text, inputSnapshot, codexInputOverride, referencedThread } = request;
+  const prepared = codexInputOverride
+    ? { text, input: codexInputOverride }
+    : inputSnapshot
+      ? host.prepareInput(text, inputSnapshot)
+      : { text, input: codexTextInput(text) };
   if (!(await host.turnTransport.ensureConnected())) return;
   if (!(await host.ensureRestoredThreadLoaded())) return;
 

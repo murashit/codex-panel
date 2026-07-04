@@ -3,6 +3,7 @@ import { findModelMetadataByIdOrName, supportedEffortsForModelMetadata } from ".
 import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
+import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { SlashCommandName } from "../composer/slash-commands";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import type { ChatStateStore } from "../state/store";
@@ -17,7 +18,7 @@ import { submissionStateSnapshot } from "./submission-state";
 export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;
   connectionAvailable: () => boolean;
-  referThread: (thread: Thread, message: string) => Promise<ThreadReferenceInput | null>;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   setStatus: (status: string) => void;
 }
 
@@ -25,6 +26,7 @@ export async function executeSlashCommandWithState(
   host: SlashCommandExecutorHost,
   command: SlashCommandName,
   args: string,
+  inputSnapshot?: ComposerInputSnapshot,
 ): Promise<SlashCommandExecutionResult | undefined> {
   const state = submissionStateSnapshot(host.stateStore.getState());
   if (!host.connectionAvailable() && command !== "reconnect" && command !== "compact") return;
@@ -33,6 +35,7 @@ export async function executeSlashCommandWithState(
     activeThreadId: state.activeThreadId,
     listedThreads: state.listedThreads,
     referThread: host.referThread,
+    ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),
     supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
   });
 }
