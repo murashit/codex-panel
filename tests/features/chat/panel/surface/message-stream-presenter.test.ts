@@ -58,7 +58,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
     const projection = messageStreamSurfaceProjectionFromModel(
       messageStreamReadModelFromChatState(store.getState()),
-      messageStreamSurfaceContext({
+      testMessageStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: (action) => {
           store.dispatch(action);
@@ -75,7 +75,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
 
   it("wires message stream disclosure actions through the surface context", () => {
     const store = createChatStateStore(chatStateFixture());
-    const surfaceContext = messageStreamSurfaceContext({
+    const surfaceContext = testMessageStreamSurfaceContext({
       vaultPath: "/vault",
       dispatch: (action) => {
         store.dispatch(action);
@@ -95,7 +95,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
     state = chatStateWith(state, { requests: { approvals: [pendingApproval()] } });
     const projection = messageStreamSurfaceProjectionFromModel(
       messageStreamReadModelFromChatState(state),
-      messageStreamSurfaceContext({
+      testMessageStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: () => undefined,
       }),
@@ -522,7 +522,7 @@ describe("MessageStreamPresenter scroll pinning", () => {
   });
 });
 
-function messageStreamSurfaceContext(options: {
+function testMessageStreamSurfaceContext(options: {
   vaultPath: string;
   dispatch: (action: ChatAction) => void;
 }): ChatMessageStreamSurfaceContext {

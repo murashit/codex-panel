@@ -4,18 +4,8 @@ import type { AppServerClient, ClientResponseByMethod } from "../../../../src/ap
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/chat/input";
+import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/thread-reference-resolver";
-import {
-  createChatThreadGoalReadTransport,
-  createChatThreadGoalTransport,
-} from "../../../../src/features/chat/app-server/transports/goal-transport";
-import {
-  createChatThreadHistoryTransport,
-  createChatThreadResumeTransport,
-} from "../../../../src/features/chat/app-server/transports/thread-loading-transport";
-import { createChatThreadMutationTransport } from "../../../../src/features/chat/app-server/transports/thread-mutation-transport";
-import { createChatRuntimeSettingsTransport } from "../../../../src/features/chat/app-server/transports/thread-settings-transport";
-import { createChatTurnTransport } from "../../../../src/features/chat/app-server/transports/turn-transport";
 import { deferred } from "../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -24,11 +14,10 @@ describe("chat app-server transports", () => {
   it("starts turns with the session vault path and returns chat-owned turn ids", async () => {
     const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
     const client = { request } as unknown as AppServerClient;
-    const transport = createChatTurnTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    });
+    }).turn;
 
     await expect(
       transport.startTurn({
@@ -51,11 +40,10 @@ describe("chat app-server transports", () => {
     const firstClient = { request: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createChatTurnTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
-    });
+    }).turn;
 
     const starting = transport.startTurn({ threadId: "thread", input: textInput("hello"), clientUserMessageId: "local-user" });
     currentClient = secondClient;
@@ -67,11 +55,10 @@ describe("chat app-server transports", () => {
   it("compacts threads through a connected app-server client", async () => {
     const request = vi.fn().mockResolvedValue({});
     const client = { request } as unknown as AppServerClient;
-    const transport = createChatThreadMutationTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    });
+    }).threadMutation;
 
     await expect(transport.compactThread("thread")).resolves.toBe(true);
 
@@ -81,11 +68,10 @@ describe("chat app-server transports", () => {
   it("forks threads with the session vault path and returns panel threads", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("forked") });
     const client = { request } as unknown as AppServerClient;
-    const transport = createChatThreadMutationTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    });
+    }).threadMutation;
 
     const thread = await transport.forkThread("source");
 
@@ -98,11 +84,10 @@ describe("chat app-server transports", () => {
     const firstClient = { request: vi.fn().mockReturnValue(fork.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createChatThreadMutationTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
-    });
+    }).threadMutation;
 
     const forking = transport.forkThread("source");
     currentClient = secondClient;
@@ -114,11 +99,10 @@ describe("chat app-server transports", () => {
   it("projects rollback turns into message stream items", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("thread", [turn([userMessage("u1", "prompt")])]) });
     const client = { request } as unknown as AppServerClient;
-    const transport = createChatThreadMutationTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    });
+    }).threadMutation;
 
     const snapshot = await transport.rollbackThread("thread");
 
@@ -134,9 +118,10 @@ describe("chat app-server transports", () => {
       nextCursor: "older",
     });
     const client = { request } as unknown as AppServerClient;
-    const transport = createChatThreadHistoryTransport({
+    const transport = createTestGateway({
       currentClient: () => client,
-    });
+      connectedClient: vi.fn().mockResolvedValue(client),
+    }).threadHistory;
 
     const page = await transport.readHistoryPage("thread", "cursor", 20);
 
@@ -160,9 +145,10 @@ describe("chat app-server transports", () => {
     const firstClient = { request: vi.fn().mockReturnValue(history.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createChatThreadHistoryTransport({
+    const transport = createTestGateway({
       currentClient: () => currentClient,
-    });
+      connectedClient: vi.fn().mockResolvedValue(firstClient),
+    }).threadHistory;
 
     const loading = transport.readHistoryPage("thread", "cursor", 20);
     currentClient = secondClient;
@@ -185,11 +171,10 @@ describe("chat app-server transports", () => {
       },
     });
     const client = { request } as unknown as AppServerClient;
-    const transport = createChatThreadResumeTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    });
+    }).threadResume;
 
     const snapshot = await transport.resumeThread("thread");
 
@@ -214,11 +199,10 @@ describe("chat app-server transports", () => {
     const firstClient = { request: vi.fn().mockReturnValue(resume.promise) } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createChatThreadResumeTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => currentClient,
       connectedClient: vi.fn().mockResolvedValue(firstClient),
-    });
+    }).threadResume;
 
     const resuming = transport.resumeThread("thread");
     currentClient = secondClient;
@@ -228,28 +212,28 @@ describe("chat app-server transports", () => {
   });
 
   it("returns no resume snapshot when no connected client is available", async () => {
-    const transport = createChatThreadResumeTransport({
-      vaultPath: "/vault",
+    const transport = createTestGateway({
       currentClient: () => null,
       connectedClient: vi.fn().mockResolvedValue(null),
-    });
+    }).threadResume;
 
     await expect(transport.resumeThread("thread")).resolves.toBeNull();
   });
 
   it("distinguishes absent goals from unavailable goal clients", async () => {
     const client = { request: vi.fn().mockResolvedValue({ goal: null }) } as unknown as AppServerClient;
-    const transport = createChatThreadGoalTransport({
+    const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
-    });
-    const unavailable = createChatThreadGoalTransport({
+    }).threadGoal;
+    const unavailable = createTestGateway({
       currentClient: () => null,
       connectedClient: vi.fn().mockResolvedValue(null),
-    });
-    const readOnlyUnavailable = createChatThreadGoalReadTransport({
+    }).threadGoal;
+    const readOnlyUnavailable = createTestGateway({
       currentClient: () => null,
-    });
+      connectedClient: vi.fn().mockResolvedValue(null),
+    }).threadGoalRead;
 
     await expect(transport.readThreadGoal("thread")).resolves.toBeNull();
     await expect(unavailable.readThreadGoal("thread")).resolves.toBeUndefined();
@@ -262,9 +246,10 @@ describe("chat app-server transports", () => {
     const firstClient = { request } as unknown as AppServerClient;
     const secondClient = {} as unknown as AppServerClient;
     let currentClient = firstClient;
-    const transport = createChatRuntimeSettingsTransport({
+    const transport = createTestGateway({
       currentClient: () => currentClient,
-    });
+      connectedClient: vi.fn().mockResolvedValue(firstClient),
+    }).runtimeSettings;
 
     const updating = transport.updateThreadSettings("thread", { model: "gpt-5.5" });
     currentClient = secondClient;
@@ -311,6 +296,18 @@ describe("chat app-server transports", () => {
 });
 
 type AppServerThreadResumeResponse = ClientResponseByMethod["thread/resume"];
+
+function createTestGateway(options: {
+  vaultPath?: string;
+  currentClient: () => AppServerClient | null;
+  connectedClient?: () => Promise<AppServerClient | null>;
+}) {
+  return createChatAppServerGateway({
+    vaultPath: options.vaultPath ?? "/vault",
+    currentClient: options.currentClient,
+    connectedClient: options.connectedClient ?? (async () => options.currentClient()),
+  });
+}
 
 function threadRecord(id: string, turns: readonly TurnRecord[] = [], overrides: Partial<ThreadRecord> = {}): ThreadRecord {
   return {

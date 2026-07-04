@@ -9,18 +9,17 @@ import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { messageStreamItems } from "../../application/state/message-stream";
 import type { ChatStateStore } from "../../application/state/store";
-import type { ActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
+import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import { createGoalActions, createThreadGoalSyncActions } from "../../application/threads/goal-actions";
 import { HistoryController } from "../../application/threads/history-controller";
-import { createThreadLifecycleParts } from "../../application/threads/lifecycle-parts";
 import {
   activeThreadRenameTitleContext,
   createThreadRenameEditorActions,
   type ThreadRenameEditorActions,
 } from "../../application/threads/rename-editor-actions";
-import type { RestorationController } from "../../application/threads/restoration-controller";
-import type { ResumeActions } from "../../application/threads/resume-actions";
+import { RestorationController } from "../../application/threads/restoration-controller";
+import { createResumeActions, type ResumeActions } from "../../application/threads/resume-actions";
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadManagementActions, type ThreadManagementActionsHost } from "../../application/threads/thread-management-actions";
 import { createThreadNavigationActions } from "../../application/threads/thread-navigation-actions";
@@ -31,9 +30,15 @@ import type { ChatPanelEnvironment } from "../contracts";
 
 type ChatPanelGoalSyncActions = ReturnType<typeof createThreadGoalSyncActions>;
 export type ChatPanelGoalActions = ReturnType<typeof createGoalActions>;
-export type ChatPanelThreadLifecycle = ReturnType<typeof createThreadLifecycleParts>;
 export type ChatPanelThreadActions = ReturnType<typeof createThreadManagementActions>;
 export type ChatPanelThreadNavigationActions = ReturnType<typeof createThreadNavigationActions>;
+
+export interface ChatPanelThreadLifecycle {
+  history: HistoryController;
+  restoration: RestorationController;
+  resume: ResumeActions;
+  identity: ActiveThreadIdentitySync;
+}
 
 interface ChatPanelThreadStatus {
   set: (statusText: string) => void;
@@ -378,28 +383,42 @@ function createSessionThreadLifecycle(
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   } = input;
-  return createThreadLifecycleParts({
+  const restoration = new RestorationController({
+    invalidateThreadWork,
+    setStatus: status.set,
+    refreshTabHeader,
+  });
+  const resetThreadTurnPresence = (hadTurns: boolean) => {
+    autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
+  };
+  const resume = createResumeActions({
     stateStore: host.stateStore,
     resumeTransport: appServer.threadResume,
-    lifecycle: {
-      resumeWork: host.resumeWork,
-      history,
-      invalidateThreadWork,
-      getClosing: host.getClosing,
-      recoverTokenUsageFromRollout: (path) =>
-        recoverRolloutTokenUsage(path, (filePath, options) => appServer.readFileBase64(filePath, options)),
-    },
-    thread: {
-      notifyIdentityChanged: notifyActiveThreadIdentityChanged,
-      refreshTabHeader,
-    },
-    status,
-    liveState: {
-      refresh: refreshLiveState,
-    },
-    goals,
-    resetThreadTurnPresence: (hadTurns) => {
-      autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
-    },
+    resumeWork: host.resumeWork,
+    history,
+    restoration,
+    closing: host.getClosing,
+    resetThreadTurnPresence,
+    notifyActiveThreadIdentityChanged,
+    addSystemMessage: status.addSystemMessage,
+    refreshLiveState,
+    syncThreadGoal: (threadId) => goals.syncThreadGoal(threadId),
+    recoverTokenUsageFromRollout: (path) =>
+      recoverRolloutTokenUsage(path, (filePath, options) => appServer.readFileBase64(filePath, options)),
   });
+  const identity = createActiveThreadIdentitySync({
+    stateStore: host.stateStore,
+    restoration,
+    invalidateThreadWork,
+    resetThreadTurnPresence,
+    notifyActiveThreadIdentityChanged,
+    refreshTabHeader,
+  });
+
+  return {
+    history,
+    restoration,
+    resume,
+    identity,
+  };
 }

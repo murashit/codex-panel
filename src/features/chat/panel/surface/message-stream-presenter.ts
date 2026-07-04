@@ -10,11 +10,7 @@ import type { MessageStreamScrollPortBinding } from "../../ui/message-stream/flo
 import { MarkdownMessageRenderer, renderStreamMarkdown } from "../../ui/message-stream/markdown-renderer.obsidian";
 import { MessageStreamViewport, type MessageStreamViewportState } from "../../ui/message-stream/stream-blocks";
 import type { ChatPanelMessageStreamReadModel } from "../shell-read-model";
-import {
-  type ChatMessageStreamSurfaceContext,
-  createMessageStreamSurfaceContext,
-  messageStreamSurfaceProjectionFromModel,
-} from "./message-stream-projection";
+import { type ChatMessageStreamSurfaceContext, messageStreamSurfaceProjectionFromModel } from "./message-stream-projection";
 
 export interface ChatPanelMessageStreamPresenter {
   renderState(model: ChatPanelMessageStreamReadModel): MessageStreamViewportState;
@@ -79,6 +75,7 @@ export interface MessageStreamPresenterOptions {
 
 export class MessageStreamPresenter {
   private readonly obsidianMarkdownRenderer: MarkdownMessageRenderer;
+  private readonly surfaceContext: ChatMessageStreamSurfaceContext;
 
   constructor(private readonly options: MessageStreamPresenterOptions) {
     this.obsidianMarkdownRenderer = new MarkdownMessageRenderer({
@@ -86,18 +83,34 @@ export class MessageStreamPresenter {
       owner: options.obsidian.owner,
       vaultPath: options.workspace.vaultPath,
     });
-  }
-
-  private dispatch(action: ChatAction): void {
-    this.options.state.store.dispatch(action);
+    this.surfaceContext = {
+      vaultPath: options.workspace.vaultPath,
+      setDisclosureOpen: (bucket, id, open) => {
+        this.dispatch({ type: "ui/disclosure-set", bucket, id, open });
+      },
+      setForkMenuItem: (itemId) => {
+        this.dispatch({ type: "ui/message-fork-menu-set", itemId });
+      },
+      loadOlderTurns: () => {
+        options.history.loadOlderTurns();
+      },
+      renderObsidianMarkdown: (element, text) => {
+        this.obsidianMarkdownRenderer.renderObsidianMarkdown(element, text);
+      },
+      renderStreamMarkdown: (element, text) => {
+        renderStreamMarkdown(element, text, {
+          app: options.obsidian.app,
+          vaultPath: options.workspace.vaultPath,
+        });
+      },
+      copyMessageText: (text) => void this.copyMessageText(text),
+      actions: options.actions,
+      requests: options.requests,
+    };
   }
 
   renderState(model: ChatPanelMessageStreamReadModel): MessageStreamViewportState {
-    return this.renderStateFor(model);
-  }
-
-  private renderStateFor(model: ChatPanelMessageStreamReadModel): MessageStreamViewportState {
-    const projection = messageStreamSurfaceProjectionFromModel(model, this.messageStreamSurfaceContext());
+    const projection = messageStreamSurfaceProjectionFromModel(model, this.surfaceContext);
 
     return {
       blocks: projection.blocks,
@@ -106,28 +119,8 @@ export class MessageStreamPresenter {
     };
   }
 
-  private messageStreamSurfaceContext(): ChatMessageStreamSurfaceContext {
-    return createMessageStreamSurfaceContext({
-      vaultPath: this.options.workspace.vaultPath,
-      dispatch: (action) => {
-        this.dispatch(action);
-      },
-      loadOlderTurns: () => {
-        this.options.history.loadOlderTurns();
-      },
-      renderObsidianMarkdown: (element, text) => {
-        this.obsidianMarkdownRenderer.renderObsidianMarkdown(element, text);
-      },
-      renderStreamMarkdown: (element, text) => {
-        renderStreamMarkdown(element, text, {
-          app: this.options.obsidian.app,
-          vaultPath: this.options.workspace.vaultPath,
-        });
-      },
-      copyMessageText: (text) => void this.copyMessageText(text),
-      actions: this.options.actions,
-      requests: this.options.requests,
-    });
+  private dispatch(action: ChatAction): void {
+    this.options.state.store.dispatch(action);
   }
 
   dispose(): void {

@@ -2,7 +2,7 @@ import { Notice } from "obsidian";
 
 import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import type { ObservedResult } from "../../app-server/query/observed-result";
-import { observedInitialError, observedInitialLoading, observedValue } from "../../app-server/query/observed-result";
+import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
@@ -161,7 +161,7 @@ export class ThreadsViewSession {
   }
 
   private receiveObservedThreadsResult(result: ObservedResult<readonly Thread[]>): void {
-    const observedThreads = observedValue(result);
+    const observedThreads = result.value;
     if (observedThreads) {
       this.receiveObservedThreads(observedThreads);
       return;

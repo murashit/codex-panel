@@ -1,7 +1,6 @@
 import type { ServerInitialization } from "../../domain/server/initialization";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-import { appServerInitializationFromResponse } from "../protocol/initialization";
 import { AppServerClient, type AppServerClientHandlers } from "./client";
 
 export interface ConnectionManagerHandlers {
@@ -67,7 +66,7 @@ export class ConnectionManager {
   async connect(handlers: ConnectionManagerHandlers): Promise<ServerInitialization> {
     const currentClient = this.currentClient();
     if (currentClient) {
-      return appServerInitializationFromResponse(currentClient.initializeResponse);
+      return serverInitializationFromResponse(currentClient.initializeResponse);
     }
     if (this.state.kind === "connecting" && this.stateMatchesCurrentContext(this.state)) return this.state.promise;
     if (this.state.kind === "connecting" || this.state.kind === "connected") this.disconnect();
@@ -102,7 +101,7 @@ export class ConnectionManager {
           throw new StaleConnectionError();
         }
         this.state = { kind: "connected", generation, codexPath, cwd, client };
-        return appServerInitializationFromResponse(response);
+        return serverInitializationFromResponse(response);
       })
       .catch((error: unknown) => {
         if (this.isStale(generation)) {
@@ -138,4 +137,13 @@ export class ConnectionManager {
   private stateMatchesCurrentContext(state: Extract<ConnectionLifecycleState, { kind: "connecting" | "connected" }>): boolean {
     return state.codexPath === this.codexPath() && state.cwd === this.cwd;
   }
+}
+
+function serverInitializationFromResponse(response: ServerInitialization): ServerInitialization {
+  return {
+    userAgent: response.userAgent,
+    codexHome: response.codexHome,
+    platformFamily: response.platformFamily,
+    platformOs: response.platformOs,
+  };
 }

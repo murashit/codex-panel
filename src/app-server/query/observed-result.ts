@@ -6,10 +6,6 @@ export interface ObservedResult<T> {
 
 export type ObservedResultListener<T> = (result: ObservedResult<T>) => void;
 
-export function observedValue<T>(result: ObservedResult<T>): T | null {
-  return result.value;
-}
-
 export function observedInitialLoading<T>(result: ObservedResult<T>, currentValue: T | null | undefined): boolean {
   return currentValue == null && result.isFetching;
 }

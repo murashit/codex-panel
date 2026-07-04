@@ -1,14 +1,14 @@
 import type { TurnDiffViewState } from "../../../turn-diff/model";
-import type { PendingRequestBlockActions } from "../../application/pending-requests/block";
+import { type PendingRequestBlockActions, pendingRequestBlockStateFromRequestState } from "../../application/pending-requests/block";
+import type { ChatRequestState } from "../../application/pending-requests/state";
 import type { MessageStreamRollbackCandidate } from "../../application/state/message-stream";
-import type { ChatAction } from "../../application/state/root-reducer";
 import { type ForkCandidate, messageStreamSegmentsEmpty, type PlanImplementationTarget } from "../../domain/message-stream/selectors";
+import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
 import type { MessageStreamTextActionTargets } from "../../presentation/message-stream/text-view";
 import { type MessageStreamViewBlock, messageStreamViewBlocks } from "../../presentation/message-stream/view-model";
-import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
+import { type PendingRequestBlockSnapshot, pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/view-model";
 import type { MessageStreamContext, MessageStreamDisclosureBucket, MessageStreamDisclosureState } from "../../ui/message-stream/context";
 import type { ChatPanelMessageStreamReadModel } from "../shell-read-model";
-import { pendingRequestSurfaceProjectionFromState } from "./pending-request-block-projection";
 
 interface ChatMessageStreamActions {
   rollbackThread: (threadId: string) => void;
@@ -34,17 +34,6 @@ export interface ChatMessageStreamSurfaceContext {
   requests: ChatMessageStreamRequests;
 }
 
-export interface MessageStreamSurfaceContextOptions {
-  vaultPath: string;
-  dispatch: (action: ChatAction) => void;
-  loadOlderTurns: () => void;
-  renderObsidianMarkdown: (element: HTMLElement, text: string) => void;
-  renderStreamMarkdown: (element: HTMLElement, text: string) => void;
-  copyMessageText: (text: string) => void;
-  actions: ChatMessageStreamActions;
-  requests: ChatMessageStreamRequests;
-}
-
 interface MessageStreamStateProjection {
   activeThreadId: string | null;
   workspaceRoot: string;
@@ -54,27 +43,14 @@ interface MessageStreamStateProjection {
   viewBlocks: readonly MessageStreamViewBlock[];
 }
 
+interface PendingRequestSurfaceProjection {
+  readonly signature: string;
+  readonly snapshot: PendingRequestBlockSnapshot;
+}
+
 export interface MessageStreamSurfaceProjection {
   blocks: readonly MessageStreamViewBlock[];
   context: MessageStreamContext;
-}
-
-export function createMessageStreamSurfaceContext(options: MessageStreamSurfaceContextOptions): ChatMessageStreamSurfaceContext {
-  return {
-    vaultPath: options.vaultPath,
-    setDisclosureOpen: (bucket, id, open) => {
-      options.dispatch({ type: "ui/disclosure-set", bucket, id, open });
-    },
-    setForkMenuItem: (itemId) => {
-      options.dispatch({ type: "ui/message-fork-menu-set", itemId });
-    },
-    loadOlderTurns: options.loadOlderTurns,
-    renderObsidianMarkdown: options.renderObsidianMarkdown,
-    renderStreamMarkdown: options.renderStreamMarkdown,
-    copyMessageText: options.copyMessageText,
-    actions: options.actions,
-    requests: options.requests,
-  };
 }
 
 export function messageStreamSurfaceProjectionFromModel(
@@ -186,6 +162,24 @@ function textActionTargetsForMessageStreamItems(
     patchTextActionTargets(byItemId, implementPlanTarget.itemId, { implementPlan: implementPlanTarget });
   }
   return byItemId;
+}
+
+function pendingRequestSurfaceProjectionFromState(
+  requests: ChatRequestState,
+  approvalDetails: ReadonlySet<string>,
+): PendingRequestSurfaceProjection | null {
+  const signature = pendingRequestsSignature(
+    requests.approvals,
+    requests.pendingUserInputs,
+    requests.pendingMcpElicitations,
+    requests.userInputDrafts,
+    requests.mcpElicitationDrafts,
+  );
+  if (!signature) return null;
+  return {
+    signature,
+    snapshot: pendingRequestBlockSnapshotFromState(pendingRequestBlockStateFromRequestState(requests, approvalDetails)),
+  };
 }
 
 function patchTextActionTargets(

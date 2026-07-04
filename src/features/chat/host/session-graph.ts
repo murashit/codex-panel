@@ -2,6 +2,7 @@ import { ConnectionManager } from "../../../app-server/connection/connection-man
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import { createChatAppServerGateway } from "../app-server/session-gateway";
 import type { ConnectionWorkTracker } from "../application/connection/connection-work";
+import { reconnectPanel } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
 import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
@@ -15,7 +16,6 @@ import type { ChatComposerController } from "../panel/composer-controller";
 import type { ChatMessageStreamScrollBinding } from "../panel/message-stream-scroll-binding";
 import { createChatComposerController } from "./bundles/composer-bundle";
 import { type ChatPanelConnectionBundle, createConnectionBundle } from "./bundles/connection-bundle";
-import { createReconnectAction } from "./bundles/reconnect-bundle";
 import { createRuntimeBundle } from "./bundles/runtime-bundle";
 import { type ChatPanelShellBundle, createShellBundle } from "./bundles/shell-bundle";
 import { createThreadActionBundle, createThreadFoundation, createThreadLifecycleBundle } from "./bundles/thread-bundle";
@@ -164,15 +164,30 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     refreshActiveThreads,
     notifyActiveThreadIdentityChanged,
   });
-  const reconnect = createReconnectAction(host, {
-    connection,
-    ensureConnected,
-    invalidateThreadWork: () => {
-      threadFoundation.invalidateThreadWork();
-    },
-    resumeThread: (threadId) => threadLifecycle.resume.resumeThread(threadId),
-    status,
-  });
+  const reconnect = () =>
+    reconnectPanel({
+      stateStore,
+      invalidateConnectionWork: () => {
+        host.connectionWork.invalidate();
+      },
+      invalidateThreadWork: () => {
+        threadFoundation.invalidateThreadWork();
+      },
+      clearDeferredDiagnostics: () => {
+        host.deferredTasks.clearDiagnostics();
+      },
+      resetConnection: () => {
+        connection.resetConnection();
+      },
+      setStatus: (statusText, phase) => {
+        status.set(statusText, phase);
+      },
+      ensureConnected,
+      resumeThread: (threadId) => threadLifecycle.resume.resumeThread(threadId),
+      addSystemMessage: (text) => {
+        status.addSystemMessage(text);
+      },
+    });
   const turn = createTurnBundle(host, {
     localItemIds,
     appServer,

@@ -1,5 +1,4 @@
 import type { ObservedResult } from "../../../../app-server/query/observed-result";
-import { observedValue } from "../../../../app-server/query/observed-result";
 import type { ModelMetadata } from "../../../../domain/catalog/metadata";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import type { Thread } from "../../../../domain/threads/model";
@@ -45,21 +44,21 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
     refreshTabHeader();
   };
   const receiveThreadResult = (result: ObservedResult<readonly Thread[]>): void => {
-    const observedThreads = observedValue(result);
+    const observedThreads = result.value;
     if (observedThreads) receiveThreads(observedThreads);
   };
   const receiveAppServerMetadata = (metadata: SharedServerMetadata): void => {
     serverActions.metadata.applyAppServerMetadata(metadata);
   };
   const receiveAppServerMetadataResult = (result: ObservedResult<SharedServerMetadata>): void => {
-    const observedMetadata = observedValue(result);
+    const observedMetadata = result.value;
     if (observedMetadata) receiveAppServerMetadata(observedMetadata);
   };
   const receiveModels = (models: readonly ModelMetadata[]): void => {
     stateStore.dispatch({ type: "connection/metadata-applied", availableModels: models });
   };
   const receiveModelsResult = (result: ObservedResult<readonly ModelMetadata[]>): void => {
-    const observedModels = observedValue(result);
+    const observedModels = result.value;
     if (observedModels) receiveModels(observedModels);
   };
   const unsubscribe = (): void => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ObservedResult } from "../../../src/app-server/query/observed-result";
-import { observedInitialError, observedInitialLoading, observedValue } from "../../../src/app-server/query/observed-result";
+import { observedInitialError, observedInitialLoading } from "../../../src/app-server/query/observed-result";
 
 describe("observed query result helpers", () => {
   it("treats successful empty arrays as current values", () => {
@@ -18,11 +18,6 @@ describe("observed query result helpers", () => {
 
     expect(observedInitialLoading(observedResult({ value: null, isFetching: true }), null)).toBe(true);
     expect(observedInitialError(observedResult({ value: null, error }), null)).toBe(error);
-  });
-
-  it("projects nullable observed values without reinterpreting empty values", () => {
-    expect(observedValue(observedResult({ value: [] as readonly string[] }))).toEqual([]);
-    expect(observedValue(observedResult({ value: null }))).toBeNull();
   });
 });
 

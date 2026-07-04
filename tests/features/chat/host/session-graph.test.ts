@@ -16,6 +16,7 @@ import { ChatComposerController } from "../../../../src/features/chat/panel/comp
 import { createChatMessageStreamScrollBinding } from "../../../../src/features/chat/panel/message-stream-scroll-binding";
 import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
 import { chatPanelSettingsAccess } from "../support/settings";
 
@@ -199,6 +200,41 @@ describe("createChatPanelSessionGraph actions", () => {
     expect(focusComposer).not.toHaveBeenCalled();
   });
 
+  it("wires reconnect cleanup through the graph toolbar action", async () => {
+    const { graph, stateStore, connectionWork, deferredTasks } = sessionGraphFixture();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: threadFixture({ id: "thread-1", preview: "Active" }),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    const activeConnectionWork = connectionWork.begin();
+    const clearDiagnostics = vi.spyOn(deferredTasks, "clearDiagnostics");
+    const resetConnection = vi.spyOn(graph.connection.manager, "resetConnection");
+    const ensureConnected = vi.spyOn(graph.connection.actions, "ensureConnected").mockResolvedValue(undefined);
+    const resumeThread = vi.spyOn(graph.thread.resume, "resumeThread").mockResolvedValue(undefined);
+
+    graph.shell.parts.toolbar.actions.status.connect();
+
+    await waitForAsyncWork(() => {
+      expect(resumeThread).toHaveBeenCalledWith("thread-1");
+    });
+    expect(connectionWork.isStale(activeConnectionWork)).toBe(true);
+    expect(clearDiagnostics).toHaveBeenCalledOnce();
+    expect(resetConnection).toHaveBeenCalledOnce();
+    expect(stateStore.getState().connection.statusText).toBe("Reconnecting...");
+    expect(ensureConnected).toHaveBeenCalledOnce();
+  });
+
   it("disposes presenter and composer resources from the graph action", () => {
     const disposePresenter = vi.spyOn(MessageStreamPresenter.prototype, "dispose").mockImplementation(() => undefined);
     const disposeComposer = vi.spyOn(ChatComposerController.prototype, "dispose").mockImplementation(() => undefined);
@@ -214,21 +250,25 @@ describe("createChatPanelSessionGraph actions", () => {
     graph: ReturnType<typeof createChatPanelSessionGraph>;
     stateStore: ChatStateStore;
     resumeWork: ChatResumeWorkTracker;
+    connectionWork: ConnectionWorkTracker;
+    deferredTasks: ReturnType<typeof createChatViewDeferredTasks>;
   } {
     const stateStore = createChatStateStore();
     const resumeWork = new ChatResumeWorkTracker();
+    const connectionWork = new ConnectionWorkTracker();
+    const deferredTasks = createChatViewDeferredTasks(() => window);
     const environment = chatPanelEnvironmentFixture(options.environment);
     const graph = createChatPanelSessionGraph({
       environment,
       stateStore,
-      deferredTasks: createChatViewDeferredTasks(() => window),
+      deferredTasks,
       resumeWork,
-      connectionWork: new ConnectionWorkTracker(),
+      connectionWork,
       messageScrollBinding: createChatMessageStreamScrollBinding(),
       getClosing: () => false,
       viewWindow: () => window,
     });
-    return { graph, stateStore, resumeWork };
+    return { graph, stateStore, resumeWork, connectionWork, deferredTasks };
   }
 
   interface PartialChatPanelEnvironment {

@@ -1,23 +1,21 @@
 import type { ObservedResult } from "../app-server/query/observed-result";
-import { observedValue } from "../app-server/query/observed-result";
 import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog/metadata";
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
 import { isStaleSettingsDynamicDataContextError } from "./dynamic-data";
 import type { SettingsDynamicSectionsHost } from "./host";
-import {
-  createSettingsDynamicSectionLifecycle,
-  type SettingsDynamicSectionLifecycleState,
-  settingsDynamicSectionFailed,
-  settingsDynamicSectionLoaded,
-  settingsDynamicSectionLoading,
-} from "./lifecycle";
 
 interface SettingsDynamicSectionsControllerCallbacks {
   display(): void;
   notify(message: string): void;
 }
+
+type SettingsDynamicSectionLifecycleState =
+  | { kind: "idle"; status: "" }
+  | { kind: "loading"; status: string }
+  | { kind: "loaded"; status: string }
+  | { kind: "failed"; status: string };
 
 export interface SettingsDynamicSectionsSnapshot {
   archivedThreads: readonly Thread[];
@@ -110,14 +108,14 @@ export class SettingsDynamicSectionsController {
   }
 
   private receiveObservedModelsResult(result: ObservedResult<readonly ModelMetadata[]>): void {
-    const observedModels = observedValue(result);
+    const observedModels = result.value;
     if (!observedModels) return;
     this.models = [...observedModels];
     this.callbacks.display();
   }
 
   private receiveObservedArchivedThreadsResult(result: ObservedResult<readonly Thread[]>): void {
-    const observedThreads = observedValue(result);
+    const observedThreads = result.value;
     if (!observedThreads) return;
     this.archivedThreads = [...observedThreads];
     this.archivedThreadsLoaded = true;
@@ -389,6 +387,22 @@ export class SettingsDynamicSectionsController {
 
 function archivedThreadsStatus(count: number): string {
   return `Loaded ${String(count)} archived thread${count === 1 ? "" : "s"}.`;
+}
+
+function createSettingsDynamicSectionLifecycle(): SettingsDynamicSectionLifecycleState {
+  return { kind: "idle", status: "" };
+}
+
+function settingsDynamicSectionLoading(status: string): SettingsDynamicSectionLifecycleState {
+  return { kind: "loading", status };
+}
+
+function settingsDynamicSectionLoaded(status: string): SettingsDynamicSectionLifecycleState {
+  return { kind: "loaded", status };
+}
+
+function settingsDynamicSectionFailed(status: string): SettingsDynamicSectionLifecycleState {
+  return { kind: "failed", status };
 }
 
 function errorMessage(error: unknown): string {
