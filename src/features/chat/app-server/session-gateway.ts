@@ -1,21 +1,8 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import type { CodexInput } from "../../../domain/chat/input";
-import type { ChatTurnTransport } from "../application/conversation/turn-transport";
-import type { RuntimeSettingsTransport } from "../application/runtime/settings-transport";
-import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../application/threads/goal-transport";
-import type { ThreadHistoryTransport, ThreadResumeTransport } from "../application/threads/thread-loading-transport";
-import type { ThreadMutationTransport } from "../application/threads/thread-mutation-transport";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
-import {
-  createChatRuntimeSettingsTransport,
-  createChatThreadGoalReadTransport,
-  createChatThreadGoalTransport,
-  createChatThreadHistoryTransport,
-  createChatThreadMutationTransport,
-  createChatThreadResumeTransport,
-  createChatTurnTransport,
-} from "./transports/session-transports";
+import { type ChatSessionTransports, createChatSessionTransports } from "./transports/session-transports";
 
 export interface ChatAppServerGatewayHost {
   vaultPath: string;
@@ -29,15 +16,8 @@ interface ChatThreadReferenceResolverOptions {
   setStatus(status: string): void;
 }
 
-export interface ChatAppServerGateway {
+export interface ChatAppServerGateway extends ChatSessionTransports {
   clientAccess: AppServerClientAccess;
-  turn: ChatTurnTransport;
-  runtimeSettings: RuntimeSettingsTransport;
-  threadHistory: ThreadHistoryTransport;
-  threadResume: ThreadResumeTransport;
-  threadMutation: ThreadMutationTransport;
-  threadGoalRead: ThreadGoalReadTransport;
-  threadGoal: ThreadGoalTransport;
   connectionAvailable(): boolean;
   readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string>;
   threadReferences(options: ChatThreadReferenceResolverOptions): ThreadReferenceResolver;
@@ -46,13 +26,7 @@ export interface ChatAppServerGateway {
 export function createChatAppServerGateway(host: ChatAppServerGatewayHost): ChatAppServerGateway {
   return {
     clientAccess: createCurrentClientAccess(() => host.currentClient()),
-    turn: createChatTurnTransport(host),
-    runtimeSettings: createChatRuntimeSettingsTransport(host),
-    threadHistory: createChatThreadHistoryTransport(host),
-    threadResume: createChatThreadResumeTransport(host),
-    threadMutation: createChatThreadMutationTransport(host),
-    threadGoalRead: createChatThreadGoalReadTransport(host),
-    threadGoal: createChatThreadGoalTransport(host),
+    ...createChatSessionTransports(host),
     connectionAvailable: () => host.currentClient() !== null,
     readFileBase64: (path, options) => readCurrentClientFileBase64(host, path, options),
     threadReferences: (options) =>

@@ -48,7 +48,29 @@ interface AppServerThreadTurnsPage {
   readonly nextCursor: string | null;
 }
 
-export function createChatTurnTransport(host: ChatAppServerTransportHost): ChatTurnTransport {
+export interface ChatSessionTransports {
+  readonly turn: ChatTurnTransport;
+  readonly runtimeSettings: RuntimeSettingsTransport;
+  readonly threadHistory: ThreadHistoryTransport;
+  readonly threadResume: ThreadResumeTransport;
+  readonly threadMutation: ThreadMutationTransport;
+  readonly threadGoalRead: ThreadGoalReadTransport;
+  readonly threadGoal: ThreadGoalTransport;
+}
+
+export function createChatSessionTransports(host: ChatAppServerTransportHost): ChatSessionTransports {
+  return {
+    turn: createChatTurnTransport(host),
+    runtimeSettings: createChatRuntimeSettingsTransport(host),
+    threadHistory: createChatThreadHistoryTransport(host),
+    threadResume: createChatThreadResumeTransport(host),
+    threadMutation: createChatThreadMutationTransport(host),
+    threadGoalRead: createChatThreadGoalReadTransport(host),
+    threadGoal: createChatThreadGoalTransport(host),
+  };
+}
+
+function createChatTurnTransport(host: ChatAppServerTransportHost): ChatTurnTransport {
   return {
     ensureConnected: async () => (await host.connectedClient()) !== null,
     startTurn: (request) =>
@@ -78,7 +100,7 @@ export function createChatTurnTransport(host: ChatAppServerTransportHost): ChatT
   };
 }
 
-export function createChatRuntimeSettingsTransport(host: CurrentChatAppServerClientHost): RuntimeSettingsTransport {
+function createChatRuntimeSettingsTransport(host: CurrentChatAppServerClientHost): RuntimeSettingsTransport {
   return {
     updateThreadSettings: async (threadId: string, update: RuntimeSettingsPatch) => {
       const result = await withCurrentChatAppServerClient(host, async (client) => {
@@ -90,21 +112,21 @@ export function createChatRuntimeSettingsTransport(host: CurrentChatAppServerCli
   };
 }
 
-export function createChatThreadHistoryTransport(host: CurrentChatAppServerClientHost): ThreadHistoryTransport {
+function createChatThreadHistoryTransport(host: CurrentChatAppServerClientHost): ThreadHistoryTransport {
   return {
     readHistoryPage: (threadId, cursor, limit): Promise<ThreadHistoryPage | null> =>
       withCurrentChatAppServerClient(host, (client) => readChatThreadHistoryPage(client, threadId, cursor, limit)),
   };
 }
 
-export function createChatThreadResumeTransport(host: ChatAppServerTransportHost): ThreadResumeTransport {
+function createChatThreadResumeTransport(host: ChatAppServerTransportHost): ThreadResumeTransport {
   return {
     resumeThread: (threadId): Promise<ThreadResumeSnapshot | null> =>
       withConnectedChatAppServerClient(host, (client) => resumeChatThread(client, threadId, host.vaultPath)),
   };
 }
 
-export function createChatThreadMutationTransport(host: ChatAppServerTransportHost): ThreadMutationTransport {
+function createChatThreadMutationTransport(host: ChatAppServerTransportHost): ThreadMutationTransport {
   return {
     compactThread: async (threadId) => {
       const result = await withConnectedChatAppServerClient(host, async (client) => {
@@ -128,13 +150,13 @@ export function createChatThreadMutationTransport(host: ChatAppServerTransportHo
   };
 }
 
-export function createChatThreadGoalReadTransport(host: CurrentChatAppServerClientHost): ThreadGoalReadTransport {
+function createChatThreadGoalReadTransport(host: CurrentChatAppServerClientHost): ThreadGoalReadTransport {
   return {
     readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
   };
 }
 
-export function createChatThreadGoalTransport(host: ConnectedChatAppServerClientHost): ThreadGoalTransport {
+function createChatThreadGoalTransport(host: ConnectedChatAppServerClientHost): ThreadGoalTransport {
   return {
     ensureConnected: async () => (await host.connectedClient()) !== null,
     readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
