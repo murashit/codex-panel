@@ -1,6 +1,5 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import { renameThread as renameAppServerThread } from "../../../app-server/services/threads";
 import type { CodexInput } from "../../../domain/chat/input";
 import type { ChatTurnTransport } from "../application/conversation/turn-transport";
 import type { RuntimeSettingsTransport } from "../application/runtime/settings-transport";
@@ -41,7 +40,6 @@ export interface ChatAppServerGateway {
   threadGoal: ThreadGoalTransport;
   connectionAvailable(): boolean;
   readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string>;
-  renameThread(threadId: string, name: string): Promise<boolean>;
   threadReferences(options: ChatThreadReferenceResolverOptions): ThreadReferenceResolver;
 }
 
@@ -57,7 +55,6 @@ export function createChatAppServerGateway(host: ChatAppServerGatewayHost): Chat
     threadGoal: createChatThreadGoalTransport(host),
     connectionAvailable: () => host.currentClient() !== null,
     readFileBase64: (path, options) => readCurrentClientFileBase64(host, path, options),
-    renameThread: (threadId, name) => renameCurrentClientThread(host, threadId, name),
     threadReferences: (options) =>
       createThreadReferenceResolver({
         currentClient: () => host.currentClient(),
@@ -95,11 +92,4 @@ async function readCurrentClientFileBase64(
   if (!client) return "";
   const response = await client.request("fs/readFile", { path }, options);
   return host.currentClient() === client ? response.dataBase64 : "";
-}
-
-async function renameCurrentClientThread(host: ChatAppServerGatewayHost, threadId: string, name: string): Promise<boolean> {
-  const client = host.currentClient();
-  if (!client) return false;
-  await renameAppServerThread(client, threadId, name);
-  return host.currentClient() === client;
 }

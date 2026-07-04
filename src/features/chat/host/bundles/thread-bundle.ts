@@ -1,7 +1,6 @@
 import { Notice } from "obsidian";
 
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
-import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatServerThreadActions } from "../../app-server/actions/threads";
@@ -110,15 +109,65 @@ interface ChatPanelThreadActionBundle {
 
 export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPanelThreadFoundationInput): ChatPanelThreadFoundation {
   const { appServer, localItemIds, status, refreshLiveState } = input;
-  const titleService = createSessionThreadTitleService(host, appServer);
-  const autoTitleCoordinator = createSessionAutoTitleCoordinator(host, appServer, titleService);
-  const history = createSessionHistoryController(host, appServer, status, autoTitleCoordinator);
+  const { environment, stateStore } = host;
+  const titleService = createThreadTitleService({
+    codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
+    vaultPath: environment.plugin.settingsRef.vaultPath,
+    threadNamingModel: () => environment.plugin.settingsRef.settings.threadNamingModel(),
+    threadNamingEffort: () => environment.plugin.settingsRef.settings.threadNamingEffort(),
+    clientAccess: appServer.clientAccess,
+    visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
+    visibleCompletedTurnContext: (turnId) =>
+      threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(stateStore.getState().messageStream)),
+  });
+  const threadOperations = createThreadOperations({
+    clientAccess: appServer.clientAccess,
+    archiveExport: {
+      settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
+      enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),
+      vaultPath: environment.plugin.settingsRef.vaultPath,
+      vaultConfigDir: environment.obsidian.app.vault.configDir,
+    },
+    archiveDestination: environment.obsidian.archiveDestination,
+    catalog: environment.plugin.threadCatalog,
+    notice: (text) => {
+      new Notice(text);
+    },
+  });
+  const autoTitleCoordinator = createAutoTitleCoordinator({
+    stateStore,
+    completedTurnTitleContext: (turnId, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
+    generateTitleFromContext: (context) => titleService.generate(context),
+    renameGeneratedTitle: (threadId, title, options) =>
+      threadOperations.renameThread(threadId, title, { shouldPublish: options.shouldPublish }),
+  });
+  const history = new HistoryController({
+    stateStore,
+    historyTransport: appServer.threadHistory,
+    addSystemMessage: status.addSystemMessage,
+    showLatestPageAtBottom: () => {
+      host.messageScrollBinding.showLatest();
+    },
+    setThreadTurnPresence: (hadTurns) => {
+      autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
+    },
+  });
   const invalidateThreadWork = () => {
     host.resumeWork.invalidate();
     history.invalidate();
   };
-  const goalSync = createSessionGoalSyncActions(host, appServer, localItemIds, status, refreshLiveState);
-  const threadOperations = createSessionThreadOperations(host.environment, appServer);
+  const goalSync = createThreadGoalSyncActions({
+    stateStore,
+    goalTransport: appServer.threadGoalRead,
+    localItemIds,
+    addSystemMessage: (text) => {
+      status.addSystemMessage(text);
+    },
+    addGoalEvent: (item) => {
+      stateStore.dispatch({ type: "message-stream/item-upserted", item });
+    },
+    refreshLiveState,
+  });
 
   return {
     titleService,
@@ -145,14 +194,26 @@ export function createThreadLifecycleBundle(
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   } = input;
-  const goals = createSessionGoalActions(host, appServer, localItemIds, status, serverThreads, refreshLiveState);
-  const rename = createSessionThreadRenameEditorActions(
-    host.stateStore,
-    foundation.threadOperations,
-    foundation.titleService,
+  const goals = createGoalActions({
+    stateStore: host.stateStore,
+    goalTransport: appServer.threadGoal,
+    localItemIds,
+    startThread: (preview, options) => serverThreads.startThread(preview, options),
+    addSystemMessage: (text) => {
+      status.addSystemMessage(text);
+    },
+    addGoalEvent: (item) => {
+      host.stateStore.dispatch({ type: "message-stream/item-upserted", item });
+    },
+    refreshLiveState,
+  });
+  const rename = createThreadRenameEditorActions({
+    stateStore: host.stateStore,
     ensureConnected,
-    status,
-  );
+    addSystemMessage: status.addSystemMessage,
+    renameThread: (threadId, value) => foundation.threadOperations.renameThread(threadId, value),
+    generateThreadTitle: (threadId) => foundation.titleService.generateTitle(threadId),
+  });
   const lifecycle = createSessionThreadLifecycle(host, {
     appServer,
     status,
@@ -225,137 +286,6 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     },
   });
   return { actions, toolbarPanelActions, navigation };
-}
-
-function createSessionThreadTitleService(host: ChatPanelThreadHost, appServer: ChatAppServerGateway): ThreadTitleService {
-  const { environment, stateStore } = host;
-  return createThreadTitleService({
-    codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
-    vaultPath: environment.plugin.settingsRef.vaultPath,
-    threadNamingModel: () => environment.plugin.settingsRef.settings.threadNamingModel(),
-    threadNamingEffort: () => environment.plugin.settingsRef.settings.threadNamingEffort(),
-    clientAccess: appServer.clientAccess,
-    visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
-    visibleCompletedTurnContext: (turnId) =>
-      threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(stateStore.getState().messageStream)),
-  });
-}
-
-function createSessionAutoTitleCoordinator(
-  host: ChatPanelThreadHost,
-  appServer: ChatAppServerGateway,
-  titleService: ThreadTitleService,
-): AutoTitleCoordinator {
-  return createAutoTitleCoordinator({
-    stateStore: host.stateStore,
-    completedTurnTitleContext: (turnId, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
-    generateTitleFromContext: (context) => titleService.generate(context),
-    renameGeneratedTitle: async (threadId, title, options) => {
-      const name = normalizeExplicitThreadName(title);
-      if (!name) return false;
-      if (!(await appServer.renameThread(threadId, name))) return false;
-      if (options.shouldPublish()) {
-        host.environment.plugin.threadCatalog.apply({ type: "thread-renamed", threadId, name });
-      }
-      return true;
-    },
-  });
-}
-
-function createSessionHistoryController(
-  host: ChatPanelThreadHost,
-  appServer: ChatAppServerGateway,
-  status: ChatPanelThreadStatus,
-  autoTitleCoordinator: AutoTitleCoordinator,
-): HistoryController {
-  return new HistoryController({
-    stateStore: host.stateStore,
-    historyTransport: appServer.threadHistory,
-    addSystemMessage: status.addSystemMessage,
-    showLatestPageAtBottom: () => {
-      host.messageScrollBinding.showLatest();
-    },
-    setThreadTurnPresence: (hadTurns) => {
-      autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
-    },
-  });
-}
-
-function createSessionGoalSyncActions(
-  host: ChatPanelThreadHost,
-  appServer: ChatAppServerGateway,
-  localItemIds: LocalIdSource,
-  status: ChatPanelThreadStatus,
-  refreshLiveState: () => void,
-): ChatPanelGoalSyncActions {
-  return createThreadGoalSyncActions({
-    stateStore: host.stateStore,
-    goalTransport: appServer.threadGoalRead,
-    localItemIds,
-    addSystemMessage: (text) => {
-      status.addSystemMessage(text);
-    },
-    addGoalEvent: (item) => {
-      host.stateStore.dispatch({ type: "message-stream/item-upserted", item });
-    },
-    refreshLiveState,
-  });
-}
-
-function createSessionThreadOperations(environment: ChatPanelEnvironment, appServer: ChatAppServerGateway): ThreadOperations {
-  return createThreadOperations({
-    clientAccess: appServer.clientAccess,
-    archiveExport: {
-      settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
-      enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),
-      vaultPath: environment.plugin.settingsRef.vaultPath,
-      vaultConfigDir: environment.obsidian.app.vault.configDir,
-    },
-    archiveDestination: environment.obsidian.archiveDestination,
-    catalog: environment.plugin.threadCatalog,
-    notice: (text) => {
-      new Notice(text);
-    },
-  });
-}
-
-function createSessionGoalActions(
-  host: ChatPanelThreadHost,
-  appServer: ChatAppServerGateway,
-  localItemIds: LocalIdSource,
-  status: ChatPanelThreadStatus,
-  serverThreads: ChatServerThreadActions,
-  refreshLiveState: () => void,
-): ChatPanelGoalActions {
-  return createGoalActions({
-    stateStore: host.stateStore,
-    goalTransport: appServer.threadGoal,
-    localItemIds,
-    startThread: (preview, options) => serverThreads.startThread(preview, options),
-    addSystemMessage: (text) => {
-      status.addSystemMessage(text);
-    },
-    addGoalEvent: (item) => {
-      host.stateStore.dispatch({ type: "message-stream/item-upserted", item });
-    },
-    refreshLiveState,
-  });
-}
-
-function createSessionThreadRenameEditorActions(
-  stateStore: ChatStateStore,
-  operations: ThreadOperations,
-  titleService: ThreadTitleService,
-  ensureConnected: () => Promise<void>,
-  status: ChatPanelThreadStatus,
-): ThreadRenameEditorActions {
-  return createThreadRenameEditorActions({
-    stateStore,
-    ensureConnected,
-    addSystemMessage: status.addSystemMessage,
-    renameThread: (threadId, value) => operations.renameThread(threadId, value),
-    generateThreadTitle: (threadId) => titleService.generateTitle(threadId),
-  });
 }
 
 function createSessionThreadLifecycle(

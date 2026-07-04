@@ -11,6 +11,7 @@ import {
   createAutoTitleCoordinator,
 } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 import { threadTitleContextFromMessageStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
+import { createThreadOperations } from "../../../../../src/features/threads/workflows/thread-operations";
 import { createThreadTitleService } from "../../../../../src/features/threads/workflows/thread-title-service";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
 import { deferred } from "../../../../support/async";
@@ -135,6 +136,29 @@ function coordinatorFixture(
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
   const currentClient = overrides.currentClient ?? (() => fakeClient());
   const notifyThreadRenamed = vi.fn();
+  const threadOperations = createThreadOperations({
+    clientAccess: {
+      withClient: async (operation) => operation(currentClient()),
+    },
+    archiveExport: {
+      settings: () => DEFAULT_SETTINGS,
+      enabled: () => false,
+      vaultPath: "/vault",
+      vaultConfigDir: ".obsidian",
+    },
+    archiveDestination: () => ({
+      normalizePath: (path) => path,
+      exists: vi.fn().mockResolvedValue(false),
+      createFolder: vi.fn().mockResolvedValue(undefined),
+      createMarkdownFile: vi.fn().mockResolvedValue(undefined),
+    }),
+    catalog: {
+      apply: (event) => {
+        if (event.type === "thread-renamed") notifyThreadRenamed(event.threadId, event.name);
+      },
+    },
+    notice: vi.fn(),
+  });
   const titleService = createThreadTitleService({
     codexPath: () => "codex",
     vaultPath: "/vault",
@@ -151,11 +175,8 @@ function coordinatorFixture(
     stateStore,
     completedTurnTitleContext: (turnId: string, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
-    renameGeneratedTitle: async (threadId: string, value: string, options: { shouldPublish: () => boolean }) => {
-      await currentClient().request("thread/name/set", { threadId, name: value });
-      if (options.shouldPublish()) notifyThreadRenamed(threadId, value);
-      return true;
-    },
+    renameGeneratedTitle: (threadId: string, value: string, options: { shouldPublish: () => boolean }) =>
+      threadOperations.renameThread(threadId, value, options),
   } satisfies AutoTitleCoordinatorHost;
   return { ...host, notifyThreadRenamed, coordinator: createAutoTitleCoordinator(host) };
 }
