@@ -16,6 +16,9 @@ export interface CodexPanelSettings {
   scrollThreadFromComposerEdges: boolean;
   referenceActiveNoteOnSend: boolean;
   attachmentFolder: string;
+  clipFolder: string;
+  clipFilenameTemplate: string;
+  clipTags: string;
   archiveExportEnabled: boolean;
   archiveExportFolderTemplate: string;
   archiveExportFilenameTemplate: string;
@@ -23,6 +26,7 @@ export interface CodexPanelSettings {
 }
 
 export const DEFAULT_ATTACHMENT_FOLDER = "Codex Attachments";
+export const DEFAULT_CLIP_FOLDER = "Codex Clippings";
 
 export const DEFAULT_SETTINGS: CodexPanelSettings = {
   codexPath: DEFAULT_CODEX_PATH,
@@ -35,6 +39,9 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   scrollThreadFromComposerEdges: false,
   referenceActiveNoteOnSend: false,
   attachmentFolder: DEFAULT_ATTACHMENT_FOLDER,
+  clipFolder: DEFAULT_CLIP_FOLDER,
+  clipFilenameTemplate: "{{title}}.md",
+  clipTags: "",
   archiveExportEnabled: false,
   archiveExportFolderTemplate: "Codex Archives",
   archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
@@ -60,6 +67,11 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
     referenceActiveNoteOnSend: booleanOrDefault(record["referenceActiveNoteOnSend"], DEFAULT_SETTINGS.referenceActiveNoteOnSend),
     attachmentFolder:
       stringOrDefault(record["attachmentFolder"], DEFAULT_SETTINGS.attachmentFolder).trim() || DEFAULT_SETTINGS.attachmentFolder,
+    clipFolder: stringOrDefault(record["clipFolder"], DEFAULT_SETTINGS.clipFolder).trim() || DEFAULT_SETTINGS.clipFolder,
+    clipFilenameTemplate:
+      stringOrDefault(record["clipFilenameTemplate"], DEFAULT_SETTINGS.clipFilenameTemplate).trim() ||
+      DEFAULT_SETTINGS.clipFilenameTemplate,
+    clipTags: stringOrDefault(record["clipTags"], DEFAULT_SETTINGS.clipTags).trim(),
     archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),
     archiveExportFolderTemplate: stringOrDefault(
       record["archiveExportFolderTemplate"],

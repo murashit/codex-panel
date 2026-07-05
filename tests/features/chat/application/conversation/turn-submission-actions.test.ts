@@ -80,8 +80,9 @@ describe("TurnSubmissionActions", () => {
     const { host, startTurn, stateStore } = createHost();
     const actions = createTurnSubmissionActions(host);
 
-    await actions.sendTurnText({ text: "hello" });
+    const submitted = await actions.sendTurnText({ text: "hello" });
 
+    expect(submitted).toBe(true);
     expect(host.startThread).toHaveBeenCalledWith("hello");
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
@@ -145,6 +146,32 @@ describe("TurnSubmissionActions", () => {
       kind: "message",
       text: "fix [[notes/Alpha]] (L42:C5-L47:C1)",
       mentionedFiles: [{ name: "Alpha", path: "notes/Alpha.md" }],
+    });
+  });
+
+  it("preserves composer context when overridden slash command input fails to start", async () => {
+    const input = [
+      { type: "text" as const, text: "[[Codex Clippings/Example.md]] summarize [[Attachment.png]]" },
+      { type: "mention" as const, name: "Example", path: "Codex Clippings/Example.md" },
+      { type: "additionalContext" as const, key: "codex_panel_obsidian_context", kind: "untrusted" as const, value: "selection" },
+      { type: "mention" as const, name: "Attachment.png", path: "Attachment.png" },
+      { type: "localImage" as const, path: "Attachment.png" },
+    ] satisfies CodexInput;
+    const { host, startTurn, stateStore } = createHost();
+    startTurn.mockResolvedValue(null);
+    resumeThread(stateStore);
+    const actions = createTurnSubmissionActions(host);
+
+    const submitted = await actions.sendTurnText({
+      text: "[[Codex Clippings/Example.md]] summarize [[Attachment.png]]",
+      codexInputOverride: input,
+      preserveComposerContextOnFailure: true,
+    });
+
+    expect(submitted).toBe(false);
+    expect(host.setDraft).toHaveBeenCalledWith("", { preserveContext: true });
+    expect(host.setDraft).toHaveBeenCalledWith("[[Codex Clippings/Example.md]] summarize [[Attachment.png]]", {
+      preserveContext: true,
     });
   });
 

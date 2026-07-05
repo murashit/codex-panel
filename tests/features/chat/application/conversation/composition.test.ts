@@ -88,6 +88,7 @@ describe("createConversationTurnActions", () => {
           interruptTurn: vi.fn().mockResolvedValue(true),
         },
         referThread: vi.fn(),
+        clipUrl: vi.fn(),
         status: {
           set: vi.fn(),
           addSystemMessage: vi.fn(),

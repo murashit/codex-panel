@@ -12,6 +12,8 @@ import type { AutoTitleCoordinator } from "../../application/threads/auto-title-
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
+import type { ChatPanelEnvironment } from "../contracts";
+import { createVaultWebClipper } from "../obsidian/web-clipper.obsidian";
 import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 import type {
   ChatPanelGoalActions,
@@ -27,6 +29,7 @@ interface ChatPanelTurnStatus {
 }
 
 interface ChatPanelTurnHost {
+  environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
   messageScrollBinding: {
     showLatest(): void;
@@ -99,6 +102,17 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       connectionAvailable: () => appServer.connectionAvailable(),
       turnTransport: appServer.turn,
       referThread: (thread, message, snapshot) => threadReferenceResolver.referThread(thread, message, snapshot),
+      clipUrl: (url, message, snapshot) =>
+        createVaultWebClipper({
+          vault: host.environment.obsidian.app.vault,
+          settings: () => ({
+            clipFolder: host.environment.plugin.settingsRef.settings.clipFolder(),
+            clipFilenameTemplate: host.environment.plugin.settingsRef.settings.clipFilenameTemplate(),
+            clipTags: host.environment.plugin.settingsRef.settings.clipTags(),
+          }),
+          prepareInput: (text, inputSnapshot) => composerController.preparedInput(text, inputSnapshot),
+          viewWindow: host.environment.view.viewWindow,
+        }).clipUrl(url, message, snapshot),
       status,
       runtime: {
         connectionDiagnosticDetails: runtimeProjection.connectionDiagnosticDetails,

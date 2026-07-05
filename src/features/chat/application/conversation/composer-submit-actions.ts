@@ -13,7 +13,7 @@ export interface ComposerSubmitActionsHost {
   stateStore: ChatStateStore;
   composer: {
     readonly trimmedDraft: string;
-    setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean }): void;
+    setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean; preserveContext?: boolean }): void;
     captureInputSnapshot(): ComposerInputSnapshot;
   };
   slashCommandExecutor: {
@@ -24,7 +24,7 @@ export interface ComposerSubmitActionsHost {
     ): Promise<SlashCommandExecutionResult | undefined>;
   };
   turnSubmission: {
-    sendTurnText(request: TurnSubmissionRequest): Promise<void>;
+    sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
   };
   connection: {
     ensureConnected: () => Promise<boolean>;
@@ -61,25 +61,47 @@ async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
     if (slashCommandRequiresConnection(slashCommand.command) && !(await host.connection.ensureConnected())) return;
-    host.composer.setDraft("", { clearSuggestions: true });
-    const result = await host.slashCommandExecutor.execute(slashCommand.command, slashCommand.args, inputSnapshot);
+    const execution = await executeSlashCommandAndRestoreOnFailure(host, slashCommand.command, slashCommand.args, inputSnapshot, text);
+    if (execution.failed) return;
+    const result = execution.result;
     if (result?.composerDraft !== undefined) {
       host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
     }
     if (result?.sendText) {
       host.scroll.showLatest();
-      await host.turnSubmission.sendTurnText({
+      const submitted = await host.turnSubmission.sendTurnText({
         text: result.sendText,
         inputSnapshot,
         ...(result.sendInput !== undefined ? { codexInputOverride: result.sendInput } : {}),
         ...(result.referencedThread !== undefined ? { referencedThread: result.referencedThread } : {}),
+        ...(result.sendInput !== undefined ? { preserveComposerContextOnFailure: true } : {}),
       });
+      if (!submitted) host.composer.setDraft(text, { focus: true, clearSuggestions: true });
+    }
+    if (result === undefined || (result.sendText === undefined && result.composerDraft === undefined)) {
+      host.composer.setDraft("", { clearSuggestions: true });
     }
     return;
   }
 
   host.scroll.showLatest();
   await host.turnSubmission.sendTurnText({ text, inputSnapshot });
+}
+
+async function executeSlashCommandAndRestoreOnFailure(
+  host: ComposerSubmitActionsHost,
+  command: SlashCommandName,
+  args: string,
+  inputSnapshot: ComposerInputSnapshot,
+  originalText: string,
+): Promise<{ failed: false; result: SlashCommandExecutionResult | undefined } | { failed: true }> {
+  try {
+    return { failed: false, result: await host.slashCommandExecutor.execute(command, args, inputSnapshot) };
+  } catch (error) {
+    host.composer.setDraft(originalText, { focus: true, clearSuggestions: true });
+    host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
+    return { failed: true };
+  }
 }
 
 async function interruptTurn(host: ComposerSubmitActionsHost): Promise<void> {

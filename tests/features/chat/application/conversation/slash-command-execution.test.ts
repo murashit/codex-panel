@@ -20,6 +20,13 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
       input: [{ type: "text", text: "referenced" }],
       referencedThread: { threadId: "thread-2", title: "Referenced", includedTurns: 1, turnLimit: 20 },
     }),
+    clipUrl: vi.fn().mockResolvedValue({
+      text: "[[Codex Clippings/Example.md]] 要約して",
+      input: [
+        { type: "text", text: "[[Codex Clippings/Example.md]] 要約して" },
+        { type: "mention", name: "Example", path: "Codex Clippings/Example.md" },
+      ],
+    }),
     threadActions: {
       forkThread: vi.fn().mockResolvedValue(undefined),
       rollbackThread: vi.fn().mockResolvedValue(undefined),
@@ -189,6 +196,58 @@ describe("slash commands", () => {
 
     expect(ctx.referThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
+  });
+
+  it("returns clipped wikilink input for /clip", async () => {
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const input = [
+      { type: "text" as const, text: "[[Codex Clippings/Example.md]] 要約して" },
+      { type: "mention" as const, name: "Example", path: "Codex Clippings/Example.md" },
+    ];
+    const ctx = context({
+      inputSnapshot,
+      clipUrl: vi.fn().mockResolvedValue({ text: "[[Codex Clippings/Example.md]] 要約して", input }),
+    });
+
+    const result = await executeSlashCommand("clip", "https://example.com/article 要約して", ctx);
+
+    expect(ctx.clipUrl).toHaveBeenCalledWith("https://example.com/article", "要約して", inputSnapshot);
+    expect(result).toEqual({ sendText: "[[Codex Clippings/Example.md]] 要約して", sendInput: input });
+  });
+
+  it("returns clipped wikilink input for /clip without a message", async () => {
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const input = [
+      { type: "text" as const, text: "[[Codex Clippings/Example.md]]" },
+      { type: "mention" as const, name: "Example", path: "Codex Clippings/Example.md" },
+    ];
+    const ctx = context({
+      inputSnapshot,
+      clipUrl: vi.fn().mockResolvedValue({ text: "[[Codex Clippings/Example.md]]", input }),
+    });
+
+    const result = await executeSlashCommand("clip", "https://example.com/article", ctx);
+
+    expect(ctx.clipUrl).toHaveBeenCalledWith("https://example.com/article", "", inputSnapshot);
+    expect(result).toEqual({ sendText: "[[Codex Clippings/Example.md]]", sendInput: input });
+  });
+
+  it("rejects /clip without a URL", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("clip", "", ctx);
+
+    expect(ctx.clipUrl).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/clip requires a URL. Usage: /clip <url> [message]");
+  });
+
+  it("rejects /clip when no composer input snapshot is available", async () => {
+    const ctx = context();
+
+    await executeSlashCommand("clip", "https://example.com/article 要約して", ctx);
+
+    expect(ctx.clipUrl).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Cannot clip a URL without composer input context.");
   });
 
   it("forks the active thread for /fork", async () => {
@@ -537,7 +596,10 @@ describe("slash commands", () => {
       },
       {
         title: "Composition",
-        auditFacts: [{ key: "/refer <thread> <message>", value: "Send a message with recent turns from another non-archived thread." }],
+        auditFacts: [
+          { key: "/refer <thread> <message>", value: "Send a message with recent turns from another non-archived thread." },
+          { key: "/clip <url> [message]", value: "Clip a URL into a vault note and send a wikilink reference with an optional message." },
+        ],
       },
     ]);
   });

@@ -5,6 +5,7 @@ type SlashCommandArgsKind =
   | "optionalMessage"
   | "threadAndMessage"
   | "threadAndName"
+  | "urlAndOptionalMessage"
   | "goal"
   | "showOrSet";
 
@@ -63,6 +64,13 @@ export const SLASH_COMMANDS = [
     argsKind: "threadAndMessage",
     surface: "composition",
     detail: "Send a message with recent turns from another non-archived thread.",
+  },
+  {
+    command: "/clip",
+    usage: "/clip <url> [message]",
+    argsKind: "urlAndOptionalMessage",
+    surface: "composition",
+    detail: "Clip a URL into a vault note and send a wikilink reference with an optional message.",
   },
   { command: "/fork", usage: "/fork", argsKind: "none", surface: "panelAction", detail: "Fork the active Codex thread." },
   {

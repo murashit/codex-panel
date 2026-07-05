@@ -20,7 +20,7 @@ function createHost(draft: string) {
   const stateStore = createChatStateStore(createChatState());
   const interruptTurn = vi.fn().mockResolvedValue({});
   const setDraft = vi.fn();
-  const sendTurnText = vi.fn().mockResolvedValue(undefined);
+  const sendTurnText = vi.fn().mockResolvedValue(true);
   const execute = vi.fn().mockResolvedValue(undefined);
   const showLatest = vi.fn();
   const ensureConnected = vi.fn().mockResolvedValue(true);
@@ -84,7 +84,7 @@ describe("submitComposer", () => {
 
     await submitComposer(host);
 
-    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(setDraft).not.toHaveBeenCalled();
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(execute).toHaveBeenCalledWith("clear", "hello", inputSnapshot);
     expect(showLatest).toHaveBeenCalledOnce();
@@ -110,7 +110,35 @@ describe("submitComposer", () => {
       text: "[[Note]] (L1:C1-L1:C2)",
       inputSnapshot,
       codexInputOverride: [{ type: "text", text: "referenced input" }],
+      preserveComposerContextOnFailure: true,
     });
+  });
+
+  it("restores slash command text when command send results are not submitted", async () => {
+    const { host, execute, inputSnapshot, sendTurnText, setDraft } = createHost("/clip https://example.com [[Note]]");
+    execute.mockResolvedValue({
+      sendText: "[[Codex Clippings/Example.md]] [[Note]]",
+      sendInput: [
+        { type: "text", text: "[[Codex Clippings/Example.md]] [[Note]]" },
+        { type: "mention", name: "Example", path: "Codex Clippings/Example.md" },
+        { type: "mention", name: "Note", path: "Note.md" },
+      ],
+    });
+    sendTurnText.mockResolvedValue(false);
+
+    await submitComposer(host);
+
+    expect(sendTurnText).toHaveBeenCalledWith({
+      text: "[[Codex Clippings/Example.md]] [[Note]]",
+      inputSnapshot,
+      codexInputOverride: [
+        { type: "text", text: "[[Codex Clippings/Example.md]] [[Note]]" },
+        { type: "mention", name: "Example", path: "Codex Clippings/Example.md" },
+        { type: "mention", name: "Note", path: "Note.md" },
+      ],
+      preserveComposerContextOnFailure: true,
+    });
+    expect(setDraft).toHaveBeenCalledWith("/clip https://example.com [[Note]]", { focus: true, clearSuggestions: true });
   });
 
   it("does not execute connection-dependent slash commands when connection fails", async () => {
@@ -150,9 +178,28 @@ describe("submitComposer", () => {
 
     await submitComposer(host);
 
-    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
     expect(ensureConnected).toHaveBeenCalledOnce();
+    expect(setDraft).not.toHaveBeenCalledWith("", expect.anything());
     expect(setDraft).toHaveBeenCalledWith("/goal set Current objective", { focus: true, clearSuggestions: true });
+    expect(showLatest).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
+  });
+
+  it("restores slash command text and reports executor errors", async () => {
+    const { host, execute, sendTurnText, setDraft, showLatest } = createHost("/clip https://obsidian.md/help/plugins/web-viewer 読める？");
+    execute.mockRejectedValue(new Error("No readable content found for https://obsidian.md/help/plugins/web-viewer"));
+
+    await submitComposer(host);
+
+    expect(setDraft).toHaveBeenCalledWith("/clip https://obsidian.md/help/plugins/web-viewer 読める？", {
+      focus: true,
+      clearSuggestions: true,
+    });
+    expect(setDraft.mock.calls.at(-1)).toEqual([
+      "/clip https://obsidian.md/help/plugins/web-viewer 読める？",
+      { focus: true, clearSuggestions: true },
+    ]);
+    expect(host.status.addSystemMessage).toHaveBeenCalledWith("No readable content found for https://obsidian.md/help/plugins/web-viewer");
     expect(showLatest).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
   });

@@ -63,14 +63,18 @@ describe("settings tab", () => {
     expect(settingNames(tab)).toEqual([
       "Codex executable",
       "Show chat toolbar",
+      "Codex helpers",
+      "Automatic thread naming",
+      "Selection rewrite",
       "Composer",
       "Send shortcut",
       "Scroll thread from composer line edges",
       "Reference active note on send",
       "Attachment folder",
-      "Codex helpers",
-      "Automatic thread naming",
-      "Selection rewrite",
+      "Web clipping",
+      "Clipped note folder",
+      "Clipped note filename",
+      "Clipped note tags",
       "Thread archiving",
       "Save note by default",
       "Saved note folder",
@@ -170,6 +174,34 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(settingDesc(tab, "Attachment folder")).toContain("pasted or dropped");
+  });
+
+  it("saves web clip settings", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const folder = inputForSetting(tab, "Clipped note folder");
+    const filename = inputForSetting(tab, "Clipped note filename");
+    const tags = inputForSetting(tab, "Clipped note tags");
+    if (!folder || !filename || !tags) throw new Error("Missing clip controls");
+    expect(folder.type).toBe("text");
+    expect(filename.type).toBe("text");
+    expect(tags.type).toBe("text");
+
+    folder.value = "Web Clips";
+    folder.dispatchEvent(new Event("blur"));
+    filename.value = "{{site}} {{title}}.md";
+    filename.dispatchEvent(new Event("blur"));
+    tags.value = "web, clipping";
+    tags.dispatchEvent(new Event("blur"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledTimes(3);
+    expect(settingDesc(tab, "Web clipping")).toContain("saved-note settings for /clip");
+    expect(settingDesc(tab, "Web clipping")).toContain("hostile prompt text");
+    expect(settingDesc(tab, "Clipped note filename")).toContain("{{domain}}");
+    expect(settingDesc(tab, "Clipped note tags")).toContain("separated by commas");
   });
 
   it("saves archive export settings", async () => {
@@ -1079,6 +1111,9 @@ function settingsTabHost(
     scrollThreadFromComposerEdges: false,
     referenceActiveNoteOnSend: false,
     attachmentFolder: "Codex Attachments",
+    clipFolder: "Codex Clippings",
+    clipFilenameTemplate: "{{title}}.md",
+    clipTags: "",
     archiveExportEnabled: false,
     archiveExportFolderTemplate: "Codex Archives",
     archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",

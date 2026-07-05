@@ -27,10 +27,18 @@ export class FileSystemAdapter {
 }
 
 export class TFile {
-  constructor(
-    readonly path: string,
-    readonly basename: string,
-  ) {}
+  path: string;
+  basename: string;
+  name: string;
+  extension: string;
+
+  constructor(path = "", basename = "") {
+    this.path = path;
+    this.name = path.split("/").pop() ?? path;
+    const dotIndex = this.name.lastIndexOf(".");
+    this.extension = dotIndex === -1 ? "" : this.name.slice(dotIndex + 1);
+    this.basename = basename || (dotIndex === -1 ? this.name : this.name.slice(0, dotIndex));
+  }
 }
 
 export class Notice {
@@ -40,6 +48,10 @@ export class Notice {
     this.message = message;
     notices.push(message);
   }
+}
+
+export async function requestUrl(_request: unknown): Promise<{ text: string }> {
+  return { text: "" };
 }
 
 export function prepareFuzzySearch(query: string): (text: string) => { score: number; matches: unknown[] } | null {

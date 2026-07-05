@@ -217,7 +217,7 @@ describe("ChatComposerController", () => {
     ]);
   });
 
-  it("preserves pasted image attachments while slash commands clear the draft", async () => {
+  it("preserves pasted image attachments across temporary slash command draft clears", async () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
@@ -263,8 +263,16 @@ describe("ChatComposerController", () => {
     const marker = composer(parent).value;
     const snapshot = controller.captureInputSnapshot();
 
-    controller.setDraft("", { clearSuggestions: true });
+    controller.setDraft("", { clearSuggestions: true, preserveContext: true });
+    controller.setDraft(`Inspect ${marker}`);
+    const restoredSnapshot = controller.captureInputSnapshot();
+
     expect(controller.preparedInput(`Inspect ${marker}`, snapshot).input).toEqual([
+      { type: "text", text: `Inspect ${marker}` },
+      { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },
+      { type: "localImage", path: "Codex Attachments/diagram.png" },
+    ]);
+    expect(controller.preparedInput(`Inspect ${marker}`, restoredSnapshot).input).toEqual([
       { type: "text", text: `Inspect ${marker}` },
       { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },
       { type: "localImage", path: "Codex Attachments/diagram.png" },

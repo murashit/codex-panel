@@ -121,10 +121,12 @@ export class ChatComposerController {
     syncComposerHeight(composer);
   };
 
-  setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean } = {}): void {
-    this.pruneActiveNoteContextSnapshots(text);
-    this.pruneSelectionContextSnapshots(text);
-    this.pruneAttachments(text);
+  setDraft(text: string, options: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean } = {}): void {
+    if (!options.preserveContext) {
+      this.pruneActiveNoteContextSnapshots(text);
+      this.pruneSelectionContextSnapshots(text);
+      this.pruneAttachments(text);
+    }
     this.dispatch({
       type: "composer/draft-set",
       draft: text,

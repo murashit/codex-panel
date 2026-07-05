@@ -26,7 +26,7 @@ export interface TurnSubmissionActionsHost {
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
   prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
-  setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
+  setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean }) => void;
   setStatus: (status: string) => void;
   addSystemMessage: (text: string) => void;
 }
@@ -40,7 +40,7 @@ type TurnSubmissionPlan =
   | { kind: "start-turn"; threadId: string };
 
 export interface TurnSubmissionActions {
-  sendTurnText(request: TurnSubmissionRequest): Promise<void>;
+  sendTurnText(request: TurnSubmissionRequest): Promise<boolean>;
 }
 
 export interface TurnSubmissionRequest {
@@ -48,6 +48,7 @@ export interface TurnSubmissionRequest {
   inputSnapshot?: ComposerInputSnapshot;
   codexInputOverride?: CodexInput;
   referencedThread?: ReferencedThreadMetadata;
+  preserveComposerContextOnFailure?: boolean;
 }
 
 export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): TurnSubmissionActions {
@@ -56,15 +57,19 @@ export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): Tu
   };
 }
 
-async function sendTurnText(host: TurnSubmissionActionsHost, localItemIds: LocalIdSource, request: TurnSubmissionRequest): Promise<void> {
+async function sendTurnText(
+  host: TurnSubmissionActionsHost,
+  localItemIds: LocalIdSource,
+  request: TurnSubmissionRequest,
+): Promise<boolean> {
   const { text, inputSnapshot, codexInputOverride, referencedThread } = request;
   const prepared = codexInputOverride
     ? { text, input: codexInputOverride }
     : inputSnapshot
       ? host.prepareInput(text, inputSnapshot)
       : { text, input: codexTextInput(text) };
-  if (!(await host.turnTransport.ensureConnected())) return;
-  if (!(await host.ensureRestoredThreadLoaded())) return;
+  if (!(await host.turnTransport.ensureConnected())) return false;
+  if (!(await host.ensureRestoredThreadLoaded())) return false;
 
   const initialState = submissionStateSnapshot(host.stateStore.getState());
   const plan = planTurnSubmission(initialState);
@@ -74,19 +79,18 @@ async function sendTurnText(host: TurnSubmissionActionsHost, localItemIds: Local
     switch (plan.kind) {
       case "blocked":
         host.addSystemMessage(plan.message);
-        return;
+        return false;
       case "steer":
-        await steerCurrentTurn(host, localItemIds, plan, text, prepared, referencedThread);
-        return;
+        return await steerCurrentTurn(host, localItemIds, plan, text, prepared, request, referencedThread);
       case "start-thread-then-turn":
-        if (!(await startThreadForTurn(host, prepared.text))) return;
+        if (!(await startThreadForTurn(host, prepared.text))) return false;
         break;
       case "start-turn":
         break;
     }
     const activeThreadId = plan.kind === "start-turn" ? plan.threadId : submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
-    if (!activeThreadId) return;
-    if (!(await host.applyPendingThreadSettings())) return;
+    if (!activeThreadId) return false;
+    if (!(await host.applyPendingThreadSettings())) return false;
 
     optimisticUserId = localItemIds.next("local-user");
     const optimistic = optimisticTurnStart({
@@ -100,7 +104,7 @@ async function sendTurnText(host: TurnSubmissionActionsHost, localItemIds: Local
       item: optimistic.item,
       pendingTurnStart: optimistic.pendingTurnStart,
     });
-    host.setDraft("");
+    clearDraftForSubmission(host, request);
 
     const response = await host.turnTransport.startTurn({
       threadId: activeThreadId,
@@ -115,9 +119,10 @@ async function sendTurnText(host: TurnSubmissionActionsHost, localItemIds: Local
         pendingTurnStart: failedState.pendingTurnStart,
       });
       host.stateStore.dispatch({ type: "turn/start-failed", items });
-      host.setDraft(text);
-      return;
+      restoreSubmittedDraft(host, text, request);
+      return false;
     }
+    prunePreservedComposerContext(host, request);
     const acknowledgedState = submissionStateSnapshot(host.stateStore.getState());
     const pendingStart = acknowledgedState.pendingTurnStart;
     if (
@@ -139,6 +144,7 @@ async function sendTurnText(host: TurnSubmissionActionsHost, localItemIds: Local
       host.stateStore.dispatch({ type: "turn/start-acknowledged", turnId: response.turnId, items });
       host.setStatus(STATUS_TURN_RUNNING);
     }
+    return true;
   } catch (error) {
     const failedState = submissionStateSnapshot(host.stateStore.getState());
     if (!optimisticUserId || failedState.pendingTurnStart?.anchorItemId === optimisticUserId) {
@@ -148,9 +154,10 @@ async function sendTurnText(host: TurnSubmissionActionsHost, localItemIds: Local
         pendingTurnStart: failedState.pendingTurnStart,
       });
       host.stateStore.dispatch({ type: "turn/start-failed", items });
-      host.setDraft(text);
+      restoreSubmittedDraft(host, text, request);
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
+    return false;
   }
 }
 
@@ -176,10 +183,11 @@ async function steerCurrentTurn(
   plan: Extract<TurnSubmissionPlan, { kind: "steer" }>,
   text: string,
   prepared: { text: string; input: CodexInput },
+  request: TurnSubmissionRequest,
   referencedThread?: ReferencedThreadMetadata,
-): Promise<void> {
+): Promise<boolean> {
   const localSteerId = localItemIds.next("local-steer");
-  host.setDraft("", { clearSuggestions: true });
+  clearDraftForSubmission(host, request, { clearSuggestions: true });
 
   try {
     const steered = await host.turnTransport.steerTurn({
@@ -188,8 +196,12 @@ async function steerCurrentTurn(
       input: prepared.input,
       clientUserMessageId: localSteerId,
     });
-    if (!steered) return;
-    if (!isCurrentTurn(host, plan.threadId, plan.turnId)) return;
+    if (!steered) {
+      restoreSubmittedDraft(host, text, request, { focus: true });
+      return false;
+    }
+    prunePreservedComposerContext(host, request, { clearSuggestions: true });
+    if (!isCurrentTurn(host, plan.threadId, plan.turnId)) return true;
     host.stateStore.dispatch({
       type: "message-stream/item-added",
       item: localUserMessageItemFromInput({
@@ -201,11 +213,50 @@ async function steerCurrentTurn(
       }),
     });
     host.setStatus(STATUS_STEERED_CURRENT_TURN);
+    return true;
   } catch (error) {
-    if (!isCurrentTurn(host, plan.threadId, plan.turnId)) return;
-    host.setDraft(text, { focus: true });
-    host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    if (isCurrentTurn(host, plan.threadId, plan.turnId)) {
+      restoreSubmittedDraft(host, text, request, { focus: true });
+      host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    }
+    return false;
   }
+}
+
+function clearDraftForSubmission(
+  host: TurnSubmissionActionsHost,
+  request: TurnSubmissionRequest,
+  options: { clearSuggestions?: boolean } = {},
+): void {
+  const draftOptions = {
+    ...options,
+    ...(request.preserveComposerContextOnFailure ? { preserveContext: true } : {}),
+  };
+  if (Object.keys(draftOptions).length === 0) {
+    host.setDraft("");
+    return;
+  }
+  host.setDraft("", draftOptions);
+}
+
+function restoreSubmittedDraft(
+  host: TurnSubmissionActionsHost,
+  text: string,
+  request: TurnSubmissionRequest,
+  options: { focus?: boolean } = {},
+): void {
+  host.setDraft(text, {
+    ...options,
+    ...(request.preserveComposerContextOnFailure ? { preserveContext: true } : {}),
+  });
+}
+
+function prunePreservedComposerContext(
+  host: TurnSubmissionActionsHost,
+  request: TurnSubmissionRequest,
+  options: { clearSuggestions?: boolean } = {},
+): void {
+  if (request.preserveComposerContextOnFailure) host.setDraft("", options);
 }
 
 function isCurrentTurn(host: TurnSubmissionActionsHost, threadId: string, turnId: string): boolean {

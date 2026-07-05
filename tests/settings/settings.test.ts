@@ -26,6 +26,9 @@ describe("settings", () => {
       scrollThreadFromComposerEdges: true,
       referenceActiveNoteOnSend: true,
       attachmentFolder: "Codex Uploads",
+      clipFolder: "Codex Clippings",
+      clipFilenameTemplate: "{{title}}.md",
+      clipTags: "web, clipping",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
       archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
@@ -46,6 +49,9 @@ describe("settings", () => {
       scrollThreadFromComposerEdges: true,
       referenceActiveNoteOnSend: true,
       attachmentFolder: "Codex Uploads",
+      clipFolder: "Codex Clippings",
+      clipFilenameTemplate: "{{title}}.md",
+      clipTags: "web, clipping",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
       archiveExportFilenameTemplate: "{{title}} {{shortId}}.md",
@@ -72,6 +78,9 @@ describe("settings", () => {
       scrollThreadFromComposerEdges: true,
       referenceActiveNoteOnSend: true,
       attachmentFolder: "Codex Attachments",
+      clipFolder: "Codex Clippings",
+      clipFilenameTemplate: "{{title}}.md",
+      clipTags: "web, clipping",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives",
       archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
@@ -135,6 +144,31 @@ describe("settings", () => {
     expect(normalizeSettings({ attachmentFolder: " Files/Codex " }).attachmentFolder).toBe("Files/Codex");
     expect(normalizeSettings({ attachmentFolder: "   " }).attachmentFolder).toBe(DEFAULT_SETTINGS.attachmentFolder);
     expect(normalizeSettings({ attachmentFolder: 1 }).attachmentFolder).toBe(DEFAULT_SETTINGS.attachmentFolder);
+  });
+
+  it("normalizes web clip settings", () => {
+    expect(
+      normalizeSettings({
+        clipFolder: " Web/Clips ",
+        clipFilenameTemplate: " {{site}} - {{title}}.md ",
+        clipTags: " #web, clipping ",
+      }),
+    ).toMatchObject({
+      clipFolder: "Web/Clips",
+      clipFilenameTemplate: "{{site}} - {{title}}.md",
+      clipTags: "#web, clipping",
+    });
+    expect(
+      normalizeSettings({
+        clipFolder: "   ",
+        clipFilenameTemplate: "   ",
+        clipTags: 1,
+      }),
+    ).toMatchObject({
+      clipFolder: DEFAULT_SETTINGS.clipFolder,
+      clipFilenameTemplate: DEFAULT_SETTINGS.clipFilenameTemplate,
+      clipTags: DEFAULT_SETTINGS.clipTags,
+    });
   });
 
   it("normalizes archive export settings", () => {

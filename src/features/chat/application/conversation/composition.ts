@@ -9,7 +9,7 @@ import type { GoalActions } from "../threads/goal-actions";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import { type ComposerSubmitActions, type ComposerSubmitActionsHost, submitComposer } from "./composer-submit-actions";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
-import type { ThreadReferenceInput } from "./slash-command-execution";
+import type { ClipUrlInput, ThreadReferenceInput } from "./slash-command-execution";
 import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
 import { createTurnSubmissionActions } from "./turn-submission-actions";
 import type { ChatTurnTransport } from "./turn-transport";
@@ -20,6 +20,7 @@ export interface ConversationTurnActionsContext {
   connectionAvailable: () => boolean;
   turnTransport: ChatTurnTransport;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
+  clipUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ClipUrlInput | null>;
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -44,7 +45,7 @@ export interface ConversationTurnActionsContext {
     prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
     captureInputSnapshot: () => ComposerInputSnapshot;
     trimmedDraft: () => string;
-    setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean }) => void;
+    setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean }) => void;
   };
   scroll: {
     showLatest: () => void;
@@ -76,7 +77,8 @@ export function createConversationTurnActions(
   context: ConversationTurnActionsContext,
   refs: ConversationTurnActionsRefs,
 ): ConversationTurnActions {
-  const { stateStore, localItemIds, connectionAvailable, turnTransport, referThread, status, runtime, thread, composer, scroll } = context;
+  const { stateStore, localItemIds, connectionAvailable, turnTransport, referThread, clipUrl, status, runtime, thread, composer, scroll } =
+    context;
   const turnSubmission = createTurnSubmissionActions({
     stateStore,
     localItemIds,
@@ -95,6 +97,7 @@ export function createConversationTurnActions(
     stateStore,
     connectionAvailable,
     referThread,
+    clipUrl,
     startNewThread: thread.startNewThread,
     startThreadForGoal: (objective) => startThreadForGoal(refs.threadStarter, objective),
     resumeThread: thread.selectThread,
@@ -115,7 +118,9 @@ export function createConversationTurnActions(
   const planImplementationHost: PlanImplementationHost = {
     stateStore,
     ensureConnected: () => turnTransport.ensureConnected(),
-    sendTurnText: (text) => turnSubmission.sendTurnText({ text }),
+    sendTurnText: async (text) => {
+      await turnSubmission.sendTurnText({ text });
+    },
     requestDefaultCollaborationModeForNextTurn: () => {
       refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
     },

@@ -126,6 +126,7 @@ describe("composer suggestions", () => {
     { input: "/clear", expected: { command: "clear", args: "" } },
     { input: "/resume thread-1", expected: { command: "resume", args: "thread-1" } },
     { input: "/refer thread-1 続きです", expected: { command: "refer", args: "thread-1 続きです" } },
+    { input: "/clip https://example.com/article 要約して", expected: { command: "clip", args: "https://example.com/article 要約して" } },
     { input: "/fork", expected: { command: "fork", args: "" } },
     { input: "/archive thread-1", expected: { command: "archive", args: "thread-1" } },
     { input: "/rename thread-1 New name", expected: { command: "rename", args: "thread-1 New name" } },

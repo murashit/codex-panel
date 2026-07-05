@@ -5,6 +5,9 @@ export function chatPanelSettingsAccess(settings: CodexPanelSettings): ChatPanel
   return {
     referenceActiveNoteOnSend: () => settings.referenceActiveNoteOnSend,
     attachmentFolder: () => settings.attachmentFolder,
+    clipFolder: () => settings.clipFolder,
+    clipFilenameTemplate: () => settings.clipFilenameTemplate,
+    clipTags: () => settings.clipTags,
     archiveExportEnabled: () => settings.archiveExportEnabled,
     archiveExportSettings: () => ({
       archiveExportFolderTemplate: settings.archiveExportFolderTemplate,

@@ -66,6 +66,7 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
   activeThreadId: string | null;
   listedThreads: readonly Thread[];
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
+  clipUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ClipUrlInput | null>;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
   inputSnapshot?: ComposerInputSnapshot;
 }
@@ -81,6 +82,11 @@ export interface ThreadReferenceInput {
   text: string;
   input: CodexInput;
   referencedThread: ReferencedThreadMetadata;
+}
+
+export interface ClipUrlInput {
+  text: string;
+  input: CodexInput;
 }
 
 export async function executeSlashCommand(
@@ -132,6 +138,20 @@ export async function executeSlashCommand(
       const reference = await context.referThread(thread.thread, parsed.message, context.inputSnapshot);
       if (!reference) return;
       return { sendText: reference.text, sendInput: reference.input, referencedThread: reference.referencedThread };
+    }
+    case "clip": {
+      const parsed = parseUrlAndMessageArgs(args);
+      if (!parsed) {
+        context.addSystemMessage(usageError(command, "requires a URL"));
+        return;
+      }
+      if (!context.inputSnapshot) {
+        context.addSystemMessage("Cannot clip a URL without composer input context.");
+        return;
+      }
+      const clipped = await context.clipUrl(parsed.url, parsed.message, context.inputSnapshot);
+      if (!clipped) return;
+      return { sendText: clipped.text, sendInput: clipped.input };
     }
     case "fork":
       if (!context.activeThreadId) {
@@ -299,6 +319,7 @@ function validateSlashCommandArguments(command: SlashCommandName, args: string):
   if (definition.argsKind === "requiredThread" && !args) return usageError(command, "requires a thread");
   if (definition.argsKind === "threadAndMessage" && !parseReferArgs(args)) return usageError(command, "requires a thread and a message");
   if (definition.argsKind === "threadAndName" && !parseThreadAndNameArgs(args)) return usageError(command, "requires a thread and a name");
+  if (definition.argsKind === "urlAndOptionalMessage" && !parseUrlAndMessageArgs(args)) return usageError(command, "requires a URL");
   return null;
 }
 
@@ -463,6 +484,14 @@ function parseThreadAndNameArgs(args: string): { threadQuery: string; text: stri
   if (!parsed) return null;
   const text = parsed.text.trim();
   return text ? { threadQuery: parsed.threadQuery, text } : null;
+}
+
+function parseUrlAndMessageArgs(args: string): { url: string; message: string } | null {
+  const match = /^(\S+)(?:\s+([\s\S]*\S))?\s*$/.exec(args);
+  if (!match) return null;
+  const url = match[1];
+  const message = match[2] ?? "";
+  return url !== undefined ? { url, message } : null;
 }
 
 function resolveThreadArgument(args: string, threads: readonly Thread[]): ThreadResolution {

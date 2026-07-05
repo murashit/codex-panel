@@ -6,7 +6,7 @@ import { listenDomEvent } from "../shared/dom/events.dom";
 import { renderUiRoot, unmountUiRoot } from "../shared/dom/preact-root.dom";
 import { SettingsDynamicSectionsController } from "./dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "./host";
-import { DEFAULT_ATTACHMENT_FOLDER } from "./model";
+import { DEFAULT_ATTACHMENT_FOLDER, DEFAULT_CLIP_FOLDER } from "./model";
 import type { SettingsSectionsState } from "./section-state";
 import { SettingsTabShell } from "./tab-shell";
 
@@ -82,6 +82,9 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           scrollThreadFromComposerEdges: this.plugin.settings.scrollThreadFromComposerEdges,
           referenceActiveNoteOnSend: this.plugin.settings.referenceActiveNoteOnSend,
           attachmentFolder: this.plugin.settings.attachmentFolder,
+          clipFolder: this.plugin.settings.clipFolder,
+          clipFilenameTemplate: this.plugin.settings.clipFilenameTemplate,
+          clipTags: this.plugin.settings.clipTags,
         }}
         sections={this.settingsSectionsState()}
         actions={{
@@ -105,6 +108,15 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           },
           setAttachmentFolder: (value) => {
             void this.setAttachmentFolder(value);
+          },
+          setClipFolder: (value) => {
+            void this.setClipFolder(value);
+          },
+          setClipFilenameTemplate: (value) => {
+            void this.setClipFilenameTemplate(value);
+          },
+          setClipTags: (value) => {
+            void this.setClipTags(value);
           },
         }}
       />,
@@ -217,6 +229,24 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async setAttachmentFolder(value: string): Promise<void> {
     this.plugin.settings.attachmentFolder = value.trim() || DEFAULT_ATTACHMENT_FOLDER;
+    await this.plugin.saveSettings();
+    this.renderSettingsShell();
+  }
+
+  private async setClipFolder(value: string): Promise<void> {
+    this.plugin.settings.clipFolder = value.trim() || DEFAULT_CLIP_FOLDER;
+    await this.plugin.saveSettings();
+    this.renderSettingsShell();
+  }
+
+  private async setClipFilenameTemplate(value: string): Promise<void> {
+    this.plugin.settings.clipFilenameTemplate = value.trim() || "{{title}}.md";
+    await this.plugin.saveSettings();
+    this.renderSettingsShell();
+  }
+
+  private async setClipTags(value: string): Promise<void> {
+    this.plugin.settings.clipTags = value.trim();
     await this.plugin.saveSettings();
     this.renderSettingsShell();
   }
