@@ -130,9 +130,9 @@ function activeContextReferenceSuggestions(
   const query = rawQuery.toLowerCase();
   const start = beforeCursor.length - rawQuery.length - 1;
   const suggestions: ComposerSuggestion[] = [];
-  if (references?.activeNote && "active-note".startsWith(query) && query !== "active-note") {
+  if (references?.activeNote && "active".startsWith(query)) {
     suggestions.push({
-      display: "Active note",
+      display: "Active file",
       detail: references.activeNote.path,
       replacement: activeNoteContextReferenceMarker(references.activeNote),
       start,

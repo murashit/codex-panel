@@ -36,14 +36,14 @@ describe("chat app-server transports", () => {
     });
   });
 
-  it("starts turns with wikilink and active note context in one app-server payload", async () => {
+  it("starts turns with wikilink and active file context in one app-server payload", async () => {
     const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
     const client = { request } as unknown as AppServerClient;
     const transport = createTestGateway({
       currentClient: () => client,
       connectedClient: vi.fn().mockResolvedValue(client),
     }).turn;
-    const text = "Compare [[Alpha]] with the active note.";
+    const text = "Compare [[Alpha]] with the active file.";
     const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
       text,
       (target) => (target === "Alpha" ? { name: "Alpha", path: "notes/Alpha.md" } : null),
@@ -67,13 +67,13 @@ describe("chat app-server transports", () => {
       input: [
         { type: "text", text, text_elements: [] },
         { type: "mention", name: "Alpha", path: "notes/Alpha.md" },
-        { type: "mention", name: "<active note>", path: "notes/Alpha.md" },
+        { type: "mention", name: "<active>", path: "notes/Alpha.md" },
       ],
       additionalContext: {
         codex_panel_obsidian_context: {
           kind: "untrusted",
           value:
-            "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Alpha]] -> notes/Alpha.md\n\nAttached active note:\n- <active note> -> notes/Alpha.md",
+            "Obsidian context for the current user input:\nResolved wikilinks:\n- [[Alpha]] -> notes/Alpha.md\n\nReferenced active file:\n- <active> -> notes/Alpha.md",
         },
       },
       clientUserMessageId: "local-user",

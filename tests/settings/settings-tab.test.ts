@@ -69,7 +69,7 @@ describe("settings tab", () => {
       "Composer",
       "Send shortcut",
       "Scroll thread from composer line edges",
-      "Reference active note on send",
+      "Reference active file on send",
       "Attachment folder",
       "Web clipping",
       "Clipped note folder",
@@ -142,13 +142,13 @@ describe("settings tab", () => {
     expect(settingDesc(tab, "Scroll thread from composer line edges")).toContain("Up/Ctrl+P");
   });
 
-  it("saves the active note reference setting", async () => {
+  it("saves the active file reference setting", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    const toggle = inputForSetting(tab, "Reference active note on send");
-    if (!toggle) throw new Error("Missing active note reference toggle");
+    const toggle = inputForSetting(tab, "Reference active file on send");
+    if (!toggle) throw new Error("Missing active file reference toggle");
     expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
 
     toggle.checked = true;
@@ -156,7 +156,7 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Reference active note on send")).toContain("current active note");
+    expect(settingDesc(tab, "Reference active file on send")).toContain("current active file");
   });
 
   it("saves the attachment folder setting", async () => {

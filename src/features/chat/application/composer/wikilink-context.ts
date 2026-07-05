@@ -1,7 +1,7 @@
 import { parseLinktext } from "obsidian";
 import type { SkillMetadata } from "../../../../domain/catalog/metadata";
 import {
-  ACTIVE_NOTE_MENTION_NAME,
+  ACTIVE_FILE_MENTION_NAME,
   type CodexInput,
   codexTextInputWithMentions,
   type RequestAdditionalContext,
@@ -83,7 +83,7 @@ export function preparedUserInputWithWikiLinkMentionsSkillsAndContext(
   }
 
   const attachedActiveNote = options.referenceActiveNoteOnSend ? contextReferences.activeNote : null;
-  if (attachedActiveNote) mentions.push({ name: ACTIVE_NOTE_MENTION_NAME, path: attachedActiveNote.path });
+  if (attachedActiveNote) mentions.push({ name: ACTIVE_FILE_MENTION_NAME, path: attachedActiveNote.path });
 
   const skillByName = firstEnabledSkillByName(skills);
   const resolvedSkills: RequestMention[] = [];
@@ -188,7 +188,7 @@ function selectionBodyLines(selections: readonly SelectionContextReference[]): s
 }
 
 function activeNoteContextLines(activeNote: ActiveNoteContextReference): string[] {
-  return ["Attached active note:", `- ${ACTIVE_NOTE_MENTION_NAME} -> ${activeNote.path}`];
+  return ["Referenced active file:", `- ${ACTIVE_FILE_MENTION_NAME} -> ${activeNote.path}`];
 }
 
 function parsedSkillReferences(text: string): string[] {

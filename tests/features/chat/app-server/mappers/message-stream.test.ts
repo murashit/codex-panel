@@ -121,7 +121,7 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
-  it("keeps active note mentions visible even when a wikilink resolves to the same path", () => {
+  it("keeps active file mentions visible even when a wikilink resolves to the same path", () => {
     const userMessage: TurnItem = {
       type: "userMessage",
       id: "u1",
@@ -130,14 +130,14 @@ describe("turn item conversion preserves app-server semantics", () => {
         { type: "text", text: "Read [[Alpha]].", text_elements: [] },
         { type: "mention", name: "Alpha", path: "thoughts/Alpha.md" },
         { type: "mention", name: "Alpha duplicate", path: "thoughts/Alpha.md" },
-        { type: "mention", name: "<active note>", path: "thoughts/Alpha.md" },
+        { type: "mention", name: "<active>", path: "thoughts/Alpha.md" },
       ],
     };
 
     expect(messageStreamItemFromTurnItem(userMessage)).toMatchObject({
       mentionedFiles: [
         { name: "Alpha", path: "thoughts/Alpha.md" },
-        { name: "Active note", path: "thoughts/Alpha.md" },
+        { name: "Active file", path: "thoughts/Alpha.md" },
       ],
     });
   });

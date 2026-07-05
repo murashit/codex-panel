@@ -3,7 +3,7 @@ export interface RequestMention {
   path: string;
 }
 
-export const ACTIVE_NOTE_MENTION_NAME = "<active note>";
+export const ACTIVE_FILE_MENTION_NAME = "<active>";
 
 export interface RequestAdditionalContext {
   key: string;

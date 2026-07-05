@@ -121,8 +121,8 @@ function ComposerSettingsSection({ panel, actions }: { panel: SettingsTabPanelSt
             <ObsidianToggle checked={panel.scrollThreadFromComposerEdges} onChange={actions.setScrollThreadFromComposerEdges} />
           </SettingRow>
           <SettingRow
-            name="Reference active note on send"
-            desc="When enabled, each composer send references the current active note as context without changing the prompt text."
+            name="Reference active file on send"
+            desc="When enabled, each composer send references the current active file as context without changing the prompt text."
           >
             <ObsidianToggle checked={panel.referenceActiveNoteOnSend} onChange={actions.setReferenceActiveNoteOnSend} />
           </SettingRow>

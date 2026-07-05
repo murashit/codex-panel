@@ -147,7 +147,7 @@ describe("VaultNoteCandidateProvider", () => {
     expect(provider.resolveMention("Missing", "")).toBeNull();
   });
 
-  it("uses the active note only as Obsidian link-resolution context", () => {
+  it("uses the active file only as Obsidian link-resolution context", () => {
     const linked = tFile("notes/Project.md", "Project");
     const getFirstLinkpathDest = vi.fn(() => linked);
     const app = appFixture({
@@ -171,7 +171,7 @@ describe("VaultNoteCandidateProvider", () => {
     expect(getFirstLinkpathDest).toHaveBeenCalledWith("Bases/Projects.base", "Daily/Today.md");
   });
 
-  it("returns active note and selection references from the last markdown view", () => {
+  it("returns active file and selection references from the last markdown view", () => {
     const file = tFile("notes/Alpha.md", "Alpha");
     const app = appFixture({
       activeView: markdownView(file, {

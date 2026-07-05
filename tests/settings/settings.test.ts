@@ -132,7 +132,7 @@ describe("settings", () => {
     );
   });
 
-  it("normalizes active note reference on send", () => {
+  it("normalizes active file reference on send", () => {
     expect(normalizeSettings({}).referenceActiveNoteOnSend).toBe(false);
     expect(normalizeSettings({ referenceActiveNoteOnSend: true }).referenceActiveNoteOnSend).toBe(true);
     expect(normalizeSettings({ referenceActiveNoteOnSend: "yes" }).referenceActiveNoteOnSend).toBe(

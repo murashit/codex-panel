@@ -229,13 +229,25 @@ describe("composer suggestions", () => {
   it("uses one active suggestion family at a time", () => {
     expect(activeComposerSuggestions("[[bet", notes, [])[0]?.replacement).toBe("[[Beta Note]]");
     expect(
-      activeComposerSuggestions("@act", notes, [], [], [], null, {
+      activeComposerSuggestions("@active", notes, [], [], [], null, {
         contextReferences: {
           activeNote: { name: "Beta Note", path: "topics/Beta Note.md", linktext: "Beta Note" },
           selection: null,
         },
-      })[0]?.replacement,
-    ).toBe("[[Beta Note]]");
+      })[0],
+    ).toMatchObject({
+      display: "Active file",
+      detail: "topics/Beta Note.md",
+      replacement: "[[Beta Note]]",
+    });
+    expect(
+      activeComposerSuggestions("@active-note", notes, [], [], [], null, {
+        contextReferences: {
+          activeNote: { name: "Beta Note", path: "topics/Beta Note.md", linktext: "Beta Note" },
+          selection: null,
+        },
+      }),
+    ).toEqual([]);
     expect(
       activeComposerSuggestions("@sel", notes, [], [], [], null, {
         contextReferences: {

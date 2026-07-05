@@ -52,7 +52,7 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, items
 }
 
 describe("createConversationTurnActions", () => {
-  it("does not attach composer-only active note context when implementing a plan", async () => {
+  it("does not attach composer-only active file context when implementing a plan", async () => {
     const stateStore = createChatStateStore(createChatState());
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);

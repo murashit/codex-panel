@@ -55,19 +55,19 @@ describe("optimistic turn start helpers", () => {
     });
   });
 
-  it("keeps active note mentions visible even when the same file is mentioned explicitly", () => {
+  it("keeps active file mentions visible even when the same file is mentioned explicitly", () => {
     const text = "Read [[Note]].";
     const input = [
       { type: "text" as const, text },
       { type: "mention" as const, name: "Note", path: "Note.md" },
       { type: "mention" as const, name: "Note duplicate", path: "Note.md" },
-      { type: "mention" as const, name: "<active note>", path: "Note.md" },
+      { type: "mention" as const, name: "<active>", path: "Note.md" },
     ];
 
     expect(localUserMessageItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
       mentionedFiles: [
         { name: "Note", path: "Note.md" },
-        { name: "Active note", path: "Note.md" },
+        { name: "Active file", path: "Note.md" },
       ],
     });
   });

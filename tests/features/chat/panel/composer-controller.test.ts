@@ -431,7 +431,7 @@ describe("ChatComposerController", () => {
     ]);
   });
 
-  it("freezes active note context when inserting the active-note suggestion", async () => {
+  it("freezes active file context when inserting the active suggestion", async () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     let references: ComposerContextReferences = {
@@ -488,7 +488,7 @@ describe("ChatComposerController", () => {
     });
   });
 
-  it("uses the captured active note when slash commands prepare input asynchronously", () => {
+  it("uses the captured active file when slash commands prepare input asynchronously", () => {
     const stateStore = createChatStateStore();
     let references: ComposerContextReferences = {
       activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
@@ -522,12 +522,12 @@ describe("ChatComposerController", () => {
 
     expect(controller.preparedInput("Rewrite intro", snapshot).input).toEqual([
       { type: "text", text: "Rewrite intro" },
-      { type: "mention", name: "<active note>", path: "notes/Alpha.md" },
+      { type: "mention", name: "<active>", path: "notes/Alpha.md" },
       {
         type: "additionalContext",
         key: "codex_panel_obsidian_context",
         kind: "untrusted",
-        value: "Obsidian context for the current user input:\nAttached active note:\n- <active note> -> notes/Alpha.md",
+        value: "Obsidian context for the current user input:\nReferenced active file:\n- <active> -> notes/Alpha.md",
       },
     ]);
   });
