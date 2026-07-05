@@ -43,7 +43,7 @@ const CHAT_SHELL_READ_MODEL_IMPORT_MESSAGE =
   "Import chat panel signal read models only from the shell and panel surface rendering adapters.";
 const CHAT_SIGNAL_TYPE_REFERENCE_MESSAGE = "Keep Preact signal types inside the chat panel read-model and surface rendering adapter layer.";
 const APP_SERVER_DIRECT_RPC_MESSAGE = "Keep direct app-server RPC calls behind app-server services and chat app-server adapters.";
-let appServerBoundaryPolicyReportPromise;
+const appServerBoundaryPolicyReportPromises = new Map();
 let renderingAndCssPolicyReportPromise;
 
 describe("Biome Grit plugin wiring", () => {
@@ -727,66 +727,102 @@ export const value = statusText;
 `.trimStart(),
     );
 
-    const report = biomeLint(
-      [
-        "src/features/chat/application/outer.ts",
-        "src/features/chat/application/allowed.ts",
-        "src/features/chat/application/root-app-server.ts",
-        "src/features/chat/application/sibling-feature.ts",
-        "src/features/chat/app-server/outer.ts",
-        "src/features/chat/app-server/allowed.ts",
-        "src/features/chat/host/workspace-escape.ts",
-        "src/features/chat/host/workspace-allowed.ts",
-        "src/features/chat/host/rendering-escape.ts",
-        "src/features/chat/host/rendering-allowed.ts",
-        "src/features/threads-view/workspace-escape.ts",
-        "src/features/threads-view/workspace-allowed.ts",
-        "src/workspace/chat-internal-escape.ts",
-        "src/workspace/chat-host-allowed.ts",
-        "src/domain/mixed-root.ts",
-        "src/features/chat/mixed-root.ts",
-        "src/features/threads/mixed-root.ts",
-        "src/features/threads/list/rename-lifecycle.ts",
-        "src/features/chat/panel/outer.tsx",
-        "src/features/chat/panel/allowed.tsx",
-        "src/features/chat/presentation/outer.ts",
-        "src/features/chat/presentation/allowed.ts",
-        "src/features/chat/ui/outer.tsx",
-        "src/features/chat/ui/allowed.tsx",
-      ],
-      cwd,
+    const ownershipFiles = [
+      "src/features/chat/application/outer.ts",
+      "src/features/chat/application/allowed.ts",
+      "src/features/chat/application/root-app-server.ts",
+      "src/features/chat/application/sibling-feature.ts",
+      "src/features/chat/app-server/outer.ts",
+      "src/features/chat/app-server/allowed.ts",
+      "src/features/chat/host/workspace-escape.ts",
+      "src/features/chat/host/workspace-allowed.ts",
+      "src/features/chat/host/rendering-escape.ts",
+      "src/features/chat/host/rendering-allowed.ts",
+      "src/features/threads-view/workspace-escape.ts",
+      "src/features/threads-view/workspace-allowed.ts",
+      "src/workspace/chat-internal-escape.ts",
+      "src/workspace/chat-host-allowed.ts",
+      "src/domain/mixed-root.ts",
+      "src/features/chat/mixed-root.ts",
+      "src/features/threads/mixed-root.ts",
+      "src/features/threads/list/rename-lifecycle.ts",
+      "src/features/chat/panel/outer.tsx",
+      "src/features/chat/panel/allowed.tsx",
+      "src/features/chat/presentation/outer.ts",
+      "src/features/chat/presentation/allowed.ts",
+      "src/features/chat/ui/outer.tsx",
+      "src/features/chat/ui/allowed.tsx",
+    ];
+
+    await writeBiomeConfig(cwd, ["no-chat-application-outer-layer-imports.grit"]);
+    const chatApplicationReport = biomeLint(ownershipFiles, cwd);
+    expectOnlyPluginMessage(chatApplicationReport, "src/features/chat/application/outer.ts", CHAT_APPLICATION_OUTER_LAYER_MESSAGE);
+    expect(pluginDiagnostics(chatApplicationReport, "src/features/chat/application/allowed.ts")).toEqual([]);
+    expect(pluginMessages(chatApplicationReport, "src/features/chat/application/root-app-server.ts")).toEqual([
+      CHAT_APPLICATION_OUTER_LAYER_MESSAGE,
+    ]);
+    expectOnlyPluginMessage(
+      chatApplicationReport,
+      "src/features/chat/application/sibling-feature.ts",
+      CHAT_APPLICATION_OUTER_LAYER_MESSAGE,
     );
 
-    expectOnlyPluginMessage(report, "src/features/chat/application/outer.ts", CHAT_APPLICATION_OUTER_LAYER_MESSAGE);
-    expect(pluginDiagnostics(report, "src/features/chat/application/allowed.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/application/root-app-server.ts")).toEqual([CHAT_APPLICATION_OUTER_LAYER_MESSAGE]);
-    expectOnlyPluginMessage(report, "src/features/chat/application/sibling-feature.ts", CHAT_APPLICATION_OUTER_LAYER_MESSAGE);
-    expectOnlyPluginMessage(report, "src/features/chat/app-server/outer.ts", CHAT_APP_SERVER_OUTER_LAYER_MESSAGE);
-    expect(pluginDiagnostics(report, "src/features/chat/app-server/allowed.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/chat/host/workspace-escape.ts")).toEqual([CHAT_WORKSPACE_BOUNDARY_MESSAGE]);
-    expect(pluginDiagnostics(report, "src/features/chat/host/workspace-allowed.ts")).toEqual([]);
-    expectOnlyPluginMessage(report, "src/features/chat/host/rendering-escape.ts", CHAT_HOST_RENDERING_LAYER_MESSAGE);
-    expect(pluginDiagnostics(report, "src/features/chat/host/rendering-allowed.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/features/threads-view/workspace-escape.ts")).toEqual([FEATURE_WORKSPACE_BOUNDARY_MESSAGE]);
-    expect(pluginDiagnostics(report, "src/features/threads-view/workspace-allowed.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/workspace/chat-internal-escape.ts")).toEqual([WORKSPACE_CHAT_INTERNAL_MESSAGE]);
-    expect(pluginDiagnostics(report, "src/workspace/chat-host-allowed.ts")).toEqual([]);
-    expect(pluginMessages(report, "src/domain/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
-    expect(pluginMessages(report, "src/features/chat/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
-    expect(pluginMessages(report, "src/features/threads/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
-    expect(pluginDiagnostics(report, "src/features/threads/list/rename-lifecycle.ts")).toEqual([]);
-    expectOnlyPluginMessage(report, "src/features/chat/panel/outer.tsx", CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE);
-    expect(pluginDiagnostics(report, "src/features/chat/panel/allowed.tsx")).toEqual([]);
-    expectOnlyPluginMessage(report, "src/features/chat/presentation/outer.ts", CHAT_PRESENTATION_OUTER_LAYER_MESSAGE);
-    expect(pluginDiagnostics(report, "src/features/chat/presentation/allowed.ts")).toEqual([]);
-    expectOnlyPluginMessage(report, "src/features/chat/ui/outer.tsx", CHAT_UI_OUTER_LAYER_MESSAGE);
-    expect(pluginDiagnostics(report, "src/features/chat/ui/allowed.tsx")).toEqual([]);
+    await writeBiomeConfig(cwd, ["no-chat-app-server-outer-layer-imports.grit"]);
+    const chatAppServerReport = biomeLint(ownershipFiles, cwd);
+    expectOnlyPluginMessage(chatAppServerReport, "src/features/chat/app-server/outer.ts", CHAT_APP_SERVER_OUTER_LAYER_MESSAGE);
+    expect(pluginDiagnostics(chatAppServerReport, "src/features/chat/app-server/allowed.ts")).toEqual([]);
+
+    await writeBiomeConfig(cwd, ["no-chat-workspace-boundary-imports.grit"]);
+    const chatWorkspaceReport = biomeLint(ownershipFiles, cwd);
+    expect(pluginMessages(chatWorkspaceReport, "src/features/chat/host/workspace-escape.ts")).toEqual([CHAT_WORKSPACE_BOUNDARY_MESSAGE]);
+    expect(pluginDiagnostics(chatWorkspaceReport, "src/features/chat/host/workspace-allowed.ts")).toEqual([]);
+
+    await writeBiomeConfig(cwd, ["no-chat-host-rendering-layer-imports.grit"]);
+    const chatHostRenderingReport = biomeLint(ownershipFiles, cwd);
+    expectOnlyPluginMessage(chatHostRenderingReport, "src/features/chat/host/rendering-escape.ts", CHAT_HOST_RENDERING_LAYER_MESSAGE);
+    expect(pluginDiagnostics(chatHostRenderingReport, "src/features/chat/host/rendering-allowed.ts")).toEqual([]);
+
+    await writeBiomeConfig(cwd, ["no-feature-workspace-boundary-imports.grit"]);
+    const featureWorkspaceReport = biomeLint(ownershipFiles, cwd);
+    expect(pluginMessages(featureWorkspaceReport, "src/features/threads-view/workspace-escape.ts")).toEqual([
+      FEATURE_WORKSPACE_BOUNDARY_MESSAGE,
+    ]);
+    expect(pluginDiagnostics(featureWorkspaceReport, "src/features/threads-view/workspace-allowed.ts")).toEqual([]);
+
+    await writeBiomeConfig(cwd, ["no-workspace-chat-internal-imports.grit"]);
+    const workspaceChatInternalReport = biomeLint(ownershipFiles, cwd);
+    expect(pluginMessages(workspaceChatInternalReport, "src/workspace/chat-internal-escape.ts")).toEqual([WORKSPACE_CHAT_INTERNAL_MESSAGE]);
+    expect(pluginDiagnostics(workspaceChatInternalReport, "src/workspace/chat-host-allowed.ts")).toEqual([]);
+
+    await writeBiomeConfig(cwd, ["no-responsibility-root-module-files.grit"]);
+    const responsibilityRootReport = biomeLint(ownershipFiles, cwd);
+    expect(pluginMessages(responsibilityRootReport, "src/domain/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginMessages(responsibilityRootReport, "src/features/chat/mixed-root.ts")).toEqual([RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE]);
+    expect(pluginMessages(responsibilityRootReport, "src/features/threads/mixed-root.ts")).toEqual([
+      RESPONSIBILITY_ROOT_MODULE_FILE_MESSAGE,
+    ]);
+    expect(pluginDiagnostics(responsibilityRootReport, "src/features/threads/list/rename-lifecycle.ts")).toEqual([]);
+
+    await writeBiomeConfig(cwd, ["no-chat-panel-runtime-boundary-imports.grit"]);
+    const chatPanelRuntimeReport = biomeLint(ownershipFiles, cwd);
+    expectOnlyPluginMessage(chatPanelRuntimeReport, "src/features/chat/panel/outer.tsx", CHAT_PANEL_RUNTIME_BOUNDARY_MESSAGE);
+    expect(pluginDiagnostics(chatPanelRuntimeReport, "src/features/chat/panel/allowed.tsx")).toEqual([]);
+
+    await writeBiomeConfig(cwd, ["no-chat-presentation-outer-layer-imports.grit"]);
+    const chatPresentationReport = biomeLint(ownershipFiles, cwd);
+    expectOnlyPluginMessage(chatPresentationReport, "src/features/chat/presentation/outer.ts", CHAT_PRESENTATION_OUTER_LAYER_MESSAGE);
+    expect(pluginDiagnostics(chatPresentationReport, "src/features/chat/presentation/allowed.ts")).toEqual([]);
+
+    await writeBiomeConfig(cwd, ["no-chat-ui-outer-layer-imports.grit"]);
+    const chatUiReport = biomeLint(ownershipFiles, cwd);
+    expectOnlyPluginMessage(chatUiReport, "src/features/chat/ui/outer.tsx", CHAT_UI_OUTER_LAYER_MESSAGE);
+    expect(pluginDiagnostics(chatUiReport, "src/features/chat/ui/allowed.tsx")).toEqual([]);
   });
 });
 
 describe("Biome Grit include boundaries", () => {
   it("keeps generated app-server imports behind explicit app-server boundaries", async () => {
-    const report = await appServerBoundaryPolicyReport();
+    const report = await generatedAppServerBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/domain/generated-thread.ts")).toEqual([
       "Keep generated app-server types behind src/app-server adapters; expose Panel-owned models outside raw app-server boundaries.",
@@ -817,7 +853,7 @@ describe("Biome Grit include boundaries", () => {
   });
 
   it("keeps app-server protocol modules behind app-server and chat ingestion boundaries", async () => {
-    const report = await appServerBoundaryPolicyReport();
+    const report = await appServerProtocolBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/application/pending-requests/pending-request-actions.ts")).toEqual([
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
@@ -845,7 +881,7 @@ describe("Biome Grit include boundaries", () => {
   });
 
   it("keeps domain modules independent from outer layers", async () => {
-    const report = await appServerBoundaryPolicyReport();
+    const report = await domainOuterLayerPolicyReport();
 
     expectOnlyPluginMessage(
       report,
@@ -867,7 +903,7 @@ describe("Biome Grit include boundaries", () => {
   });
 
   it("keeps lower-level modules independent from feature modules", async () => {
-    const report = await appServerBoundaryPolicyReport();
+    const report = await lowerLevelFeaturePolicyReport();
 
     expect(pluginMessages(report, "src/app-server/protocol/diagnostics.ts")).toEqual([
       "Do not import feature modules from this layer. Move reusable behavior to domain, shared DOM/Obsidian/runtime/UI, or app-server adapters.",
@@ -879,7 +915,7 @@ describe("Biome Grit include boundaries", () => {
   });
 
   it("keeps app-server connection internals behind app-server adapters", async () => {
-    const report = await appServerBoundaryPolicyReport();
+    const report = await appServerConnectionBoundaryPolicyReport();
 
     expect(pluginMessages(report, "src/app-server/protocol/catalog.ts")).toEqual([
       "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
@@ -971,7 +1007,7 @@ export const read = listThreads;
   });
 
   it("keeps direct app-server RPCs behind app-server boundary adapters", async () => {
-    const report = await appServerBoundaryPolicyReport();
+    const report = await appServerDirectRpcPolicyReport();
 
     expect(pluginMessages(report, "src/features/chat/application/threads/history.ts")).toEqual([APP_SERVER_DIRECT_RPC_MESSAGE]);
     expect(pluginMessages(report, "src/features/chat/host/bundles/connection-bundle.ts")).toEqual([APP_SERVER_DIRECT_RPC_MESSAGE]);
@@ -1115,20 +1151,42 @@ export const value = <button />;
   );
 }
 
-function appServerBoundaryPolicyReport() {
-  appServerBoundaryPolicyReportPromise ??= createAppServerBoundaryPolicyReport();
-  return appServerBoundaryPolicyReportPromise;
+function generatedAppServerBoundaryPolicyReport() {
+  return cachedAppServerBoundaryPolicyReport(["no-generated-app-server-boundary-imports.grit"]);
 }
 
-async function createAppServerBoundaryPolicyReport() {
-  const cwd = await tempBiomeWorkspace([
-    "no-generated-app-server-boundary-imports.grit",
-    "no-app-server-protocol-boundary-imports.grit",
-    "no-domain-outer-layer-imports.grit",
-    "no-lower-level-feature-imports.grit",
-    "no-app-server-connection-boundary-imports.grit",
-    "no-app-server-direct-rpcs.grit",
-  ]);
+function appServerProtocolBoundaryPolicyReport() {
+  return cachedAppServerBoundaryPolicyReport(["no-app-server-protocol-boundary-imports.grit"]);
+}
+
+function domainOuterLayerPolicyReport() {
+  return cachedAppServerBoundaryPolicyReport(["no-domain-outer-layer-imports.grit"]);
+}
+
+function lowerLevelFeaturePolicyReport() {
+  return cachedAppServerBoundaryPolicyReport(["no-lower-level-feature-imports.grit"]);
+}
+
+function appServerConnectionBoundaryPolicyReport() {
+  return cachedAppServerBoundaryPolicyReport(["no-app-server-connection-boundary-imports.grit", "no-domain-outer-layer-imports.grit"]);
+}
+
+function appServerDirectRpcPolicyReport() {
+  return cachedAppServerBoundaryPolicyReport(["no-app-server-direct-rpcs.grit"]);
+}
+
+function cachedAppServerBoundaryPolicyReport(plugins) {
+  const cacheKey = plugins.join("\0");
+  let reportPromise = appServerBoundaryPolicyReportPromises.get(cacheKey);
+  if (!reportPromise) {
+    reportPromise = createAppServerBoundaryPolicyReport(plugins);
+    appServerBoundaryPolicyReportPromises.set(cacheKey, reportPromise);
+  }
+  return reportPromise;
+}
+
+async function createAppServerBoundaryPolicyReport(plugins) {
+  const cwd = await tempBiomeWorkspace(plugins);
   await writeFile(
     path.join(cwd, "src/features/chat/domain/generated-thread.ts"),
     `
@@ -1484,6 +1542,11 @@ async function tempBiomeWorkspace(plugins) {
   await mkdir(path.join(cwd, "src/domain/display"), { recursive: true });
   await mkdir(path.join(cwd, "src/styles"), { recursive: true });
   await mkdir(path.join(cwd, "tests/app-server"), { recursive: true });
+  await writeBiomeConfig(cwd, plugins);
+  return cwd;
+}
+
+async function writeBiomeConfig(cwd, plugins) {
   await writeFile(
     path.join(cwd, "biome.jsonc"),
     JSON.stringify({
@@ -1493,7 +1556,6 @@ async function tempBiomeWorkspace(plugins) {
       css: { linter: { enabled: true } },
     }),
   );
-  return cwd;
 }
 
 function biomeLint(files, cwd, options = {}) {
