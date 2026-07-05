@@ -24,7 +24,7 @@ interface SettingsTabPanelState {
   showToolbar: boolean;
   sendShortcut: SendShortcut;
   scrollThreadFromComposerEdges: boolean;
-  attachActiveNoteOnSend: boolean;
+  referenceActiveNoteOnSend: boolean;
   attachmentFolder: string;
 }
 
@@ -34,7 +34,7 @@ interface SettingsTabShellActions {
   setShowToolbar: (value: boolean) => void;
   setSendShortcut: (value: SendShortcut) => void;
   setScrollThreadFromComposerEdges: (value: boolean) => void;
-  setAttachActiveNoteOnSend: (value: boolean) => void;
+  setReferenceActiveNoteOnSend: (value: boolean) => void;
   setAttachmentFolder: (value: string) => void;
 }
 
@@ -109,10 +109,10 @@ function PanelPreferenceSections({ panel, actions }: { panel: SettingsTabPanelSt
             <ObsidianToggle checked={panel.scrollThreadFromComposerEdges} onChange={actions.setScrollThreadFromComposerEdges} />
           </SettingRow>
           <SettingRow
-            name="Attach active note on send"
-            desc="When enabled, each composer send includes the current active note as prompt context."
+            name="Reference active note on send"
+            desc="When enabled, each composer send references the current active note as context without changing the prompt text."
           >
-            <ObsidianToggle checked={panel.attachActiveNoteOnSend} onChange={actions.setAttachActiveNoteOnSend} />
+            <ObsidianToggle checked={panel.referenceActiveNoteOnSend} onChange={actions.setReferenceActiveNoteOnSend} />
           </SettingRow>
           <SettingRow name="Attachment folder" desc="Vault folder for files pasted or dropped into the composer.">
             <ObsidianCommitTextInput

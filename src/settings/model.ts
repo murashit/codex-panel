@@ -14,7 +14,7 @@ export interface CodexPanelSettings {
   showToolbar: boolean;
   sendShortcut: SendShortcut;
   scrollThreadFromComposerEdges: boolean;
-  attachActiveNoteOnSend: boolean;
+  referenceActiveNoteOnSend: boolean;
   attachmentFolder: string;
   archiveExportEnabled: boolean;
   archiveExportFolderTemplate: string;
@@ -33,7 +33,7 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   showToolbar: true,
   sendShortcut: "enter",
   scrollThreadFromComposerEdges: false,
-  attachActiveNoteOnSend: false,
+  referenceActiveNoteOnSend: false,
   attachmentFolder: DEFAULT_ATTACHMENT_FOLDER,
   archiveExportEnabled: false,
   archiveExportFolderTemplate: "Codex Archives",
@@ -57,7 +57,7 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
       record["scrollThreadFromComposerEdges"],
       DEFAULT_SETTINGS.scrollThreadFromComposerEdges,
     ),
-    attachActiveNoteOnSend: booleanOrDefault(record["attachActiveNoteOnSend"], DEFAULT_SETTINGS.attachActiveNoteOnSend),
+    referenceActiveNoteOnSend: booleanOrDefault(record["referenceActiveNoteOnSend"], DEFAULT_SETTINGS.referenceActiveNoteOnSend),
     attachmentFolder:
       stringOrDefault(record["attachmentFolder"], DEFAULT_SETTINGS.attachmentFolder).trim() || DEFAULT_SETTINGS.attachmentFolder,
     archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),

@@ -60,7 +60,7 @@ describe("createConversationTurnActions", () => {
     const composerSnapshot: ComposerInputSnapshot = {
       sourcePath: "notes/Alpha.md",
       availableSkills: [],
-      attachActiveNoteOnSend: true,
+      referenceActiveNoteOnSend: true,
       contextReferences: {
         activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
         selection: null,

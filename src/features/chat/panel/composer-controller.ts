@@ -52,7 +52,7 @@ export interface ChatComposerControllerOptions {
   sourcePath: () => string;
   stateStore: ChatStateStore;
   viewId: string;
-  attachActiveNoteOnSend: () => boolean;
+  referenceActiveNoteOnSend: () => boolean;
   sendShortcut: () => SendShortcut;
   scrollThreadFromComposerEdges: () => boolean;
   canInterrupt: (model: ChatPanelComposerReadModel) => boolean;
@@ -157,7 +157,7 @@ export class ChatComposerController {
     return {
       sourcePath,
       availableSkills: this.state.connection.availableSkills,
-      attachActiveNoteOnSend: this.options.attachActiveNoteOnSend(),
+      referenceActiveNoteOnSend: this.options.referenceActiveNoteOnSend(),
       contextReferences: this.options.contextReferenceProvider.contextReferences(sourcePath),
       activeNoteSnapshots: [...this.activeNoteContextSnapshots],
       selectionSnapshots: [...this.selectionContextSnapshots],
@@ -171,7 +171,7 @@ export class ChatComposerController {
       (target) => this.options.noteCandidateProvider.resolveMention(target, snapshot.sourcePath),
       snapshot.availableSkills,
       this.contextReferencesFromSnapshot(snapshot, text),
-      { attachActiveNoteOnSend: snapshot.attachActiveNoteOnSend },
+      { referenceActiveNoteOnSend: snapshot.referenceActiveNoteOnSend },
     );
     return {
       text: prepared.text,

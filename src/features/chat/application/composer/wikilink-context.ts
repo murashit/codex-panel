@@ -34,7 +34,7 @@ export interface PreparedComposerInput {
 }
 
 interface PreparedComposerInputOptions {
-  attachActiveNoteOnSend: boolean;
+  referenceActiveNoteOnSend: boolean;
 }
 
 function parsedWikiLinks(text: string): ParsedWikiLink[] {
@@ -82,7 +82,7 @@ export function preparedUserInputWithWikiLinkMentionsSkillsAndContext(
     mentions.push({ name: selection.name, path: selection.path });
   }
 
-  const attachedActiveNote = options.attachActiveNoteOnSend ? contextReferences.activeNote : null;
+  const attachedActiveNote = options.referenceActiveNoteOnSend ? contextReferences.activeNote : null;
   if (attachedActiveNote) mentions.push({ name: ACTIVE_NOTE_MENTION_NAME, path: attachedActiveNote.path });
 
   const skillByName = firstEnabledSkillByName(skills);

@@ -25,7 +25,7 @@ interface ChatPanelSettingsRef {
 }
 
 export interface ChatPanelSettingsAccess {
-  attachActiveNoteOnSend(): boolean;
+  referenceActiveNoteOnSend(): boolean;
   attachmentFolder(): string;
   archiveExportEnabled(): boolean;
   archiveExportSettings(): ArchiveExportSettings;

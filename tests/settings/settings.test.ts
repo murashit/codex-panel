@@ -24,7 +24,7 @@ describe("settings", () => {
       showToolbar: false,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
-      attachActiveNoteOnSend: true,
+      referenceActiveNoteOnSend: true,
       attachmentFolder: "Codex Uploads",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
@@ -44,7 +44,7 @@ describe("settings", () => {
       showToolbar: false,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
-      attachActiveNoteOnSend: true,
+      referenceActiveNoteOnSend: true,
       attachmentFolder: "Codex Uploads",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives/{{date}}",
@@ -70,7 +70,7 @@ describe("settings", () => {
       showToolbar: true,
       sendShortcut: "mod-enter",
       scrollThreadFromComposerEdges: true,
-      attachActiveNoteOnSend: true,
+      referenceActiveNoteOnSend: true,
       attachmentFolder: "Codex Attachments",
       archiveExportEnabled: true,
       archiveExportFolderTemplate: "Codex Archives",
@@ -123,10 +123,12 @@ describe("settings", () => {
     );
   });
 
-  it("normalizes active note attachment on send", () => {
-    expect(normalizeSettings({}).attachActiveNoteOnSend).toBe(false);
-    expect(normalizeSettings({ attachActiveNoteOnSend: true }).attachActiveNoteOnSend).toBe(true);
-    expect(normalizeSettings({ attachActiveNoteOnSend: "yes" }).attachActiveNoteOnSend).toBe(DEFAULT_SETTINGS.attachActiveNoteOnSend);
+  it("normalizes active note reference on send", () => {
+    expect(normalizeSettings({}).referenceActiveNoteOnSend).toBe(false);
+    expect(normalizeSettings({ referenceActiveNoteOnSend: true }).referenceActiveNoteOnSend).toBe(true);
+    expect(normalizeSettings({ referenceActiveNoteOnSend: "yes" }).referenceActiveNoteOnSend).toBe(
+      DEFAULT_SETTINGS.referenceActiveNoteOnSend,
+    );
   });
 
   it("normalizes the attachment folder", () => {

@@ -26,7 +26,7 @@ function wikiLinkSuggestions(query: string, notes: Parameters<typeof activeCompo
 
 function userInputWithWikiLinkMentionsAndSkills(text: string, resolveMention: WikiLinkMentionResolver, skills: readonly SkillMetadata[]) {
   return preparedUserInputWithWikiLinkMentionsSkillsAndContext(text, resolveMention, skills, emptyComposerContextReferences(), {
-    attachActiveNoteOnSend: false,
+    referenceActiveNoteOnSend: false,
   }).input;
 }
 

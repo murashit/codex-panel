@@ -44,7 +44,7 @@ You can also open the plugin page directly: <https://community.obsidian.md/plugi
 
 Each panel can keep a separate conversation, so related work can stay open side by side. Start fresh from the panel, reopen recent threads from the picker or panel history, or use the Threads view to see active work across the vault.
 
-The composer understands Obsidian links. It suggests vault files and recent notes, keeps wikilinks readable, includes linked files with your prompt, and opens file links from Codex replies back in Obsidian. Use `@active-note` or `@selection` to include the active note or current Markdown selection without pasting it manually, or enable **Attach active note on send** to include the current active note with each composer send. Paste or drop files to save them in the attachment folder and reference them from the same prompt.
+The composer understands Obsidian links. It suggests vault files and recent notes, keeps wikilinks readable, includes linked files with your prompt, and opens file links from Codex replies back in Obsidian. Use `@active-note` or `@selection` to include the active note or current Markdown selection without pasting it manually, or enable **Reference active note on send** to reference the current active note with each composer send. Paste or drop files to save them in the attachment folder and reference them from the same prompt.
 
 Completions cover slash commands, `$skill-name` skills, recent threads, models, reasoning levels, and permission profiles. Use `/help` for the current command list.
 

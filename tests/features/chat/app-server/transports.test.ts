@@ -52,7 +52,7 @@ describe("chat app-server transports", () => {
         activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
         selection: null,
       },
-      { attachActiveNoteOnSend: true },
+      { referenceActiveNoteOnSend: true },
     );
 
     await transport.startTurn({

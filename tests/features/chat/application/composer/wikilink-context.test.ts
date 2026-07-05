@@ -23,7 +23,7 @@ function userInputWithWikiLinkMentionsAndSkills(
   skills: readonly SkillMetadata[],
 ): CodexInput {
   return preparedUserInputWithWikiLinkMentionsSkillsAndContext(text, resolveMention, skills, emptyComposerContextReferences(), {
-    attachActiveNoteOnSend: false,
+    referenceActiveNoteOnSend: false,
   }).input;
 }
 
@@ -182,7 +182,7 @@ describe("wikilink context", () => {
           text: "selected text",
         },
       },
-      { attachActiveNoteOnSend: false },
+      { referenceActiveNoteOnSend: false },
     );
 
     expect(prepared.text).toBe(text);
@@ -199,13 +199,13 @@ describe("wikilink context", () => {
         selection: null,
         activeNoteSnapshots: [{ name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" }],
       },
-      { attachActiveNoteOnSend: false },
+      { referenceActiveNoteOnSend: false },
     );
 
     expect(prepared.input).toContainEqual({ type: "mention", name: "Alpha", path: "notes/Alpha.md" });
   });
 
-  it("attaches the active note on send when enabled without changing visible text", () => {
+  it("references the active note on send when enabled without changing visible text", () => {
     const text = "Rewrite the introduction.";
     const prepared = preparedUserInputWithWikiLinkMentionsSkillsAndContext(
       text,
@@ -215,7 +215,7 @@ describe("wikilink context", () => {
         activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
         selection: null,
       },
-      { attachActiveNoteOnSend: true },
+      { referenceActiveNoteOnSend: true },
     );
 
     expect(prepared.text).toBe(text);
@@ -241,7 +241,7 @@ describe("wikilink context", () => {
         activeNote: { name: "Alpha", path: "notes/Alpha.md", linktext: "Alpha" },
         selection: null,
       },
-      { attachActiveNoteOnSend: true },
+      { referenceActiveNoteOnSend: true },
     );
 
     expect(prepared.text).toBe(text);
@@ -282,7 +282,7 @@ describe("wikilink context", () => {
           },
         ],
       },
-      { attachActiveNoteOnSend: true },
+      { referenceActiveNoteOnSend: true },
     );
 
     expect(prepared.input).toEqual([
@@ -324,7 +324,7 @@ describe("wikilink context", () => {
           },
         ],
       },
-      { attachActiveNoteOnSend: false },
+      { referenceActiveNoteOnSend: false },
     );
 
     expect(prepared.input).toContainEqual({

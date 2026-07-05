@@ -132,7 +132,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
 
   private chatSettings(): ChatPanelSettingsAccess {
     return {
-      attachActiveNoteOnSend: () => this.options.settingsRef.settings.attachActiveNoteOnSend,
+      referenceActiveNoteOnSend: () => this.options.settingsRef.settings.referenceActiveNoteOnSend,
       attachmentFolder: () => this.options.settingsRef.settings.attachmentFolder,
       archiveExportEnabled: () => this.options.settingsRef.settings.archiveExportEnabled,
       archiveExportSettings: () => ({

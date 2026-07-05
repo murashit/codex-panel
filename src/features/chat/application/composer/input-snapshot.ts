@@ -5,7 +5,7 @@ import type { ActiveNoteContextReference, ComposerContextReferences, SelectionCo
 export interface ComposerInputSnapshot {
   readonly sourcePath: string;
   readonly availableSkills: readonly SkillMetadata[];
-  readonly attachActiveNoteOnSend: boolean;
+  readonly referenceActiveNoteOnSend: boolean;
   readonly contextReferences: ComposerContextReferences;
   readonly activeNoteSnapshots: readonly ActiveNoteContextReference[];
   readonly selectionSnapshots: readonly SelectionContextReference[];
