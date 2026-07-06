@@ -29,32 +29,50 @@ function renderComposerController(
   renderUiRoot(parent, h(ComposerShell, controller.renderState(composerReadModelFromChatState(stateStore.getState()), actions)));
 }
 
+type ComposerControllerOptions = ConstructorParameters<typeof ChatComposerController>[0];
+
+function composerControllerFixture(
+  options: { stateStore?: ChatStateStore; controller?: Partial<ComposerControllerOptions>; renderActions?: ChatComposerRenderActions } = {},
+): {
+  controller: ChatComposerController;
+  parent: HTMLElement;
+  renderShell: ReturnType<typeof vi.fn>;
+  stateStore: ChatStateStore;
+} {
+  const stateStore = options.stateStore ?? createChatStateStore();
+  const parent = document.createElement("div");
+  const controller = new ChatComposerController({
+    noteCandidateProvider: noteProvider(),
+    contextReferenceProvider: contextProvider(),
+    sourcePath: () => "",
+    viewId: "view",
+    referenceActiveNoteOnSend: () => false,
+    sendShortcut: () => "enter",
+    scrollThreadFromComposerEdges: () => false,
+    threadScrollFromComposer: vi.fn(),
+    canInterrupt: (_state) => false,
+    composerProjection: defaultComposerProjection,
+    currentModelForSuggestions: () => null,
+    togglePlan: vi.fn(),
+    toggleAutoReview: vi.fn(),
+    toggleFast: vi.fn(),
+    onDraftChange: vi.fn(),
+    onHeightChange: vi.fn(),
+    ...options.controller,
+    stateStore,
+  });
+  const renderShell = vi.fn(() => renderComposerController(parent, controller, stateStore, options.renderActions));
+  stateStore.subscribe(renderShell);
+  return { controller, parent, renderShell, stateStore };
+}
+
 describe("ChatComposerController", () => {
   it("derives composer placeholder and meta from the projection", () => {
-    const stateStore = createChatStateStore();
     const projection = vi.fn((model: ChatPanelComposerReadModel) => ({
       placeholder: `Projected ${model.draft.value || "empty"}`,
       meta: defaultComposerProjection(model).meta,
     }));
-    const controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      canInterrupt: (_state) => false,
-      composerProjection: projection,
-      currentModelForSuggestions: () => null,
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
-      onHeightChange: vi.fn(),
-    });
+    const { controller, stateStore } = composerControllerFixture({ controller: { composerProjection: projection } });
 
     const props = controller.renderState(composerReadModelFromChatState(stateStore.getState()), { submit: vi.fn() });
 
@@ -712,28 +730,8 @@ describe("ChatComposerController", () => {
   });
 
   it("delegates composer runtime toggles", () => {
-    const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     const togglePlan = vi.fn();
-    const controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      canInterrupt: (_state) => false,
-      composerProjection: defaultComposerProjection,
-      currentModelForSuggestions: () => null,
-      togglePlan,
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
-      onHeightChange: vi.fn(),
-    });
+    const { controller, parent, stateStore } = composerControllerFixture({ controller: { togglePlan } });
 
     renderComposerController(parent, controller, stateStore);
 
@@ -745,27 +743,8 @@ describe("ChatComposerController", () => {
   it("delegates submit events through render actions", () => {
     const stateStore = createChatStateStore();
     stateStore.dispatch({ type: "composer/draft-set", draft: "hello" });
-    const parent = document.createElement("div");
     const submit = vi.fn();
-    const controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      canInterrupt: (_state) => false,
-      composerProjection: defaultComposerProjection,
-      currentModelForSuggestions: () => null,
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
-      onHeightChange: vi.fn(),
-    });
+    const { controller, parent } = composerControllerFixture({ stateStore });
 
     renderComposerController(parent, controller, stateStore, { submit });
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
@@ -774,28 +753,8 @@ describe("ChatComposerController", () => {
   });
 
   it("scrolls by page from the composer even when line edge scrolling is disabled", () => {
-    const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     const threadScrollFromComposer = vi.fn();
-    const controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer,
-      canInterrupt: (_state) => false,
-      composerProjection: defaultComposerProjection,
-      currentModelForSuggestions: () => null,
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
-      onHeightChange: vi.fn(),
-    });
+    const { controller, parent, stateStore } = composerControllerFixture({ controller: { threadScrollFromComposer } });
 
     renderComposerController(parent, controller, stateStore);
     setTextAreaValue(composer(parent), "first\nsecond");
@@ -808,28 +767,8 @@ describe("ChatComposerController", () => {
   });
 
   it("scrolls to stream edges from the composer even when line edge scrolling is disabled", () => {
-    const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     const threadScrollFromComposer = vi.fn();
-    const controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer,
-      canInterrupt: (_state) => false,
-      composerProjection: defaultComposerProjection,
-      currentModelForSuggestions: () => null,
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
-      onHeightChange: vi.fn(),
-    });
+    const { controller, parent, stateStore } = composerControllerFixture({ controller: { threadScrollFromComposer } });
 
     renderComposerController(parent, controller, stateStore);
     setTextAreaValue(composer(parent), "first\nsecond");
@@ -846,28 +785,8 @@ describe("ChatComposerController", () => {
   });
 
   it("leaves composer line edge scrolling disabled by the setting", () => {
-    const stateStore = createChatStateStore();
-    const parent = document.createElement("div");
     const threadScrollFromComposer = vi.fn();
-    const controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer,
-      canInterrupt: (_state) => false,
-      composerProjection: defaultComposerProjection,
-      currentModelForSuggestions: () => null,
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
-      onHeightChange: vi.fn(),
-    });
+    const { controller, parent, stateStore } = composerControllerFixture({ controller: { threadScrollFromComposer } });
 
     renderComposerController(parent, controller, stateStore);
     setTextAreaValue(composer(parent), "first\nsecond");
@@ -882,26 +801,7 @@ describe("ChatComposerController", () => {
   it("clears the Preact-owned textarea ref when the composer unmounts", () => {
     const stateStore = createChatStateStore();
     stateStore.dispatch({ type: "composer/draft-set", draft: "state draft" });
-    const parent = document.createElement("div");
-    const controller = new ChatComposerController({
-      noteCandidateProvider: noteProvider(),
-      contextReferenceProvider: contextProvider(),
-      sourcePath: () => "",
-      stateStore,
-      viewId: "view",
-      referenceActiveNoteOnSend: () => false,
-      sendShortcut: () => "enter",
-      scrollThreadFromComposerEdges: () => false,
-      threadScrollFromComposer: vi.fn(),
-      canInterrupt: (_state) => false,
-      composerProjection: defaultComposerProjection,
-      currentModelForSuggestions: () => null,
-      togglePlan: vi.fn(),
-      toggleAutoReview: vi.fn(),
-      toggleFast: vi.fn(),
-      onDraftChange: vi.fn(),
-      onHeightChange: vi.fn(),
-    });
+    const { controller, parent } = composerControllerFixture({ stateStore });
 
     renderComposerController(parent, controller, stateStore);
     const mountedComposer = composer(parent);

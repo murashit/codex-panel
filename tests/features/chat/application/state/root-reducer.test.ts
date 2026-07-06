@@ -12,33 +12,17 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("chatReducer", () => {
   it("clears active turn and thread-scoped state", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
-    state = chatStateWith(state, { runtime: { active: { model: "gpt-5.1" } } });
-    state = chatStateWith(state, { runtime: { active: { reasoningEffort: "high" } } });
-    state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
-    state = chatStateWith(state, { runtime: { active: { approvalsReviewer: "auto_review" } } });
-    state = chatStateWith(state, { runtime: { active: { activePermissionProfile: { id: ":workspace", extends: null } } } });
-    state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
-    state = chatStateWith(state, { activeThread: { goal: goal("thread") } });
-    state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
-    state = chatStateWith(state, { messageStream: { loadingHistory: true } });
-    state = chatStateWith(state, { composer: { draft: "keep me" } });
-    state = withChatStateMessageStreamItems(state, [message("m1")]);
-    state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["turn", "@@"]]) } });
-    state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
-    state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
-    state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "draft"]]) } });
-    state = chatStateWith(state, { composer: { suggestSelected: 1 } });
-    state = chatStateWith(state, { composer: { suggestions: [suggestion("/plan")] } });
-    state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
-    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
-    state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["previous:details"]) } } });
-    state = chatStateWith(state, { ui: { messageActionMenu: { forkMenuItemId: "previous" } } });
+    let state = threadScopedResidue({ draft: "keep me", messageId: "m1" });
     state = chatStateWith(state, {
-      ui: { goalEditor: { kind: "editing", threadId: "thread", objectiveDraft: "draft", tokenBudgetDraft: null } },
+      runtime: {
+        active: {
+          model: "gpt-5.1",
+          reasoningEffort: "high",
+          serviceTier: "fast",
+          approvalsReviewer: "auto_review",
+          activePermissionProfile: { id: ":workspace", extends: null },
+        },
+      },
     });
     let pendingState = chatReducer(state, { type: "runtime/model-requested", model: "gpt-5.2" });
     pendingState = chatReducer(pendingState, { type: "runtime/permission-profile-requested", permissionProfile: ":read-only" });
@@ -62,47 +46,11 @@ describe("chatReducer", () => {
     expect(next.runtime.pending.fastMode).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.approvalsReviewer).toEqual({ kind: "unchanged" });
     expect(next.runtime.pending.collaborationMode).toEqual({ kind: "unchanged" });
-    expect(activeTurnId(next)).toBeNull();
-    expect(chatStateMessageStreamItems(next)).toEqual([]);
-    expect(next.messageStream.turnDiffs.size).toBe(0);
-    expect(next.messageStream.historyCursor).toBeNull();
-    expect(next.messageStream.loadingHistory).toBe(false);
-    expect(next.requests.approvals).toEqual([]);
-    expect(next.requests.pendingUserInputs).toEqual([]);
-    expect(next.requests.userInputDrafts.size).toBe(0);
-    expect(next.composer.draft).toBe("");
-    expect(next.composer.suggestSelected).toBe(0);
-    expect(next.composer.suggestions).toEqual([]);
-    expect(next.composer.suggestionsDismissedSignature).toBeNull();
-    expect(uiDisclosureCount(next)).toBe(0);
-    expect(next.ui.messageActionMenu.forkMenuItemId).toBeNull();
-    expect(next.ui.goalEditor.kind).toBe("closed");
+    expectThreadScopeReset(next, { items: [] });
   });
 
   it("resets thread-scoped state when resuming a thread", () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "previous-thread" } });
-    state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "previous-turn" } } });
-    state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
-    state = chatStateWith(state, { activeThread: { goal: goal("previous-thread") } });
-    state = chatStateWith(state, { messageStream: { loadingHistory: true } });
-    state = chatStateWith(state, { composer: { draft: "previous draft" } });
-    state = withChatStateMessageStreamItems(state, [message("previous-message")]);
-    state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["previous-turn", "@@"]]) } });
-    state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
-    state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
-    state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "draft"]]) } });
-    state = chatStateWith(state, { composer: { suggestSelected: 1 } });
-    state = chatStateWith(state, { composer: { suggestions: [suggestion("/plan")] } });
-    state = chatStateWith(state, { composer: { suggestionsDismissedSignature: "dismissed" } });
-    state = chatStateWith(state, { runtime: { active: { collaborationMode: "plan" } } });
-    state = chatStateWith(state, { runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } } });
-    state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
-    state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["previous:details"]) } } });
-    state = chatStateWith(state, { ui: { messageActionMenu: { forkMenuItemId: "previous" } } });
-    state = chatStateWith(state, {
-      ui: { goalEditor: { kind: "editing", threadId: "previous-thread", objectiveDraft: "draft", tokenBudgetDraft: null } },
-    });
+    const state = threadScopedResidue({ threadId: "previous-thread", turnId: "previous-turn" });
     const resumedItems = [message("resumed-message")];
 
     const next = chatReducer(state, {
@@ -124,23 +72,9 @@ describe("chatReducer", () => {
 
     expect(next.activeThread.id).toBe("resumed-thread");
     expect(next.activeThread.goal).toBeNull();
-    expect(activeTurnId(next)).toBeNull();
-    expect(next.messageStream.historyCursor).toBeNull();
-    expect(next.messageStream.loadingHistory).toBe(false);
-    expect(next.composer.draft).toBe("");
-    expect(chatStateMessageStreamItems(next)).toEqual(resumedItems);
-    expect(next.messageStream.turnDiffs.size).toBe(0);
-    expect(next.requests.approvals).toEqual([]);
-    expect(next.requests.pendingUserInputs).toEqual([]);
-    expect(next.requests.userInputDrafts.size).toBe(0);
-    expect(next.composer.suggestSelected).toBe(0);
-    expect(next.composer.suggestions).toEqual([]);
-    expect(next.composer.suggestionsDismissedSignature).toBeNull();
     expect(next.runtime.active.collaborationMode).toBeNull();
     expect(next.runtime.pending.collaborationMode).toEqual({ kind: "unchanged" });
-    expect(uiDisclosureCount(next)).toBe(0);
-    expect(next.ui.messageActionMenu.forkMenuItemId).toBeNull();
-    expect(next.ui.goalEditor.kind).toBe("closed");
+    expectThreadScopeReset(next, { items: resumedItems });
   });
 
   it("preserves empty-panel runtime reservations when thread activation explicitly requests it", () => {
@@ -803,6 +737,63 @@ describe("chatReducer", () => {
 
 function message(id: string): MessageStreamItem {
   return { id, kind: "message", role: "assistant", text: id, messageKind: "assistantResponse", messageState: "completed" };
+}
+
+function threadScopedResidue(options: { threadId?: string; turnId?: string; draft?: string; messageId?: string } = {}): ChatState {
+  const threadId = options.threadId ?? "thread";
+  const turnId = options.turnId ?? "turn";
+  let state = chatStateFixture({
+    activeThread: { id: threadId, goal: goal(threadId) },
+    turn: { lifecycle: { kind: "running", turnId } },
+    runtime: {
+      active: { collaborationMode: "plan" },
+      pending: { collaborationMode: setCollaborationModeIntent("plan") },
+    },
+    messageStream: {
+      historyCursor: "cursor",
+      loadingHistory: true,
+      turnDiffs: new Map([[turnId, "@@"]]),
+    },
+    requests: {
+      approvals: [approval(1)],
+      pendingUserInputs: [userInput(2)],
+      userInputDrafts: new Map([["2:note", "draft"]]),
+    },
+    composer: {
+      draft: options.draft ?? "previous draft",
+      suggestSelected: 1,
+      suggestions: [suggestion("/plan")],
+      suggestionsDismissedSignature: "dismissed",
+    },
+    ui: {
+      disclosures: {
+        approvalDetails: new Set(["1:details"]),
+        textDetails: new Set(["previous:details"]),
+      },
+      messageActionMenu: { forkMenuItemId: "previous" },
+      goalEditor: { kind: "editing", threadId, objectiveDraft: "draft", tokenBudgetDraft: null },
+    },
+  });
+  state = withChatStateMessageStreamItems(state, [message(options.messageId ?? "previous-message")]);
+  return state;
+}
+
+function expectThreadScopeReset(state: ChatState, options: { items: readonly MessageStreamItem[] }): void {
+  expect(activeTurnId(state)).toBeNull();
+  expect(chatStateMessageStreamItems(state)).toEqual(options.items);
+  expect(state.messageStream.turnDiffs.size).toBe(0);
+  expect(state.messageStream.historyCursor).toBeNull();
+  expect(state.messageStream.loadingHistory).toBe(false);
+  expect(state.requests.approvals).toEqual([]);
+  expect(state.requests.pendingUserInputs).toEqual([]);
+  expect(state.requests.userInputDrafts.size).toBe(0);
+  expect(state.composer.draft).toBe("");
+  expect(state.composer.suggestSelected).toBe(0);
+  expect(state.composer.suggestions).toEqual([]);
+  expect(state.composer.suggestionsDismissedSignature).toBeNull();
+  expect(uiDisclosureCount(state)).toBe(0);
+  expect(state.ui.messageActionMenu.forkMenuItemId).toBeNull();
+  expect(state.ui.goalEditor.kind).toBe("closed");
 }
 
 function suggestion(display: string): ChatState["composer"]["suggestions"][number] {

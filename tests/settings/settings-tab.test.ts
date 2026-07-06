@@ -38,9 +38,7 @@ describe("settings tab", () => {
   it("auto-loads dynamic sections once and keeps one global refresh button", async () => {
     const client = settingsClient();
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const tab = newSettingsTab({ fetchModels });
 
     tab.display();
@@ -241,13 +239,7 @@ describe("settings tab", () => {
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
     const firstClient = settingsClient({ models: [model("gpt-5.4")] });
     const secondClient = settingsClient({ models: [model("gpt-5.5")] });
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(firstClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(secondClient),
-      );
+    useShortLivedClients(firstClient, secondClient);
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.4")]));
     const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     const refreshArchived = vi
@@ -282,9 +274,7 @@ describe("settings tab", () => {
       models: [model("gpt-new")],
       hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
     });
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(oldClient))
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(newClient));
+    useShortLivedClients(oldClient, newClient);
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-old")]));
     const refreshModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-new")]));
     const refreshArchived = vi
@@ -329,9 +319,7 @@ describe("settings tab", () => {
   });
 
   it("subscribes model updates only while the settings tab is displayed", () => {
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(settingsClient()),
-    );
+    useShortLivedClients(settingsClient());
     const unsubscribe = vi.fn();
     const observeModels = vi.fn(() => unsubscribe);
     const tab = newSettingsTab({ observeModels });
@@ -375,13 +363,7 @@ describe("settings tab", () => {
     const firstModels = deferred<ModelMetadata[]>();
     const firstClient = settingsClient();
     const secondClient = settingsClient({ models: [model("gpt-new")] });
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(firstClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(secondClient),
-      );
+    useShortLivedClients(firstClient, secondClient);
     const refreshModels = vi
       .fn()
       .mockReturnValueOnce(firstModels.promise)
@@ -424,19 +406,7 @@ describe("settings tab", () => {
     const newerClient = settingsClient({
       hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
     });
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(initialClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(trustClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(staleClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(newerClient),
-      );
+    useShortLivedClients(initialClient, trustClient, staleClient, newerClient);
     const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
 
     await controller.refreshDynamicSections();
@@ -467,16 +437,7 @@ describe("settings tab", () => {
     const hookReloadClient = settingsClient({
       hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
     });
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(fullRefreshClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(trustClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(hookReloadClient),
-      );
+    useShortLivedClients(fullRefreshClient, trustClient, hookReloadClient);
     const refreshModels = vi.fn().mockReturnValue(models.promise);
     const refreshArchived = vi.fn().mockResolvedValue([panelThread({ id: "thread-full", preview: "Full archived", archived: true })]);
     const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
@@ -507,16 +468,7 @@ describe("settings tab", () => {
       "thread/unarchive": vi.fn(() => staleRestore.promise),
     });
     const newerClient = settingsClient();
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(initialClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(restoreClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(newerClient),
-      );
+    useShortLivedClients(initialClient, restoreClient, newerClient);
     const refreshArchived = vi
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
@@ -547,13 +499,7 @@ describe("settings tab", () => {
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
     });
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(initialClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(restoreClient),
-      );
+    useShortLivedClients(initialClient, restoreClient);
     const controller = new SettingsDynamicSectionsController(
       settingsTabHost({
         archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
@@ -581,13 +527,7 @@ describe("settings tab", () => {
     const restoreClient = settingsRequestClient({
       "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
     });
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(initialClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(restoreClient),
-      );
+    useShortLivedClients(initialClient, restoreClient);
     const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
     let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const controller = new SettingsDynamicSectionsController(
@@ -628,13 +568,7 @@ describe("settings tab", () => {
     const deleteClient = settingsRequestClient({
       "thread/delete": vi.fn().mockResolvedValue({}),
     });
-    withShortLivedAppServerClientMock
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(initialClient),
-      )
-      .mockImplementationOnce((_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) =>
-        operation(deleteClient),
-      );
+    useShortLivedClients(initialClient, deleteClient);
     const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
     let emitArchived = (_threads: readonly Thread[]): void => undefined;
     const controller = new SettingsDynamicSectionsController(
@@ -672,9 +606,7 @@ describe("settings tab", () => {
   it("uses cached models initially and publishes refreshed models", async () => {
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     const client = settingsClient({ models: [model("gpt-5.5")] });
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const tab = newSettingsTab({ modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]), fetchModels });
 
     tab.display();
@@ -690,9 +622,7 @@ describe("settings tab", () => {
   it("replaces stale cached model options with an empty successful refresh while preserving saved values", async () => {
     const fetchModels = vi.fn().mockResolvedValue([]);
     const client = settingsClient({ models: [] });
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const tab = newSettingsTab({
       modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-cached")]),
       fetchModels,
@@ -738,9 +668,7 @@ describe("settings tab", () => {
       models: [model("gpt-5.4")],
       hooksError: new Error("hooks unavailable"),
     });
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ preview: "Archived thread", archived: true })] });
 
     tab.display();
@@ -757,9 +685,7 @@ describe("settings tab", () => {
     const client = settingsClient({
       hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", trustStatus: "untrusted" })],
     });
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
@@ -787,9 +713,7 @@ describe("settings tab", () => {
 
   it("confirms archived thread deletion inline and cancels from outside clicks", async () => {
     const client = settingsClient();
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
 
     tab.display();
@@ -810,9 +734,7 @@ describe("settings tab", () => {
   it("keeps the settings shell mounted while dynamic sections update", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const client = settingsClient();
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const tab = newSettingsTab({
       saveSettings,
       archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })],
@@ -845,9 +767,7 @@ describe("settings tab", () => {
     const client = settingsClient({
       hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", enabled: true })],
     });
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const hookUpdate = deferred<undefined>();
     client.requestHandlers["config/batchWrite"]?.mockReturnValue(hookUpdate.promise);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
@@ -888,9 +808,7 @@ describe("settings tab", () => {
 
   it("permanently deletes an archived thread from the confirmed settings row", async () => {
     const client = settingsClient();
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: unknown) => Promise<unknown>) => operation(client),
-    );
+    useShortLivedClients(client);
     const deleteRequest = deferred<undefined>();
     client.requestHandlers["thread/delete"]?.mockReturnValue(deleteRequest.promise);
     const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
@@ -1026,6 +944,23 @@ type SettingsRequestClient = AppServerClient & {
   request: ReturnType<typeof vi.fn<(method: string, params?: unknown, options?: unknown) => unknown>>;
   requestHandlers: Record<string, ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>>;
 };
+
+function useShortLivedClients(...clients: SettingsRequestClient[]): void {
+  const runWithClient = (client: SettingsRequestClient, operation: (client: AppServerClient) => Promise<unknown>) => operation(client);
+  if (clients.length === 1) {
+    const [client] = clients;
+    if (!client) throw new Error("Expected a short-lived client.");
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _cwd: string, operation: (client: AppServerClient) => Promise<unknown>) => runWithClient(client, operation),
+    );
+    return;
+  }
+  for (const client of clients) {
+    withShortLivedAppServerClientMock.mockImplementationOnce(
+      (_codexPath: string, _cwd: string, operation: (client: AppServerClient) => Promise<unknown>) => runWithClient(client, operation),
+    );
+  }
+}
 
 function settingsRequestClient(
   handlers: Record<string, ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>>,
