@@ -3,7 +3,11 @@ import { describe, expect, it, type Mock, vi } from "vitest";
 import { AppServerQueryCache } from "../../../../src/app-server/query/cache";
 import { AppServerSharedQueries } from "../../../../src/app-server/query/shared-queries";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { createThreadCatalog, type ThreadCatalogEventObserver } from "../../../../src/features/threads/catalog/thread-catalog";
+import {
+  createThreadCatalog,
+  type ThreadCatalog,
+  type ThreadCatalogEventObserver,
+} from "../../../../src/features/threads/catalog/thread-catalog";
 
 describe("ThreadCatalog", () => {
   it("applies active thread snapshot replacement events through the catalog boundary", () => {
@@ -330,6 +334,47 @@ describe("ThreadCatalog", () => {
     );
   });
 
+  it("model-checks stale snapshots around unacknowledged rename and archive facts", () => {
+    const maxEventDepth = 3;
+
+    for (const sequence of eventSequences(renameOrderingEvents(), maxEventDepth)) {
+      const { catalog } = catalogFixture();
+      catalog.apply({ type: "active-list-snapshot-received", threads: [thread("target"), thread("other")] });
+      catalog.apply({ type: "archived-list-snapshot-received", threads: [] });
+      catalog.apply({ type: "thread-renamed", threadId: "target", name: "Renamed" });
+
+      let renameAcknowledged = false;
+      for (const event of sequence) {
+        event.apply(catalog);
+        renameAcknowledged = renameAcknowledged || event.acknowledgesRename;
+      }
+
+      if (!renameAcknowledged) {
+        expectTargetName(catalog.activeSnapshot(), "Renamed", sequenceDescription(sequence));
+        expectTargetName(catalog.archivedSnapshot(), "Renamed", sequenceDescription(sequence));
+      }
+    }
+
+    for (const sequence of eventSequences(archiveOrderingEvents(), maxEventDepth)) {
+      const { catalog } = catalogFixture();
+      catalog.apply({ type: "active-list-snapshot-received", threads: [thread("target"), thread("other")] });
+      catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
+      catalog.apply({ type: "thread-archived", threadId: "target" });
+
+      let activeRemovalAcknowledged = false;
+      let archivedUpsertAcknowledged = false;
+      for (const event of sequence) {
+        event.apply(catalog);
+        activeRemovalAcknowledged = activeRemovalAcknowledged || event.acknowledgesActiveRemoval;
+        archivedUpsertAcknowledged = archivedUpsertAcknowledged || event.acknowledgesArchivedUpsert;
+      }
+
+      const sequenceName = sequenceDescription(sequence);
+      if (!activeRemovalAcknowledged) expectNoTarget(catalog.activeSnapshot(), sequenceName);
+      if (!archivedUpsertAcknowledged) expectHasArchivedTarget(catalog.archivedSnapshot(), sequenceName);
+    }
+  });
+
   it("moves known unarchived threads through the catalog and refreshes unknown unarchives", async () => {
     const unknownActiveRefreshStarted = deferred<undefined>();
     const unknownArchivedRefreshStarted = deferred<undefined>();
@@ -366,6 +411,106 @@ describe("ThreadCatalog", () => {
     expect(fetchThreads).toHaveBeenCalledTimes(2);
   });
 });
+
+interface ModeledCatalogEvent {
+  readonly name: string;
+  readonly acknowledgesRename: boolean;
+  readonly acknowledgesActiveRemoval: boolean;
+  readonly acknowledgesArchivedUpsert: boolean;
+  apply(catalog: ThreadCatalog): void;
+}
+
+function renameOrderingEvents(): readonly ModeledCatalogEvent[] {
+  return [
+    modeledCatalogEvent("stale active snapshot", (catalog) => {
+      catalog.apply({ type: "active-list-snapshot-received", threads: [thread("target"), thread("other")] });
+    }),
+    modeledCatalogEvent(
+      "rename-ack active snapshot",
+      (catalog) => {
+        catalog.apply({
+          type: "active-list-snapshot-received",
+          threads: [{ ...thread("target"), name: "Renamed" }, thread("other")],
+        });
+      },
+      { acknowledgesRename: true },
+    ),
+    modeledCatalogEvent("empty archived snapshot", (catalog) => {
+      catalog.apply({ type: "archived-list-snapshot-received", threads: [] });
+    }),
+  ];
+}
+
+function archiveOrderingEvents(): readonly ModeledCatalogEvent[] {
+  return [
+    modeledCatalogEvent("stale active snapshot", (catalog) => {
+      catalog.apply({ type: "active-list-snapshot-received", threads: [thread("target"), thread("other")] });
+    }),
+    modeledCatalogEvent(
+      "archive-ack active snapshot",
+      (catalog) => {
+        catalog.apply({ type: "active-list-snapshot-received", threads: [thread("other")] });
+      },
+      { acknowledgesActiveRemoval: true },
+    ),
+    modeledCatalogEvent("stale archived snapshot", (catalog) => {
+      catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
+    }),
+    modeledCatalogEvent(
+      "archive-ack archived snapshot",
+      (catalog) => {
+        catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("target", true), thread("archived", true)] });
+      },
+      { acknowledgesArchivedUpsert: true },
+    ),
+  ];
+}
+
+function modeledCatalogEvent(
+  name: string,
+  apply: (catalog: ThreadCatalog) => void,
+  acknowledgements: Partial<
+    Pick<ModeledCatalogEvent, "acknowledgesRename" | "acknowledgesActiveRemoval" | "acknowledgesArchivedUpsert">
+  > = {},
+): ModeledCatalogEvent {
+  return {
+    name,
+    apply,
+    acknowledgesRename: acknowledgements.acknowledgesRename ?? false,
+    acknowledgesActiveRemoval: acknowledgements.acknowledgesActiveRemoval ?? false,
+    acknowledgesArchivedUpsert: acknowledgements.acknowledgesArchivedUpsert ?? false,
+  };
+}
+
+function eventSequences<T>(events: readonly T[], maxDepth: number): T[][] {
+  const sequences: T[][] = [[]];
+  for (let depth = 1; depth <= maxDepth; depth += 1) {
+    for (const prefix of sequences.filter((sequence) => sequence.length === depth - 1)) {
+      for (const event of events) {
+        sequences.push([...prefix, event]);
+      }
+    }
+  }
+  return sequences;
+}
+
+function expectTargetName(threads: readonly Thread[] | null, expectedName: string, sequence: string): void {
+  const target = threads?.find((item) => item.id === "target") ?? null;
+  if (!target) return;
+  expect(target.name, sequence).toBe(expectedName);
+}
+
+function expectNoTarget(threads: readonly Thread[] | null, sequence: string): void {
+  expect(threads?.some((item) => item.id === "target") ?? false, sequence).toBe(false);
+}
+
+function expectHasArchivedTarget(threads: readonly Thread[] | null, sequence: string): void {
+  expect(threads?.some((item) => item.id === "target" && item.archived) ?? false, sequence).toBe(true);
+}
+
+function sequenceDescription(sequence: readonly ModeledCatalogEvent[]): string {
+  return sequence.length === 0 ? "no additional snapshots" : sequence.map((event) => event.name).join(" -> ");
+}
 
 function catalogFixture(
   options: {
