@@ -27,8 +27,8 @@ describe("vault composer attachments", () => {
     ]);
   });
 
-  it("keeps known filenames and appends a numeric suffix when the target exists", async () => {
-    const vault = vaultFixture(["Files/Paper.pdf", "Files/Paper 1.pdf"]);
+  it("keeps known filenames and starts numeric collision suffixes at 2", async () => {
+    const vault = vaultFixture(["Files/Paper.pdf"]);
     const handler = createVaultComposerAttachmentHandler({
       app: { vault } as never,
       attachmentFolder: () => "Files",

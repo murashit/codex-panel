@@ -1,6 +1,13 @@
-import { type App, normalizePath, type Vault } from "obsidian";
+import type { App } from "obsidian";
 
+import {
+  ensureVaultFolder,
+  sanitizeVaultPathSegment,
+  uniqueVaultPath,
+  vaultRelativeFolderPath,
+} from "../../../../domain/vault/write-paths";
 import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/model";
+import { createObsidianVaultPathDestination } from "../../../../shared/obsidian/vault-write-destination.obsidian";
 import type { ComposerAttachment, ComposerAttachmentHandler } from "../../application/composer/attachments";
 
 interface VaultComposerAttachmentHandlerOptions {
@@ -41,13 +48,14 @@ async function saveComposerAttachmentFiles(
   if (files.length === 0) return [];
 
   const vault = options.app.vault;
-  const folder = attachmentFolderPath(options.attachmentFolder());
-  await ensureFolder(vault, folder);
+  const destination = createObsidianVaultPathDestination(vault);
+  const folder = attachmentFolderPath(options.attachmentFolder(), (path) => destination.normalizePath(path));
+  await ensureVaultFolder(destination, folder);
 
   const attachments: ComposerAttachment[] = [];
   for (const file of files) {
     const filename = attachmentFilename(file, options.now?.() ?? new Date());
-    const path = await uniqueAttachmentPath(vault, folder, filename);
+    const path = await uniqueVaultPath(destination, folder, filename);
     await vault.createBinary(path, await file.arrayBuffer());
     const kind = isImageFile(file, path) ? "image" : "file";
     attachments.push({
@@ -60,47 +68,14 @@ async function saveComposerAttachmentFiles(
   return attachments;
 }
 
-function attachmentFolderPath(value: string): string {
-  const raw = (value.trim() || DEFAULT_ATTACHMENT_FOLDER).replaceAll("\\", "/");
-  if (raw.startsWith("/") || /^[A-Za-z]:\//.test(raw)) throw new Error("Attachment folder must be relative to the vault.");
-
-  const rawSegments = raw
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-  if (rawSegments.length === 0) return DEFAULT_ATTACHMENT_FOLDER;
-  if (rawSegments.some((segment) => segment === "." || segment === "..")) {
-    throw new Error("Attachment folder cannot contain relative path segments.");
-  }
-
-  const segments = rawSegments.map((segment) => sanitizePathSegment(segment.trim())).filter(Boolean);
-  if (segments.length === 0) return DEFAULT_ATTACHMENT_FOLDER;
-
-  const folder = normalizePath(segments.join("/"));
-  if (!folder) return DEFAULT_ATTACHMENT_FOLDER;
-  if (folder.split("/").some((segment) => segment === "." || segment === "..")) {
-    throw new Error("Attachment folder cannot contain relative path segments.");
-  }
-  return folder;
-}
-
-async function ensureFolder(vault: Vault, folder: string): Promise<void> {
-  const segments = folder.split("/");
-  for (let index = 0; index < segments.length; index += 1) {
-    const path = segments.slice(0, index + 1).join("/");
-    if (!vault.getAbstractFileByPath(path)) await vault.createFolder(path);
-  }
-}
-
-async function uniqueAttachmentPath(vault: Vault, folder: string, filename: string): Promise<string> {
-  const { stem, extension } = splitFilename(filename);
-  let candidate = normalizePath(`${folder}/${filename}`);
-  let suffix = 1;
-  while (vault.getAbstractFileByPath(candidate)) {
-    candidate = normalizePath(`${folder}/${stem} ${String(suffix)}${extension}`);
-    suffix += 1;
-  }
-  return candidate;
+function attachmentFolderPath(value: string, normalizePath: (path: string) => string): string {
+  return vaultRelativeFolderPath(value, {
+    normalizePath,
+    emptyFallback: DEFAULT_ATTACHMENT_FOLDER,
+    emptyPathMessage: "Attachment folder produced an empty path.",
+    absolutePathMessage: "Attachment folder must be relative to the vault.",
+    relativeSegmentMessage: "Attachment folder cannot contain relative path segments.",
+  });
 }
 
 function attachmentFilename(file: File, now: Date): string {
@@ -116,25 +91,9 @@ function generatedAttachmentFilename(file: File, now: Date): string {
 
 function sanitizeFilename(value: string): string {
   const normalized = value.replace(/[\\/]+/g, "-").trim();
-  const sanitized = sanitizePathSegment(normalized);
+  const sanitized = sanitizeVaultPathSegment(normalized);
   if (sanitized && sanitized !== "." && sanitized !== "..") return sanitized;
   return "";
-}
-
-function sanitizePathSegment(value: string): string {
-  return value
-    .split("")
-    .map((char) => (isUnsafePathChar(char) ? "-" : char))
-    .join("")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^\.+$/, "")
-    .slice(0, 120)
-    .trim();
-}
-
-function isUnsafePathChar(char: string): boolean {
-  return char.charCodeAt(0) < 32 || '<>:"/\\|?*[]#^'.includes(char);
 }
 
 function splitFilename(filename: string): { stem: string; extension: string } {

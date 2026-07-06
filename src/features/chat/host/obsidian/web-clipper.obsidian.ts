@@ -1,11 +1,12 @@
 import Defuddle from "defuddle/full";
-import { normalizePath, requestUrl, TFile, type Vault } from "obsidian";
+import { requestUrl, TFile, type Vault } from "obsidian";
 
 import type { CodexInput } from "../../../../domain/chat/input";
 import { codexTextInputWithAttachments } from "../../../../domain/chat/input";
 import type { CodexPanelSettings } from "../../../../settings/model";
+import { createObsidianVaultMarkdownDestination } from "../../../../shared/obsidian/vault-write-destination.obsidian";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
-import { saveWebClipMarkdown, type WebClipDestination } from "../../application/web-clipping/web-clip";
+import { saveWebClipMarkdown } from "../../application/web-clipping/web-clip";
 import { displayNameForFile } from "./vault-note-links.obsidian";
 
 export interface WebClipInput {
@@ -50,7 +51,7 @@ async function clipUrlToInput(
   const content = result.content.trim();
   if (!content) throw new Error(`No readable content found for ${parsedUrl}`);
 
-  const destination = obsidianWebClipDestination(options.vault);
+  const destination = createObsidianVaultMarkdownDestination(options.vault);
   const page = {
     url: parsedUrl,
     title: result.title,
@@ -81,19 +82,6 @@ async function defuddleUrl(options: VaultWebClipperOptions, url: string): Promis
     content: result.contentMarkdown ?? result.content,
     site: result.site,
     domain: result.domain,
-  };
-}
-
-function obsidianWebClipDestination(vault: Vault): WebClipDestination {
-  return {
-    normalizePath,
-    exists: async (path: string): Promise<boolean> => vault.getAbstractFileByPath(normalizePath(path)) !== null,
-    createFolder: async (path: string): Promise<void> => {
-      await vault.createFolder(normalizePath(path));
-    },
-    createMarkdownFile: async (path: string, content: string): Promise<void> => {
-      await vault.create(normalizePath(path), content);
-    },
   };
 }
 
