@@ -2,19 +2,22 @@ import type { ComponentChild as UiNode } from "preact";
 import { shortThreadId } from "../domain/threads/id";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
-import { ObsidianExtraButton, ObsidianTextInput, ObsidianToggle } from "../shared/obsidian/components.obsidian";
+import { ObsidianCommitTextInput, ObsidianExtraButton, ObsidianToggle } from "../shared/obsidian/components.obsidian";
+import { DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE } from "./model";
 import type { ArchivedThreadSectionState } from "./section-state";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStatusRow } from "./setting-components";
+
+const ARCHIVE_EXPORT_TAGS_PLACEHOLDER = "codex, archive";
 
 export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionState }): UiNode {
   return (
     <>
       <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__archived-section">
-        <SettingsHeading dynamic name="Thread archiving" desc="Set the default archive action and saved-note templates." />
+        <SettingsHeading dynamic name="Thread archiving" />
         <ArchiveExportSettings state={state} />
       </SettingsGroup>
       <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__archived-threads-section">
-        <SettingsHeading dynamic name="Archived threads" desc="Restore or permanently delete archived Codex threads." />
+        <SettingsHeading dynamic name="Archived threads" />
         {state.contentAvailable ? (
           <ArchivedThreadList state={state} />
         ) : !state.loading && state.status ? (
@@ -28,7 +31,7 @@ export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionS
 function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState }): UiNode {
   return (
     <SettingsItems>
-      <SettingRow name="Save note by default" desc="Save a Markdown note during the default archive action.">
+      <SettingRow name="Save note by default" desc="Makes Save and archive thread the default archive action.">
         <ObsidianToggle
           checked={state.exportEnabled}
           onChange={(checked) => {
@@ -36,29 +39,32 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
           }}
         />
       </SettingRow>
-      <SettingRow name="Saved note folder" desc="Vault folder for saved thread notes.">
-        <ObsidianTextInput
-          placeholder="Codex archives"
+      <SettingRow name="Saved note folder" desc="Vault-relative folder template for archived thread notes.">
+        <ObsidianCommitTextInput
+          placeholder={DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE}
           value={state.exportFolderTemplate}
-          onChange={(value) => {
+          normalizeValue={(value) => value.trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE}
+          onCommit={(value) => {
             state.onExportFolderTemplateChange(value);
           }}
         />
       </SettingRow>
       <SettingRow name="Saved note filename" desc="Filename template. Supports {{date}}, {{time}}, {{title}}, {{id}}, and {{shortId}}.">
-        <ObsidianTextInput
-          placeholder="{{date}} {{time}} {{title}} {{shortId}}.md"
+        <ObsidianCommitTextInput
+          placeholder={DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE}
           value={state.exportFilenameTemplate}
-          onChange={(value) => {
+          normalizeValue={(value) => value.trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE}
+          onCommit={(value) => {
             state.onExportFilenameTemplateChange(value);
           }}
         />
       </SettingRow>
-      <SettingRow name="Saved note tags" desc="Tags added to saved notes, separated by commas.">
-        <ObsidianTextInput
-          placeholder="Codex, archive"
+      <SettingRow name="Saved note tags" desc="Comma-separated tags added to saved thread notes.">
+        <ObsidianCommitTextInput
+          placeholder={ARCHIVE_EXPORT_TAGS_PLACEHOLDER}
           value={state.exportTags}
-          onChange={(value) => {
+          normalizeValue={(value) => value.trim()}
+          onCommit={(value) => {
             state.onExportTagsChange(value);
           }}
         />

@@ -27,6 +27,9 @@ export interface CodexPanelSettings {
 
 export const DEFAULT_ATTACHMENT_FOLDER = "Codex Attachments";
 export const DEFAULT_CLIP_FOLDER = "Codex Clippings";
+export const DEFAULT_CLIP_FILENAME_TEMPLATE = "{{title}}.md";
+export const DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE = "Codex Archives";
+export const DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE = "{{date}} {{time}} {{title}} {{shortId}}.md";
 
 export const DEFAULT_SETTINGS: CodexPanelSettings = {
   codexPath: DEFAULT_CODEX_PATH,
@@ -40,11 +43,11 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   referenceActiveNoteOnSend: false,
   attachmentFolder: DEFAULT_ATTACHMENT_FOLDER,
   clipFolder: DEFAULT_CLIP_FOLDER,
-  clipFilenameTemplate: "{{title}}.md",
+  clipFilenameTemplate: DEFAULT_CLIP_FILENAME_TEMPLATE,
   clipTags: "",
   archiveExportEnabled: false,
-  archiveExportFolderTemplate: "Codex Archives",
-  archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
+  archiveExportFolderTemplate: DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
+  archiveExportFilenameTemplate: DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
   archiveExportTags: "",
 };
 
@@ -73,10 +76,9 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
       DEFAULT_SETTINGS.clipFilenameTemplate,
     clipTags: stringOrDefault(record["clipTags"], DEFAULT_SETTINGS.clipTags).trim(),
     archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),
-    archiveExportFolderTemplate: stringOrDefault(
-      record["archiveExportFolderTemplate"],
+    archiveExportFolderTemplate:
+      stringOrDefault(record["archiveExportFolderTemplate"], DEFAULT_SETTINGS.archiveExportFolderTemplate).trim() ||
       DEFAULT_SETTINGS.archiveExportFolderTemplate,
-    ).trim(),
     archiveExportFilenameTemplate:
       stringOrDefault(record["archiveExportFilenameTemplate"], DEFAULT_SETTINGS.archiveExportFilenameTemplate).trim() ||
       DEFAULT_SETTINGS.archiveExportFilenameTemplate,

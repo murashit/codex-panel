@@ -11,11 +11,11 @@ const CODEX_DEFAULT_VALUE = "__codex-default__";
 export function HelperSettingsSection({ state }: { state: HelperSettingsState }): UiNode {
   return (
     <SettingsGroup className="codex-panel-settings__section codex-panel-settings__helper-section">
-      <SettingsHeading name="Codex helpers" />
+      <SettingsHeading name="Panel helpers" />
       <SettingsItems>
         <ModelEffortSetting
           name="Automatic thread naming"
-          desc="Model and effort for generated thread names."
+          desc="Model and effort used when Codex Panel generates thread names."
           modelValue={state.threadNamingModel}
           effortValue={state.threadNamingEffort}
           models={state.models}
@@ -24,7 +24,7 @@ export function HelperSettingsSection({ state }: { state: HelperSettingsState })
         />
         <ModelEffortSetting
           name="Selection rewrite"
-          desc="Model and effort for rewriting selected note text."
+          desc="Model and effort used by Rewrite selection."
           modelValue={state.rewriteSelectionModel}
           effortValue={state.rewriteSelectionEffort}
           models={state.models}

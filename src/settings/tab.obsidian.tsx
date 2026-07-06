@@ -6,7 +6,13 @@ import { listenDomEvent } from "../shared/dom/events.dom";
 import { renderUiRoot, unmountUiRoot } from "../shared/dom/preact-root.dom";
 import { SettingsDynamicSectionsController } from "./dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "./host";
-import { DEFAULT_ATTACHMENT_FOLDER, DEFAULT_CLIP_FOLDER } from "./model";
+import {
+  DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
+  DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
+  DEFAULT_ATTACHMENT_FOLDER,
+  DEFAULT_CLIP_FILENAME_TEMPLATE,
+  DEFAULT_CLIP_FOLDER,
+} from "./model";
 import type { SettingsSectionsState } from "./section-state";
 import { SettingsTabShell } from "./tab-shell";
 
@@ -240,7 +246,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async setClipFilenameTemplate(value: string): Promise<void> {
-    this.plugin.settings.clipFilenameTemplate = value.trim() || "{{title}}.md";
+    this.plugin.settings.clipFilenameTemplate = value.trim() || DEFAULT_CLIP_FILENAME_TEMPLATE;
     await this.plugin.saveSettings();
     this.renderSettingsShell();
   }
@@ -258,18 +264,21 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   }
 
   private async setArchiveExportFolderTemplate(value: string): Promise<void> {
-    this.plugin.settings.archiveExportFolderTemplate = value.trim();
+    this.plugin.settings.archiveExportFolderTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE;
     await this.plugin.saveSettings();
+    this.renderSettingsShell();
   }
 
   private async setArchiveExportFilenameTemplate(value: string): Promise<void> {
-    this.plugin.settings.archiveExportFilenameTemplate = value.trim();
+    this.plugin.settings.archiveExportFilenameTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE;
     await this.plugin.saveSettings();
+    this.renderSettingsShell();
   }
 
   private async setArchiveExportTags(value: string): Promise<void> {
     this.plugin.settings.archiveExportTags = value.trim();
     await this.plugin.saveSettings();
+    this.renderSettingsShell();
   }
 
   private async setThreadNamingModel(value: string | null): Promise<void> {

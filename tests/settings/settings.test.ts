@@ -188,7 +188,7 @@ describe("settings", () => {
     expect(
       normalizeSettings({
         archiveExportEnabled: "yes",
-        archiveExportFolderTemplate: 1,
+        archiveExportFolderTemplate: "   ",
         archiveExportFilenameTemplate: "   ",
         archiveExportTags: 1,
       }),
@@ -198,6 +198,9 @@ describe("settings", () => {
       archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
       archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
     });
+    expect(normalizeSettings({ archiveExportFolderTemplate: 1 }).archiveExportFolderTemplate).toBe(
+      DEFAULT_SETTINGS.archiveExportFolderTemplate,
+    );
   });
 
   it("requires a desktop filesystem vault path", () => {

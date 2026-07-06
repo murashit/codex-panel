@@ -8,7 +8,7 @@ import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems, SettingsStat
 export function HookSection({ state }: { state: HookSectionState }): UiNode {
   return (
     <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__hook-section">
-      <SettingsHeading dynamic name="Hook status" desc="Trust, enable, or disable discovered Codex hooks." />
+      <SettingsHeading dynamic name="Codex hooks" />
       {state.contentAvailable ? (
         <Hooks state={state} />
       ) : !state.loading && state.status ? (

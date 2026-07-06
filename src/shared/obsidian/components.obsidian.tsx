@@ -141,46 +141,19 @@ export function ObsidianDropdown({
   return <span ref={ref} />;
 }
 
-export function ObsidianTextInput({
-  value,
-  placeholder,
-  onChange,
-}: {
-  value: string;
-  placeholder: string;
-  onChange: (value: string) => void;
-}): UiNode {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  const onChangeRef = useLatestRef(onChange);
-  useLayoutEffect(() => {
-    const container = ref.current;
-    if (!container) return;
-    container.empty();
-    const text = new TextComponent(container);
-    text
-      .setPlaceholder(placeholder)
-      .setValue(value)
-      .onChange((nextValue) => {
-        onChangeRef.current(nextValue);
-      });
-    return () => {
-      container.empty();
-    };
-  }, [onChangeRef, placeholder, value]);
-
-  return <span ref={ref} />;
-}
-
 export function ObsidianCommitTextInput({
   value,
   placeholder,
+  normalizeValue,
   onCommit,
 }: {
   value: string;
   placeholder: string;
+  normalizeValue?: (value: string) => string;
   onCommit: (value: string) => void;
 }): UiNode {
   const ref = useRef<HTMLSpanElement | null>(null);
+  const normalizeValueRef = useLatestRef(normalizeValue);
   const onCommitRef = useLatestRef(onCommit);
   useLayoutEffect(() => {
     const container = ref.current;
@@ -189,7 +162,9 @@ export function ObsidianCommitTextInput({
     const text = new TextComponent(container);
     text.setPlaceholder(placeholder).setValue(value);
     const commit = () => {
-      onCommitRef.current(text.inputEl.value);
+      const committedValue = normalizeValueRef.current?.(text.inputEl.value) ?? text.inputEl.value;
+      text.inputEl.value = committedValue;
+      onCommitRef.current(committedValue);
     };
     return disposeDomListeners(
       listenDomEvent(text.inputEl, "blur", commit),
@@ -202,7 +177,7 @@ export function ObsidianCommitTextInput({
         container.empty();
       },
     );
-  }, [onCommitRef, placeholder, value]);
+  }, [normalizeValueRef, onCommitRef, placeholder, value]);
 
   return <span ref={ref} />;
 }

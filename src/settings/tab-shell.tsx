@@ -6,7 +6,7 @@ import { IconButton, ObsidianCommitTextInput, ObsidianDropdown, ObsidianToggle }
 import { ArchivedThreadSection } from "./archived-section";
 import { HelperSettingsSection } from "./helper-section";
 import { HookSection } from "./hook-section";
-import { DEFAULT_ATTACHMENT_FOLDER, DEFAULT_CLIP_FOLDER } from "./model";
+import { DEFAULT_ATTACHMENT_FOLDER, DEFAULT_CLIP_FILENAME_TEMPLATE, DEFAULT_CLIP_FOLDER } from "./model";
 import type { SettingsSectionsState } from "./section-state";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
 
@@ -88,10 +88,18 @@ function GeneralSettingsSection({ panel, actions }: { panel: SettingsTabPanelSta
   return (
     <SettingsGroup className="codex-panel-settings__section codex-panel-settings__general-section">
       <SettingsItems>
-        <SettingRow name="Codex executable" desc="Command used to start `codex app-server`; use an absolute path if needed.">
-          <ObsidianCommitTextInput value={panel.codexPath} placeholder={DEFAULT_CODEX_PATH} onCommit={actions.setCodexPath} />
+        <SettingRow
+          name="Codex executable"
+          desc="Command used to start `codex app-server`. Use an absolute path when Obsidian cannot find `codex`."
+        >
+          <ObsidianCommitTextInput
+            value={panel.codexPath}
+            placeholder={DEFAULT_CODEX_PATH}
+            normalizeValue={(value) => value.trim() || DEFAULT_CODEX_PATH}
+            onCommit={actions.setCodexPath}
+          />
         </SettingRow>
-        <SettingRow name="Show chat toolbar" desc="Show the toolbar above the chat panel.">
+        <SettingRow name="Show chat toolbar" desc="Shows the toolbar above chat panels.">
           <ObsidianToggle checked={panel.showToolbar} onChange={actions.setShowToolbar} />
         </SettingRow>
       </SettingsItems>
@@ -105,7 +113,10 @@ function ComposerSettingsSection({ panel, actions }: { panel: SettingsTabPanelSt
       <SettingsGroup className="codex-panel-settings__section codex-panel-settings__composer-section">
         <SettingsHeading name="Composer" />
         <SettingsItems>
-          <SettingRow name="Send shortcut" desc="Pick Enter or Cmd/Ctrl+Enter. Shift+Enter adds a newline when Enter sends.">
+          <SettingRow
+            name="Send shortcut"
+            desc="Controls whether Enter or Cmd/Ctrl+Enter sends composer-style inputs. Shift+Enter adds a newline."
+          >
             <ObsidianDropdown
               value={panel.sendShortcut}
               onChange={(value) => {
@@ -116,33 +127,36 @@ function ComposerSettingsSection({ panel, actions }: { panel: SettingsTabPanelSt
           </SettingRow>
           <SettingRow
             name="Scroll thread from composer line edges"
-            desc="Use Up/Ctrl+P and Down/Ctrl+N at composer line edges to scroll the thread."
+            desc="Lets Up/Ctrl+P and Down/Ctrl+N scroll the thread from composer line edges."
           >
             <ObsidianToggle checked={panel.scrollThreadFromComposerEdges} onChange={actions.setScrollThreadFromComposerEdges} />
           </SettingRow>
           <SettingRow
             name="Reference active file on send"
-            desc="When enabled, each composer send references the current active file as context without changing the prompt text."
+            desc="Adds the active file as context on each send without changing the prompt text."
           >
             <ObsidianToggle checked={panel.referenceActiveNoteOnSend} onChange={actions.setReferenceActiveNoteOnSend} />
           </SettingRow>
-          <SettingRow name="Attachment folder" desc="Vault folder for files pasted or dropped into the composer.">
+          <SettingRow name="Attachment folder" desc="Vault-relative folder for files pasted or dropped into composer inputs.">
             <ObsidianCommitTextInput
               value={panel.attachmentFolder}
               placeholder={DEFAULT_ATTACHMENT_FOLDER}
+              normalizeValue={(value) => value.trim() || DEFAULT_ATTACHMENT_FOLDER}
               onCommit={actions.setAttachmentFolder}
             />
           </SettingRow>
         </SettingsItems>
       </SettingsGroup>
       <SettingsGroup className="codex-panel-settings__section codex-panel-settings__web-clipping-section">
-        <SettingsHeading
-          name="Web clipping"
-          desc="Configure saved-note settings for /clip web page clippings. External pages may contain hostile prompt text."
-        />
+        <SettingsHeading name="Web clipping" />
         <SettingsItems>
-          <SettingRow name="Clipped note folder" desc="Vault folder for clipped notes.">
-            <ObsidianCommitTextInput value={panel.clipFolder} placeholder={DEFAULT_CLIP_FOLDER} onCommit={actions.setClipFolder} />
+          <SettingRow name="Clipped note folder" desc="Vault-relative folder for notes created by /clip.">
+            <ObsidianCommitTextInput
+              value={panel.clipFolder}
+              placeholder={DEFAULT_CLIP_FOLDER}
+              normalizeValue={(value) => value.trim() || DEFAULT_CLIP_FOLDER}
+              onCommit={actions.setClipFolder}
+            />
           </SettingRow>
           <SettingRow
             name="Clipped note filename"
@@ -150,12 +164,18 @@ function ComposerSettingsSection({ panel, actions }: { panel: SettingsTabPanelSt
           >
             <ObsidianCommitTextInput
               value={panel.clipFilenameTemplate}
-              placeholder="{{title}}.md"
+              placeholder={DEFAULT_CLIP_FILENAME_TEMPLATE}
+              normalizeValue={(value) => value.trim() || DEFAULT_CLIP_FILENAME_TEMPLATE}
               onCommit={actions.setClipFilenameTemplate}
             />
           </SettingRow>
-          <SettingRow name="Clipped note tags" desc="Tags added to clipped notes, separated by commas.">
-            <ObsidianCommitTextInput value={panel.clipTags} placeholder="web, clipping" onCommit={actions.setClipTags} />
+          <SettingRow name="Clipped note tags" desc="Comma-separated tags added to clipped notes.">
+            <ObsidianCommitTextInput
+              value={panel.clipTags}
+              placeholder="web, clipping"
+              normalizeValue={(value) => value.trim()}
+              onCommit={actions.setClipTags}
+            />
           </SettingRow>
         </SettingsItems>
       </SettingsGroup>

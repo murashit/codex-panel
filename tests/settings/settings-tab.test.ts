@@ -14,6 +14,7 @@ import { createSettingsAppServerDynamicData } from "../../src/settings/app-serve
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
+import { DEFAULT_SETTINGS } from "../../src/settings/model";
 import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
 import { notices } from "../mocks/obsidian";
 import { deferred } from "../support/async";
@@ -61,7 +62,7 @@ describe("settings tab", () => {
     expect(settingNames(tab)).toEqual([
       "Codex executable",
       "Show chat toolbar",
-      "Codex helpers",
+      "Panel helpers",
       "Automatic thread naming",
       "Selection rewrite",
       "Composer",
@@ -79,7 +80,7 @@ describe("settings tab", () => {
       "Saved note filename",
       "Saved note tags",
       "Archived threads",
-      "Hook status",
+      "Codex hooks",
     ]);
   });
 
@@ -120,7 +121,7 @@ describe("settings tab", () => {
 
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(refreshOpenViews).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Show chat toolbar")).toContain("toolbar above the chat panel");
+    expect(settingDesc(tab, "Show chat toolbar")).toContain("toolbar above chat panels");
   });
 
   it("saves the composer line edge scroll setting", async () => {
@@ -154,7 +155,7 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Reference active file on send")).toContain("current active file");
+    expect(settingDesc(tab, "Reference active file on send")).toContain("active file as context");
   });
 
   it("saves the attachment folder setting", async () => {
@@ -196,10 +197,9 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledTimes(3);
-    expect(settingDesc(tab, "Web clipping")).toContain("saved-note settings for /clip");
-    expect(settingDesc(tab, "Web clipping")).toContain("hostile prompt text");
+    expect(settingDesc(tab, "Web clipping")).toBe("");
     expect(settingDesc(tab, "Clipped note filename")).toContain("{{domain}}");
-    expect(settingDesc(tab, "Clipped note tags")).toContain("separated by commas");
+    expect(settingDesc(tab, "Clipped note tags")).toContain("Comma-separated");
   });
 
   it("saves archive export settings", async () => {
@@ -208,32 +208,65 @@ describe("settings tab", () => {
 
     tab.display();
     const toggle = inputForSetting(tab, "Save note by default");
-    const folder = inputForSetting(tab, "Saved note folder");
-    const filename = inputForSetting(tab, "Saved note filename");
-    const tags = inputForSetting(tab, "Saved note tags");
-    if (!toggle || !folder || !filename || !tags) throw new Error("Missing archive export controls");
-    expect(folder.getAttribute("aria-label")).toBeNull();
-    expect(filename.getAttribute("aria-label")).toBeNull();
-    expect(tags.getAttribute("aria-label")).toBeNull();
+    if (!toggle) throw new Error("Missing archive export toggle");
     expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
-    expect(folder.type).toBe("text");
-    expect(filename.type).toBe("text");
-    expect(tags.type).toBe("text");
 
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    const folder = inputForSetting(tab, "Saved note folder");
+    if (!folder) throw new Error("Missing archive export folder input");
+    expect(folder.getAttribute("aria-label")).toBeNull();
+    expect(folder.type).toBe("text");
     folder.value = "Saved Threads";
-    folder.dispatchEvent(new Event("change"));
+    folder.dispatchEvent(new Event("blur"));
+    await flushPromises();
+
+    const filename = inputForSetting(tab, "Saved note filename");
+    if (!filename) throw new Error("Missing archive export filename input");
+    expect(filename.getAttribute("aria-label")).toBeNull();
+    expect(filename.type).toBe("text");
     filename.value = "{{date}} {{title}}.md";
-    filename.dispatchEvent(new Event("change"));
+    filename.dispatchEvent(new Event("blur"));
+    await flushPromises();
+
+    const tags = inputForSetting(tab, "Saved note tags");
+    if (!tags) throw new Error("Missing archive export tags input");
+    expect(tags.getAttribute("aria-label")).toBeNull();
+    expect(tags.type).toBe("text");
     tags.value = "codex, archive";
-    tags.dispatchEvent(new Event("change"));
+    tags.dispatchEvent(new Event("blur"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledTimes(4);
     expect(settingDesc(tab, "Save note by default")).toContain("default archive action");
     expect(settingDesc(tab, "Saved note filename")).toContain("{{shortId}}");
-    expect(settingDesc(tab, "Saved note tags")).toContain("separated by commas");
+    expect(settingDesc(tab, "Saved note tags")).toContain("Comma-separated");
+  });
+
+  it("restores default archive export templates when cleared", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+
+    const folder = inputForSetting(tab, "Saved note folder");
+    if (!folder) throw new Error("Missing archive export folder input");
+    folder.value = "   ";
+    folder.dispatchEvent(new Event("blur"));
+    await flushPromises();
+
+    expect(inputForSetting(tab, "Saved note folder")?.value).toBe(DEFAULT_SETTINGS.archiveExportFolderTemplate);
+
+    const filename = inputForSetting(tab, "Saved note filename");
+    if (!filename) throw new Error("Missing archive export filename input");
+    filename.value = "   ";
+    filename.dispatchEvent(new Event("blur"));
+    await flushPromises();
+
+    expect(inputForSetting(tab, "Saved note filename")?.value).toBe(DEFAULT_SETTINGS.archiveExportFilenameTemplate);
+    expect(saveSettings).toHaveBeenCalledTimes(2);
   });
 
   it("refreshes models, hooks, and archived threads from the global refresh button", async () => {
@@ -691,11 +724,12 @@ describe("settings tab", () => {
     tab.display();
     await flushPromises();
 
-    expect(tab.containerEl.textContent).toContain("Restore or permanently delete archived Codex threads.");
+    expect(tab.containerEl.textContent).not.toContain("Restore or permanently delete archived Codex threads.");
+    expect(tab.containerEl.textContent).not.toContain("Trust, enable, or disable discovered Codex hooks.");
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 hook from Codex app server.");
     expect(tab.containerEl.textContent).not.toContain("Loaded 1 archived thread from Codex app server.");
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-section .setting-item-heading")?.textContent).toContain(
-      "Hook status",
+      "Codex hooks",
     );
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-section .setting-item-heading")?.textContent).toContain(
       "Thread archiving",
@@ -1036,23 +1070,12 @@ function settingsTabHost(
 ): CodexPanelSettingTabHost {
   const defaultArchivedThreads = [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })];
   const settings = {
-    codexPath: "codex",
+    ...DEFAULT_SETTINGS,
     threadNamingModel: options.settings?.threadNamingModel ?? null,
     threadNamingEffort: options.settings?.threadNamingEffort ?? null,
     rewriteSelectionModel: options.settings?.rewriteSelectionModel ?? null,
     rewriteSelectionEffort: options.settings?.rewriteSelectionEffort ?? null,
-    showToolbar: true,
     sendShortcut: options.sendShortcut ?? "enter",
-    scrollThreadFromComposerEdges: false,
-    referenceActiveNoteOnSend: false,
-    attachmentFolder: "Codex Attachments",
-    clipFolder: "Codex Clippings",
-    clipFilenameTemplate: "{{title}}.md",
-    clipTags: "",
-    archiveExportEnabled: false,
-    archiveExportFolderTemplate: "Codex Archives",
-    archiveExportFilenameTemplate: "{{date}} {{time}} {{title}} {{shortId}}.md",
-    archiveExportTags: "",
   };
   const appServerQueries = {
     modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
