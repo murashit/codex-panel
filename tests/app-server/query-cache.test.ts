@@ -52,6 +52,56 @@ describe("AppServerQueryCache", () => {
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.models.status).toBe("failed");
   });
 
+  it("model-checks last-known-good metadata fallback for all probe status combinations", () => {
+    for (const statuses of metadataProbeStatusCombinations()) {
+      const cache = new AppServerQueryCache();
+      const context = cacheContext();
+      cache.writeAppServerMetadata(
+        context,
+        metadata({
+          availableModels: [modelMetadata("gpt-previous")],
+          availableSkills: [skillMetadata("previous-skill")],
+          availablePermissionProfiles: [permissionProfile(":previous")],
+          rateLimit: rateLimit(11),
+        }),
+      );
+
+      cache.writeAppServerMetadata(
+        context,
+        metadata({
+          availableModels: [modelMetadata("gpt-next")],
+          availableSkills: [skillMetadata("next-skill")],
+          availablePermissionProfiles: [permissionProfile(":next")],
+          rateLimit: rateLimit(22),
+          modelProbeStatus: statuses.models,
+          skillsProbeStatus: statuses.skills,
+          permissionProfilesProbeStatus: statuses.permissionProfiles,
+          rateLimitProbeStatus: statuses.rateLimits,
+        }),
+      );
+
+      const snapshot = cache.appServerMetadataSnapshot(context);
+      const statusCase = metadataProbeStatusCase(statuses);
+      expect(
+        snapshot?.availableModels.map((model) => model.model),
+        statusCase,
+      ).toEqual([statuses.models === "ok" ? "gpt-next" : "gpt-previous"]);
+      expect(
+        cache.modelsSnapshot(context)?.map((model) => model.model),
+        statusCase,
+      ).toEqual([statuses.models === "ok" ? "gpt-next" : "gpt-previous"]);
+      expect(
+        snapshot?.availableSkills.map((skill) => skill.name),
+        statusCase,
+      ).toEqual([statuses.skills === "ok" ? "next-skill" : "previous-skill"]);
+      expect(
+        snapshot?.availablePermissionProfiles.map((profile) => profile.id),
+        statusCase,
+      ).toEqual([statuses.permissionProfiles === "ok" ? ":next" : ":previous"]);
+      expect(snapshot?.rateLimit?.primary?.usedPercent, statusCase).toBe(statuses.rateLimits === "ok" ? 22 : 11);
+    }
+  });
+
   it("does not accept failed metadata resource payloads as cache truth", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
@@ -372,6 +422,28 @@ function metadata(
     rateLimit: overrides.rateLimit ?? null,
     serverDiagnostics: diagnostics,
   };
+}
+
+type MetadataProbeStatus = "ok" | "failed";
+
+interface MetadataProbeStatuses {
+  readonly models: MetadataProbeStatus;
+  readonly skills: MetadataProbeStatus;
+  readonly permissionProfiles: MetadataProbeStatus;
+  readonly rateLimits: MetadataProbeStatus;
+}
+
+function metadataProbeStatusCombinations(): MetadataProbeStatuses[] {
+  const statuses: readonly MetadataProbeStatus[] = ["ok", "failed"];
+  return statuses.flatMap((models) =>
+    statuses.flatMap((skills) =>
+      statuses.flatMap((permissionProfiles) => statuses.map((rateLimits) => ({ models, skills, permissionProfiles, rateLimits }))),
+    ),
+  );
+}
+
+function metadataProbeStatusCase(statuses: MetadataProbeStatuses): string {
+  return `models=${statuses.models} skills=${statuses.skills} permissionProfiles=${statuses.permissionProfiles} rateLimits=${statuses.rateLimits}`;
 }
 
 function skillMetadata(name: string): SkillMetadata {
