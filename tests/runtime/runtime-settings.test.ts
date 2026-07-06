@@ -8,6 +8,7 @@ import {
   setCollaborationModeIntent,
   setRuntimeIntentValue,
   unchangedCollaborationModeIntent,
+  unchangedRuntimeIntent,
 } from "../../src/features/chat/domain/runtime/intent";
 import {
   compactReasoningEffortLabel,
@@ -685,6 +686,33 @@ describe("runtime settings", () => {
     });
   });
 
+  it("model-checks runtime value precedence for configured, active, and pending model layers", () => {
+    for (const configured of [null, "gpt-config"] as const) {
+      for (const active of [null, "gpt-active"] as const) {
+        for (const pending of modelPendingIntentCases()) {
+          const snapshot = runtimeSnapshot({
+            runtimeConfig: runtimeConfigFixture(configured ? { model: configured } : {}),
+            active: { model: active },
+            pending: { model: pending.intent },
+          });
+          const model = resolveRuntimeControls(snapshot, snapshotConfig(snapshot)).model;
+          const expectedConfirmed = active ?? configured;
+          const expectedConfirmedSource = active ? "active-thread" : configured ? "config" : "none";
+
+          expect(model, runtimeLayerCase(configured, active, pending.name)).toMatchObject({
+            configured,
+            active,
+            pending: pending.intent,
+            confirmed: expectedConfirmed,
+            confirmedSource: expectedConfirmedSource,
+            effective: pending.name === "set" ? "gpt-pending" : pending.name === "resetToConfig" ? configured : expectedConfirmed,
+            source: pending.name === "set" ? "pending" : pending.name === "resetToConfig" ? "config" : expectedConfirmedSource,
+          });
+        }
+      }
+    }
+  });
+
   it("reports collaboration mode dirtiness and missing model blockers from the resolved runtime", () => {
     const blocked = runtimeSnapshot({
       pending: { collaborationMode: setCollaborationModeIntent("plan") },
@@ -1049,6 +1077,18 @@ function fastRuntimeServiceTierRequestValue(snapshot: RuntimeSnapshot, config?: 
 
 function supportedReasoningEfforts(snapshot: RuntimeSnapshot, config?: RuntimeConfigSnapshot): readonly string[] {
   return runtimeControls(snapshot, config).supportedReasoningEfforts;
+}
+
+function modelPendingIntentCases() {
+  return [
+    { name: "unchanged", intent: unchangedRuntimeIntent<string>() },
+    { name: "set", intent: setRuntimeIntentValue("gpt-pending") },
+    { name: "resetToConfig", intent: resetRuntimeIntentToConfig<string>() },
+  ] as const;
+}
+
+function runtimeLayerCase(configured: string | null, active: string | null, pending: string): string {
+  return `configured=${configured ?? "none"} active=${active ?? "none"} pending=${pending}`;
 }
 
 function runtimeConfigFixture(config: Record<string, unknown>, layers: ConfigReadResult["layers"] = null): RuntimeConfigSnapshot {
