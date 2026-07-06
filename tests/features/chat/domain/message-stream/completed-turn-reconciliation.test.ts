@@ -32,7 +32,61 @@ describe("reconcileCompletedTurnItems", () => {
 
     expect(next.map((item) => item.id)).toEqual(["local-user-other-turn", "u1"]);
   });
+
+  it("model-checks client-id reconciliation across current and server ordering", () => {
+    for (const currentItems of permutations([
+      userMessage("local-user-1", "same text", "turn", "local-user-1"),
+      assistantMessage("local-progress", "progress", "turn"),
+      userMessage("local-user-other", "other turn", "other", "local-user-other"),
+    ])) {
+      for (const turnItems of permutations([
+        userMessage("server-user", "same text", "turn", "local-user-1"),
+        assistantMessage("server-assistant", "done", "turn"),
+      ])) {
+        const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
+        const nextIds = next.map((item) => item.id);
+
+        expect(nextIds, reconciliationCase(currentItems, turnItems)).toContain("server-user");
+        expect(nextIds, reconciliationCase(currentItems, turnItems)).not.toContain("local-user-1");
+        expect(nextIds, reconciliationCase(currentItems, turnItems)).toContain("local-user-other");
+        expect(new Set(nextIds).size, reconciliationCase(currentItems, turnItems)).toBe(nextIds.length);
+      }
+    }
+  });
+
+  it("model-checks text fallback reconciliation only for the completed turn", () => {
+    for (const currentItems of permutations([
+      userMessage("local-user-completed", "fallback text", "turn"),
+      userMessage("local-user-other-turn", "fallback text", "other"),
+      userMessage("local-user-different-text", "different text", "turn"),
+    ])) {
+      const next = reconcileCompletedTurnItems({
+        currentItems,
+        completedTurnId: "turn",
+        turnItems: [userMessage("server-user", "fallback text", "turn")],
+      });
+      const nextIds = next.map((item) => item.id);
+
+      expect(nextIds, currentIds(currentItems)).toContain("server-user");
+      expect(nextIds, currentIds(currentItems)).not.toContain("local-user-completed");
+      expect(nextIds, currentIds(currentItems)).toContain("local-user-other-turn");
+      expect(nextIds, currentIds(currentItems)).toContain("local-user-different-text");
+    }
+  });
 });
+
+function permutations<T>(items: readonly T[]): T[][] {
+  if (items.length <= 1) return [items.slice()];
+  return items.flatMap((item, index) => permutations([...items.slice(0, index), ...items.slice(index + 1)]).map((tail) => [item, ...tail]));
+}
+
+function reconciliationCase(currentItems: readonly MessageStreamItem[], turnItems: readonly MessageStreamItem[]): string {
+  return `current=${currentIds(currentItems)} turn=${currentIds(turnItems)}`;
+}
+
+function currentIds(items: readonly MessageStreamItem[]): string {
+  return items.map((item) => item.id).join(",");
+}
 
 function userMessage(id: string, text: string, turnId: string, clientId?: string): MessageStreamItem {
   return {
