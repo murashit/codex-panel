@@ -1,7 +1,7 @@
 import { type App, Notice, Platform, SuggestModal } from "obsidian";
 import { shortThreadId } from "../../domain/threads/id";
-import { type Thread, threadRecencyAt } from "../../domain/threads/model";
-import { threadDisplayTitle } from "../../domain/threads/title";
+import type { Thread } from "../../domain/threads/model";
+import { threadSearchMatches } from "../../domain/threads/search";
 import type { ThreadCatalogActiveReader } from "../threads/catalog/thread-catalog";
 
 export interface ThreadPickerHost {
@@ -34,34 +34,10 @@ export async function openThreadPicker(host: ThreadPickerHost): Promise<void> {
 }
 
 function threadPickerSuggestions(threads: readonly Thread[], queryText: string): ThreadSuggestion[] {
-  const query = queryText.trim().toLowerCase();
-  return [...threads]
-    .sort((a, b) => threadRecencyAt(b) - threadRecencyAt(a))
-    .map((thread, index) => {
-      const title = threadDisplayTitle(thread);
-      const id = thread.id.toLowerCase();
-      const normalizedTitle = title.toLowerCase();
-      const shortId = shortThreadId(thread.id).toLowerCase();
-      const score =
-        query.length === 0
-          ? 3
-          : normalizedTitle.startsWith(query)
-            ? 0
-            : id.startsWith(query) || shortId.startsWith(query)
-              ? 1
-              : normalizedTitle.includes(query)
-                ? 2
-                : id.includes(query)
-                  ? 3
-                  : -1;
-      return { thread, title, score, index };
-    })
-    .filter((item) => item.score !== -1)
-    .sort((a, b) => a.score - b.score || threadRecencyAt(b.thread) - threadRecencyAt(a.thread) || a.index - b.index)
-    .map(({ thread, title }) => ({
-      thread,
-      title,
-    }));
+  return threadSearchMatches(threads, queryText).map(({ thread, title }) => ({
+    thread,
+    title,
+  }));
 }
 
 function threadOpenModeFromEvent(evt: MouseEvent | KeyboardEvent): ThreadOpenMode {

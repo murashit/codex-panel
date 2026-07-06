@@ -4,7 +4,7 @@ import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForMo
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
-import { threadDisplayTitle } from "../../../../domain/threads/title";
+import { compareThreadSearchMatches, threadSearchMatches } from "../../../../domain/threads/search";
 import {
   type ActiveNoteContextReference,
   activeNoteContextReferenceMarker,
@@ -362,19 +362,14 @@ function activeThreadCommandSuggestions(
   const { command, query, start } = completion;
   const policy = THREAD_COMMAND_SUGGESTION_POLICIES[command];
   if (threads.some((thread) => thread.id.toLowerCase() === query)) return null;
-  return threads
-    .filter((thread) => !shouldExcludeActiveThreadSuggestion(policy, thread.id, activeThreadId))
-    .map((thread, index) => {
-      const title = threadDisplayTitle(thread);
-      const id = thread.id.toLowerCase();
-      const normalizedTitle = title.toLowerCase();
-      const score = query.length === 0 ? 2 : id.startsWith(query) ? 0 : normalizedTitle.includes(query) ? 1 : id.includes(query) ? 2 : -1;
-      const activePriority = activeThreadSuggestionPriority(policy, query, thread.id, activeThreadId);
-      return { thread, title, score, activePriority, index };
+  const candidateThreads = threads.filter((thread) => !shouldExcludeActiveThreadSuggestion(policy, thread.id, activeThreadId));
+
+  return threadSearchMatches(candidateThreads, query)
+    .map((match) => {
+      const activePriority = activeThreadSuggestionPriority(policy, query, match.thread.id, activeThreadId);
+      return { ...match, activePriority };
     })
-    .filter((item) => item.score !== -1)
-    .sort((a, b) => a.activePriority - b.activePriority || a.score - b.score || a.index - b.index || a.title.localeCompare(b.title))
-    .slice(0, 8)
+    .sort((a, b) => a.activePriority - b.activePriority || compareThreadSearchMatches(a, b))
     .map(({ thread, title }) => ({
       display: title,
       detail: shortThreadId(thread.id),

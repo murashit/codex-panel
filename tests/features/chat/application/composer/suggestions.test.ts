@@ -346,6 +346,28 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/rename 019abcde-0000-7000-8000-000000000001 New name", notes, [], threads)).toEqual([]);
   });
 
+  it("uses shared thread search ranking for thread slash command suggestions", () => {
+    const threads = [
+      thread({ id: "thread-alpha", name: "Older Alpha", updatedAt: 10 }),
+      thread({ id: "thread-beta", name: "Recent unrelated alpha mention", updatedAt: 30 }),
+      thread({ id: "alpha-thread", name: "Newest unrelated", updatedAt: 40 }),
+    ];
+
+    expect(suggestionReplacements(activeComposerSuggestions("/resume alpha", notes, [], threads))).toEqual([
+      "alpha-thread",
+      "thread-beta",
+      "thread-alpha",
+    ]);
+  });
+
+  it("returns every matching thread slash command suggestion", () => {
+    const threads = Array.from({ length: 10 }, (_unused, index) =>
+      thread({ id: `thread-${String(index).padStart(2, "0")}`, name: `Alpha ${String(index)}`, updatedAt: index }),
+    );
+
+    expect(activeComposerSuggestions("/resume alpha", notes, [], threads)).toHaveLength(10);
+  });
+
   it("prioritizes the active thread for empty archive and rename completions", () => {
     const threads = [
       thread({ id: "019abcde-0000-7000-8000-000000000001", name: "Latest thread" }),

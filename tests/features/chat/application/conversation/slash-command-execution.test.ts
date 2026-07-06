@@ -148,6 +148,17 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft (thread-a), Draft notes (thread-b)");
   });
 
+  it("resolves a stronger ranked resume match before looser title matches", async () => {
+    const ctx = context({
+      listedThreads: [thread({ id: "thread-alpha", name: "Alpha plan" }), thread({ id: "thread-beta", name: "Older Alpha plan" })],
+    });
+
+    await executeSlashCommand("resume", "alpha", ctx);
+
+    expect(ctx.resumeThread).toHaveBeenCalledWith("thread-alpha");
+    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Multiple matching threads: Alpha plan (thread-a), Older Alpha plan (thread-b)");
+  });
+
   it("returns referenced input for /refer", async () => {
     const target = thread({ id: "thread-alpha", name: "Alpha" });
     const input = [{ type: "text" as const, text: "context\n質問です" }];
@@ -196,6 +207,25 @@ describe("slash commands", () => {
 
     expect(ctx.referThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
+  });
+
+  it("does not let the active thread shadow a non-active /refer match", async () => {
+    const target = thread({ id: "alpha-thread", name: "Other thread" });
+    const input = [{ type: "text" as const, text: "質問です" }];
+    const referencedThread = { threadId: "alpha-thread", title: "Other thread", includedTurns: 1, turnLimit: 20 };
+    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+    const ctx = context({
+      activeThreadId: "thread-current",
+      inputSnapshot,
+      listedThreads: [thread({ id: "thread-current", name: "Alpha plan" }), target],
+      referThread: vi.fn().mockResolvedValue({ text: "質問です", input, referencedThread }),
+    });
+
+    const result = await executeSlashCommand("refer", "alpha 質問です", ctx);
+
+    expect(ctx.referThread).toHaveBeenCalledWith(target, "質問です", inputSnapshot);
+    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Use the current thread directly instead of referencing it.");
+    expect(result).toEqual({ sendText: "質問です", sendInput: input, referencedThread });
   });
 
   it("returns clipped wikilink input for /clip", async () => {

@@ -5,6 +5,7 @@ import type { ThreadGoal } from "../../../../domain/threads/goal";
 import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
+import { resolveThreadSearchQuery } from "../../../../domain/threads/search";
 import { threadDisplayTitle } from "../../../../domain/threads/title";
 import type { MessageStreamAuditFact, MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import { modelOverrideMessage, permissionProfileOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
@@ -122,7 +123,10 @@ export async function executeSlashCommand(
         context.addSystemMessage(usageError(command, "requires a thread and a message"));
         return;
       }
-      const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads);
+      const thread = resolveThreadArgument(parsed.threadQuery, context.listedThreads, {
+        excludedThreadId: context.activeThreadId,
+        allowExactExcludedThread: true,
+      });
       if (!thread.ok) {
         context.addSystemMessage(thread.message);
         return;
@@ -466,6 +470,11 @@ function lineToRow(line: string): MessageStreamAuditFact {
 
 type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: string };
 
+interface ThreadResolutionOptions {
+  excludedThreadId?: string | null;
+  allowExactExcludedThread?: boolean;
+}
+
 function parseReferArgs(args: string): { threadQuery: string; message: string } | null {
   const parsed = parseThreadAndTextArgs(args);
   return parsed ? { threadQuery: parsed.threadQuery, message: parsed.text } : null;
@@ -494,27 +503,28 @@ function parseUrlAndMessageArgs(args: string): { url: string; message: string } 
   return url !== undefined ? { url, message } : null;
 }
 
-function resolveThreadArgument(args: string, threads: readonly Thread[]): ThreadResolution {
+function resolveThreadArgument(args: string, threads: readonly Thread[], options: ThreadResolutionOptions = {}): ThreadResolution {
   const query = args.trim();
-  if (!query) {
-    const thread = threads.at(0);
-    return thread ? { ok: true, thread } : { ok: false, message: "No recent threads to resume." };
+  const exactExcludedThread = options.allowExactExcludedThread
+    ? threads.find((thread) => thread.id === options.excludedThreadId && threadIdMatchesExactly(thread.id, query))
+    : null;
+  if (exactExcludedThread) return { ok: true, thread: exactExcludedThread };
+
+  const searchThreads = options.excludedThreadId ? threads.filter((thread) => thread.id !== options.excludedThreadId) : threads;
+  const resolution = resolveThreadSearchQuery(searchThreads, query);
+  if (resolution.kind === "match") return { ok: true, thread: resolution.match.thread };
+  if (resolution.kind === "multiple") {
+    const matches = resolution.matches.map((match) => threadResolutionLabel(match.thread)).join(", ");
+    return { ok: false, message: `Multiple matching threads: ${matches}` };
   }
-
-  const idMatches = threads.filter((thread) => thread.id === query || thread.id.startsWith(query));
-  if (idMatches.length === 1 && idMatches[0]) return { ok: true, thread: idMatches[0] };
-  if (idMatches.length > 1) return { ok: false, message: `Multiple matching threads: ${idMatches.map((thread) => thread.id).join(", ")}` };
-
-  const titleQuery = query.toLowerCase();
-  const titleMatches = threads.filter((thread) => threadDisplayTitle(thread).toLowerCase().includes(titleQuery));
-  if (titleMatches.length === 1 && titleMatches[0]) return { ok: true, thread: titleMatches[0] };
-  if (titleMatches.length > 1) {
-    return { ok: false, message: `Multiple matching threads: ${titleMatches.map(threadResolutionLabel).join(", ")}` };
-  }
-
-  return { ok: false, message: `No matching thread: ${query}` };
+  return { ok: false, message: query ? `No matching thread: ${query}` : "No recent threads to resume." };
 }
 
 function threadResolutionLabel(thread: Thread): string {
   return `${threadDisplayTitle(thread)} (${shortThreadId(thread.id)})`;
+}
+
+function threadIdMatchesExactly(threadId: string, query: string): boolean {
+  const normalizedQuery = query.trim().toLowerCase();
+  return threadId.toLowerCase() === normalizedQuery || shortThreadId(threadId).toLowerCase() === normalizedQuery;
 }
