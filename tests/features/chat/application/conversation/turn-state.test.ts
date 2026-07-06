@@ -223,7 +223,35 @@ describe("chat turn lifecycle state machine", () => {
   ])("preserves state identity for ignored transition: $name", ({ state, event }) => {
     expect(transitionChatTurnLifecycleState(state, event)).toBe(state);
   });
+
+  it("model-checks stale callbacks that must not clear a running turn", () => {
+    for (const sequence of eventSequences(runningPreservingEvents(), 4)) {
+      const finalState = applyTurnEvents(
+        running("turn"),
+        sequence.map((event) => event.event),
+      );
+
+      expect(finalState, sequenceDescription(sequence)).toEqual(running("turn"));
+    }
+  });
+
+  it("model-checks pending hook ordering before server acknowledgement", () => {
+    for (const sequence of eventSequences(pendingHookEvents(), 4)) {
+      const finalState = applyTurnEvents(
+        idle(),
+        sequence.map((event) => event.event),
+      );
+      const lastPending = lastPendingHookValue(sequence);
+
+      expect(finalState, sequenceDescription(sequence)).toEqual(lastPending ? starting(lastPending) : idle());
+    }
+  });
 });
+
+interface ModeledTurnEvent {
+  readonly name: string;
+  readonly event: ChatTurnLifecycleEvent;
+}
 
 const pendingA = {
   anchorItemId: "local-user-a",
@@ -234,6 +262,55 @@ const pendingB = {
   anchorItemId: "local-user-b",
   promptSubmitHookItemIds: ["hook-b"],
 } satisfies PendingTurnStart;
+
+function runningPreservingEvents(): readonly ModeledTurnEvent[] {
+  return [
+    modeledTurnEvent("stale completion", completed("stale-turn")),
+    modeledTurnEvent("stale acknowledgement", startAcknowledged("stale-turn")),
+    modeledTurnEvent("start failure", startFailed()),
+    modeledTurnEvent("clear missing pending hook", pendingStartHookUpserted(null)),
+  ];
+}
+
+function pendingHookEvents(): readonly ModeledTurnEvent[] {
+  return [
+    modeledTurnEvent("upsert pending A", pendingStartHookUpserted(pendingA)),
+    modeledTurnEvent("upsert pending B", pendingStartHookUpserted(pendingB)),
+    modeledTurnEvent("clear pending", pendingStartHookUpserted(null)),
+  ];
+}
+
+function modeledTurnEvent(name: string, event: ChatTurnLifecycleEvent): ModeledTurnEvent {
+  return { name, event };
+}
+
+function applyTurnEvents(state: ChatTurnLifecycleState, events: readonly ChatTurnLifecycleEvent[]): ChatTurnLifecycleState {
+  return events.reduce(transitionChatTurnLifecycleState, state);
+}
+
+function eventSequences<T>(events: readonly T[], maxDepth: number): T[][] {
+  const sequences: T[][] = [[]];
+  for (let depth = 1; depth <= maxDepth; depth += 1) {
+    for (const prefix of sequences.filter((sequence) => sequence.length === depth - 1)) {
+      for (const event of events) {
+        sequences.push([...prefix, event]);
+      }
+    }
+  }
+  return sequences;
+}
+
+function lastPendingHookValue(sequence: readonly ModeledTurnEvent[]): PendingTurnStart | null {
+  let pendingTurnStart: PendingTurnStart | null = null;
+  for (const { event } of sequence) {
+    if (event.type === "pending-start-hook-upserted") pendingTurnStart = event.pendingTurnStart;
+  }
+  return pendingTurnStart;
+}
+
+function sequenceDescription(sequence: readonly ModeledTurnEvent[]): string {
+  return sequence.length === 0 ? "no events" : sequence.map((event) => event.name).join(" -> ");
+}
 
 function idle(): ChatTurnLifecycleState {
   return { kind: "idle" };
