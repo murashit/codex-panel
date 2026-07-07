@@ -1156,6 +1156,7 @@ async function createAppServerBoundaryPolicyReport() {
   const cwd = await tempBiomeWorkspace([
     "no-generated-app-server-boundary-imports.grit",
     "no-app-server-protocol-boundary-imports.grit",
+    "no-chat-turn-item-non-turn-protocol-imports.grit",
     "no-domain-outer-layer-imports.grit",
     "no-lower-level-feature-imports.grit",
     "no-app-server-connection-boundary-imports.grit",

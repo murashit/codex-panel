@@ -9,7 +9,9 @@ private pattern js_module_reference() {
 
 private pattern app_server_protocol_source() { r"^[\"'](?:(?:\.\./)+app-server/protocol|src/app-server/protocol)/[^/\"']+(?:/.*)?[\"']$" }
 
+private pattern turn_protocol_source() { r"^[\"'](?:(?:\.\./)+app-server/protocol/turn|src/app-server/protocol/turn)(?:/.*)?[\"']$" }
+
 js_module_reference() as $stmt where {
-  $stmt <: contains `$source` where { $source <: app_server_protocol_source() },
+  $stmt <: contains `$source` where { $source <: app_server_protocol_source(), not { $source <: turn_protocol_source() } },
   register_diagnostic(span=$stmt, message="Source modules outside root src/app-server must use domain models and app-server services instead of app-server protocol modules. Chat turn-item conversion may consume turn protocol at its app-server boundary; feature state and UI must use Panel-owned models.", severity="error")
 }
