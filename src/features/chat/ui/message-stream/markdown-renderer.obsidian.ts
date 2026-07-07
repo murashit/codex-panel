@@ -16,6 +16,20 @@ interface StreamMarkdownRenderContext {
   vaultPath: string;
 }
 
+interface ObsidianGlobalSearchPlugin {
+  openGlobalSearch?: (query: string, active?: boolean) => void;
+}
+
+interface ObsidianAppWithInternalPlugins extends App {
+  internalPlugins?: {
+    plugins?: {
+      "global-search"?: {
+        instance?: ObsidianGlobalSearchPlugin;
+      };
+    };
+  };
+}
+
 export class MarkdownMessageRenderer {
   private readonly renderGenerations = new WeakMap<HTMLElement, number>();
 
@@ -90,7 +104,7 @@ function bindRenderedTags(parent: HTMLElement, context: RenderedMarkdownLinkCont
       event.preventDefault();
       const tag = renderedTagName(link);
       if (!tag) return;
-      void openTagSearch(context.app, tag);
+      openTagSearch(context.app, tag);
     };
   });
 }
@@ -103,18 +117,14 @@ function renderedTagName(link: HTMLAnchorElement): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-async function openTagSearch(app: App, tag: string): Promise<void> {
-  const leaf = app.workspace.getLeftLeaf(false);
-  if (!leaf) {
+function openTagSearch(app: App, tag: string): void {
+  const query = `tag:#${tag}`;
+  const searchPlugin = (app as ObsidianAppWithInternalPlugins).internalPlugins?.plugins?.["global-search"]?.instance;
+  if (typeof searchPlugin?.openGlobalSearch !== "function") {
     new Notice("Cannot open Obsidian search.");
     return;
   }
-  await leaf.setViewState({
-    type: "search",
-    active: true,
-    state: { query: `tag:#${tag}` },
-  });
-  await app.workspace.revealLeaf(leaf);
+  searchPlugin.openGlobalSearch(query, true);
 }
 
 function bindStreamMarkdownFileLinks(parent: HTMLElement, context: StreamMarkdownRenderContext): void {

@@ -198,14 +198,18 @@ describe("MessageStreamPresenter scroll pinning", () => {
     cleanup();
   });
 
-  it("opens Obsidian search when rendered tags are clicked", async () => {
-    const searchLeaf = {
-      setViewState: vi.fn().mockResolvedValue(undefined),
-    };
-    const revealLeaf = vi.fn().mockResolvedValue(undefined);
+  it("uses Obsidian global search when rendered tags are clicked", async () => {
+    const openGlobalSearch = vi.fn();
     const context = markdownLinkContext();
-    context.app.workspace.getLeftLeaf = vi.fn(() => searchLeaf);
-    context.app.workspace.revealLeaf = revealLeaf;
+    Object.assign(context.app, {
+      internalPlugins: {
+        plugins: {
+          "global-search": {
+            instance: { openGlobalSearch },
+          },
+        },
+      },
+    });
     const { link, cleanup } = await renderedTag(context, {
       cls: "tag",
       text: "#project/codex",
@@ -215,13 +219,8 @@ describe("MessageStreamPresenter scroll pinning", () => {
     link.click();
     await Promise.resolve();
 
-    expect(searchLeaf.setViewState).toHaveBeenCalledWith({
-      type: "search",
-      active: true,
-      state: { query: "tag:#project/codex" },
-    });
-    expect(revealLeaf).toHaveBeenCalledWith(searchLeaf);
-    expect(context.app.workspace.getLeftLeaf).toHaveBeenCalledWith(false);
+    expect(openGlobalSearch).toHaveBeenCalledWith("tag:#project/codex", true);
+    expect(context.app.workspace.getLeftLeaf).not.toHaveBeenCalled();
     cleanup();
   });
 

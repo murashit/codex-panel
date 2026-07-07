@@ -1,5 +1,5 @@
 import type { App, EventRef } from "obsidian";
-import { getAllTags, stripHeadingForLink, TFile } from "obsidian";
+import { stripHeadingForLink, TFile } from "obsidian";
 
 import type { NoteCandidateProvider, WikiLinkMention } from "../../application/composer/note-context";
 import type { NoteCandidate } from "../../application/composer/suggestions";
@@ -16,6 +16,10 @@ interface FileCandidate {
 
 interface EventSource {
   offref?(ref: EventRef): void;
+}
+
+interface MetadataCacheWithTags {
+  getTags?: () => unknown;
 }
 
 export class VaultNoteCandidateProvider implements NoteCandidateProvider {
@@ -60,13 +64,7 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
   }
 
   private readTags(): string[] {
-    const tags: string[] = [];
-    for (const file of this.app.vault.getMarkdownFiles()) {
-      const cache = this.app.metadataCache.getFileCache(file);
-      if (!cache) continue;
-      tags.push(...(getAllTags(cache) ?? []));
-    }
-    return normalizedTags(tags);
+    return normalizedTags(metadataCacheTags(this.app.metadataCache));
   }
 
   resolveMention(target: string, sourcePath: string): WikiLinkMention | null {
@@ -109,6 +107,14 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
     }));
     return this.fileCandidatesCache;
   }
+}
+
+function metadataCacheTags(metadataCache: App["metadataCache"]): string[] {
+  const tagIndex = (metadataCache as MetadataCacheWithTags).getTags?.();
+  if (!tagIndex) return [];
+  if (Array.isArray(tagIndex)) return tagIndex.filter((tag): tag is string => typeof tag === "string");
+  if (typeof tagIndex !== "object") return [];
+  return Object.keys(tagIndex);
 }
 
 function normalizedTags(tags: readonly string[]): string[] {
