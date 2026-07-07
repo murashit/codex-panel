@@ -39,7 +39,7 @@ function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState })
           }}
         />
       </SettingRow>
-      <SettingRow name="Saved note folder" desc="Vault-relative folder template for archived thread notes.">
+      <SettingRow name="Saved note folder" desc="Vault-relative folder for archived thread notes.">
         <ObsidianCommitTextInput
           placeholder={DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE}
           value={state.exportFolderTemplate}

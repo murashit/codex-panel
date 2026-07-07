@@ -1,5 +1,10 @@
 import type { SkillMetadata } from "../../domain/catalog/metadata";
-import { type DiagnosticProbeResult, diagnosticProbeError, diagnosticProbeOk } from "../../domain/server/diagnostics";
+import {
+  type DiagnosticProbeResult,
+  diagnosticProbeError,
+  diagnosticProbeOk,
+  shortDiagnosticErrorMessage,
+} from "../../domain/server/diagnostics";
 import {
   type McpServerDiagnostic,
   type McpServerStatusSummary,
@@ -92,7 +97,7 @@ async function readPlugins(
     return {
       items: null,
       marketplaceErrors: [],
-      error: shortErrorMessage(error),
+      error: shortDiagnosticErrorMessage(error),
       probe: diagnosticProbeError("plugins", error, checkedAt),
     };
   }
@@ -118,7 +123,7 @@ async function readMcpServers(
   } catch (error) {
     return {
       items: null,
-      error: shortErrorMessage(error),
+      error: shortDiagnosticErrorMessage(error),
       probe: diagnosticProbeError("mcpServers", error, checkedAt),
     };
   }
@@ -142,12 +147,6 @@ async function readSkills(
       probe: diagnosticProbeOk("skills", `${String(catalog.totalCount)} skills`, checkedAt),
     };
   } catch (error) {
-    return { items: null, error: shortErrorMessage(error), probe: diagnosticProbeError("skills", error, checkedAt) };
+    return { items: null, error: shortDiagnosticErrorMessage(error), probe: diagnosticProbeError("skills", error, checkedAt) };
   }
-}
-
-function shortErrorMessage(error: unknown, maxLength = 160): string {
-  const message = error instanceof Error ? error.message : String(error);
-  const compact = message.replace(/\s+/g, " ").trim() || "Codex app-server request failed.";
-  return compact.length > maxLength ? `${compact.slice(0, maxLength - 3)}...` : compact;
 }

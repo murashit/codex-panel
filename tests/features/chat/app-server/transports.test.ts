@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient, ClientResponseByMethod } from "../../../../src/app-server/connection/client";
+import * as shortLivedClient from "../../../../src/app-server/connection/short-lived-client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/chat/input";
@@ -342,16 +343,68 @@ describe("chat app-server transports", () => {
     expect(result?.referencedThread).toMatchObject({ title: "Other", includedTurns: 1, turnLimit: 20 });
     expect(setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
   });
+
+  it("uses a short-lived client for clientAccess operations that reject server requests", async () => {
+    const currentRequest = vi.fn();
+    const currentClient = { request: currentRequest } as unknown as AppServerClient;
+    const shortClient = { request: vi.fn().mockResolvedValue("short-lived") } as unknown as AppServerClient;
+    const withShortLived = vi
+      .spyOn(shortLivedClient, "withShortLivedAppServerClient")
+      .mockImplementation(async (_codexPath, _cwd, operation) => {
+        return operation(shortClient);
+      });
+    const gateway = createTestGateway({
+      codexPath: "/usr/local/bin/codex",
+      currentClient: () => currentClient,
+    });
+
+    await expect(
+      gateway.clientAccess.withClient((client) => client.request("thread/list", {}), {
+        serverRequests: { kind: "reject", message: "Background operation cannot answer server requests." },
+      }),
+    ).resolves.toBe("short-lived");
+
+    expect(withShortLived).toHaveBeenCalledWith("/usr/local/bin/codex", "/vault", expect.any(Function), {
+      serverRequests: { kind: "reject", message: "Background operation cannot answer server requests." },
+    });
+    expect(currentRequest).not.toHaveBeenCalled();
+    withShortLived.mockRestore();
+  });
+
+  it("reads the current Codex command when creating short-lived clientAccess clients", async () => {
+    let codexPath = "/first/codex";
+    const shortClient = { request: vi.fn().mockResolvedValue("short-lived") } as unknown as AppServerClient;
+    const withShortLived = vi
+      .spyOn(shortLivedClient, "withShortLivedAppServerClient")
+      .mockImplementation(async (_codexPath, _cwd, operation) => {
+        return operation(shortClient);
+      });
+    const gateway = createTestGateway({
+      codexPath: () => codexPath,
+      currentClient: () => ({ request: vi.fn() }) as unknown as AppServerClient,
+    });
+
+    codexPath = "/second/codex";
+    await gateway.clientAccess.withClient((client) => client.request("thread/list", {}), {
+      serverRequests: { kind: "reject", message: "Background operation cannot answer server requests." },
+    });
+
+    expect(withShortLived).toHaveBeenCalledWith("/second/codex", "/vault", expect.any(Function), expect.any(Object));
+    withShortLived.mockRestore();
+  });
 });
 
 type AppServerThreadResumeResponse = ClientResponseByMethod["thread/resume"];
 
 function createTestGateway(options: {
+  codexPath?: string | (() => string);
   vaultPath?: string;
   currentClient: () => AppServerClient | null;
   connectedClient?: () => Promise<AppServerClient | null>;
 }) {
+  const codexPath = options.codexPath;
   return createChatAppServerGateway({
+    codexPath: typeof codexPath === "function" ? codexPath : () => codexPath ?? "codex",
     vaultPath: options.vaultPath ?? "/vault",
     currentClient: options.currentClient,
     connectedClient: options.connectedClient ?? (async () => options.currentClient()),

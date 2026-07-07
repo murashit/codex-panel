@@ -36,6 +36,23 @@ describe("web clipping", () => {
     );
   });
 
+  it("escapes frontmatter strings with YAML-safe JSON string literals", () => {
+    const output = webClipMarkdown(
+      {
+        url: "https://example.com/post?title=line\nbreak",
+        title: "Example Post",
+        content: "Body",
+      },
+      { clipTags: "web\nclip, tab\tvalue" },
+      "Example\nPost",
+      new Date("2026-07-05T03:04:05.000Z"),
+    );
+
+    expect(output).toContain('title: "Example Post"');
+    expect(output).toContain('url: "https://example.com/post?title=line\\nbreak"');
+    expect(output).toContain('tags: ["web\\nclip", "tab\\tvalue"]');
+  });
+
   it("saves clips under a unique path from the filename template", async () => {
     const destination = memoryDestination(["Codex Clippings/Example Site - Example-Post.md"]);
 

@@ -1,9 +1,15 @@
+import { yamlFrontmatterInlineList, yamlFrontmatterString } from "../../../../domain/markdown/frontmatter";
+import {
+  vaultMarkdownFilenameFromTemplate,
+  vaultMarkdownFolderPath,
+  vaultMarkdownTemplateDate,
+  vaultMarkdownTemplateTime,
+} from "../../../../domain/vault/markdown-write-templates";
 import {
   ensureVaultFolder,
   sanitizeVaultPathSegment,
   uniqueVaultPath,
   type VaultMarkdownDestination,
-  vaultRelativeFolderPath,
 } from "../../../../domain/vault/write-paths";
 
 export interface WebClipSettings {
@@ -59,9 +65,9 @@ export function webClipMarkdown(page: WebClipPage, settings: Pick<WebClipSetting
   const tags = normalizedClipTags(settings.clipTags ?? "");
   const frontmatter = [
     "---",
-    `title: ${yamlString(normalizedTitle)}`,
-    `url: ${yamlString(page.url)}`,
-    `created: ${yamlString(now.toISOString())}`,
+    `title: ${yamlFrontmatterString(normalizedTitle)}`,
+    `url: ${yamlFrontmatterString(page.url)}`,
+    `created: ${yamlFrontmatterString(now.toISOString())}`,
     ...frontmatterTagsLines(tags),
     "---",
     "",
@@ -72,8 +78,8 @@ export function webClipMarkdown(page: WebClipPage, settings: Pick<WebClipSetting
 function templateContext(page: WebClipPage, now: Date): TemplateContext {
   const title = sanitizeVaultPathSegment(normalizedDisplayTitle(page.title));
   return {
-    date: formatDate(now),
-    time: formatTime(now),
+    date: vaultMarkdownTemplateDate(now),
+    time: vaultMarkdownTemplateTime(now),
     title,
     site: sanitizeVaultPathSegment(page.site?.trim() || ""),
     domain: sanitizeVaultPathSegment(page.domain?.trim() || hostnameFromUrl(page.url) || ""),
@@ -84,13 +90,8 @@ function normalizedDisplayTitle(title: string): string {
   return title.replace(/\s+/g, " ").trim() || DEFAULT_CLIP_TITLE;
 }
 
-function expandTemplate(template: string, context: TemplateContext): string {
-  return template.replace(/{{\s*(date|time|title|site|domain)\s*}}/g, (_match, key: keyof TemplateContext) => context[key]);
-}
-
 function folderPath(value: string, normalizePath: (path: string) => string): string {
-  return vaultRelativeFolderPath(value, {
-    normalizePath,
+  return vaultMarkdownFolderPath(value, normalizePath, {
     emptyPathMessage: "Clip folder produced an empty path.",
     absolutePathMessage: "Clip folder must be relative to the vault.",
     relativeSegmentMessage: "Clip folder cannot contain relative path segments.",
@@ -98,12 +99,7 @@ function folderPath(value: string, normalizePath: (path: string) => string): str
 }
 
 function filenameFromTemplate(template: string, context: TemplateContext, normalizePath: (path: string) => string): string {
-  const expanded = expandTemplate(template, context)
-    .trim()
-    .replace(/[\\/]+/g, "-");
-  const filename = normalizePath(sanitizeVaultPathSegment(expanded));
-  if (!filename || filename === "." || filename === "..") throw new Error("Clip filename template produced an empty filename.");
-  return filename.toLowerCase().endsWith(".md") ? filename : `${filename}.md`;
+  return vaultMarkdownFilenameFromTemplate(template, context, normalizePath, "Clip filename template produced an empty filename.");
 }
 
 function normalizedClipTags(input: string): string[] {
@@ -123,11 +119,7 @@ function normalizedClipTags(input: string): string[] {
 }
 
 function frontmatterTagsLines(tags: string[]): string[] {
-  return tags.length > 0 ? [`tags: [${tags.map(yamlString).join(", ")}]`] : [];
-}
-
-function yamlString(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return tags.length > 0 ? [`tags: ${yamlFrontmatterInlineList(tags)}`] : [];
 }
 
 function hostnameFromUrl(url: string): string {
@@ -136,16 +128,4 @@ function hostnameFromUrl(url: string): string {
   } catch {
     return "";
   }
-}
-
-function formatDate(date: Date): string {
-  return `${String(date.getFullYear())}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
-
-function formatTime(date: Date): string {
-  return `${pad2(date.getHours())}${pad2(date.getMinutes())}${pad2(date.getSeconds())}`;
-}
-
-function pad2(value: number): string {
-  return value.toString().padStart(2, "0");
 }

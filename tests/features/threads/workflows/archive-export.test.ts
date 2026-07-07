@@ -5,8 +5,8 @@ import type { ThreadTranscriptEntry } from "../../../../src/domain/threads/trans
 import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "../../../../src/features/threads/workflows/archive-export";
 
 describe("archive export workflow", () => {
-  it("expands templates, sanitizes paths, creates folders, and preserves existing files", async () => {
-    const destination = new MemoryDestination(["Codex Archives/2026-05-18/My-Thread- abcdef12.md"]);
+  it("uses a fixed folder path and expands the filename template", async () => {
+    const destination = new MemoryDestination(["Codex Archives/{{date}}/My-Thread- abcdef12.md"]);
 
     const result = await exportArchivedThreadMarkdown(
       thread({ id: "abcdef12-9999", name: "My/Thread?" }),
@@ -19,9 +19,9 @@ describe("archive export workflow", () => {
       new Date(2026, 4, 18, 9, 8, 7),
     );
 
-    expect(result.path).toBe("Codex Archives/2026-05-18/My-Thread- abcdef12 2.md");
+    expect(result.path).toBe("Codex Archives/{{date}}/My-Thread- abcdef12 2.md");
     expect(destination.folders).toContain("Codex Archives");
-    expect(destination.folders).toContain("Codex Archives/2026-05-18");
+    expect(destination.folders).toContain("Codex Archives/{{date}}");
     expect(destination.files.get(result.path)).toContain('thread_id: "abcdef12-9999"');
     expect(destination.files.get(result.path)).toContain('tags: ["codex", "archive"]');
   });

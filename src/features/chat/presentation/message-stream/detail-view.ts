@@ -1,6 +1,7 @@
 import { truncate } from "../../../../domain/display/text-preview";
 import { shortThreadId } from "../../../../domain/threads/id";
 import { pathRelativeToRoot } from "../../../../domain/vault/paths";
+import { agentMessagePreview } from "../../domain/message-stream/format/agent-message-preview";
 import type {
   AgentMessageStreamItem,
   ApprovalResultMessageStreamItem,
@@ -447,16 +448,6 @@ function agentPromptPreview(prompt: string | null): string | null {
 function agentStatusLabel(status: string, message: string | null): string {
   const preview = agentMessagePreview(message, AGENT_ROW_MESSAGE_PREVIEW_LIMIT);
   return preview ? `${status}: ${preview}` : status;
-}
-
-function agentMessagePreview(message: string | null, maxLength: number): string | null {
-  if (!message) return null;
-  const firstLine = message
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find((line) => line.length > 0);
-  if (!firstLine) return null;
-  return truncate(firstLine.replace(/\s+/g, " "), maxLength);
 }
 
 function isLongAgentMessage(message: string): boolean {

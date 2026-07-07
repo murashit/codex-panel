@@ -1,4 +1,4 @@
-import { truncate } from "../../../../../domain/display/text-preview";
+import { agentMessagePreview } from "../format/agent-message-preview";
 import type {
   AgentRunSummary,
   AgentRunSummaryAgent,
@@ -116,16 +116,6 @@ function activeAgentRunSummaryAnchorId(items: readonly MessageStreamSemanticClas
     (classification) => messageStreamIsCoordinationProgress(classification) && classification.item.turnId === activeTurnId,
   );
   return firstActiveAgent?.item.id ?? null;
-}
-
-function agentMessagePreview(message: string | null, maxLength: number): string | null {
-  if (!message) return null;
-  const firstLine = message
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find((line) => line.length > 0);
-  if (!firstLine) return null;
-  return truncate(firstLine.replace(/\s+/g, " "), maxLength);
 }
 
 function agentRunState(agent: AgentStateSummary): AgentRunState {

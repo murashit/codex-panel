@@ -81,6 +81,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     return currentClient();
   };
   const appServer = createChatAppServerGateway({
+    codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
     vaultPath: environment.plugin.settingsRef.vaultPath,
     currentClient,
     connectedClient,

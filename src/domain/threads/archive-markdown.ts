@@ -1,3 +1,4 @@
+import { yamlFrontmatterInlineList, yamlFrontmatterString } from "../markdown/frontmatter";
 import { isExternalFileHref, parseFileHref } from "../vault/file-hrefs";
 import { isFilesystemAbsolutePath, isVaultConfigPath, normalizeFilePath, vaultRelativePath } from "../vault/paths";
 import type { Thread } from "./model";
@@ -33,9 +34,9 @@ export function archivedThreadMarkdown(
   const tags = normalizedArchiveTags(settings?.archiveExportTags ?? "");
   const lines = [
     "---",
-    `title: ${yamlString(title)}`,
-    `thread_id: ${yamlString(thread.id)}`,
-    `created: ${yamlString(formatDate(exportedAt))}`,
+    `title: ${yamlFrontmatterString(title)}`,
+    `thread_id: ${yamlFrontmatterString(thread.id)}`,
+    `created: ${yamlFrontmatterString(formatDate(exportedAt))}`,
     ...frontmatterTagsLines(tags),
     "---",
     "",
@@ -131,7 +132,7 @@ function formatUnixTimestamp(unixSeconds: number | null): string | null {
 }
 
 function frontmatterTagsLines(tags: string[]): string[] {
-  return tags.length > 0 ? [`tags: [${tags.map(yamlString).join(", ")}]`] : [];
+  return tags.length > 0 ? [`tags: ${yamlFrontmatterInlineList(tags)}`] : [];
 }
 
 function stripLeadingHashes(value: string): string {
@@ -197,10 +198,6 @@ function isInsideInlineCode(line: string, offset: number): boolean {
     if (line[index] === "`") inCode = !inCode;
   }
   return inCode;
-}
-
-function yamlString(value: string): string {
-  return JSON.stringify(value);
 }
 
 function formatDate(date: Date): string {
