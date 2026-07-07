@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { h } from "preact";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SkillMetadata } from "../../../../src/domain/catalog/metadata";
 import type { ComposerAttachment, ComposerAttachmentHandler } from "../../../../src/features/chat/application/composer/attachments";
 import type {
@@ -20,13 +20,27 @@ import { composerReadModelFromChatState } from "../support/shell-read-model";
 
 installObsidianDomShims();
 
+const renderedComposerParents = new Set<HTMLElement>();
+const composerControllerTestCleanups: (() => void)[] = [];
+
+afterEach(() => {
+  while (composerControllerTestCleanups.length > 0) composerControllerTestCleanups.pop()?.();
+  for (const parent of renderedComposerParents) unmountUiRoot(parent);
+  renderedComposerParents.clear();
+});
+
 function renderComposerController(
   parent: HTMLElement,
   controller: ChatComposerController,
   stateStore: ChatStateStore,
   actions: ChatComposerRenderActions = { submit: vi.fn() },
 ): void {
+  renderedComposerParents.add(parent);
   renderUiRoot(parent, h(ComposerShell, controller.renderState(composerReadModelFromChatState(stateStore.getState()), actions)));
+}
+
+function trackComposerControllerTestCleanup(cleanup: () => void): void {
+  composerControllerTestCleanups.push(cleanup);
 }
 
 type ComposerControllerOptions = ConstructorParameters<typeof ChatComposerController>[0];
@@ -62,7 +76,7 @@ function composerControllerFixture(
     stateStore,
   });
   const renderShell = vi.fn(() => renderComposerController(parent, controller, stateStore, options.renderActions));
-  stateStore.subscribe(renderShell);
+  trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
   return { controller, parent, renderShell, stateStore };
 }
 
@@ -110,7 +124,7 @@ describe("ChatComposerController", () => {
       onHeightChange: vi.fn(),
     });
     controllerRef.current = controller;
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     setTextAreaValue(composer(parent), "/");
@@ -196,7 +210,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     setTextAreaValue(composer(parent), "[[bet");
@@ -256,7 +270,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
@@ -309,7 +323,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
@@ -415,7 +429,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
@@ -471,7 +485,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).dispatchEvent(transferEvent("drop", "dataTransfer", [new File(["pdf"], "paper.pdf", { type: "application/pdf" })]));
@@ -516,7 +530,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     setTextAreaValue(composer(parent), "@active");
@@ -625,7 +639,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     setTextAreaValue(composer(parent), "@sel");
@@ -699,7 +713,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     setTextAreaValue(composer(parent), "/");
@@ -747,7 +761,7 @@ describe("ChatComposerController", () => {
       onDraftChange: vi.fn(),
       onHeightChange: vi.fn(),
     });
-    stateStore.subscribe(renderShell);
+    trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
 
     renderShell();
     composer(parent).setSelectionRange(4, 4);
