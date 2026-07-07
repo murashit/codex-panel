@@ -31,6 +31,7 @@ export interface ComposerSuggestionOptions {
   activeThreadId?: string | null;
   contextReferences?: ComposerContextReferences;
   permissionProfiles?: readonly RuntimePermissionProfileSummary[];
+  tagCandidates?: readonly string[] | (() => readonly string[]);
 }
 
 export interface NoteCandidate {
@@ -107,6 +108,7 @@ export function activeComposerSuggestions(
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
     activeContextReferenceSuggestions(beforeCursor, options.contextReferences) ??
+    activeTagSuggestions(beforeCursor, options.tagCandidates ?? []) ??
     activeSlashSubcommandSuggestions(beforeCursor) ??
     activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
     modelOverrideSuggestions(beforeCursor, models) ??
@@ -192,6 +194,61 @@ function activeWikiLinkSuggestions(beforeCursor: string, notes: NoteCandidate[])
   const queryText = beforeCursor.slice(start + 2);
   if (queryText.includes("]]") || queryText.includes("\n") || queryText.length > 120) return null;
   return findWikiLinkSuggestions(queryText, start, notes);
+}
+
+function activeTagSuggestions(
+  beforeCursor: string,
+  tagCandidates: readonly string[] | (() => readonly string[]),
+): ComposerSuggestion[] | null {
+  const match = /(^|[\s[{])#([^\s\]})#]{0,120})$/.exec(beforeCursor);
+  if (match?.index === undefined) return null;
+
+  const prefix = match[1];
+  const rawQuery = match[2];
+  if (prefix === undefined || rawQuery === undefined) return null;
+  const query = normalizeTag(rawQuery).toLowerCase();
+  const normalizedTags = normalizedUniqueTags(tagCandidateList(tagCandidates));
+  if (query.length > 0 && normalizedTags.some((tag) => tag.toLowerCase() === query)) return null;
+
+  const start = match.index + prefix.length;
+  return normalizedTags
+    .map((tag) => ({ tag, lower: tag.toLowerCase() }))
+    .filter(({ lower }) => query.length === 0 || lower.startsWith(query) || lower.includes(query))
+    .sort((a, b) => tagSuggestionScore(a.lower, query) - tagSuggestionScore(b.lower, query) || a.tag.localeCompare(b.tag))
+    .slice(0, 8)
+    .map(({ tag }) => ({
+      display: `#${tag}`,
+      detail: "Obsidian tag",
+      replacement: `#${tag}`,
+      start,
+      appendSpaceOnInsert: true,
+    }));
+}
+
+function tagCandidateList(tagCandidates: readonly string[] | (() => readonly string[])): readonly string[] {
+  return typeof tagCandidates === "function" ? tagCandidates() : tagCandidates;
+}
+
+function normalizedUniqueTags(tags: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const normalizedTags: string[] = [];
+  for (const tag of tags) {
+    const normalized = normalizeTag(tag);
+    const key = normalized.toLowerCase();
+    if (!normalized || seen.has(key)) continue;
+    seen.add(key);
+    normalizedTags.push(normalized);
+  }
+  return normalizedTags.sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeTag(tag: string): string {
+  return tag.trim().replace(/^#+/, "");
+}
+
+function tagSuggestionScore(tag: string, query: string): number {
+  if (query.length === 0) return 0;
+  return tag.startsWith(query) ? 0 : 1;
 }
 
 function findWikiLinkSuggestions(queryText: string, start: number, notes: NoteCandidate[]): ComposerSuggestion[] {

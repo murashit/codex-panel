@@ -31,6 +31,7 @@ export class MarkdownMessageRenderer {
       parent.replaceChildren(...Array.from(staging.childNodes));
       bindRenderedWikiLinks(parent, sourcePath, this.options);
       bindRenderedMarkdownFileLinks(parent, sourcePath, this.options);
+      bindRenderedTags(parent, this.options);
       notifyMessageContentRendered(parent);
     });
   }
@@ -81,6 +82,39 @@ function bindRenderedMarkdownFileLinks(parent: HTMLElement, sourcePath: string, 
       void context.app.workspace.openLinkText(target, sourcePath, false);
     };
   });
+}
+
+function bindRenderedTags(parent: HTMLElement, context: RenderedMarkdownLinkContext): void {
+  parent.querySelectorAll<HTMLAnchorElement>("a.tag").forEach((link) => {
+    link.onclick = (event) => {
+      event.preventDefault();
+      const tag = renderedTagName(link);
+      if (!tag) return;
+      void openTagSearch(context.app, tag);
+    };
+  });
+}
+
+function renderedTagName(link: HTMLAnchorElement): string | null {
+  const text = link.textContent.trim();
+  const value = text || link.getAttribute("data-tag") || link.getAttribute("href");
+  if (!value) return null;
+  const normalized = value.trim().replace(/^#*/, "");
+  return normalized.length > 0 ? normalized : null;
+}
+
+async function openTagSearch(app: App, tag: string): Promise<void> {
+  const leaf = app.workspace.getLeftLeaf(false);
+  if (!leaf) {
+    new Notice("Cannot open Obsidian search.");
+    return;
+  }
+  await leaf.setViewState({
+    type: "search",
+    active: true,
+    state: { query: `tag:#${tag}` },
+  });
+  await app.workspace.revealLeaf(leaf);
 }
 
 function bindStreamMarkdownFileLinks(parent: HTMLElement, context: StreamMarkdownRenderContext): void {

@@ -7,6 +7,7 @@ export interface WikiLinkMention {
 
 export interface NoteCandidateProvider {
   candidates(sourcePath: string): readonly NoteCandidate[];
+  tags(): readonly string[];
   resolveMention(target: string, sourcePath: string): WikiLinkMention | null;
   dispose(): void;
 }

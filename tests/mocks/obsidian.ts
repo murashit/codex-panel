@@ -89,6 +89,17 @@ export function stripHeadingForLink(heading: string): string {
   return heading.trim();
 }
 
+export function getAllTags(cache: { tags?: { tag: string }[]; frontmatter?: { tags?: unknown } }): string[] | null {
+  const tags = [...(cache.tags?.map((tag) => tag.tag) ?? []), ...frontmatterTags(cache.frontmatter?.tags)];
+  return tags.length > 0 ? tags : null;
+}
+
+function frontmatterTags(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (!Array.isArray(value)) return [];
+  return value.filter((tag): tag is string => typeof tag === "string");
+}
+
 export function parseLinktext(linktext: string): { path: string; subpath: string } {
   const headingIndex = linktext.indexOf("#");
   const blockIndex = linktext.indexOf("^");

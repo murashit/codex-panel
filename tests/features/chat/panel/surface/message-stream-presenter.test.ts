@@ -198,6 +198,33 @@ describe("MessageStreamPresenter scroll pinning", () => {
     cleanup();
   });
 
+  it("opens Obsidian search when rendered tags are clicked", async () => {
+    const searchLeaf = {
+      setViewState: vi.fn().mockResolvedValue(undefined),
+    };
+    const revealLeaf = vi.fn().mockResolvedValue(undefined);
+    const context = markdownLinkContext();
+    context.app.workspace.getLeftLeaf = vi.fn(() => searchLeaf);
+    context.app.workspace.revealLeaf = revealLeaf;
+    const { link, cleanup } = await renderedTag(context, {
+      cls: "tag",
+      text: "#project/codex",
+      attr: { href: "#project/codex" },
+    });
+
+    link.click();
+    await Promise.resolve();
+
+    expect(searchLeaf.setViewState).toHaveBeenCalledWith({
+      type: "search",
+      active: true,
+      state: { query: "tag:#project/codex" },
+    });
+    expect(revealLeaf).toHaveBeenCalledWith(searchLeaf);
+    expect(context.app.workspace.getLeftLeaf).toHaveBeenCalledWith(false);
+    cleanup();
+  });
+
   it("pins to the scroll container bottom without aligning the last message element", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -565,12 +592,14 @@ function markdownLinkContext(openLinkText = vi.fn(), vaultPath = "/vault", vault
       workspace: {
         getActiveFile: vi.fn(() => tFile("Inbox.md")),
         openLinkText,
+        getLeftLeaf: vi.fn((): unknown | null => null),
+        revealLeaf: vi.fn().mockResolvedValue(undefined),
       },
       vault: {
         configDir: "vault-config",
         getAbstractFileByPath: (path: string) => files.get(path) ?? null,
       },
-    } as never,
+    },
     vaultPath,
   };
 }
@@ -586,7 +615,7 @@ async function renderedInternalLink(
     return Promise.resolve();
   });
   const markdownRenderer = new MarkdownMessageRenderer({
-    app: context.app,
+    app: context.app as never,
     owner: {} as never,
     vaultPath: context.vaultPath,
   });
@@ -598,6 +627,37 @@ async function renderedInternalLink(
 
   const link = parent.querySelector<HTMLAnchorElement>("a.internal-link");
   if (!link) throw new Error("Expected rendered internal link");
+  return {
+    link,
+    cleanup: () => {
+      parent.remove();
+    },
+  };
+}
+
+async function renderedTag(
+  context: ReturnType<typeof markdownLinkContext>,
+  linkOptions: Parameters<HTMLElement["createEl"]>[1],
+): Promise<{ link: HTMLAnchorElement; cleanup: () => void }> {
+  const parent = document.createElement("div");
+  document.body.appendChild(parent);
+  const renderMarkdown = vi.spyOn(MarkdownRenderer, "render").mockImplementationOnce((_app, _text, staging) => {
+    staging.createEl("a", linkOptions);
+    return Promise.resolve();
+  });
+  const markdownRenderer = new MarkdownMessageRenderer({
+    app: context.app as never,
+    owner: {} as never,
+    vaultPath: context.vaultPath,
+  });
+
+  markdownRenderer.renderObsidianMarkdown(parent, "#tag");
+  await Promise.resolve();
+  await Promise.resolve();
+  renderMarkdown.mockRestore();
+
+  const link = parent.querySelector<HTMLAnchorElement>("a.tag");
+  if (!link) throw new Error("Expected rendered tag");
   return {
     link,
     cleanup: () => {

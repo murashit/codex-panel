@@ -501,6 +501,7 @@ function setTextAreaValue(textarea: HTMLTextAreaElement, value: string): void {
 function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {
   return {
     candidates: () => [],
+    tags: () => [],
     resolveMention: () => null,
     dispose: vi.fn(),
     ...overrides,

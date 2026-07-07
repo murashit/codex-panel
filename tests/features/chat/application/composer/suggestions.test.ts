@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ModelMetadata, ReasoningEffort, SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { emptyComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
@@ -279,6 +279,49 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/doc", notes, [])[0]?.replacement).toBe("/doctor");
     expect(activeComposerSuggestions("/status", notes, [])).toEqual([]);
     expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
+  });
+
+  it("suggests Obsidian tags after a hash trigger", () => {
+    const options = {
+      tagCandidates: ["project/codex", "project/obsidian", "daily-note", "web"],
+    };
+
+    expect(activeComposerSuggestions("#pro", notes, [], [], [], null, options)[0]).toMatchObject({
+      display: "#project/codex",
+      detail: "Obsidian tag",
+      replacement: "#project/codex",
+      appendSpaceOnInsert: true,
+    });
+    expect(suggestionReplacements(activeComposerSuggestions("please tag #project/o", notes, [], [], [], null, options))).toEqual([
+      "#project/obsidian",
+    ]);
+    expect(suggestionReplacements(activeComposerSuggestions("#", notes, [], [], [], null, options))).toEqual([
+      "#daily-note",
+      "#project/codex",
+      "#project/obsidian",
+      "#web",
+    ]);
+    expect(activeComposerSuggestions("#project/codex", notes, [], [], [], null, options)).toEqual([]);
+    expect(activeComposerSuggestions("https://example.com/#pro", notes, [], [], [], null, options)).toEqual([]);
+    expect(activeComposerSuggestions("[Section](#pro", notes, [], [], [], null, options)).toEqual([]);
+    expect(
+      applyComposerSuggestionInsertion("#pro", 4, expectPresent(activeComposerSuggestions("#pro", notes, [], [], [], null, options)[0])),
+    ).toEqual({
+      value: "#project/codex ",
+      cursor: 15,
+    });
+  });
+
+  it("loads Obsidian tags lazily only after a hash trigger", () => {
+    const tagCandidates = vi.fn(() => ["project/codex"]);
+
+    expect(activeComposerSuggestions("plain text", notes, [], [], [], null, { tagCandidates })).toEqual([]);
+    expect(tagCandidates).not.toHaveBeenCalled();
+
+    expect(activeComposerSuggestions("#pro", notes, [], [], [], null, { tagCandidates })[0]).toMatchObject({
+      replacement: "#project/codex",
+    });
+    expect(tagCandidates).toHaveBeenCalledOnce();
   });
 
   it("limits slash command suggestions to the start of the composer", () => {

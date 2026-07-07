@@ -48,7 +48,7 @@ The composer treats Obsidian content as prompt context. It suggests vault files 
 
 For context outside the current composer, use `/refer <thread> <message>` to send a message with recent turns from another Codex thread, or `/clip <url> [message]` to save a readable Markdown clipping from a web page and send a wikilink to the saved note.
 
-Completions cover slash commands, `$skill-name` skills, recent threads, models, reasoning levels, and permission profiles. Use `/help` for the current command list.
+Completions cover slash commands, `$skill-name` skills, Obsidian tags, recent threads, models, reasoning levels, and permission profiles. Use `/help` for the current command list.
 
 While a turn is running, the panel streams the conversation, reasoning, tool activity, file changes, plans, and agent activity. You can answer Codex questions, approve commands, respond to requests, steer or interrupt the turn, and manage active goals above the message stream.
 

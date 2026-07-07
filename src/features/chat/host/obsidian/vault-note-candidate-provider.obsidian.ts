@@ -1,5 +1,5 @@
 import type { App, EventRef } from "obsidian";
-import { stripHeadingForLink, TFile } from "obsidian";
+import { getAllTags, stripHeadingForLink, TFile } from "obsidian";
 
 import type { NoteCandidateProvider, WikiLinkMention } from "../../application/composer/note-context";
 import type { NoteCandidate } from "../../application/composer/suggestions";
@@ -21,6 +21,7 @@ interface EventSource {
 export class VaultNoteCandidateProvider implements NoteCandidateProvider {
   private readonly unregisterEvents: (() => void)[] = [];
   private fileCandidatesCache: FileCandidate[] | null = null;
+  private tagCandidatesCache: string[] | null = null;
   private readonly projectedCandidatesBySourcePath = new Map<string, NoteCandidate[]>();
 
   constructor(private readonly app: App) {
@@ -53,6 +54,21 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
     return candidates;
   }
 
+  tags(): readonly string[] {
+    this.tagCandidatesCache ??= this.readTags();
+    return this.tagCandidatesCache;
+  }
+
+  private readTags(): string[] {
+    const tags: string[] = [];
+    for (const file of this.app.vault.getMarkdownFiles()) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (!cache) continue;
+      tags.push(...(getAllTags(cache) ?? []));
+    }
+    return normalizedTags(tags);
+  }
+
   resolveMention(target: string, sourcePath: string): WikiLinkMention | null {
     const linkedFile = this.app.metadataCache.getFirstLinkpathDest(target, sourcePath);
     if (linkedFile?.path) return { name: linkedFile.basename, path: linkedFile.path };
@@ -78,6 +94,7 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
 
   private invalidate(): void {
     this.fileCandidatesCache = null;
+    this.tagCandidatesCache = null;
     this.projectedCandidatesBySourcePath.clear();
   }
 
@@ -92,6 +109,19 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
     }));
     return this.fileCandidatesCache;
   }
+}
+
+function normalizedTags(tags: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const normalizedTags: string[] = [];
+  for (const tag of tags) {
+    const normalized = tag.trim().replace(/^#+/, "");
+    const key = normalized.toLowerCase();
+    if (!normalized || seen.has(key)) continue;
+    seen.add(key);
+    normalizedTags.push(normalized);
+  }
+  return normalizedTags.sort((a, b) => a.localeCompare(b));
 }
 
 function noteHeadings(app: App, file: TFile): NoteCandidate["headings"] {

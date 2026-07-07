@@ -102,6 +102,22 @@ describe("VaultNoteCandidateProvider", () => {
     expect(fileToLinktext).toHaveBeenCalledTimes(2);
   });
 
+  it("returns normalized Obsidian tag candidates from file metadata", () => {
+    const app = appFixture({
+      files: [
+        { basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } },
+        { basename: "Beta", path: "Beta.md", stat: { mtime: 2 } },
+      ],
+      tags: new Map([
+        ["Alpha.md", { inline: ["#project/codex"], frontmatter: ["daily"] }],
+        ["Beta.md", ["#web", "#project/codex"]],
+      ]),
+    });
+    const provider = new VaultNoteCandidateProvider(app);
+
+    expect(provider.tags()).toEqual(["daily", "project/codex", "web"]);
+  });
+
   it("invalidates cached candidates when the vault changes", () => {
     const files = [{ basename: "Alpha", path: "notes/Alpha.md", stat: { mtime: 100 } }];
     const app = appFixture({ files });
@@ -213,6 +229,7 @@ function appFixture(
     linktexts?: Map<string, string>;
     fileToLinktext?: (file: TFile, sourcePath: string, omitMdExtension?: boolean) => string;
     headings?: Map<string, { heading: string; level: number }[]>;
+    tags?: Map<string, string[] | { inline?: string[]; frontmatter?: string[] }>;
     activeFile?: TFile | null;
     activeView?: unknown;
   } = {},
@@ -251,7 +268,11 @@ function appFixture(
         options.fileToLinktext ??
         ((file: TFile, _sourcePath: string, omitMdExtension?: boolean) =>
           options.linktexts?.get(file.path) ?? (omitMdExtension === true ? file.path.replace(/\.md$/i, "") : file.path)),
-      getFileCache: (file: TFile) => ({ headings: options.headings?.get(file.path) ?? [] }),
+      getFileCache: (file: TFile) => ({
+        headings: options.headings?.get(file.path) ?? [],
+        tags: tagFixtureForPath(options.tags, file.path).inline.map((tag) => ({ tag })),
+        frontmatter: { tags: tagFixtureForPath(options.tags, file.path).frontmatter },
+      }),
     },
     vault: {
       on: on("vault"),
@@ -281,6 +302,15 @@ function tFile(path: string, basename: string): TFile {
   const extensionStart = name.lastIndexOf(".");
   const extension = extensionStart === -1 ? "" : name.slice(extensionStart + 1);
   return Object.assign(new TFile(), { path, basename, extension, name });
+}
+
+function tagFixtureForPath(
+  tags: Map<string, string[] | { inline?: string[]; frontmatter?: string[] }> | undefined,
+  path: string,
+): { inline: string[]; frontmatter: string[] } {
+  const value = tags?.get(path);
+  if (!value) return { inline: [], frontmatter: [] };
+  return Array.isArray(value) ? { inline: value, frontmatter: [] } : { inline: value.inline ?? [], frontmatter: value.frontmatter ?? [] };
 }
 
 function vaultFiles(files: { basename: string; path: string; stat: { mtime: number } }[]): TFile[] {

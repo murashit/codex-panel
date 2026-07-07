@@ -247,6 +247,7 @@ export class ChatComposerController {
         activeThreadId: state.activeThread.id,
         contextReferences: this.contextReferences(),
         permissionProfiles: state.connection.availablePermissionProfiles,
+        tagCandidates: () => this.options.noteCandidateProvider.tags(),
       },
     );
 
@@ -296,6 +297,7 @@ export class ChatComposerController {
         activeThreadId: state.activeThread.id,
         contextReferences: this.contextReferences(),
         permissionProfiles: state.connection.availablePermissionProfiles,
+        tagCandidates: () => this.options.noteCandidateProvider.tags(),
       },
     );
     return {

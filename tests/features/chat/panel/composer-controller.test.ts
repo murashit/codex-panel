@@ -122,6 +122,42 @@ describe("ChatComposerController", () => {
     expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("/");
   });
 
+  it("updates Obsidian tag suggestions when the input changes", () => {
+    const { controller, parent, stateStore } = composerControllerFixture({
+      controller: {
+        noteCandidateProvider: noteProvider({ tags: () => ["project/codex"] }),
+      },
+    });
+
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "#pro");
+    composer(parent).setSelectionRange(4, 4);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(stateStore.getState().composer.suggestions[0]).toMatchObject({
+      display: "#project/codex",
+      replacement: "#project/codex",
+    });
+    expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("#project/codex");
+  });
+
+  it("does not read Obsidian tags for non-tag suggestions", () => {
+    const tags = vi.fn(() => ["project/codex"]);
+    const { controller, parent, stateStore } = composerControllerFixture({
+      controller: {
+        noteCandidateProvider: noteProvider({ tags }),
+      },
+    });
+
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "/");
+    composer(parent).setSelectionRange(1, 1);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(stateStore.getState().composer.suggestions.length).toBeGreaterThan(0);
+    expect(tags).not.toHaveBeenCalled();
+  });
+
   it("keeps Tab wikilink insertion before closing brackets while Enter lands after them", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
@@ -819,6 +855,7 @@ describe("ChatComposerController", () => {
 function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {
   return {
     candidates: () => [],
+    tags: () => [],
     resolveMention: () => null,
     dispose: vi.fn(),
     ...overrides,
