@@ -682,7 +682,7 @@ function setComposerSuggestionsSlice(
   if (
     state.suggestSelected === selected &&
     state.suggestionsDismissedSignature === dismissedSignature &&
-    composerSuggestionsEqual(state.suggestions, suggestions)
+    state.suggestions === suggestions
   ) {
     return state;
   }
@@ -691,50 +691,6 @@ function setComposerSuggestionsSlice(
     suggestSelected: selected,
     suggestionsDismissedSignature: dismissedSignature,
   });
-}
-
-function composerSuggestionsEqual(left: readonly ComposerSuggestion[], right: readonly ComposerSuggestion[]): boolean {
-  if (left === right) return true;
-  if (left.length !== right.length) return false;
-  return left.every((item, index) => {
-    const other = right[index];
-    return (
-      item.display === other?.display &&
-      item.detail === other.detail &&
-      item.replacement === other.replacement &&
-      item.start === other.start &&
-      item.appendSpaceOnInsert === other.appendSpaceOnInsert &&
-      composerSuggestionActiveNoteContextEqual(item.activeNoteContext, other.activeNoteContext) &&
-      composerSuggestionSelectionContextEqual(item.selectionContext, other.selectionContext)
-    );
-  });
-}
-
-function composerSuggestionActiveNoteContextEqual(
-  left: ComposerSuggestion["activeNoteContext"],
-  right: ComposerSuggestion["activeNoteContext"],
-): boolean {
-  if (left === right) return true;
-  if (!left || !right) return false;
-  return left.name === right.name && left.path === right.path && left.linktext === right.linktext;
-}
-
-function composerSuggestionSelectionContextEqual(
-  left: ComposerSuggestion["selectionContext"],
-  right: ComposerSuggestion["selectionContext"],
-): boolean {
-  if (left === right) return true;
-  if (!left || !right) return false;
-  return (
-    left.name === right.name &&
-    left.path === right.path &&
-    left.linktext === right.linktext &&
-    left.text === right.text &&
-    left.range.from.line === right.range.from.line &&
-    left.range.from.ch === right.range.from.ch &&
-    left.range.to.line === right.range.to.line &&
-    left.range.to.ch === right.range.to.ch
-  );
 }
 
 function patchChatState(state: ChatState, patch: Partial<ChatState>): ChatState {

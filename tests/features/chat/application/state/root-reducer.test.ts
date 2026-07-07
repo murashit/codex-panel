@@ -663,6 +663,26 @@ describe("chatReducer", () => {
     expect(state.runtime.pending.approvalsReviewer).toEqual({ kind: "unchanged" });
   });
 
+  it("updates composer suggestions when insertion-only fields change", () => {
+    const initialSuggestion = {
+      display: "Alpha",
+      detail: "alpha.md",
+      replacement: "[[Alpha]]",
+      start: 0,
+      tabCursorOffset: -2,
+    } satisfies ChatState["composer"]["suggestions"][number];
+    const nextSuggestion = {
+      ...initialSuggestion,
+      tabCursorOffset: 0,
+      suffixOnInsert: "]]",
+    } satisfies ChatState["composer"]["suggestions"][number];
+
+    let state = chatReducer(chatStateFixture(), { type: "composer/suggestions-set", suggestions: [initialSuggestion] });
+    state = chatReducer(state, { type: "composer/suggestions-set", suggestions: [nextSuggestion] });
+
+    expect(state.composer.suggestions).toEqual([nextSuggestion]);
+  });
+
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {
     let initial = chatStateFixture();
     initial = withChatStateMessageStreamItems(initial, [message("initial")]);
