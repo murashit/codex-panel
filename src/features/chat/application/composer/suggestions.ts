@@ -132,7 +132,7 @@ function activeContextReferenceSuggestions(
   const query = rawQuery.toLowerCase();
   const start = beforeCursor.length - rawQuery.length - 1;
   const suggestions: ComposerSuggestion[] = [];
-  if (references?.activeNote && activeNoteContextReferenceQueryMatches(query)) {
+  if (references?.activeNote && "active".startsWith(query)) {
     suggestions.push({
       display: "Active file",
       detail: references.activeNote.path,
@@ -151,10 +151,6 @@ function activeContextReferenceSuggestions(
     });
   }
   return suggestions.slice(0, 8);
-}
-
-function activeNoteContextReferenceQueryMatches(query: string): boolean {
-  return ["active", "active-note"].some((alias) => alias.startsWith(query));
 }
 
 export function applyComposerSuggestionInsertion(

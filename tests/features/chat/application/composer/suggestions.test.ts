@@ -246,12 +246,8 @@ describe("composer suggestions", () => {
           activeNote: { name: "Beta Note", path: "topics/Beta Note.md", linktext: "Beta Note" },
           selection: null,
         },
-      })[0],
-    ).toMatchObject({
-      display: "Active file",
-      detail: "topics/Beta Note.md",
-      replacement: "[[Beta Note]]",
-    });
+      }),
+    ).toEqual([]);
     expect(
       activeComposerSuggestions("@sel", notes, [], [], [], null, {
         contextReferences: {
