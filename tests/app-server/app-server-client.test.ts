@@ -1,11 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import manifest from "../../manifest.json";
-import type { AppServerServerRequestResponder } from "../../src/app-server/connection/client";
+import type { AppServerClientHandlers, AppServerServerRequestResponder } from "../../src/app-server/connection/client";
 import { AppServerClient } from "../../src/app-server/connection/client";
 import type { RpcOutboundMessage } from "../../src/app-server/connection/rpc-messages";
 import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
+import type { InitializeParams } from "../../src/generated/app-server/InitializeParams";
 import type { InitializeResponse } from "../../src/generated/app-server/InitializeResponse";
 import type { ServerRequest } from "../../src/generated/app-server/ServerRequest";
+
+const TEST_INITIALIZE_PARAMS: InitializeParams = {
+  clientInfo: {
+    name: "test_client",
+    title: "Test Client",
+    version: "0.0.0",
+  },
+  capabilities: {
+    experimentalApi: false,
+    requestAttestation: false,
+  },
+};
 
 class FakeTransport implements AppServerTransport {
   readonly sent: RpcOutboundMessage[] = [];
@@ -45,25 +57,38 @@ class FakeTransport implements AppServerTransport {
 
 async function connectedClient(): Promise<{ client: AppServerClient; transport: FakeTransport }> {
   let transport!: FakeTransport;
-  const client = new AppServerClient(
-    "/bin/codex",
-    "/vault",
-    {
+  const client = createTestClient({
+    handlers: {
       onNotification: () => undefined,
       onServerRequest: () => undefined,
       onLog: () => undefined,
       onExit: () => undefined,
     },
-    500,
-    (handlers) => {
+    transportFactory: (handlers) => {
       transport = new FakeTransport(handlers);
       return transport;
     },
-  );
+  });
   const connecting = client.connect();
   transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
   await connecting;
   return { client, transport };
+}
+
+function createTestClient(options: {
+  handlers: AppServerClientHandlers;
+  requestTimeoutMs?: number;
+  transportFactory: (handlers: AppServerTransportHandlers) => AppServerTransport;
+  initializeParams?: InitializeParams;
+}): AppServerClient {
+  return new AppServerClient({
+    codexPath: "/bin/codex",
+    cwd: "/vault",
+    handlers: options.handlers,
+    initializeParams: options.initializeParams ?? TEST_INITIALIZE_PARAMS,
+    requestTimeoutMs: options.requestTimeoutMs ?? 500,
+    transportFactory: options.transportFactory,
+  });
 }
 
 function expectTransport(transport: FakeTransport | undefined): FakeTransport {
@@ -117,10 +142,19 @@ describe("AppServerClient", () => {
     const notifications: string[] = [];
     const serverRequests: ServerRequest[] = [];
     const serverRequestResponders: AppServerServerRequestResponder[] = [];
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      initializeParams: {
+        clientInfo: {
+          name: "custom_client",
+          title: "Custom Client",
+          version: "1.2.3",
+        },
+        capabilities: {
+          experimentalApi: true,
+          requestAttestation: false,
+        },
+      },
+      handlers: {
         onNotification: (notification) => notifications.push(notification.method),
         onServerRequest: (request, responder) => {
           serverRequests.push(request);
@@ -129,12 +163,11 @@ describe("AppServerClient", () => {
         onLog: () => undefined,
         onExit: () => undefined,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         transport = new FakeTransport(handlers);
         return transport;
       },
-    );
+    });
 
     const connecting = client.connect();
     expect(getTransport().sent[0]).toMatchObject({
@@ -142,9 +175,9 @@ describe("AppServerClient", () => {
       method: "initialize",
       params: {
         clientInfo: {
-          name: "obsidian_codex_panel",
-          title: "Codex Panel",
-          version: manifest.version,
+          name: "custom_client",
+          title: "Custom Client",
+          version: "1.2.3",
         },
         capabilities: {
           experimentalApi: true,
@@ -240,21 +273,18 @@ describe("AppServerClient", () => {
   it("does not notify external exit handlers for intentional disconnect exits", async () => {
     let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification: () => undefined,
         onServerRequest: () => undefined,
         onLog: () => undefined,
         onExit,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         transport = new FakeTransport(handlers);
         return transport;
       },
-    );
+    });
     const connecting = client.connect();
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
     await connecting;
@@ -268,21 +298,18 @@ describe("AppServerClient", () => {
   it("fails active transports on transport error without waiting for exit", async () => {
     let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification: () => undefined,
         onServerRequest: () => undefined,
         onLog: () => undefined,
         onExit,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         transport = new FakeTransport(handlers);
         return transport;
       },
-    );
+    });
     const connecting = client.connect();
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
     await connecting;
@@ -304,22 +331,19 @@ describe("AppServerClient", () => {
   it("cleans up the active transport when initialize fails", async () => {
     const transports: FakeTransport[] = [];
     const onExit = vi.fn();
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification: () => undefined,
         onServerRequest: () => undefined,
         onLog: () => undefined,
         onExit,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         const transport = new FakeTransport(handlers);
         transports.push(transport);
         return transport;
       },
-    );
+    });
 
     const connecting = client.connect();
     const firstTransport = expectTransport(transports[0]);
@@ -353,21 +377,18 @@ describe("AppServerClient", () => {
     });
     let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification: () => undefined,
         onServerRequest: () => undefined,
         onLog: () => undefined,
         onExit,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         transport = new FakeTransport(handlers);
         return transport;
       },
-    );
+    });
 
     const connecting = client.connect();
     const rejection = expect(connecting).rejects.toThrow("Codex app-server request timed out: initialize");
@@ -384,21 +405,18 @@ describe("AppServerClient", () => {
   it("rejects connect without notifying external exit handlers when transport exits during initialize", async () => {
     let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification: () => undefined,
         onServerRequest: () => undefined,
         onLog: () => undefined,
         onExit,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         transport = new FakeTransport(handlers);
         return transport;
       },
-    );
+    });
 
     const connecting = client.connect();
     const rejection = expect(connecting).rejects.toThrow("Codex app-server exited: 1");
@@ -413,22 +431,19 @@ describe("AppServerClient", () => {
     const transports: FakeTransport[] = [];
     const onExit = vi.fn();
     const onNotification = vi.fn();
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification,
         onServerRequest: () => undefined,
         onLog: () => undefined,
         onExit,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         const transport = new FakeTransport(handlers);
         transports.push(transport);
         return transport;
       },
-    );
+    });
 
     const firstConnect = client.connect();
     transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
@@ -452,24 +467,21 @@ describe("AppServerClient", () => {
   it("ignores synchronous transport callbacks before the transport becomes active", async () => {
     let transport!: FakeTransport;
     const onExit = vi.fn();
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification: () => undefined,
         onServerRequest: () => undefined,
         onLog: () => undefined,
         onExit,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         handlers.onLine(JSON.stringify({ method: "warning", params: { message: "early" } }));
         handlers.onError(new Error("early failure"));
         handlers.onExit(1, null);
         transport = new FakeTransport(handlers);
         return transport;
       },
-    );
+    });
 
     const connecting = client.connect();
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
@@ -487,21 +499,18 @@ describe("AppServerClient", () => {
     });
     const logs: string[] = [];
     let transport!: FakeTransport;
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification: () => undefined,
         onServerRequest: () => undefined,
         onLog: (message) => logs.push(message),
         onExit: () => undefined,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         transport = new FakeTransport(handlers);
         return transport;
       },
-    );
+    });
     const connecting = client.connect();
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
     await connecting;
@@ -526,21 +535,18 @@ describe("AppServerClient", () => {
     });
     const logs: string[] = [];
     let transport!: FakeTransport;
-    const client = new AppServerClient(
-      "/bin/codex",
-      "/vault",
-      {
+    const client = createTestClient({
+      handlers: {
         onNotification: () => undefined,
         onServerRequest: () => undefined,
         onLog: (message) => logs.push(message),
         onExit: () => undefined,
       },
-      500,
-      (handlers) => {
+      transportFactory: (handlers) => {
         transport = new FakeTransport(handlers);
         return transport;
       },
-    );
+    });
     const connecting = client.connect();
     transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
     await connecting;

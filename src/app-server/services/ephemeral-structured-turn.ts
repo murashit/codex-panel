@@ -1,6 +1,7 @@
 import { listenAbortSignal } from "../../shared/runtime/abort-signal";
 import { AppServerClient, type AppServerClientHandlers } from "../connection/client";
 import type { AppServerClientRequestPolicy } from "../connection/client-access";
+import { codexPanelAppServerInitializeParams } from "../connection/client-profile";
 import type { ServerNotification } from "../connection/rpc-messages";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
 import type { ModelMetadataClient } from "./catalog";
@@ -96,7 +97,15 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
     };
   });
 
-  const clientFactory = options.clientFactory ?? ((codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers));
+  const clientFactory =
+    options.clientFactory ??
+    ((codexPath, cwd, handlers) =>
+      new AppServerClient({
+        codexPath,
+        cwd,
+        handlers,
+        initializeParams: codexPanelAppServerInitializeParams(),
+      }));
   let threadId: string | null = null;
   const client = clientFactory(options.codexPath, options.cwd, {
     onNotification: (notification) => {

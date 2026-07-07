@@ -1,0 +1,13 @@
+{
+  "codexAppServer": {
+    "typeGeneration": {
+      "experimental": true
+    },
+    "initialize": {
+      "capabilities": {
+        "experimentalApi": true,
+        "requestAttestation": false
+      }
+    }
+  }
+}

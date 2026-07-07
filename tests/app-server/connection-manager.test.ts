@@ -2,12 +2,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppServerClient } from "../../src/app-server/connection/client";
 import {
+  type AppServerClientFactory,
   ConnectionManager,
   type ConnectionManagerHandlers,
   StaleConnectionError,
 } from "../../src/app-server/connection/connection-manager";
 import type { RpcOutboundMessage } from "../../src/app-server/connection/rpc-messages";
 import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
+import type { InitializeParams } from "../../src/generated/app-server/InitializeParams";
+
+const TEST_INITIALIZE_PARAMS: InitializeParams = {
+  clientInfo: {
+    name: "test_client",
+    title: "Test Client",
+    version: "0.0.0",
+  },
+  capabilities: {
+    experimentalApi: false,
+    requestAttestation: false,
+  },
+};
 
 class SilentTransport implements AppServerTransport {
   readonly sent: RpcOutboundMessage[] = [];
@@ -54,11 +68,8 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      (codexPath, cwd, handlers) =>
-        new AppServerClient(codexPath, cwd, handlers, 5, (transportHandlers) => {
-          transport = new SilentTransport(transportHandlers);
-          return transport;
-        }),
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ requestTimeoutMs: 5, onTransport: (next) => (transport = next) }),
     );
 
     await expect(manager.connect(silentConnectionHandlers())).rejects.toThrow("Codex app-server request timed out: initialize");
@@ -72,11 +83,8 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      (codexPath, cwd, handlers) =>
-        new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
-          transport = new SilentTransport(transportHandlers);
-          return transport;
-        }),
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ onTransport: (next) => (transport = next) }),
     );
 
     const first = manager.connect(silentConnectionHandlers());
@@ -95,12 +103,8 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => codexPath,
       "/vault",
-      (clientCodexPath, cwd, handlers) =>
-        new AppServerClient(clientCodexPath, cwd, handlers, 500, (transportHandlers) => {
-          const transport = new SilentTransport(transportHandlers);
-          transports.push(transport);
-          return transport;
-        }),
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ onTransport: (transport) => transports.push(transport) }),
     );
 
     const first = manager.connect(silentConnectionHandlers());
@@ -129,11 +133,8 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      (codexPath, cwd, handlers) =>
-        new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
-          transport = new SilentTransport(transportHandlers);
-          return transport;
-        }),
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ onTransport: (next) => (transport = next) }),
     );
 
     const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
@@ -150,11 +151,8 @@ describe("ConnectionManager", () => {
     const manager = new ConnectionManager(
       () => "/bin/codex",
       "/vault",
-      (codexPath, cwd, handlers) =>
-        new AppServerClient(codexPath, cwd, handlers, 500, (transportHandlers) => {
-          transport = new SilentTransport(transportHandlers);
-          return transport;
-        }),
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ onTransport: (next) => (transport = next) }),
     );
 
     const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
@@ -174,4 +172,23 @@ function silentConnectionHandlers(): ConnectionManagerHandlers {
     onLog: () => undefined,
     onExit: () => undefined,
   };
+}
+
+function testClientFactory(options: {
+  requestTimeoutMs?: number;
+  onTransport: (transport: SilentTransport) => void;
+}): AppServerClientFactory {
+  return (codexPath, cwd, handlers) =>
+    new AppServerClient({
+      codexPath,
+      cwd,
+      handlers,
+      initializeParams: TEST_INITIALIZE_PARAMS,
+      requestTimeoutMs: options.requestTimeoutMs ?? 500,
+      transportFactory: (transportHandlers) => {
+        const transport = new SilentTransport(transportHandlers);
+        options.onTransport(transport);
+        return transport;
+      },
+    });
 }

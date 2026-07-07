@@ -1,4 +1,5 @@
 import type { ServerInitialization } from "../../domain/server/initialization";
+import type { InitializeParams } from "../../generated/app-server/InitializeParams";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import { AppServerClient, type AppServerClientHandlers } from "./client";
@@ -43,7 +44,9 @@ export class ConnectionManager {
   constructor(
     private readonly codexPath: () => string,
     private readonly cwd: string,
-    private readonly clientFactory: AppServerClientFactory = (codexPath, cwd, handlers) => new AppServerClient(codexPath, cwd, handlers),
+    initializeParams: InitializeParams,
+    private readonly clientFactory: AppServerClientFactory = (codexPath, cwd, handlers) =>
+      new AppServerClient({ codexPath, cwd, handlers, initializeParams }),
   ) {}
 
   currentClient(): AppServerClient | null {

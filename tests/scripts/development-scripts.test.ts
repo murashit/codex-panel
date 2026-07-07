@@ -46,10 +46,10 @@ describe("development scripts", () => {
     );
   });
 
-  it("reads app-server initialize flags from the connection client in API baseline checks", async () => {
+  it("reads app-server compatibility policy from the declared baseline in API baseline checks", async () => {
     const cwd = await tempWorkspace();
     await mkdir(path.join(cwd, "scripts"), { recursive: true });
-    await mkdir(path.join(cwd, "src", "app-server", "connection"), { recursive: true });
+    await mkdir(path.join(cwd, "src", "app-server"), { recursive: true });
     const { createApiBaselineReport } = await import(pathToFileURL(path.join(repoRoot, "scripts", "api-baseline.mjs")).href);
 
     await writeJson(path.join(cwd, "package.json"), {
@@ -87,23 +87,27 @@ describe("development scripts", () => {
       path.join(cwd, "scripts", "generate-app-server-types.mjs"),
       'run("codex", ["app-server", "generate-ts", "--experimental"]);\n',
     );
-    await writeFile(
-      path.join(cwd, "src", "app-server", "connection", "client.ts"),
-      [
-        'const init = await this.request("initialize", {',
-        "  capabilities: {",
-        "    experimentalApi: true,",
-        "    requestAttestation: false,",
-        "  },",
-        "});",
-      ].join("\n"),
-    );
+    await mkdir(path.join(cwd, "src", "app-server", "connection"), { recursive: true });
+    await writeJson(path.join(cwd, "src", "app-server", "connection", "compatibility.json"), {
+      codexAppServer: {
+        typeGeneration: {
+          experimental: true,
+        },
+        initialize: {
+          capabilities: {
+            experimentalApi: true,
+            requestAttestation: false,
+          },
+        },
+      },
+    });
 
     const report = await createApiBaselineReport({
       cwd,
       readCodexVersion: () => "0.139.0",
     });
 
+    expect(report.codex.appServerGenerationExperimentalDeclared).toBe(true);
     expect(report.codex.initializeExperimentalApi).toBe(true);
     expect(report.codex.initializeRequestAttestationDisabled).toBe(true);
     expect(report.failures).toEqual([]);

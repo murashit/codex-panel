@@ -1,4 +1,4 @@
-import { CLIENT_VERSION } from "../../constants";
+import type { InitializeParams } from "../../generated/app-server/InitializeParams";
 import type { InitializeResponse } from "../../generated/app-server/InitializeResponse";
 import type { RequestId } from "../../generated/app-server/RequestId";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
@@ -57,6 +57,15 @@ export interface AppServerServerRequestResponder {
 
 export type AppServerTransportFactory = (handlers: AppServerTransportHandlers) => AppServerTransport;
 
+export interface AppServerClientOptions {
+  codexPath: string;
+  cwd: string;
+  handlers: AppServerClientHandlers;
+  initializeParams: InitializeParams;
+  requestTimeoutMs?: number;
+  transportFactory?: AppServerTransportFactory;
+}
+
 export interface ClientResponseByMethod {
   initialize: InitializeResponse;
   "config/batchWrite": ConfigWriteResponse;
@@ -106,14 +115,20 @@ export class AppServerClient {
   private lifecycle: AppServerClientLifecycleState = { kind: "disconnected" };
   private readonly rpc: JsonRpcClient;
   private readonly intentionallyStoppedTransports = new WeakSet<AppServerTransport>();
+  private readonly codexPath: string;
+  private readonly cwd: string;
+  private readonly handlers: AppServerClientHandlers;
+  private readonly initializeParams: InitializeParams;
+  private readonly requestTimeoutMs: number;
+  private readonly transportFactory: AppServerTransportFactory | undefined;
 
-  constructor(
-    private readonly codexPath: string,
-    private readonly cwd: string,
-    private readonly handlers: AppServerClientHandlers,
-    private readonly requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
-    private readonly transportFactory?: AppServerTransportFactory,
-  ) {
+  constructor(options: AppServerClientOptions) {
+    this.codexPath = options.codexPath;
+    this.cwd = options.cwd;
+    this.handlers = options.handlers;
+    this.initializeParams = options.initializeParams;
+    this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    this.transportFactory = options.transportFactory;
     this.rpc = new JsonRpcClient({
       requestTimeoutMs: this.requestTimeoutMs,
       send: (message) => {
@@ -178,17 +193,7 @@ export class AppServerClient {
     this.lifecycle = { kind: "starting", transport };
     try {
       transport.start();
-      const init = await this.request("initialize", {
-        clientInfo: {
-          name: "obsidian_codex_panel",
-          title: "Codex Panel",
-          version: CLIENT_VERSION,
-        },
-        capabilities: {
-          experimentalApi: true,
-          requestAttestation: false,
-        },
-      });
+      const init = await this.request("initialize", this.initializeParams);
       this.notify({ method: "initialized" });
       this.lifecycle = { kind: "initialized", transport, initializeResponse: init };
       return init;

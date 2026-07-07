@@ -1,3 +1,4 @@
+import { codexPanelAppServerInitializeParams } from "../../../app-server/connection/client-profile";
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import { createChatAppServerGateway } from "../app-server/session-gateway";
@@ -272,7 +273,11 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
 }
 
 function createConnectionManager(environment: ChatPanelEnvironment): ConnectionManager {
-  return new ConnectionManager(() => environment.plugin.settingsRef.settings.codexPath(), environment.plugin.settingsRef.vaultPath);
+  return new ConnectionManager(
+    () => environment.plugin.settingsRef.settings.codexPath(),
+    environment.plugin.settingsRef.vaultPath,
+    codexPanelAppServerInitializeParams(),
+  );
 }
 
 function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSource): ChatPanelSessionStatus {
