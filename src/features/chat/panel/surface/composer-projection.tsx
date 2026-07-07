@@ -98,7 +98,7 @@ function composerMetaViewModel(
   const context = contextSummary(snapshot);
   const selectedModel = resolution.model.effective;
   const effort = resolution.reasoningEffort.effective;
-  const composerContext = contextComposerMeter(context?.percent ?? null);
+  const composerContext = contextComposerMeter(context?.percent ?? emptyThreadContextPercent(snapshot));
   const compactEffort = effort ? compactReasoningEffortLabel(effort) : null;
   const planActive = resolution.collaborationMode.effective === "plan";
   const reviewActive = resolution.autoReview.active;
@@ -120,6 +120,10 @@ function composerMetaViewModel(
     autoReviewActive: reviewActive,
     fastActive,
   };
+}
+
+function emptyThreadContextPercent(snapshot: RuntimeSnapshot): number | null {
+  return snapshot.activeThreadId ? null : 0;
 }
 
 function runtimeComposerChoices(input: RuntimeComposerChoicesInput): {

@@ -232,6 +232,22 @@ describe("chat panel surface projections", () => {
     });
   });
 
+  it("shows zero percent composer context before a thread starts", () => {
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture()).meta).toMatchObject({
+      fatal: null,
+      context: {
+        cells: [
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+          { text: "⣀", placeholder: true },
+        ],
+        percent: " 0%",
+      },
+      statusSummary: "Context 0%, plan off, auto-review off, fast off, model default, reasoning effort default",
+    });
+  });
+
   it("keeps zero percent composer context fixed-width and visible", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
