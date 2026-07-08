@@ -639,7 +639,7 @@ describe("runtime settings", () => {
         model: setRuntimeIntentValue("gpt-pending"),
         reasoningEffort: setRuntimeIntentValue("low"),
         permissionProfile: setRuntimeIntentValue(":workspace"),
-        approvalPolicy: setRuntimeIntentValue("on-failure"),
+        approvalPolicy: setRuntimeIntentValue("on-request"),
         approvalsReviewer: setRuntimeIntentValue("guardian_subagent"),
         fastMode: setRuntimeIntentValue("enabled"),
       },
@@ -673,7 +673,7 @@ describe("runtime settings", () => {
         effective: null,
         source: "pending",
       },
-      approvalPolicy: { confirmed: "never", confirmedSource: "active-thread", effective: "on-failure", source: "pending" },
+      approvalPolicy: { confirmed: "never", confirmedSource: "active-thread", effective: "on-request", source: "pending" },
       approvalsReviewer: { confirmed: "user", confirmedSource: "active-thread", effective: "guardian_subagent", source: "pending" },
       serviceTier: { confirmed: "flex", confirmedSource: "active-thread", effective: "fast", source: "pending" },
       fastMode: {

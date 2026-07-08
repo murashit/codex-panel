@@ -46,11 +46,13 @@ function responseFixture(thread: AppServerThread): ThreadResumeResponse {
 function threadFixture(id: string, name: string): AppServerThread {
   return {
     id,
+    extra: null,
     sessionId: "session",
     forkedFromId: null,
     parentThreadId: null,
     preview: "",
     ephemeral: false,
+    historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,

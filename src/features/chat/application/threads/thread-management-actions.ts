@@ -113,22 +113,17 @@ async function forkThreadFromTurn(
   }
   const scope = captureThreadManagementPanelScope(host, threadId);
 
-  const turnsToDrop = turnId ? messageStreamTurnsAfterTurnId(threadManagementState(host).messageStream, turnId) : 0;
-  if (turnsToDrop === null) {
+  const selectedTurnDistanceFromEnd = turnId ? messageStreamTurnsAfterTurnId(threadManagementState(host).messageStream, turnId) : 0;
+  if (selectedTurnDistanceFromEnd === null) {
     host.addSystemMessage("Could not find the selected turn to fork.");
     return;
   }
 
   try {
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
-    let forkedThread = await host.threadTransport.forkThread(threadId);
+    const forkedThread = turnId ? await host.threadTransport.forkThread(threadId, turnId) : await host.threadTransport.forkThread(threadId);
     if (!forkedThread) return;
     const forkedThreadId = forkedThread.id;
-    if (turnsToDrop > 0) {
-      const rolledBackThread = await host.threadTransport.rollbackForkedThread(forkedThreadId, turnsToDrop);
-      if (!rolledBackThread) return;
-      forkedThread = rolledBackThread;
-    }
     host.recordForkedThread(forkedThread);
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     if (sourceName) {

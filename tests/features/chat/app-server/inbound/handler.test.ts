@@ -707,6 +707,7 @@ describe("ChatInboundHandler", () => {
           name: "github",
           status: "failed",
           error: "missing token",
+          failureReason: null,
         },
       } satisfies Extract<ServerNotification, { method: "mcpServer/startupStatus/updated" }>);
 
@@ -738,7 +739,7 @@ describe("ChatInboundHandler", () => {
 
       handler.handleNotification({
         method: "mcpServer/oauthLogin/completed",
-        params: { name: "github", success: true },
+        params: { name: "github", threadId: null, success: true },
       } satisfies Extract<ServerNotification, { method: "mcpServer/oauthLogin/completed" }>);
 
       expect(refreshServerDiagnostics).toHaveBeenCalledWith({ forceResourceProbes: true });
@@ -2165,11 +2166,13 @@ function mcpElicitationRequest(id: number): ServerRequest {
 function appServerThread(id: string, cwd: string): ThreadStartedNotification["params"]["thread"] {
   return {
     id,
+    extra: null,
     sessionId: id,
     forkedFromId: null,
     parentThreadId: null,
     preview: "",
     ephemeral: false,
+    historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,

@@ -451,7 +451,7 @@ function threadResumeResponse(threadId: string, overrides: Partial<AppServerThre
     sandbox: { type: "readOnly", networkAccess: false },
     activePermissionProfile: null,
     reasoningEffort: null,
-    multiAgentMode: "none",
+    multiAgentMode: "explicitRequestOnly",
     initialTurnsPage: null,
     ...overrides,
   };

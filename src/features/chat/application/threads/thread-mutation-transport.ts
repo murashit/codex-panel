@@ -9,7 +9,6 @@ export interface ThreadRollbackSnapshot {
 
 export interface ThreadMutationTransport {
   compactThread(threadId: string): Promise<boolean>;
-  forkThread(threadId: string): Promise<Thread | null>;
-  rollbackForkedThread(threadId: string, turnsToDrop: number): Promise<Thread | null>;
+  forkThread(threadId: string, lastTurnId?: string | null): Promise<Thread | null>;
   rollbackThread(threadId: string): Promise<ThreadRollbackSnapshot | null>;
 }

@@ -1,6 +1,5 @@
 export type RuntimeApprovalPolicy =
   | "untrusted"
-  | "on-failure"
   | "on-request"
   | "never"
   | {

@@ -665,7 +665,7 @@ function mcpStartupStatusNotification(): ServerNotification {
 function mcpStartupStatusNotificationForThread(threadId: string | null): ServerNotification {
   return {
     method: "mcpServer/startupStatus/updated",
-    params: { threadId, name: "github", status: "failed", error: "missing token" },
+    params: { threadId, name: "github", status: "failed", error: "missing token", failureReason: null },
   };
 }
 
@@ -738,11 +738,13 @@ function rawResponseItemCompletedNotification(
 function threadSnapshot(id: string): Extract<ServerNotification, { method: "thread/started" }>["params"]["thread"] {
   return {
     id,
+    extra: null,
     sessionId: "session",
     forkedFromId: null,
     parentThreadId: null,
     preview: "Preview",
     ephemeral: false,
+    historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,

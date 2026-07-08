@@ -191,11 +191,17 @@ export async function rollbackThread(client: ThreadRollbackClient, threadId: str
   return threadRollbackSnapshotFromAppServerResponse(response);
 }
 
-export async function forkThread(client: ThreadForkClient, threadId: string, cwd: string): Promise<Thread> {
+export async function forkThread(
+  client: ThreadForkClient,
+  threadId: string,
+  cwd: string,
+  lastTurnId: string | null = null,
+): Promise<Thread> {
   const response = await client.request("thread/fork", {
     threadId,
     cwd,
     excludeTurns: true,
+    ...(lastTurnId ? { lastTurnId } : {}),
   });
   return threadFromThreadRecord(response.thread);
 }

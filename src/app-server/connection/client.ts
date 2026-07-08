@@ -7,6 +7,7 @@ import type { AppsListResponse } from "../../generated/app-server/v2/AppsListRes
 import type { CollaborationModeListResponse } from "../../generated/app-server/v2/CollaborationModeListResponse";
 import type { ConfigReadResponse } from "../../generated/app-server/v2/ConfigReadResponse";
 import type { ConfigWriteResponse } from "../../generated/app-server/v2/ConfigWriteResponse";
+import type { EnvironmentInfoResponse } from "../../generated/app-server/v2/EnvironmentInfoResponse";
 import type { FsReadFileResponse } from "../../generated/app-server/v2/FsReadFileResponse";
 import type { GetAccountRateLimitsResponse } from "../../generated/app-server/v2/GetAccountRateLimitsResponse";
 import type { HooksListResponse } from "../../generated/app-server/v2/HooksListResponse";
@@ -25,6 +26,7 @@ import type { ThreadGoalClearResponse } from "../../generated/app-server/v2/Thre
 import type { ThreadGoalGetResponse } from "../../generated/app-server/v2/ThreadGoalGetResponse";
 import type { ThreadGoalSetResponse } from "../../generated/app-server/v2/ThreadGoalSetResponse";
 import type { ThreadInjectItemsResponse } from "../../generated/app-server/v2/ThreadInjectItemsResponse";
+import type { ThreadItemsListResponse } from "../../generated/app-server/v2/ThreadItemsListResponse";
 import type { ThreadListResponse } from "../../generated/app-server/v2/ThreadListResponse";
 import type { ThreadReadResponse } from "../../generated/app-server/v2/ThreadReadResponse";
 import type { ThreadResumeResponse } from "../../generated/app-server/v2/ThreadResumeResponse";
@@ -87,6 +89,7 @@ export interface ClientResponseByMethod {
   "thread/name/set": ThreadSetNameResponse;
   "thread/settings/update": ThreadSettingsUpdateResponse;
   "thread/turns/list": ThreadTurnsListResponse;
+  "thread/items/list": ThreadItemsListResponse;
   "skills/list": SkillsListResponse;
   "app/list": AppsListResponse;
   "plugin/installed": PluginInstalledResponse;
@@ -102,6 +105,7 @@ export interface ClientResponseByMethod {
   "turn/steer": TurnSteerResponse;
   "turn/interrupt": TurnInterruptResponse;
   "fs/readFile": FsReadFileResponse;
+  "environment/info": EnvironmentInfoResponse;
 }
 
 export type TypedClientRequestMethod = Extract<ClientRequestMethod, keyof ClientResponseByMethod>;

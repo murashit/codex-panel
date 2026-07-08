@@ -66,7 +66,7 @@ function sandboxPolicyFromConfig(config: Record<string, unknown>): RuntimeSandbo
 }
 
 function approvalPolicyOrNull(value: unknown): RuntimeApprovalPolicy | null {
-  if (value === "untrusted" || value === "on-failure" || value === "on-request" || value === "never") return value;
+  if (value === "untrusted" || value === "on-request" || value === "never") return value;
   if (!value || typeof value !== "object") return null;
   const granular = (value as Record<string, unknown>)["granular"];
   if (!granular || typeof granular !== "object") return null;

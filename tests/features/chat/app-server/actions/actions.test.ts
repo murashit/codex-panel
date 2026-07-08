@@ -731,11 +731,13 @@ function startThreadClient(startThread: ReturnType<typeof vi.fn>): AppServerClie
 function threadFixture(id: string, overrides: Partial<ThreadStartResponse["thread"]> = {}): ThreadStartResponse["thread"] {
   return {
     id,
+    extra: null,
     sessionId: id,
     forkedFromId: null,
     parentThreadId: null,
     preview: "",
     ephemeral: false,
+    historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 0,
     updatedAt: 0,

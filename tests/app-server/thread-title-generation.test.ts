@@ -309,18 +309,20 @@ function threadStartResponse(threadId: string): ThreadStartResponse {
     activePermissionProfile: null,
     sandbox: { type: "readOnly", networkAccess: false },
     reasoningEffort: null,
-    multiAgentMode: "none",
+    multiAgentMode: "explicitRequestOnly",
   };
 }
 
 function threadFixture(id: string): ThreadStartResponse["thread"] {
   return {
     id,
+    extra: null,
     sessionId: "session",
     forkedFromId: null,
     parentThreadId: null,
     preview: "",
     ephemeral: true,
+    historyMode: "paginated",
     modelProvider: "openai",
     createdAt: 1,
     updatedAt: 1,

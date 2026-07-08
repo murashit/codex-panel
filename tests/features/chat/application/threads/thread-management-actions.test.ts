@@ -20,7 +20,6 @@ import { chatStateFixture } from "../../support/state";
 interface ThreadMutationTransportMock {
   compactThread: Mock<ThreadMutationTransport["compactThread"]>;
   forkThread: Mock<ThreadMutationTransport["forkThread"]>;
-  rollbackForkedThread: Mock<ThreadMutationTransport["rollbackForkedThread"]>;
   rollbackThread: Mock<ThreadMutationTransport["rollbackThread"]>;
 }
 
@@ -164,20 +163,16 @@ describe("thread management actions", () => {
     expect(host.addSystemMessage).toHaveBeenCalledWith("disk full");
   });
 
-  it("forks from a selected turn by dropping later turns on the fork", async () => {
+  it("forks through a selected turn", async () => {
     const host = hostMock({ items: turnItems() });
     const controller = threadManagementActions(host);
 
     await controller.forkThreadFromTurn("source", "turn-1", false);
 
-    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source");
-    expect(host.threadTransport.rollbackForkedThread).toHaveBeenCalledWith("forked", 2);
+    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", "turn-1");
     expect(host.recordForkedThread).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "forked",
-        name: "Rolled Back Thread",
-        preview: "Post-rollback",
-        updatedAt: 20,
       }),
     );
     expect(host.openThreadInNewView).toHaveBeenCalledWith("forked");
@@ -191,7 +186,7 @@ describe("thread management actions", () => {
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
-    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source");
+    expect(host.threadTransport.forkThread).toHaveBeenCalledWith("source", "turn-3");
     expect(host.operations.archiveThread).toHaveBeenCalledWith("source", {});
     expect(host.openThreadInCurrentPanel).toHaveBeenCalledWith("forked");
     expect(callOrder(host.operations.archiveThread)).toBeLessThan(callOrder(host.openThreadInCurrentPanel));
@@ -208,7 +203,6 @@ describe("thread management actions", () => {
 
     await controller.forkThreadFromTurn("source", "turn-3", true);
 
-    expect(host.threadTransport.rollbackForkedThread).not.toHaveBeenCalled();
     expect(host.operations.archiveThread).toHaveBeenCalledWith("source", {});
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("archive failed");
@@ -530,13 +524,6 @@ function hostMock({
   const threadTransport: ThreadMutationTransportMock = {
     compactThread: vi.fn<ThreadMutationTransport["compactThread"]>().mockResolvedValue(true),
     forkThread: vi.fn<ThreadMutationTransport["forkThread"]>().mockResolvedValue(panelThread("forked")),
-    rollbackForkedThread: vi.fn<ThreadMutationTransport["rollbackForkedThread"]>().mockResolvedValue(
-      panelThread("forked", {
-        name: "Rolled Back Thread",
-        preview: "Post-rollback",
-        updatedAt: 20,
-      }),
-    ),
     rollbackThread: vi.fn<ThreadMutationTransport["rollbackThread"]>().mockResolvedValue(rollbackSnapshot()),
     ...transportOverrides,
   };

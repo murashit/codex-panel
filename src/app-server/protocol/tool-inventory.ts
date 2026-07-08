@@ -28,6 +28,7 @@ interface ToolInventoryPluginSummary {
 type ToolInventoryPluginSource =
   | { type: "local"; path: string }
   | { type: "git"; url: string; path: string | null; refName: string | null; sha: string | null }
+  | { type: "npm"; package: string; version: string | null; registry: string | null }
   | { type: "remote" };
 
 interface ToolInventoryMarketplaceLoadError {
@@ -80,5 +81,6 @@ function pluginSourceLabel(source: ToolInventoryPluginSource): string {
     const path = source.path ? `/${source.path}` : "";
     return `${source.url}${path}${ref}`;
   }
+  if (source.type === "npm") return source.version ? `${source.package}@${source.version}` : source.package;
   return "remote";
 }

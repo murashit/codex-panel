@@ -135,9 +135,8 @@ function createChatThreadMutationTransport(host: ChatAppServerTransportHost): Th
       });
       return result ?? false;
     },
-    forkThread: (threadId) => withConnectedChatAppServerClient(host, (client) => forkThread(client, threadId, host.vaultPath)),
-    rollbackForkedThread: (threadId, turnsToDrop) =>
-      withConnectedChatAppServerClient(host, async (client) => (await rollbackThread(client, threadId, turnsToDrop)).thread),
+    forkThread: (threadId, lastTurnId = null) =>
+      withConnectedChatAppServerClient(host, (client) => forkThread(client, threadId, host.vaultPath, lastTurnId)),
     rollbackThread: (threadId) =>
       withConnectedChatAppServerClient(host, async (client): Promise<ThreadRollbackSnapshot> => {
         const snapshot = await rollbackThread(client, threadId);
