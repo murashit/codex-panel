@@ -55,7 +55,7 @@ interface ToolbarPrimaryActions {
 
 interface ToolbarChatActions {
   startNewThread: () => void;
-  compactConversation: () => void;
+  compactContext: () => void;
   setGoal: () => void;
 }
 
@@ -169,7 +169,7 @@ function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions
         className="codex-panel__chat-actions-panel-item"
         disabled={model.newChatDisabled}
       />
-      <ToolbarPanelItem label="Compact context" onClick={actions.compactConversation} className="codex-panel__chat-actions-panel-item" />
+      <ToolbarPanelItem label="Compact context" onClick={actions.compactContext} className="codex-panel__chat-actions-panel-item" />
       <ToolbarPanelItem label="Set goal..." onClick={actions.setGoal} className="codex-panel__chat-actions-panel-item" />
     </div>
   );

@@ -1,10 +1,10 @@
 import type { Thread } from "../../../../domain/threads/model";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 
 export interface ThreadRollbackSnapshot {
   thread: Thread;
   cwd: string;
-  items: MessageStreamItem[];
+  items: ThreadStreamItem[];
 }
 
 export interface ThreadMutationTransport {

@@ -13,8 +13,8 @@ import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/co
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
 import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
-import { createChatMessageStreamScrollBinding } from "../../../../src/features/chat/panel/message-stream-scroll-binding";
-import { MessageStreamPresenter } from "../../../../src/features/chat/panel/surface/message-stream-presenter";
+import { ThreadStreamPresenter } from "../../../../src/features/chat/panel/surface/thread-stream-presenter";
+import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
@@ -236,7 +236,7 @@ describe("createChatPanelSessionGraph actions", () => {
   });
 
   it("disposes presenter and composer resources from the graph action", () => {
-    const disposePresenter = vi.spyOn(MessageStreamPresenter.prototype, "dispose").mockImplementation(() => undefined);
+    const disposePresenter = vi.spyOn(ThreadStreamPresenter.prototype, "dispose").mockImplementation(() => undefined);
     const disposeComposer = vi.spyOn(ChatComposerController.prototype, "dispose").mockImplementation(() => undefined);
     const { graph } = sessionGraphFixture();
 
@@ -264,7 +264,7 @@ describe("createChatPanelSessionGraph actions", () => {
       deferredTasks,
       resumeWork,
       connectionWork,
-      messageScrollBinding: createChatMessageStreamScrollBinding(),
+      threadStreamScrollBinding: createChatThreadStreamScrollBinding(),
       getClosing: () => false,
       viewWindow: () => window,
     });

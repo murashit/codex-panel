@@ -1,0 +1,231 @@
+import { describe, expect, it, vi } from "vitest";
+
+import type { Thread } from "../../../../../src/domain/threads/model";
+import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { submitComposer } from "../../../../../src/features/chat/application/turns/composer-submit-actions";
+
+function thread(id: string): Thread {
+  return {
+    id,
+    preview: "",
+    createdAt: 0,
+    updatedAt: 0,
+    name: null,
+    archived: false,
+  };
+}
+
+function createHost(draft: string) {
+  const stateStore = createChatStateStore(createChatState());
+  const interruptTurn = vi.fn().mockResolvedValue({});
+  const setDraft = vi.fn();
+  const sendTurnText = vi.fn().mockResolvedValue(true);
+  const execute = vi.fn().mockResolvedValue(undefined);
+  const showLatest = vi.fn();
+  const ensureConnected = vi.fn().mockResolvedValue(true);
+  const inputSnapshot = { sourcePath: "snapshot.md" } as never;
+  const captureInputSnapshot = vi.fn(() => inputSnapshot);
+  const host = {
+    stateStore,
+    composer: {
+      get trimmedDraft() {
+        return draft;
+      },
+      setDraft,
+      captureInputSnapshot,
+    },
+    slashCommandExecutor: { execute },
+    turnSubmission: { sendTurnText },
+    connection: {
+      ensureConnected,
+    },
+    turnTransport: { interruptTurn },
+    status: {
+      setStatus: vi.fn(),
+      addSystemMessage: vi.fn(),
+    },
+    scroll: { showLatest },
+  };
+  return {
+    host,
+    captureInputSnapshot,
+    ensureConnected,
+    execute,
+    inputSnapshot,
+    interruptTurn,
+    sendTurnText,
+    setDraft,
+    showLatest,
+    stateStore,
+  };
+}
+
+describe("submitComposer", () => {
+  it("sends plain drafts as turn text", async () => {
+    const { host, ensureConnected, inputSnapshot, sendTurnText, showLatest } = createHost("hello");
+
+    await submitComposer(host);
+
+    expect(showLatest).toHaveBeenCalledOnce();
+    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(sendTurnText).toHaveBeenCalledWith({ text: "hello", inputSnapshot });
+    const [showLatestOrder] = showLatest.mock.invocationCallOrder;
+    const [sendTurnTextOrder] = sendTurnText.mock.invocationCallOrder;
+    if (showLatestOrder === undefined || sendTurnTextOrder === undefined) {
+      throw new Error("Expected showLatest and sendTurnText to be called");
+    }
+    expect(showLatestOrder).toBeLessThan(sendTurnTextOrder);
+  });
+
+  it("executes slash commands and forwards command send results", async () => {
+    const { host, ensureConnected, execute, inputSnapshot, sendTurnText, setDraft, showLatest } = createHost("/clear hello");
+    execute.mockResolvedValue({ sendText: "hello" });
+
+    await submitComposer(host);
+
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(ensureConnected).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledWith("clear", "hello", inputSnapshot);
+    expect(showLatest).toHaveBeenCalledOnce();
+    expect(sendTurnText).toHaveBeenCalledWith({
+      text: "hello",
+      inputSnapshot,
+    });
+  });
+
+  it("passes the same input snapshot through slash command send results", async () => {
+    const { host, execute, inputSnapshot, sendTurnText } = createHost("/refer Other [[Note]] (L1:C1-L1:C2)");
+    execute.mockImplementation(async (_command, _args, snapshot) => {
+      expect(snapshot).toBe(inputSnapshot);
+      return { sendText: "[[Note]] (L1:C1-L1:C2)", sendInput: [{ type: "text", text: "referenced input" }] };
+    });
+    sendTurnText.mockImplementation(async (request) => {
+      expect(request.inputSnapshot).toBe(inputSnapshot);
+    });
+
+    await submitComposer(host);
+
+    expect(sendTurnText).toHaveBeenCalledWith({
+      text: "[[Note]] (L1:C1-L1:C2)",
+      inputSnapshot,
+      codexInputOverride: [{ type: "text", text: "referenced input" }],
+      preserveComposerContextOnFailure: true,
+    });
+  });
+
+  it("restores slash command text when command send results are not submitted", async () => {
+    const { host, execute, inputSnapshot, sendTurnText, setDraft } = createHost("/clip https://example.com [[Note]]");
+    execute.mockResolvedValue({
+      sendText: "[[Codex Clippings/Example.md]] [[Note]]",
+      sendInput: [
+        { type: "text", text: "[[Codex Clippings/Example.md]] [[Note]]" },
+        { type: "mention", name: "Example", path: "Codex Clippings/Example.md" },
+        { type: "mention", name: "Note", path: "Note.md" },
+      ],
+    });
+    sendTurnText.mockResolvedValue(false);
+
+    await submitComposer(host);
+
+    expect(sendTurnText).toHaveBeenCalledWith({
+      text: "[[Codex Clippings/Example.md]] [[Note]]",
+      inputSnapshot,
+      codexInputOverride: [
+        { type: "text", text: "[[Codex Clippings/Example.md]] [[Note]]" },
+        { type: "mention", name: "Example", path: "Codex Clippings/Example.md" },
+        { type: "mention", name: "Note", path: "Note.md" },
+      ],
+      preserveComposerContextOnFailure: true,
+    });
+    expect(setDraft).toHaveBeenCalledWith("/clip https://example.com [[Note]]", { focus: true, clearSuggestions: true });
+  });
+
+  it("does not execute connection-dependent slash commands when connection fails", async () => {
+    const { host, ensureConnected, execute, setDraft } = createHost("/clear");
+    ensureConnected.mockResolvedValue(false);
+
+    await submitComposer(host);
+
+    expect(ensureConnected).toHaveBeenCalledOnce();
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("executes reconnect without a connected client preflight", async () => {
+    const { host, ensureConnected, execute, setDraft } = createHost("/reconnect");
+
+    await submitComposer(host);
+
+    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(execute).toHaveBeenCalledWith("reconnect", "", expect.any(Object));
+  });
+
+  it("executes compact without a connected client preflight", async () => {
+    const { host, ensureConnected, execute, setDraft } = createHost("/compact");
+
+    await submitComposer(host);
+
+    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
+    expect(execute).toHaveBeenCalledWith("compact", "", expect.any(Object));
+  });
+
+  it("restores slash command composer drafts from command results", async () => {
+    const { host, ensureConnected, execute, sendTurnText, setDraft, showLatest } = createHost("/goal edit");
+    execute.mockResolvedValue({ composerDraft: "/goal set Current objective" });
+
+    await submitComposer(host);
+
+    expect(ensureConnected).toHaveBeenCalledOnce();
+    expect(setDraft).not.toHaveBeenCalledWith("", expect.anything());
+    expect(setDraft).toHaveBeenCalledWith("/goal set Current objective", { focus: true, clearSuggestions: true });
+    expect(showLatest).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
+  });
+
+  it("restores slash command text and reports executor errors", async () => {
+    const { host, execute, sendTurnText, setDraft, showLatest } = createHost("/clip https://obsidian.md/help/plugins/web-viewer 読める？");
+    execute.mockRejectedValue(new Error("No readable content found for https://obsidian.md/help/plugins/web-viewer"));
+
+    await submitComposer(host);
+
+    expect(setDraft).toHaveBeenCalledWith("/clip https://obsidian.md/help/plugins/web-viewer 読める？", {
+      focus: true,
+      clearSuggestions: true,
+    });
+    expect(setDraft.mock.calls.at(-1)).toEqual([
+      "/clip https://obsidian.md/help/plugins/web-viewer 読める？",
+      { focus: true, clearSuggestions: true },
+    ]);
+    expect(host.status.addSystemMessage).toHaveBeenCalledWith("No readable content found for https://obsidian.md/help/plugins/web-viewer");
+    expect(showLatest).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
+  });
+
+  it("interrupts a running turn when submitting an empty draft", async () => {
+    const { host, interruptTurn, showLatest, stateStore } = createHost("");
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: thread("thread"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+
+    await submitComposer(host);
+
+    expect(showLatest).not.toHaveBeenCalled();
+    expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
+  });
+});

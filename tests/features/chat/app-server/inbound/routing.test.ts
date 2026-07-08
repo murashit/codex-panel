@@ -70,7 +70,7 @@ describe("chat inbound routing", () => {
     expectNotificationRouteKind(notification, "threadLifecycle", { activeThreadId: "thread-other", activeTurnId: "turn-active" });
   });
 
-  it("translates run-started runtime outcomes to thread catalog events at the inbound boundary", () => {
+  it("translates turn-started runtime outcomes to thread catalog events at the inbound boundary", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
     state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });
@@ -85,7 +85,7 @@ describe("chat inbound routing", () => {
     ]);
   });
 
-  it("translates run-completed runtime outcomes to thread follow-up effects at the inbound boundary", () => {
+  it("translates turn-completed runtime outcomes to thread follow-up effects at the inbound boundary", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-active" } });
     state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn-active" } } });

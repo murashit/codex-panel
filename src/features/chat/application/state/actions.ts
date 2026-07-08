@@ -8,15 +8,15 @@ import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/p
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import { type Thread, upsertThread } from "../../../../domain/threads/model";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
-import type { PendingTurnStart } from "../conversation/turn-state";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { PendingTurnStart } from "../turns/turn-state";
 
 interface ResumedThreadActionParams {
   response: ThreadActivationSnapshot;
   listedThreads?: readonly Thread[];
-  items?: readonly MessageStreamItem[];
+  items?: readonly ThreadStreamItem[];
   preserveRequestedRuntimeSettings?: boolean;
   serviceTierKnown?: boolean;
 }
@@ -39,7 +39,7 @@ interface ResumedThreadFromActiveRuntimeParams {
     | "activePermissionProfile"
   >;
   listedThreads?: readonly Thread[];
-  items?: readonly MessageStreamItem[];
+  items?: readonly ThreadStreamItem[];
 }
 
 export interface ActiveThreadResumedAction extends RuntimePermissionState, RuntimePermissionKnownState {
@@ -51,7 +51,7 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState, Runti
   serviceTier: ServiceTier | null;
   serviceTierKnown?: boolean;
   approvalsReviewer: ActiveThreadRuntimeState["approvalsReviewer"];
-  items?: readonly MessageStreamItem[];
+  items?: readonly ThreadStreamItem[];
   status?: string;
   listedThreads?: readonly Thread[];
   preserveRequestedRuntimeSettings?: boolean;
@@ -108,19 +108,19 @@ export interface DisclosureSetAction {
 
 export interface TurnOptimisticStartedAction {
   type: "turn/optimistic-started";
-  item: MessageStreamItem;
+  item: ThreadStreamItem;
   pendingTurnStart: PendingTurnStart;
 }
 
 export interface TurnStartAcknowledgedAction {
   type: "turn/start-acknowledged";
   turnId: string;
-  items: readonly MessageStreamItem[];
+  items: readonly ThreadStreamItem[];
 }
 
 export interface TurnStartFailedAction {
   type: "turn/start-failed";
-  items: readonly MessageStreamItem[];
+  items: readonly ThreadStreamItem[];
 }
 
 export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromActiveRuntimeParams): ActiveThreadResumedAction {

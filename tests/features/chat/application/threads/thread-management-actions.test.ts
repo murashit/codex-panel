@@ -12,10 +12,10 @@ import type {
   ThreadMutationTransport,
   ThreadRollbackSnapshot,
 } from "../../../../../src/features/chat/application/threads/thread-mutation-transport";
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
-import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture } from "../../support/state";
+import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 interface ThreadMutationTransportMock {
   compactThread: Mock<ThreadMutationTransport["compactThread"]>;
@@ -345,7 +345,7 @@ describe("thread management actions", () => {
       approvalsReviewer: null,
     });
     host.stateStore.dispatch({
-      type: "message-stream/items-replaced",
+      type: "thread-stream/items-replaced",
       items: turnItems(),
       historyCursor: null,
       loadingHistory: false,
@@ -355,9 +355,9 @@ describe("thread management actions", () => {
     await controller.rollbackThread("source");
 
     expect(host.threadTransport.rollbackThread).toHaveBeenCalledWith("source");
-    expect(chatStateMessageStreamItems(host.stateStore.getState()).slice(0, 2)).toMatchObject([
-      { kind: "message", role: "user", text: "kept prompt", turnId: "kept-turn" },
-      { kind: "message", role: "assistant", text: "kept answer", turnId: "kept-turn" },
+    expect(chatStateThreadStreamItems(host.stateStore.getState()).slice(0, 2)).toMatchObject([
+      { kind: "dialogue", role: "user", text: "kept prompt", turnId: "kept-turn" },
+      { kind: "dialogue", role: "assistant", text: "kept answer", turnId: "kept-turn" },
     ]);
     expect(callOrder(host.setComposerText)).toBeLessThan(callOrder(host.addSystemMessage));
     expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.refreshAfterThreadMutation));
@@ -383,7 +383,7 @@ describe("thread management actions", () => {
       approvalsReviewer: null,
     });
     host.stateStore.dispatch({
-      type: "message-stream/items-replaced",
+      type: "thread-stream/items-replaced",
       items: turnItems(),
       historyCursor: null,
       loadingHistory: false,
@@ -441,7 +441,7 @@ describe("thread management actions", () => {
       approvalsReviewer: null,
     });
     host.stateStore.dispatch({
-      type: "message-stream/items-replaced",
+      type: "thread-stream/items-replaced",
       items: turnItems(),
       historyCursor: null,
       loadingHistory: false,
@@ -456,52 +456,52 @@ describe("thread management actions", () => {
   });
 });
 
-function turnItems(): MessageStreamItem[] {
+function turnItems(): ThreadStreamItem[] {
   return [
-    { id: "u1", kind: "message", messageKind: "user", role: "user", text: "one", turnId: "turn-1" },
+    { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "one", turnId: "turn-1" },
     {
       id: "a1",
-      kind: "message",
+      kind: "dialogue",
       role: "assistant",
       text: "one answer",
       turnId: "turn-1",
-      messageKind: "assistantResponse",
-      messageState: "completed",
+      dialogueKind: "assistantResponse",
+      dialogueState: "completed",
     },
-    { id: "u2", kind: "message", messageKind: "user", role: "user", text: "two", turnId: "turn-2" },
+    { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "two", turnId: "turn-2" },
     {
       id: "a2",
-      kind: "message",
+      kind: "dialogue",
       role: "assistant",
       text: "two answer",
       turnId: "turn-2",
-      messageKind: "assistantResponse",
-      messageState: "completed",
+      dialogueKind: "assistantResponse",
+      dialogueState: "completed",
     },
-    { id: "u3", kind: "message", messageKind: "user", role: "user", text: "three", turnId: "turn-3" },
+    { id: "u3", kind: "dialogue", dialogueKind: "user", role: "user", text: "three", turnId: "turn-3" },
     {
       id: "a3",
-      kind: "message",
+      kind: "dialogue",
       role: "assistant",
       text: "three answer",
       turnId: "turn-3",
-      messageKind: "assistantResponse",
-      messageState: "completed",
+      dialogueKind: "assistantResponse",
+      dialogueState: "completed",
     },
   ];
 }
 
-function rollbackItems(): MessageStreamItem[] {
+function rollbackItems(): ThreadStreamItem[] {
   return [
-    { id: "kept-user", kind: "message", messageKind: "user", role: "user", text: "kept prompt", turnId: "kept-turn" },
+    { id: "kept-user", kind: "dialogue", dialogueKind: "user", role: "user", text: "kept prompt", turnId: "kept-turn" },
     {
       id: "kept-agent",
-      kind: "message",
+      kind: "dialogue",
       role: "assistant",
       text: "kept answer",
       turnId: "kept-turn",
-      messageKind: "assistantResponse",
-      messageState: "completed",
+      dialogueKind: "assistantResponse",
+      dialogueState: "completed",
     },
   ];
 }
@@ -515,11 +515,11 @@ function hostMock({
   operations: operationOverrides = {},
   threadTransport: transportOverrides = {},
 }: {
-  items: MessageStreamItem[];
+  items: ThreadStreamItem[];
   operations?: Partial<ThreadOperationsMock>;
   threadTransport?: Partial<ThreadMutationTransportMock>;
 }): ThreadManagementActionsHostMock {
-  const state = withChatStateMessageStreamItems(chatStateFixture(), items);
+  const state = withChatStateThreadStreamItems(chatStateFixture(), items);
   const stateStore = createChatStateStore(state);
   const threadTransport: ThreadMutationTransportMock = {
     compactThread: vi.fn<ThreadMutationTransport["compactThread"]>().mockResolvedValue(true),

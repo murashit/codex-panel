@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
-import { conversationRuntimeEventsFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-events";
+import { turnRuntimeEventsFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-events";
 
 describe("app-server conversation runtime event mapping", () => {
   it("maps assistant deltas to panel-owned runtime events", () => {
@@ -9,12 +9,12 @@ describe("app-server conversation runtime event mapping", () => {
       params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
     } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>;
 
-    expect(conversationRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`)).toEqual([
-      { type: "assistantDelta", runId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true },
+    expect(turnRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`)).toEqual([
+      { type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true },
     ]);
   });
 
-  it("maps completed turns to completed run snapshots", () => {
+  it("maps completed turns to completed turn snapshots", () => {
     const notification = {
       method: "turn/completed",
       params: {
@@ -35,21 +35,21 @@ describe("app-server conversation runtime event mapping", () => {
       },
     } satisfies Extract<ServerNotification, { method: "turn/completed" }>;
 
-    const events = conversationRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`);
+    const events = turnRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`);
 
     expect(events).toEqual([
       expect.objectContaining({
-        type: "runCompleted",
+        type: "turnCompleted",
         threadId: "thread-active",
-        runId: "turn-active",
+        turnId: "turn-active",
         status: "completed",
         completedSummary: { userText: "hello", assistantText: "done" },
       }),
     ]);
     expect(events[0]).toMatchObject({
       completedItems: [
-        expect.objectContaining({ id: "u1", kind: "message", role: "user", text: "hello" }),
-        expect.objectContaining({ id: "a1", kind: "message", role: "assistant", text: "done" }),
+        expect.objectContaining({ id: "u1", kind: "dialogue", role: "user", text: "hello" }),
+        expect.objectContaining({ id: "a1", kind: "dialogue", role: "assistant", text: "done" }),
       ],
     });
   });

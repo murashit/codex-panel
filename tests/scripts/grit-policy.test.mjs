@@ -422,7 +422,7 @@ export const loadedRoot = root;
 `.trimStart(),
     );
     await writeFile(
-      path.join(cwd, "src/features/chat/application/state/message-stream.ts"),
+      path.join(cwd, "src/features/chat/application/state/thread-stream.ts"),
       `
 export function timestamp(): number {
   setTimeout(() => undefined, 1);
@@ -455,7 +455,7 @@ export function timestamp(): number {
         "src/features/chat/panel/shell.dom.tsx",
         "src/features/chat/panel/composer-controller.ts",
         "src/features/chat/ui/root-escapes.tsx",
-        "src/features/chat/application/state/message-stream.ts",
+        "src/features/chat/application/state/thread-stream.ts",
         "src/features/chat/application/threads/resume-actions.ts",
       ],
       cwd,
@@ -488,7 +488,7 @@ export function timestamp(): number {
       "Import the Preact root adapter only from explicit root bridge files.",
       "Import the Preact root adapter only from explicit root bridge files.",
     ]);
-    expect(pluginMessages(report, "src/features/chat/application/state/message-stream.ts")).toEqual([
+    expect(pluginMessages(report, "src/features/chat/application/state/thread-stream.ts")).toEqual([
       "Keep this state module deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
       "Keep this state module deterministic and free of app-server, Obsidian, scheduling, and browser side effects.",
     ]);
@@ -524,9 +524,9 @@ export const values = [statusText, Toolbar] satisfies unknown[];
     await writeFile(
       path.join(cwd, "src/features/chat/application/allowed.ts"),
       `
-import type { MessageStreamItem } from "../domain/message-stream/items";
+import type { ThreadStreamItem } from "../domain/thread-stream/items";
 
-export type Item = MessageStreamItem;
+export type Item = ThreadStreamItem;
 `.trimStart(),
     );
     await writeFile(
@@ -563,9 +563,9 @@ export const values = [statusText, Toolbar] satisfies unknown[];
       `
 import type { AppServerClient } from "../../../app-server/connection/client";
 import type { ChatStateStore } from "../application/state/store";
-import type { MessageStreamItem } from "../domain/message-stream/items";
+import type { ThreadStreamItem } from "../domain/thread-stream/items";
 
-export type Allowed = AppServerClient | ChatStateStore | MessageStreamItem;
+export type Allowed = AppServerClient | ChatStateStore | ThreadStreamItem;
 `.trimStart(),
     );
     await writeFile(
@@ -698,9 +698,9 @@ export const toolbar = Toolbar;
       path.join(cwd, "src/features/chat/presentation/allowed.ts"),
       `
 import type { Thread } from "../../../domain/threads/model";
-import type { MessageStreamItem } from "../domain/message-stream/items";
+import type { ThreadStreamItem } from "../domain/thread-stream/items";
 
-export type Allowed = Thread | MessageStreamItem;
+export type Allowed = Thread | ThreadStreamItem;
 `.trimStart(),
     );
     await writeFile(
@@ -719,10 +719,10 @@ export type Allowed = Thread | MessageStreamItem;
       path.join(cwd, "src/features/chat/ui/allowed.tsx"),
       `
 import type { Thread } from "../../../domain/threads/model";
-import type { MessageStreamItem } from "../domain/message-stream/items";
+import type { ThreadStreamItem } from "../domain/thread-stream/items";
 import { statusText } from "../presentation/runtime/status";
 
-export type Allowed = Thread | MessageStreamItem;
+export type Allowed = Thread | ThreadStreamItem;
 export const value = statusText;
 `.trimStart(),
     );
@@ -833,7 +833,7 @@ describe("Biome Grit include boundaries", () => {
     expect(pluginMessages(report, "src/features/chat/application/threads/history-controller.ts")).toEqual([
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
-    expect(pluginMessages(report, "src/features/chat/panel/surface/message-stream-presenter.ts")).toEqual([
+    expect(pluginMessages(report, "src/features/chat/panel/surface/thread-stream-presenter.ts")).toEqual([
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     ]);
     expect(pluginMessages(report, "src/features/chat/ui/protocol-leak.tsx")).toEqual([APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE]);
@@ -842,7 +842,7 @@ describe("Biome Grit include boundaries", () => {
     ]);
     expectOnlyPluginMessage(
       report,
-      "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
+      "src/features/chat/app-server/mappers/thread-stream/turn-items.ts",
       APP_SERVER_PROTOCOL_BOUNDARY_MESSAGE,
     );
     expectOnlyPluginMessage(
@@ -863,13 +863,13 @@ describe("Biome Grit include boundaries", () => {
     expect(pluginDiagnostics(report, "src/domain/threads/format.ts")).toEqual([]);
     expectOnlyPluginMessage(
       report,
-      "src/features/chat/domain/message-stream/selectors.ts",
+      "src/features/chat/domain/thread-stream/selectors.ts",
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
     );
-    expect(pluginDiagnostics(report, "src/features/chat/domain/message-stream/items.ts")).toEqual([]);
+    expect(pluginDiagnostics(report, "src/features/chat/domain/thread-stream/items.ts")).toEqual([]);
     expectOnlyPluginMessage(
       report,
-      "src/features/chat/domain/message-stream/outer-shapes.ts",
+      "src/features/chat/domain/thread-stream/outer-shapes.ts",
       "Domain modules must stay pure; outer layers may depend on domain, not the reverse.",
     );
   });
@@ -1239,7 +1239,7 @@ export type Item = TurnItem;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/chat/panel/surface/message-stream-presenter.ts"),
+    path.join(cwd, "src/features/chat/panel/surface/thread-stream-presenter.ts"),
     `
 import { appServerUserInputResponse } from "../../../../../app-server/protocol/server-requests";
 
@@ -1263,7 +1263,7 @@ export const response = appServerUserInputResponse;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/chat/app-server/mappers/message-stream/turn-items.ts"),
+    path.join(cwd, "src/features/chat/app-server/mappers/thread-stream/turn-items.ts"),
     `
 import type { TurnItem } from "../../../../../app-server/protocol/turn";
 import { toolInventoryAppsFromAppInfos } from "../../../../../app-server/protocol/tool-inventory";
@@ -1307,7 +1307,7 @@ export const format = formatDate;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/chat/domain/message-stream/selectors.ts"),
+    path.join(cwd, "src/features/chat/domain/thread-stream/selectors.ts"),
     `
 import type { ChatStateStore } from "../../application/state/store";
 import type { Presenter } from 'src/features/chat/presentation/view';
@@ -1317,15 +1317,15 @@ export type View = Presenter;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/chat/domain/message-stream/items.ts"),
+    path.join(cwd, "src/features/chat/domain/thread-stream/items.ts"),
     `
-import type { MessageStreamItem } from "./item";
+import type { ThreadStreamItem } from "./item";
 
-export type Item = MessageStreamItem;
+export type Item = ThreadStreamItem;
 `.trimStart(),
   );
   await writeFile(
-    path.join(cwd, "src/features/chat/domain/message-stream/outer-shapes.ts"),
+    path.join(cwd, "src/features/chat/domain/thread-stream/outer-shapes.ts"),
     `
 import type { ChatStateStore } from "../../application/state/store";
 
@@ -1457,16 +1457,16 @@ export async function read(client: AppServerClient): Promise<void> {
       "src/app-server/protocol/server-requests.ts",
       "src/features/chat/application/pending-requests/pending-request-actions.ts",
       "src/features/chat/application/threads/history-controller.ts",
-      "src/features/chat/panel/surface/message-stream-presenter.ts",
+      "src/features/chat/panel/surface/thread-stream-presenter.ts",
       "src/features/chat/ui/protocol-leak.tsx",
       "src/features/chat/app-server/inbound/app-server-logs.ts",
-      "src/features/chat/app-server/mappers/message-stream/turn-items.ts",
+      "src/features/chat/app-server/mappers/thread-stream/turn-items.ts",
       "src/features/chat/app-server/inbound/server-request-protocol-leak.ts",
       "src/domain/threads/model.ts",
       "src/domain/threads/format.ts",
-      "src/features/chat/domain/message-stream/selectors.ts",
-      "src/features/chat/domain/message-stream/items.ts",
-      "src/features/chat/domain/message-stream/outer-shapes.ts",
+      "src/features/chat/domain/thread-stream/selectors.ts",
+      "src/features/chat/domain/thread-stream/items.ts",
+      "src/features/chat/domain/thread-stream/outer-shapes.ts",
       "src/app-server/protocol/diagnostics.ts",
       "src/shared/obsidian/thread-picker.ts",
       "src/domain/display/date.ts",
@@ -1487,12 +1487,12 @@ export async function read(client: AppServerClient): Promise<void> {
 async function tempBiomeWorkspace(plugins) {
   const cwd = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
   await mkdir(cwd, { recursive: true });
-  await mkdir(path.join(cwd, "src/features/chat/domain/message-stream"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/chat/domain/thread-stream"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/application/state"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/application/threads"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/application/pending-requests"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/app-server/inbound"), { recursive: true });
-  await mkdir(path.join(cwd, "src/features/chat/app-server/mappers/message-stream"), { recursive: true });
+  await mkdir(path.join(cwd, "src/features/chat/app-server/mappers/thread-stream"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/host"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/host/bundles"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/host/session"), { recursive: true });

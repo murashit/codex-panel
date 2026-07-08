@@ -180,7 +180,7 @@ describe("chat app-server transports", () => {
     await expect(forking).resolves.toBeNull();
   });
 
-  it("projects rollback turns into message stream items", async () => {
+  it("projects rollback turns into thread stream items", async () => {
     const request = vi.fn().mockResolvedValue({ thread: threadRecord("thread", [turn([userMessage("u1", "prompt")])]) });
     const client = { request } as unknown as AppServerClient;
     const transport = createTestGateway({
@@ -193,10 +193,10 @@ describe("chat app-server transports", () => {
     expect(request).toHaveBeenCalledWith("thread/rollback", { threadId: "thread", numTurns: 1 });
     expect(snapshot?.thread.id).toBe("thread");
     expect(snapshot?.cwd).toBe("/vault");
-    expect(snapshot?.items).toEqual([expect.objectContaining({ kind: "message", role: "user", text: "prompt" })]);
+    expect(snapshot?.items).toEqual([expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })]);
   });
 
-  it("reads thread history pages as message stream items", async () => {
+  it("reads thread history pages as thread stream items", async () => {
     const request = vi.fn().mockResolvedValue({
       data: [turn([userMessage("u1", "prompt"), agentMessage("a1", "answer")])],
       nextCursor: "older",
@@ -219,8 +219,8 @@ describe("chat app-server transports", () => {
     expect(page?.nextCursor).toBe("older");
     expect(page?.hadTurns).toBe(true);
     expect(page?.items).toEqual([
-      expect.objectContaining({ kind: "message", role: "user", text: "prompt" }),
-      expect.objectContaining({ kind: "message", role: "assistant", text: "answer" }),
+      expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" }),
+      expect.objectContaining({ kind: "dialogue", role: "assistant", text: "answer" }),
     ]);
   });
 
@@ -274,7 +274,7 @@ describe("chat app-server transports", () => {
     expect(snapshot?.initialHistoryPage).toMatchObject({
       nextCursor: "older",
       hadTurns: true,
-      items: [expect.objectContaining({ kind: "message", role: "user", text: "prompt" })],
+      items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
     });
   });
 

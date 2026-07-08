@@ -11,7 +11,7 @@ interface ChatStateFixturePatch {
   activeThread?: Partial<ChatState["activeThread"]>;
   runtime?: RuntimePatch;
   turn?: Partial<ChatState["turn"]>;
-  messageStream?: Partial<ChatState["messageStream"]>;
+  threadStream?: Partial<ChatState["threadStream"]>;
   requests?: Partial<ChatState["requests"]>;
   composer?: Partial<ChatState["composer"]>;
   ui?: Partial<Omit<ChatState["ui"], "disclosures">> & {
@@ -33,7 +33,7 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
     ...(patch.activeThread ? { activeThread: { ...state.activeThread, ...patch.activeThread } } : {}),
     ...(patch.runtime ? { runtime: runtimeWithPatch(state.runtime, patch.runtime) } : {}),
     ...(patch.turn ? { turn: { ...state.turn, ...patch.turn } } : {}),
-    ...(patch.messageStream ? { messageStream: { ...state.messageStream, ...patch.messageStream } } : {}),
+    ...(patch.threadStream ? { threadStream: { ...state.threadStream, ...patch.threadStream } } : {}),
     ...(patch.requests ? { requests: { ...state.requests, ...patch.requests } } : {}),
     ...(patch.composer ? { composer: { ...state.composer, ...patch.composer } } : {}),
     ...(uiPatch

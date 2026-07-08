@@ -8,14 +8,14 @@ import {
   type ChatInboundHandlerActions,
   createChatInboundHandler,
 } from "../../../../../src/features/chat/app-server/inbound/handler";
-import { pendingTurnStart } from "../../../../../src/features/chat/application/conversation/turn-state";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/message-stream/updates";
+import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
+import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/thread-stream/updates";
 import type { ThreadCatalogEvent } from "../../../../../src/features/threads/catalog/thread-catalog";
-import { chatStateMessageStreamItems, withChatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
+import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
 
@@ -88,12 +88,12 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
       } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toMatchObject([{ id: "a1", text: "hello" }]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([{ id: "a1", text: "hello" }]);
     });
 
     it("marks active reasoning completed when assistant text starts", () => {
       let state = activeRunningState();
-      state = withChatStateMessageStreamItems(state, [
+      state = withChatStateThreadStreamItems(state, [
         { id: "r1", kind: "reasoning", role: "tool", text: "thinking", turnId: "turn-active" },
       ]);
       const handler = handlerForState(state);
@@ -103,10 +103,10 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "answer" },
       } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "r1", kind: "reasoning", status: "completed", executionState: "completed" }),
-          expect.objectContaining({ id: "a1", kind: "message", text: "answer" }),
+          expect.objectContaining({ id: "a1", kind: "dialogue", text: "answer" }),
         ]),
       );
     });
@@ -120,8 +120,8 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: "turn-active", itemId: "p1", delta: "<proposed_plan>\n# Plan" },
       } satisfies Extract<ServerNotification, { method: "item/plan/delta" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toMatchObject([
-        { id: "p1", kind: "message", messageKind: "proposedPlan", role: "assistant", text: "# Plan", messageState: "streaming" },
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
+        { id: "p1", kind: "dialogue", dialogueKind: "proposedPlan", role: "assistant", text: "# Plan", dialogueState: "streaming" },
       ]);
     });
 
@@ -151,14 +151,14 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({
           id: "p1",
-          kind: "message",
+          kind: "dialogue",
           role: "assistant",
           text: "# Plan",
-          messageKind: "proposedPlan",
-          messageState: "completed",
+          dialogueKind: "proposedPlan",
+          dialogueState: "completed",
         }),
       ]);
     });
@@ -177,7 +177,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/plan/updated" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toMatchObject([
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
         {
           id: "plan-progress-turn-active",
           kind: "taskProgress",
@@ -215,7 +215,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: "turn-active", diff: "@@\n-old\n+second" },
       } satisfies Extract<ServerNotification, { method: "turn/diff/updated" }>);
 
-      expect(handler.currentState().messageStream.turnDiffs.get("turn-active")).toBe("@@\n-old\n+second");
+      expect(handler.currentState().threadStream.turnDiffs.get("turn-active")).toBe("@@\n-old\n+second");
     });
 
     it("ignores aggregated turn diffs outside the active scope", () => {
@@ -231,7 +231,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: "turn-other", diff: "@@\n-wrong\n+wrong" },
       } satisfies Extract<ServerNotification, { method: "turn/diff/updated" }>);
 
-      expect(handler.currentState().messageStream.turnDiffs.size).toBe(0);
+      expect(handler.currentState().threadStream.turnDiffs.size).toBe(0);
     });
 
     it("formats hook runs as compact summaries with details", () => {
@@ -262,7 +262,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toMatchObject([
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
         {
           id: "hook-hook-1-1",
           kind: "hook",
@@ -310,7 +310,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
         kind: "hook",
         hookRun: {
           eventName: "postToolUse",
@@ -347,7 +347,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
         id: "hook-hook-1-1",
         kind: "hook",
         turnId: "turn-active",
@@ -382,11 +382,11 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(chatStateMessageStreamItems(handler.currentState())[0]?.turnId).toBeUndefined();
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(chatStateThreadStreamItems(handler.currentState())[0]?.turnId).toBeUndefined();
     });
 
-    it("keeps repeated hook runs with the same run id as separate message stream items", () => {
+    it("keeps repeated hook runs with the same run id as separate thread stream items", () => {
       const state = activeRunningState();
       const handler = handlerForState(state);
       const baseRun: Extract<ServerNotification, { method: "hook/completed" }>["params"]["run"] = {
@@ -415,7 +415,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: "turn-active", run: { ...baseRun, startedAt: 3n } },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["hook-hook-1-1", "hook-hook-1-3"]);
     });
 
     it("attaches pre-turn prompt submit hook runs when the turn starts", () => {
@@ -429,8 +429,8 @@ describe("ChatInboundHandler", () => {
           },
         },
       });
-      state = withChatStateMessageStreamItems(state, [
-        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
+      state = withChatStateThreadStreamItems(state, [
+        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
           kind: "hook",
@@ -461,8 +461,8 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(chatStateMessageStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(chatStateThreadStreamItems(handler.currentState())[1]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
       expect(pendingTurnStart(handler.currentState())).toBeNull();
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
         type: "thread-touched",
@@ -491,7 +491,7 @@ describe("ChatInboundHandler", () => {
             toolName: "hook",
             status: "completed",
           },
-          { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
+          { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
         ],
         "turn-active",
         ["hook-hook-1-1"],
@@ -535,8 +535,8 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(expectPresent(chatStateMessageStreamItems(handler.currentState())[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
-      expect(expectPresent(chatStateMessageStreamItems(handler.currentState())[0]).turnId).toBeUndefined();
+      expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[0])).toMatchObject({ id: "hook-hook-1-1", kind: "hook" });
+      expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[0]).turnId).toBeUndefined();
       expect(expectPresent(pendingTurnStart(handler.currentState())).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
     });
 
@@ -546,8 +546,8 @@ describe("ChatInboundHandler", () => {
       state = chatStateWith(state, {
         turn: { lifecycle: { kind: "starting", pendingTurnStart: { anchorItemId: "local-user-1", promptSubmitHookItemIds: [] } } },
       });
-      state = withChatStateMessageStreamItems(state, [
-        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
+      state = withChatStateThreadStreamItems(state, [
+        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
       ]);
       const handler = handlerForState(state);
 
@@ -556,8 +556,8 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: null, run: promptSubmitHookRun("hook-1", 1n) },
       } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(expectPresent(chatStateMessageStreamItems(handler.currentState())[1]).turnId).toBeUndefined();
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(expectPresent(chatStateThreadStreamItems(handler.currentState())[1]).turnId).toBeUndefined();
       expect(expectPresent(pendingTurnStart(handler.currentState())).promptSubmitHookItemIds).toEqual(["hook-hook-1-1"]);
 
       handler.handleNotification({
@@ -577,9 +577,9 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/started" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
-      expect(chatStateMessageStreamItems(handler.currentState()).find((item) => item.id === "local-user-1")).not.toHaveProperty("turnId");
-      expect(chatStateMessageStreamItems(handler.currentState()).find((item) => item.id === "hook-hook-1-1")).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(chatStateThreadStreamItems(handler.currentState()).find((item) => item.id === "local-user-1")).not.toHaveProperty("turnId");
+      expect(chatStateThreadStreamItems(handler.currentState()).find((item) => item.id === "hook-hook-1-1")).toMatchObject({
         turnId: "turn-active",
       });
       expect(pendingTurnStart(handler.currentState())).toBeNull();
@@ -604,15 +604,15 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["u1", "hook-hook-1-1", "a1"]);
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["u1", "hook-hook-1-1", "a1"]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", text: "hello", turnId: "turn-active" }),
           expect.objectContaining({ id: "hook-hook-1-1", kind: "hook", turnId: "turn-active" }),
           expect.objectContaining({ id: "a1", text: "done", turnId: "turn-active" }),
         ]),
       );
-      expect(chatStateMessageStreamItems(handler.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
+      expect(chatStateThreadStreamItems(handler.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
     });
 
     it("ignores completed turn notifications while a new turn is still starting", () => {
@@ -626,8 +626,8 @@ describe("ChatInboundHandler", () => {
           },
         },
       });
-      state = withChatStateMessageStreamItems(state, [
-        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello" },
+      state = withChatStateThreadStreamItems(state, [
+        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
         {
           id: "hook-hook-1-1",
           kind: "hook",
@@ -662,7 +662,7 @@ describe("ChatInboundHandler", () => {
         anchorItemId: "local-user-1",
         promptSubmitHookItemIds: ["hook-hook-1-1"],
       });
-      expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["local-user-1", "hook-hook-1-1"]);
       expect(maybeNameThread).not.toHaveBeenCalled();
       expect(refreshActiveThreads).not.toHaveBeenCalled();
     });
@@ -717,7 +717,7 @@ describe("ChatInboundHandler", () => {
         status: "failed",
         message: "missing token",
       });
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("refreshes tool inventory diagnostics when the app list changes", () => {
@@ -730,7 +730,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "app/list/updated" }>);
 
       expect(refreshServerDiagnostics).toHaveBeenCalledWith({ forceResourceProbes: false });
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("refreshes resource probes after MCP OAuth login completes", () => {
@@ -743,7 +743,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "mcpServer/oauthLogin/completed" }>);
 
       expect(refreshServerDiagnostics).toHaveBeenCalledWith({ forceResourceProbes: true });
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
   });
 
@@ -786,7 +786,7 @@ describe("ChatInboundHandler", () => {
       handler.resolveUserInput(42, { scope: "Narrow" });
       expect(respondToServerRequest).toHaveBeenCalledWith(42, { answers: { scope: { answers: ["Narrow"] } } });
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "userInputResult",
         role: "tool",
         text: "Input submitted for 1 question.",
@@ -815,7 +815,7 @@ describe("ChatInboundHandler", () => {
       handler.cancelUserInput(43);
       expect(rejectServerRequest).toHaveBeenCalledWith(43, -32000, "User cancelled input request.");
       expect(handler.currentState().requests.pendingUserInputs).toEqual([]);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "userInputResult",
         role: "tool",
         text: "Input request cancelled for 1 question.",
@@ -866,7 +866,7 @@ describe("ChatInboundHandler", () => {
         _meta: null,
       });
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "userInputResult",
         role: "tool",
         text: "MCP request from github accepted.",
@@ -901,7 +901,7 @@ describe("ChatInboundHandler", () => {
 
       expect(respondToServerRequest).toHaveBeenCalledWith(46, { action: "decline", content: null, _meta: null });
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([]);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "userInputResult",
         text: "MCP request from github declined.",
         executionState: "failed",
@@ -923,7 +923,7 @@ describe("ChatInboundHandler", () => {
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(rejectServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().requests.pendingUserInputs).toEqual([current]);
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("ignores missing MCP elicitation ids", () => {
@@ -938,7 +938,7 @@ describe("ChatInboundHandler", () => {
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().requests.pendingMcpElicitations).toEqual([current]);
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("records manual permission approvals as colored result items", () => {
@@ -954,7 +954,7 @@ describe("ChatInboundHandler", () => {
         permissions: {},
       });
       expect(handler.currentState().requests.approvals).toEqual([]);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         id: "approval-12",
         kind: "approvalResult",
         role: "tool",
@@ -982,7 +982,7 @@ describe("ChatInboundHandler", () => {
 
       expect(respondToServerRequest).not.toHaveBeenCalled();
       expect(handler.currentState().requests.approvals).toEqual([current]);
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("handles known server request families and rejects unsupported requests by default", () => {
@@ -1020,17 +1020,17 @@ describe("ChatInboundHandler", () => {
         -32601,
         "Rejected unknown app-server request: appServer/newFutureRequest",
       );
-      expect(chatStateMessageStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual(
         unsupportedMessages,
       );
       expect(
-        chatStateMessageStreamItems(handler.currentState())
+        chatStateThreadStreamItems(handler.currentState())
           .map((item) => ("text" in item ? item.text : ""))
           .join("\n"),
       ).not.toContain("do-not-render");
     });
 
-    it("keeps unknown server request fallback out of the normal message stream", () => {
+    it("keeps unknown server request fallback out of the normal thread stream", () => {
       const state = chatStateFixture();
       const rejectServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest });
@@ -1038,7 +1038,7 @@ describe("ChatInboundHandler", () => {
       handler.handleServerRequest(unknownRequest());
 
       expect(rejectServerRequest).toHaveBeenCalledWith(27, -32601, "Rejected unknown app-server request: appServer/newFutureRequest");
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("rejects server requests scoped to a different active thread or turn", () => {
@@ -1117,7 +1117,7 @@ describe("ChatInboundHandler", () => {
       handler.resolveUserInput(55, { note: "Later" });
 
       expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({ kind: "system", text: "Could not send user input because Codex app-server is not connected." }),
       ]);
     });
@@ -1205,7 +1205,7 @@ describe("ChatInboundHandler", () => {
   });
 
   describe("thread lifecycle and reconciliation", () => {
-    it("keeps user-visible app-server notices in the message stream", () => {
+    it("keeps user-visible app-server notices in the thread stream", () => {
       const state = chatStateFixture();
       const handler = handlerForState(state);
 
@@ -1214,7 +1214,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: null, message: "careful" },
       } satisfies Extract<ServerNotification, { method: "warning" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({
           kind: "system",
           text: 'warning: {\n  "threadId": null,\n  "message": "careful"\n}',
@@ -1222,7 +1222,7 @@ describe("ChatInboundHandler", () => {
       ]);
     });
 
-    it("keeps Windows world-writable warnings in the message stream", () => {
+    it("keeps Windows world-writable warnings in the thread stream", () => {
       const handler = handlerForState(chatStateFixture());
 
       handler.handleNotification({
@@ -1230,20 +1230,20 @@ describe("ChatInboundHandler", () => {
         params: { samplePaths: ["C:\\tmp\\open"], extraCount: 2, failedScan: false },
       } satisfies Extract<ServerNotification, { method: "windows/worldWritableWarning" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({
           kind: "system",
           text: expect.stringContaining("windows/worldWritableWarning"),
         }),
       ]);
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toEqual(
         expect.objectContaining({
           text: expect.stringContaining("open"),
         }),
       );
     });
 
-    it("keeps failed Windows sandbox setup notices in the message stream", () => {
+    it("keeps failed Windows sandbox setup notices in the thread stream", () => {
       const handler = handlerForState(chatStateFixture());
 
       handler.handleNotification({
@@ -1251,13 +1251,13 @@ describe("ChatInboundHandler", () => {
         params: { mode: "unelevated", success: false, error: "setup failed" },
       } satisfies Extract<ServerNotification, { method: "windowsSandbox/setupCompleted" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([
         expect.objectContaining({
           kind: "system",
           text: expect.stringContaining("windowsSandbox/setupCompleted"),
         }),
       ]);
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toEqual(
         expect.objectContaining({
           text: expect.stringContaining("setup failed"),
         }),
@@ -1272,7 +1272,7 @@ describe("ChatInboundHandler", () => {
         params: { mode: "unelevated", success: true, error: null },
       } satisfies Extract<ServerNotification, { method: "windowsSandbox/setupCompleted" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("clears all active-thread scoped state when the active thread is archived", () => {
@@ -1288,12 +1288,19 @@ describe("ChatInboundHandler", () => {
           },
         },
       });
-      state = chatStateWith(state, { messageStream: { historyCursor: "cursor" } });
-      state = chatStateWith(state, { messageStream: { loadingHistory: true } });
-      state = withChatStateMessageStreamItems(state, [
-        { id: "message", kind: "message", role: "assistant", text: "stale", messageKind: "assistantResponse", messageState: "completed" },
+      state = chatStateWith(state, { threadStream: { historyCursor: "cursor" } });
+      state = chatStateWith(state, { threadStream: { loadingHistory: true } });
+      state = withChatStateThreadStreamItems(state, [
+        {
+          id: "message",
+          kind: "dialogue",
+          role: "assistant",
+          text: "stale",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
+        },
       ]);
-      state = chatStateWith(state, { messageStream: { turnDiffs: new Map([["turn-active", "@@\n-stale\n+stale"]]) } });
+      state = chatStateWith(state, { threadStream: { turnDiffs: new Map([["turn-active", "@@\n-stale\n+stale"]]) } });
       state = chatStateWith(state, { composer: { draft: "thread draft" } });
       state = chatStateWith(state, {
         requests: {
@@ -1415,15 +1422,15 @@ describe("ChatInboundHandler", () => {
 
     it("replaces optimistic user echoes when completed turns are reconciled", () => {
       let state = activeRunningState();
-      state = withChatStateMessageStreamItems(state, [
-        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "hello", turnId: "turn-active" },
+      state = withChatStateThreadStreamItems(state, [
+        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "turn-active" },
         {
           id: "a1",
           sourceItemId: "a1",
-          kind: "message",
+          kind: "dialogue",
           role: "assistant",
-          messageKind: "assistantResponse",
-          messageState: "completed",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
           text: "partial",
           turnId: "turn-active",
         },
@@ -1450,21 +1457,21 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState()).filter((item) => item.kind === "message" && item.role === "user")).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "dialogue" && item.role === "user")).toEqual(
         [expect.objectContaining({ id: "u1", text: "hello" })],
       );
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done" })]),
       );
-      expect(chatStateMessageStreamItems(handler.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
+      expect(chatStateThreadStreamItems(handler.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
     });
 
     it("reconciles optimistic user echoes by client id before falling back to same-turn text only when client ids are absent", () => {
       let state = activeRunningState();
-      state = withChatStateMessageStreamItems(state, [
-        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
-        { id: "local-steer-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-active" },
-        { id: "local-user-2", kind: "message", messageKind: "user", role: "user", text: "same text", turnId: "turn-other" },
+      state = withChatStateThreadStreamItems(state, [
+        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "same text", turnId: "turn-active" },
+        { id: "local-steer-2", kind: "dialogue", dialogueKind: "user", role: "user", text: "same text", turnId: "turn-active" },
+        { id: "local-user-2", kind: "dialogue", dialogueKind: "user", role: "user", text: "same text", turnId: "turn-other" },
       ]);
       const handler = handlerForState(state);
 
@@ -1493,33 +1500,33 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "same text" }),
           expect.objectContaining({ id: "local-steer-2", text: "same text" }),
           expect.objectContaining({ id: "local-user-2", text: "same text" }),
         ]),
       );
-      expect(chatStateMessageStreamItems(handler.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
+      expect(chatStateThreadStreamItems(handler.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
 
       let fallbackStateWithoutClientId = chatStateFixture();
       fallbackStateWithoutClientId = chatStateWith(fallbackStateWithoutClientId, { activeThread: { id: "thread-active" } });
       fallbackStateWithoutClientId = chatStateWith(fallbackStateWithoutClientId, {
         turn: { lifecycle: { kind: "running", turnId: "turn-active" } },
       });
-      fallbackStateWithoutClientId = withChatStateMessageStreamItems(fallbackStateWithoutClientId, [
+      fallbackStateWithoutClientId = withChatStateThreadStreamItems(fallbackStateWithoutClientId, [
         {
           id: "local-user-without-client-id",
-          kind: "message",
-          messageKind: "user",
+          kind: "dialogue",
+          dialogueKind: "user",
           role: "user",
           text: "fallback text",
           turnId: "turn-active",
         },
         {
           id: "local-user-other-turn",
-          kind: "message",
-          messageKind: "user",
+          kind: "dialogue",
+          dialogueKind: "user",
           role: "user",
           text: "fallback text",
           turnId: "turn-other",
@@ -1551,14 +1558,14 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(fallbackHandlerWithoutClientId.currentState())).toEqual(
+      expect(chatStateThreadStreamItems(fallbackHandlerWithoutClientId.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "server-u1", text: "fallback text" }),
           expect.objectContaining({ id: "local-user-other-turn", text: "fallback text" }),
         ]),
       );
       expect(
-        chatStateMessageStreamItems(fallbackHandlerWithoutClientId.currentState()).some(
+        chatStateThreadStreamItems(fallbackHandlerWithoutClientId.currentState()).some(
           (item) => item.id === "local-user-without-client-id",
         ),
       ).toBe(false);
@@ -1566,19 +1573,19 @@ describe("ChatInboundHandler", () => {
 
     it("keeps the observed steer message order when completed turns reconcile by client id", () => {
       let state = activeRunningState();
-      state = withChatStateMessageStreamItems(state, [
-        { id: "local-user-1", kind: "message", messageKind: "user", role: "user", text: "start", turnId: "turn-active" },
+      state = withChatStateThreadStreamItems(state, [
+        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "start", turnId: "turn-active" },
         {
           id: "a1",
           sourceItemId: "a1",
-          kind: "message",
+          kind: "dialogue",
           role: "assistant",
-          messageKind: "assistantResponse",
-          messageState: "completed",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
           text: "first partial",
           turnId: "turn-active",
         },
-        { id: "local-steer-1", kind: "message", messageKind: "user", role: "user", text: "steer", turnId: "turn-active" },
+        { id: "local-steer-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "steer", turnId: "turn-active" },
       ]);
       const handler = handlerForState(state);
 
@@ -1604,8 +1611,8 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["u1", "a1", "u2", "a2"]);
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual(
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => item.id)).toEqual(["u1", "a1", "u2", "a2"]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ id: "u1", clientId: "local-user-1", text: "start" }),
           expect.objectContaining({ id: "a1", text: "first done" }),
@@ -1704,7 +1711,7 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().runtime.active.approvalPolicy).toBe("on-request");
       expect(handler.currentState().runtime.active.sandboxPolicy).toEqual({ type: "readOnly", networkAccess: false });
       expect(handler.currentState().runtime.active.activePermissionProfile).toBeNull();
-      expect(chatStateMessageStreamItems(handler.currentState())).toEqual([]);
+      expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
     it("ignores settings notifications for inactive threads", () => {
@@ -1808,25 +1815,25 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
       expect(handler.currentState().activeThread.goal).toEqual(goal);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "set: Finish",
         objective: "Finish",
       });
 
-      const afterSetMessageCount = chatStateMessageStreamItems(handler.currentState()).length;
+      const afterSetMessageCount = chatStateThreadStreamItems(handler.currentState()).length;
       handler.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(handler.currentState())).toHaveLength(afterSetMessageCount);
+      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(afterSetMessageCount);
 
       const updatedGoal = { ...goal, objective: "Finish well", updatedAt: 2 };
       handler.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: updatedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "updated: Finish well",
         objective: "Finish well",
@@ -1840,7 +1847,7 @@ describe("ChatInboundHandler", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: pausedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "paused: Finish well",
         objective: "Finish well",
@@ -1854,18 +1861,18 @@ describe("ChatInboundHandler", () => {
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: resumedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "resumed: Finish well",
         objective: "Finish well",
       });
 
-      const messageCount = chatStateMessageStreamItems(handler.currentState()).length;
+      const messageCount = chatStateThreadStreamItems(handler.currentState()).length;
       handler.handleNotification({
         method: "thread/goal/updated",
         params: { threadId: "thread-active", turnId: null, goal: { ...resumedGoal, tokensUsed: 10, timeUsedSeconds: 20 } },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(chatStateMessageStreamItems(handler.currentState())).toHaveLength(messageCount);
+      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(messageCount);
 
       handler.handleNotification({
         method: "thread/goal/cleared",
@@ -1873,7 +1880,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
 
       expect(handler.currentState().activeThread.goal).toBeNull();
-      expect(chatStateMessageStreamItems(handler.currentState()).at(-1)).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "cleared: Finish well",
         objective: "Finish well",
@@ -1912,8 +1919,8 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
       expect(handler.currentState().activeThread.goal).toEqual(completedGoal);
-      expect(chatStateMessageStreamItems(handler.currentState())).toHaveLength(1);
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
         kind: "goal",
         text: "completed: Finish",
         objective: "Finish",
@@ -1924,7 +1931,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: "turn-1", goal: { ...completedGoal, tokensUsed: 43 } },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toHaveLength(1);
+      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
     });
 
     it("ignores goal notifications that do not match the active thread", () => {
@@ -1972,7 +1979,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", message: "Auto-review denied this command." },
       } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toMatchObject([
+      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
         {
           kind: "reviewResult",
           role: "tool",
@@ -2012,14 +2019,14 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toHaveLength(1);
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
         id: "review-review-1",
         kind: "reviewResult",
         text: "Auto-review approved: npm test",
         executionState: "completed",
       });
-      const reviewItem = expectPresent(chatStateMessageStreamItems(handler.currentState())[0]);
+      const reviewItem = expectPresent(chatStateThreadStreamItems(handler.currentState())[0]);
       expect(reviewItem).toMatchObject({ review: { auditFacts: expect.arrayContaining([{ key: "status", value: "approved" }]) } });
     });
 
@@ -2046,8 +2053,8 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "item/autoApprovalReview/completed" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toHaveLength(1);
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toMatchObject({
+      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
         id: "review-review-1",
         kind: "reviewResult",
         text: "Auto-review approved: npm test",
@@ -2078,8 +2085,8 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", message: "Auto-review approved: npm test" },
       } satisfies Extract<ServerNotification, { method: "guardianWarning" }>);
 
-      expect(chatStateMessageStreamItems(handler.currentState())).toHaveLength(1);
-      expect(chatStateMessageStreamItems(handler.currentState())[0]).toMatchObject({ id: "review-review-1" });
+      expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
+      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({ id: "review-review-1" });
     });
   });
 });

@@ -16,17 +16,17 @@ import {
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
 import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
-import { activeTurnId } from "../../application/conversation/turn-state";
 import type { LocalIdSource } from "../../application/local-id-source";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
-import { createStructuredSystemItem, createSystemItem } from "../../domain/message-stream/factories/system-items";
-import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import { activeTurnId } from "../../application/turns/turn-state";
 import {
   createApprovalResultItem,
   createMcpElicitationResultItem,
   createUserInputResultItem,
 } from "../../domain/pending-requests/result-items";
+import { createStructuredSystemItem, createSystemItem } from "../../domain/thread-stream/factories/system-items";
+import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import { classifyAppServerLog } from "./app-server-logs";
 import { type ChatNotificationEffect, planChatNotification } from "./notification-plan";
 
@@ -49,7 +49,7 @@ export interface ChatInboundHandler {
   cancelUserInput(requestId: PendingRequestId): void;
   resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): void;
   addSystemMessage(text: string): void;
-  addStructuredSystemMessage(text: string, details: MessageStreamNoticeSection[]): void;
+  addStructuredSystemMessage(text: string, details: ThreadStreamNoticeSection[]): void;
   addDedupedSystemMessage(text: string): void;
 }
 
@@ -213,18 +213,18 @@ function pendingUserInput(context: ChatInboundHandlerContext, requestId: Pending
 }
 
 function addSystemMessage(context: ChatInboundHandlerContext, text: string): void {
-  dispatch(context, { type: "message-stream/system-item-added", item: createSystemItem(localItemId(context, "system"), text) });
+  dispatch(context, { type: "thread-stream/system-item-added", item: createSystemItem(localItemId(context, "system"), text) });
 }
 
-function addStructuredSystemMessage(context: ChatInboundHandlerContext, text: string, details: MessageStreamNoticeSection[]): void {
+function addStructuredSystemMessage(context: ChatInboundHandlerContext, text: string, details: ThreadStreamNoticeSection[]): void {
   dispatch(context, {
-    type: "message-stream/system-item-added",
+    type: "thread-stream/system-item-added",
     item: createStructuredSystemItem(localItemId(context, "system"), text, details),
   });
 }
 
 function addDedupedSystemMessage(context: ChatInboundHandlerContext, text: string): void {
-  dispatch(context, { type: "message-stream/deduped-log-added", text, item: createSystemItem(localItemId(context, "system"), text) });
+  dispatch(context, { type: "thread-stream/deduped-log-added", text, item: createSystemItem(localItemId(context, "system"), text) });
 }
 
 function rejectServerRequest(context: ChatInboundHandlerContext, request: ServerRequest, message: string): void {

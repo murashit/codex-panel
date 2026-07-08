@@ -74,13 +74,13 @@ describe("Toolbar decisions", () => {
   it("renders chat actions in the new chat toolbar menu", () => {
     const parent = document.createElement("div");
     const startNewThread = vi.fn();
-    const compactConversation = vi.fn();
+    const compactContext = vi.fn();
     const setGoal = vi.fn();
 
     mountToolbar(
       parent,
       toolbarModel({ chatActionsOpen: true, openPanel: "chat-actions" }),
-      toolbarActions({ startNewThread, compactConversation, setGoal }),
+      toolbarActions({ startNewThread, compactContext, setGoal }),
     );
 
     const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
@@ -93,7 +93,7 @@ describe("Toolbar decisions", () => {
     items[1]?.click();
     items[2]?.click();
     expect(startNewThread).toHaveBeenCalledOnce();
-    expect(compactConversation).toHaveBeenCalledOnce();
+    expect(compactContext).toHaveBeenCalledOnce();
     expect(setGoal).toHaveBeenCalledOnce();
   });
 
@@ -421,7 +421,7 @@ interface ToolbarActionOverrides {
   toggleHistory?: () => void;
   startNewThread?: () => void;
   toggleChatActions?: () => void;
-  compactConversation?: () => void;
+  compactContext?: () => void;
   setGoal?: () => void;
   toggleStatusPanel?: () => void;
   connect?: () => void;
@@ -446,7 +446,7 @@ function toolbarActions(overrides: ToolbarActionOverrides = {}): ToolbarActions 
     },
     chat: {
       startNewThread: overrides.startNewThread ?? vi.fn(),
-      compactConversation: overrides.compactConversation ?? vi.fn(),
+      compactContext: overrides.compactContext ?? vi.fn(),
       setGoal: overrides.setGoal ?? vi.fn(),
     },
     status: {

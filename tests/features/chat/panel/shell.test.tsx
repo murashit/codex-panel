@@ -10,16 +10,16 @@ import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell }
 import type { ChatPanelComposerReadModel } from "../../../../src/features/chat/panel/shell-read-model";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
-import { messageStreamViewBlocks } from "../../../../src/features/chat/presentation/message-stream/view-model";
-import type { MessageStreamContext } from "../../../../src/features/chat/ui/message-stream/context";
-import type { MessageStreamScrollPortBinding } from "../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
+import { threadStreamViewBlocks } from "../../../../src/features/chat/presentation/thread-stream/view-model";
+import type { ThreadStreamContext } from "../../../../src/features/chat/ui/thread-stream/context";
+import type { ThreadStreamScrollPortBinding } from "../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("ChatPanelShell", () => {
-  it("composes toolbar, goal, message stream, and composer in one Preact root", async () => {
+  it("composes toolbar, goal, thread stream, and composer in one Preact root", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -55,7 +55,7 @@ describe("ChatPanelShell", () => {
     await act(async () => {
       store.dispatch({ type: "composer/draft-set", draft: "ready", clearSuggestions: true });
       store.dispatch({
-        type: "message-stream/system-item-added",
+        type: "thread-stream/system-item-added",
         item: { id: "system-1", kind: "system", role: "system", text: "Model set." },
       });
       await settleShellEffects();
@@ -133,7 +133,7 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("keeps composer rendering off message stream updates until turn presence changes", async () => {
+  it("keeps composer rendering off thread stream updates until turn presence changes", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -149,7 +149,7 @@ describe("ChatPanelShell", () => {
 
     await act(async () => {
       store.dispatch({
-        type: "message-stream/system-item-added",
+        type: "thread-stream/system-item-added",
         item: { id: "system-1", kind: "system", role: "system", text: "Status only." },
       });
       await settleShellEffects();
@@ -158,13 +158,13 @@ describe("ChatPanelShell", () => {
 
     await act(async () => {
       store.dispatch({
-        type: "message-stream/item-added",
+        type: "thread-stream/item-added",
         item: {
           id: "assistant-1",
           turnId: "turn-1",
-          kind: "message",
-          messageKind: "assistantResponse",
-          messageState: "completed",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
           role: "assistant",
           text: "Turn response.",
         },
@@ -193,7 +193,7 @@ describe("ChatPanelShell", () => {
     await act(async () => {
       store.dispatch({
         type: "turn/optimistic-started",
-        item: { id: "local-user", kind: "message", messageKind: "user", role: "user", text: "hello" },
+        item: { id: "local-user", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
         pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
       });
       await settleShellEffects();
@@ -205,7 +205,7 @@ describe("ChatPanelShell", () => {
       store.dispatch({
         type: "turn/start-acknowledged",
         turnId: "turn-1",
-        items: [{ id: "local-user", turnId: "turn-1", kind: "message", messageKind: "user", role: "user", text: "hello" }],
+        items: [{ id: "local-user", turnId: "turn-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" }],
       });
       await settleShellEffects();
     });
@@ -242,19 +242,19 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("keeps message stream rendering off active thread updates until stream thread fields change", async () => {
+  it("keeps thread stream rendering off active thread updates until stream thread fields change", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
     const parts = shellParts();
-    const renderMessageStreamState = vi.fn(parts.messageStream.renderState.bind(parts.messageStream));
-    parts.messageStream.renderState = renderMessageStreamState;
+    const renderThreadStreamState = vi.fn(parts.threadStream.renderState.bind(parts.threadStream));
+    parts.threadStream.renderState = renderThreadStreamState;
 
     await act(async () => {
       renderChatPanelShell(container, { ...shellProps(store), parts });
       await settleShellEffects();
     });
-    renderMessageStreamState.mockClear();
+    renderThreadStreamState.mockClear();
 
     await act(async () => {
       store.dispatch({
@@ -263,19 +263,19 @@ describe("ChatPanelShell", () => {
       });
       await settleShellEffects();
     });
-    expect(renderMessageStreamState).not.toHaveBeenCalled();
+    expect(renderThreadStreamState).not.toHaveBeenCalled();
 
     await act(async () => {
       store.dispatch({ type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
       await settleShellEffects();
     });
-    expect(renderMessageStreamState).not.toHaveBeenCalled();
+    expect(renderThreadStreamState).not.toHaveBeenCalled();
 
     await act(async () => {
       store.dispatch({ type: "active-thread/cwd-set", cwd: "/workspace" });
       await settleShellEffects();
     });
-    expect(renderMessageStreamState).toHaveBeenCalledTimes(1);
+    expect(renderThreadStreamState).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -418,19 +418,19 @@ function shellParts(
       actions: toolbarActionsFixture(),
     },
     goal: surface.goal,
-    messageStream: {
+    threadStream: {
       renderState: (model) => {
         void model.activeThreadCwd.value;
         return {
-          blocks: messageStreamViewBlocks({
+          blocks: threadStreamViewBlocks({
             activeThreadId: model.activeThreadId.value,
             activeTurnId: null,
             historyCursor: model.historyCursor.value,
             loadingHistory: model.loadingHistory.value,
             items: model.items.value,
           }),
-          context: testMessageStreamContext,
-          scrollPortBinding: noOpMessageStreamScrollPortBinding,
+          context: testThreadStreamContext,
+          scrollPortBinding: noOpThreadStreamScrollPortBinding,
         };
       },
     },
@@ -541,7 +541,7 @@ function composerProjectionFixture(_model: ChatPanelComposerReadModel) {
   };
 }
 
-const testMessageStreamContext: MessageStreamContext = {
+const testThreadStreamContext: ThreadStreamContext = {
   activeThreadId: "thread",
   workspaceRoot: "/vault",
   loadOlderTurns: () => undefined,
@@ -590,7 +590,7 @@ function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendSho
   };
 }
 
-const noOpMessageStreamScrollPortBinding: MessageStreamScrollPortBinding = {
+const noOpThreadStreamScrollPortBinding: ThreadStreamScrollPortBinding = {
   mountScrollPort: () => () => undefined,
 };
 
@@ -603,7 +603,7 @@ function toolbarActionsFixture(): ChatPanelShellParts["toolbar"]["actions"] {
     },
     chat: {
       startNewThread: vi.fn(),
-      compactConversation: vi.fn(),
+      compactContext: vi.fn(),
       setGoal: vi.fn(),
     },
     status: {

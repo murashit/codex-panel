@@ -134,7 +134,7 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
       startNewThread: () => {
         void deps.navigation.startNewThread();
       },
-      compactConversation: () => {
+      compactContext: () => {
         void deps.threadActions.compactActiveThread();
       },
       setGoal: () => {

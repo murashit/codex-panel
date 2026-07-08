@@ -3,23 +3,23 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  firstThreadTitleContextFromMessageStreamItems,
-  threadTitleContextFromMessageStreamItems,
+  firstThreadTitleContextFromThreadStreamItems,
+  threadTitleContextFromThreadStreamItems,
 } from "../../../../../src/features/chat/application/threads/title-context";
 
 describe("chat thread title context", () => {
-  it("extracts title context from streamed message stream items when completed turn items are not loaded", () => {
+  it("extracts title context from streamed thread stream items when completed turn items are not loaded", () => {
     expect(
-      threadTitleContextFromMessageStreamItems("turn", [
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "自動命名を直したい", turnId: "turn" },
+      threadTitleContextFromThreadStreamItems("turn", [
+        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "自動命名を直したい", turnId: "turn" },
         {
           id: "a1",
-          kind: "message",
+          kind: "dialogue",
           role: "assistant",
           text: "原因を直しました。",
           turnId: "turn",
-          messageKind: "assistantResponse",
-          messageState: "completed",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
         },
       ]),
     ).toEqual({
@@ -30,27 +30,27 @@ describe("chat thread title context", () => {
 
   it("uses the first usable displayed turn as a resumed-history fallback", () => {
     expect(
-      firstThreadTitleContextFromMessageStreamItems([
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "本文だけのturn", turnId: "turn-1" },
-        { id: "u2", kind: "message", messageKind: "user", role: "user", text: "履歴から命名したい", turnId: "turn-2" },
+      firstThreadTitleContextFromThreadStreamItems([
+        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "本文だけのturn", turnId: "turn-1" },
+        { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "履歴から命名したい", turnId: "turn-2" },
         {
           id: "a2",
-          kind: "message",
+          kind: "dialogue",
           role: "assistant",
           text: "表示済み履歴から候補を作ります。",
           turnId: "turn-2",
-          messageKind: "assistantResponse",
-          messageState: "completed",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
         },
-        { id: "u3", kind: "message", messageKind: "user", role: "user", text: "後続turn", turnId: "turn-3" },
+        { id: "u3", kind: "dialogue", dialogueKind: "user", role: "user", text: "後続turn", turnId: "turn-3" },
         {
           id: "a3",
-          kind: "message",
+          kind: "dialogue",
           role: "assistant",
           text: "後続応答",
           turnId: "turn-3",
-          messageKind: "assistantResponse",
-          messageState: "completed",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
         },
       ]),
     ).toEqual({
@@ -61,7 +61,7 @@ describe("chat thread title context", () => {
 
   it("uses a preceding goal event objective when the first completed turn has no user item", () => {
     expect(
-      threadTitleContextFromMessageStreamItems("turn", [
+      threadTitleContextFromThreadStreamItems("turn", [
         {
           id: "goal",
           kind: "goal",
@@ -72,12 +72,12 @@ describe("chat thread title context", () => {
         },
         {
           id: "a1",
-          kind: "message",
+          kind: "dialogue",
           role: "assistant",
           text: "ゴール内容に基づいて実装しました。",
           turnId: "turn",
-          messageKind: "assistantResponse",
-          messageState: "completed",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
         },
       ]),
     ).toEqual({

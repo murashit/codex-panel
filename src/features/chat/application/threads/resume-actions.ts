@@ -1,7 +1,7 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { resumedThreadAction } from "../state/actions";
-import { messageStreamIsEmpty } from "../state/message-stream";
 import type { ChatStateStore } from "../state/store";
+import { threadStreamIsEmpty } from "../state/thread-stream";
 import type { HistoryController } from "./history-controller";
 import type { RestorationController } from "./restoration-controller";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
@@ -55,7 +55,7 @@ async function resumeThread(host: ResumeActionsHost, threadId: string): Promise<
     if (isStaleResume(host, resume)) return;
     await host.syncThreadGoal(response.activation.thread.id);
     if (isStaleResume(host, resume)) return;
-    const renderFallbackMessage = messageStreamIsEmpty(host.stateStore.getState().messageStream);
+    const renderFallbackMessage = threadStreamIsEmpty(host.stateStore.getState().threadStream);
     if (renderFallbackMessage) {
       host.addSystemMessage(`Resumed thread ${response.activation.thread.id}`);
     }

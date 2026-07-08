@@ -1,8 +1,8 @@
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 
 export interface ThreadHistoryPage {
-  items: MessageStreamItem[];
+  items: ThreadStreamItem[];
   nextCursor: string | null;
   hadTurns: boolean;
 }

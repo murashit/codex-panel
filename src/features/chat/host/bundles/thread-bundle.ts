@@ -5,8 +5,8 @@ import { createThreadOperations, type ThreadOperations } from "../../../threads/
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
-import { messageStreamItems } from "../../application/state/message-stream";
 import type { ChatStateStore } from "../../application/state/store";
+import { threadStreamItems } from "../../application/state/thread-stream";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import { createGoalActions, createThreadGoalSyncActions } from "../../application/threads/goal-actions";
@@ -22,7 +22,7 @@ import type { ChatResumeWorkTracker } from "../../application/threads/resume-wor
 import { createThreadManagementActions, type ThreadManagementActionsHost } from "../../application/threads/thread-management-actions";
 import { createThreadNavigationActions } from "../../application/threads/thread-navigation-actions";
 import type { ThreadStartActions } from "../../application/threads/thread-start-actions";
-import { threadTitleContextFromMessageStreamItems } from "../../application/threads/title-context";
+import { threadTitleContextFromThreadStreamItems } from "../../application/threads/title-context";
 import type { ChatComposerController } from "../../panel/composer-controller";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
 import type { ChatPanelEnvironment } from "../contracts";
@@ -48,7 +48,7 @@ interface ChatPanelThreadHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
   resumeWork: ChatResumeWorkTracker;
-  messageScrollBinding: {
+  threadStreamScrollBinding: {
     showLatest(): void;
   };
   getClosing: () => boolean;
@@ -118,7 +118,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     clientAccess: appServer.clientAccess,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
     visibleCompletedTurnContext: (turnId) =>
-      threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(stateStore.getState().messageStream)),
+      threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
   });
   const threadOperations = createThreadOperations({
     clientAccess: appServer.clientAccess,
@@ -146,7 +146,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     historyTransport: appServer.threadHistory,
     addSystemMessage: status.addSystemMessage,
     showLatestPageAtBottom: () => {
-      host.messageScrollBinding.showLatest();
+      host.threadStreamScrollBinding.showLatest();
     },
     setThreadTurnPresence: (hadTurns) => {
       autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
@@ -164,7 +164,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
       status.addSystemMessage(text);
     },
     addGoalEvent: (item) => {
-      stateStore.dispatch({ type: "message-stream/item-upserted", item });
+      stateStore.dispatch({ type: "thread-stream/item-upserted", item });
     },
     refreshLiveState,
   });
@@ -203,7 +203,7 @@ export function createThreadLifecycleBundle(
       status.addSystemMessage(text);
     },
     addGoalEvent: (item) => {
-      host.stateStore.dispatch({ type: "message-stream/item-upserted", item });
+      host.stateStore.dispatch({ type: "thread-stream/item-upserted", item });
     },
     refreshLiveState,
   });

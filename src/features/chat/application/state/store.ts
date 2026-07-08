@@ -1,5 +1,5 @@
-import type { ChatMessageStreamActiveSegment, ChatMessageStreamState } from "./message-stream";
 import { type ChatAction, type ChatState, chatReducer, createChatState } from "./root-reducer";
+import type { ChatThreadStreamActiveSegment, ChatThreadStreamState } from "./thread-stream";
 import { cloneDisclosureUiState } from "./ui-state";
 
 export interface ChatStateStore {
@@ -44,7 +44,7 @@ function cloneChatState(state: ChatState): ChatState {
     activeThread: { ...state.activeThread },
     runtime: { ...state.runtime },
     turn: { lifecycle: state.turn.lifecycle },
-    messageStream: cloneMessageStreamState(state.messageStream),
+    threadStream: cloneThreadStreamState(state.threadStream),
     requests: {
       approvals: [...state.requests.approvals],
       pendingUserInputs: [...state.requests.pendingUserInputs],
@@ -67,7 +67,7 @@ function cloneChatState(state: ChatState): ChatState {
   };
 }
 
-function cloneMessageStreamState(state: ChatMessageStreamState): ChatMessageStreamState {
+function cloneThreadStreamState(state: ChatThreadStreamState): ChatThreadStreamState {
   return {
     stableItems: [...state.stableItems],
     activeSegment: cloneActiveSegment(state.activeSegment),
@@ -78,7 +78,7 @@ function cloneMessageStreamState(state: ChatMessageStreamState): ChatMessageStre
   };
 }
 
-function cloneActiveSegment(segment: ChatMessageStreamActiveSegment | null): ChatMessageStreamActiveSegment | null {
+function cloneActiveSegment(segment: ChatThreadStreamActiveSegment | null): ChatThreadStreamActiveSegment | null {
   if (!segment) return null;
   return {
     turnId: segment.turnId,

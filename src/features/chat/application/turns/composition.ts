@@ -1,0 +1,162 @@
+import type { CodexInput } from "../../../../domain/chat/input";
+import type { Thread } from "../../../../domain/threads/model";
+import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
+import type { ComposerInputSnapshot } from "../composer/input-snapshot";
+import type { LocalIdSource } from "../local-id-source";
+import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
+import type { ChatStateStore } from "../state/store";
+import type { GoalActions } from "../threads/goal-actions";
+import type { ThreadManagementActions } from "../threads/thread-management-actions";
+import { type ComposerSubmitActions, type ComposerSubmitActionsHost, submitComposer } from "./composer-submit-actions";
+import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
+import type { ClipUrlInput, ThreadReferenceInput } from "./slash-command-execution";
+import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
+import { createTurnSubmissionActions } from "./turn-submission-actions";
+import type { ChatTurnTransport } from "./turn-transport";
+
+export interface TurnWorkflowContext {
+  stateStore: ChatStateStore;
+  localItemIds: LocalIdSource;
+  connectionAvailable: () => boolean;
+  turnTransport: ChatTurnTransport;
+  referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
+  clipUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ClipUrlInput | null>;
+  status: {
+    set: (status: string) => void;
+    addSystemMessage: (text: string) => void;
+    addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
+  };
+  runtime: {
+    connectionDiagnosticDetails: () => ThreadStreamNoticeSection[];
+    permissionDetails: () => ThreadStreamNoticeSection[];
+    modelStatusLines: () => string[];
+    effortStatusLines: () => string[];
+    statusSummaryLines: () => string[];
+    toolInventoryDetails: () => ThreadStreamNoticeSection[] | Promise<ThreadStreamNoticeSection[]>;
+  };
+  thread: {
+    ensureRestoredThreadLoaded: () => Promise<boolean>;
+    startNewThread: () => Promise<void>;
+    selectThread: (threadId: string) => Promise<void>;
+    notifyIdentityChanged: () => void;
+    resetTurnPresence: (hadTurns: boolean) => void;
+  };
+  composer: {
+    prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
+    captureInputSnapshot: () => ComposerInputSnapshot;
+    trimmedDraft: () => string;
+    setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean }) => void;
+  };
+  scroll: {
+    showLatest: () => void;
+  };
+}
+
+export interface TurnWorkflowRefs {
+  threadStarter: TurnWorkflowThreadStarter;
+  runtimeSettings: ChatRuntimeSettingsActions;
+  threadActions: ThreadManagementActions;
+  reconnectPanel: () => Promise<void>;
+  goals: GoalActions;
+}
+
+interface TurnWorkflowThreadStarter {
+  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
+}
+
+interface PlanImplementation {
+  implement: (itemId: string) => Promise<void>;
+}
+
+export interface TurnWorkflowActions {
+  planImplementation: PlanImplementation;
+  composerSubmit: ComposerSubmitActions;
+}
+
+export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: TurnWorkflowRefs): TurnWorkflowActions {
+  const { stateStore, localItemIds, connectionAvailable, turnTransport, referThread, clipUrl, status, runtime, thread, composer, scroll } =
+    context;
+  const turnSubmission = createTurnSubmissionActions({
+    stateStore,
+    localItemIds,
+    turnTransport,
+    ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
+    startThread: async (preview) => (await refs.threadStarter.startThread(preview)) !== null,
+    notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
+    resetThreadTurnPresence: thread.resetTurnPresence,
+    applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
+    prepareInput: composer.prepareInput,
+    setDraft: composer.setDraft,
+    setStatus: status.set,
+    addSystemMessage: status.addSystemMessage,
+  });
+  const slashCommandExecutorHost: SlashCommandExecutorHost = {
+    stateStore,
+    connectionAvailable,
+    referThread,
+    clipUrl,
+    startNewThread: thread.startNewThread,
+    startThreadForGoal: (objective) => startThreadForGoal(refs.threadStarter, objective),
+    resumeThread: thread.selectThread,
+    threadActions: refs.threadActions,
+    reconnect: refs.reconnectPanel,
+    runtimeSettings: refs.runtimeSettings,
+    goals: refs.goals,
+    addSystemMessage: status.addSystemMessage,
+    addStructuredSystemMessage: status.addStructuredSystemMessage,
+    setStatus: status.set,
+    statusSummaryLines: runtime.statusSummaryLines,
+    permissionDetails: runtime.permissionDetails,
+    connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,
+    toolInventoryDetails: runtime.toolInventoryDetails,
+    modelStatusLines: runtime.modelStatusLines,
+    effortStatusLines: runtime.effortStatusLines,
+  };
+  const planImplementationHost: PlanImplementationHost = {
+    stateStore,
+    ensureConnected: () => turnTransport.ensureConnected(),
+    sendTurnText: async (text) => {
+      await turnSubmission.sendTurnText({ text });
+    },
+    requestDefaultCollaborationModeForNextTurn: () => {
+      refs.runtimeSettings.requestDefaultCollaborationModeForNextTurn();
+    },
+  };
+  const composerSubmitHost: ComposerSubmitActionsHost = {
+    stateStore,
+    composer: {
+      get trimmedDraft() {
+        return composer.trimmedDraft();
+      },
+      setDraft: composer.setDraft,
+      captureInputSnapshot: composer.captureInputSnapshot,
+    },
+    slashCommandExecutor: {
+      execute: (command, args, inputSnapshot) => executeSlashCommandWithState(slashCommandExecutorHost, command, args, inputSnapshot),
+    },
+    turnSubmission,
+    connection: {
+      ensureConnected: () => turnTransport.ensureConnected(),
+    },
+    turnTransport,
+    status: {
+      setStatus: status.set,
+      addSystemMessage: status.addSystemMessage,
+    },
+    scroll,
+  };
+
+  return {
+    planImplementation: {
+      implement: (itemId) => implementPlan(planImplementationHost, itemId),
+    },
+    composerSubmit: {
+      submit: () => submitComposer(composerSubmitHost),
+    },
+  };
+}
+
+async function startThreadForGoal(starter: TurnWorkflowThreadStarter, objective: string): Promise<string | null> {
+  const response = await starter.startThread(objective, { syncGoal: false });
+  return response?.threadId ?? null;
+}

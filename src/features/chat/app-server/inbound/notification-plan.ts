@@ -4,21 +4,21 @@ import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/met
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
 import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
-import { type ConversationRuntimeOutcome, planConversationRuntimeEvents } from "../../application/conversation/runtime-event-plan";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
-import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
+import { planTurnRuntimeEvents, type TurnRuntimeOutcome } from "../../application/turns/runtime-event-plan";
+import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import { type DiagnosticStatusNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
-import { conversationRuntimeEventsFromNotification } from "./runtime-events";
+import { turnRuntimeEventsFromNotification } from "./runtime-events";
 
 export type ChatNotificationEffect =
   | { type: "refresh-threads" }
-  | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: ConversationRuntimeCompletedSummary }
+  | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: TurnRuntimeCompletedSummary }
   | { type: "refresh-server-diagnostics"; forceResourceProbes?: boolean }
   | { type: "apply-app-server-resource-event"; event: AppServerResourceEvent }
   | { type: "apply-thread-catalog-event"; event: ThreadCatalogEvent };
 
-type ConversationRuntimeCompletedSummary = Extract<ConversationRuntimeOutcome, { type: "run-completed" }>["completedSummary"];
+type TurnRuntimeCompletedSummary = Extract<TurnRuntimeOutcome, { type: "turn-completed" }>["completedSummary"];
 
 export interface ChatNotificationPlan {
   actions: readonly ChatAction[];
@@ -57,28 +57,28 @@ export function planChatNotification(
 
 function runtimeEventsPlan(
   state: ChatState,
-  notification: Parameters<typeof conversationRuntimeEventsFromNotification>[0],
+  notification: Parameters<typeof turnRuntimeEventsFromNotification>[0],
   localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
-  const plan = planConversationRuntimeEvents(state, conversationRuntimeEventsFromNotification(notification, localItemId));
-  return { actions: plan.actions, effects: plan.outcomes.flatMap(chatNotificationEffectsFromConversationRuntimeOutcome) };
+  const plan = planTurnRuntimeEvents(state, turnRuntimeEventsFromNotification(notification, localItemId));
+  return { actions: plan.actions, effects: plan.outcomes.flatMap(chatNotificationEffectsFromTurnRuntimeOutcome) };
 }
 
-function chatNotificationEffectsFromConversationRuntimeOutcome(outcome: ConversationRuntimeOutcome): readonly ChatNotificationEffect[] {
+function chatNotificationEffectsFromTurnRuntimeOutcome(outcome: TurnRuntimeOutcome): readonly ChatNotificationEffect[] {
   switch (outcome.type) {
-    case "run-started":
+    case "turn-started":
       return [
         {
           type: "apply-thread-catalog-event",
           event: { type: "thread-touched", threadId: outcome.threadId, recencyAt: outcome.recencyAt },
         },
       ];
-    case "run-completed":
+    case "turn-completed":
       return [
         {
           type: "maybe-name-thread",
           threadId: outcome.threadId,
-          turnId: outcome.runId,
+          turnId: outcome.turnId,
           completedSummary: outcome.completedSummary,
         },
         { type: "refresh-threads" },
@@ -178,7 +178,7 @@ function threadGoalPlan(
   if (state.activeThread.id !== threadId) return EMPTY_PLAN;
   const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal }];
   const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, goal);
-  if (item) actions.push({ type: "message-stream/item-upserted", item });
+  if (item) actions.push({ type: "thread-stream/item-upserted", item });
   return { actions, effects: [] };
 }
 

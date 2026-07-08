@@ -13,7 +13,7 @@ import type {
   ThreadResumeSnapshot,
   ThreadResumeTransport,
 } from "../../../../../src/features/chat/application/threads/thread-loading-transport";
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> = {}): ThreadResumeSnapshot {
   return {
@@ -229,14 +229,14 @@ function panelThread(id: string): PanelThread {
   };
 }
 
-function historyPage(items: MessageStreamItem[], nextCursor: string | null): ThreadHistoryPage {
+function historyPage(items: ThreadStreamItem[], nextCursor: string | null): ThreadHistoryPage {
   return { items, nextCursor, hadTurns: items.length > 0 };
 }
 
-function message(id: string, text: string, role: "assistant" | "user"): MessageStreamItem {
+function message(id: string, text: string, role: "assistant" | "user"): ThreadStreamItem {
   return role === "user"
-    ? { id, kind: "message", role, text, messageKind: "user", turnId: "turn" }
-    : { id, kind: "message", role, text, messageKind: "assistantResponse", messageState: "completed", turnId: "turn" };
+    ? { id, kind: "dialogue", role, text, dialogueKind: "user", turnId: "turn" }
+    : { id, kind: "dialogue", role, text, dialogueKind: "assistantResponse", dialogueState: "completed", turnId: "turn" };
 }
 
 function tokenUsageFixture(inputTokens: number): ThreadTokenUsage {

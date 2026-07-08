@@ -7,9 +7,9 @@ import {
   type PendingMcpElicitation,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
-import type { MessageStreamItem, MessageStreamUserInputQuestionResult } from "../message-stream/items";
+import type { ThreadStreamItem, ThreadStreamUserInputQuestionResult } from "../thread-stream/items";
 
-export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): MessageStreamItem {
+export function createApprovalResultItem(approval: PendingApproval, action: ApprovalAction): ThreadStreamItem {
   const kind = approvalActionKind(action);
   return {
     id: `approval-${String(approval.requestId)}`,
@@ -32,7 +32,7 @@ export function createUserInputResultItem(
   input: PendingUserInput,
   answers: Record<string, string>,
   status: "submitted" | "cancelled",
-): MessageStreamItem {
+): ThreadStreamItem {
   const questionCount = input.params.questions.length;
   const label = questionCount === 1 ? "1 question" : `${String(questionCount)} questions`;
   const questions = input.params.questions.map((question) => ({
@@ -57,7 +57,7 @@ export function createMcpElicitationResultItem(
   elicitation: PendingMcpElicitation,
   action: McpElicitationAction,
   content: Record<string, McpElicitationContentValue> | null,
-): MessageStreamItem {
+): ThreadStreamItem {
   const accepted = action === "accept";
   return {
     id: `mcp-elicitation-${action}-${String(elicitation.requestId)}`,
@@ -99,7 +99,7 @@ function mcpElicitationResultText(elicitation: PendingMcpElicitation, action: Mc
 function mcpElicitationResultQuestions(
   elicitation: PendingMcpElicitation,
   content: Record<string, McpElicitationContentValue> | null,
-): readonly MessageStreamUserInputQuestionResult[] {
+): readonly ThreadStreamUserInputQuestionResult[] {
   if (elicitation.params.mode === "url") {
     return [
       {

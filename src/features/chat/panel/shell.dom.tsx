@@ -6,7 +6,7 @@ import type { ToolbarActions } from "../ui/toolbar";
 import { type ChatPanelShellReadModelBinding, createChatPanelShellReadModelBinding } from "./shell-read-model";
 import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerPresenter } from "./surface/composer-projection";
 import { ChatPanelGoal, type ChatPanelGoalSurface } from "./surface/goal-projection";
-import { ChatPanelMessageStream, type ChatPanelMessageStreamPresenter } from "./surface/message-stream-presenter";
+import { ChatPanelThreadStream, type ChatPanelThreadStreamPresenter } from "./surface/thread-stream-presenter";
 import { ChatPanelToolbar, type ChatPanelToolbarSurface } from "./surface/toolbar-projection";
 
 export interface ChatPanelShellParts {
@@ -15,7 +15,7 @@ export interface ChatPanelShellParts {
     actions: ToolbarActions;
   };
   goal: ChatPanelGoalSurface;
-  messageStream: ChatPanelMessageStreamPresenter;
+  threadStream: ChatPanelThreadStreamPresenter;
   composer: {
     presenter: ChatPanelComposerPresenter;
     actions: ChatPanelComposerActions;
@@ -121,7 +121,7 @@ function ChatPanelShell({
         <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
           <ChatPanelGoal model={readModel.goal} surface={parts.goal} />
         </div>
-        <ChatPanelMessageStream model={readModel.messageStream} presenter={parts.messageStream} />
+        <ChatPanelThreadStream model={readModel.threadStream} presenter={parts.threadStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
           <ChatPanelComposer model={readModel.composer} presenter={parts.composer.presenter} actions={parts.composer.actions} />
         </div>

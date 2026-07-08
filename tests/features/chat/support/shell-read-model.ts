@@ -5,6 +5,6 @@ export function composerReadModelFromChatState(state: ChatState) {
   return createChatPanelShellReadModelBinding(state).readModel.composer;
 }
 
-export function messageStreamReadModelFromChatState(state: ChatState) {
-  return createChatPanelShellReadModelBinding(state).readModel.messageStream;
+export function threadStreamReadModelFromChatState(state: ChatState) {
+  return createChatPanelShellReadModelBinding(state).readModel.threadStream;
 }

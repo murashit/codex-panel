@@ -5,10 +5,10 @@ import type {
   ThreadHistoryPage,
   ThreadHistoryTransport,
 } from "../../../../../src/features/chat/application/threads/thread-loading-transport";
-import type { MessageStreamItem } from "../../../../../src/features/chat/domain/message-stream/items";
+import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred } from "../../../../support/async";
-import { chatStateMessageStreamItems } from "../../support/message-stream";
 import { chatStateFixture, chatStateWith } from "../../support/state";
+import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("HistoryController", () => {
   it("keeps the latest history load when an older request resolves later", async () => {
@@ -26,8 +26,8 @@ describe("HistoryController", () => {
     first.resolve(historyPage([], "first-cursor"));
     await firstLoad;
 
-    expect(stateStore.getState().messageStream.historyCursor).toBe("second-cursor");
-    expect(stateStore.getState().messageStream.loadingHistory).toBe(false);
+    expect(stateStore.getState().threadStream.historyCursor).toBe("second-cursor");
+    expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
   });
 
   it("ignores a history load that is invalidated while pending", async () => {
@@ -37,15 +37,15 @@ describe("HistoryController", () => {
     });
 
     const loading = loader.loadLatest();
-    expect(stateStore.getState().messageStream.loadingHistory).toBe(true);
+    expect(stateStore.getState().threadStream.loadingHistory).toBe(true);
 
     loader.invalidate();
     pending.resolve(historyPage([message("assistant", "Stale")], "stale-cursor"));
     await loading;
 
-    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
-    expect(stateStore.getState().messageStream.historyCursor).toBeNull();
-    expect(stateStore.getState().messageStream.loadingHistory).toBe(false);
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+    expect(stateStore.getState().threadStream.historyCursor).toBeNull();
+    expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 
@@ -57,10 +57,10 @@ describe("HistoryController", () => {
 
     expect(applied).toBe(true);
     expect(readHistoryPage).not.toHaveBeenCalled();
-    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
       expect.objectContaining({ id: "assistant", text: "Ready", turnId: "turn" }),
     ]);
-    expect(stateStore.getState().messageStream.historyCursor).toBe("older");
+    expect(stateStore.getState().threadStream.historyCursor).toBe("older");
     expect(showLatestPageAtBottom).toHaveBeenCalledOnce();
   });
 
@@ -70,22 +70,22 @@ describe("HistoryController", () => {
     const applied = loader.applyLatestPage("other", historyPage([message("assistant", "Stale")], "older"));
 
     expect(applied).toBe(false);
-    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
-    expect(stateStore.getState().messageStream.historyCursor).toBeNull();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+    expect(stateStore.getState().threadStream.historyCursor).toBeNull();
   });
 
-  it("loads older history without coupling message stream replacement to bottom pin state", async () => {
+  it("loads older history without coupling thread stream replacement to bottom pin state", async () => {
     const readHistoryPage = vi.fn<HistoryPageReader>().mockResolvedValue(historyPage([message("older", "Older")], "next"));
     const { loader, stateStore, dispatch, showLatestPageAtBottom } = historyFixture({ readHistoryPage });
-    stateStore.dispatch({ type: "message-stream/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
+    stateStore.dispatch({ type: "thread-stream/items-replaced", items: [message("current", "Current")], historyCursor: "cursor" });
 
     await loader.loadOlder();
 
     expect(readHistoryPage).toHaveBeenCalledWith("thread", "cursor", 20);
-    expect(chatStateMessageStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "current"]);
-    expect(stateStore.getState().messageStream.historyCursor).toBe("next");
+    expect(chatStateThreadStreamItems(stateStore.getState()).map((item) => item.id)).toEqual(["older", "current"]);
+    expect(stateStore.getState().threadStream.historyCursor).toBe("next");
     expect(showLatestPageAtBottom).not.toHaveBeenCalled();
-    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "message-stream/items-replaced" }));
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "thread-stream/items-replaced" }));
   });
 
   it("clears loading state when the history transport has no page", async () => {
@@ -95,8 +95,8 @@ describe("HistoryController", () => {
     await loader.loadLatest();
 
     expect(readHistoryPage).toHaveBeenCalledWith("thread", null, 20);
-    expect(chatStateMessageStreamItems(stateStore.getState())).toEqual([]);
-    expect(stateStore.getState().messageStream.loadingHistory).toBe(false);
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+    expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
     expect(setThreadTurnPresence).not.toHaveBeenCalled();
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
@@ -124,18 +124,18 @@ function historyFixture(options: { readHistoryPage: ReturnType<typeof vi.fn<Hist
   return { loader, stateStore, addSystemMessage, dispatch, setThreadTurnPresence, showLatestPageAtBottom };
 }
 
-function historyPage(items: MessageStreamItem[], nextCursor: string | null): ThreadHistoryPage {
+function historyPage(items: ThreadStreamItem[], nextCursor: string | null): ThreadHistoryPage {
   return { items, nextCursor, hadTurns: items.length > 0 };
 }
 
-function message(id: string, text: string): MessageStreamItem {
+function message(id: string, text: string): ThreadStreamItem {
   return {
     id,
-    kind: "message" as const,
+    kind: "dialogue" as const,
     role: "assistant" as const,
     text,
-    messageKind: "assistantResponse" as const,
-    messageState: "completed" as const,
+    dialogueKind: "assistantResponse" as const,
+    dialogueState: "completed" as const,
     turnId: "turn",
   };
 }

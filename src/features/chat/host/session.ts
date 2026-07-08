@@ -7,8 +7,8 @@ import type { ChatState } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
 import { parseRestoredThreadState, type RestoredThreadPlaceholderState } from "../application/threads/restored-thread-lifecycle";
 import { ChatResumeWorkTracker } from "../application/threads/resume-work";
-import { type ChatMessageStreamScrollBinding, createChatMessageStreamScrollBinding } from "../panel/message-stream-scroll-binding";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
+import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot, ChatWorkspacePanelTurnLifecycle } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
 import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
@@ -20,7 +20,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly connectionWork = new ConnectionWorkTracker();
   private readonly resumeWork = new ChatResumeWorkTracker();
-  private readonly messageScrollBinding: ChatMessageStreamScrollBinding = createChatMessageStreamScrollBinding();
+  private readonly threadStreamScrollBinding: ChatThreadStreamScrollBinding = createChatThreadStreamScrollBinding();
   private observedAppServerContext: AppServerQueryContext;
   private opened = false;
   private closing = false;
@@ -251,7 +251,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       deferredTasks: this.deferredTasks,
       resumeWork: this.resumeWork,
       connectionWork: this.connectionWork,
-      messageScrollBinding: this.messageScrollBinding,
+      threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
       viewWindow: () => this.viewWindow(),
     });

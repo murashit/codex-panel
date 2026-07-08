@@ -13,10 +13,10 @@ import type { RestorationController } from "../application/threads/restoration-c
 import type { ResumeActions } from "../application/threads/resume-actions";
 import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { createThreadStartActions } from "../application/threads/thread-start-actions";
-import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
-import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
+import { createStructuredSystemItem, createSystemItem } from "../domain/thread-stream/factories/system-items";
+import type { ThreadStreamNoticeSection } from "../domain/thread-stream/items";
 import type { ChatComposerController } from "../panel/composer-controller";
-import type { ChatMessageStreamScrollBinding } from "../panel/message-stream-scroll-binding";
+import type { ChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
 import { createChatComposerController } from "./bundles/composer-bundle";
 import { type ChatPanelConnectionBundle, createConnectionBundle } from "./bundles/connection-bundle";
 import { createRuntimeBundle } from "./bundles/runtime-bundle";
@@ -57,7 +57,7 @@ export interface ChatPanelSessionGraph {
 interface ChatPanelSessionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
   addSystemMessage: (text: string) => void;
-  addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
+  addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
 }
 
 interface ChatPanelSessionGraphHost {
@@ -66,7 +66,7 @@ interface ChatPanelSessionGraphHost {
   deferredTasks: ChatViewDeferredTasks;
   resumeWork: ChatResumeWorkTracker;
   connectionWork: ConnectionWorkTracker;
-  messageScrollBinding: ChatMessageStreamScrollBinding;
+  threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
   viewWindow: () => Window;
 }
@@ -298,11 +298,11 @@ function createSessionStatus(stateStore: ChatStateStore, localItemIds: LocalIdSo
       dispatch(stateStore, { type: "connection/status-set", statusText, ...(phase ? { phase } : {}) });
     },
     addSystemMessage: (text) => {
-      dispatch(stateStore, { type: "message-stream/system-item-added", item: createSystemItem(localItemIds.next("system"), text) });
+      dispatch(stateStore, { type: "thread-stream/system-item-added", item: createSystemItem(localItemIds.next("system"), text) });
     },
     addStructuredSystemMessage: (text, details) => {
       dispatch(stateStore, {
-        type: "message-stream/system-item-added",
+        type: "thread-stream/system-item-added",
         item: createStructuredSystemItem(localItemIds.next("system"), text, details),
       });
     },

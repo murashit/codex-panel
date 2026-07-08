@@ -1,15 +1,12 @@
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
-import {
-  type ConversationTurnActions as ChatPanelConversationTurnActions,
-  createConversationTurnActions,
-} from "../../application/conversation/composition";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import type { ThreadStartActions } from "../../application/threads/thread-start-actions";
-import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
+import { type TurnWorkflowActions as ChatPanelTurnWorkflowActions, createTurnWorkflowActions } from "../../application/turns/composition";
+import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items";
 import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
 import type { ChatPanelEnvironment } from "../contracts";
@@ -25,20 +22,20 @@ import type {
 interface ChatPanelTurnStatus {
   set: (statusText: string) => void;
   addSystemMessage: (text: string) => void;
-  addStructuredSystemMessage: (text: string, details: MessageStreamNoticeSection[]) => void;
+  addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
 }
 
 interface ChatPanelTurnHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
-  messageScrollBinding: {
+  threadStreamScrollBinding: {
     showLatest(): void;
   };
 }
 
 export interface ChatPanelTurnBundle {
   pendingRequests: PendingRequestActions;
-  turnActions: ChatPanelConversationTurnActions;
+  turnActions: ChatPanelTurnWorkflowActions;
 }
 
 interface ChatPanelTurnInput {
@@ -95,7 +92,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     addSystemMessage: status.addSystemMessage,
     setStatus: status.set,
   });
-  const turnActions = createConversationTurnActions(
+  const turnActions = createTurnWorkflowActions(
     {
       stateStore: host.stateStore,
       localItemIds,
@@ -148,7 +145,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       },
       scroll: {
         showLatest: () => {
-          host.messageScrollBinding.showLatest();
+          host.threadStreamScrollBinding.showLatest();
         },
       },
     },

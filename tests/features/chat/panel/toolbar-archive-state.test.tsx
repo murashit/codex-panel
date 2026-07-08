@@ -10,8 +10,8 @@ import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell }
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
-import type { MessageStreamContext } from "../../../../src/features/chat/ui/message-stream/context";
-import type { MessageStreamScrollPortBinding } from "../../../../src/features/chat/ui/message-stream/flow-scroll.measure";
+import type { ThreadStreamContext } from "../../../../src/features/chat/ui/thread-stream/context";
+import type { ThreadStreamScrollPortBinding } from "../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../support/dom";
 
 installObsidianDomShims();
@@ -82,7 +82,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanel
         },
         chat: {
           startNewThread: vi.fn(),
-          compactConversation: vi.fn(),
+          compactContext: vi.fn(),
           setGoal: vi.fn(),
         },
         status: {
@@ -109,11 +109,11 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanel
       },
     },
     goal: surface.goal,
-    messageStream: {
+    threadStream: {
       renderState: () => ({
         blocks: [],
-        context: testMessageStreamContext,
-        scrollPortBinding: noOpMessageStreamScrollPortBinding,
+        context: testThreadStreamContext,
+        scrollPortBinding: noOpThreadStreamScrollPortBinding,
       }),
     },
     composer: {
@@ -189,11 +189,11 @@ function surfaceFixture(
   };
 }
 
-const noOpMessageStreamScrollPortBinding: MessageStreamScrollPortBinding = {
+const noOpThreadStreamScrollPortBinding: ThreadStreamScrollPortBinding = {
   mountScrollPort: () => () => undefined,
 };
 
-const testMessageStreamContext: MessageStreamContext = {
+const testThreadStreamContext: ThreadStreamContext = {
   activeThreadId: "thread",
   workspaceRoot: "/vault",
   loadOlderTurns: () => undefined,

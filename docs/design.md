@@ -36,7 +36,7 @@ Do not hide complexity behind forwarding layers. Add an abstraction only when it
 
 ## UI Ownership
 
-Runtime UI composition is Preact-owned. Preact components should render the panel shell, toolbar, message stream, composer, and request controls.
+Runtime UI composition is Preact-owned. Preact components should render the panel shell, toolbar, thread stream, composer, and request controls.
 
 Obsidian and app-server boundaries stay outside Preact components. External lifecycles, app-server connections, editor/workspace APIs, and rendering bridges belong in boundary modules.
 
@@ -56,7 +56,7 @@ Selection rewrite is intentionally scoped to a focused edit-and-review workflow.
 
 Server requests should become panel UI only when the user can naturally answer them in context. Unknown or unsupported requests should stay diagnostic instead of pretending to be normal conversation text.
 
-Message stream display should separate primary conversation from diagnostic detail and progress/status. Preserve stable item identity across history, streaming, and rendering updates.
+Thread stream display should separate primary conversation from diagnostic detail and progress/status. Preserve stable item identity across history, streaming, and rendering updates.
 
 Codex Panel UI should feel native inside Obsidian. Prefer Obsidian variables, standard classes, and side-panel patterns. Add custom visual treatment only when Codex-specific state would otherwise be hard to read.
 

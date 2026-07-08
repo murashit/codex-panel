@@ -18,9 +18,9 @@ import { ChatPanelToolbar } from "../../../../../src/features/chat/panel/surface
 import type { ToolbarActions } from "../../../../../src/features/chat/ui/toolbar";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { installObsidianDomShims } from "../../../../support/dom";
-import { withChatStateMessageStreamItems } from "../../support/message-stream";
 import { composerReadModelFromChatState } from "../../support/shell-read-model";
 import { chatStateFixture, chatStateWith } from "../../support/state";
+import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 installObsidianDomShims();
 
@@ -202,13 +202,13 @@ describe("chat panel surface projections", () => {
   it("uses a neutral composer context indicator when usage is unavailable", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
-    state = withChatStateMessageStreamItems(state, [
+    state = withChatStateThreadStreamItems(state, [
       {
         id: "item",
         turnId: "turn-1",
-        kind: "message",
-        messageKind: "assistantResponse",
-        messageState: "completed",
+        kind: "dialogue",
+        dialogueKind: "assistantResponse",
+        dialogueState: "completed",
         text: "Existing turn",
         role: "assistant",
       },
@@ -473,7 +473,7 @@ function toolbarActionsFixture(overrides: ToolbarActionOverrides = {}): ToolbarA
     },
     chat: {
       startNewThread: () => undefined,
-      compactConversation: () => undefined,
+      compactContext: () => undefined,
       setGoal: () => undefined,
     },
     status: {

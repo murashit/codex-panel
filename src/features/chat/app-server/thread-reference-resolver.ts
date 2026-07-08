@@ -4,7 +4,7 @@ import { shortThreadId } from "../../../domain/threads/id";
 import type { Thread } from "../../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT, referencedThreadPromptBundle } from "../../../domain/threads/reference";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
-import type { ThreadReferenceInput } from "../application/conversation/slash-command-execution";
+import type { ThreadReferenceInput } from "../application/turns/slash-command-execution";
 
 interface ThreadReferenceResolverHost {
   currentClient(): ThreadConversationSummaryClient | null;

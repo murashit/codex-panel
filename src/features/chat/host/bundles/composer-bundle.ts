@@ -5,8 +5,8 @@ import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot"
 import type { ChatStateStore } from "../../application/state/store";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import { ChatComposerController } from "../../panel/composer-controller";
-import type { ChatMessageStreamScrollBinding } from "../../panel/message-stream-scroll-binding";
 import { chatPanelComposerProjection } from "../../panel/surface/composer-projection";
+import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream-scroll-binding";
 import type { ChatPanelEnvironment } from "../contracts";
 import { createVaultComposerAttachmentHandler } from "../obsidian/composer-attachments.obsidian";
 import { VaultComposerContextReferenceProvider } from "../obsidian/vault-composer-context-reference-provider.obsidian";
@@ -16,7 +16,7 @@ import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 interface ChatPanelComposerHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
-  messageScrollBinding: ChatMessageStreamScrollBinding;
+  threadStreamScrollBinding: ChatThreadStreamScrollBinding;
 }
 
 export function createChatComposerController(
@@ -53,7 +53,7 @@ export function createChatComposerController(
       return resolveRuntimeControls(runtimeSnapshotForChatState(current), config).model.effective;
     },
     threadScrollFromComposer: (action) => {
-      host.messageScrollBinding.scrollFromComposer(action);
+      host.threadStreamScrollBinding.scrollFromComposer(action);
     },
     togglePlan: () => void input.runtimeSettings.toggleCollaborationMode(),
     toggleAutoReview: () => void input.runtimeSettings.toggleAutoReview(),

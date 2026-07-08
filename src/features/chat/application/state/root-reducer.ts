@@ -10,7 +10,6 @@ import { createServerDiagnostics } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
 import { type CollaborationModeSelection, type RequestedFastMode, unchangedCollaborationModeIntent } from "../../domain/runtime/intent";
 import {
   type ChatRuntimeState,
@@ -29,14 +28,8 @@ import {
   resetReasoningEffortToConfigRuntimeState,
   setSelectedCollaborationModeRuntimeState,
 } from "../../domain/runtime/state";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import type { ComposerSuggestion } from "../composer/suggestions";
-import {
-  type ChatTurnState,
-  initialChatTurnState,
-  type PendingTurnStart,
-  STATUS_TURN_RUNNING,
-  transitionChatTurnLifecycleState,
-} from "../conversation/turn-state";
 import {
   type ChatRequestState,
   initialChatRequestState,
@@ -45,6 +38,13 @@ import {
   reduceRequestSlice,
   resolveChatRequest,
 } from "../pending-requests/state";
+import {
+  type ChatTurnState,
+  initialChatTurnState,
+  type PendingTurnStart,
+  STATUS_TURN_RUNNING,
+  transitionChatTurnLifecycleState,
+} from "../turns/turn-state";
 import type {
   ActiveThreadResumedAction,
   ActiveThreadSettingsAppliedAction,
@@ -57,18 +57,18 @@ import type {
   TurnStartAcknowledgedAction,
   TurnStartFailedAction,
 } from "./actions";
-import {
-  type ChatMessageStreamState,
-  initialChatMessageStreamState,
-  isMessageStreamAction,
-  type MessageStreamAction,
-  messageStreamItems,
-  messageStreamStartActiveSegment,
-  messageStreamWithActiveTurnItems,
-  messageStreamWithItems,
-  reduceMessageStreamSlice,
-} from "./message-stream";
 import { definedPatch, patchObject } from "./patch";
+import {
+  type ChatThreadStreamState,
+  initialChatThreadStreamState,
+  isThreadStreamAction,
+  reduceThreadStreamSlice,
+  type ThreadStreamAction,
+  threadStreamItems,
+  threadStreamStartActiveSegment,
+  threadStreamWithActiveTurnItems,
+  threadStreamWithItems,
+} from "./thread-stream";
 import {
   type ChatUiState,
   clearAllRequestDisclosures,
@@ -124,7 +124,7 @@ interface ChatStateShape {
   activeThread: ChatActiveThreadState;
   runtime: ChatRuntimeState;
   turn: ChatTurnState;
-  messageStream: ChatMessageStreamState;
+  threadStream: ChatThreadStreamState;
   requests: ChatRequestState;
   composer: ChatComposerState;
   ui: ChatUiState;
@@ -169,14 +169,14 @@ interface TurnStartedAction {
   type: "turn/started";
   threadId: string;
   turnId: string;
-  items?: readonly MessageStreamItem[];
+  items?: readonly ThreadStreamItem[];
 }
 
 interface TurnCompletedAction {
   type: "turn/completed";
   turnId: string;
   status: string;
-  items: readonly MessageStreamItem[];
+  items: readonly ThreadStreamItem[];
 }
 
 type TurnAction =
@@ -213,12 +213,12 @@ export type ChatAction = ChatTransitionAction | ChatSliceAction;
 interface RequestResolvedAction {
   type: "request/resolved";
   requestId: PendingRequestId;
-  resultItem?: MessageStreamItem;
+  resultItem?: ThreadStreamItem;
 }
 
 interface PendingStartHookUpsertedAction {
   type: "turn/pending-start-hook-upserted";
-  item: MessageStreamItem;
+  item: ThreadStreamItem;
   pendingTurnStart: PendingTurnStart | null;
 }
 
@@ -238,7 +238,7 @@ type ChatSliceAction =
   | ActiveThreadAction
   | RuntimeAction
   | RequestAction
-  | MessageStreamAction
+  | ThreadStreamAction
   | ComposerAction
   | UiAction;
 
@@ -249,7 +249,7 @@ export function createChatState(): ChatState {
     activeThread: initialActiveThreadState(),
     runtime: initialChatRuntimeState(),
     turn: initialTurnState(),
-    messageStream: initialMessageStreamState(),
+    threadStream: initialThreadStreamState(),
     requests: initialRequestState(),
     composer: initialComposerState(),
     ui: initialUiState(),
@@ -344,7 +344,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       },
     },
     turn: initialTurnState(),
-    messageStream: initialMessageStreamState(action.items ?? []),
+    threadStream: initialThreadStreamState(action.items ?? []),
     requests: initialRequestState(),
     composer: initialComposerState(),
     ui: initialUiState(),
@@ -397,9 +397,9 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
     activeThread: { ...state.activeThread, id: action.threadId },
     turn: { lifecycle },
     connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
-    messageStream: action.items
-      ? messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.items)
-      : messageStreamStartActiveSegment(state.messageStream, action.turnId, []),
+    threadStream: action.items
+      ? threadStreamWithActiveTurnItems(state.threadStream, action.turnId, action.items)
+      : threadStreamStartActiveSegment(state.threadStream, action.turnId, []),
   });
 }
 
@@ -408,7 +408,7 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: messageStreamWithItems(state.messageStream, action.items),
+    threadStream: threadStreamWithItems(state.threadStream, action.items),
     connection: { ...state.connection, statusText: `Turn ${action.status}.` },
   });
 }
@@ -420,7 +420,7 @@ function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOpt
   });
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: messageStreamStartActiveSegment(state.messageStream, null, [action.item]),
+    threadStream: threadStreamStartActiveSegment(state.threadStream, null, [action.item]),
   });
 }
 
@@ -432,7 +432,7 @@ function reduceTurnStartAcknowledgedTransition(state: ChatState, action: TurnSta
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: messageStreamWithActiveTurnItems(state.messageStream, action.turnId, action.items),
+    threadStream: threadStreamWithActiveTurnItems(state.threadStream, action.turnId, action.items),
   });
 }
 
@@ -441,13 +441,13 @@ function reduceTurnStartFailedTransition(state: ChatState, action: TurnStartFail
   if (lifecycle === state.turn.lifecycle) return state;
   return patchChatState(state, {
     turn: { lifecycle },
-    messageStream: messageStreamWithItems(state.messageStream, action.items),
+    threadStream: threadStreamWithItems(state.threadStream, action.items),
   });
 }
 
 function reducePendingStartHookUpsertedTransition(state: ChatState, action: PendingStartHookUpsertedAction): ChatState {
   return patchChatState(state, {
-    messageStream: reduceMessageStreamSlice(state.messageStream, { type: "message-stream/item-upserted", item: action.item }),
+    threadStream: reduceThreadStreamSlice(state.threadStream, { type: "thread-stream/item-upserted", item: action.item }),
     turn: {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, {
         type: "pending-start-hook-upserted",
@@ -463,9 +463,9 @@ function reduceRequestResolvedTransition(state: ChatState, action: RequestResolv
   return patchChatState(state, {
     requests,
     ui: clearResolvedRequestDisclosures(state.ui, action.requestId),
-    messageStream: action.resultItem
-      ? reduceMessageStreamSlice(state.messageStream, { type: "message-stream/item-added", item: action.resultItem })
-      : state.messageStream,
+    threadStream: action.resultItem
+      ? reduceThreadStreamSlice(state.threadStream, { type: "thread-stream/item-added", item: action.resultItem })
+      : state.threadStream,
   });
 }
 
@@ -474,7 +474,7 @@ function clearTurnScopedState(state: ChatState): ChatState {
     turn: {
       lifecycle: transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "cleared" }),
     },
-    messageStream: messageStreamWithItems(state.messageStream, messageStreamItems(state.messageStream)),
+    threadStream: threadStreamWithItems(state.threadStream, threadStreamItems(state.threadStream)),
     requests: initialRequestState(),
     ui: clearAllRequestDisclosures(state.ui),
   });
@@ -485,7 +485,7 @@ function clearThreadScopedState(state: ChatState): ChatState {
     patchChatState(state, {
       activeThread: initialActiveThreadState(),
       runtime: initialChatRuntimeState(),
-      messageStream: initialMessageStreamState(),
+      threadStream: initialThreadStreamState(),
       composer: initialComposerState(),
       ui: initialUiState(),
     }),
@@ -516,7 +516,7 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
     runtime: reduceRuntimeSlice(state.runtime, action),
     turn: state.turn,
     requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
-    messageStream: isMessageStreamAction(action) ? reduceMessageStreamSlice(state.messageStream, action) : state.messageStream,
+    threadStream: isThreadStreamAction(action) ? reduceThreadStreamSlice(state.threadStream, action) : state.threadStream,
     composer: reduceComposerSlice(state.composer, action),
     ui: isUiAction(action) ? reduceUiSlice(state.ui, action) : state.ui,
   });
@@ -656,8 +656,8 @@ function initialTurnState(): ChatTurnState {
   return initialChatTurnState();
 }
 
-function initialMessageStreamState(items: readonly MessageStreamItem[] = []): ChatMessageStreamState {
-  return initialChatMessageStreamState(items);
+function initialThreadStreamState(items: readonly ThreadStreamItem[] = []): ChatThreadStreamState {
+  return initialChatThreadStreamState(items);
 }
 
 function initialRequestState(): ChatRequestState {

@@ -1,10 +1,10 @@
 import { threadRenameDraftTitle } from "../../../../domain/threads/title";
 import type { ThreadTitleContext } from "../../../../domain/threads/title-generation-model";
-import { messageStreamItems } from "../state/message-stream";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import { threadStreamItems } from "../state/thread-stream";
 import { type ChatRenameGeneratingUiState, type ChatRenameUiState, renameGenerationStillActive } from "../state/ui-state";
-import { firstThreadTitleContextFromMessageStreamItems } from "./title-context";
+import { firstThreadTitleContextFromThreadStreamItems } from "./title-context";
 
 interface RenameEditState {
   draft: string;
@@ -113,7 +113,7 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
 }
 
 export function activeThreadRenameTitleContext(state: ChatState, threadId: string): ThreadTitleContext | null {
-  return state.activeThread.id === threadId ? firstThreadTitleContextFromMessageStreamItems(messageStreamItems(state.messageStream)) : null;
+  return state.activeThread.id === threadId ? firstThreadTitleContextFromThreadStreamItems(threadStreamItems(state.threadStream)) : null;
 }
 
 function renameState(host: ThreadRenameEditorActionsHost): ChatRenameUiState {

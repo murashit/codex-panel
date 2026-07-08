@@ -1,19 +1,19 @@
 import { batch, computed, type ReadonlySignal, type Signal, signal } from "@preact/signals";
 import { explicitThreadName } from "../../../domain/threads/model";
-import { implementPlanTargetFromState } from "../application/conversation/plan-implementation";
-import { activeTurnId, chatTurnBusy } from "../application/conversation/turn-state";
-import { messageItemsHaveThreadTurns, runtimeSnapshotForChatSlices } from "../application/runtime/snapshot";
-import {
-  type MessageStreamRollbackCandidate,
-  messageStreamActiveItems,
-  messageStreamItems,
-  messageStreamRollbackCandidateFromItems,
-  messageStreamStableItems,
-} from "../application/state/message-stream";
+import { runtimeSnapshotForChatSlices, threadStreamItemsHaveThreadTurns } from "../application/runtime/snapshot";
 import type { ChatState } from "../application/state/root-reducer";
-import type { MessageStreamItem } from "../domain/message-stream/items";
-import { type ForkCandidate, forkCandidatesFromItems, type PlanImplementationTarget } from "../domain/message-stream/selectors";
+import {
+  type ThreadStreamRollbackCandidate,
+  threadStreamActiveItems,
+  threadStreamItems,
+  threadStreamRollbackCandidateFromItems,
+  threadStreamStableItems,
+} from "../application/state/thread-stream";
+import { implementPlanTargetFromState } from "../application/turns/plan-implementation";
+import { activeTurnId, chatTurnBusy } from "../application/turns/turn-state";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
+import type { ThreadStreamItem } from "../domain/thread-stream/items";
+import { type ForkCandidate, forkCandidatesFromItems, type PlanImplementationTarget } from "../domain/thread-stream/selectors";
 
 export interface ChatPanelShellReadModelBinding {
   readonly readModel: ChatPanelShellReadModel;
@@ -23,7 +23,7 @@ export interface ChatPanelShellReadModelBinding {
 interface ChatPanelShellReadModel {
   readonly toolbar: ChatPanelToolbarReadModel;
   readonly goal: ChatPanelGoalReadModel;
-  readonly messageStream: ChatPanelMessageStreamReadModel;
+  readonly threadStream: ChatPanelThreadStreamReadModel;
   readonly composer: ChatPanelComposerReadModel;
 }
 
@@ -33,7 +33,7 @@ interface ChatPanelShellSignals {
   activeThread: Signal<ChatState["activeThread"]>;
   runtime: Signal<ChatState["runtime"]>;
   turn: Signal<ChatState["turn"]>;
-  messageStream: Signal<ChatState["messageStream"]>;
+  threadStream: Signal<ChatState["threadStream"]>;
   requests: Signal<ChatState["requests"]>;
   composer: Signal<ChatState["composer"]>;
   ui: Signal<ChatState["ui"]>;
@@ -42,14 +42,14 @@ interface ChatPanelShellSignals {
   activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
   activeThreadCwd: ReadonlySignal<ChatState["activeThread"]["cwd"]>;
   activeThreadGoal: ReadonlySignal<ChatState["activeThread"]["goal"]>;
-  messageStreamItems: ReadonlySignal<readonly MessageStreamItem[]>;
-  messageStreamStableItems: ReadonlySignal<readonly MessageStreamItem[]>;
-  messageStreamActiveItems: ReadonlySignal<readonly MessageStreamItem[]>;
-  messageStreamRollbackCandidate: ReadonlySignal<MessageStreamRollbackCandidate | null>;
-  messageStreamForkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
-  messageStreamImplementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
-  messageStreamDisclosures: ReadonlySignal<ChatPanelMessageStreamDisclosureState>;
-  messageStreamForkMenuItemId: ReadonlySignal<ChatState["ui"]["messageActionMenu"]["forkMenuItemId"]>;
+  threadStreamItems: ReadonlySignal<readonly ThreadStreamItem[]>;
+  threadStreamStableItems: ReadonlySignal<readonly ThreadStreamItem[]>;
+  threadStreamActiveItems: ReadonlySignal<readonly ThreadStreamItem[]>;
+  threadStreamRollbackCandidate: ReadonlySignal<ThreadStreamRollbackCandidate | null>;
+  threadStreamForkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
+  threadStreamImplementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
+  threadStreamDisclosures: ReadonlySignal<ChatPanelThreadStreamDisclosureState>;
+  threadStreamForkMenuItemId: ReadonlySignal<ChatState["ui"]["messageActionMenu"]["forkMenuItemId"]>;
   hasThreadTurns: ReadonlySignal<boolean>;
   goalEditor: ReadonlySignal<ChatState["ui"]["goalEditor"]>;
   goalObjectiveExpanded: ReadonlySignal<ChatState["ui"]["disclosures"]["goalObjectiveExpanded"]>;
@@ -97,29 +97,29 @@ export interface ChatPanelGoalReadModel {
   readonly goalObjectiveExpanded: ReadonlySignal<ChatState["ui"]["disclosures"]["goalObjectiveExpanded"]>;
 }
 
-// Message stream read model
+// Thread stream read model
 
-export interface ChatPanelMessageStreamReadModel {
+export interface ChatPanelThreadStreamReadModel {
   readonly activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
   readonly activeThreadCwd: ReadonlySignal<ChatState["activeThread"]["cwd"]>;
   readonly activeTurnId: ReadonlySignal<string | null>;
-  readonly historyCursor: ReadonlySignal<ChatState["messageStream"]["historyCursor"]>;
-  readonly loadingHistory: ReadonlySignal<ChatState["messageStream"]["loadingHistory"]>;
-  readonly turnDiffs: ReadonlySignal<ChatState["messageStream"]["turnDiffs"]>;
-  readonly items: ReadonlySignal<readonly MessageStreamItem[]>;
-  readonly stableItems: ReadonlySignal<readonly MessageStreamItem[]>;
-  readonly activeItems: ReadonlySignal<readonly MessageStreamItem[]>;
+  readonly historyCursor: ReadonlySignal<ChatState["threadStream"]["historyCursor"]>;
+  readonly loadingHistory: ReadonlySignal<ChatState["threadStream"]["loadingHistory"]>;
+  readonly turnDiffs: ReadonlySignal<ChatState["threadStream"]["turnDiffs"]>;
+  readonly items: ReadonlySignal<readonly ThreadStreamItem[]>;
+  readonly stableItems: ReadonlySignal<readonly ThreadStreamItem[]>;
+  readonly activeItems: ReadonlySignal<readonly ThreadStreamItem[]>;
   readonly requests: ReadonlySignal<ChatState["requests"]>;
-  readonly disclosures: ReadonlySignal<ChatPanelMessageStreamDisclosureState>;
+  readonly disclosures: ReadonlySignal<ChatPanelThreadStreamDisclosureState>;
   readonly forkMenuItemId: ReadonlySignal<ChatState["ui"]["messageActionMenu"]["forkMenuItemId"]>;
-  readonly rollbackCandidate: ReadonlySignal<MessageStreamRollbackCandidate | null>;
+  readonly rollbackCandidate: ReadonlySignal<ThreadStreamRollbackCandidate | null>;
   readonly forkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
   readonly implementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
 }
 
-type ChatPanelMessageStreamDisclosureBucket = Exclude<keyof ChatState["ui"]["disclosures"], "goalObjectiveExpanded">;
+type ChatPanelThreadStreamDisclosureBucket = Exclude<keyof ChatState["ui"]["disclosures"], "goalObjectiveExpanded">;
 
-type ChatPanelMessageStreamDisclosureState = Pick<ChatState["ui"]["disclosures"], ChatPanelMessageStreamDisclosureBucket>;
+type ChatPanelThreadStreamDisclosureState = Pick<ChatState["ui"]["disclosures"], ChatPanelThreadStreamDisclosureBucket>;
 
 // Composer read model
 
@@ -147,13 +147,13 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
   const activeThread = signal(initialState.activeThread);
   const runtime = signal(initialState.runtime);
   const turn = signal(initialState.turn);
-  const messageStream = signal(initialState.messageStream);
+  const threadStream = signal(initialState.threadStream);
   const requests = signal(initialState.requests);
   const composer = signal(initialState.composer);
   const ui = signal(initialState.ui);
   const turnBusy = computed(() => chatTurnBusy({ turn: turn.value }));
-  const messageItems = computed(() => messageStreamItems(messageStream.value));
-  const hasThreadTurns = computed(() => messageItemsHaveThreadTurns(messageItems.value));
+  const streamItems = computed(() => threadStreamItems(threadStream.value));
+  const hasThreadTurns = computed(() => threadStreamItemsHaveThreadTurns(streamItems.value));
   const activeThreadIdSignal = computed(() => activeThread.value.id);
   const activeThreadCwd = computed(() => activeThread.value.cwd);
   const activeThreadTokenUsage = computed(() => activeThread.value.tokenUsage);
@@ -164,7 +164,7 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
     activeThread,
     runtime,
     turn,
-    messageStream,
+    threadStream,
     requests,
     composer,
     ui,
@@ -173,21 +173,21 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
     activeThreadId: activeThreadIdSignal,
     activeThreadCwd,
     activeThreadGoal,
-    messageStreamItems: messageItems,
-    messageStreamStableItems: computed(() => messageStreamStableItems(messageStream.value)),
-    messageStreamActiveItems: computed(() => messageStreamActiveItems(messageStream.value)),
-    messageStreamRollbackCandidate: computed(() => (turnBusy.value ? null : messageStreamRollbackCandidateFromItems(messageItems.value))),
-    messageStreamForkCandidates: computed(() => (turnBusy.value ? [] : forkCandidatesFromItems(messageItems.value))),
-    messageStreamImplementPlanTarget: computed(() =>
+    threadStreamItems: streamItems,
+    threadStreamStableItems: computed(() => threadStreamStableItems(threadStream.value)),
+    threadStreamActiveItems: computed(() => threadStreamActiveItems(threadStream.value)),
+    threadStreamRollbackCandidate: computed(() => (turnBusy.value ? null : threadStreamRollbackCandidateFromItems(streamItems.value))),
+    threadStreamForkCandidates: computed(() => (turnBusy.value ? [] : forkCandidatesFromItems(streamItems.value))),
+    threadStreamImplementPlanTarget: computed(() =>
       implementPlanTargetFromState({
         activeThread: { id: activeThreadIdSignal.value },
         turn: turn.value,
         runtime: { pending: { collaborationMode: runtime.value.pending.collaborationMode } },
-        messageStream: messageStream.value,
+        threadStream: threadStream.value,
       }),
     ),
-    messageStreamDisclosures: createMessageStreamDisclosuresSignal(ui),
-    messageStreamForkMenuItemId: computed(() => ui.value.messageActionMenu.forkMenuItemId),
+    threadStreamDisclosures: createThreadStreamDisclosuresSignal(ui),
+    threadStreamForkMenuItemId: computed(() => ui.value.messageActionMenu.forkMenuItemId),
     hasThreadTurns,
     goalEditor: computed(() => ui.value.goalEditor),
     goalObjectiveExpanded: computed(() => ui.value.disclosures.goalObjectiveExpanded),
@@ -228,7 +228,7 @@ function syncShellSignals(signals: ChatPanelShellSignals, nextState: ChatState):
     if (signals.activeThread.value !== nextState.activeThread) signals.activeThread.value = nextState.activeThread;
     if (signals.runtime.value !== nextState.runtime) signals.runtime.value = nextState.runtime;
     if (signals.turn.value !== nextState.turn) signals.turn.value = nextState.turn;
-    if (signals.messageStream.value !== nextState.messageStream) signals.messageStream.value = nextState.messageStream;
+    if (signals.threadStream.value !== nextState.threadStream) signals.threadStream.value = nextState.threadStream;
     if (signals.requests.value !== nextState.requests) signals.requests.value = nextState.requests;
     if (signals.composer.value !== nextState.composer) signals.composer.value = nextState.composer;
     if (signals.ui.value !== nextState.ui) signals.ui.value = nextState.ui;
@@ -239,7 +239,7 @@ function shellReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanelShe
   return {
     toolbar: toolbarReadModelFromSignals(signals),
     goal: goalReadModelFromSignals(signals),
-    messageStream: messageStreamReadModelFromSignals(signals),
+    threadStream: threadStreamReadModelFromSignals(signals),
     composer: composerReadModelFromSignals(signals),
   };
 }
@@ -289,23 +289,23 @@ function goalReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanelGoal
   };
 }
 
-function messageStreamReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanelMessageStreamReadModel {
+function threadStreamReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanelThreadStreamReadModel {
   return {
     activeThreadId: signals.activeThreadId,
     activeThreadCwd: signals.activeThreadCwd,
     activeTurnId: signals.activeTurnId,
-    historyCursor: computed(() => signals.messageStream.value.historyCursor),
-    loadingHistory: computed(() => signals.messageStream.value.loadingHistory),
-    turnDiffs: computed(() => signals.messageStream.value.turnDiffs),
-    items: signals.messageStreamItems,
-    stableItems: signals.messageStreamStableItems,
-    activeItems: signals.messageStreamActiveItems,
+    historyCursor: computed(() => signals.threadStream.value.historyCursor),
+    loadingHistory: computed(() => signals.threadStream.value.loadingHistory),
+    turnDiffs: computed(() => signals.threadStream.value.turnDiffs),
+    items: signals.threadStreamItems,
+    stableItems: signals.threadStreamStableItems,
+    activeItems: signals.threadStreamActiveItems,
     requests: signals.requests,
-    disclosures: signals.messageStreamDisclosures,
-    forkMenuItemId: signals.messageStreamForkMenuItemId,
-    rollbackCandidate: signals.messageStreamRollbackCandidate,
-    forkCandidates: signals.messageStreamForkCandidates,
-    implementPlanTarget: signals.messageStreamImplementPlanTarget,
+    disclosures: signals.threadStreamDisclosures,
+    forkMenuItemId: signals.threadStreamForkMenuItemId,
+    rollbackCandidate: signals.threadStreamRollbackCandidate,
+    forkCandidates: signals.threadStreamForkCandidates,
+    implementPlanTarget: signals.threadStreamImplementPlanTarget,
   };
 }
 
@@ -338,8 +338,8 @@ function projectedThreadName(signals: ChatPanelShellSignals, threadId: string): 
   return thread ? explicitThreadName(thread) : null;
 }
 
-function createMessageStreamDisclosuresSignal(ui: Signal<ChatState["ui"]>): ReadonlySignal<ChatPanelMessageStreamDisclosureState> {
-  let previous: ChatPanelMessageStreamDisclosureState | null = null;
+function createThreadStreamDisclosuresSignal(ui: Signal<ChatState["ui"]>): ReadonlySignal<ChatPanelThreadStreamDisclosureState> {
+  let previous: ChatPanelThreadStreamDisclosureState | null = null;
   return computed(() => {
     const disclosures = ui.value.disclosures;
     if (

@@ -70,7 +70,7 @@ Prefer functions and factory-created objects over classes. Use a class only when
 - Build before Obsidian validation. Obsidian loads ignored root assets, not the TypeScript or authored CSS sources directly.
 - Preserve last-known-good app-server state on refresh failure. Do not turn disconnected reads into authoritative empty thread lists, settings snapshots, hook inventories, or diagnostics.
 - Normalize optional and nullable app-server values before display. Users should not see raw `undefined`, `null`, protocol enum gaps, or fallback labels that imply Panel owns a Codex runtime setting.
-- Do not use DOM order as message history state. Message stream DOM is a presentation surface, and delayed Markdown rendering can change heights after initial render.
+- Do not use DOM order as thread history state. Thread stream DOM is a presentation surface, and delayed Markdown rendering can change heights after initial render.
 
 ## API Baselines
 

@@ -1,10 +1,10 @@
 import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
-import { chatTurnBusy } from "../conversation/turn-state";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
-import { messageStreamRollbackCandidate, messageStreamTurnsAfterTurnId } from "../state/message-stream";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
+import { chatTurnBusy } from "../turns/turn-state";
 import type { ThreadMutationTransport } from "./thread-mutation-transport";
 
 const STATUS_COMPACTION_REQUESTED = "Compaction requested.";
@@ -113,7 +113,7 @@ async function forkThreadFromTurn(
   }
   const scope = captureThreadManagementPanelScope(host, threadId);
 
-  const selectedTurnDistanceFromEnd = turnId ? messageStreamTurnsAfterTurnId(threadManagementState(host).messageStream, turnId) : 0;
+  const selectedTurnDistanceFromEnd = turnId ? threadStreamTurnsAfterTurnId(threadManagementState(host).threadStream, turnId) : 0;
   if (selectedTurnDistanceFromEnd === null) {
     host.addSystemMessage("Could not find the selected turn to fork.");
     return;
@@ -173,7 +173,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
   }
   const scope = captureThreadManagementPanelScope(host, threadId);
 
-  const candidate = messageStreamRollbackCandidate(threadManagementState(host).messageStream);
+  const candidate = threadStreamRollbackCandidate(threadManagementState(host).threadStream);
   if (!candidate) {
     host.addSystemMessage("No completed turn to roll back.");
     return;
@@ -194,7 +194,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
       }),
     );
     threadManagementDispatch(host, {
-      type: "message-stream/items-replaced",
+      type: "thread-stream/items-replaced",
       items: snapshot.items,
       historyCursor: null,
       loadingHistory: false,

@@ -1,10 +1,10 @@
 import { type ThreadTitleContext, threadTitleContextPromptText } from "../../../../domain/threads/title-generation-model";
-import type { MessageStreamItem, MessageStreamMessageItem } from "../../domain/message-stream/items";
-import { isCompletedTurnOutcomeMessage } from "../../domain/message-stream/selectors";
+import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import { isCompletedTurnOutcomeMessage } from "../../domain/thread-stream/selectors";
 
-export function threadTitleContextFromMessageStreamItems(turnId: string, items: readonly MessageStreamItem[]): ThreadTitleContext | null {
+export function threadTitleContextFromThreadStreamItems(turnId: string, items: readonly ThreadStreamItem[]): ThreadTitleContext | null {
   const turnItems = items.filter((item) => item.turnId === turnId);
-  const userRequest = turnItems.find(isUserMessageStreamItem)?.text.trim() ?? precedingUnscopedTitleSeed(turnId, items) ?? "";
+  const userRequest = turnItems.find(isUserThreadStreamDialogueItem)?.text.trim() ?? precedingUnscopedTitleSeed(turnId, items) ?? "";
   const assistantResponse = [...turnItems].reverse().find(isCompletedTurnOutcomeMessageItem)?.text.trim() ?? "";
   if (!userRequest || !assistantResponse) return null;
   return {
@@ -13,32 +13,32 @@ export function threadTitleContextFromMessageStreamItems(turnId: string, items: 
   };
 }
 
-export function firstThreadTitleContextFromMessageStreamItems(items: readonly MessageStreamItem[]): ThreadTitleContext | null {
+export function firstThreadTitleContextFromThreadStreamItems(items: readonly ThreadStreamItem[]): ThreadTitleContext | null {
   const turnIds = new Set<string>();
   for (const item of items) {
     if (!item.turnId || turnIds.has(item.turnId)) continue;
     turnIds.add(item.turnId);
-    const context = threadTitleContextFromMessageStreamItems(item.turnId, items);
+    const context = threadTitleContextFromThreadStreamItems(item.turnId, items);
     if (context) return context;
   }
   return null;
 }
 
-function isUserMessageStreamItem(item: MessageStreamItem): item is MessageStreamMessageItem & { role: "user" } {
-  return item.kind === "message" && item.role === "user";
+function isUserThreadStreamDialogueItem(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {
+  return item.kind === "dialogue" && item.role === "user";
 }
 
-function isCompletedTurnOutcomeMessageItem(item: MessageStreamItem): item is MessageStreamMessageItem {
-  return item.kind === "message" && isCompletedTurnOutcomeMessage(item);
+function isCompletedTurnOutcomeMessageItem(item: ThreadStreamItem): item is ThreadStreamDialogueItem {
+  return item.kind === "dialogue" && isCompletedTurnOutcomeMessage(item);
 }
 
-function precedingUnscopedTitleSeed(turnId: string, items: readonly MessageStreamItem[]): string | null {
+function precedingUnscopedTitleSeed(turnId: string, items: readonly ThreadStreamItem[]): string | null {
   const firstTurnItemIndex = items.findIndex((item) => item.turnId === turnId);
   if (firstTurnItemIndex < 1) return null;
   for (let index = firstTurnItemIndex - 1; index >= 0; index -= 1) {
     const item = items[index];
     if (!item || item.turnId) return null;
-    if (item.kind === "message" && item.role === "user") return item.text.trim();
+    if (item.kind === "dialogue" && item.role === "user") return item.text.trim();
     if (item.kind === "goal" && item.objective) return item.objective.trim();
   }
   return null;

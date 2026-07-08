@@ -17,7 +17,6 @@ import {
 import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/services/turns";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
-import type { ChatTurnTransport } from "../../application/conversation/turn-transport";
 import type { RuntimeSettingsTransport } from "../../application/runtime/settings-transport";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../../application/threads/goal-transport";
 import type {
@@ -28,7 +27,8 @@ import type {
 } from "../../application/threads/thread-loading-transport";
 import type { ThreadMutationTransport, ThreadRollbackSnapshot } from "../../application/threads/thread-mutation-transport";
 import type { ThreadStartTransport } from "../../application/threads/thread-start-transport";
-import { messageStreamItemsFromTurns } from "../mappers/message-stream/turn-items";
+import type { ChatTurnTransport } from "../../application/turns/turn-transport";
+import { threadStreamItemsFromTurns } from "../mappers/thread-stream/turn-items";
 
 interface CurrentChatAppServerClientHost {
   currentClient(): AppServerClient | null;
@@ -161,7 +161,7 @@ function createChatThreadMutationTransport(host: ChatAppServerTransportHost): Th
         return {
           thread: snapshot.thread,
           cwd: snapshot.cwd,
-          items: messageStreamItemsFromTurns(snapshot.turns),
+          items: threadStreamItemsFromTurns(snapshot.turns),
         };
       }),
   };
@@ -235,7 +235,7 @@ async function readChatThreadHistoryPage(
 
 function chatThreadHistoryPageFromTurnsPage(page: ThreadTurnsPage): ThreadHistoryPage {
   return {
-    items: messageStreamItemsFromTurns(page.turns),
+    items: threadStreamItemsFromTurns(page.turns),
     nextCursor: page.nextCursor,
     hadTurns: page.turns.length > 0,
   };

@@ -1,6 +1,6 @@
 import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../../domain/threads/goal";
-import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
-import type { GoalMessageStreamItem } from "../../domain/message-stream/items";
+import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
+import type { GoalThreadStreamItem } from "../../domain/thread-stream/items";
 import type { LocalIdSource } from "../local-id-source";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "./goal-transport";
@@ -10,7 +10,7 @@ export interface ThreadGoalSyncHost {
   goalTransport: ThreadGoalReadTransport;
   localItemIds: LocalIdSource;
   addSystemMessage: (text: string) => void;
-  addGoalEvent: (item: GoalMessageStreamItem) => void;
+  addGoalEvent: (item: GoalThreadStreamItem) => void;
   refreshLiveState: () => void;
 }
 

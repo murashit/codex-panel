@@ -4,11 +4,11 @@ import type { ChatStateStore } from "../../application/state/store";
 import type { HistoryController } from "../../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
 import type { ChatComposerController } from "../../panel/composer-controller";
-import type { ChatMessageStreamScrollBinding } from "../../panel/message-stream-scroll-binding";
 import type { ChatPanelShellParts } from "../../panel/shell.dom";
 import type { ChatPanelGoalSurface } from "../../panel/surface/goal-projection";
-import { MessageStreamPresenter } from "../../panel/surface/message-stream-presenter";
+import { ThreadStreamPresenter } from "../../panel/surface/thread-stream-presenter";
 import type { ChatPanelToolbarSurface } from "../../panel/surface/toolbar-projection";
+import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream-scroll-binding";
 import { createToolbarUiActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
 import { toolbarOutsidePointerHit } from "../../panel/toolbar-hit-test.dom";
 import type { ChatPanelEnvironment } from "../contracts";
@@ -19,7 +19,7 @@ import type { ChatPanelTurnBundle } from "./turn-bundle";
 interface ChatPanelShellBundleHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
-  messageScrollBinding: ChatMessageStreamScrollBinding;
+  threadStreamScrollBinding: ChatThreadStreamScrollBinding;
 }
 
 interface ChatPanelShellBundleInput {
@@ -85,7 +85,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
     actions: goals,
   };
-  const messageStreamPresenter = new MessageStreamPresenter({
+  const threadStreamPresenter = new ThreadStreamPresenter({
     obsidian: {
       app: environment.obsidian.app,
       owner: environment.obsidian.owner,
@@ -97,9 +97,9 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       vaultPath: environment.plugin.settingsRef.vaultPath,
     },
     scroll: {
-      portBinding: host.messageScrollBinding,
+      portBinding: host.threadStreamScrollBinding,
       dispose: () => {
-        host.messageScrollBinding.dispose();
+        host.threadStreamScrollBinding.dispose();
       },
     },
     history: {
@@ -123,7 +123,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       actions: toolbarActions,
     },
     goal: goalSurface,
-    messageStream: messageStreamPresenter,
+    threadStream: threadStreamPresenter,
     composer: {
       presenter: composerController,
       actions: {
@@ -141,7 +141,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       });
     },
     dispose: () => {
-      messageStreamPresenter.dispose();
+      threadStreamPresenter.dispose();
     },
   };
 }

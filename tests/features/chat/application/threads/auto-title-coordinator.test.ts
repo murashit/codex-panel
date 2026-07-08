@@ -3,14 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { AppServerClient } from "../../../../../src/app-server/connection/client";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import type { ThreadTitleContext } from "../../../../../src/domain/threads/title-generation-model";
-import { messageStreamItems } from "../../../../../src/features/chat/application/state/message-stream";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import {
   type AutoTitleCoordinator,
   type AutoTitleCoordinatorHost,
   createAutoTitleCoordinator,
 } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
-import { threadTitleContextFromMessageStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
+import { threadTitleContextFromThreadStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
 import { createThreadOperations } from "../../../../../src/features/threads/workflows/thread-operations";
 import { createThreadTitleService } from "../../../../../src/features/threads/workflows/thread-title-service";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
@@ -25,16 +25,16 @@ describe("AutoTitleCoordinator", () => {
       generateThreadTitle,
     });
     stateStore.dispatch({
-      type: "message-stream/items-replaced",
+      type: "thread-stream/items-replaced",
       items: [
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Visible streamed request.", turnId: "turn" },
+        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "Visible streamed request.", turnId: "turn" },
         {
           id: "a1",
-          kind: "message",
-          messageKind: "assistantResponse",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
           role: "assistant",
           text: "Visible streamed response.",
-          messageState: "completed",
+          dialogueState: "completed",
           turnId: "turn",
         },
       ],
@@ -61,16 +61,16 @@ describe("AutoTitleCoordinator", () => {
       generateThreadTitle,
     });
     stateStore.dispatch({
-      type: "message-stream/items-replaced",
+      type: "thread-stream/items-replaced",
       items: [
-        { id: "u1", kind: "message", messageKind: "user", role: "user", text: "Please diagnose auto naming.", turnId: "turn" },
+        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "Please diagnose auto naming.", turnId: "turn" },
         {
           id: "a1",
-          kind: "message",
-          messageKind: "assistantResponse",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
           role: "assistant",
           text: "I found the regression.",
-          messageState: "completed",
+          dialogueState: "completed",
           turnId: "turn",
         },
       ],
@@ -168,7 +168,7 @@ function coordinatorFixture(
       withClient: async (operation) => operation(currentClient()),
     },
     visibleCompletedTurnContext: (turnId) =>
-      threadTitleContextFromMessageStreamItems(turnId, messageStreamItems(stateStore.getState().messageStream)),
+      threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
     generateThreadTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
   });
   const host = {

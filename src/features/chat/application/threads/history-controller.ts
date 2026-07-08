@@ -1,6 +1,6 @@
-import { messageStreamItems } from "../state/message-stream";
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
+import { threadStreamItems } from "../state/thread-stream";
 import type { ThreadHistoryPage, ThreadHistoryTransport } from "./thread-loading-transport";
 
 export interface HistoryControllerHost {
@@ -33,7 +33,7 @@ export class HistoryController {
 
   invalidate(): void {
     this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "invalidated" });
-    this.dispatch({ type: "message-stream/history-loading-set", loading: false });
+    this.dispatch({ type: "thread-stream/history-loading-set", loading: false });
   }
 
   async loadLatest(threadId = this.state.activeThread.id): Promise<void> {
@@ -57,7 +57,7 @@ export class HistoryController {
     this.host.setThreadTurnPresence(response.hadTurns);
     this.host.showLatestPageAtBottom();
     this.dispatch({
-      type: "message-stream/items-replaced",
+      type: "thread-stream/items-replaced",
       items: response.items,
       historyCursor: response.nextCursor,
     });
@@ -66,20 +66,20 @@ export class HistoryController {
 
   async loadOlder(): Promise<void> {
     const state = this.state;
-    if (!state.activeThread.id || !state.messageStream.historyCursor || state.messageStream.loadingHistory) return;
+    if (!state.activeThread.id || !state.threadStream.historyCursor || state.threadStream.loadingHistory) return;
     const threadId = state.activeThread.id;
-    const cursor = state.messageStream.historyCursor;
+    const cursor = state.threadStream.historyCursor;
     const load = this.startLoading(threadId, "older");
     try {
       const response = await this.host.historyTransport.readHistoryPage(threadId, cursor, 20);
       if (!response) return;
       if (this.isStale(load)) return;
       const current = this.state;
-      const currentItems = messageStreamItems(current.messageStream);
+      const currentItems = threadStreamItems(current.threadStream);
       const olderItems = response.items;
       const existingIds = new Set(currentItems.map((item) => item.id));
       this.dispatch({
-        type: "message-stream/items-replaced",
+        type: "thread-stream/items-replaced",
         items: [...olderItems.filter((item) => !existingIds.has(item.id)), ...currentItems],
         historyCursor: response.nextCursor,
       });
@@ -94,14 +94,14 @@ export class HistoryController {
   private startLoading(threadId: string, mode: ActiveThreadHistoryLoad["mode"]): ActiveThreadHistoryLoad {
     const load: ActiveThreadHistoryLoad = { kind: "loading", threadId, mode };
     this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "started", load });
-    this.dispatch({ type: "message-stream/history-loading-set", loading: true });
+    this.dispatch({ type: "thread-stream/history-loading-set", loading: true });
     return load;
   }
 
   private finishLoading(load: ActiveThreadHistoryLoad): void {
     if (this.isStale(load)) return;
     this.lifecycle = transitionThreadHistoryLoadLifecycle(this.lifecycle, { type: "finished", load });
-    this.dispatch({ type: "message-stream/history-loading-set", loading: false });
+    this.dispatch({ type: "thread-stream/history-loading-set", loading: false });
   }
 
   private isStale(load: ActiveThreadHistoryLoad): boolean {

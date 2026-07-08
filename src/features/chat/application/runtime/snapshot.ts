@@ -1,8 +1,8 @@
-import type { MessageStreamItem } from "../../domain/message-stream/items";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { activeThreadRuntimeState, pendingRuntimeIntentState } from "../../domain/runtime/state";
-import { messageStreamItems } from "../state/message-stream";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import type { ChatState } from "../state/root-reducer";
+import { threadStreamItems } from "../state/thread-stream";
 
 interface RuntimeSnapshotInput {
   runtimeConfig: ChatState["connection"]["runtimeConfig"];
@@ -13,7 +13,7 @@ interface RuntimeSnapshotInput {
   availableModels: ChatState["connection"]["availableModels"];
 }
 
-export function messageItemsHaveThreadTurns(items: readonly MessageStreamItem[]): boolean {
+export function threadStreamItemsHaveThreadTurns(items: readonly ThreadStreamItem[]): boolean {
   return items.some((item) => item.turnId);
 }
 
@@ -38,7 +38,7 @@ export function runtimeSnapshotForChatState(state: ChatState): RuntimeSnapshot {
     activeThread: state.activeThread,
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,
-    hasThreadTurns: messageItemsHaveThreadTurns(messageStreamItems(state.messageStream)),
+    hasThreadTurns: threadStreamItemsHaveThreadTurns(threadStreamItems(state.threadStream)),
     availableModels: state.connection.availableModels,
   });
 }

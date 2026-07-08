@@ -1,10 +1,10 @@
 import { runtimeConfigOrDefault } from "../../../domain/runtime/config";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatState } from "../application/state/root-reducer";
-import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import { resolveRuntimeControls } from "../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
+import type { ThreadStreamNoticeSection } from "../domain/thread-stream/items";
 import { appServerDiagnosticSections } from "../presentation/runtime/diagnostic-sections";
 import { runtimePermissionSections } from "../presentation/runtime/permission-sections";
 import {
@@ -15,12 +15,12 @@ import {
 import { toolInventoryDiagnosticSections } from "../presentation/runtime/tool-inventory-diagnostic-sections";
 
 export interface ChatPanelRuntimeProjection {
-  connectionDiagnosticDetails: () => MessageStreamNoticeSection[];
-  permissionDetails: () => MessageStreamNoticeSection[];
+  connectionDiagnosticDetails: () => ThreadStreamNoticeSection[];
+  permissionDetails: () => ThreadStreamNoticeSection[];
   modelStatusLines: () => string[];
   effortStatusLines: () => string[];
   statusSummaryLines: () => string[];
-  toolInventoryDetails: () => MessageStreamNoticeSection[];
+  toolInventoryDetails: () => ThreadStreamNoticeSection[];
 }
 
 interface ChatPanelRuntimeProjectionInput {
@@ -70,7 +70,7 @@ function effortStatusLines(input: ChatPanelRuntimeProjectionInput): string[] {
   });
 }
 
-function connectionDiagnosticDetails(input: ChatPanelRuntimeProjectionInput): MessageStreamNoticeSection[] {
+function connectionDiagnosticDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   const state = input.state();
   const sections = appServerDiagnosticSections({
     connected: input.connected(),
@@ -81,11 +81,11 @@ function connectionDiagnosticDetails(input: ChatPanelRuntimeProjectionInput): Me
   return noticeSectionsFromDiagnostics(sections);
 }
 
-function toolInventoryDetails(input: ChatPanelRuntimeProjectionInput): MessageStreamNoticeSection[] {
+function toolInventoryDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   return noticeSectionsFromDiagnostics(toolInventoryDiagnosticSections(input.state().connection.serverDiagnostics));
 }
 
-function permissionDetails(input: ChatPanelRuntimeProjectionInput): MessageStreamNoticeSection[] {
+function permissionDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   const state = input.state();
   return noticeSectionsFromDiagnostics(
     runtimePermissionSections({
@@ -97,7 +97,7 @@ function permissionDetails(input: ChatPanelRuntimeProjectionInput): MessageStrea
 
 function noticeSectionsFromDiagnostics(
   sections: readonly { title: string; rows: readonly { label: string; value: string }[] }[],
-): MessageStreamNoticeSection[] {
+): ThreadStreamNoticeSection[] {
   return sections.map((section) => ({
     title: section.title,
     auditFacts: section.rows.map((row) => ({ key: row.label, value: row.value })),

@@ -60,11 +60,11 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-app-server-protocol-boundary-imports.grit",
-      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/**", "!**/src/features/chat/app-server/mappers/message-stream/turn-items.ts"]
+      "includes": ["**/src/**/*.{ts,tsx}", "!**/src/app-server/**", "!**/src/features/chat/app-server/mappers/thread-stream/turn-items.ts"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-chat-turn-item-non-turn-protocol-imports.grit",
-      "includes": ["**/src/features/chat/app-server/mappers/message-stream/turn-items.ts"]
+      "includes": ["**/src/features/chat/app-server/mappers/thread-stream/turn-items.ts"]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-generated-app-server-boundary-imports.grit",

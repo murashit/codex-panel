@@ -1,28 +1,24 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { jsonPreview } from "../../../../domain/display/json-preview";
-import type { ConversationRuntimeEvent } from "../../application/conversation/runtime-events";
+import type { TurnRuntimeEvent } from "../../application/turns/runtime-events";
 import {
   STREAMED_COMMAND_RUNNING_TEXT,
   STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
   STREAMED_MCP_PROGRESS_LABEL,
-} from "../../domain/message-stream/factories/streaming-items";
-import { createSystemItem } from "../../domain/message-stream/factories/system-items";
-import type { MessageStreamItem } from "../../domain/message-stream/items";
-import {
-  type AppServerFileChange,
-  normalizeFileChanges,
-  streamingFileChangeMessageStreamItem,
-} from "../mappers/message-stream/file-changes";
-import { hookRunMessageStreamItem } from "../mappers/message-stream/hook-run-items";
-import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/message-stream/review-result-items";
-import { taskProgressMessageStreamItem } from "../mappers/message-stream/task-progress";
+} from "../../domain/thread-stream/factories/streaming-items";
+import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import { type AppServerFileChange, normalizeFileChanges, streamingFileChangeThreadStreamItem } from "../mappers/thread-stream/file-changes";
+import { hookRunThreadStreamItem } from "../mappers/thread-stream/hook-run-items";
+import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/thread-stream/review-result-items";
+import { taskProgressThreadStreamItem } from "../mappers/thread-stream/task-progress";
 import {
   type AppServerTurnItem,
   completedConversationSummaryFromAppServerTurn,
-  messageStreamItemFromTurnItem,
-  messageStreamItemsFromTurns,
   shouldSuppressLifecycleItem,
-} from "../mappers/message-stream/turn-items";
+  threadStreamItemFromTurnItem,
+  threadStreamItemsFromTurns,
+} from "../mappers/thread-stream/turn-items";
 import type { StreamUpdateNotification, TurnLifecycleNotification, UserVisibleNoticeNotification } from "./notification-routing";
 
 const MESSAGE_CONTEXT_COMPACTED = "Context compacted.";
@@ -33,17 +29,17 @@ type RuntimeEventSource =
   | Extract<ServerNotification, { method: "serverRequest/resolved" }>
   | UserVisibleNoticeNotification;
 
-export function conversationRuntimeEventsFromNotification(
+export function turnRuntimeEventsFromNotification(
   notification: RuntimeEventSource,
   localItemId: (prefix: string) => string,
-): readonly ConversationRuntimeEvent[] {
+): readonly TurnRuntimeEvent[] {
   switch (notification.method) {
     case "item/agentMessage/delta":
       return [
         {
           type: "assistantDelta",
           itemId: notification.params.itemId,
-          runId: notification.params.turnId,
+          turnId: notification.params.turnId,
           delta: notification.params.delta,
           completeReasoning: true,
         },
@@ -53,7 +49,7 @@ export function conversationRuntimeEventsFromNotification(
         {
           type: "planDelta",
           itemId: notification.params.itemId,
-          runId: notification.params.turnId,
+          turnId: notification.params.turnId,
           delta: notification.params.delta,
         },
       ];
@@ -61,7 +57,7 @@ export function conversationRuntimeEventsFromNotification(
       return [
         {
           type: "itemUpserted",
-          item: taskProgressMessageStreamItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
+          item: taskProgressThreadStreamItem(notification.params.turnId, notification.params.explanation, notification.params.plan),
         },
       ];
     case "item/reasoning/summaryTextDelta":
@@ -70,7 +66,7 @@ export function conversationRuntimeEventsFromNotification(
         {
           type: "textDelta",
           itemId: notification.params.itemId,
-          runId: notification.params.turnId,
+          turnId: notification.params.turnId,
           label: "reasoning",
           delta: notification.params.delta,
           kind: "reasoning",
@@ -81,7 +77,7 @@ export function conversationRuntimeEventsFromNotification(
         {
           type: "textDelta",
           itemId: notification.params.itemId,
-          runId: notification.params.turnId,
+          turnId: notification.params.turnId,
           label: "reasoning",
           delta: "",
           kind: "reasoning",
@@ -96,7 +92,7 @@ export function conversationRuntimeEventsFromNotification(
         {
           type: "itemOutputDelta",
           itemId: notification.params.itemId,
-          runId: notification.params.turnId,
+          turnId: notification.params.turnId,
           delta: notification.params.delta,
           kind: "command",
           fallbackText: STREAMED_COMMAND_RUNNING_TEXT,
@@ -114,14 +110,14 @@ export function conversationRuntimeEventsFromNotification(
         {
           type: "itemOutputDelta",
           itemId: notification.params.itemId,
-          runId: notification.params.turnId,
+          turnId: notification.params.turnId,
           delta: notification.params.delta,
           kind: "fileChange",
           fallbackText: STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
         },
       ];
     case "turn/diff/updated":
-      return [{ type: "turnDiffUpdated", runId: notification.params.turnId, diff: notification.params.diff }];
+      return [{ type: "turnDiffUpdated", turnId: notification.params.turnId, diff: notification.params.diff }];
     case "hook/started":
       return hookRunEvents(notification.params.run, notification.params.turnId, "running");
     case "hook/completed":
@@ -131,7 +127,7 @@ export function conversationRuntimeEventsFromNotification(
         {
           type: "toolOutputDelta",
           itemId: notification.params.itemId,
-          runId: notification.params.turnId,
+          turnId: notification.params.turnId,
           delta: notification.params.message,
           fallbackLabel: STREAMED_MCP_PROGRESS_LABEL,
         },
@@ -144,20 +140,20 @@ export function conversationRuntimeEventsFromNotification(
     case "turn/started":
       return [
         {
-          type: "runStarted",
+          type: "turnStarted",
           threadId: notification.params.threadId,
-          runId: notification.params.turn.id,
+          turnId: notification.params.turn.id,
           recencyAt: notification.params.turn.startedAt,
         },
       ];
     case "turn/completed":
       return [
         {
-          type: "runCompleted",
+          type: "turnCompleted",
           threadId: notification.params.threadId,
-          runId: notification.params.turn.id,
+          turnId: notification.params.turn.id,
           status: notification.params.turn.status,
-          completedItems: messageStreamItemsFromTurns([notification.params.turn]),
+          completedItems: threadStreamItemsFromTurns([notification.params.turn]),
           completedSummary: completedConversationSummaryFromAppServerTurn(notification.params.turn),
         },
       ];
@@ -177,35 +173,35 @@ export function conversationRuntimeEventsFromNotification(
   }
 }
 
-function startedItemEvents(item: AppServerTurnItem, runId: string): readonly ConversationRuntimeEvent[] {
+function startedItemEvents(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeEvent[] {
   if (shouldSuppressLifecycleItem(item)) return [];
-  const streamItem = messageStreamItemFromTurnItem(item, runId);
+  const streamItem = threadStreamItemFromTurnItem(item, turnId);
   return streamItem ? [{ type: "itemUpserted", item: streamItem }] : [];
 }
 
-function completedItemEvents(item: AppServerTurnItem, runId: string): readonly ConversationRuntimeEvent[] {
+function completedItemEvents(item: AppServerTurnItem, turnId: string): readonly TurnRuntimeEvent[] {
   if (item.type === "userMessage") return [];
-  const streamItem = messageStreamItemFromTurnItem(item, runId);
-  return streamItem ? [{ type: "itemCompleted", runId, item: streamItem }] : [];
+  const streamItem = threadStreamItemFromTurnItem(item, turnId);
+  return streamItem ? [{ type: "itemCompleted", turnId, item: streamItem }] : [];
 }
 
-function fileChangeItem(itemId: string, runId: string, changes: readonly AppServerFileChange[], status: string): MessageStreamItem {
-  return streamingFileChangeMessageStreamItem(itemId, runId, normalizeFileChanges(changes), status);
+function fileChangeItem(itemId: string, turnId: string, changes: readonly AppServerFileChange[], status: string): ThreadStreamItem {
+  return streamingFileChangeThreadStreamItem(itemId, turnId, normalizeFileChanges(changes), status);
 }
 
 function hookRunEvents(
   run: Extract<ServerNotification, { method: "hook/started" }>["params"]["run"],
-  runId: string | null,
+  turnId: string | null,
   status: string,
-): readonly ConversationRuntimeEvent[] {
-  const item = hookRunMessageStreamItem(run, runId, status);
-  return item ? [{ type: "hookRunObserved", item, runId, eventName: run.eventName }] : [];
+): readonly TurnRuntimeEvent[] {
+  const item = hookRunThreadStreamItem(run, turnId, status);
+  return item ? [{ type: "hookRunObserved", item, turnId, eventName: run.eventName }] : [];
 }
 
 function jsonNoticeEvent(
   notification: Extract<UserVisibleNoticeNotification, { method: Exclude<UserVisibleNoticeNotification["method"], "thread/compacted"> }>,
   localItemId: (prefix: string) => string,
-): ConversationRuntimeEvent {
+): TurnRuntimeEvent {
   return {
     type: "systemNotice",
     item: createSystemItem(localItemId("system"), `${notification.method}: ${jsonPreview(notification.params)}`),
