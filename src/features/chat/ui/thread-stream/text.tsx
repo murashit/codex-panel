@@ -58,13 +58,13 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
       <TextAction
         icon="copy"
         label="Copy message"
-        className="codex-panel__copy-message"
+        className="codex-panel__copy-dialogue"
         onClick={() => context.copyText?.(view.copyText ?? "")}
       />
     ) : null;
 
   return (
-    <div ref={roleRef} className={`codex-panel__message-role${forkMenuOpen ? " codex-panel__message-role--fork-open" : ""}`}>
+    <div ref={roleRef} className={`codex-panel__stream-item-role${forkMenuOpen ? " codex-panel__stream-item-role--fork-open" : ""}`}>
       <span>{view.roleLabel}</span>
       {forkMenuOpen && fork ? (
         <TextAction
@@ -119,7 +119,7 @@ function TextAction({ icon, label, className, onClick }: { icon: string; label: 
     <IconButton
       icon={icon}
       label={label}
-      className={`clickable-icon codex-panel__message-action ${className}`}
+      className={`clickable-icon codex-panel__stream-item-action ${className}`}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();

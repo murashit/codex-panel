@@ -31,11 +31,11 @@ describe("ChatPanelShell", () => {
 
     expect(container.classList.contains("codex-panel")).toBe(true);
     expect(container.querySelector(".codex-panel__toolbar .codex-panel__toolbar-primary")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__body > .codex-panel__region--message-stream")).toBe(
-      container.querySelector(".codex-panel__body > .codex-panel__messages"),
+    expect(container.querySelector(".codex-panel__body > .codex-panel__region--thread-stream")).toBe(
+      container.querySelector(".codex-panel__body > .codex-panel__thread-stream"),
     );
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("");
-    expect(container.querySelector(".codex-panel__message-block")?.textContent).toContain("Send a message");
+    expect(container.querySelector(".codex-panel__thread-stream-block")?.textContent).toContain("Send a message");
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -62,7 +62,7 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("ready");
-    expect(container.querySelector(".codex-panel__message-block")?.textContent).toContain("Model set.");
+    expect(container.querySelector(".codex-panel__thread-stream-block")?.textContent).toContain("Model set.");
 
     await act(async () => {
       unmountChatPanelShell(container);
@@ -294,7 +294,7 @@ describe("ChatPanelShell", () => {
     });
 
     expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
-    expect(container.querySelector(".codex-panel__region--message-stream")).not.toBeNull();
+    expect(container.querySelector(".codex-panel__region--thread-stream")).not.toBeNull();
     expect(container.querySelector(".codex-panel__region--composer")).not.toBeNull();
 
     await act(async () => {
@@ -358,7 +358,7 @@ describe("ChatPanelShell", () => {
 
     expect(container.querySelector("section")).toBeNull();
     expect(container.querySelector(".codex-panel__toolbar .codex-panel__toolbar-primary")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__body .codex-panel__messages")).not.toBeNull();
+    expect(container.querySelector(".codex-panel__body .codex-panel__thread-stream")).not.toBeNull();
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("repair root");
 
     await act(async () => {

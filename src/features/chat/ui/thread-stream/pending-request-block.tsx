@@ -12,7 +12,7 @@ import type {
 } from "../../presentation/pending-requests/view-model";
 import type { PendingRequestBlockActions } from "./context";
 import { focusPendingRequestControl } from "./pending-request-block.dom";
-import { createStatusMessageClassName } from "./status";
+import { createStatusStreamItemClassName } from "./status";
 
 export function pendingRequestBlockNode(
   approvals: readonly PendingApprovalViewModel[],
@@ -74,8 +74,8 @@ function PendingRequestBlock({
   }, [autoFocusRequested, consumeAutoFocus, autoFocusSignature]);
   if (!hasPendingRequests(pendingRequestCountsFromQueues({ approvals, pendingUserInputs, pendingMcpElicitations }))) return null;
   return (
-    <div ref={requestRef} className={createStatusMessageClassName("codex-panel__pending-request-block", "warning")}>
-      <div className="codex-panel__message-role">Request</div>
+    <div ref={requestRef} className={createStatusStreamItemClassName("codex-panel__pending-request-block", "warning")}>
+      <div className="codex-panel__stream-item-role">Request</div>
       {approvals.map((approval) => (
         <ApprovalCard key={String(approval.requestId)} approval={approval} approvalDetails={approvalDetails} actions={actions} />
       ))}

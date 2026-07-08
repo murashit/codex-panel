@@ -7,7 +7,7 @@ import type { PendingRequestBlockActions } from "../../application/pending-reque
 import type { ChatAction } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll.measure";
-import { MarkdownMessageRenderer, renderStreamMarkdown } from "../../ui/thread-stream/markdown-renderer.obsidian";
+import { renderStreamMarkdown, ThreadStreamMarkdownRenderer } from "../../ui/thread-stream/markdown-renderer.obsidian";
 import { ThreadStreamViewport, type ThreadStreamViewportState } from "../../ui/thread-stream/stream-blocks";
 import type { ChatPanelThreadStreamReadModel } from "../shell-read-model";
 import { type ChatThreadStreamSurfaceContext, threadStreamSurfaceProjectionFromModel } from "./thread-stream-projection";
@@ -25,7 +25,7 @@ export function ChatPanelThreadStream({
 }): UiNode {
   return h(ThreadStreamViewport, {
     state: presenter.renderState(model),
-    rootAttributes: { "data-codex-panel-shell-region": "message-stream" },
+    rootAttributes: { "data-codex-panel-shell-region": "thread-stream" },
   });
 }
 
@@ -75,11 +75,11 @@ export interface ThreadStreamPresenterOptions {
 }
 
 export class ThreadStreamPresenter {
-  private readonly obsidianMarkdownRenderer: MarkdownMessageRenderer;
+  private readonly obsidianMarkdownRenderer: ThreadStreamMarkdownRenderer;
   private readonly surfaceContext: ChatThreadStreamSurfaceContext;
 
   constructor(private readonly options: ThreadStreamPresenterOptions) {
-    this.obsidianMarkdownRenderer = new MarkdownMessageRenderer({
+    this.obsidianMarkdownRenderer = new ThreadStreamMarkdownRenderer({
       app: options.obsidian.app,
       owner: options.obsidian.owner,
       vaultPath: options.workspace.vaultPath,
@@ -104,7 +104,7 @@ export class ThreadStreamPresenter {
           vaultPath: options.workspace.vaultPath,
         });
       },
-      copyMessageText: (text) => void this.copyMessageText(text),
+      copyDialogueText: (text) => void this.copyDialogueText(text),
       actions: options.actions,
       requests: options.requests,
     };
@@ -128,7 +128,7 @@ export class ThreadStreamPresenter {
     this.options.scroll.dispose();
   }
 
-  private async copyMessageText(text: string): Promise<void> {
+  private async copyDialogueText(text: string): Promise<void> {
     await copyTextWithNotice(text, "Copied message.", "Could not copy message.");
   }
 }

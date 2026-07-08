@@ -7,7 +7,7 @@ import { textContents, topLevelDetailsSummaries } from "../../../../support/dom"
 import "./setup";
 import {
   expectPresent,
-  renderMessageBlockElement,
+  renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
   runningTurnLifecycle,
   testDisclosures,
@@ -36,7 +36,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("123");
     expect(topLevelDetailsSummaries(element)).toEqual(["github.pull_request_read"]);
@@ -71,7 +71,7 @@ describe("thread stream item renderer decisions", () => {
       disclosures: testDisclosures({ activityGroups: ["turn"] }),
     }).find((item) => item.key === "activity:turn-turn-activity");
 
-    const element = renderMessageBlockElement(expectPresent(block));
+    const element = renderThreadStreamBlockElement(expectPresent(block));
 
     expect(element.querySelector(".codex-panel__detail-header")?.textContent).toBe("steer");
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("also check tests and keep the summary compact");
@@ -94,7 +94,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("assets/image.png");
     expect(element.querySelector(".codex-panel__stream-summary")?.getAttribute("title")).toBeNull();
@@ -118,7 +118,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("search: codex app-server");
   });
@@ -164,7 +164,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/tmp/image.png");
   });
@@ -185,7 +185,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("/vault/project");
   });
@@ -213,7 +213,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(topLevelDetailsSummaries(element)).toEqual(["hook"]);
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
@@ -259,7 +259,7 @@ describe("thread stream item renderer decisions", () => {
       disclosures: testDisclosures({ activityGroups: ["turn"], details: ["hook-1:details"] }),
     });
 
-    const element = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")));
+    const element = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "activity:turn-turn-activity")));
 
     expect(element).toBeDefined();
     expect(element.querySelector(":scope > summary")?.textContent).toBe("Work details");
@@ -291,11 +291,11 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
-    expect(element.classList.contains("codex-panel__status-message")).toBe(true);
+    expect(element.classList.contains("codex-panel__status-stream-item")).toBe(true);
     expect(element.classList.contains("codex-panel__task-progress")).toBe(true);
-    expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("tasks");
+    expect(element.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("tasks");
     expect(element.textContent).toContain("[x]Inspect code");
     expect(element.textContent).toContain("[>]Patch UI");
   });
@@ -487,11 +487,11 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.classList.contains("codex-panel__detail")).toBe(true);
     expect(element.classList.contains("codex-panel__agent-activity")).toBe(true);
-    expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("agent");
+    expect(element.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("agent");
     const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__stream-summary"));
     expect(summary.textContent).toBe("spawn child: Inspect the renderer. (completed)");
     expect(textContents(element, "details summary")).toEqual(["agent"]);
@@ -524,11 +524,11 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
     const header = expectPresent(element.querySelector<HTMLElement>("details summary"));
     const open = expectPresent(header.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]'));
 
-    expect(open.classList.contains("codex-panel__message-action")).toBe(true);
+    expect(open.classList.contains("codex-panel__stream-item-action")).toBe(true);
     expect(open.classList.contains("codex-panel-ui__nav-row-action")).toBe(false);
     expect(textContents(element, "details summary")).toEqual(["agent"]);
     open.click();
@@ -558,7 +558,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]')).toBeNull();
   });
@@ -588,7 +588,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
     expect(element.querySelector("details")?.hasAttribute("open")).toBe(true);
 
     expectPresent(element.querySelector<HTMLButtonElement>("details summary [aria-label='Open agent thread']")).click();
@@ -618,7 +618,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
     const summary = expectPresent(element.querySelector<HTMLElement>(".codex-panel__stream-summary"));
 
     expect(summary.textContent).toBe(`spawn child: Inspect the renderer. ${"a".repeat(73)}... (running)`);
@@ -650,7 +650,7 @@ describe("thread stream item renderer decisions", () => {
       onDisclosureToggle,
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     const agentRows = textContents(element, ".codex-panel__meta-grid dt, .codex-panel__meta-grid dd");
     expect(agentRows).toContain("019e061e");
@@ -693,9 +693,9 @@ describe("thread stream item renderer decisions", () => {
       ],
     });
 
-    const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));
+    const summary = renderThreadStreamBlockElement(expectPresent(blocks.at(-1)));
 
-    expect(summary.classList.contains("codex-panel__status-message")).toBe(true);
+    expect(summary.classList.contains("codex-panel__status-stream-item")).toBe(true);
     expect(summary.classList.contains("codex-panel__agent-summary")).toBe(true);
     expect(summary.textContent).toContain("agents");
     expect(summary.textContent).toContain("Agents 1 running, 1 done");
@@ -731,7 +731,7 @@ describe("thread stream item renderer decisions", () => {
     const running = expectPresent(
       runningParent.querySelector<HTMLElement>('[data-codex-panel-block-key="item:compact-1"] .codex-panel__context-compaction'),
     );
-    expect(running.querySelector(".codex-panel__message-role")?.textContent).toBe("context");
+    expect(running.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("context");
     expect(running.querySelector(".codex-panel__stream-summary")?.textContent).toBe("Compacting context...");
     expect(running.classList.contains("codex-panel__execution--running")).toBe(true);
     unmountUiRootInAct(runningParent);
@@ -803,7 +803,7 @@ describe("thread stream item renderer decisions", () => {
       ],
     });
 
-    const summary = renderMessageBlockElement(expectPresent(blocks.at(-1)));
+    const summary = renderThreadStreamBlockElement(expectPresent(blocks.at(-1)));
 
     expect(summary.classList.contains("codex-panel__execution--failed")).toBe(true);
     expect(summary.textContent).toContain("Agents 1 failed, 1 running");

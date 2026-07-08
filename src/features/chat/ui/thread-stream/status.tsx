@@ -15,13 +15,13 @@ export function statusNode(view: ThreadStreamStatusView): UiNode {
   return <GenericStatus view={view} />;
 }
 
-export function createStatusMessageClassName(className: string, tone?: "warning"): string {
+export function createStatusStreamItemClassName(className: string, tone?: "warning"): string {
   return [
-    "codex-panel__message",
-    "codex-panel__message--tool",
-    "codex-panel__status-message",
+    "codex-panel__stream-item",
+    "codex-panel__stream-item--tool",
+    "codex-panel__status-stream-item",
     className,
-    tone === "warning" ? "codex-panel__status-message--warning" : "",
+    tone === "warning" ? "codex-panel__status-stream-item--warning" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -35,16 +35,16 @@ function AgentRunSummary({
   openThreadInNewView?: ((threadId: string) => void) | undefined;
 }): UiNode {
   return (
-    <StatusMessage label={view.label} className={view.className} state={view.state}>
+    <StatusStreamItem label={view.label} className={view.className} state={view.state}>
       <div className="codex-panel__stream-summary">{view.summary}</div>
       <AgentSummaryRows view={view} openThreadInNewView={openThreadInNewView} />
-    </StatusMessage>
+    </StatusStreamItem>
   );
 }
 
 function TaskProgress({ view }: { view: Extract<ThreadStreamStatusView, { kind: "taskProgress" }> }): UiNode {
   return (
-    <StatusMessage label={view.label} className={view.className} state={view.state}>
+    <StatusStreamItem label={view.label} className={view.className} state={view.state}>
       {view.summary ? <div className="codex-panel__stream-summary">{view.summary}</div> : null}
       {view.checklist.length === 0 ? (
         <div className="codex-panel__stream-summary">Plan updated</div>
@@ -69,23 +69,23 @@ function TaskProgress({ view }: { view: Extract<ThreadStreamStatusView, { kind: 
           ))}
         </ul>
       )}
-    </StatusMessage>
+    </StatusStreamItem>
   );
 }
 
 function ContextCompaction({ view }: { view: Extract<ThreadStreamStatusView, { kind: "contextCompaction" }> }): UiNode {
   return (
-    <StatusMessage label={view.label} className={view.className} state={view.state}>
+    <StatusStreamItem label={view.label} className={view.className} state={view.state}>
       <div className="codex-panel__stream-summary">{view.text}</div>
-    </StatusMessage>
+    </StatusStreamItem>
   );
 }
 
 function GenericStatus({ view }: { view: Extract<ThreadStreamStatusView, { kind: "generic" }> }): UiNode {
   return (
-    <StatusMessage label={view.label} className={view.className} state={view.state}>
+    <StatusStreamItem label={view.label} className={view.className} state={view.state}>
       <div className="codex-panel__stream-summary">{view.text}</div>
-    </StatusMessage>
+    </StatusStreamItem>
   );
 }
 
@@ -107,7 +107,7 @@ function Reasoning({ view }: { view: Extract<ThreadStreamStatusView, { kind: "re
   );
 }
 
-function StatusMessage({
+function StatusStreamItem({
   label,
   className,
   state,
@@ -118,10 +118,10 @@ function StatusMessage({
   state: ExecutionState;
   children: UiNode;
 }): UiNode {
-  const classes = [createStatusMessageClassName(className), executionClassName(state)].filter(Boolean).join(" ");
+  const classes = [createStatusStreamItemClassName(className), executionClassName(state)].filter(Boolean).join(" ");
   return (
     <div className={classes}>
-      <div className="codex-panel__message-role">{label}</div>
+      <div className="codex-panel__stream-item-role">{label}</div>
       {children}
     </div>
   );

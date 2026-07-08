@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import { listenDomEvent, listenOutsideDomEvent } from "../../../../shared/dom/events.dom";
 import type { ThreadStreamTextView } from "../../presentation/thread-stream/text-view";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
+import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 import type { TextItemContentContext } from "./context";
 
 const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
@@ -20,7 +20,7 @@ export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTe
     const update = () => {
       setOverflows(content.scrollHeight > userMessageCollapseHeight(content) + 1);
     };
-    const disposeRendered = listenDomEvent(content, MESSAGE_CONTENT_RENDERED_EVENT, update);
+    const disposeRendered = listenDomEvent(content, THREAD_STREAM_CONTENT_RENDERED_EVENT, update);
     update();
     content.win.requestAnimationFrame(update);
     return disposeRendered;
@@ -44,16 +44,16 @@ export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTe
     <div
       ref={collapseRef}
       className={[
-        "codex-panel__message-collapse",
-        overflows ? "codex-panel__message-collapse--overflow" : "",
-        overflows && expanded ? "codex-panel__message-collapse--expanded" : "",
+        "codex-panel__stream-item-collapse",
+        overflows ? "codex-panel__stream-item-collapse--overflow" : "",
+        overflows && expanded ? "codex-panel__stream-item-collapse--expanded" : "",
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <TextContent key={view.contentKey} view={view} context={context} contentRef={contentRef} collapsed={overflows && !expanded} />
       <details
-        className="codex-panel__message-collapse-details"
+        className="codex-panel__stream-item-collapse-details"
         hidden={!overflows || expanded}
         onToggle={(event) => {
           if (!event.currentTarget.open) return;
@@ -131,9 +131,9 @@ function TextContentContainer({
         assignTextContentRef(contentRef, element);
       }}
       className={[
-        "codex-panel__message-content",
+        "codex-panel__stream-item-content",
         markdown ? "markdown-rendered" : "",
-        collapsed ? "codex-panel__message-content--collapsed" : "",
+        collapsed ? "codex-panel__stream-item-content--collapsed" : "",
       ]
         .filter(Boolean)
         .join(" ")}

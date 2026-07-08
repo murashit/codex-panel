@@ -32,7 +32,7 @@
   grid-row: 1;
 }
 
-.codex-panel__region--message-stream {
+.codex-panel__region--thread-stream {
   grid-row: 2;
   min-height: 0;
   overflow: hidden;

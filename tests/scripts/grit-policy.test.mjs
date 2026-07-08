@@ -1092,7 +1092,7 @@ export const value = <button />;
   font-weight: var(--font-normal);
 }
 
-.codex-panel__message-content.markdown-rendered pre {
+.codex-panel__stream-item-content.markdown-rendered pre {
   overflow-x: auto;
 }
 

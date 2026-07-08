@@ -3,7 +3,7 @@
 import { h, type ComponentChild as UiNode } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
+import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
 import {
   ThreadStreamFlowFrame,
   type ThreadStreamScrollCommand,
@@ -101,14 +101,14 @@ describe("thread stream flow scrolling", () => {
 
     setHeights({ first: 500, second: 300, third: 300 });
     void act(() => {
-      blockElement("first").dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
+      blockElement("first").dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
     });
 
     expect(messages.scrollTop).toBe(360);
   });
 
   it("keeps hidden thread streams pinned when the viewport size returns", () => {
-    const restoreInitialMetrics = installMessageViewportPrototypeMetrics({ scrollHeight: 600, viewport: { width: 0, height: 0 } });
+    const restoreInitialMetrics = installThreadStreamViewportPrototypeMetrics({ scrollHeight: 600, viewport: { width: 0, height: 0 } });
     const { messages, resizeViewport } = renderFlowThreadStream(
       ["first", "second"],
       { first: 300, second: 300 },
@@ -139,7 +139,7 @@ describe("thread stream flow scrolling", () => {
             ref(element: HTMLDivElement | null) {
               if (!element || nativeAnchoringApplied) return;
               nativeAnchoringApplied = true;
-              const viewport = element.closest<HTMLElement>(".codex-panel__messages");
+              const viewport = element.closest<HTMLElement>(".codex-panel__thread-stream");
               if (viewport) viewport.scrollTop += 180;
             },
           });
@@ -163,7 +163,7 @@ describe("thread stream flow scrolling", () => {
 
     setHeights({ message: 420 });
     void act(() => {
-      blockElement("message").dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
+      blockElement("message").dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
     });
 
     expect(messages.scrollTop).toBe(320);
@@ -322,7 +322,7 @@ function renderFlowThreadStream(
   };
 
   render(keys, heights);
-  const messages = messageViewport(parent);
+  const messages = threadStreamViewport(parent);
   installFlowMetrics(
     messages,
     () => currentKeys,
@@ -348,8 +348,8 @@ function renderFlowThreadStream(
   };
 }
 
-function messageViewport(parent: HTMLElement): HTMLElement {
-  const element = parent.querySelector<HTMLElement>(".codex-panel__messages");
+function threadStreamViewport(parent: HTMLElement): HTMLElement {
+  const element = parent.querySelector<HTMLElement>(".codex-panel__thread-stream");
   if (!element) throw new Error("Expected message viewport.");
   return element;
 }
@@ -383,7 +383,7 @@ function installFlowMetrics(
   messages.scrollTop = initialScrollTop;
 
   messages.getBoundingClientRect = () => messageRect(0, viewport().height);
-  Array.from(messages.querySelectorAll<HTMLElement>(".codex-panel__message-block")).forEach((element) => {
+  Array.from(messages.querySelectorAll<HTMLElement>(".codex-panel__thread-stream-block")).forEach((element) => {
     installBlockRect(element, messages, heights);
   });
 }
@@ -450,7 +450,7 @@ function flushAnimationFrame(): void {
   });
 }
 
-function installMessageViewportPrototypeMetrics(metrics: {
+function installThreadStreamViewportPrototypeMetrics(metrics: {
   scrollHeight: number;
   viewport: { width: number; height: number };
 }): () => void {
@@ -463,31 +463,31 @@ function installMessageViewportPrototypeMetrics(metrics: {
   Object.defineProperties(HTMLElement.prototype, {
     scrollHeight: {
       get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.scrollHeight : 0;
+        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.scrollHeight : 0;
       },
       configurable: true,
     },
     clientHeight: {
       get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.viewport.height : 0;
+        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.viewport.height : 0;
       },
       configurable: true,
     },
     clientWidth: {
       get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.viewport.width : 0;
+        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.viewport.width : 0;
       },
       configurable: true,
     },
     offsetHeight: {
       get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.viewport.height : 0;
+        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.viewport.height : 0;
       },
       configurable: true,
     },
     offsetWidth: {
       get() {
-        return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.viewport.width : 0;
+        return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.viewport.width : 0;
       },
       configurable: true,
     },
@@ -513,7 +513,7 @@ function restorePrototypeProperty(object: object, key: PropertyKey, descriptor: 
 function installBlockRect(element: HTMLElement, messages: HTMLElement, heights: () => Record<string, number>): void {
   element.getBoundingClientRect = () => {
     const key = element.dataset["codexPanelBlockKey"] ?? "";
-    const siblings = Array.from(messages.querySelectorAll<HTMLElement>(".codex-panel__message-block"));
+    const siblings = Array.from(messages.querySelectorAll<HTMLElement>(".codex-panel__thread-stream-block"));
     const index = siblings.indexOf(element);
     const top = siblings
       .slice(0, Math.max(0, index))

@@ -97,7 +97,7 @@ function uiRootIntact(container: HTMLElement, showToolbar: boolean): boolean {
   } else if (topLevel[0] !== body) {
     return false;
   }
-  return Boolean(shellRegion(body, "goal") && shellRegion(body, "message-stream") && shellRegion(body, "composer"));
+  return Boolean(shellRegion(body, "goal") && shellRegion(body, "thread-stream") && shellRegion(body, "composer"));
 }
 
 function shellRegion(container: HTMLElement, region: string): HTMLElement | null {

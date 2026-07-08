@@ -149,7 +149,7 @@ export function dispatchComposingInputValue(input: HTMLInputElement, value: stri
   input.dispatchEvent(event);
 }
 
-export function renderMessageBlockElement(block: ThreadStreamViewBlock): HTMLElement {
+export function renderThreadStreamBlockElement(block: ThreadStreamViewBlock): HTMLElement {
   const parent = document.createElement("div");
   renderThreadStreamBlocksInAct(parent, [block]);
   const host = expectPresent(parent.querySelector<HTMLElement>(`[data-codex-panel-block-key="${block.key}"]`));
@@ -161,8 +161,8 @@ export function actEvent(action: () => void): void {
 }
 
 export function renderThreadStreamBlocksInAct(parent: HTMLElement, blocks: ThreadStreamViewBlock[]): void {
-  parent.addClass("codex-panel__messages");
-  installMessageViewportMetrics(parent);
+  parent.addClass("codex-panel__thread-stream");
+  installThreadStreamViewportMetrics(parent);
   if (!parent.isConnected) document.body.appendChild(parent);
   const context = threadStreamContextForBlocks(blocks);
   void act(() => {
@@ -189,7 +189,7 @@ function threadStreamContextForBlocks(blocks: readonly ThreadStreamViewBlock[]):
   return context;
 }
 
-export function installMessageViewportMetrics(
+export function installThreadStreamViewportMetrics(
   element: HTMLElement,
   metrics: { clientHeight?: number; clientWidth?: number; scrollHeight?: number } = {},
 ): void {
@@ -283,12 +283,12 @@ function activeTurnIdForThreadStream(lifecycle: ThreadStreamTurnLifecycleState):
   return lifecycle.kind === "running" ? lifecycle.turnId : null;
 }
 
-export function withMessageContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {
+export function withStreamItemContentScrollHeight<T>(scrollHeight: number, fn: () => T): T {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
   Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
     configurable: true,
     get() {
-      return this.classList.contains("codex-panel__message-content") ? scrollHeight : 0;
+      return this.classList.contains("codex-panel__stream-item-content") ? scrollHeight : 0;
     },
   });
   try {

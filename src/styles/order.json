@@ -6,7 +6,7 @@
   "20-chat-shell.css",
   "21-chat-toolbar.css",
   "22-chat-goal.css",
-  "23-chat-message-stream.css",
+  "23-chat-thread-stream.css",
   "24-chat-stream-items.css",
   "25-chat-pending-requests.css",
   "26-chat-composer.css",

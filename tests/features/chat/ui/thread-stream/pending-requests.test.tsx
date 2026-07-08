@@ -19,8 +19,8 @@ import {
   pendingOtherUserInput,
   pendingRequestActions,
   pendingUserInput,
-  renderMessageBlockElement,
   renderPendingRequestNode,
+  renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
   setNativeInputValue,
   threadStreamBlocks,
@@ -48,10 +48,10 @@ describe("pending request renderer decisions", () => {
     );
 
     expect(parent.querySelectorAll(".codex-panel__pending-request-block")).toHaveLength(1);
-    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__status-message")).toBe(true);
-    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__status-message--warning")).toBe(
-      true,
-    );
+    expect(parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__status-stream-item")).toBe(true);
+    expect(
+      parent.querySelector(".codex-panel__pending-request-block")?.classList.contains("codex-panel__status-stream-item--warning"),
+    ).toBe(true);
     expect(parent.querySelector<HTMLButtonElement>(".codex-panel__pending-request-button.mod-cta")?.textContent).toBe("Submit");
     expect(parent.querySelector(".codex-panel__user-input-answer .codex-panel__user-input-radio")).not.toBeNull();
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-radio")?.checked).toBe(true);
@@ -381,11 +381,11 @@ describe("pending request renderer decisions", () => {
       renderMarkdown,
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
-    expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("Input");
-    expect(element.querySelector(".codex-panel__message-content")?.textContent).toBe("Input submitted for 1 question.");
-    expect(element.querySelector(".codex-panel__message-content")?.classList.contains("markdown-rendered")).toBe(false);
+    expect(element.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("Input");
+    expect(element.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Input submitted for 1 question.");
+    expect(element.querySelector(".codex-panel__stream-item-content")?.classList.contains("markdown-rendered")).toBe(false);
     expect(renderMarkdown).not.toHaveBeenCalled();
     expect(element.textContent).not.toContain("Approval");
     expect(element.querySelector("details summary")?.textContent).toBe("Question: Scope");
@@ -412,12 +412,12 @@ describe("pending request renderer decisions", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
-    expect(element.classList.contains("codex-panel__message--approval-result")).toBe(true);
+    expect(element.classList.contains("codex-panel__stream-item--approval-result")).toBe(true);
     expect(element.classList.contains("codex-panel__detail")).toBe(true);
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
-    expect(element.querySelector(".codex-panel__message-content")).toBeNull();
+    expect(element.querySelector(".codex-panel__stream-item-content")).toBeNull();
     expect(element.querySelector(".codex-panel__detail-header")?.textContent).toBe("approval");
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("Allowed for this session: Need access");
     expect(element.querySelector("details summary")?.textContent).toBe("approval");
@@ -458,7 +458,7 @@ describe("pending request renderer decisions", () => {
     const block = blocks.find((candidate) => candidate.key === "item:assistant-1");
     if (!block) throw new Error("Expected assistant block");
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__auto-reviews summary")?.textContent).toBe("Auto-reviewed 2 requests");
     expect(element.querySelector(".codex-panel__auto-reviews")?.textContent).toContain("Auto-review approved: npm test");

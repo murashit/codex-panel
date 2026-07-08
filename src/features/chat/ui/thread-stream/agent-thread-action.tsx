@@ -13,7 +13,7 @@ export function OpenAgentThreadAction({
     <IconButton
       icon="external-link"
       label="Open agent thread"
-      className="clickable-icon codex-panel__message-action codex-panel__agent-open-thread"
+      className="clickable-icon codex-panel__stream-item-action codex-panel__agent-open-thread"
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();

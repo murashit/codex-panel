@@ -118,7 +118,7 @@ export function GoalPanel({
               <IconButton
                 icon="pencil"
                 label="Edit goal"
-                className="clickable-icon codex-panel__message-action codex-panel__goal-action"
+                className="clickable-icon codex-panel__stream-item-action codex-panel__goal-action"
                 onClick={actions.onStartEditing}
               />
             ) : null}
@@ -126,7 +126,7 @@ export function GoalPanel({
               <IconButton
                 icon="pause"
                 label="Pause goal"
-                className="clickable-icon codex-panel__message-action codex-panel__goal-action"
+                className="clickable-icon codex-panel__stream-item-action codex-panel__goal-action"
                 onClick={actions.onPause}
               />
             ) : null}
@@ -134,7 +134,7 @@ export function GoalPanel({
               <IconButton
                 icon="play"
                 label="Resume goal"
-                className="clickable-icon codex-panel__message-action codex-panel__goal-action"
+                className="clickable-icon codex-panel__stream-item-action codex-panel__goal-action"
                 onClick={actions.onResume}
               />
             ) : null}
@@ -142,7 +142,7 @@ export function GoalPanel({
               <IconButton
                 icon="x"
                 label="Clear goal"
-                className="clickable-icon codex-panel__message-action codex-panel__goal-action"
+                className="clickable-icon codex-panel__stream-item-action codex-panel__goal-action"
                 onClick={actions.onClear}
               />
             ) : null}

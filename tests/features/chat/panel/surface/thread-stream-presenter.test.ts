@@ -15,7 +15,7 @@ import {
   type ChatThreadStreamScrollBinding,
   createChatThreadStreamScrollBinding,
 } from "../../../../../src/features/chat/panel/thread-stream-scroll-binding";
-import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
+import { ThreadStreamMarkdownRenderer } from "../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
 import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread-stream/stream-blocks";
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
@@ -23,7 +23,7 @@ import { installObsidianDomShims } from "../../../../support/dom";
 import { threadStreamReadModelFromChatState } from "../../support/shell-read-model";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateThreadStreamItems } from "../../support/thread-stream";
-import { installMessageViewportMetrics, pendingApproval } from "../../ui/thread-stream/test-helpers";
+import { installThreadStreamViewportMetrics, pendingApproval } from "../../ui/thread-stream/test-helpers";
 
 const ESTIMATED_MESSAGE_BLOCK_HEIGHT = 96;
 
@@ -242,15 +242,15 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const { presenter, scrollPortBinding } = threadStreamPresenter(state);
 
     renderThreadStreamPresenter(parent, presenter, state);
-    const messages = messageViewport(parent);
+    const messages = threadStreamViewport(parent);
     Object.defineProperty(messages, "scrollHeight", { value: ESTIMATED_MESSAGE_BLOCK_HEIGHT, configurable: true });
-    installMessageViewportMetrics(messages, { clientHeight: 100 });
+    installThreadStreamViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 920;
 
     const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
     scrollIntoView.mockClear();
     scrollPortBinding.showLatest();
-    await settleMessageRender(messages);
+    await settleThreadStreamRender(messages);
 
     expect(messages.scrollTop).toBe(0);
     expect(scrollIntoView).not.toHaveBeenCalled();
@@ -273,7 +273,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const parent = document.createElement("div");
     const { presenter, scrollPortBinding } = threadStreamPresenter(state);
 
-    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    const messages = parent.createDiv({ cls: "codex-panel__thread-stream" });
     let scrollTop = 0;
     let layoutSettled = false;
     Object.defineProperties(messages, {
@@ -298,14 +298,14 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     });
     messages.scrollTop = 1000;
     renderThreadStreamPresenter(messages, presenter, state);
-    await settleMessageRender(messages);
+    await settleThreadStreamRender(messages);
     expect(messages.scrollTop).toBe(0);
 
     scrollPortBinding.showLatest();
     expect(messages.scrollTop).toBe(0);
 
     layoutSettled = true;
-    await settleMessageRender(messages);
+    await settleThreadStreamRender(messages);
 
     expect(messages.scrollTop).toBe(0);
   });
@@ -340,9 +340,9 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const parent = document.createElement("div");
     const { presenter, scrollPortBinding } = threadStreamPresenter(state);
     renderThreadStreamPresenter(parent, presenter, state);
-    const messages = messageViewport(parent);
-    installMessageViewportMetrics(messages);
-    await settleMessageRender(messages);
+    const messages = threadStreamViewport(parent);
+    installThreadStreamViewportMetrics(messages);
+    await settleThreadStreamRender(messages);
 
     unmountUiRoot(parent);
 
@@ -369,17 +369,17 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const parent = document.createElement("div");
     const { presenter, scrollPortBinding } = threadStreamPresenter(state);
     renderThreadStreamPresenter(parent, presenter, state);
-    const oldMessages = messageViewport(parent);
-    installMessageViewportMetrics(oldMessages, { clientHeight: 100, scrollHeight: 1000 });
-    await settleMessageRender(oldMessages);
+    const oldMessages = threadStreamViewport(parent);
+    installThreadStreamViewportMetrics(oldMessages, { clientHeight: 100, scrollHeight: 1000 });
+    await settleThreadStreamRender(oldMessages);
     oldMessages.scrollTop = 125;
 
     unmountUiRoot(parent);
 
     renderThreadStreamPresenter(parent, presenter, state);
-    const newMessages = messageViewport(parent);
-    installMessageViewportMetrics(newMessages, { clientHeight: 100, scrollHeight: 1000 });
-    await settleMessageRender(newMessages);
+    const newMessages = threadStreamViewport(parent);
+    installThreadStreamViewportMetrics(newMessages, { clientHeight: 100, scrollHeight: 1000 });
+    await settleThreadStreamRender(newMessages);
     scrollPortBinding.showLatest();
 
     expect(newMessages.scrollTop).toBe(900);
@@ -404,10 +404,10 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const { presenter, scrollPortBinding } = threadStreamPresenter(state, vi.fn(), "/vault");
 
     renderThreadStreamPresenter(parent, presenter, state);
-    const messages = messageViewport(parent);
-    installMessageViewportMetrics(messages, { clientHeight: 100, scrollHeight: 1000 });
+    const messages = threadStreamViewport(parent);
+    installThreadStreamViewportMetrics(messages, { clientHeight: 100, scrollHeight: 1000 });
     scrollPortBinding.showLatest();
-    await settleMessageRender(messages);
+    await settleThreadStreamRender(messages);
 
     expect(messages.scrollTop).toBe(900);
   });
@@ -429,13 +429,13 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const parent = document.createElement("div");
     const { presenter } = threadStreamPresenter(state);
 
-    const messages = parent.createDiv({ cls: "codex-panel__messages" });
-    installMessageViewportMetrics(messages);
+    const messages = parent.createDiv({ cls: "codex-panel__thread-stream" });
+    installThreadStreamViewportMetrics(messages);
     renderThreadStreamPresenter(messages, presenter, state);
-    await settleMessageRender(messages);
+    await settleThreadStreamRender(messages);
 
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
-    installMessageViewportMetrics(messages, { clientHeight: 100 });
+    installThreadStreamViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 100;
     messages.dispatchEvent(new Event("scroll"));
 
@@ -453,7 +453,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
       },
     ]);
     renderThreadStreamPresenter(messages, presenter, state);
-    await settleMessageRender(messages);
+    await settleThreadStreamRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
@@ -475,9 +475,9 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const parent = document.createElement("div");
     const { presenter } = threadStreamPresenter(state);
 
-    const messages = parent.createDiv({ cls: "codex-panel__messages" });
+    const messages = parent.createDiv({ cls: "codex-panel__thread-stream" });
     Object.defineProperty(messages, "scrollHeight", { value: 1000, configurable: true });
-    installMessageViewportMetrics(messages, { clientHeight: 100 });
+    installThreadStreamViewportMetrics(messages, { clientHeight: 100 });
     messages.scrollTop = 920;
     renderThreadStreamPresenter(messages, presenter, state);
 
@@ -485,7 +485,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     scrollIntoView.mockClear();
     messages.scrollTop = 100;
     messages.dispatchEvent(new Event("scroll"));
-    await settleMessageRender(messages);
+    await settleThreadStreamRender(messages);
 
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
@@ -508,16 +508,16 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const { presenter } = threadStreamPresenter(state);
 
     renderThreadStreamPresenter(parent, presenter, state);
-    let messages = messageViewport(parent);
-    installMessageViewportMetrics(messages);
+    let messages = threadStreamViewport(parent);
+    installThreadStreamViewportMetrics(messages);
     renderThreadStreamPresenter(parent, presenter, state);
-    messages = messageViewport(parent);
-    await settleMessageRender(messages);
-    expect(parent.querySelector(".codex-panel__messages")).not.toBeNull();
+    messages = threadStreamViewport(parent);
+    await settleThreadStreamRender(messages);
+    expect(parent.querySelector(".codex-panel__thread-stream")).not.toBeNull();
 
     presenter.dispose();
 
-    expect(parent.querySelector(".codex-panel__messages")).not.toBeNull();
+    expect(parent.querySelector(".codex-panel__thread-stream")).not.toBeNull();
   });
 
   it("renders large thread streams through the flow viewport", async () => {
@@ -539,11 +539,11 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const { presenter } = threadStreamPresenter(state);
 
     renderThreadStreamPresenter(parent, presenter, state);
-    const messages = messageViewport(parent);
-    installMessageViewportMetrics(messages, { clientHeight: 320, scrollHeight: 19_200 });
-    await settleMessageRender(messages);
+    const messages = threadStreamViewport(parent);
+    installThreadStreamViewportMetrics(messages, { clientHeight: 320, scrollHeight: 19_200 });
+    await settleThreadStreamRender(messages);
 
-    expect(parent.querySelector(".codex-panel__message-flow")).not.toBeNull();
+    expect(parent.querySelector(".codex-panel__thread-stream-flow")).not.toBeNull();
     expect(parent.querySelectorAll("[data-codex-panel-block-key]").length).toBeGreaterThan(0);
   });
 });
@@ -563,7 +563,7 @@ function testThreadStreamSurfaceContext(options: {
     loadOlderTurns: vi.fn(),
     renderObsidianMarkdown: vi.fn(),
     renderStreamMarkdown: vi.fn(),
-    copyMessageText: vi.fn(),
+    copyDialogueText: vi.fn(),
     actions: {
       rollbackThread: vi.fn(),
       forkThreadFromTurn: vi.fn(),
@@ -614,7 +614,7 @@ async function renderedInternalLink(
     staging.createEl("a", linkOptions);
     return Promise.resolve();
   });
-  const markdownRenderer = new MarkdownMessageRenderer({
+  const markdownRenderer = new ThreadStreamMarkdownRenderer({
     app: context.app as never,
     owner: {} as never,
     vaultPath: context.vaultPath,
@@ -645,7 +645,7 @@ async function renderedTag(
     staging.createEl("a", linkOptions);
     return Promise.resolve();
   });
-  const markdownRenderer = new MarkdownMessageRenderer({
+  const markdownRenderer = new ThreadStreamMarkdownRenderer({
     app: context.app as never,
     owner: {} as never,
     vaultPath: context.vaultPath,
@@ -747,13 +747,13 @@ function tFile(path: string): TFile {
   return Object.assign(new TFile(), { path, basename });
 }
 
-function messageViewport(parent: HTMLElement): HTMLElement {
-  const viewport = parent.querySelector<HTMLElement>(":scope > .codex-panel__messages");
+function threadStreamViewport(parent: HTMLElement): HTMLElement {
+  const viewport = parent.querySelector<HTMLElement>(":scope > .codex-panel__thread-stream");
   if (!viewport) throw new Error("Expected message viewport to be mounted.");
   return viewport;
 }
 
-async function settleMessageRender(element: HTMLElement): Promise<void> {
+async function settleThreadStreamRender(element: HTMLElement): Promise<void> {
   await Promise.resolve();
   await new Promise<void>((resolve) => {
     element.win.requestAnimationFrame(() => {

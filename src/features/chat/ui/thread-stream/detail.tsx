@@ -72,7 +72,7 @@ function DetailHeader({
   openThreadInNewView?: ((threadId: string) => void) | undefined;
 }): UiNode {
   const content = (
-    <span className="codex-panel__message-role codex-panel__detail-label">
+    <span className="codex-panel__stream-item-role codex-panel__detail-label">
       <span>{view.label}</span>
       {openThreadInNewView && view.summaryThreadIds.length > 0 ? (
         <span className="codex-panel__detail-header-actions">

@@ -3,9 +3,9 @@ import { type App, type Component, MarkdownRenderer, Notice } from "obsidian";
 
 import { isAbsoluteFileHref, vaultRelativeFileLinkTarget } from "../../../../domain/vault/file-hrefs";
 import { vaultFileLinkTarget } from "../../../../shared/obsidian/vault-file-links.obsidian";
-import { notifyMessageContentRendered } from "./content-rendered-event.dom";
+import { notifyThreadStreamContentRendered } from "./content-rendered-event.dom";
 
-interface MarkdownMessageRendererOptions {
+interface ThreadStreamMarkdownRendererOptions {
   app: App;
   owner: Component;
   vaultPath: string;
@@ -30,10 +30,10 @@ interface ObsidianAppWithInternalPlugins extends App {
   };
 }
 
-export class MarkdownMessageRenderer {
+export class ThreadStreamMarkdownRenderer {
   private readonly renderGenerations = new WeakMap<HTMLElement, number>();
 
-  constructor(private readonly options: MarkdownMessageRendererOptions) {}
+  constructor(private readonly options: ThreadStreamMarkdownRendererOptions) {}
 
   renderObsidianMarkdown(parent: HTMLElement, text: string): void {
     const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
@@ -46,7 +46,7 @@ export class MarkdownMessageRenderer {
       bindRenderedWikiLinks(parent, sourcePath, this.options);
       bindRenderedMarkdownFileLinks(parent, sourcePath, this.options);
       bindRenderedTags(parent, this.options);
-      notifyMessageContentRendered(parent);
+      notifyThreadStreamContentRendered(parent);
     });
   }
 }

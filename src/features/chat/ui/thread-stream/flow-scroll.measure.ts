@@ -1,17 +1,17 @@
 import { Component, h, type ComponentChild as UiNode } from "preact";
 
 import { disposeDomListeners, listenDomEvent } from "../../../../shared/dom/events.dom";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
+import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 
-type MessageScrollDirection = -1 | 1;
+type ThreadStreamScrollDirection = -1 | 1;
 
-const MESSAGE_FLOW_TEXT_LINE_SCROLL_LINES = 4;
-const MESSAGE_FLOW_REPEATED_TEXT_LINE_SCROLL_LINES = 4;
+const THREAD_STREAM_FLOW_TEXT_LINE_SCROLL_LINES = 4;
+const THREAD_STREAM_FLOW_REPEATED_TEXT_LINE_SCROLL_LINES = 4;
 
 export type ThreadStreamScrollCommand =
   | { kind: "show-latest" }
   | { kind: "scroll-to"; edge: "start" | "end" }
-  | { kind: "scroll-by"; amount: "text-lines" | "page"; direction: MessageScrollDirection; repeated?: boolean };
+  | { kind: "scroll-by"; amount: "text-lines" | "page"; direction: ThreadStreamScrollDirection; repeated?: boolean };
 
 export interface ThreadStreamScrollPort {
   dispatchScrollCommand(command: ThreadStreamScrollCommand): void;
@@ -32,14 +32,14 @@ export interface ThreadStreamFlowFrameProps<Block extends ThreadStreamFlowBlockI
   renderBlockContent: (block: Block) => UiNode;
 }
 
-interface MessageFlowReadingAnchor {
+interface ThreadStreamFlowReadingAnchor {
   key: string;
   top: number;
 }
 
-type MessageFlowSnapshot = MessageFlowReadingAnchor | null;
+type ThreadStreamFlowSnapshot = ThreadStreamFlowReadingAnchor | null;
 
-interface MessageFlowRuntime {
+interface ThreadStreamFlowRuntime {
   container: HTMLElement | null;
   followingEnd: boolean;
   restoreFrame: number | null;
@@ -47,10 +47,10 @@ interface MessageFlowRuntime {
 }
 
 export class ThreadStreamFlowFrame<Block extends ThreadStreamFlowBlockIdentity> extends Component<ThreadStreamFlowFrameProps<Block>> {
-  private readonly runtime = createMessageFlowRuntime();
+  private readonly runtime = createThreadStreamFlowRuntime();
   private readonly scrollPort: ThreadStreamScrollPort = {
     dispatchScrollCommand: (command) => {
-      applyMessageFlowScrollCommand(this.runtime, command);
+      applyThreadStreamFlowScrollCommand(this.runtime, command);
     },
   };
   private scrollElement: HTMLElement | null = null;
@@ -58,28 +58,28 @@ export class ThreadStreamFlowFrame<Block extends ThreadStreamFlowBlockIdentity> 
 
   override componentDidMount(): void {
     this.mountScrollPort();
-    attachMessageFlowContainer(this.runtime, this.scrollElement);
-    completeMessageFlowRender(this.runtime, null);
+    attachThreadStreamFlowContainer(this.runtime, this.scrollElement);
+    completeThreadStreamFlowRender(this.runtime, null);
   }
 
-  override getSnapshotBeforeUpdate(previousProps: Readonly<ThreadStreamFlowFrameProps<Block>>): MessageFlowSnapshot | null {
-    return captureMessageFlowSnapshot(this.runtime, this.scrollElement, previousProps.blocks, this.props.blocks);
+  override getSnapshotBeforeUpdate(previousProps: Readonly<ThreadStreamFlowFrameProps<Block>>): ThreadStreamFlowSnapshot | null {
+    return captureThreadStreamFlowSnapshot(this.runtime, this.scrollElement, previousProps.blocks, this.props.blocks);
   }
 
   override componentDidUpdate(
     previousProps: Readonly<ThreadStreamFlowFrameProps<Block>>,
     _previousState: Readonly<Record<string, never>>,
-    snapshot: MessageFlowSnapshot | null,
+    snapshot: ThreadStreamFlowSnapshot | null,
   ): void {
     if (previousProps.scrollPortBinding !== this.props.scrollPortBinding) this.mountScrollPort();
-    if (this.runtime.container !== this.scrollElement) attachMessageFlowContainer(this.runtime, this.scrollElement);
-    completeMessageFlowRender(this.runtime, snapshot);
+    if (this.runtime.container !== this.scrollElement) attachThreadStreamFlowContainer(this.runtime, this.scrollElement);
+    completeThreadStreamFlowRender(this.runtime, snapshot);
   }
 
   override componentWillUnmount(): void {
     this.unmountScrollPort?.();
     this.unmountScrollPort = null;
-    disposeMessageFlowRuntime(this.runtime);
+    disposeThreadStreamFlowRuntime(this.runtime);
   }
 
   override render({ blocks, renderBlockContent, rootAttributes }: ThreadStreamFlowFrameProps<Block>): UiNode {
@@ -88,18 +88,18 @@ export class ThreadStreamFlowFrame<Block extends ThreadStreamFlowBlockIdentity> 
       {
         ...rootAttributes,
         ref: this.setScrollElement,
-        className: "codex-panel__region codex-panel__region--message-stream codex-panel__messages",
+        className: "codex-panel__region codex-panel__region--thread-stream codex-panel__thread-stream",
       },
       h(
         "div",
-        { className: "codex-panel__message-flow" },
+        { className: "codex-panel__thread-stream-flow" },
         blocks.map((block) =>
           h(
             "div",
             {
               ref: this.notifyBlockLayout,
               key: block.key,
-              className: "codex-panel__message-block",
+              className: "codex-panel__thread-stream-block",
               "data-codex-panel-block-key": block.key,
             },
             renderBlockContent(block),
@@ -114,7 +114,7 @@ export class ThreadStreamFlowFrame<Block extends ThreadStreamFlowBlockIdentity> 
   };
 
   private readonly notifyBlockLayout = (element: HTMLElement | null): void => {
-    handleMessageFlowBlockLayout(this.runtime, element);
+    handleThreadStreamFlowBlockLayout(this.runtime, element);
   };
 
   private mountScrollPort(): void {
@@ -123,7 +123,7 @@ export class ThreadStreamFlowFrame<Block extends ThreadStreamFlowBlockIdentity> 
   }
 }
 
-function createMessageFlowRuntime(): MessageFlowRuntime {
+function createThreadStreamFlowRuntime(): ThreadStreamFlowRuntime {
   return {
     container: null,
     followingEnd: false,
@@ -132,57 +132,57 @@ function createMessageFlowRuntime(): MessageFlowRuntime {
   };
 }
 
-function captureMessageFlowSnapshot(
-  runtime: MessageFlowRuntime,
+function captureThreadStreamFlowSnapshot(
+  runtime: ThreadStreamFlowRuntime,
   container: HTMLElement | null,
   previousBlocks: readonly ThreadStreamFlowBlockIdentity[],
   nextBlocks: readonly ThreadStreamFlowBlockIdentity[],
-): MessageFlowSnapshot | null {
-  if (!container || runtime.followingEnd || !messageFlowBlocksShifted(previousBlocks, nextBlocks)) return null;
-  return captureMessageFlowReadingAnchor(container);
+): ThreadStreamFlowSnapshot | null {
+  if (!container || runtime.followingEnd || !threadStreamFlowBlocksShifted(previousBlocks, nextBlocks)) return null;
+  return captureThreadStreamFlowReadingAnchor(container);
 }
 
-function completeMessageFlowRender(runtime: MessageFlowRuntime, snapshot: MessageFlowSnapshot | null): void {
+function completeThreadStreamFlowRender(runtime: ThreadStreamFlowRuntime, snapshot: ThreadStreamFlowSnapshot | null): void {
   const container = runtime.container;
   if (!container) return;
 
   if (runtime.followingEnd) {
-    scrollMessageFlowToEnd(runtime);
+    scrollThreadStreamFlowToEnd(runtime);
     return;
   }
 
-  if (snapshot) restoreMessageFlowReadingAnchor(container, snapshot);
+  if (snapshot) restoreThreadStreamFlowReadingAnchor(container, snapshot);
 }
 
-function attachMessageFlowContainer(runtime: MessageFlowRuntime, container: HTMLElement | null): void {
+function attachThreadStreamFlowContainer(runtime: ThreadStreamFlowRuntime, container: HTMLElement | null): void {
   if (runtime.container === container) return;
-  detachMessageFlowContainer(runtime);
+  detachThreadStreamFlowContainer(runtime);
   runtime.container = container;
-  runtime.followingEnd = container ? isMessageFlowAtEnd(container) || isMessageFlowViewportHidden(container) : false;
+  runtime.followingEnd = container ? isThreadStreamFlowAtEnd(container) || isThreadStreamFlowViewportHidden(container) : false;
   if (!container) return;
 
   const handleScroll = () => {
-    runtime.followingEnd = isMessageFlowAtEnd(container);
+    runtime.followingEnd = isThreadStreamFlowAtEnd(container);
   };
   const handleContentChange = () => {
     if (!runtime.followingEnd) return;
-    scrollMessageFlowToEnd(runtime);
-    scheduleMessageFlowEndRestore(runtime);
+    scrollThreadStreamFlowToEnd(runtime);
+    scheduleThreadStreamFlowEndRestore(runtime);
   };
   const win = container.ownerDocument.defaultView;
   if (win?.ResizeObserver) {
     runtime.resizeObserver = new win.ResizeObserver(() => {
-      if (runtime.followingEnd) scheduleMessageFlowEndRestore(runtime);
+      if (runtime.followingEnd) scheduleThreadStreamFlowEndRestore(runtime);
     });
     runtime.resizeObserver.observe(container);
   }
 
   runtime.restoreFrame = null;
-  cleanupMessageFlowContainer.set(
+  cleanupThreadStreamFlowContainer.set(
     runtime,
     disposeDomListeners(
       listenDomEvent(container, "scroll", handleScroll, { passive: true }),
-      listenDomEvent(container, MESSAGE_CONTENT_RENDERED_EVENT, handleContentChange, true),
+      listenDomEvent(container, THREAD_STREAM_CONTENT_RENDERED_EVENT, handleContentChange, true),
       listenDomEvent(container, "toggle", handleContentChange, true),
       () => {
         runtime.resizeObserver?.disconnect();
@@ -192,87 +192,87 @@ function attachMessageFlowContainer(runtime: MessageFlowRuntime, container: HTML
   );
 }
 
-const cleanupMessageFlowContainer = new WeakMap<MessageFlowRuntime, () => void>();
+const cleanupThreadStreamFlowContainer = new WeakMap<ThreadStreamFlowRuntime, () => void>();
 
-function detachMessageFlowContainer(runtime: MessageFlowRuntime): void {
-  cancelMessageFlowEndRestore(runtime);
-  cleanupMessageFlowContainer.get(runtime)?.();
-  cleanupMessageFlowContainer.delete(runtime);
+function detachThreadStreamFlowContainer(runtime: ThreadStreamFlowRuntime): void {
+  cancelThreadStreamFlowEndRestore(runtime);
+  cleanupThreadStreamFlowContainer.get(runtime)?.();
+  cleanupThreadStreamFlowContainer.delete(runtime);
   runtime.container = null;
 }
 
-function disposeMessageFlowRuntime(runtime: MessageFlowRuntime): void {
-  detachMessageFlowContainer(runtime);
+function disposeThreadStreamFlowRuntime(runtime: ThreadStreamFlowRuntime): void {
+  detachThreadStreamFlowContainer(runtime);
   runtime.followingEnd = false;
 }
 
-function applyMessageFlowScrollCommand(runtime: MessageFlowRuntime, command: ThreadStreamScrollCommand): void {
+function applyThreadStreamFlowScrollCommand(runtime: ThreadStreamFlowRuntime, command: ThreadStreamScrollCommand): void {
   switch (command.kind) {
     case "show-latest":
       runtime.followingEnd = true;
-      scrollMessageFlowToEnd(runtime);
-      scheduleMessageFlowEndRestore(runtime);
+      scrollThreadStreamFlowToEnd(runtime);
+      scheduleThreadStreamFlowEndRestore(runtime);
       break;
     case "scroll-to":
       if (command.edge === "start") {
-        scrollMessageFlowToStart(runtime, messageFlowManualScrollBehavior(runtime, false));
+        scrollThreadStreamFlowToStart(runtime, threadStreamFlowManualScrollBehavior(runtime, false));
       } else {
         runtime.followingEnd = true;
-        scrollMessageFlowToEnd(runtime, messageFlowManualScrollBehavior(runtime, false));
+        scrollThreadStreamFlowToEnd(runtime, threadStreamFlowManualScrollBehavior(runtime, false));
       }
       break;
     case "scroll-by":
-      scrollMessageFlowBy(
+      scrollThreadStreamFlowBy(
         runtime,
-        messageFlowScrollDelta(runtime, command.amount, command.direction, command.repeated === true),
-        messageFlowManualScrollBehavior(runtime, command.repeated === true),
+        threadStreamFlowScrollDelta(runtime, command.amount, command.direction, command.repeated === true),
+        threadStreamFlowManualScrollBehavior(runtime, command.repeated === true),
       );
       break;
   }
 }
 
-function handleMessageFlowBlockLayout(runtime: MessageFlowRuntime, element: HTMLElement | null): void {
+function handleThreadStreamFlowBlockLayout(runtime: ThreadStreamFlowRuntime, element: HTMLElement | null): void {
   if (!element || !runtime.followingEnd) return;
-  scrollMessageFlowToEnd(runtime);
-  scheduleMessageFlowEndRestore(runtime);
+  scrollThreadStreamFlowToEnd(runtime);
+  scheduleThreadStreamFlowEndRestore(runtime);
 }
 
-function scrollMessageFlowBy(runtime: MessageFlowRuntime, delta: number, behavior: ScrollBehavior = "auto"): void {
+function scrollThreadStreamFlowBy(runtime: ThreadStreamFlowRuntime, delta: number, behavior: ScrollBehavior = "auto"): void {
   const container = runtime.container;
   if (!container) return;
-  const targetTop = clampMessageFlowScrollTop(container, container.scrollTop + delta);
-  scrollMessageFlowToTop(container, targetTop, behavior);
-  runtime.followingEnd = isMessageFlowTopAtEnd(container, targetTop);
+  const targetTop = clampThreadStreamFlowScrollTop(container, container.scrollTop + delta);
+  scrollThreadStreamFlowToTop(container, targetTop, behavior);
+  runtime.followingEnd = isThreadStreamFlowTopAtEnd(container, targetTop);
 }
 
-function scrollMessageFlowToStart(runtime: MessageFlowRuntime, behavior: ScrollBehavior = "auto"): void {
+function scrollThreadStreamFlowToStart(runtime: ThreadStreamFlowRuntime, behavior: ScrollBehavior = "auto"): void {
   const container = runtime.container;
   if (!container) return;
-  scrollMessageFlowToTop(container, 0, behavior);
+  scrollThreadStreamFlowToTop(container, 0, behavior);
   runtime.followingEnd = false;
 }
 
-function messageFlowScrollDelta(
-  runtime: MessageFlowRuntime,
+function threadStreamFlowScrollDelta(
+  runtime: ThreadStreamFlowRuntime,
   amount: "text-lines" | "page",
-  direction: MessageScrollDirection,
+  direction: ThreadStreamScrollDirection,
   repeated: boolean,
 ): number {
   const container = runtime.container;
   if (!container) return 0;
   if (amount === "page") return Math.max(1, Math.floor(container.clientHeight * 0.8)) * direction;
-  const lines = repeated ? MESSAGE_FLOW_REPEATED_TEXT_LINE_SCROLL_LINES : MESSAGE_FLOW_TEXT_LINE_SCROLL_LINES;
+  const lines = repeated ? THREAD_STREAM_FLOW_REPEATED_TEXT_LINE_SCROLL_LINES : THREAD_STREAM_FLOW_TEXT_LINE_SCROLL_LINES;
   return Math.max(1, Math.round(textLineHeight(container) * lines)) * direction;
 }
 
-function scrollMessageFlowToEnd(runtime: MessageFlowRuntime, behavior: ScrollBehavior = "auto"): void {
+function scrollThreadStreamFlowToEnd(runtime: ThreadStreamFlowRuntime, behavior: ScrollBehavior = "auto"): void {
   const container = runtime.container;
   if (!container) return;
-  scrollMessageFlowToTop(container, messageFlowEndScrollTop(container), behavior);
+  scrollThreadStreamFlowToTop(container, threadStreamFlowEndScrollTop(container), behavior);
   runtime.followingEnd = true;
 }
 
-function scrollMessageFlowToTop(container: HTMLElement, top: number, behavior: ScrollBehavior): void {
+function scrollThreadStreamFlowToTop(container: HTMLElement, top: number, behavior: ScrollBehavior): void {
   if (behavior === "smooth") {
     container.scrollTo({ top, behavior });
     return;
@@ -281,37 +281,37 @@ function scrollMessageFlowToTop(container: HTMLElement, top: number, behavior: S
   container.scrollTop = top;
 }
 
-function messageFlowManualScrollBehavior(runtime: MessageFlowRuntime, repeated: boolean): ScrollBehavior {
+function threadStreamFlowManualScrollBehavior(runtime: ThreadStreamFlowRuntime, repeated: boolean): ScrollBehavior {
   if (repeated) return "auto";
   const win = runtime.container?.win;
   return win?.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 }
 
-function messageFlowEndScrollTop(container: HTMLElement): number {
+function threadStreamFlowEndScrollTop(container: HTMLElement): number {
   return Math.max(0, container.scrollHeight - container.clientHeight);
 }
 
-function clampMessageFlowScrollTop(container: HTMLElement, top: number): number {
-  return Math.max(0, Math.min(top, messageFlowEndScrollTop(container)));
+function clampThreadStreamFlowScrollTop(container: HTMLElement, top: number): number {
+  return Math.max(0, Math.min(top, threadStreamFlowEndScrollTop(container)));
 }
 
-function scheduleMessageFlowEndRestore(runtime: MessageFlowRuntime): void {
+function scheduleThreadStreamFlowEndRestore(runtime: ThreadStreamFlowRuntime): void {
   const container = runtime.container;
   if (!container || runtime.restoreFrame !== null) return;
   runtime.restoreFrame = container.win.requestAnimationFrame(() => {
     runtime.restoreFrame = null;
-    if (runtime.container === container && runtime.followingEnd) scrollMessageFlowToEnd(runtime);
+    if (runtime.container === container && runtime.followingEnd) scrollThreadStreamFlowToEnd(runtime);
   });
 }
 
-function cancelMessageFlowEndRestore(runtime: MessageFlowRuntime): void {
+function cancelThreadStreamFlowEndRestore(runtime: ThreadStreamFlowRuntime): void {
   const container = runtime.container;
   const frame = runtime.restoreFrame;
   if (container && frame !== null) container.win.cancelAnimationFrame(frame);
   runtime.restoreFrame = null;
 }
 
-function messageFlowBlocksShifted(
+function threadStreamFlowBlocksShifted(
   previous: readonly ThreadStreamFlowBlockIdentity[],
   next: readonly ThreadStreamFlowBlockIdentity[],
 ): boolean {
@@ -320,9 +320,9 @@ function messageFlowBlocksShifted(
   return previous.some((block, index) => block.key !== next[index]?.key);
 }
 
-function captureMessageFlowReadingAnchor(container: HTMLElement): MessageFlowReadingAnchor | null {
+function captureThreadStreamFlowReadingAnchor(container: HTMLElement): ThreadStreamFlowReadingAnchor | null {
   const viewportTop = container.getBoundingClientRect().top;
-  for (const element of messageFlowBlockElements(container)) {
+  for (const element of threadStreamFlowBlockElements(container)) {
     const rect = element.getBoundingClientRect();
     if (rect.bottom >= viewportTop) {
       const key = element.dataset["codexPanelBlockKey"];
@@ -332,27 +332,27 @@ function captureMessageFlowReadingAnchor(container: HTMLElement): MessageFlowRea
   return null;
 }
 
-function restoreMessageFlowReadingAnchor(container: HTMLElement, anchor: MessageFlowReadingAnchor): void {
-  const element = messageFlowBlockElements(container).find((candidate) => candidate.dataset["codexPanelBlockKey"] === anchor.key);
+function restoreThreadStreamFlowReadingAnchor(container: HTMLElement, anchor: ThreadStreamFlowReadingAnchor): void {
+  const element = threadStreamFlowBlockElements(container).find((candidate) => candidate.dataset["codexPanelBlockKey"] === anchor.key);
   if (!element) return;
   const viewportTop = container.getBoundingClientRect().top;
   const currentTop = element.getBoundingClientRect().top - viewportTop;
   container.scrollTop += currentTop - anchor.top;
 }
 
-function messageFlowBlockElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(".codex-panel__message-block"));
+function threadStreamFlowBlockElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(".codex-panel__thread-stream-block"));
 }
 
-function isMessageFlowAtEnd(container: HTMLElement): boolean {
-  return isMessageFlowTopAtEnd(container, container.scrollTop);
+function isThreadStreamFlowAtEnd(container: HTMLElement): boolean {
+  return isThreadStreamFlowTopAtEnd(container, container.scrollTop);
 }
 
-function isMessageFlowTopAtEnd(container: HTMLElement, top: number): boolean {
-  return messageFlowEndScrollTop(container) - top <= 4;
+function isThreadStreamFlowTopAtEnd(container: HTMLElement, top: number): boolean {
+  return threadStreamFlowEndScrollTop(container) - top <= 4;
 }
 
-function isMessageFlowViewportHidden(container: HTMLElement): boolean {
+function isThreadStreamFlowViewportHidden(container: HTMLElement): boolean {
   return container.clientWidth <= 0 || container.clientHeight <= 0;
 }
 

@@ -115,7 +115,7 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
 installObsidianDomShims();
 
 describe("CodexChatView connection lifecycle", () => {
-  let restoreDefaultMessageViewportMetrics: (() => void) | null = null;
+  let restoreDefaultThreadStreamViewportMetrics: (() => void) | null = null;
 
   beforeAll(async () => {
     ({ CodexChatView } = await import("../../../../src/features/chat/host/view.obsidian"));
@@ -125,7 +125,7 @@ describe("CodexChatView connection lifecycle", () => {
     vi.useRealTimers();
     notices.length = 0;
     connectionMock.reset();
-    restoreDefaultMessageViewportMetrics = mockMessageViewportOffsetMetrics({ clientHeight: 320, clientWidth: 240 });
+    restoreDefaultThreadStreamViewportMetrics = mockThreadStreamViewportOffsetMetrics({ clientHeight: 320, clientWidth: 240 });
   });
 
   afterEach(async () => {
@@ -134,8 +134,8 @@ describe("CodexChatView connection lifecycle", () => {
     }
     createdViews = [];
     vi.useRealTimers();
-    restoreDefaultMessageViewportMetrics?.();
-    restoreDefaultMessageViewportMetrics = null;
+    restoreDefaultThreadStreamViewportMetrics?.();
+    restoreDefaultThreadStreamViewportMetrics = null;
     document.body.replaceChildren();
   });
 
@@ -938,19 +938,19 @@ function composerPlaceholder(view: { containerEl: HTMLElement }): string | null 
   return composerElement(view).getAttribute("placeholder");
 }
 
-function mockMessageViewportOffsetMetrics(metrics: { clientHeight: number; clientWidth: number }): () => void {
+function mockThreadStreamViewportOffsetMetrics(metrics: { clientHeight: number; clientWidth: number }): () => void {
   const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
   const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
   Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
     configurable: true,
     get() {
-      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientHeight : 0;
+      return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.clientHeight : 0;
     },
   });
   Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
     configurable: true,
     get() {
-      return this instanceof HTMLElement && this.classList.contains("codex-panel__messages") ? metrics.clientWidth : 0;
+      return this instanceof HTMLElement && this.classList.contains("codex-panel__thread-stream") ? metrics.clientWidth : 0;
     },
   });
   return () => {

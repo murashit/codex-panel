@@ -169,18 +169,18 @@ function executionClassName(state: ExecutionState): string {
 }
 
 function textItemClass(item: ThreadStreamItem): string {
-  const classes = ["codex-panel__message", messageRoleClassName(item.role)];
-  if (item.kind === "approvalResult") classes.push("codex-panel__message--approval-result");
-  if (item.kind === "userInputResult") classes.push("codex-panel__message--user-input-result");
-  if (item.kind === "reviewResult") classes.push("codex-panel__message--review-result");
+  const classes = ["codex-panel__stream-item", streamItemRoleClassName(item.role)];
+  if (item.kind === "approvalResult") classes.push("codex-panel__stream-item--approval-result");
+  if (item.kind === "userInputResult") classes.push("codex-panel__stream-item--user-input-result");
+  if (item.kind === "reviewResult") classes.push("codex-panel__stream-item--review-result");
   return classes.join(" ");
 }
 
-function messageRoleClassName(role: ThreadStreamItem["role"]): string {
-  if (role === "assistant") return "codex-panel__message--assistant";
-  if (role === "system") return "codex-panel__message--system";
-  if (role === "tool") return "codex-panel__message--tool";
-  return "codex-panel__message--user";
+function streamItemRoleClassName(role: ThreadStreamItem["role"]): string {
+  if (role === "assistant") return "codex-panel__stream-item--assistant";
+  if (role === "system") return "codex-panel__stream-item--system";
+  if (role === "tool") return "codex-panel__stream-item--tool";
+  return "codex-panel__stream-item--user";
 }
 
 function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {

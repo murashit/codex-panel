@@ -92,7 +92,7 @@ function HistoryBar({ loadingHistory, loadOlderTurns }: { loadingHistory: boolea
 }
 
 function EmptyMessage(): UiNode {
-  return <div className="codex-panel__message codex-panel__message--system">Send a message to start a conversation.</div>;
+  return <div className="codex-panel__stream-item codex-panel__stream-item--system">Send a message to start a conversation.</div>;
 }
 
 function ActivityGroup({
@@ -124,9 +124,9 @@ function ActivityGroup({
 
 function SteeringActivity({ activity }: { activity: Extract<ThreadStreamActivityItemView, { type: "steering" }> }): UiNode {
   return (
-    <div className="codex-panel__message codex-panel__message--tool codex-panel__detail-item codex-panel__detail codex-panel__detail--plain">
+    <div className="codex-panel__stream-item codex-panel__stream-item--tool codex-panel__detail-item codex-panel__detail codex-panel__detail--plain">
       <div className="codex-panel__detail-header">
-        <span className="codex-panel__message-role codex-panel__detail-label">{activity.label}</span>
+        <span className="codex-panel__stream-item-role codex-panel__detail-label">{activity.label}</span>
       </div>
       <div className="codex-panel__stream-summary">{activity.text}</div>
     </div>

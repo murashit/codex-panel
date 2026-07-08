@@ -30,7 +30,7 @@ export interface ChatThreadStreamSurfaceContext {
   loadOlderTurns: () => void;
   renderObsidianMarkdown: (element: HTMLElement, text: string) => void;
   renderStreamMarkdown: (element: HTMLElement, text: string) => void;
-  copyMessageText: (text: string) => void;
+  copyDialogueText: (text: string) => void;
   actions: ChatThreadStreamActions;
   requests: ChatThreadStreamRequests;
 }
@@ -80,7 +80,7 @@ function threadStreamContextFromProjection(
     loadOlderTurns: context.loadOlderTurns,
     renderObsidianMarkdown: context.renderObsidianMarkdown,
     renderStreamMarkdown: context.renderStreamMarkdown,
-    copyText: context.copyMessageText,
+    copyText: context.copyDialogueText,
     onImplementPlan: (target) => {
       context.actions.implementPlan(target.itemId);
     },

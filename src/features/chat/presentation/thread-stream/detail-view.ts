@@ -72,7 +72,7 @@ function detailViewBase(
   summaryThreadIds: readonly string[] = [],
 ): DetailView {
   return {
-    className: `codex-panel__message codex-panel__message--tool ${className}`,
+    className: `codex-panel__stream-item codex-panel__stream-item--tool ${className}`,
     label,
     summary,
     summaryThreadIds,
@@ -175,7 +175,7 @@ function reviewDetailView(item: ReviewResultThreadStreamItem): DetailView {
     item,
     "auto-review",
     messageDetailKey(item.id, "review-details"),
-    "codex-panel__message--review-result codex-panel__detail-item--review",
+    "codex-panel__stream-item--review-result codex-panel__detail-item--review",
   );
 }
 
@@ -184,7 +184,7 @@ function approvalDetailView(item: ApprovalResultThreadStreamItem): DetailView {
     item,
     "approval",
     messageDetailKey(item.id, "approval-details"),
-    "codex-panel__message--approval-result codex-panel__detail-item--approval",
+    "codex-panel__stream-item--approval-result codex-panel__detail-item--approval",
   );
 }
 

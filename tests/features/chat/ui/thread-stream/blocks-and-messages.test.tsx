@@ -6,21 +6,21 @@ import { describe, expect, it, vi } from "vitest";
 import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/turns/plan-implementation";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import { MESSAGE_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
-import { MarkdownMessageRenderer } from "../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
+import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
+import { ThreadStreamMarkdownRenderer } from "../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
 import { deferred } from "../../../../support/async";
 import { attributeValues, textContents, topLevelDetailsSummaries } from "../../../../support/dom";
 import "./setup";
 import {
   expectPresent,
   idleTurnLifecycle,
-  renderMessageBlockElement,
+  renderThreadStreamBlockElement,
   renderThreadStreamBlocksInAct,
   runningTurnLifecycle,
   testDisclosures,
   threadStreamBlocks,
   unmountUiRootInAct,
-  withMessageContentScrollHeight,
+  withStreamItemContentScrollHeight,
 } from "./test-helpers";
 
 describe("thread stream rendering and message action menu", () => {
@@ -112,16 +112,16 @@ describe("thread stream rendering and message action menu", () => {
 
     renderThreadStreamBlocksInAct(parent, [activityBlock]);
 
-    const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-block"));
-    const messageFlow = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-flow"));
+    const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-stream-block"));
+    const threadStreamFlow = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-stream-flow"));
     const activityGroup = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__activity-group"));
 
     Object.defineProperty(host, "offsetHeight", { value: 520, configurable: true });
     await act(async () => {
-      activityGroup.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
+      activityGroup.dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
       await Promise.resolve();
     });
-    expect(messageFlow.style.height).toBe("");
+    expect(threadStreamFlow.style.height).toBe("");
     expect(host.style.transform).toBe("");
 
     Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
@@ -131,7 +131,7 @@ describe("thread stream rendering and message action menu", () => {
       await Promise.resolve();
     });
 
-    expect(messageFlow.style.height).toBe("");
+    expect(threadStreamFlow.style.height).toBe("");
     expect(host.style.transform).toBe("");
     unmountUiRootInAct(parent);
   });
@@ -144,14 +144,14 @@ describe("thread stream rendering and message action menu", () => {
 
     renderThreadStreamBlocksInAct(parent, [block]);
 
-    const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-block"));
-    const messageFlow = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-flow"));
+    const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-stream-block"));
+    const threadStreamFlow = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-stream-flow"));
 
     Object.defineProperty(host, "offsetHeight", { value: 520, configurable: true });
     void act(() => {
-      host.dispatchEvent(new Event(MESSAGE_CONTENT_RENDERED_EVENT, { bubbles: true }));
+      host.dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
     });
-    expect(messageFlow.style.height).toBe("");
+    expect(threadStreamFlow.style.height).toBe("");
     expect(host.style.transform).toBe("");
 
     Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
@@ -161,7 +161,7 @@ describe("thread stream rendering and message action menu", () => {
       })[0],
     ]);
 
-    expect(messageFlow.style.height).toBe("");
+    expect(threadStreamFlow.style.height).toBe("");
     expect(host.style.transform).toBe("");
     unmountUiRootInAct(parent);
   });
@@ -171,11 +171,11 @@ describe("thread stream rendering and message action menu", () => {
       items: [{ id: "review-1", kind: "reviewResult", role: "tool", text: "Auto-review denied this command." }],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
-    expect(element.classList.contains("codex-panel__message--review-result")).toBe(true);
+    expect(element.classList.contains("codex-panel__stream-item--review-result")).toBe(true);
     expect(element.classList.contains("codex-panel__detail--plain")).toBe(true);
-    expect(element.querySelector(".codex-panel__message-role")?.textContent).toBe("auto-review");
+    expect(element.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("auto-review");
     expect(element.textContent).toContain("Auto-review denied this command.");
     expect(element.querySelector("details")).toBeNull();
   });
@@ -201,7 +201,7 @@ describe("thread stream rendering and message action menu", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.classList.contains("codex-panel__execution--completed")).toBe(true);
     expect(topLevelDetailsSummaries(element)).toEqual(["auto-review"]);
@@ -243,11 +243,11 @@ describe("thread stream rendering and message action menu", () => {
       renderMarkdown,
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
-    expect(element.classList.contains("codex-panel__message--system")).toBe(true);
-    expect(element.querySelector(".codex-panel__message-content")?.textContent).toBe("Available slash commands");
-    expect(element.querySelector(".codex-panel__message-content")?.classList.contains("markdown-rendered")).toBe(false);
+    expect(element.classList.contains("codex-panel__stream-item--system")).toBe(true);
+    expect(element.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Available slash commands");
+    expect(element.querySelector(".codex-panel__stream-item-content")?.classList.contains("markdown-rendered")).toBe(false);
     expect(renderMarkdown).not.toHaveBeenCalled();
     expect(element.querySelector("details")).toBeNull();
     expect(element.querySelector(".codex-panel__output-title")).toBeNull();
@@ -278,9 +278,9 @@ describe("thread stream rendering and message action menu", () => {
       renderMarkdown: (element, text) => element.createDiv({ text }),
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
-    expect(element.classList.contains("codex-panel__message--tool")).toBe(true);
+    expect(element.classList.contains("codex-panel__stream-item--tool")).toBe(true);
     expect(element.querySelector(".codex-panel__detail-label")?.textContent).toBe("goal");
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("set: Ship the feature");
     expect(element.querySelector("details")?.open).toBe(false);
@@ -310,7 +310,7 @@ describe("thread stream rendering and message action menu", () => {
       onRollback,
     });
 
-    const rendered = blocks.map((block) => renderMessageBlockElement(block));
+    const rendered = blocks.map((block) => renderThreadStreamBlockElement(block));
 
     expect(expectPresent(rendered[0]).querySelector(".codex-panel__rollback-turn")).toBeNull();
     expect(expectPresent(rendered[1]).querySelector(".codex-panel__rollback-turn")).toBeNull();
@@ -339,9 +339,9 @@ describe("thread stream rendering and message action menu", () => {
       copyText,
     });
 
-    const rendered = blocks.map((block) => renderMessageBlockElement(block));
-    const userButton = expectPresent(rendered[0]).querySelector<HTMLButtonElement>(".codex-panel__copy-message");
-    const assistantButton = expectPresent(rendered[1]).querySelector<HTMLButtonElement>(".codex-panel__copy-message");
+    const rendered = blocks.map((block) => renderThreadStreamBlockElement(block));
+    const userButton = expectPresent(rendered[0]).querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue");
+    const assistantButton = expectPresent(rendered[1]).querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue");
 
     expect(userButton?.getAttribute("aria-label")).toBe("Copy message");
     expect(assistantButton?.getAttribute("aria-label")).toBe("Copy message");
@@ -373,8 +373,8 @@ describe("thread stream rendering and message action menu", () => {
       onFork,
     })[0];
 
-    const closedElement = renderMessageBlockElement(closedBlock);
-    expect(closedElement.querySelector(".codex-panel__copy-message")).not.toBeNull();
+    const closedElement = renderThreadStreamBlockElement(closedBlock);
+    expect(closedElement.querySelector(".codex-panel__copy-dialogue")).not.toBeNull();
     const initialFork = expectPresent(closedElement.querySelector<HTMLButtonElement>(".codex-panel__fork-message"));
     expect(initialFork.getAttribute("aria-label")).toBe("Fork from here");
     expect(initialFork.getAttribute("data-icon")).toBe("lucide-split");
@@ -390,8 +390,8 @@ describe("thread stream rendering and message action menu", () => {
       onFork,
     })[0];
 
-    const openElement = renderMessageBlockElement(openBlock);
-    expect(openElement.querySelector(".codex-panel__copy-message")).toBeNull();
+    const openElement = renderThreadStreamBlockElement(openBlock);
+    expect(openElement.querySelector(".codex-panel__copy-dialogue")).toBeNull();
     expect(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-message")?.getAttribute("aria-label")).toBe(
       "Fork and archive",
     );
@@ -423,7 +423,7 @@ describe("thread stream rendering and message action menu", () => {
       onFork,
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
     expectPresent(element.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-message")).click();
 
     expect(onFork).toHaveBeenCalledWith({ itemId: "a1", turnId: "turn-1" }, true);
@@ -452,8 +452,8 @@ describe("thread stream rendering and message action menu", () => {
         ],
       }),
     );
-    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("**answer** [[Note]]");
-    expect(parent.querySelector(".codex-panel__message-content a")).toBeNull();
+    expect(parent.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("**answer** [[Note]]");
+    expect(parent.querySelector(".codex-panel__stream-item-content a")).toBeNull();
 
     renderThreadStreamBlocksInAct(
       parent,
@@ -472,7 +472,7 @@ describe("thread stream rendering and message action menu", () => {
         ],
       }),
     );
-    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("markdown:**answer**");
+    expect(parent.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("markdown:**answer**");
     unmountUiRootInAct(parent);
   });
 
@@ -503,7 +503,7 @@ describe("thread stream rendering and message action menu", () => {
         ],
       }),
     );
-    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__message-content')?.textContent).toBe(
+    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__stream-item-content')?.textContent).toBe(
       "markdown:first",
     );
 
@@ -525,7 +525,7 @@ describe("thread stream rendering and message action menu", () => {
       }),
     );
 
-    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__message-content')?.textContent).toBe(
+    expect(parent.querySelector('[data-codex-panel-block-key="item:a1"] .codex-panel__stream-item-content')?.textContent).toBe(
       "markdown:second",
     );
     unmountUiRootInAct(parent);
@@ -545,7 +545,7 @@ describe("thread stream rendering and message action menu", () => {
           element.textContent = `rendered:${text}`;
         }),
       );
-    const markdownRenderer = new MarkdownMessageRenderer({
+    const markdownRenderer = new ThreadStreamMarkdownRenderer({
       app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
       owner: {} as never,
       vaultPath: "/vault",
@@ -574,7 +574,7 @@ describe("thread stream rendering and message action menu", () => {
       }),
     );
     await Promise.resolve();
-    const content = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-content"));
+    const content = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__stream-item-content"));
     expect(content.textContent).toBe("rendered:old");
 
     renderThreadStreamBlocksInAct(
@@ -594,7 +594,7 @@ describe("thread stream rendering and message action menu", () => {
         ],
       }),
     );
-    const contentAfterUpdate = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__message-content"));
+    const contentAfterUpdate = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__stream-item-content"));
     expect(contentAfterUpdate).toBe(content);
     expect(contentAfterUpdate.textContent).toBe("rendered:old");
 
@@ -640,7 +640,7 @@ describe("thread stream rendering and message action menu", () => {
       }),
     );
 
-    expect(parent.querySelector(".codex-panel__message-content")?.innerHTML).toBe("<strong>stream:old</strong>");
+    expect(parent.querySelector(".codex-panel__stream-item-content")?.innerHTML).toBe("<strong>stream:old</strong>");
     expect(renderStreamMarkdown).toHaveBeenCalledWith(expect.any(HTMLElement), "old");
     expect(baseContext.renderObsidianMarkdown).not.toHaveBeenCalled();
     expect(renderMarkdown).not.toHaveBeenCalled();
@@ -655,7 +655,7 @@ describe("thread stream rendering and message action menu", () => {
       element.textContent = `obsidian:${text}`;
       return Promise.resolve();
     });
-    const markdownRenderer = new MarkdownMessageRenderer({
+    const markdownRenderer = new ThreadStreamMarkdownRenderer({
       app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
       owner: {} as never,
       vaultPath: "/vault",
@@ -683,7 +683,7 @@ describe("thread stream rendering and message action menu", () => {
     );
     await Promise.resolve();
 
-    expect(parent.querySelector(".codex-panel__message-content")?.textContent).toBe("obsidian:**done**");
+    expect(parent.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("obsidian:**done**");
     expect(renderMarkdown).toHaveBeenCalledOnce();
     renderMarkdown.mockRestore();
     unmountUiRootInAct(parent);
@@ -704,7 +704,7 @@ describe("thread stream rendering and message action menu", () => {
         element.textContent = `fresh:${text}`;
         return Promise.resolve();
       });
-    const markdownRenderer = new MarkdownMessageRenderer({
+    const markdownRenderer = new ThreadStreamMarkdownRenderer({
       app: { workspace: { getActiveFile: vi.fn(() => null) } } as never,
       owner: {} as never,
       vaultPath: "/vault",
@@ -746,8 +746,8 @@ describe("thread stream rendering and message action menu", () => {
     const runningBlock = threadStreamBlocks(context)[0];
     const completedBlock = threadStreamBlocks({ ...context, turnLifecycle: idleTurnLifecycle() })[0];
 
-    expect(renderMessageBlockElement(runningBlock).querySelector(".codex-panel__copy-message")).toBeNull();
-    expect(renderMessageBlockElement(completedBlock).querySelector(".codex-panel__copy-message")).not.toBeNull();
+    expect(renderThreadStreamBlockElement(runningBlock).querySelector(".codex-panel__copy-dialogue")).toBeNull();
+    expect(renderThreadStreamBlockElement(completedBlock).querySelector(".codex-panel__copy-dialogue")).not.toBeNull();
   });
 
   it("renders implement plan action for eligible proposed plans", () => {
@@ -770,7 +770,7 @@ describe("thread stream rendering and message action menu", () => {
       onImplementPlan,
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
     const button = element.querySelector<HTMLButtonElement>(".codex-panel__implement-plan");
 
     expect(button?.getAttribute("aria-label")).toBe("Implement plan");
@@ -840,7 +840,7 @@ describe("thread stream rendering and message action menu", () => {
       copyText: vi.fn(),
     })[0];
 
-    expect(renderMessageBlockElement(block).querySelector(".codex-panel__copy-message")).toBeNull();
+    expect(renderThreadStreamBlockElement(block).querySelector(".codex-panel__copy-dialogue")).toBeNull();
   });
 
   it("renders copy and rollback actions together when both apply", () => {
@@ -853,8 +853,8 @@ describe("thread stream rendering and message action menu", () => {
       onRollback,
     })[0];
 
-    const element = renderMessageBlockElement(block);
-    element.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
+    const element = renderThreadStreamBlockElement(block);
+    element.querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue")?.click();
     element.querySelector<HTMLButtonElement>(".codex-panel__rollback-turn")?.click();
 
     expect(copyText).toHaveBeenCalledWith("latest");
@@ -862,7 +862,7 @@ describe("thread stream rendering and message action menu", () => {
   });
 
   it("collapses tall user messages without changing the copy payload", () => {
-    withMessageContentScrollHeight(500, () => {
+    withStreamItemContentScrollHeight(500, () => {
       const parent = document.createElement("div");
       const copyText = vi.fn();
       const expandedMessages = new Set<string>();
@@ -895,10 +895,10 @@ describe("thread stream rendering and message action menu", () => {
       };
       render();
 
-      const content = () => parent.querySelector<HTMLElement>(".codex-panel__message-content");
-      const details = () => parent.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details");
+      const content = () => parent.querySelector<HTMLElement>(".codex-panel__stream-item-content");
+      const details = () => parent.querySelector<HTMLDetailsElement>(".codex-panel__stream-item-collapse-details");
 
-      expect(content()?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
+      expect(content()?.classList.contains("codex-panel__stream-item-content--collapsed")).toBe(true);
       expect(details()?.hidden).toBe(false);
       expect(details()?.querySelector("summary")?.textContent).toBe("Show more");
 
@@ -911,7 +911,7 @@ describe("thread stream rendering and message action menu", () => {
       }
       render();
       expect(expandedMessages.has("u1")).toBe(true);
-      expect(content()?.classList.contains("codex-panel__message-content--collapsed")).toBe(false);
+      expect(content()?.classList.contains("codex-panel__stream-item-content--collapsed")).toBe(false);
       expect(details()?.hidden).toBe(true);
       expect(onDisclosureToggle).toHaveBeenCalledWith("userMessageExpanded", "u1", true);
 
@@ -920,11 +920,11 @@ describe("thread stream rendering and message action menu", () => {
       });
       render();
       expect(expandedMessages.has("u1")).toBe(false);
-      expect(content()?.classList.contains("codex-panel__message-content--collapsed")).toBe(true);
+      expect(content()?.classList.contains("codex-panel__stream-item-content--collapsed")).toBe(true);
       expect(details()?.hidden).toBe(false);
       expect(onDisclosureToggle).toHaveBeenCalledWith("userMessageExpanded", "u1", false);
 
-      parent.querySelector<HTMLButtonElement>(".codex-panel__copy-message")?.click();
+      parent.querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue")?.click();
       expect(copyText).toHaveBeenCalledWith("full copied text");
       unmountUiRootInAct(parent);
       parent.remove();
@@ -932,16 +932,16 @@ describe("thread stream rendering and message action menu", () => {
   });
 
   it("does not show the collapse control for short user messages or assistant messages", () => {
-    withMessageContentScrollHeight(120, () => {
+    withStreamItemContentScrollHeight(120, () => {
       const shortUserBlock = threadStreamBlocks({
         items: [{ id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "short", turnId: "turn-1" }],
       })[0];
-      const shortUser = renderMessageBlockElement(shortUserBlock);
+      const shortUser = renderThreadStreamBlockElement(shortUserBlock);
 
-      expect(shortUser.querySelector<HTMLDetailsElement>(".codex-panel__message-collapse-details")?.hidden).toBe(true);
+      expect(shortUser.querySelector<HTMLDetailsElement>(".codex-panel__stream-item-collapse-details")?.hidden).toBe(true);
     });
 
-    withMessageContentScrollHeight(500, () => {
+    withStreamItemContentScrollHeight(500, () => {
       const assistantBlock = threadStreamBlocks({
         items: [
           {
@@ -955,9 +955,9 @@ describe("thread stream rendering and message action menu", () => {
           },
         ],
       })[0];
-      const assistant = renderMessageBlockElement(assistantBlock);
+      const assistant = renderThreadStreamBlockElement(assistantBlock);
 
-      expect(assistant.querySelector(".codex-panel__message-collapse-details")).toBeNull();
+      expect(assistant.querySelector(".codex-panel__stream-item-collapse-details")).toBeNull();
     });
   });
 
@@ -981,7 +981,7 @@ describe("thread stream rendering and message action menu", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("npm run check (exit 1)");
     expect(element.querySelector(".codex-panel__stream-summary")?.getAttribute("title")).toBeNull();
@@ -1012,7 +1012,7 @@ describe("thread stream rendering and message action menu", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
     const metaText = element.querySelector(".codex-panel__meta-grid")?.textContent ?? "";
 
     expect(metaText).toContain("commandnpm run check");
@@ -1042,7 +1042,7 @@ describe("thread stream rendering and message action menu", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(textContents(element, "details summary")).toEqual(["read"]);
   });
@@ -1066,7 +1066,7 @@ describe("thread stream rendering and message action menu", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe('"semantic target" in src');
   });
@@ -1088,7 +1088,7 @@ describe("thread stream rendering and message action menu", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("src/main.ts");
     expect(topLevelDetailsSummaries(element)).toEqual(["file change"]);
@@ -1113,7 +1113,7 @@ describe("thread stream rendering and message action menu", () => {
       ],
     })[0];
 
-    const element = renderMessageBlockElement(block);
+    const element = renderThreadStreamBlockElement(block);
 
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("src/main.ts (failed)");
   });
@@ -1145,7 +1145,7 @@ describe("thread stream rendering and message action menu", () => {
       openTurnDiff,
     });
 
-    const assistant = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
+    const assistant = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
     const button = assistant.querySelector<HTMLButtonElement>(".codex-panel__open-turn-diff");
     const summary = assistant.querySelector<HTMLElement>(".codex-panel__edited-files summary");
 
@@ -1184,9 +1184,9 @@ describe("thread stream rendering and message action menu", () => {
       ],
     });
 
-    const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
+    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
 
-    expect(user.querySelector(".codex-panel__message-content")?.textContent).toBe("この続きです");
+    expect(user.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("この続きです");
     expect(user.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("Referenced 参照元");
     expect(user.querySelector(".codex-panel__referenced-thread")?.textContent).toContain("2/20 turns");
     expect(user.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.getAttribute("title")).toBeNull();
@@ -1207,10 +1207,10 @@ describe("thread stream rendering and message action menu", () => {
       ],
     });
 
-    const user = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
+    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
     const summary = user.querySelector<HTMLElement>(".codex-panel__mentioned-files summary");
 
-    expect(user.querySelector(".codex-panel__message-content")?.textContent).toBe("Read [[Alpha]].");
+    expect(user.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Read [[Alpha]].");
     expect(summary?.textContent).toBe("Context · 1 item");
     expect(summary?.tabIndex).toBe(-1);
     expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("Alpha");
@@ -1241,7 +1241,7 @@ describe("thread stream rendering and message action menu", () => {
       openTurnDiff: vi.fn(),
     });
 
-    const assistant = renderMessageBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
+    const assistant = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:a1")));
 
     expect(assistant.querySelector(".codex-panel__edited-files")?.textContent).toContain("Edited 1 file");
     expect(assistant.querySelector(".codex-panel__open-turn-diff")).toBeNull();

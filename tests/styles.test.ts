@@ -36,11 +36,11 @@ describe("panel CSS boundaries", () => {
 });
 
 describe("panel CSS layout invariants", () => {
-  it("lets the message stream scroll inside the shell grid", () => {
-    const messages = ruleBody(".codex-panel__messages");
+  it("lets the thread stream scroll inside the shell grid", () => {
+    const threadStream = ruleBody(".codex-panel__thread-stream");
 
-    expect(messages).toContain("overflow-y: auto");
-    expect(messages).not.toMatch(/^\s+height:/m);
+    expect(threadStream).toContain("overflow-y: auto");
+    expect(threadStream).not.toMatch(/^\s+height:/m);
   });
 
   it("keeps icon-only toolbar actions on Obsidian toolbar geometry", () => {
