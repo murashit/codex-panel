@@ -1,32 +1,30 @@
-import {
-  type RateLimitMetadataProbeResult,
-  readRateLimitMetadataProbe,
-  readSkillMetadataProbe,
-} from "../../../../app-server/query/metadata-probes";
-import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import { cloneServerDiagnostics, diagnosticsWithProbe, upsertMcpServerDiagnostic } from "../../../../domain/server/diagnostics";
 import type { McpServerStartupStatus } from "../../../../domain/server/mcp-status";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
-import { type ChatServerActionsHost, captureChatServerClientScope } from "./host";
+import type { ChatStateStore } from "../state/store";
+import type { MetadataResourceTransport, RateLimitMetadataProbeResult } from "./metadata-transport";
 
 export type AppServerResourceEvent =
   | { type: "skills-changed"; forceReload: boolean }
   | { type: "rate-limits-updated"; preserveExistingOnFailure?: boolean }
   | { type: "mcp-startup-status-updated"; name: string; status: McpServerStartupStatus; message: string | null };
 
-export interface ChatServerMetadataActionsHost extends ChatServerActionsHost {
+export interface ServerMetadataActionsHost {
+  stateStore: ChatStateStore;
+  metadataResourceTransport: MetadataResourceTransport;
   updateAppServerMetadata: (updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null) => SharedServerMetadata | null;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
   refreshAppServerMetadata: (options?: { forceSkills?: boolean }) => Promise<SharedServerMetadata | null>;
+  isStaleSharedQueryError: (error: unknown) => boolean;
 }
 
-export interface ChatServerMetadataActions {
+export interface ServerMetadataActions {
   applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
   refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
   applyAppServerResourceEvent: (event: AppServerResourceEvent) => Promise<void>;
 }
 
-export function createChatServerMetadataActions(host: ChatServerMetadataActionsHost): ChatServerMetadataActions {
+export function createServerMetadataActions(host: ServerMetadataActionsHost): ServerMetadataActions {
   return {
     applyAppServerMetadata: (metadata) => {
       applyAppServerMetadata(host, metadata);
@@ -38,7 +36,7 @@ export function createChatServerMetadataActions(host: ChatServerMetadataActionsH
   };
 }
 
-async function applyAppServerResourceEvent(host: ChatServerMetadataActionsHost, event: AppServerResourceEvent): Promise<void> {
+async function applyAppServerResourceEvent(host: ServerMetadataActionsHost, event: AppServerResourceEvent): Promise<void> {
   switch (event.type) {
     case "skills-changed":
       await refreshSkillResource(host, event.forceReload);
@@ -55,7 +53,7 @@ async function applyAppServerResourceEvent(host: ChatServerMetadataActionsHost, 
   }
 }
 
-function applyAppServerMetadata(host: ChatServerMetadataActionsHost, metadata: SharedServerMetadata): void {
+function applyAppServerMetadata(host: ServerMetadataActionsHost, metadata: SharedServerMetadata): void {
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     runtimeConfig: metadata.runtimeConfig,
@@ -67,12 +65,12 @@ function applyAppServerMetadata(host: ChatServerMetadataActionsHost, metadata: S
   });
 }
 
-async function refreshAppServerMetadata(host: ChatServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
+async function refreshAppServerMetadata(host: ServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
   let metadata: SharedServerMetadata | null;
   try {
     metadata = await host.refreshAppServerMetadata();
   } catch (error) {
-    if (isStaleAppServerSharedQueryContextError(error)) return null;
+    if (host.isStaleSharedQueryError(error)) return null;
     throw error;
   }
   if (!metadata) return null;
@@ -80,15 +78,14 @@ async function refreshAppServerMetadata(host: ChatServerMetadataActionsHost): Pr
   return metadata;
 }
 
-function applyCurrentAppServerMetadataSnapshot(host: ChatServerMetadataActionsHost): void {
+function applyCurrentAppServerMetadataSnapshot(host: ServerMetadataActionsHost): void {
   const metadata = host.appServerMetadataSnapshot();
   if (metadata) applyAppServerMetadata(host, metadata);
 }
 
-async function refreshSkillResource(host: ChatServerMetadataActionsHost, forceReload = false): Promise<SharedServerMetadata | null> {
-  const scope = captureChatServerClientScope(host);
-  const skills = await readSkillMetadataProbe(scope.client, host.vaultPath, forceReload);
-  if (scope.isStale()) return null;
+async function refreshSkillResource(host: ServerMetadataActionsHost, forceReload = false): Promise<SharedServerMetadata | null> {
+  const skills = await host.metadataResourceTransport.readSkillMetadata(forceReload);
+  if (!skills) return null;
   const next = host.updateAppServerMetadata((metadata) => {
     if (!metadata) return null;
     return {
@@ -115,12 +112,11 @@ async function refreshSkillResource(host: ChatServerMetadataActionsHost, forceRe
 }
 
 async function refreshRateLimitResource(
-  host: ChatServerMetadataActionsHost,
+  host: ServerMetadataActionsHost,
   options: { preserveExistingOnFailure?: boolean } = {},
 ): Promise<void> {
-  const scope = captureChatServerClientScope(host);
-  const rateLimit = await readRateLimitMetadataProbe(scope.client);
-  if (scope.isStale()) return;
+  const rateLimit = await host.metadataResourceTransport.readRateLimitMetadata();
+  if (!rateLimit) return;
   const preserveExistingOnFailure = options.preserveExistingOnFailure === true;
   const next = updateRateLimitMetadata(host, rateLimit, { preserveRateLimitOnFailure: preserveExistingOnFailure });
   if (next) {
@@ -140,7 +136,7 @@ async function refreshRateLimitResource(
 }
 
 function updateRateLimitMetadata(
-  host: ChatServerMetadataActionsHost,
+  host: ServerMetadataActionsHost,
   rateLimit: RateLimitMetadataProbeResult,
   options: { preserveRateLimitOnFailure: boolean },
 ): SharedServerMetadata | null {
@@ -156,7 +152,7 @@ function updateRateLimitMetadata(
 }
 
 function applyMcpStartupStatusEvent(
-  host: ChatServerMetadataActionsHost,
+  host: ServerMetadataActionsHost,
   name: string,
   startupStatus: McpServerStartupStatus,
   message: string | null,
@@ -175,7 +171,7 @@ function applyMcpStartupStatusEvent(
   });
 }
 
-function currentMetadataDiagnostics(host: ChatServerMetadataActionsHost): SharedServerMetadata["serverDiagnostics"] {
+function currentMetadataDiagnostics(host: ServerMetadataActionsHost): SharedServerMetadata["serverDiagnostics"] {
   return (
     host.appServerMetadataSnapshot()?.serverDiagnostics ?? cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics)
   );

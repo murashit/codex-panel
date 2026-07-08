@@ -15,6 +15,7 @@ import {
 } from "../../../../domain/pending-requests/model";
 import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
+import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
 import { activeTurnId } from "../../application/conversation/turn-state";
 import type { LocalIdSource } from "../../application/local-id-source";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
@@ -26,7 +27,6 @@ import {
   createMcpElicitationResultItem,
   createUserInputResultItem,
 } from "../../domain/pending-requests/result-items";
-import type { AppServerResourceEvent } from "../actions/metadata";
 import { classifyAppServerLog } from "./app-server-logs";
 import { type ChatNotificationEffect, planChatNotification } from "./notification-plan";
 

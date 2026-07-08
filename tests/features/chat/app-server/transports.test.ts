@@ -5,6 +5,7 @@ import * as shortLivedClient from "../../../../src/app-server/connection/short-l
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/chat/input";
+import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/thread-reference-resolver";
 import { preparedUserInputWithWikiLinkMentionsSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
@@ -13,6 +14,43 @@ import { deferred } from "../../../support/async";
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 describe("chat app-server transports", () => {
+  it("starts threads with the session vault path and projects activation snapshots", async () => {
+    const request = vi.fn().mockResolvedValue(threadStartResponse("thread"));
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    }).threadStart;
+
+    const snapshot = await transport.startThread({ serviceTier: "priority", permissions: ":workspace" });
+
+    expect(request).toHaveBeenCalledWith("thread/start", {
+      cwd: "/vault",
+      serviceName: "codex-panel",
+      serviceTier: "priority",
+      permissions: ":workspace",
+    });
+    expect(snapshot?.thread.id).toBe("thread");
+    expect(snapshot?.cwd).toBe("/vault");
+  });
+
+  it("drops stale thread start responses after the current client changes", async () => {
+    const start = deferred<AppServerThreadStartResponse>();
+    const firstClient = { request: vi.fn().mockReturnValue(start.promise) } as unknown as AppServerClient;
+    const secondClient = {} as unknown as AppServerClient;
+    let currentClient = firstClient;
+    const transport = createTestGateway({
+      currentClient: () => currentClient,
+      connectedClient: vi.fn().mockResolvedValue(firstClient),
+    }).threadStart;
+
+    const starting = transport.startThread({});
+    currentClient = secondClient;
+    start.resolve(threadStartResponse("thread"));
+
+    await expect(starting).resolves.toBeNull();
+  });
+
   it("starts turns with the session vault path and returns chat-owned turn ids", async () => {
     const request = vi.fn().mockResolvedValue({ turn: { id: "turn-1" } });
     const client = { request } as unknown as AppServerClient;
@@ -305,6 +343,91 @@ describe("chat app-server transports", () => {
     expect(request).toHaveBeenCalledWith("thread/settings/update", { threadId: "thread", model: "gpt-5.5" });
   });
 
+  it("reads sparse skill metadata through the current app-server client", async () => {
+    const request = vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", skills: [] }] });
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+    }).metadataResource;
+
+    await expect(transport.readSkillMetadata(true)).resolves.toMatchObject({
+      value: [],
+      probe: { status: "ok" },
+    });
+
+    expect(request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: true });
+  });
+
+  it("reads diagnostics probes and tool inventory at the app-server boundary", async () => {
+    const request = vi.fn((method: string) => {
+      switch (method) {
+        case "model/list":
+          return Promise.resolve({ data: [] });
+        case "account/rateLimits/read":
+          return Promise.resolve({ rateLimits: null, rateLimitsByLimitId: null });
+        case "plugin/installed":
+          return Promise.resolve({ marketplaces: [], marketplaceLoadErrors: [] });
+        case "mcpServerStatus/list":
+          return Promise.resolve({ data: [] });
+        case "skills/list":
+          return Promise.resolve({ data: [{ cwd: "/vault", skills: [] }] });
+        default:
+          throw new Error(`Unexpected request: ${method}`);
+      }
+    });
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+    }).serverDiagnostics;
+
+    const snapshot = await transport.readServerDiagnostics({
+      threadId: "thread",
+      initialDiagnostics: createServerDiagnostics(),
+      cachedSkills: [],
+      cachedSkillsProbe: diagnosticProbeOk("skills", "0 skills", 1),
+      forceResourceProbes: true,
+      appServerMetadataSnapshot: false,
+    });
+
+    expect(snapshot?.resourceProbes.map((probe) => probe.id)).toEqual(["models", "rateLimits"]);
+    expect(request).toHaveBeenCalledWith("model/list", { includeHidden: false, limit: 100 });
+    expect(request).toHaveBeenCalledWith("account/rateLimits/read", undefined);
+    expect(request).toHaveBeenCalledWith("mcpServerStatus/list", {
+      detail: "toolsAndAuthOnly",
+      limit: 100,
+      threadId: "thread",
+    });
+    expect(request).not.toHaveBeenCalledWith("skills/list", expect.anything());
+  });
+
+  it("reads skills for diagnostics tool inventory when no cached skills are provided", async () => {
+    const request = vi.fn((method: string) => {
+      switch (method) {
+        case "plugin/installed":
+          return Promise.resolve({ marketplaces: [], marketplaceLoadErrors: [] });
+        case "mcpServerStatus/list":
+          return Promise.resolve({ data: [] });
+        case "skills/list":
+          return Promise.resolve({ data: [{ cwd: "/vault", skills: [] }] });
+        default:
+          throw new Error(`Unexpected request: ${method}`);
+      }
+    });
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+    }).serverDiagnostics;
+
+    await transport.readServerDiagnostics({
+      threadId: null,
+      initialDiagnostics: createServerDiagnostics(),
+      forceResourceProbes: false,
+      appServerMetadataSnapshot: true,
+    });
+
+    expect(request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: false });
+  });
+
   it("resolves referenced thread input at the app-server boundary", async () => {
     const request = vi.fn().mockResolvedValue({
       data: [turn([userMessage("u1", "元の依頼"), agentMessage("a1", "回答")])],
@@ -394,6 +517,7 @@ describe("chat app-server transports", () => {
   });
 });
 
+type AppServerThreadStartResponse = ClientResponseByMethod["thread/start"];
 type AppServerThreadResumeResponse = ClientResponseByMethod["thread/resume"];
 
 function createTestGateway(options: {
@@ -433,6 +557,25 @@ function threadRecord(id: string, turns: readonly TurnRecord[] = [], overrides: 
     gitInfo: null,
     name: null,
     turns,
+    ...overrides,
+  };
+}
+
+function threadStartResponse(threadId: string, overrides: Partial<AppServerThreadStartResponse> = {}): AppServerThreadStartResponse {
+  return {
+    thread: threadRecord(threadId) as AppServerThreadStartResponse["thread"],
+    cwd: "/vault",
+    model: "gpt-test",
+    modelProvider: "openai",
+    serviceTier: null,
+    runtimeWorkspaceRoots: [],
+    instructionSources: [],
+    approvalPolicy: "never",
+    approvalsReviewer: "user",
+    sandbox: { type: "readOnly", networkAccess: false },
+    activePermissionProfile: null,
+    reasoningEffort: null,
+    multiAgentMode: "explicitRequestOnly",
     ...overrides,
   };
 }

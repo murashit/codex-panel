@@ -5,12 +5,14 @@ import { createChatAppServerGateway } from "../app-server/session-gateway";
 import type { ConnectionWorkTracker } from "../application/connection/connection-work";
 import { reconnectPanel } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
+import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeActions } from "../application/threads/resume-actions";
 import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
+import { createThreadStartActions } from "../application/threads/thread-start-actions";
 import { createStructuredSystemItem, createSystemItem } from "../domain/message-stream/factories/system-items";
 import type { MessageStreamNoticeSection } from "../domain/message-stream/items";
 import type { ChatComposerController } from "../panel/composer-controller";
@@ -125,8 +127,8 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     {
       connection,
       currentClient,
+      appServer,
       localItemIds,
-      goalSync: threadFoundation.goalSync,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
       status,
     },
@@ -135,7 +137,6 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     connection: { actions: connectionActions },
     inboundHandler,
   } = connectionBundle;
-  const { threads: serverThreads } = connectionBundle.serverActions;
   ensureConnected = () => connectionActions.ensureConnected();
   const refreshActiveThreads = () => connectionActions.refreshActiveThreads();
   const runtime = createRuntimeBundle(host, {
@@ -143,12 +144,23 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     appServer,
     status,
   });
+  const threadStart = createThreadStartActions({
+    stateStore,
+    threadStartTransport: appServer.threadStart,
+    runtimeSnapshotForState: runtimeSnapshotForChatState,
+    recordStartedThread: (thread) => {
+      environment.plugin.threadCatalog.apply({ type: "thread-started", thread });
+    },
+    syncThreadGoal: (threadId) => {
+      void threadFoundation.goalSync.syncThreadGoal(threadId);
+    },
+  });
   const threadLifecycle = createThreadLifecycleBundle(host, {
     appServer,
     localItemIds,
     ensureConnected,
     status,
-    serverThreads,
+    threadStart,
     foundation: threadFoundation,
     refreshTabHeader,
     refreshLiveState,
@@ -200,7 +212,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     navigation: threadActions.navigation,
     composerController,
     runtimeSettings: runtime.settings,
-    serverThreads,
+    threadStart,
     goals: threadLifecycle.goals,
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
     reconnect,
@@ -235,7 +247,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     stateStore,
     threadCatalog: environment.plugin.threadCatalog,
     appServerQueries: environment.plugin.appServerQueries,
-    serverActions: connectionBundle.serverActions,
+    applyAppServerMetadata: connectionBundle.sharedStateActions.applyAppServerMetadata,
     refreshTabHeader,
   });
 

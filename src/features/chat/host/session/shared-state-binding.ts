@@ -3,7 +3,6 @@ import type { ModelMetadata } from "../../../../domain/catalog/metadata";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ChatStateStore } from "../../application/state/store";
-import type { ChatPanelConnectionBundle } from "../bundles/connection-bundle";
 
 type ThreadObserver = (result: ObservedResult<readonly Thread[]>) => void;
 type MetadataObserver = (result: ObservedResult<SharedServerMetadata>) => void;
@@ -31,16 +30,16 @@ export interface ChatPanelSharedStateBindingOptions {
   stateStore: ChatStateStore;
   threadCatalog: SharedStateThreadCatalog;
   appServerQueries: SharedStateAppServerQueries;
-  serverActions: ChatPanelConnectionBundle["serverActions"];
+  applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
   refreshTabHeader: () => void;
 }
 
 export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateBindingOptions): ChatPanelSharedStateBinding {
   const unsubscribers: (() => void)[] = [];
-  const { stateStore, threadCatalog, appServerQueries, serverActions, refreshTabHeader } = options;
+  const { stateStore, threadCatalog, appServerQueries, applyAppServerMetadata, refreshTabHeader } = options;
 
   const receiveThreads = (threads: readonly Thread[]): void => {
-    serverActions.threads.applyThreadList(threads);
+    stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
     refreshTabHeader();
   };
   const receiveThreadResult = (result: ObservedResult<readonly Thread[]>): void => {
@@ -48,7 +47,7 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
     if (observedThreads) receiveThreads(observedThreads);
   };
   const receiveAppServerMetadata = (metadata: SharedServerMetadata): void => {
-    serverActions.metadata.applyAppServerMetadata(metadata);
+    applyAppServerMetadata(metadata);
   };
   const receiveAppServerMetadataResult = (result: ObservedResult<SharedServerMetadata>): void => {
     const observedMetadata = result.value;
@@ -68,9 +67,9 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
   };
   const applyCached = (): void => {
     const threads = threadCatalog.activeSnapshot();
-    if (threads) serverActions.threads.applyThreadList(threads);
+    if (threads) stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
     const metadata = appServerQueries.appServerMetadataSnapshot();
-    if (metadata) serverActions.metadata.applyAppServerMetadata(metadata);
+    if (metadata) applyAppServerMetadata(metadata);
     const models = appServerQueries.modelsSnapshot();
     if (models) receiveModels(models);
   };

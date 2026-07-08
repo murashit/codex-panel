@@ -3,7 +3,6 @@ import { Notice } from "obsidian";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
-import type { ChatServerThreadActions } from "../../app-server/actions/threads";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
 import { messageStreamItems } from "../../application/state/message-stream";
@@ -22,6 +21,7 @@ import { createResumeActions, type ResumeActions } from "../../application/threa
 import type { ChatResumeWorkTracker } from "../../application/threads/resume-work";
 import { createThreadManagementActions, type ThreadManagementActionsHost } from "../../application/threads/thread-management-actions";
 import { createThreadNavigationActions } from "../../application/threads/thread-navigation-actions";
+import type { ThreadStartActions } from "../../application/threads/thread-start-actions";
 import { threadTitleContextFromMessageStreamItems } from "../../application/threads/title-context";
 import type { ChatComposerController } from "../../panel/composer-controller";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
@@ -75,7 +75,7 @@ interface ChatPanelThreadLifecycleInput {
   localItemIds: LocalIdSource;
   ensureConnected: () => Promise<void>;
   status: ChatPanelThreadStatus;
-  serverThreads: ChatServerThreadActions;
+  threadStart: ThreadStartActions;
   foundation: ChatPanelThreadFoundation;
   refreshTabHeader: () => void;
   refreshLiveState: () => void;
@@ -188,7 +188,7 @@ export function createThreadLifecycleBundle(
     localItemIds,
     ensureConnected,
     status,
-    serverThreads,
+    threadStart,
     foundation,
     refreshTabHeader,
     refreshLiveState,
@@ -198,7 +198,7 @@ export function createThreadLifecycleBundle(
     stateStore: host.stateStore,
     goalTransport: appServer.threadGoal,
     localItemIds,
-    startThread: (preview, options) => serverThreads.startThread(preview, options),
+    startThread: (preview, options) => threadStart.startThread(preview, options),
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
     },

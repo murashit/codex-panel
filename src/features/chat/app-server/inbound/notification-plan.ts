@@ -3,11 +3,11 @@ import { threadFromAppServerRecord } from "../../../../app-server/services/threa
 import { threadTokenUsageFromRuntimeUsage } from "../../../../domain/runtime/metrics";
 import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
+import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
 import { type ConversationRuntimeOutcome, planConversationRuntimeEvents } from "../../application/conversation/runtime-event-plan";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
 import type { ChatAction, ChatState } from "../../application/state/root-reducer";
 import { goalChangeItem } from "../../domain/message-stream/factories/goal-items";
-import type { AppServerResourceEvent } from "../actions/metadata";
 import { type DiagnosticStatusNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
 import { conversationRuntimeEventsFromNotification } from "./runtime-events";
 

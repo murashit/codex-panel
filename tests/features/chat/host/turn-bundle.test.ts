@@ -85,7 +85,7 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
         focusComposer: vi.fn(),
       },
       runtimeSettings: {},
-      serverThreads: {},
+      threadStart: {},
       goals: {},
       autoTitleCoordinator: { resetThreadTurnPresence: vi.fn() },
       reconnect: vi.fn(),

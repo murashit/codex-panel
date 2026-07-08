@@ -4,6 +4,7 @@ import { withShortLivedAppServerClient } from "../../../app-server/connection/sh
 import type { CodexInput } from "../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
+import { type ChatMetadataTransports, createChatMetadataTransports } from "./transports/metadata-transports";
 import { type ChatSessionTransports, createChatSessionTransports } from "./transports/session-transports";
 
 export interface ChatAppServerGatewayHost {
@@ -19,7 +20,7 @@ interface ChatThreadReferenceResolverOptions {
   setStatus(status: string): void;
 }
 
-export interface ChatAppServerGateway extends ChatSessionTransports {
+export interface ChatAppServerGateway extends ChatSessionTransports, ChatMetadataTransports {
   clientAccess: AppServerClientAccess;
   connectionAvailable(): boolean;
   readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string>;
@@ -30,6 +31,7 @@ export function createChatAppServerGateway(host: ChatAppServerGatewayHost): Chat
   return {
     clientAccess: createCurrentClientAccess(host),
     ...createChatSessionTransports(host),
+    ...createChatMetadataTransports(host),
     connectionAvailable: () => host.currentClient() !== null,
     readFileBase64: (path, options) => readCurrentClientFileBase64(host, path, options),
     threadReferences: (options) =>

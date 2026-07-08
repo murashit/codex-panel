@@ -663,12 +663,12 @@ export const allowed = true;
     await writeFile(
       path.join(cwd, "src/features/chat/panel/outer.tsx"),
       `
-import type { AppServerClient } from "../../../app-server/connection/client";
-import type { ChatServerActionsHost } from "../app-server/actions/host";
-import type { Host } from "../host/contracts";
-
-export type Escape = AppServerClient | ChatServerActionsHost | Host;
-`.trimStart(),
+	import type { AppServerClient } from "../../../app-server/connection/client";
+	import type { ChatAppServerGateway } from "../app-server/session-gateway";
+	import type { Host } from "../host/contracts";
+	
+	export type Escape = AppServerClient | ChatAppServerGateway | Host;
+	`.trimStart(),
     );
     await writeFile(
       path.join(cwd, "src/features/chat/panel/allowed.tsx"),
@@ -683,16 +683,16 @@ export const toolbar = Toolbar;
     await writeFile(
       path.join(cwd, "src/features/chat/presentation/outer.ts"),
       `
-import type { AppServerClient } from "../../../app-server/connection/client";
-import type { ChatStateStore } from "../application/state/store";
-import type { ChatServerActionsHost } from "../app-server/actions/host";
-import type { Host } from "../host/contracts";
-import type { ToolbarPanelActions } from "../panel/toolbar-actions";
-import { Toolbar } from "../ui/toolbar";
-
-export type Escape = AppServerClient | ChatStateStore | ChatServerActionsHost | Host | ToolbarPanelActions;
-export const toolbar = Toolbar;
-`.trimStart(),
+	import type { AppServerClient } from "../../../app-server/connection/client";
+	import type { ChatStateStore } from "../application/state/store";
+	import type { ChatAppServerGateway } from "../app-server/session-gateway";
+	import type { Host } from "../host/contracts";
+	import type { ToolbarPanelActions } from "../panel/toolbar-actions";
+	import { Toolbar } from "../ui/toolbar";
+	
+	export type Escape = AppServerClient | ChatStateStore | ChatAppServerGateway | Host | ToolbarPanelActions;
+	export const toolbar = Toolbar;
+	`.trimStart(),
     );
     await writeFile(
       path.join(cwd, "src/features/chat/presentation/allowed.ts"),
@@ -706,14 +706,14 @@ export type Allowed = Thread | MessageStreamItem;
     await writeFile(
       path.join(cwd, "src/features/chat/ui/outer.tsx"),
       `
-import type { AppServerClient } from "../../../app-server/connection/client";
-import type { ChatStateStore } from "../application/state/store";
-import type { ChatServerActionsHost } from "../app-server/actions/host";
-import type { Host } from "../host/contracts";
-import type { ToolbarPanelActions } from "../panel/toolbar-actions";
-
-export type Escape = AppServerClient | ChatStateStore | ChatServerActionsHost | Host | ToolbarPanelActions;
-`.trimStart(),
+	import type { AppServerClient } from "../../../app-server/connection/client";
+	import type { ChatStateStore } from "../application/state/store";
+	import type { ChatAppServerGateway } from "../app-server/session-gateway";
+	import type { Host } from "../host/contracts";
+	import type { ToolbarPanelActions } from "../panel/toolbar-actions";
+	
+	export type Escape = AppServerClient | ChatStateStore | ChatAppServerGateway | Host | ToolbarPanelActions;
+	`.trimStart(),
     );
     await writeFile(
       path.join(cwd, "src/features/chat/ui/allowed.tsx"),

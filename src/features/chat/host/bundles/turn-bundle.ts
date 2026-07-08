@@ -1,4 +1,3 @@
-import type { ChatServerThreadActions } from "../../app-server/actions/threads";
 import type { ChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import {
@@ -9,6 +8,7 @@ import type { LocalIdSource } from "../../application/local-id-source";
 import { createPendingRequestActions, type PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
+import type { ThreadStartActions } from "../../application/threads/thread-start-actions";
 import type { MessageStreamNoticeSection } from "../../domain/message-stream/items";
 import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
@@ -51,7 +51,7 @@ interface ChatPanelTurnInput {
   navigation: ChatPanelThreadNavigationActions;
   composerController: ChatComposerController;
   runtimeSettings: ChatPanelRuntimeSettingsActions;
-  serverThreads: ChatServerThreadActions;
+  threadStart: ThreadStartActions;
   goals: ChatPanelGoalActions;
   autoTitleCoordinator: AutoTitleCoordinator;
   reconnect: () => Promise<void>;
@@ -72,7 +72,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
     navigation,
     composerController,
     runtimeSettings,
-    serverThreads,
+    threadStart,
     goals,
     autoTitleCoordinator,
     reconnect,
@@ -153,7 +153,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       },
     },
     {
-      threadStarter: serverThreads,
+      threadStarter: threadStart,
       runtimeSettings,
       threadActions,
       reconnectPanel: reconnect,

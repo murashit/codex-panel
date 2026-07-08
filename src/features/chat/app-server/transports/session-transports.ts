@@ -10,6 +10,7 @@ import {
   resumeThread,
   rollbackThread,
   setThreadGoal,
+  startThread,
   threadActivationSnapshotFromAppServerResponse,
   updateThreadSettings,
 } from "../../../../app-server/services/threads";
@@ -26,6 +27,7 @@ import type {
   ThreadResumeTransport,
 } from "../../application/threads/thread-loading-transport";
 import type { ThreadMutationTransport, ThreadRollbackSnapshot } from "../../application/threads/thread-mutation-transport";
+import type { ThreadStartTransport } from "../../application/threads/thread-start-transport";
 import { messageStreamItemsFromTurns } from "../mappers/message-stream/turn-items";
 
 interface CurrentChatAppServerClientHost {
@@ -51,6 +53,7 @@ interface AppServerThreadTurnsPage {
 export interface ChatSessionTransports {
   readonly turn: ChatTurnTransport;
   readonly runtimeSettings: RuntimeSettingsTransport;
+  readonly threadStart: ThreadStartTransport;
   readonly threadHistory: ThreadHistoryTransport;
   readonly threadResume: ThreadResumeTransport;
   readonly threadMutation: ThreadMutationTransport;
@@ -62,11 +65,26 @@ export function createChatSessionTransports(host: ChatAppServerTransportHost): C
   return {
     turn: createChatTurnTransport(host),
     runtimeSettings: createChatRuntimeSettingsTransport(host),
+    threadStart: createChatThreadStartTransport(host),
     threadHistory: createChatThreadHistoryTransport(host),
     threadResume: createChatThreadResumeTransport(host),
     threadMutation: createChatThreadMutationTransport(host),
     threadGoalRead: createChatThreadGoalReadTransport(host),
     threadGoal: createChatThreadGoalTransport(host),
+  };
+}
+
+function createChatThreadStartTransport(host: ChatAppServerTransportHost): ThreadStartTransport {
+  return {
+    startThread: (request) =>
+      withCurrentChatAppServerClient(host, async (client) => {
+        const response = await startThread(client, {
+          cwd: host.vaultPath,
+          serviceTier: request.serviceTier,
+          permissions: request.permissions,
+        });
+        return threadActivationSnapshotFromAppServerResponse(response);
+      }),
   };
 }
 

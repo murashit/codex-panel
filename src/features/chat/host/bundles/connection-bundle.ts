@@ -3,22 +3,21 @@ import { Notice } from "obsidian";
 import type { AppServerClient } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
-import { type ChatServerDiagnosticsActions, createChatServerDiagnosticsActions } from "../../app-server/actions/diagnostics";
-import { type ChatServerMetadataActions, createChatServerMetadataActions } from "../../app-server/actions/metadata";
-import { type ChatServerThreadActions, createChatServerThreadActions } from "../../app-server/actions/threads";
+import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
+import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import {
   type ChatConnectionActions,
   createChatConnectionActions,
   handleChatConnectionExit,
 } from "../../application/connection/connection-actions";
 import type { ConnectionWorkTracker } from "../../application/connection/connection-work";
+import { createServerDiagnosticsActions } from "../../application/connection/server-diagnostics-actions";
+import { createServerMetadataActions } from "../../application/connection/server-metadata-actions";
 import type { LocalIdSource } from "../../application/local-id-source";
-import { runtimeSnapshotForChatState } from "../../application/runtime/snapshot";
 import type { ChatConnectionPhase } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { AutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
-import type { createThreadGoalSyncActions } from "../../application/threads/goal-actions";
 import type { ChatPanelEnvironment } from "../contracts";
 import type { ChatViewDeferredTasks } from "../session/deferred-work";
 
@@ -26,7 +25,6 @@ type CurrentAppServerClient = () => AppServerClient | null;
 
 type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
 type RejectRequestId = Parameters<AppServerClient["rejectServerRequest"]>[0];
-type ChatPanelGoalSyncActions = ReturnType<typeof createThreadGoalSyncActions>;
 
 interface ChatPanelConnectionStatus {
   set: (statusText: string, phase?: ChatConnectionPhase) => void;
@@ -36,9 +34,9 @@ interface ChatPanelConnectionStatus {
 interface ChatPanelConnectionBundleInput {
   connection: ConnectionManager;
   currentClient: CurrentAppServerClient;
+  appServer: ChatAppServerGateway;
   localItemIds: LocalIdSource;
   status: ChatPanelConnectionStatus;
-  goalSync: ChatPanelGoalSyncActions;
   autoTitleCoordinator: AutoTitleCoordinator;
 }
 
@@ -59,10 +57,8 @@ export interface ChatPanelConnectionBundle {
     actions: ChatConnectionActions;
   };
   inboundHandler: ChatInboundHandler;
-  serverActions: {
-    threads: ChatServerThreadActions;
-    metadata: ChatServerMetadataActions;
-    diagnostics: ChatServerDiagnosticsActions;
+  sharedStateActions: {
+    applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
   };
   refreshSharedThreads: () => Promise<void>;
 }
@@ -113,37 +109,24 @@ export function createConnectionBundle(
   input: ChatPanelConnectionBundleInput,
 ): ChatPanelConnectionBundle {
   const { environment, stateStore } = host;
-  const { connection, currentClient, localItemIds, status, goalSync, autoTitleCoordinator } = input;
-  const serverMetadata = createChatServerMetadataActions({
+  const { connection, currentClient, appServer, localItemIds, status, autoTitleCoordinator } = input;
+  const serverMetadata = createServerMetadataActions({
     stateStore,
-    vaultPath: environment.plugin.settingsRef.vaultPath,
-    currentClient,
+    metadataResourceTransport: appServer.metadataResource,
     updateAppServerMetadata: (updater) => environment.plugin.appServerQueries.updateAppServerMetadata(updater),
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
     refreshAppServerMetadata: (options) => environment.plugin.appServerQueries.refreshAppServerMetadata(options),
+    isStaleSharedQueryError: isStaleAppServerSharedQueryContextError,
   });
-  const serverDiagnostics = createChatServerDiagnosticsActions({
+  const serverDiagnostics = createServerDiagnosticsActions({
     stateStore,
-    vaultPath: environment.plugin.settingsRef.vaultPath,
-    currentClient,
+    diagnosticsTransport: appServer.serverDiagnostics,
     updateAppServerMetadata: (updater) => environment.plugin.appServerQueries.updateAppServerMetadata(updater),
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
   });
-  const serverThreads = createChatServerThreadActions({
-    stateStore,
-    vaultPath: environment.plugin.settingsRef.vaultPath,
-    currentClient,
-    runtimeSnapshotForState: runtimeSnapshotForChatState,
-    applyThreadCatalogEvent: (event) => {
-      environment.plugin.threadCatalog.apply(event);
-    },
-    syncThreadGoal: (threadId) => {
-      void goalSync.syncThreadGoal(threadId);
-    },
-  });
   const refreshSharedThreads = async (): Promise<void> => {
     const threads = await environment.plugin.threadCatalog.refreshActive();
-    serverThreads.applyThreadList(threads);
+    stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
   };
   const refreshSharedThreadsQuietly = (): void => {
     void refreshSharedThreads().catch((error: unknown) => {
@@ -258,10 +241,10 @@ export function createConnectionBundle(
       actions: connectionActions,
     },
     inboundHandler,
-    serverActions: {
-      threads: serverThreads,
-      metadata: serverMetadata,
-      diagnostics: serverDiagnostics,
+    sharedStateActions: {
+      applyAppServerMetadata: (metadata) => {
+        serverMetadata.applyAppServerMetadata(metadata);
+      },
     },
     refreshSharedThreads,
   };
