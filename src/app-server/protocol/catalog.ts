@@ -6,7 +6,7 @@ export interface CatalogModel {
   displayName: string;
   description: string;
   hidden: boolean;
-  supportedReasoningEfforts: readonly { reasoningEffort: string }[];
+  supportedReasoningEfforts: readonly { reasoningEffort: string; description: string }[];
   defaultReasoningEffort: string | null;
   inputModalities: readonly string[];
   additionalSpeedTiers: readonly string[];
@@ -56,6 +56,10 @@ function modelMetadataFromCatalogModel(model: CatalogModel): ModelMetadata {
     description: model.description,
     hidden: model.hidden,
     supportedReasoningEfforts: model.supportedReasoningEfforts.map((option) => option.reasoningEffort),
+    reasoningEffortOptions: model.supportedReasoningEfforts.map((option) => ({
+      reasoningEffort: option.reasoningEffort,
+      description: option.description,
+    })),
     defaultReasoningEffort: model.defaultReasoningEffort,
     inputModalities: [...model.inputModalities],
     additionalSpeedTiers: [...model.additionalSpeedTiers],

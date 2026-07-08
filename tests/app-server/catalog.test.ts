@@ -21,6 +21,10 @@ describe("app-server catalog mappers", () => {
         description: "Primary model",
         hidden: false,
         supportedReasoningEfforts: ["low", "high"],
+        reasoningEffortOptions: [
+          { reasoningEffort: "low", description: "Low" },
+          { reasoningEffort: "high", description: "High" },
+        ],
         defaultReasoningEffort: "high",
         inputModalities: ["text"],
         additionalSpeedTiers: ["fast"],

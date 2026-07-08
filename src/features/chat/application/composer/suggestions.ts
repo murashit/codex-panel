@@ -1,6 +1,11 @@
 import { prepareFuzzySearch, type SearchResult, sortSearchResults } from "obsidian";
 import type { ModelMetadata, SkillMetadata } from "../../../../domain/catalog/metadata";
-import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../../../../domain/catalog/metadata";
+import {
+  findModelMetadataByIdOrName,
+  reasoningEffortDescriptionForModelMetadata,
+  sortedModelMetadata,
+  supportedEffortsForModelMetadata,
+} from "../../../../domain/catalog/metadata";
 import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime/permissions";
 import { shortThreadId } from "../../../../domain/threads/id";
 import type { Thread } from "../../../../domain/threads/model";
@@ -533,7 +538,7 @@ function reasoningEffortOverrideSuggestions(
     },
     ...efforts.map((effort) => ({
       display: effort,
-      detail: modelDetail,
+      detail: reasoningEffortDescriptionForModelMetadata(model, effort) ?? modelDetail,
       replacement: effort,
       start,
       appendSpaceOnInsert: true,

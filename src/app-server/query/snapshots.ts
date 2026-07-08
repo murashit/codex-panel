@@ -13,6 +13,7 @@ export function cloneModelMetadata(models: readonly ModelMetadata[]): ModelMetad
   return models.map((model) => ({
     ...model,
     supportedReasoningEfforts: [...model.supportedReasoningEfforts],
+    ...(model.reasoningEffortOptions ? { reasoningEffortOptions: model.reasoningEffortOptions.map((option) => ({ ...option })) } : {}),
     inputModalities: [...model.inputModalities],
     additionalSpeedTiers: [...model.additionalSpeedTiers],
     serviceTiers: model.serviceTiers.map((tier) => ({ ...tier })),

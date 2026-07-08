@@ -3,6 +3,11 @@ interface ModelServiceTier {
   readonly name: string;
 }
 
+interface ReasoningEffortMetadata {
+  readonly reasoningEffort: string;
+  readonly description: string;
+}
+
 export interface ModelMetadata {
   readonly id: string;
   readonly model: string;
@@ -10,6 +15,7 @@ export interface ModelMetadata {
   readonly description: string;
   readonly hidden: boolean;
   readonly supportedReasoningEfforts: readonly string[];
+  readonly reasoningEffortOptions?: readonly ReasoningEffortMetadata[];
   readonly defaultReasoningEffort: string | null;
   readonly inputModalities: readonly string[];
   readonly additionalSpeedTiers: readonly string[];
@@ -52,6 +58,14 @@ export function supportedEffortsForModelMetadata(model: ModelMetadata | null): R
   return (
     model?.supportedReasoningEfforts.map(normalizeReasoningEffort).filter((effort): effort is ReasoningEffort => effort !== null) ?? []
   );
+}
+
+export function reasoningEffortDescriptionForModelMetadata(model: ModelMetadata | null, effort: ReasoningEffort): string | null {
+  const normalizedEffort = normalizeReasoningEffort(effort);
+  if (!normalizedEffort) return null;
+  const option = model?.reasoningEffortOptions?.find((item) => normalizeReasoningEffort(item.reasoningEffort) === normalizedEffort);
+  const description = option?.description.trim();
+  return description ? description : null;
 }
 
 export function sortedModelMetadata(models: readonly ModelMetadata[]): ModelMetadata[] {

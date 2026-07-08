@@ -516,11 +516,20 @@ describe("composer suggestions", () => {
   });
 
   it("suggests reasoning effort arguments for /reasoning", () => {
-    const models = [model("gpt-5.5", ["low", "medium", "high"]), model("gpt-5.4-mini", ["minimal", "low", "medium"])];
+    const models = [
+      model("gpt-5.5", ["low", "medium", "high"], {
+        reasoningEffortOptions: [
+          { reasoningEffort: "low", description: "Brief reasoning" },
+          { reasoningEffort: "medium", description: "Balanced reasoning" },
+          { reasoningEffort: "high", description: "Deep reasoning" },
+        ],
+      }),
+      model("gpt-5.4-mini", ["minimal", "low", "medium"]),
+    ];
 
     expect(activeComposerSuggestions("/reasoning h", notes, [], [], models, "gpt-5.5")[0]).toMatchObject({
       display: "high",
-      detail: "Supported by gpt-5.5",
+      detail: "Deep reasoning",
       replacement: "high",
       appendSpaceOnInsert: true,
     });
