@@ -100,21 +100,21 @@ export const SLASH_COMMANDS = [
     usage: "/auto-review",
     argsKind: "none",
     surface: "threadSetting",
-    detail: "Toggle approval auto-review.",
+    detail: "Toggle auto-review for subsequent turns.",
   },
   {
     command: "/fast",
     usage: "/fast",
     argsKind: "none",
     surface: "threadSetting",
-    detail: "Toggle fast service tier for subsequent turns.",
+    detail: "Toggle fast mode for subsequent turns.",
   },
   {
     command: "/plan",
     usage: "/plan [message]",
     argsKind: "optionalMessage",
     surface: "threadSetting",
-    detail: "Toggle Plan mode, optionally with a message.",
+    detail: "Toggle Plan mode for subsequent turns, optionally with a message.",
   },
   {
     command: "/goal",
@@ -149,14 +149,14 @@ export const SLASH_COMMANDS = [
     usage: "/doctor",
     argsKind: "none",
     surface: "diagnostic",
-    detail: "Show Codex CLI and Codex App Server diagnostics.",
+    detail: "Show Codex CLI and Codex app-server diagnostics.",
   },
   {
     command: "/tools",
     usage: "/tools",
     argsKind: "none",
     surface: "diagnostic",
-    detail: "Show Codex plugins, tool providers, and skills reported by App Server.",
+    detail: "Show Codex plugins, tool providers, and skills reported by Codex app-server.",
   },
   {
     command: "/model",
@@ -170,14 +170,14 @@ export const SLASH_COMMANDS = [
     usage: "/reasoning [level|default]",
     argsKind: "showOrSet",
     surface: "threadSetting",
-    detail: "Show or set reasoning level for subsequent turns.",
+    detail: "Show or set reasoning effort for subsequent turns.",
   },
   {
     command: "/help",
     usage: "/help",
     argsKind: "none",
     surface: "diagnostic",
-    detail: "Show available Codex slash commands.",
+    detail: "Show this command list.",
   },
 ] as const satisfies readonly SlashCommandDefinitionShape[];
 

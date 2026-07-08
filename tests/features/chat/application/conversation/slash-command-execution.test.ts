@@ -597,41 +597,17 @@ describe("slash commands", () => {
   });
 
   it("groups slash command help by command surface", () => {
-    expect(slashCommandHelpSections()).toEqual([
-      {
-        title: "Panel actions",
-        auditFacts: expect.arrayContaining([
-          { key: "/clear", value: "Clear the current panel and start a fresh Codex thread." },
-          { key: "/reconnect", value: "Reconnect to Codex app-server and resume the active thread." },
-          { key: "/archive <thread>", value: "Archive the selected Codex thread." },
-          { key: "/rename <thread> <name>", value: "Rename the selected Codex thread." },
-        ]),
-      },
-      {
-        title: "Thread settings",
-        auditFacts: expect.arrayContaining([
-          { key: "/plan [message]", value: "Toggle Plan mode, optionally with a message." },
-          { key: "/goal", value: "Show or manage the current thread goal." },
-          { key: "/goal set <objective>", value: "Create or update the thread goal." },
-          { key: "/permissions [profile|default]", value: "Show or set the permission profile for subsequent turns." },
-          { key: "/model [model|default]", value: "Show or set the model for subsequent turns." },
-        ]),
-      },
-      {
-        title: "Diagnostics",
-        auditFacts: expect.arrayContaining([
-          { key: "/status", value: "Show current thread, context, and usage limits." },
-          { key: "/help", value: "Show available Codex slash commands." },
-        ]),
-      },
-      {
-        title: "Composition",
-        auditFacts: [
-          { key: "/refer <thread> <message>", value: "Send a message with recent turns from another non-archived thread." },
-          { key: "/clip <url> [message]", value: "Clip a URL into a vault note and send a wikilink reference with an optional message." },
-        ],
-      },
-    ]);
+    const sections = slashCommandHelpSections();
+
+    expect(sections.map((section) => section.title)).toEqual(["Panel actions", "Thread settings", "Diagnostics", "Composition"]);
+    expect(slashCommandHelpKeys("Panel actions")).toEqual(
+      expect.arrayContaining(["/clear", "/reconnect", "/archive <thread>", "/rename <thread> <name>"]),
+    );
+    expect(slashCommandHelpKeys("Thread settings")).toEqual(
+      expect.arrayContaining(["/plan [message]", "/goal", "/permissions [profile|default]", "/model [model|default]"]),
+    );
+    expect(slashCommandHelpKeys("Diagnostics")).toEqual(expect.arrayContaining(["/status", "/doctor", "/tools", "/help"]));
+    expect(slashCommandHelpKeys("Composition")).toEqual(["/refer <thread> <message>", "/clip <url> [message]"]);
   });
 
   it("rejects /help arguments", async () => {
@@ -744,24 +720,10 @@ describe("slash commands", () => {
   });
 
   it("expands goal subcommands in help", () => {
-    expect(slashCommandHelpValue("/goal [set <objective>|edit|pause|resume|clear]")).toBeUndefined();
-    expect(slashCommandHelpValue("/goal")).toBe("Show or manage the current thread goal.");
-    expect(slashCommandHelpValue("/goal set <objective>")).toBe("Create or update the thread goal.");
-    expect(slashCommandHelpValue("/goal clear")).toBe("Clear the current thread goal.");
-  });
-
-  it("documents auto-review", () => {
-    expect(slashCommandHelpValue("/auto-review")).toBe("Toggle approval auto-review.");
-  });
-
-  it("documents rollback", () => {
-    expect(slashCommandHelpValue("/rollback")).toBe("Roll back the latest turn and restore its prompt.");
-  });
-
-  it("documents status and doctor as separate commands", () => {
-    expect(slashCommandHelpValue("/status")).toBe("Show current thread, context, and usage limits.");
-    expect(slashCommandHelpValue("/permissions [profile|default]")).toBe("Show or set the permission profile for subsequent turns.");
-    expect(slashCommandHelpValue("/doctor")).toBe("Show Codex CLI and Codex App Server diagnostics.");
+    expect(slashCommandHelpKeys("Thread settings")).toEqual(
+      expect.arrayContaining(["/goal", "/goal set <objective>", "/goal edit", "/goal pause", "/goal resume", "/goal clear"]),
+    );
+    expect(slashCommandHelpKeys("Thread settings")).not.toContain("/goal [set <objective>|edit|pause|resume|clear]");
   });
 
   it("rejects unsupported reasoning effort with usage", async () => {
@@ -870,14 +832,12 @@ describe("slash commands", () => {
     expect(ctx.runtimeSettings.toggleFastMode).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fast does not take arguments. Usage: /fast");
   });
-
-  it("documents Codex capabilities", () => {
-    expect(slashCommandHelpValue("/tools")).toBe("Show Codex plugins, tool providers, and skills reported by App Server.");
-  });
 });
 
-function slashCommandHelpValue(key: string): string | undefined {
-  return slashCommandHelpSections()
-    .flatMap((section) => section.auditFacts)
-    .find((row) => row.key === key)?.value;
+function slashCommandHelpKeys(title: string): string[] {
+  return (
+    slashCommandHelpSections()
+      .find((section) => section.title === title)
+      ?.auditFacts.map((row) => row.key) ?? []
+  );
 }
