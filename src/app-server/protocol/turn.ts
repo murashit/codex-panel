@@ -1,8 +1,8 @@
 import {
-  conversationSummaryFromTranscriptEntries,
-  nonEmptyConversationSummaries,
-  type ThreadConversationSummary,
+  nonEmptyTurnTranscriptSummaries,
   type ThreadTranscriptEntry,
+  type TurnTranscriptSummary,
+  turnTranscriptSummaryFromTranscriptEntries,
 } from "../../domain/threads/transcript";
 import type { ThreadItem as GeneratedThreadItem } from "../../generated/app-server/v2/ThreadItem";
 import type { Turn as GeneratedTurn } from "../../generated/app-server/v2/Turn";
@@ -21,30 +21,30 @@ export function transcriptEntriesFromTurnRecords(turns: readonly TurnRecord[]): 
   return turns.flatMap(transcriptEntriesFromTurnRecord);
 }
 
-function conversationSummaryFromTurnRecord(turn: TurnRecord): ThreadConversationSummary {
-  return conversationSummaryFromTranscriptEntries(transcriptEntriesFromTurnRecord(turn));
+function turnTranscriptSummaryFromTurnRecord(turn: TurnRecord): TurnTranscriptSummary {
+  return turnTranscriptSummaryFromTranscriptEntries(transcriptEntriesFromTurnRecord(turn));
 }
 
-export function conversationAssistantTextFromTurnRecord(turn: TurnRecord): string | null {
-  return conversationSummaryFromTurnRecord(turn).assistantText;
+export function turnTranscriptAssistantTextFromTurnRecord(turn: TurnRecord): string | null {
+  return turnTranscriptSummaryFromTurnRecord(turn).assistantText;
 }
 
-export function completedConversationSummaryFromTurnRecord(turn: TurnRecord): ThreadConversationSummary | null {
+export function completedTurnTranscriptSummaryFromTurnRecord(turn: TurnRecord): TurnTranscriptSummary | null {
   if (turn.status !== "completed") return null;
-  const summary = conversationSummaryFromTurnRecord(turn);
+  const summary = turnTranscriptSummaryFromTurnRecord(turn);
   return summary.userText && summary.assistantText ? summary : null;
 }
 
-export function completedConversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
+export function completedTurnTranscriptSummariesFromTurnRecords(turns: readonly TurnRecord[]): TurnTranscriptSummary[] {
   return turns.flatMap((turn) => {
-    const summary = completedConversationSummaryFromTurnRecord(turn);
+    const summary = completedTurnTranscriptSummaryFromTurnRecord(turn);
     return summary ? [summary] : [];
   });
 }
 
-export function chronologicalConversationSummariesFromTurnRecords(turns: readonly TurnRecord[]): ThreadConversationSummary[] {
-  return nonEmptyConversationSummaries(
-    [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0)).map(conversationSummaryFromTurnRecord),
+export function chronologicalTurnTranscriptSummariesFromTurnRecords(turns: readonly TurnRecord[]): TurnTranscriptSummary[] {
+  return nonEmptyTurnTranscriptSummaries(
+    [...turns].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0)).map(turnTranscriptSummaryFromTurnRecord),
   );
 }
 

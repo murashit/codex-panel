@@ -6,19 +6,19 @@ export interface ThreadTranscriptEntry {
   timestamp: number | null;
 }
 
-export interface ThreadConversationSummary {
+export interface TurnTranscriptSummary {
   userText: string | null;
   assistantText: string | null;
 }
 
-export function conversationSummaryFromTranscriptEntries(entries: readonly ThreadTranscriptEntry[]): ThreadConversationSummary {
+export function turnTranscriptSummaryFromTranscriptEntries(entries: readonly ThreadTranscriptEntry[]): TurnTranscriptSummary {
   return {
     userText: firstTranscriptText(entries, (entry) => entry.kind === "user"),
     assistantText: lastTranscriptText(entries, (entry) => entry.kind === "assistant" || entry.kind === "plan"),
   };
 }
 
-export function nonEmptyConversationSummaries(summaries: readonly ThreadConversationSummary[]): ThreadConversationSummary[] {
+export function nonEmptyTurnTranscriptSummaries(summaries: readonly TurnTranscriptSummary[]): TurnTranscriptSummary[] {
   return summaries.filter((summary) => summary.userText !== null || summary.assistantText !== null);
 }
 

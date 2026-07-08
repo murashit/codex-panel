@@ -13,12 +13,17 @@ import { turnRuntimeEventsFromNotification } from "./runtime-events";
 
 export type ChatNotificationEffect =
   | { type: "refresh-threads" }
-  | { type: "maybe-name-thread"; threadId: string; turnId: string; completedSummary: TurnRuntimeCompletedSummary }
+  | {
+      type: "maybe-name-thread";
+      threadId: string;
+      turnId: string;
+      completedTurnTranscriptSummary: TurnRuntimeCompletedTurnTranscriptSummary;
+    }
   | { type: "refresh-server-diagnostics"; forceResourceProbes?: boolean }
   | { type: "apply-app-server-resource-event"; event: AppServerResourceEvent }
   | { type: "apply-thread-catalog-event"; event: ThreadCatalogEvent };
 
-type TurnRuntimeCompletedSummary = Extract<TurnRuntimeOutcome, { type: "turn-completed" }>["completedSummary"];
+type TurnRuntimeCompletedTurnTranscriptSummary = Extract<TurnRuntimeOutcome, { type: "turn-completed" }>["completedTurnTranscriptSummary"];
 
 export interface ChatNotificationPlan {
   actions: readonly ChatAction[];
@@ -79,7 +84,7 @@ function chatNotificationEffectsFromTurnRuntimeOutcome(outcome: TurnRuntimeOutco
           type: "maybe-name-thread",
           threadId: outcome.threadId,
           turnId: outcome.turnId,
-          completedSummary: outcome.completedSummary,
+          completedTurnTranscriptSummary: outcome.completedTurnTranscriptSummary,
         },
         { type: "refresh-threads" },
       ];

@@ -1,6 +1,6 @@
 import type { Thread } from "./model";
 import { threadDisplayTitle } from "./title";
-import type { ThreadConversationSummary } from "./transcript";
+import type { TurnTranscriptSummary } from "./transcript";
 
 export const REFERENCED_THREAD_TURN_LIMIT = 20;
 
@@ -22,7 +22,7 @@ export interface ReferencedThreadPromptBundle {
   referencedThread: ReferencedThreadMetadata;
 }
 
-function referencedThreadPrompt(thread: Thread, turns: readonly ThreadConversationSummary[], userRequest: string): string {
+function referencedThreadPrompt(thread: Thread, turns: readonly TurnTranscriptSummary[], userRequest: string): string {
   const reference = referencedThreadMetadata(thread, turns.length);
   const envelope = referencedThreadEnvelope(reference, userRequest);
 
@@ -56,7 +56,7 @@ function referencedThreadMetadata(thread: Thread, count: number): ReferencedThre
 
 export function referencedThreadPromptBundle(
   thread: Thread,
-  turns: readonly ThreadConversationSummary[],
+  turns: readonly TurnTranscriptSummary[],
   userRequest: string,
 ): ReferencedThreadPromptBundle {
   const prompt = referencedThreadPrompt(thread, [...turns], userRequest);

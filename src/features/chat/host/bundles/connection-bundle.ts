@@ -150,8 +150,8 @@ export function createConnectionBundle(
           status.addSystemMessage(error instanceof Error ? error.message : String(error));
         });
       },
-      maybeNameThread: (threadId, turnId, completedSummary) => {
-        autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedSummary);
+      maybeNameThread: (threadId, turnId, completedTurnTranscriptSummary) => {
+        autoTitleCoordinator.maybeAutoTitleThread(threadId, turnId, completedTurnTranscriptSummary);
       },
       applyThreadCatalogEvent: (event) => {
         environment.plugin.threadCatalog.apply(event);

@@ -13,7 +13,7 @@ import {
   type PendingRequestId,
   type PendingUserInput,
 } from "../../../../domain/pending-requests/model";
-import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
+import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
 import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -34,7 +34,7 @@ export interface ChatInboundHandlerActions {
   refreshActiveThreads: () => void;
   refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
   applyAppServerResourceEvent: (event: AppServerResourceEvent) => void;
-  maybeNameThread: (threadId: string, turnId: string, completedSummary: ThreadConversationSummary | null) => void;
+  maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
   applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
@@ -250,7 +250,7 @@ function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatN
       context.actions.applyAppServerResourceEvent(effect.event);
       return;
     case "maybe-name-thread":
-      context.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedSummary);
+      context.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
       return;
     case "apply-thread-catalog-event":
       context.actions.applyThreadCatalogEvent(effect.event);

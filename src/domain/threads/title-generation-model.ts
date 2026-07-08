@@ -1,5 +1,5 @@
 import { truncate } from "../display/text-preview";
-import type { ThreadConversationSummary } from "./transcript";
+import type { TurnTranscriptSummary } from "./transcript";
 
 const THREAD_TITLE_CONTEXT_MAX_CHARS = 4_000;
 const DEFAULT_CONTEXT_PAGE_LIMIT = 20;
@@ -15,7 +15,7 @@ export interface ThreadTitleContext {
 }
 
 interface ThreadTitleContextPage {
-  summaries: ThreadConversationSummary[];
+  summaries: TurnTranscriptSummary[];
   nextCursor: string | null;
 }
 
@@ -26,7 +26,7 @@ export type ThreadTitleContextPageReader = (
   sortDirection: "asc" | "desc",
 ) => Promise<ThreadTitleContextPage>;
 
-export function threadTitleContextFromConversationSummary(summary: ThreadConversationSummary): ThreadTitleContext | null {
+export function threadTitleContextFromTurnTranscriptSummary(summary: TurnTranscriptSummary): ThreadTitleContext | null {
   if (!summary.userText || !summary.assistantText) return null;
 
   return {
@@ -48,7 +48,7 @@ export async function findThreadTitleContext(options: {
   for (let page = 0; page < maxPages; page += 1) {
     const response = await options.readTurns(options.threadId, cursor, pageLimit, "asc");
     for (const summary of response.summaries) {
-      const context = threadTitleContextFromConversationSummary(summary);
+      const context = threadTitleContextFromTurnTranscriptSummary(summary);
       if (context) return context;
     }
     if (!response.nextCursor) break;

@@ -1,14 +1,14 @@
 import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
 import { generateThreadTitleWithCodex } from "../../../app-server/services/thread-title-generation";
-import { readCompletedConversationSummariesPage } from "../../../app-server/services/threads";
+import { readCompletedTurnTranscriptSummariesPage } from "../../../app-server/services/threads";
 import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import {
   findThreadTitleContext,
   THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE,
   type ThreadTitleContext,
-  threadTitleContextFromConversationSummary,
+  threadTitleContextFromTurnTranscriptSummary,
 } from "../../../domain/threads/title-generation-model";
-import type { ThreadConversationSummary } from "../../../domain/threads/transcript";
+import type { TurnTranscriptSummary } from "../../../domain/threads/transcript";
 
 export interface ThreadTitleServiceHost {
   codexPath: () => string;
@@ -24,7 +24,7 @@ export interface ThreadTitleServiceHost {
 export interface ThreadTitleService {
   generateTitle(threadId: string): Promise<string>;
   resolveContext(threadId: string): Promise<ThreadTitleContext | null>;
-  completedTurnContext(turnId: string, completedSummary: ThreadConversationSummary | null): ThreadTitleContext | null;
+  completedTurnContext(turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null): ThreadTitleContext | null;
   generate(context: ThreadTitleContext): Promise<string | null>;
 }
 
@@ -32,7 +32,7 @@ export function createThreadTitleService(host: ThreadTitleServiceHost): ThreadTi
   return {
     generateTitle: (threadId) => generateTitle(host, threadId),
     resolveContext: (threadId) => resolveThreadTitleContext(host, threadId),
-    completedTurnContext: (turnId, completedSummary) => completedTurnContext(host, turnId, completedSummary),
+    completedTurnContext: (turnId, completedTurnTranscriptSummary) => completedTurnContext(host, turnId, completedTurnTranscriptSummary),
     generate: (context) => generateTitleFromContext(host, context),
   };
 }
@@ -56,7 +56,7 @@ async function persistedThreadTitleContext(host: ThreadTitleServiceHost, threadI
   return host.clientAccess.withClient((client) =>
     findThreadTitleContext({
       threadId,
-      readTurns: (id, cursor, limit, sortDirection) => readCompletedConversationSummariesPage(client, id, cursor, limit, sortDirection),
+      readTurns: (id, cursor, limit, sortDirection) => readCompletedTurnTranscriptSummariesPage(client, id, cursor, limit, sortDirection),
     }),
   );
 }
@@ -64,10 +64,11 @@ async function persistedThreadTitleContext(host: ThreadTitleServiceHost, threadI
 function completedTurnContext(
   host: ThreadTitleServiceHost,
   turnId: string,
-  completedSummary: ThreadConversationSummary | null,
+  completedTurnTranscriptSummary: TurnTranscriptSummary | null,
 ): ThreadTitleContext | null {
   return (
-    host.visibleCompletedTurnContext?.(turnId) ?? (completedSummary ? threadTitleContextFromConversationSummary(completedSummary) : null)
+    host.visibleCompletedTurnContext?.(turnId) ??
+    (completedTurnTranscriptSummary ? threadTitleContextFromTurnTranscriptSummary(completedTurnTranscriptSummary) : null)
   );
 }
 

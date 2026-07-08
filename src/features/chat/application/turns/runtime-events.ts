@@ -1,5 +1,5 @@
 import type { PendingRequestId } from "../../../../domain/pending-requests/model";
-import type { ThreadConversationSummary } from "../../../../domain/threads/transcript";
+import type { TurnTranscriptSummary } from "../../../../domain/threads/transcript";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 
 type TurnRuntimeTextItemKind = "tool" | "hook" | "reasoning";
@@ -67,7 +67,7 @@ export type TurnRuntimeEvent =
       turnId: string;
       status: string;
       completedItems: readonly ThreadStreamItem[];
-      completedSummary: ThreadConversationSummary | null;
+      completedTurnTranscriptSummary: TurnTranscriptSummary | null;
     }
   | {
       type: "turnDiffUpdated";

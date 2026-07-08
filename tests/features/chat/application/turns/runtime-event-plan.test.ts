@@ -36,7 +36,7 @@ describe("TurnRuntimeEvent planner", () => {
         threadId: "thread-active",
         turnId: "turn-active",
         status: "completed",
-        completedSummary: { userText: "hello", assistantText: "done" },
+        completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
         completedItems: [
           {
             id: "u1",
@@ -71,7 +71,7 @@ describe("TurnRuntimeEvent planner", () => {
         type: "turn-completed",
         threadId: "thread-active",
         turnId: "turn-active",
-        completedSummary: { userText: "hello", assistantText: "done" },
+        completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
       },
     ]);
   });

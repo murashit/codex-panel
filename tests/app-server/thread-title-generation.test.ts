@@ -15,7 +15,7 @@ import type { ServerInitialization } from "../../src/domain/server/initializatio
 import {
   findThreadTitleContext,
   THREAD_TITLE_MAX_CHARS,
-  threadTitleContextFromConversationSummary,
+  threadTitleContextFromTurnTranscriptSummary,
   threadTitleFromGeneratedText,
   threadTitlePrompt,
 } from "../../src/domain/threads/title-generation-model";
@@ -29,9 +29,9 @@ interface TurnStartResponse {
 }
 
 describe("thread title", () => {
-  it("builds title context from a conversation summary", () => {
+  it("builds title context from a turn transcript summary", () => {
     expect(
-      threadTitleContextFromConversationSummary({
+      threadTitleContextFromTurnTranscriptSummary({
         userText: "Codex Panelに自動命名を付けたい",
         assistantText: "実装方針をまとめました。",
       }),
@@ -41,8 +41,8 @@ describe("thread title", () => {
     });
   });
 
-  it("does not build title context for incomplete summaries", () => {
-    expect(threadTitleContextFromConversationSummary({ userText: "hello", assistantText: null })).toBeNull();
+  it("does not build title context for incomplete turn transcript summaries", () => {
+    expect(threadTitleContextFromTurnTranscriptSummary({ userText: "hello", assistantText: null })).toBeNull();
   });
 
   it("scans older thread pages until it finds a usable title context", async () => {

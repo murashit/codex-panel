@@ -8,9 +8,17 @@ import { activeTurnId, pendingTurnStart as pendingTurnStartForState } from "./tu
 
 export type TurnRuntimeOutcome =
   | { type: "turn-started"; threadId: string; turnId: string; recencyAt: number | null }
-  | { type: "turn-completed"; threadId: string; turnId: string; completedSummary: TurnRuntimeEventCompletedSummary };
+  | {
+      type: "turn-completed";
+      threadId: string;
+      turnId: string;
+      completedTurnTranscriptSummary: TurnRuntimeEventCompletedTurnTranscriptSummary;
+    };
 
-type TurnRuntimeEventCompletedSummary = Extract<TurnRuntimeEvent, { type: "turnCompleted" }>["completedSummary"];
+type TurnRuntimeEventCompletedTurnTranscriptSummary = Extract<
+  TurnRuntimeEvent,
+  { type: "turnCompleted" }
+>["completedTurnTranscriptSummary"];
 
 export interface TurnRuntimePlan {
   actions: readonly ChatAction[];
@@ -142,7 +150,7 @@ function turnCompletedPlan(state: ChatState, event: Extract<TurnRuntimeEvent, { 
         type: "turn-completed",
         threadId: event.threadId,
         turnId: event.turnId,
-        completedSummary: event.completedSummary,
+        completedTurnTranscriptSummary: event.completedTurnTranscriptSummary,
       },
     ],
   };

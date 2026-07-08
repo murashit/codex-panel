@@ -43,7 +43,7 @@ describe("app-server turn runtime event mapping", () => {
         threadId: "thread-active",
         turnId: "turn-active",
         status: "completed",
-        completedSummary: { userText: "hello", assistantText: "done" },
+        completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
       }),
     ]);
     expect(events[0]).toMatchObject({

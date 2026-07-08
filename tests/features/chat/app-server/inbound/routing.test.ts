@@ -97,7 +97,7 @@ describe("chat inbound routing", () => {
         type: "maybe-name-thread",
         threadId: "thread-active",
         turnId: "turn-active",
-        completedSummary: { userText: "hello", assistantText: "done" },
+        completedTurnTranscriptSummary: { userText: "hello", assistantText: "done" },
       },
       { type: "refresh-threads" },
     ]);

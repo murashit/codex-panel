@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  chronologicalConversationSummariesFromTurnRecords,
-  completedConversationSummariesFromTurnRecords,
-  completedConversationSummaryFromTurnRecord,
-  conversationAssistantTextFromTurnRecord,
+  chronologicalTurnTranscriptSummariesFromTurnRecords,
+  completedTurnTranscriptSummariesFromTurnRecords,
+  completedTurnTranscriptSummaryFromTurnRecord,
   lastAgentMessageTextFromTurnRecord,
   type TurnItem,
   type TurnRecord,
   transcriptEntriesFromTurnRecords,
+  turnTranscriptAssistantTextFromTurnRecord,
 } from "../../src/app-server/protocol/turn";
 
 describe("app-server turn records", () => {
@@ -27,9 +27,9 @@ describe("app-server turn records", () => {
     ]);
   });
 
-  it("builds completed turn summaries from the first user message and last assistant-like item", () => {
+  it("builds completed turn transcript summaries from the first user message and last assistant-like item", () => {
     expect(
-      completedConversationSummaryFromTurnRecord(
+      completedTurnTranscriptSummaryFromTurnRecord(
         turn([
           agentMessage("draft", "途中経過"),
           userMessage("u1", "最初の依頼"),
@@ -40,15 +40,15 @@ describe("app-server turn records", () => {
     ).toEqual({ userText: "最初の依頼", assistantText: "最終回答" });
   });
 
-  it("does not build completed summaries for failed turns", () => {
+  it("does not build completed turn transcript summaries for failed turns", () => {
     expect(
-      completedConversationSummaryFromTurnRecord(turn([userMessage("u1", "依頼"), agentMessage("a1", "回答")], { status: "failed" })),
+      completedTurnTranscriptSummaryFromTurnRecord(turn([userMessage("u1", "依頼"), agentMessage("a1", "回答")], { status: "failed" })),
     ).toBeNull();
   });
 
-  it("projects completed summaries from turn lists without exposing filtering logic to callers", () => {
+  it("projects completed turn transcript summaries from turn lists without exposing filtering logic to callers", () => {
     expect(
-      completedConversationSummariesFromTurnRecords([
+      completedTurnTranscriptSummariesFromTurnRecords([
         turn([userMessage("u1", "依頼"), agentMessage("a1", "回答")], { id: "completed" }),
         turn([userMessage("u2", "失敗した依頼"), agentMessage("a2", "失敗した回答")], { id: "failed", status: "failed" }),
         turn([commandItem("cmd")], { id: "empty" }),
@@ -56,9 +56,9 @@ describe("app-server turn records", () => {
     ).toEqual([{ userText: "依頼", assistantText: "回答" }]);
   });
 
-  it("returns chronological summaries and drops turns without conversation text", () => {
+  it("returns chronological turn transcript summaries and drops turns without transcript text", () => {
     expect(
-      chronologicalConversationSummariesFromTurnRecords([
+      chronologicalTurnTranscriptSummariesFromTurnRecords([
         turn([userMessage("u2", "後の依頼"), agentMessage("a2", "後の回答")], { id: "turn-2", startedAt: 20 }),
         turn([commandItem("cmd")], { id: "turn-empty", startedAt: 15 }),
         turn([userMessage("u1", "先の依頼"), agentMessage("a1", "先の回答")], { id: "turn-1", startedAt: 10 }),
@@ -124,8 +124,8 @@ describe("app-server turn records", () => {
     ]);
   });
 
-  it("extracts assistant-like conversation text for generated turn consumers", () => {
-    expect(conversationAssistantTextFromTurnRecord(turn([userMessage("u1", "依頼"), planItem("p1", "計画")]))).toBe("計画");
+  it("extracts assistant-like transcript text for generated turn consumers", () => {
+    expect(turnTranscriptAssistantTextFromTurnRecord(turn([userMessage("u1", "依頼"), planItem("p1", "計画")]))).toBe("計画");
   });
 
   it("extracts the final non-empty agent message text from a turn", () => {

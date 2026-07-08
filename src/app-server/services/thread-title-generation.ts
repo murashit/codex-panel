@@ -5,7 +5,7 @@ import {
   threadTitleFromGeneratedText,
   threadTitlePrompt,
 } from "../../domain/threads/title-generation-model";
-import { conversationAssistantTextFromTurnRecord } from "../protocol/turn";
+import { turnTranscriptAssistantTextFromTurnRecord } from "../protocol/turn";
 import {
   type EphemeralStructuredTurnClientFactory,
   runEphemeralStructuredTurn,
@@ -63,6 +63,6 @@ export async function generateThreadTitleWithCodex(
       resolvedRuntimeOverrideForClient(client, { model: runtimeSettings.threadNamingModel, effort: runtimeSettings.threadNamingEffort }),
     clientFactory,
   });
-  const response = conversationAssistantTextFromTurnRecord(turn);
+  const response = turnTranscriptAssistantTextFromTurnRecord(turn);
   return response ? threadTitleFromGeneratedText(response) : null;
 }

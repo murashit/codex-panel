@@ -1,4 +1,4 @@
-import { readReferencedThreadConversationSummaries, type ThreadConversationSummaryClient } from "../../../app-server/services/threads";
+import { readReferencedThreadTurnTranscriptSummaries, type TurnTranscriptSummaryClient } from "../../../app-server/services/threads";
 import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/chat/input";
 import { shortThreadId } from "../../../domain/threads/id";
 import type { Thread } from "../../../domain/threads/model";
@@ -7,7 +7,7 @@ import type { ComposerInputSnapshot } from "../application/composer/input-snapsh
 import type { ThreadReferenceInput } from "../application/turns/slash-command-execution";
 
 interface ThreadReferenceResolverHost {
-  currentClient(): ThreadConversationSummaryClient | null;
+  currentClient(): TurnTranscriptSummaryClient | null;
   prepareInput(text: string, snapshot: ComposerInputSnapshot): { text: string; input: CodexInput };
   addSystemMessage(text: string): void;
   setStatus(status: string): void;
@@ -32,7 +32,7 @@ async function referencedThreadInput(
   const client = host.currentClient();
   if (!client) return null;
   try {
-    const turns = await readReferencedThreadConversationSummaries(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
+    const turns = await readReferencedThreadTurnTranscriptSummaries(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
     if (host.currentClient() !== client) return null;
     if (turns.length === 0) {
       host.addSystemMessage("Referenced thread has no readable turns.");

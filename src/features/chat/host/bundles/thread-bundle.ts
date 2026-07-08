@@ -136,7 +136,8 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   });
   const autoTitleCoordinator = createAutoTitleCoordinator({
     stateStore,
-    completedTurnTitleContext: (turnId, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
+    completedTurnTitleContext: (turnId, completedTurnTranscriptSummary) =>
+      titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
     renameGeneratedTitle: (threadId, title, options) =>
       threadOperations.renameThread(threadId, title, { shouldPublish: options.shouldPublish }),

@@ -1,5 +1,5 @@
 import {
-  completedConversationSummaryFromTurnRecord,
+  completedTurnTranscriptSummaryFromTurnRecord,
   type TurnItem,
   type TurnRecord,
   turnUserItemText,
@@ -7,7 +7,7 @@ import {
 import { jsonPreview } from "../../../../../domain/display/json-preview";
 import type { HistoricalTurn } from "../../../../../domain/threads/history";
 import { referencedThreadMetadataFromPrompt } from "../../../../../domain/threads/reference";
-import type { ThreadConversationSummary } from "../../../../../domain/threads/transcript";
+import type { TurnTranscriptSummary } from "../../../../../domain/threads/transcript";
 import { fileMentionsFromInput } from "../../../domain/thread-stream/format/file-mentions";
 import { normalizeProposedPlanMarkdown } from "../../../domain/thread-stream/format/proposed-plan";
 import { userMessageDisplayText } from "../../../domain/thread-stream/format/user-message-text";
@@ -48,8 +48,8 @@ interface TurnItemSourceFields {
 
 export type AppServerTurnItem = TurnItem;
 
-export function completedConversationSummaryFromAppServerTurn(turn: TurnRecord): ThreadConversationSummary | null {
-  return completedConversationSummaryFromTurnRecord(turn);
+export function completedTurnTranscriptSummaryFromAppServerTurn(turn: TurnRecord): TurnTranscriptSummary | null {
+  return completedTurnTranscriptSummaryFromTurnRecord(turn);
 }
 
 export function threadStreamItemsFromTurns(turns: readonly HistoricalTurn[]): ThreadStreamItem[] {

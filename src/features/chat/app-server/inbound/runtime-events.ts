@@ -14,7 +14,7 @@ import { createAutoReviewResultItem, createReviewResultItem } from "../mappers/t
 import { taskProgressThreadStreamItem } from "../mappers/thread-stream/task-progress";
 import {
   type AppServerTurnItem,
-  completedConversationSummaryFromAppServerTurn,
+  completedTurnTranscriptSummaryFromAppServerTurn,
   shouldSuppressLifecycleItem,
   threadStreamItemFromTurnItem,
   threadStreamItemsFromTurns,
@@ -154,7 +154,7 @@ export function turnRuntimeEventsFromNotification(
           turnId: notification.params.turn.id,
           status: notification.params.turn.status,
           completedItems: threadStreamItemsFromTurns([notification.params.turn]),
-          completedSummary: completedConversationSummaryFromAppServerTurn(notification.params.turn),
+          completedTurnTranscriptSummary: completedTurnTranscriptSummaryFromAppServerTurn(notification.params.turn),
         },
       ];
     case "serverRequest/resolved":

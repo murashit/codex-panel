@@ -173,7 +173,8 @@ function coordinatorFixture(
   });
   const host = {
     stateStore,
-    completedTurnTitleContext: (turnId: string, completedSummary) => titleService.completedTurnContext(turnId, completedSummary),
+    completedTurnTitleContext: (turnId: string, completedTurnTranscriptSummary) =>
+      titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
     renameGeneratedTitle: (threadId: string, value: string, options: { shouldPublish: () => boolean }) =>
       threadOperations.renameThread(threadId, value, options),

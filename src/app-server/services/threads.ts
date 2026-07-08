@@ -9,15 +9,15 @@ import type { ThreadGoal, ThreadGoalUpdate } from "../../domain/threads/goal";
 import type { HistoricalTurn } from "../../domain/threads/history";
 import type { Thread } from "../../domain/threads/model";
 import { REFERENCED_THREAD_TURN_LIMIT } from "../../domain/threads/reference";
-import type { ThreadConversationSummary } from "../../domain/threads/transcript";
+import type { TurnTranscriptSummary } from "../../domain/threads/transcript";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
 import { type ThreadRecord, threadFromThreadRecord, threadsFromThreadRecords } from "../protocol/thread";
 import { appServerThreadGoalUpdate, appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
 import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
 import {
-  chronologicalConversationSummariesFromTurnRecords,
-  completedConversationSummariesFromTurnRecords,
+  chronologicalTurnTranscriptSummariesFromTurnRecords,
+  completedTurnTranscriptSummariesFromTurnRecords,
   transcriptEntriesFromTurnRecords,
 } from "../protocol/turn";
 import type { AppServerRequestClient } from "./request-client";
@@ -25,13 +25,13 @@ import type { AppServerRequestClient } from "./request-client";
 const THREAD_LIST_PAGE_LIMIT = 100;
 
 export type ThreadTurnSortDirection = "asc" | "desc";
-export type ThreadConversationSummaryClient = AppServerRequestClient;
+export type TurnTranscriptSummaryClient = AppServerRequestClient;
 export type ThreadForkClient = AppServerRequestClient;
 export type ThreadRollbackClient = AppServerRequestClient;
 export type ThreadCompactionClient = AppServerRequestClient;
 
-interface ThreadConversationSummaryPage {
-  summaries: ThreadConversationSummary[];
+interface TurnTranscriptSummaryPage {
+  summaries: TurnTranscriptSummary[];
   nextCursor: string | null;
 }
 
@@ -142,27 +142,27 @@ export async function readThreadForArchiveExport(client: AppServerRequestClient,
   };
 }
 
-export async function readCompletedConversationSummariesPage(
-  client: ThreadConversationSummaryClient,
+export async function readCompletedTurnTranscriptSummariesPage(
+  client: TurnTranscriptSummaryClient,
   threadId: string,
   cursor: string | null,
   limit: number,
   sortDirection: ThreadTurnSortDirection = "asc",
-): Promise<ThreadConversationSummaryPage> {
+): Promise<TurnTranscriptSummaryPage> {
   const response = await listThreadTurns(client, threadId, cursor, limit, sortDirection);
   return {
-    summaries: completedConversationSummariesFromTurnRecords(response.data),
+    summaries: completedTurnTranscriptSummariesFromTurnRecords(response.data),
     nextCursor: response.nextCursor,
   };
 }
 
-export async function readReferencedThreadConversationSummaries(
-  client: ThreadConversationSummaryClient,
+export async function readReferencedThreadTurnTranscriptSummaries(
+  client: TurnTranscriptSummaryClient,
   threadId: string,
   limit = REFERENCED_THREAD_TURN_LIMIT,
-): Promise<ThreadConversationSummary[]> {
+): Promise<TurnTranscriptSummary[]> {
   const response = await listThreadTurns(client, threadId, null, limit);
-  return chronologicalConversationSummariesFromTurnRecords(response.data);
+  return chronologicalTurnTranscriptSummariesFromTurnRecords(response.data);
 }
 
 export interface ThreadRollbackSnapshot {
