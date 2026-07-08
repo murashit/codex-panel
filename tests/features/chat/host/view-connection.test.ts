@@ -133,6 +133,7 @@ describe("CodexChatView connection lifecycle", () => {
       if (entry.opened) await entry.view.onClose();
     }
     createdViews = [];
+    vi.useRealTimers();
     restoreDefaultMessageViewportMetrics?.();
     restoreDefaultMessageViewportMetrics = null;
     document.body.replaceChildren();
@@ -346,9 +347,6 @@ describe("CodexChatView connection lifecycle", () => {
     expectRequestTimes(client, "config/read", 1);
     expectRequestTimes(client, "thread/list", 1);
     expect(requestMethods(client)).not.toContain("thread/resume");
-
-    await vi.advanceTimersByTimeAsync(1_500);
-
     expect(requestMethods(client)).not.toContain("thread/resume");
     expect(requestMethods(client)).not.toContain("thread/turns/list");
   });
@@ -387,7 +385,6 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requestMethods(client)).not.toContain("thread/resume");
 
     await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
-    await vi.advanceTimersByTimeAsync(1_500);
 
     expect(view.getDisplayText()).toBe("Codex: Restored thread");
     expect(view.getState()).toEqual({ version: 1, threadId: "thread-1", threadTitle: "Restored thread" });
