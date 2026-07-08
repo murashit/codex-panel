@@ -70,7 +70,7 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
         <TextAction
           icon="archive"
           label="Fork and archive"
-          className="codex-panel__fork-and-archive-message"
+          className="codex-panel__fork-and-archive-dialogue"
           onClick={() => {
             context.onForkMenuToggle?.(null);
             context.onFork?.(fork, true);
@@ -83,7 +83,7 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
         <TextAction
           icon={forkMenuOpen ? "file-plus-corner" : "lucide-split"}
           label={forkMenuOpen ? "Fork" : "Fork from here"}
-          className="codex-panel__fork-message"
+          className="codex-panel__fork-dialogue"
           onClick={() => {
             if (forkMenuOpen) {
               context.onForkMenuToggle?.(null);

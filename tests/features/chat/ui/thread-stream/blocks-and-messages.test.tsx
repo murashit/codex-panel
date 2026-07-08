@@ -375,7 +375,7 @@ describe("thread stream rendering and action menu", () => {
 
     const closedElement = renderThreadStreamBlockElement(closedBlock);
     expect(closedElement.querySelector(".codex-panel__copy-dialogue")).not.toBeNull();
-    const initialFork = expectPresent(closedElement.querySelector<HTMLButtonElement>(".codex-panel__fork-message"));
+    const initialFork = expectPresent(closedElement.querySelector<HTMLButtonElement>(".codex-panel__fork-dialogue"));
     expect(initialFork.getAttribute("aria-label")).toBe("Fork from here");
     expect(initialFork.getAttribute("data-icon")).toBe("lucide-split");
     initialFork.click();
@@ -392,10 +392,10 @@ describe("thread stream rendering and action menu", () => {
 
     const openElement = renderThreadStreamBlockElement(openBlock);
     expect(openElement.querySelector(".codex-panel__copy-dialogue")).toBeNull();
-    expect(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-message")?.getAttribute("aria-label")).toBe(
+    expect(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-dialogue")?.getAttribute("aria-label")).toBe(
       "Fork and archive",
     );
-    const openFork = expectPresent(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-message"));
+    const openFork = expectPresent(openElement.querySelector<HTMLButtonElement>(".codex-panel__fork-dialogue"));
     expect(openFork.getAttribute("aria-label")).toBe("Fork");
     expect(openFork.getAttribute("data-icon")).toBe("file-plus-corner");
     openFork.click();
@@ -424,7 +424,7 @@ describe("thread stream rendering and action menu", () => {
     })[0];
 
     const element = renderThreadStreamBlockElement(block);
-    expectPresent(element.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-message")).click();
+    expectPresent(element.querySelector<HTMLButtonElement>(".codex-panel__fork-and-archive-dialogue")).click();
 
     expect(onFork).toHaveBeenCalledWith({ itemId: "a1", turnId: "turn-1" }, true);
   });
