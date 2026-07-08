@@ -23,13 +23,13 @@ describe("thread stream selectors", () => {
     expect(threadStreamTurnsAfterTurnId(state, "turn-2")).toBe(1);
   });
 
-  it("selects the latest turn user message for rollback restoration", () => {
+  it("selects the latest turn user dialogue for rollback restoration", () => {
     const state = initialChatThreadStreamState(items());
 
     expect(threadStreamRollbackCandidate(state)).toEqual({ turnId: "turn-3", itemId: "u3", text: "third" });
   });
 
-  it("uses the semantic prompt instead of steering messages for rollback restoration", () => {
+  it("uses the semantic prompt instead of steering dialogues for rollback restoration", () => {
     const state = initialChatThreadStreamState([
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "initial", turnId: "turn-1" },
       { id: "u2", kind: "dialogue", dialogueKind: "user", role: "user", text: "steer", turnId: "turn-1", clientId: "local-steer-1" },
@@ -47,7 +47,7 @@ describe("thread stream selectors", () => {
     expect(threadStreamRollbackCandidate(state)).toEqual({ turnId: "turn-1", itemId: "u1", text: "initial" });
   });
 
-  it("restores the raw user message text instead of rendered display text", () => {
+  it("restores the raw user dialogue text instead of rendered display text", () => {
     const state = initialChatThreadStreamState([
       {
         id: "u1",
@@ -67,7 +67,7 @@ describe("thread stream selectors", () => {
     });
   });
 
-  it("returns null when rollback has no user message candidate", () => {
+  it("returns null when rollback has no user dialogue candidate", () => {
     expect(threadStreamRollbackCandidate(initialChatThreadStreamState([]))).toBeNull();
     expect(
       threadStreamRollbackCandidate(initialChatThreadStreamState([{ id: "system", kind: "system", role: "system", text: "Idle" }])),

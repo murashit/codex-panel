@@ -266,7 +266,7 @@ describe("TurnSubmissionActions", () => {
     }
   });
 
-  it("does not append stale steer messages after the active turn changes", async () => {
+  it("does not append stale steer dialogues after the active turn changes", async () => {
     const { host, startTurn, stateStore, steerTurn } = createHost();
     resumeThread(stateStore);
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });

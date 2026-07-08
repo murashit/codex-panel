@@ -17,10 +17,10 @@ import {
 } from "../protocol/server-requests";
 import {
   type ActiveRouteScope,
-  fallbackMessageScope,
-  isMessageScopeInActiveRouteScope,
-  isTurnScopedMessageForIdleActiveThread,
-  type MessageScope,
+  type AppServerRouteScope,
+  fallbackAppServerRouteScope,
+  isAppServerRouteScopeInActiveRouteScope,
+  isTurnScopedAppServerRouteForIdleActiveThread,
 } from "./scope";
 
 export type ServerRequestRoute =
@@ -35,7 +35,7 @@ export type ServerRequestRoute =
 type ServerRequestMethod = ServerRequest["method"];
 type ServerRequestRouteKindByMethod = Record<ServerRequestMethod, Exclude<ServerRequestRoute["kind"], "inactive" | "unknown">>;
 type ServerRequestScopeExtractors = {
-  [Method in ServerRequestMethod]: (request: Extract<ServerRequest, { method: Method }>) => MessageScope;
+  [Method in ServerRequestMethod]: (request: Extract<ServerRequest, { method: Method }>) => AppServerRouteScope;
 };
 
 const SERVER_REQUEST_SCOPE_EXTRACTORS: ServerRequestScopeExtractors = {
@@ -67,14 +67,14 @@ const SERVER_REQUEST_ROUTE_KIND_BY_METHOD: ServerRequestRouteKindByMethod = {
 };
 
 export function routeServerRequest(request: ServerRequest, scope: ActiveRouteScope): ServerRequestRoute {
-  const messageScope = serverRequestScope(request);
+  const routeScope = serverRequestScope(request);
   if (!isServerRequest(request)) {
-    if (!isMessageScopeInActiveRouteScope(messageScope, scope)) return { kind: "inactive", request };
-    if (isTurnScopedMessageForIdleActiveThread(messageScope, scope)) return { kind: "inactive", request };
+    if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", request };
+    if (isTurnScopedAppServerRouteForIdleActiveThread(routeScope, scope)) return { kind: "inactive", request };
     return { kind: "unknown", request };
   }
-  if (!isMessageScopeInActiveRouteScope(messageScope, scope)) return { kind: "inactive", request };
-  if (isTurnScopedMessageForIdleActiveThread(messageScope, scope)) return { kind: "inactive", request };
+  if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", request };
+  if (isTurnScopedAppServerRouteForIdleActiveThread(routeScope, scope)) return { kind: "inactive", request };
 
   switch (SERVER_REQUEST_ROUTE_KIND_BY_METHOD[request.method]) {
     case "approval": {
@@ -118,9 +118,9 @@ export function serverRequestCurrentTimeResponse(currentTimeMs: number): unknown
   return { currentTimeAt: Math.floor(currentTimeMs / 1000) };
 }
 
-function serverRequestScope(request: ServerRequest): MessageScope {
-  if (!isServerRequest(request)) return fallbackMessageScope(request);
-  const extractor = SERVER_REQUEST_SCOPE_EXTRACTORS[request.method] as (request: ServerRequest) => MessageScope;
+function serverRequestScope(request: ServerRequest): AppServerRouteScope {
+  if (!isServerRequest(request)) return fallbackAppServerRouteScope(request);
+  const extractor = SERVER_REQUEST_SCOPE_EXTRACTORS[request.method] as (request: ServerRequest) => AppServerRouteScope;
   return extractor(request);
 }
 
@@ -128,14 +128,14 @@ function isServerRequest(request: ServerRequest): boolean {
   return Object.hasOwn(SERVER_REQUEST_SCOPE_EXTRACTORS, request.method);
 }
 
-function threadTurnRequestScope(request: { params: { threadId: string; turnId: string | null } }): MessageScope {
+function threadTurnRequestScope(request: { params: { threadId: string; turnId: string | null } }): AppServerRouteScope {
   return { threadId: request.params.threadId, turnId: request.params.turnId };
 }
 
-function threadOnlyRequestScope(request: { params: { threadId: string | null } }): MessageScope {
+function threadOnlyRequestScope(request: { params: { threadId: string | null } }): AppServerRouteScope {
   return { threadId: request.params.threadId, turnId: null };
 }
 
-function unscopedRequestScope(): MessageScope {
+function unscopedRequestScope(): AppServerRouteScope {
   return { threadId: null, turnId: null };
 }

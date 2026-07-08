@@ -6,7 +6,7 @@ import type { ChatStateStore } from "../state/store";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
-  localUserMessageItemFromInput,
+  localUserDialogueItemFromInput,
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "./optimistic-turn-start";
@@ -204,7 +204,7 @@ async function steerCurrentTurn(
     if (!isCurrentTurn(host, plan.threadId, plan.turnId)) return true;
     host.stateStore.dispatch({
       type: "thread-stream/item-added",
-      item: localUserMessageItemFromInput({
+      item: localUserDialogueItemFromInput({
         id: localSteerId,
         text: prepared.text,
         turnId: plan.turnId,

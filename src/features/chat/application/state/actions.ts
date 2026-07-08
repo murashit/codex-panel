@@ -101,7 +101,7 @@ export interface ThreadListAppliedAction {
 
 export interface DisclosureSetAction {
   type: "ui/disclosure-set";
-  bucket: "details" | "activityGroups" | "textDetails" | "userMessageExpanded" | "goalObjectiveExpanded" | "approvalDetails";
+  bucket: "details" | "activityGroups" | "textDetails" | "userDialogueExpanded" | "goalObjectiveExpanded" | "approvalDetails";
   id: string;
   open: boolean;
 }

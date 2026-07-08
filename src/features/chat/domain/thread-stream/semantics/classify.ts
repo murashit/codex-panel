@@ -1,5 +1,5 @@
 import type { ThreadStreamItem } from "../items";
-import { isLocalSteerMessageClientId } from "../local-message-ids";
+import { isLocalSteerDialogueClientId } from "../local-dialogue-ids";
 import type {
   ThreadStreamLifecycle,
   ThreadStreamMeaning,
@@ -9,15 +9,15 @@ import type {
 } from "./types";
 
 export function threadStreamSemanticClassifications(items: readonly ThreadStreamItem[]): ThreadStreamSemanticClassification[] {
-  const seenUserMessagesByTurn = new Map<string, number>();
-  return items.map((item) => threadStreamSemanticClassification(item, seenUserMessagesByTurn));
+  const seenUserDialoguesByTurn = new Map<string, number>();
+  return items.map((item) => threadStreamSemanticClassification(item, seenUserDialoguesByTurn));
 }
 
 function threadStreamSemanticClassification(
   item: ThreadStreamItem,
-  seenUserMessagesByTurn: Map<string, number> = new Map<string, number>(),
+  seenUserDialoguesByTurn: Map<string, number> = new Map<string, number>(),
 ): ThreadStreamSemanticClassification {
-  const placement = placementForThreadStreamItem(item, seenUserMessagesByTurn);
+  const placement = placementForThreadStreamItem(item, seenUserDialoguesByTurn);
   const meaning = meaningForThreadStreamItem(item);
   const lifecycle = lifecycleForThreadStreamItem(item);
   return {
@@ -49,12 +49,12 @@ function threadStreamSemanticCapabilities(
   };
 }
 
-function placementForThreadStreamItem(item: ThreadStreamItem, seenUserMessagesByTurn: Map<string, number>): ThreadStreamPlacement {
+function placementForThreadStreamItem(item: ThreadStreamItem, seenUserDialoguesByTurn: Map<string, number>): ThreadStreamPlacement {
   if (item.kind === "goal") return { scope: "thread" };
   if (item.kind === "system") return { scope: "panel" };
 
   if (item.kind === "dialogue" && item.dialogueKind === "user") {
-    const turnRole = isSteeringUserMessage(item, seenUserMessagesByTurn) ? "steer" : "initiator";
+    const turnRole = isSteeringUserDialogue(item, seenUserDialoguesByTurn) ? "steer" : "initiator";
     return item.turnId ? { scope: "turn", turnId: item.turnId, turnRole } : { scope: "pendingTurn", turnRole };
   }
 
@@ -120,16 +120,16 @@ function lifecycleForThreadStreamItem(item: ThreadStreamItem): ThreadStreamLifec
   return undefined;
 }
 
-function isSteeringUserMessage(
+function isSteeringUserDialogue(
   item: Extract<ThreadStreamItem, { kind: "dialogue" }>,
-  seenUserMessagesByTurn: Map<string, number>,
+  seenUserDialoguesByTurn: Map<string, number>,
 ): boolean {
   if (item.dialogueKind !== "user") return false;
   if (item.provenance?.source === "localUser" && item.provenance.interaction === "steer") return true;
   if (!item.turnId) return false;
-  const seenCount = seenUserMessagesByTurn.get(item.turnId) ?? 0;
-  seenUserMessagesByTurn.set(item.turnId, seenCount + 1);
-  return isLocalSteerMessageClientId(item.clientId) || seenCount > 0;
+  const seenCount = seenUserDialoguesByTurn.get(item.turnId) ?? 0;
+  seenUserDialoguesByTurn.set(item.turnId, seenCount + 1);
+  return isLocalSteerDialogueClientId(item.clientId) || seenCount > 0;
 }
 
 function definedProp<Key extends string, Value>(key: Key, value: Value | undefined): Partial<Record<Key, Value>> {

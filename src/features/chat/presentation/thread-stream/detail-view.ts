@@ -142,7 +142,7 @@ function goalDetailView(item: GoalThreadStreamItem): DetailView {
     item,
     "codex-panel__detail-item codex-panel__detail-item--goal",
     "goal",
-    messageDetailKey(item.id, "goal-details"),
+    itemDetailKey(item.id, "goal-details"),
     goalDetails(item),
   );
 }
@@ -152,7 +152,7 @@ function agentDetailView(item: AgentThreadStreamItem): DetailView {
     item,
     "codex-panel__detail-item codex-panel__agent-activity",
     "agent",
-    messageDetailKey(item.id, "agent-details"),
+    itemDetailKey(item.id, "agent-details"),
     agentDetailSections(item),
     agentSummaryText(item),
     agentThreadIds(item),
@@ -164,7 +164,7 @@ function genericToolDetailView(item: ToolCallThreadStreamItem | HookThreadStream
     item,
     "codex-panel__detail-item",
     item.toolName ?? item.kind,
-    messageDetailKey(item.id, "details"),
+    itemDetailKey(item.id, "details"),
     [...genericToolDetails(item), ...outputSection(item.kind === "hook" ? "Hook output" : "Output", item.output)],
     genericToolSummary(item, workspaceRoot),
   );
@@ -174,7 +174,7 @@ function reviewDetailView(item: ReviewResultThreadStreamItem): DetailView {
   return resultDetailView(
     item,
     "auto-review",
-    messageDetailKey(item.id, "review-details"),
+    itemDetailKey(item.id, "review-details"),
     "codex-panel__stream-item--review-result codex-panel__detail-item--review",
   );
 }
@@ -183,7 +183,7 @@ function approvalDetailView(item: ApprovalResultThreadStreamItem): DetailView {
   return resultDetailView(
     item,
     "approval",
-    messageDetailKey(item.id, "approval-details"),
+    itemDetailKey(item.id, "approval-details"),
     "codex-panel__stream-item--approval-result codex-panel__detail-item--approval",
   );
 }
@@ -193,13 +193,13 @@ function genericDetailView(item: ThreadStreamItem, workspaceRoot?: string | null
     item,
     "codex-panel__detail-item",
     detailLabel(item),
-    messageDetailKey(item.id, "details"),
+    itemDetailKey(item.id, "details"),
     genericDetailSections(item, workspaceRoot),
     genericDetailSummary(item, workspaceRoot),
   );
 }
 
-function messageDetailKey(itemId: string, suffix: string): string {
+function itemDetailKey(itemId: string, suffix: string): string {
   return `${itemId}:${suffix}`;
 }
 

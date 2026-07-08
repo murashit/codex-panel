@@ -4,16 +4,16 @@ import { reconcileCompletedTurnItems } from "../../../../../src/features/chat/do
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("reconcileCompletedTurnItems", () => {
-  it("replaces optimistic local user messages with server user messages that share the client id", () => {
+  it("replaces optimistic local user dialogues with server user dialogues that share the client id", () => {
     const currentItems: ThreadStreamItem[] = [
-      userMessage("local-user-1", "same text", "turn", "local-user-1"),
-      userMessage("local-steer-2", "steer", "turn", "local-steer-2"),
-      userMessage("local-user-2", "other turn", "other", "local-user-2"),
+      userDialogue("local-user-1", "same text", "turn", "local-user-1"),
+      userDialogue("local-steer-2", "steer", "turn", "local-steer-2"),
+      userDialogue("local-user-2", "other turn", "other", "local-user-2"),
     ];
     const turnItems: ThreadStreamItem[] = [
-      userMessage("u1", "same text", "turn", "local-user-1"),
-      userMessage("u2", "steer", "turn", "local-steer-2"),
-      assistantMessage("a1", "done", "turn"),
+      userDialogue("u1", "same text", "turn", "local-user-1"),
+      userDialogue("u2", "steer", "turn", "local-steer-2"),
+      assistantDialogue("a1", "done", "turn"),
     ];
 
     const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
@@ -21,12 +21,12 @@ describe("reconcileCompletedTurnItems", () => {
     expect(next.map((item) => item.id)).toEqual(["local-user-2", "u1", "u2", "a1"]);
   });
 
-  it("falls back to local user text only when server user messages have no client ids", () => {
+  it("falls back to local user text only when server user dialogues have no client ids", () => {
     const currentItems: ThreadStreamItem[] = [
-      userMessage("local-user-without-client-id", "fallback text", "turn"),
-      userMessage("local-user-other-turn", "fallback text", "other"),
+      userDialogue("local-user-without-client-id", "fallback text", "turn"),
+      userDialogue("local-user-other-turn", "fallback text", "other"),
     ];
-    const turnItems: ThreadStreamItem[] = [userMessage("u1", "fallback text", "turn")];
+    const turnItems: ThreadStreamItem[] = [userDialogue("u1", "fallback text", "turn")];
 
     const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
 
@@ -35,13 +35,13 @@ describe("reconcileCompletedTurnItems", () => {
 
   it("model-checks client-id reconciliation across current and server ordering", () => {
     for (const currentItems of permutations([
-      userMessage("local-user-1", "same text", "turn", "local-user-1"),
-      assistantMessage("local-progress", "progress", "turn"),
-      userMessage("local-user-other", "other turn", "other", "local-user-other"),
+      userDialogue("local-user-1", "same text", "turn", "local-user-1"),
+      assistantDialogue("local-progress", "progress", "turn"),
+      userDialogue("local-user-other", "other turn", "other", "local-user-other"),
     ])) {
       for (const turnItems of permutations([
-        userMessage("server-user", "same text", "turn", "local-user-1"),
-        assistantMessage("server-assistant", "done", "turn"),
+        userDialogue("server-user", "same text", "turn", "local-user-1"),
+        assistantDialogue("server-assistant", "done", "turn"),
       ])) {
         const next = reconcileCompletedTurnItems({ currentItems, completedTurnId: "turn", turnItems });
         const nextIds = next.map((item) => item.id);
@@ -56,14 +56,14 @@ describe("reconcileCompletedTurnItems", () => {
 
   it("model-checks text fallback reconciliation only for the completed turn", () => {
     for (const currentItems of permutations([
-      userMessage("local-user-completed", "fallback text", "turn"),
-      userMessage("local-user-other-turn", "fallback text", "other"),
-      userMessage("local-user-different-text", "different text", "turn"),
+      userDialogue("local-user-completed", "fallback text", "turn"),
+      userDialogue("local-user-other-turn", "fallback text", "other"),
+      userDialogue("local-user-different-text", "different text", "turn"),
     ])) {
       const next = reconcileCompletedTurnItems({
         currentItems,
         completedTurnId: "turn",
-        turnItems: [userMessage("server-user", "fallback text", "turn")],
+        turnItems: [userDialogue("server-user", "fallback text", "turn")],
       });
       const nextIds = next.map((item) => item.id);
 
@@ -88,7 +88,7 @@ function currentIds(items: readonly ThreadStreamItem[]): string {
   return items.map((item) => item.id).join(",");
 }
 
-function userMessage(id: string, text: string, turnId: string, clientId?: string): ThreadStreamItem {
+function userDialogue(id: string, text: string, turnId: string, clientId?: string): ThreadStreamItem {
   return {
     id,
     kind: "dialogue",
@@ -101,7 +101,7 @@ function userMessage(id: string, text: string, turnId: string, clientId?: string
   };
 }
 
-function assistantMessage(id: string, text: string, turnId: string): ThreadStreamItem {
+function assistantDialogue(id: string, text: string, turnId: string): ThreadStreamItem {
   return {
     id,
     kind: "dialogue",

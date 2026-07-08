@@ -4,13 +4,13 @@ import type { PlanImplementationTarget } from "../../domain/thread-stream/select
 import type { PendingRequestBlockSnapshot } from "../../presentation/pending-requests/view-model";
 import type { ThreadStreamForkTarget } from "../../presentation/thread-stream/text-view";
 
-export type ThreadStreamDisclosureBucket = "details" | "activityGroups" | "textDetails" | "userMessageExpanded" | "approvalDetails";
+export type ThreadStreamDisclosureBucket = "details" | "activityGroups" | "textDetails" | "userDialogueExpanded" | "approvalDetails";
 
 export interface ThreadStreamDisclosureState {
   details: ReadonlySet<string>;
   activityGroups: ReadonlySet<string>;
   textDetails: ReadonlySet<string>;
-  userMessageExpanded: ReadonlySet<string>;
+  userDialogueExpanded: ReadonlySet<string>;
   approvalDetails: ReadonlySet<string>;
 }
 

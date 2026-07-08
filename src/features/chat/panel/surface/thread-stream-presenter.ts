@@ -90,7 +90,7 @@ export class ThreadStreamPresenter {
         this.dispatch({ type: "ui/disclosure-set", bucket, id, open });
       },
       setForkMenuItem: (itemId) => {
-        this.dispatch({ type: "ui/message-fork-menu-set", itemId });
+        this.dispatch({ type: "ui/thread-stream-fork-menu-set", itemId });
       },
       loadOlderTurns: () => {
         options.history.loadOlderTurns();

@@ -21,7 +21,7 @@ describe("thread stream presentation blocks", () => {
       activeTurnId: "turn",
       historyCursor: null,
       loadingHistory: false,
-      items: [userMessage("u1", "turn"), taskProgressItem("task", "turn"), assistantMessage("a1", "turn")],
+      items: [userDialogue("u1", "turn"), taskProgressItem("task", "turn"), assistantDialogue("a1", "turn")],
     });
 
     expect(blocks.map((block) => block.kind)).toEqual(["text", "text", "status"]);
@@ -34,7 +34,7 @@ describe("thread stream presentation blocks", () => {
       activeTurnId: "turn",
       historyCursor: null,
       loadingHistory: false,
-      items: [userMessage("u1", "turn"), agentItem("agent", "turn")],
+      items: [userDialogue("u1", "turn"), agentItem("agent", "turn")],
     });
 
     expect(blocks.map((block) => block.kind)).toEqual(["text", "detail", "liveAgentSummary"]);
@@ -73,11 +73,11 @@ describe("thread stream presentation blocks", () => {
   });
 });
 
-function userMessage(id: string, turnId: string): ThreadStreamItem {
+function userDialogue(id: string, turnId: string): ThreadStreamItem {
   return { id, kind: "dialogue", dialogueKind: "user", role: "user", text: "run", turnId };
 }
 
-function assistantMessage(id: string, turnId: string): ThreadStreamItem {
+function assistantDialogue(id: string, turnId: string): ThreadStreamItem {
   return { id, kind: "dialogue", dialogueKind: "assistantResponse", dialogueState: "completed", role: "assistant", text: "done", turnId };
 }
 

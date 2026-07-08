@@ -104,7 +104,7 @@ export function testDisclosures(
     details: new Set(overrides.details),
     activityGroups: new Set(overrides.activityGroups),
     textDetails: new Set(overrides.textDetails),
-    userMessageExpanded: new Set(overrides.userMessageExpanded),
+    userDialogueExpanded: new Set(overrides.userDialogueExpanded),
     approvalDetails: new Set(overrides.approvalDetails),
   };
 }

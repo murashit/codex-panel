@@ -33,52 +33,52 @@ describe("thread stream flow scrolling", () => {
   });
 
   it("pins to the DOM scroll end and follows appended content while pinned", () => {
-    const { controller, messages, render } = renderFlowThreadStream(["first"], { first: 300 });
-    const scrollCalls = installScrollToCapture(messages);
+    const { controller, scrollViewport, render } = renderFlowThreadStream(["first"], { first: 300 });
+    const scrollCalls = installScrollToCapture(scrollViewport);
 
     void act(() => {
       controller.dispatch({ kind: "show-latest" });
     });
-    expect(messages.scrollTop).toBe(200);
+    expect(scrollViewport.scrollTop).toBe(200);
     expect(scrollCalls).toEqual([]);
 
     render(["first", "second"], { first: 300, second: 180 });
 
-    expect(messages.scrollTop).toBe(380);
+    expect(scrollViewport.scrollTop).toBe(380);
     expect(scrollCalls).toEqual([]);
   });
 
   it("keeps the current reading position when content is appended after the user scrolls away", () => {
-    const { controller, messages, render } = renderFlowThreadStream(["first"], { first: 300 });
+    const { controller, scrollViewport, render } = renderFlowThreadStream(["first"], { first: 300 });
     void act(() => {
       controller.dispatch({ kind: "show-latest" });
     });
-    messages.scrollTop = 80;
-    messages.dispatchEvent(new Event("scroll"));
+    scrollViewport.scrollTop = 80;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     render(["first", "second"], { first: 300, second: 180 });
 
-    expect(messages.scrollTop).toBe(80);
+    expect(scrollViewport.scrollTop).toBe(80);
   });
 
   it("preserves the visible block when older history is prepended", () => {
-    const { messages, render } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
-    messages.scrollTop = 320;
-    messages.dispatchEvent(new Event("scroll"));
+    const { scrollViewport, render } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
+    scrollViewport.scrollTop = 320;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     render(["older", "first", "second"], { older: 180, first: 300, second: 300 });
 
-    expect(messages.scrollTop).toBe(500);
+    expect(scrollViewport.scrollTop).toBe(500);
   });
 
   it("preserves the visible block when older history is inserted after the history bar", () => {
-    const { messages, render } = renderFlowThreadStream(["history-bar", "current", "next"], {
+    const { scrollViewport, render } = renderFlowThreadStream(["history-bar", "current", "next"], {
       "history-bar": 40,
       current: 300,
       next: 300,
     });
-    messages.scrollTop = 80;
-    messages.dispatchEvent(new Event("scroll"));
+    scrollViewport.scrollTop = 80;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     render(["history-bar", "older", "current", "next"], {
       "history-bar": 40,
@@ -87,29 +87,29 @@ describe("thread stream flow scrolling", () => {
       next: 300,
     });
 
-    expect(messages.scrollTop).toBe(260);
+    expect(scrollViewport.scrollTop).toBe(260);
   });
 
   it("does not force the end when delayed content changes while the user is reading", () => {
-    const { messages, blockElement, setHeights } = renderFlowThreadStream(["first", "second", "third"], {
+    const { scrollViewport, blockElement, setHeights } = renderFlowThreadStream(["first", "second", "third"], {
       first: 300,
       second: 300,
       third: 300,
     });
-    messages.scrollTop = 360;
-    messages.dispatchEvent(new Event("scroll"));
+    scrollViewport.scrollTop = 360;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     setHeights({ first: 500, second: 300, third: 300 });
     void act(() => {
       blockElement("first").dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
     });
 
-    expect(messages.scrollTop).toBe(360);
+    expect(scrollViewport.scrollTop).toBe(360);
   });
 
   it("keeps hidden thread streams pinned when the viewport size returns", () => {
     const restoreInitialMetrics = installThreadStreamViewportPrototypeMetrics({ scrollHeight: 600, viewport: { width: 0, height: 0 } });
-    const { messages, resizeViewport } = renderFlowThreadStream(
+    const { scrollViewport, resizeViewport } = renderFlowThreadStream(
       ["first", "second"],
       { first: 300, second: 300 },
       {
@@ -118,18 +118,18 @@ describe("thread stream flow scrolling", () => {
     );
     restoreInitialMetrics();
 
-    expect(messages.scrollTop).toBe(600);
+    expect(scrollViewport.scrollTop).toBe(600);
 
     resizeViewport({ width: 240, height: 100 });
     triggerResizeObserver();
     flushAnimationFrame();
 
-    expect(messages.scrollTop).toBe(500);
+    expect(scrollViewport.scrollTop).toBe(500);
   });
 
   it("does not double-adjust when the browser anchors a prepended block before effects run", () => {
     let nativeAnchoringApplied = false;
-    const { messages, render } = renderFlowThreadStream(
+    const { scrollViewport, render } = renderFlowThreadStream(
       ["first", "second"],
       { first: 300, second: 300 },
       {
@@ -146,46 +146,46 @@ describe("thread stream flow scrolling", () => {
         },
       },
     );
-    messages.scrollTop = 320;
-    messages.dispatchEvent(new Event("scroll"));
+    scrollViewport.scrollTop = 320;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     render(["older", "first", "second"], { older: 180, first: 300, second: 300 });
 
-    expect(messages.scrollTop).toBe(500);
+    expect(scrollViewport.scrollTop).toBe(500);
   });
 
-  it("returns to the DOM scroll end after delayed message content renders while pinned", () => {
-    const { controller, messages, blockElement, setHeights } = renderFlowThreadStream(["message"], { message: 300 });
+  it("returns to the DOM scroll end after delayed stream content renders while pinned", () => {
+    const { controller, scrollViewport, blockElement, setHeights } = renderFlowThreadStream(["item"], { item: 300 });
     void act(() => {
       controller.dispatch({ kind: "show-latest" });
     });
-    expect(messages.scrollTop).toBe(200);
+    expect(scrollViewport.scrollTop).toBe(200);
 
-    setHeights({ message: 420 });
+    setHeights({ item: 420 });
     void act(() => {
-      blockElement("message").dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
+      blockElement("item").dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
     });
 
-    expect(messages.scrollTop).toBe(320);
+    expect(scrollViewport.scrollTop).toBe(320);
   });
 
   it("scrolls by composer text-line and page commands", () => {
-    const { controller, messages } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
-    const scrollCalls = installScrollToCapture(messages);
-    messages.style.lineHeight = "20px";
-    messages.scrollTop = 240;
-    messages.dispatchEvent(new Event("scroll"));
+    const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(scrollViewport);
+    scrollViewport.style.lineHeight = "20px";
+    scrollViewport.scrollTop = 240;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
       controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1 });
     });
-    expect(messages.scrollTop).toBe(160);
+    expect(scrollViewport.scrollTop).toBe(160);
     expect(scrollCalls).toEqual([{ top: 160, behavior: "smooth" }]);
 
     void act(() => {
       controller.dispatch({ kind: "scroll-by", amount: "page", direction: 1 });
     });
-    expect(messages.scrollTop).toBe(240);
+    expect(scrollViewport.scrollTop).toBe(240);
     expect(scrollCalls).toEqual([
       { top: 160, behavior: "smooth" },
       { top: 240, behavior: "smooth" },
@@ -194,65 +194,65 @@ describe("thread stream flow scrolling", () => {
 
   it("uses instant composer scrolling when reduced motion is preferred", () => {
     window.matchMedia = createTestMatchMedia(true);
-    const { controller, messages } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
-    const scrollCalls = installScrollToCapture(messages);
-    messages.style.lineHeight = "20px";
-    messages.scrollTop = 240;
-    messages.dispatchEvent(new Event("scroll"));
+    const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(scrollViewport);
+    scrollViewport.style.lineHeight = "20px";
+    scrollViewport.scrollTop = 240;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
       controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1 });
     });
 
-    expect(messages.scrollTop).toBe(160);
+    expect(scrollViewport.scrollTop).toBe(160);
     expect(scrollCalls).toEqual([]);
   });
 
   it("uses the normal text-line distance for repeated composer scrolling without smooth animation", () => {
-    const { controller, messages } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
-    const scrollCalls = installScrollToCapture(messages);
-    messages.style.lineHeight = "20px";
-    messages.scrollTop = 240;
-    messages.dispatchEvent(new Event("scroll"));
+    const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(scrollViewport);
+    scrollViewport.style.lineHeight = "20px";
+    scrollViewport.scrollTop = 240;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
       controller.dispatch({ kind: "scroll-by", amount: "text-lines", direction: -1, repeated: true });
     });
 
-    expect(messages.scrollTop).toBe(160);
+    expect(scrollViewport.scrollTop).toBe(160);
     expect(scrollCalls).toEqual([]);
   });
 
   it("uses the normal page distance for repeated composer page scrolling without smooth animation", () => {
-    const { controller, messages } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
-    const scrollCalls = installScrollToCapture(messages);
-    messages.scrollTop = 240;
-    messages.dispatchEvent(new Event("scroll"));
+    const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(scrollViewport);
+    scrollViewport.scrollTop = 240;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
       controller.dispatch({ kind: "scroll-by", amount: "page", direction: 1, repeated: true });
     });
 
-    expect(messages.scrollTop).toBe(320);
+    expect(scrollViewport.scrollTop).toBe(320);
     expect(scrollCalls).toEqual([]);
   });
 
   it("scrolls to stream edges from composer commands", () => {
-    const { controller, messages } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
-    const scrollCalls = installScrollToCapture(messages);
-    messages.scrollTop = 240;
-    messages.dispatchEvent(new Event("scroll"));
+    const { controller, scrollViewport } = renderFlowThreadStream(["first", "second"], { first: 300, second: 300 });
+    const scrollCalls = installScrollToCapture(scrollViewport);
+    scrollViewport.scrollTop = 240;
+    scrollViewport.dispatchEvent(new Event("scroll"));
 
     void act(() => {
       controller.dispatch({ kind: "scroll-to", edge: "start" });
     });
-    expect(messages.scrollTop).toBe(0);
+    expect(scrollViewport.scrollTop).toBe(0);
     expect(scrollCalls).toEqual([{ top: 0, behavior: "smooth" }]);
 
     void act(() => {
       controller.dispatch({ kind: "scroll-to", edge: "end" });
     });
-    expect(messages.scrollTop).toBe(500);
+    expect(scrollViewport.scrollTop).toBe(500);
     expect(scrollCalls).toEqual([
       { top: 0, behavior: "smooth" },
       { top: 500, behavior: "smooth" },
@@ -293,7 +293,7 @@ function renderFlowThreadStream(
   } = {},
 ): {
   controller: TestThreadStreamScrollPortBinding;
-  messages: HTMLElement;
+  scrollViewport: HTMLElement;
   render: (nextKeys: readonly string[], nextHeights: Record<string, number>) => void;
   setHeights: (nextHeights: Record<string, number>) => void;
   resizeViewport: (nextViewport: { width: number; height: number }) => void;
@@ -322,9 +322,9 @@ function renderFlowThreadStream(
   };
 
   render(keys, heights);
-  const messages = threadStreamViewport(parent);
+  const scrollViewport = threadStreamViewport(parent);
   installFlowMetrics(
-    messages,
+    scrollViewport,
     () => currentKeys,
     () => currentHeights,
     () => viewport,
@@ -332,7 +332,7 @@ function renderFlowThreadStream(
 
   return {
     controller,
-    messages,
+    scrollViewport,
     render,
     setHeights(nextHeights) {
       currentHeights = nextHeights;
@@ -350,18 +350,18 @@ function renderFlowThreadStream(
 
 function threadStreamViewport(parent: HTMLElement): HTMLElement {
   const element = parent.querySelector<HTMLElement>(".codex-panel__thread-stream");
-  if (!element) throw new Error("Expected message viewport.");
+  if (!element) throw new Error("Expected thread stream viewport.");
   return element;
 }
 
 function installFlowMetrics(
-  messages: HTMLElement,
+  scrollViewport: HTMLElement,
   keys: () => readonly string[],
   heights: () => Record<string, number>,
   viewport: () => { width: number; height: number },
 ): void {
-  const initialScrollTop = messages.scrollTop;
-  Object.defineProperties(messages, {
+  const initialScrollTop = scrollViewport.scrollTop;
+  Object.defineProperties(scrollViewport, {
     clientHeight: { get: () => viewport().height, configurable: true },
     offsetHeight: { get: () => viewport().height, configurable: true },
     clientWidth: { get: () => viewport().width, configurable: true },
@@ -372,34 +372,34 @@ function installFlowMetrics(
     },
   });
 
-  Object.defineProperty(messages, "scrollTop", {
-    get: () => messageScrollTop.get(messages) ?? 0,
+  Object.defineProperty(scrollViewport, "scrollTop", {
+    get: () => viewportScrollTop.get(scrollViewport) ?? 0,
     set: (value: number) => {
-      const max = Math.max(0, messages.scrollHeight - messages.clientHeight);
-      messageScrollTop.set(messages, Math.max(0, Math.min(value, max)));
+      const max = Math.max(0, scrollViewport.scrollHeight - scrollViewport.clientHeight);
+      viewportScrollTop.set(scrollViewport, Math.max(0, Math.min(value, max)));
     },
     configurable: true,
   });
-  messages.scrollTop = initialScrollTop;
+  scrollViewport.scrollTop = initialScrollTop;
 
-  messages.getBoundingClientRect = () => messageRect(0, viewport().height);
-  Array.from(messages.querySelectorAll<HTMLElement>(".codex-panel__thread-stream-block")).forEach((element) => {
-    installBlockRect(element, messages, heights);
+  scrollViewport.getBoundingClientRect = () => blockRect(0, viewport().height);
+  Array.from(scrollViewport.querySelectorAll<HTMLElement>(".codex-panel__thread-stream-block")).forEach((element) => {
+    installBlockRect(element, scrollViewport, heights);
   });
 }
 
-function installScrollToCapture(messages: HTMLElement): CapturedScrollToOptions[] {
+function installScrollToCapture(scrollViewport: HTMLElement): CapturedScrollToOptions[] {
   const calls: CapturedScrollToOptions[] = [];
-  messages.scrollTo = ((optionsOrX?: ScrollToOptions | number, y?: number) => {
+  scrollViewport.scrollTo = ((optionsOrX?: ScrollToOptions | number, y?: number) => {
     const top = typeof optionsOrX === "number" ? y : optionsOrX?.top;
     const behavior = typeof optionsOrX === "number" ? undefined : optionsOrX?.behavior;
     calls.push({ top, behavior });
-    if (top !== undefined) messages.scrollTop = top;
-  }) as typeof messages.scrollTo;
+    if (top !== undefined) scrollViewport.scrollTop = top;
+  }) as typeof scrollViewport.scrollTo;
   return calls;
 }
 
-const messageScrollTop = new WeakMap<HTMLElement, number>();
+const viewportScrollTop = new WeakMap<HTMLElement, number>();
 let resizeObserverCallbacks: ResizeObserverCallback[] = [];
 let animationFrameCallbacks: FrameRequestCallback[] = [];
 
@@ -510,19 +510,19 @@ function restorePrototypeProperty(object: object, key: PropertyKey, descriptor: 
   }
 }
 
-function installBlockRect(element: HTMLElement, messages: HTMLElement, heights: () => Record<string, number>): void {
+function installBlockRect(element: HTMLElement, scrollViewport: HTMLElement, heights: () => Record<string, number>): void {
   element.getBoundingClientRect = () => {
     const key = element.dataset["codexPanelBlockKey"] ?? "";
-    const siblings = Array.from(messages.querySelectorAll<HTMLElement>(".codex-panel__thread-stream-block"));
+    const siblings = Array.from(scrollViewport.querySelectorAll<HTMLElement>(".codex-panel__thread-stream-block"));
     const index = siblings.indexOf(element);
     const top = siblings
       .slice(0, Math.max(0, index))
-      .reduce((total, candidate) => total + (heights()[candidate.dataset["codexPanelBlockKey"] ?? ""] ?? 0), -messages.scrollTop);
-    return messageRect(top, heights()[key] ?? 0);
+      .reduce((total, candidate) => total + (heights()[candidate.dataset["codexPanelBlockKey"] ?? ""] ?? 0), -scrollViewport.scrollTop);
+    return blockRect(top, heights()[key] ?? 0);
   };
 }
 
-function messageRect(top: number, height: number): DOMRect {
+function blockRect(top: number, height: number): DOMRect {
   return {
     x: 0,
     y: top,

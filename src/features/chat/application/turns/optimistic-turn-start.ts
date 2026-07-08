@@ -2,12 +2,12 @@ import type { CodexInput } from "../../../../domain/chat/input";
 import { fileMentionsFromInput } from "../../domain/thread-stream/format/file-mentions";
 import { userMessageDisplayText } from "../../domain/thread-stream/format/user-message-text";
 import type { ThreadStreamDialogueItem, ThreadStreamFileMention, ThreadStreamItem } from "../../domain/thread-stream/items";
-import { isLocalSteerMessageClientId } from "../../domain/thread-stream/local-message-ids";
+import { isLocalSteerDialogueClientId } from "../../domain/thread-stream/local-dialogue-ids";
 import type { ThreadStreamItemProvenance } from "../../domain/thread-stream/provenance";
 import { attachHookRunsToTurn } from "../../domain/thread-stream/updates";
 import type { PendingTurnStart } from "./turn-state";
 
-interface LocalUserMessageParams {
+interface LocalUserDialogueParams {
   id: string;
   text: string;
   copyText?: string;
@@ -23,7 +23,7 @@ export interface OptimisticTurnStartAckParams {
   pendingTurnStart: PendingTurnStart | null;
 }
 
-export interface LocalUserMessageFromInputParams extends Omit<LocalUserMessageParams, "mentionedFiles"> {
+export interface LocalUserDialogueFromInputParams extends Omit<LocalUserDialogueParams, "mentionedFiles"> {
   codexInput: CodexInput;
 }
 
@@ -47,7 +47,7 @@ export interface FailedTurnStartCleanupParams {
   pendingTurnStart: PendingTurnStart | null;
 }
 
-function localUserMessageItem(params: LocalUserMessageParams): ThreadStreamDialogueItem {
+function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDialogueItem {
   const mentionedFiles = params.mentionedFiles ?? [];
   return {
     id: params.id,
@@ -56,24 +56,24 @@ function localUserMessageItem(params: LocalUserMessageParams): ThreadStreamDialo
     role: "user",
     text: params.text,
     copyText: params.copyText ?? params.text,
-    provenance: localUserMessageProvenance(params.id),
+    provenance: localUserDialogueProvenance(params.id),
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     ...(mentionedFiles.length > 0 ? { mentionedFiles: [...mentionedFiles] } : {}),
   };
 }
 
-function localUserMessageProvenance(id: string): ThreadStreamItemProvenance {
+function localUserDialogueProvenance(id: string): ThreadStreamItemProvenance {
   return {
     source: "localUser",
     channel: "optimistic",
-    interaction: isLocalSteerMessageClientId(id) ? "steer" : "prompt",
+    interaction: isLocalSteerDialogueClientId(id) ? "steer" : "prompt",
     sourceId: id,
   };
 }
 
-export function localUserMessageItemFromInput(params: LocalUserMessageFromInputParams): ThreadStreamDialogueItem {
-  return localUserMessageItem({
+export function localUserDialogueItemFromInput(params: LocalUserDialogueFromInputParams): ThreadStreamDialogueItem {
+  return localUserDialogueItem({
     id: params.id,
     text: userMessageDisplayText(params.text, params.codexInput),
     copyText: params.text,
@@ -83,9 +83,9 @@ export function localUserMessageItemFromInput(params: LocalUserMessageFromInputP
   });
 }
 
-export function optimisticTurnStart(params: LocalUserMessageFromInputParams): OptimisticTurnStart {
+export function optimisticTurnStart(params: LocalUserDialogueFromInputParams): OptimisticTurnStart {
   return {
-    item: localUserMessageItemFromInput(params),
+    item: localUserDialogueItemFromInput(params),
     pendingTurnStart: { anchorItemId: params.id, promptSubmitHookItemIds: [] },
   };
 }

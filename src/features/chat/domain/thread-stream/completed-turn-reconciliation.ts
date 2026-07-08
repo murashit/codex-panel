@@ -1,5 +1,5 @@
 import type { ThreadStreamDialogueItem, ThreadStreamItem } from "./items";
-import { isLocalUserMessageId } from "./local-message-ids";
+import { isLocalUserDialogueId } from "./local-dialogue-ids";
 import { upsertThreadStreamItemById } from "./updates";
 
 export interface CompletedTurnReconciliationInput {
@@ -12,57 +12,67 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
   const { currentItems, completedTurnId, turnItems } = input;
   if (turnItems.length === 0) return currentItems;
 
-  const serverUserMessages = turnItems.filter(isUserMessage);
-  const serverUserClientIds = new Set(serverUserMessages.map((item) => item.clientId).filter(isString));
-  const serverUserMessagesByClientId = new Map(
-    serverUserMessages.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
+  const serverUserDialogues = turnItems.filter(isUserDialogue);
+  const serverUserDialogueClientIds = new Set(serverUserDialogues.map((item) => item.clientId).filter(isString));
+  const serverUserDialoguesByClientId = new Map(
+    serverUserDialogues.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
   );
-  const serverUserFallbackTexts = serverUserClientIds.size > 0 ? new Set<string>() : new Set(serverUserMessages.map((item) => item.text));
-  const currentWithServerUsers = currentItems.map((item) => serverUserMessageForOptimisticItem(item, serverUserMessagesByClientId) ?? item);
+  const serverUserDialogueFallbackTexts =
+    serverUserDialogueClientIds.size > 0 ? new Set<string>() : new Set(serverUserDialogues.map((item) => item.text));
+  const currentWithServerDialogues = currentItems.map(
+    (item) => serverUserDialogueForOptimisticItem(item, serverUserDialoguesByClientId) ?? item,
+  );
 
-  let mergedTurnItems = currentWithServerUsers
+  let mergedTurnItems = currentWithServerDialogues
     .filter((item) => item.turnId === completedTurnId)
-    .filter((item) => !isReconciledOptimisticUserMessage(item, completedTurnId, serverUserClientIds, serverUserFallbackTexts));
+    .filter(
+      (item) => !isReconciledOptimisticUserDialogue(item, completedTurnId, serverUserDialogueClientIds, serverUserDialogueFallbackTexts),
+    );
   for (const item of turnItems) {
     mergedTurnItems = upsertThreadStreamItemById(mergedTurnItems, item);
   }
 
-  const retainedItems = currentWithServerUsers
+  const retainedItems = currentWithServerDialogues
     .filter((item) => item.turnId !== completedTurnId)
-    .filter((item) => !isReconciledOptimisticUserMessage(item, completedTurnId, serverUserClientIds, serverUserFallbackTexts));
+    .filter(
+      (item) => !isReconciledOptimisticUserDialogue(item, completedTurnId, serverUserDialogueClientIds, serverUserDialogueFallbackTexts),
+    );
   return [...retainedItems, ...mergedTurnItems];
 }
 
-function isUserMessage(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {
+function isUserDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {
   return item.kind === "dialogue" && item.role === "user";
 }
 
-function serverUserMessageForOptimisticItem(
+function serverUserDialogueForOptimisticItem(
   item: ThreadStreamItem,
-  serverUserMessagesByClientId: ReadonlyMap<string, ThreadStreamDialogueItem & { role: "user" }>,
+  serverUserDialoguesByClientId: ReadonlyMap<string, ThreadStreamDialogueItem & { role: "user" }>,
 ): (ThreadStreamDialogueItem & { role: "user" }) | null {
-  if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return null;
-  return serverUserMessagesByClientId.get(item.id) ?? null;
+  if (!isUserDialogue(item) || !isLocalUserDialogueId(item.id)) return null;
+  return serverUserDialoguesByClientId.get(item.id) ?? null;
 }
 
-function isReconciledOptimisticUserMessage(
+function isReconciledOptimisticUserDialogue(
   item: ThreadStreamItem,
   completedTurnId: string,
-  serverUserClientIds: Set<string>,
-  serverUserFallbackTexts: Set<string>,
+  serverUserDialogueClientIds: Set<string>,
+  serverUserDialogueFallbackTexts: Set<string>,
 ): boolean {
-  if (!isUserMessage(item) || !isLocalUserMessageId(item.id)) return false;
-  return serverUserClientIds.has(item.id) || isFallbackOptimisticUserMessageForTurn(item, completedTurnId, serverUserFallbackTexts);
+  if (!isUserDialogue(item) || !isLocalUserDialogueId(item.id)) return false;
+  return (
+    serverUserDialogueClientIds.has(item.id) ||
+    isFallbackOptimisticUserDialogueForTurn(item, completedTurnId, serverUserDialogueFallbackTexts)
+  );
 }
 
-function isFallbackOptimisticUserMessageForTurn(
+function isFallbackOptimisticUserDialogueForTurn(
   item: ThreadStreamDialogueItem & { role: "user" },
   completedTurnId: string,
-  serverUserFallbackTexts: Set<string>,
+  serverUserDialogueFallbackTexts: Set<string>,
 ): boolean {
-  if (serverUserFallbackTexts.size === 0) return false;
+  if (serverUserDialogueFallbackTexts.size === 0) return false;
   if (item.turnId && item.turnId !== completedTurnId) return false;
-  return serverUserFallbackTexts.has(item.copyText ?? item.text);
+  return serverUserDialogueFallbackTexts.has(item.copyText ?? item.text);
 }
 
 function isString(value: string | null | undefined): value is string {

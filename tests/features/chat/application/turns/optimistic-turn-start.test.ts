@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
-  localUserMessageItemFromInput,
+  localUserDialogueItemFromInput,
   optimisticTurnStart,
   shouldAcknowledgeTurnStart,
 } from "../../../../../src/features/chat/application/turns/optimistic-turn-start";
@@ -28,7 +28,7 @@ describe("optimistic turn start helpers", () => {
       mentionedFiles: [{ name: "Note", path: "Note.md" }],
     });
 
-    expect(localUserMessageItemFromInput({ id: "steer", text: "hello [[Note]]", turnId: "turn", codexInput: input })).toMatchObject({
+    expect(localUserDialogueItemFromInput({ id: "steer", text: "hello [[Note]]", turnId: "turn", codexInput: input })).toMatchObject({
       id: "steer",
       turnId: "turn",
       mentionedFiles: [{ name: "Note", path: "Note.md" }],
@@ -48,7 +48,7 @@ describe("optimistic turn start helpers", () => {
       },
     ];
 
-    expect(localUserMessageItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
+    expect(localUserDialogueItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
       text,
       copyText: text,
       mentionedFiles: [{ name: "Note", path: "Note.md" }],
@@ -64,7 +64,7 @@ describe("optimistic turn start helpers", () => {
       { type: "mention" as const, name: "<active>", path: "Note.md" },
     ];
 
-    expect(localUserMessageItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
+    expect(localUserDialogueItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
       mentionedFiles: [
         { name: "Note", path: "Note.md" },
         { name: "Active file", path: "Note.md" },
@@ -83,7 +83,7 @@ describe("optimistic turn start helpers", () => {
       },
     ];
 
-    expect(localUserMessageItemFromInput({ id: "steer", text, codexInput: input })).toMatchObject({
+    expect(localUserDialogueItemFromInput({ id: "steer", text, codexInput: input })).toMatchObject({
       text: "Use `$obsidian-codex-panel-maintain` and $missing.",
       copyText: "Use $obsidian-codex-panel-maintain and $missing.",
     });
@@ -175,7 +175,7 @@ describe("optimistic turn start helpers", () => {
 });
 
 function localUserMessage(id: string, text: string): ThreadStreamItem {
-  return localUserMessageItemFromInput({ id, text, codexInput: [{ type: "text", text }] });
+  return localUserDialogueItemFromInput({ id, text, codexInput: [{ type: "text", text }] });
 }
 
 function hookItem(id: string): ThreadStreamItem {

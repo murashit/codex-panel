@@ -61,7 +61,7 @@ function cloneChatState(state: ChatState): ChatState {
       archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
       rename: { ...state.ui.rename },
       goalEditor: { ...state.ui.goalEditor },
-      messageActionMenu: { ...state.ui.messageActionMenu },
+      threadStreamActionMenu: { ...state.ui.threadStreamActionMenu },
       disclosures: cloneDisclosureUiState(state.ui.disclosures),
     },
   };

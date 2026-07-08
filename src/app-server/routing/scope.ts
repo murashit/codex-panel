@@ -3,26 +3,26 @@ export interface ActiveRouteScope {
   activeTurnId: string | null;
 }
 
-export interface MessageScope {
+export interface AppServerRouteScope {
   threadId: string | null;
   turnId: string | null;
 }
 
-export function isMessageScopeInActiveRouteScope(messageScope: MessageScope, activeScope: ActiveRouteScope): boolean {
-  // Scope identifiers are filters only when both the message and the active
+export function isAppServerRouteScopeInActiveRouteScope(routeScope: AppServerRouteScope, activeScope: ActiveRouteScope): boolean {
+  // Scope identifiers are filters only when both the app-server envelope and the active
   // panel have one. Thread catalog and idle-thread notifications often omit
   // active turn scope, so missing ids stay eligible for the active route.
-  if (messageScope.threadId && activeScope.activeThreadId && messageScope.threadId !== activeScope.activeThreadId) return false;
-  if (messageScope.turnId && activeScope.activeTurnId && messageScope.turnId !== activeScope.activeTurnId) return false;
+  if (routeScope.threadId && activeScope.activeThreadId && routeScope.threadId !== activeScope.activeThreadId) return false;
+  if (routeScope.turnId && activeScope.activeTurnId && routeScope.turnId !== activeScope.activeTurnId) return false;
   return true;
 }
 
-export function isTurnScopedMessageForIdleActiveThread(messageScope: MessageScope, activeScope: ActiveRouteScope): boolean {
-  return activeScope.activeThreadId !== null && activeScope.activeTurnId === null && messageScope.turnId !== null;
+export function isTurnScopedAppServerRouteForIdleActiveThread(routeScope: AppServerRouteScope, activeScope: ActiveRouteScope): boolean {
+  return activeScope.activeThreadId !== null && activeScope.activeTurnId === null && routeScope.turnId !== null;
 }
 
-export function fallbackMessageScope(message: { params?: unknown }): MessageScope {
-  const rawParams = message.params;
+export function fallbackAppServerRouteScope(envelope: { params?: unknown }): AppServerRouteScope {
+  const rawParams = envelope.params;
   const params =
     rawParams !== null && typeof rawParams === "object" && !Array.isArray(rawParams) ? (rawParams as Record<string, unknown>) : null;
   return {

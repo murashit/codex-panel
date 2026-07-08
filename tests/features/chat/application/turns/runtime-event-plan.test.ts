@@ -25,7 +25,7 @@ describe("TurnRuntimeEvent planner", () => {
     expect(plan.outcomes).toEqual([{ type: "turn-started", threadId: "thread-active", turnId: "turn-active", recencyAt: 123 }]);
   });
 
-  it("reconciles completed turn snapshots with optimistic local user messages", () => {
+  it("reconciles completed turn snapshots with optimistic local user dialogues", () => {
     let state = activeRunningState();
     state = withChatStateThreadStreamItems(state, [
       { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "turn-active" },

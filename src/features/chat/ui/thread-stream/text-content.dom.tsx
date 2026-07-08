@@ -6,19 +6,19 @@ import type { ThreadStreamTextView } from "../../presentation/thread-stream/text
 import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 import type { TextItemContentContext } from "./context";
 
-const USER_MESSAGE_COLLAPSE_HEIGHT_PX = 360;
+const USER_DIALOGUE_COLLAPSE_HEIGHT_PX = 360;
 
 export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTextView; context: TextItemContentContext }): UiNode {
   const collapseRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [overflows, setOverflows] = useState(false);
-  const expanded = context.disclosures.userMessageExpanded.has(view.id);
+  const expanded = context.disclosures.userDialogueExpanded.has(view.id);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content) return;
     const update = () => {
-      setOverflows(content.scrollHeight > userMessageCollapseHeight(content) + 1);
+      setOverflows(content.scrollHeight > userDialogueCollapseHeight(content) + 1);
     };
     const disposeRendered = listenDomEvent(content, THREAD_STREAM_CONTENT_RENDERED_EVENT, update);
     update();
@@ -34,7 +34,7 @@ export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTe
       collapse,
       "pointerdown",
       () => {
-        context.onDisclosureToggle?.("userMessageExpanded", view.id, false);
+        context.onDisclosureToggle?.("userDialogueExpanded", view.id, false);
       },
       true,
     );
@@ -58,7 +58,7 @@ export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTe
         onToggle={(event) => {
           if (!event.currentTarget.open) return;
           event.currentTarget.open = false;
-          context.onDisclosureToggle?.("userMessageExpanded", view.id, true);
+          context.onDisclosureToggle?.("userDialogueExpanded", view.id, true);
         }}
       >
         <summary tabIndex={-1}>Show more</summary>
@@ -151,8 +151,8 @@ function assignTextContentRef(contentRef: Ref<HTMLDivElement> | undefined, eleme
   }
 }
 
-function userMessageCollapseHeight(element: HTMLElement): number {
+function userDialogueCollapseHeight(element: HTMLElement): number {
   const viewportHeight = element.win.innerHeight;
-  if (viewportHeight <= 0) return USER_MESSAGE_COLLAPSE_HEIGHT_PX;
-  return Math.min(USER_MESSAGE_COLLAPSE_HEIGHT_PX, viewportHeight * 0.45);
+  if (viewportHeight <= 0) return USER_DIALOGUE_COLLAPSE_HEIGHT_PX;
+  return Math.min(USER_DIALOGUE_COLLAPSE_HEIGHT_PX, viewportHeight * 0.45);
 }

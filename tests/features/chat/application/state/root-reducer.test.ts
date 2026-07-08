@@ -12,7 +12,7 @@ import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../.
 
 describe("chatReducer", () => {
   it("clears active turn and thread-scoped state", () => {
-    let state = threadScopedResidue({ draft: "keep me", messageId: "m1" });
+    let state = threadScopedResidue({ draft: "keep me", itemId: "m1" });
     state = chatStateWith(state, {
       runtime: {
         active: {
@@ -51,7 +51,7 @@ describe("chatReducer", () => {
 
   it("resets thread-scoped state when resuming a thread", () => {
     const state = threadScopedResidue({ threadId: "previous-thread", turnId: "previous-turn" });
-    const resumedItems = [message("resumed-message")];
+    const resumedItems = [dialogueItem("resumed-message")];
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
@@ -131,7 +131,7 @@ describe("chatReducer", () => {
 
   it("starts resumed threads with empty display state when no history items are supplied", () => {
     let state = chatStateFixture();
-    state = withChatStateThreadStreamItems(state, [message("previous-message")]);
+    state = withChatStateThreadStreamItems(state, [dialogueItem("previous-message")]);
 
     const next = chatReducer(state, {
       type: "active-thread/resumed",
@@ -217,7 +217,7 @@ describe("chatReducer", () => {
 
   it("appends streaming assistant deltas after stable history", () => {
     let state = chatStateFixture();
-    state = withChatStateThreadStreamItems(state, [message("history")]);
+    state = withChatStateThreadStreamItems(state, [dialogueItem("history")]);
     const running = chatReducer(state, { type: "turn/started", threadId: "thread", turnId: "turn" });
 
     const next = chatReducer(running, {
@@ -228,7 +228,10 @@ describe("chatReducer", () => {
     });
 
     expect(next.threadStream.activeSegment?.items).toEqual([expect.objectContaining({ id: "assistant", text: "hello", turnId: "turn" })]);
-    expect(threadStreamItems(next.threadStream)).toEqual([message("history"), expect.objectContaining({ id: "assistant", text: "hello" })]);
+    expect(threadStreamItems(next.threadStream)).toEqual([
+      dialogueItem("history"),
+      expect.objectContaining({ id: "assistant", text: "hello" }),
+    ]);
   });
 
   it("updates repeated streaming output through the active source-item index", () => {
@@ -284,7 +287,7 @@ describe("chatReducer", () => {
     state = chatReducer(state, {
       type: "turn/optimistic-started",
       pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
-      item: message("local-user"),
+      item: dialogueItem("local-user"),
     });
 
     const next = chatReducer(state, {
@@ -366,13 +369,13 @@ describe("chatReducer", () => {
   it("ignores stale turn start failures after the turn is already running", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { turn: { lifecycle: { kind: "running", turnId: "turn" } } });
-    state = withChatStateThreadStreamItems(state, [message("existing")]);
+    state = withChatStateThreadStreamItems(state, [dialogueItem("existing")]);
 
     const next = chatReducer(state, { type: "turn/start-failed", items: [] });
 
     expect(chatTurnBusy(next)).toBe(true);
     expect(activeTurnId(next)).toBe("turn");
-    expect(chatStateThreadStreamItems(next)).toEqual([message("existing")]);
+    expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("existing")]);
   });
 
   it("clears turn-scoped requests when clearing the local turn scope", () => {
@@ -381,7 +384,7 @@ describe("chatReducer", () => {
     state = chatStateWith(state, { requests: { approvals: [approval(1)] } });
     state = chatStateWith(state, { requests: { pendingUserInputs: [userInput(2)] } });
     state = chatStateWith(state, { requests: { userInputDrafts: new Map([["2:note", "draft"]]) } });
-    state = withChatStateThreadStreamItems(state, [message("kept")]);
+    state = withChatStateThreadStreamItems(state, [dialogueItem("kept")]);
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["kept:details"]) } } });
 
@@ -392,7 +395,7 @@ describe("chatReducer", () => {
     expect(next.requests.approvals).toEqual([]);
     expect(next.requests.pendingUserInputs).toEqual([]);
     expect(next.requests.userInputDrafts.size).toBe(0);
-    expect(chatStateThreadStreamItems(next)).toEqual([message("kept")]);
+    expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("kept")]);
     expect([...next.ui.disclosures.approvalDetails]).toEqual([]);
     expect([...next.ui.disclosures.textDetails]).toEqual(["kept:details"]);
   });
@@ -409,33 +412,33 @@ describe("chatReducer", () => {
         ]),
       },
     });
-    state = withChatStateThreadStreamItems(state, [message("existing")]);
+    state = withChatStateThreadStreamItems(state, [dialogueItem("existing")]);
     state = chatStateWith(state, { ui: { disclosures: { approvalDetails: new Set(["1:details"]) } } });
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["existing:details"]) } } });
 
     const withoutResult = chatReducer(state, { type: "request/resolved", requestId: 1 });
     expect(withoutResult.requests.approvals).toEqual([]);
     expect(withoutResult.requests.pendingUserInputs).toEqual([userInput(2)]);
-    expect(chatStateThreadStreamItems(withoutResult)).toEqual([message("existing")]);
+    expect(chatStateThreadStreamItems(withoutResult)).toEqual([dialogueItem("existing")]);
     expect([...withoutResult.ui.disclosures.approvalDetails]).toEqual([]);
     expect([...withoutResult.ui.disclosures.textDetails]).toEqual(["existing:details"]);
 
-    const resultItem = message("result");
+    const resultItem = dialogueItem("result");
     const withResult = chatReducer(withoutResult, { type: "request/resolved", requestId: 2, resultItem });
     expect(withResult.requests.pendingUserInputs).toEqual([]);
     expect(withResult.requests.userInputDrafts.size).toBe(0);
-    expect(chatStateThreadStreamItems(withResult)).toEqual([message("existing"), resultItem]);
+    expect(chatStateThreadStreamItems(withResult)).toEqual([dialogueItem("existing"), resultItem]);
     expect([...withResult.ui.disclosures.textDetails]).toEqual(["existing:details"]);
   });
 
   it("ignores stale request resolutions without appending result items", () => {
     let state = chatStateFixture();
-    state = withChatStateThreadStreamItems(state, [message("existing")]);
+    state = withChatStateThreadStreamItems(state, [dialogueItem("existing")]);
     state = chatStateWith(state, { ui: { disclosures: { textDetails: new Set(["existing:details"]) } } });
 
-    const next = chatReducer(state, { type: "request/resolved", requestId: 99, resultItem: message("stale result") });
+    const next = chatReducer(state, { type: "request/resolved", requestId: 99, resultItem: dialogueItem("stale result") });
 
-    expect(chatStateThreadStreamItems(next)).toEqual([message("existing")]);
+    expect(chatStateThreadStreamItems(next)).toEqual([dialogueItem("existing")]);
     expect([...next.ui.disclosures.textDetails]).toEqual(["existing:details"]);
   });
 
@@ -486,7 +489,7 @@ describe("chatReducer", () => {
     expect(state.ui.toolbarPanel).toBe("status-panel");
   });
 
-  it("updates typed disclosures, message action menu, goal editor, and user input drafts through typed UI actions", () => {
+  it("updates typed disclosures, thread stream action menu, goal editor, and user input drafts through typed UI actions", () => {
     let state = chatStateFixture();
 
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "approvalDetails", id: "1:details", open: true });
@@ -494,8 +497,8 @@ describe("chatReducer", () => {
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
     expect(state.ui.disclosures.goalObjectiveExpanded.has("thread")).toBe(true);
 
-    state = chatReducer(state, { type: "ui/message-fork-menu-set", itemId: "message-1" });
-    expect(state.ui.messageActionMenu.forkMenuItemId).toBe("message-1");
+    state = chatReducer(state, { type: "ui/thread-stream-fork-menu-set", itemId: "message-1" });
+    expect(state.ui.threadStreamActionMenu.forkMenuItemId).toBe("message-1");
 
     state = chatReducer(state, { type: "ui/goal-editor-started", threadId: "thread", objective: "old", tokenBudget: 10 });
     state = chatReducer(state, { type: "ui/goal-editor-draft-updated", objective: "new" });
@@ -682,13 +685,13 @@ describe("chatReducer", () => {
 
   it("stores updates through ChatStateStore without mutating the initial snapshot", () => {
     let initial = chatStateFixture();
-    initial = withChatStateThreadStreamItems(initial, [message("initial")]);
+    initial = withChatStateThreadStreamItems(initial, [dialogueItem("initial")]);
     const store = createChatStateStore(initial);
 
-    store.dispatch({ type: "thread-stream/item-upserted", item: message("next") });
+    store.dispatch({ type: "thread-stream/item-upserted", item: dialogueItem("next") });
 
-    expect(chatStateThreadStreamItems(initial)).toEqual([message("initial")]);
-    expect(chatStateThreadStreamItems(store.getState())).toEqual([message("initial"), message("next")]);
+    expect(chatStateThreadStreamItems(initial)).toEqual([dialogueItem("initial")]);
+    expect(chatStateThreadStreamItems(store.getState())).toEqual([dialogueItem("initial"), dialogueItem("next")]);
   });
 
   it("keeps panel-local thread, request, and composer state isolated across stores", () => {
@@ -752,11 +755,11 @@ describe("chatReducer", () => {
   });
 });
 
-function message(id: string): ThreadStreamItem {
+function dialogueItem(id: string): ThreadStreamItem {
   return { id, kind: "dialogue", role: "assistant", text: id, dialogueKind: "assistantResponse", dialogueState: "completed" };
 }
 
-function threadScopedResidue(options: { threadId?: string; turnId?: string; draft?: string; messageId?: string } = {}): ChatState {
+function threadScopedResidue(options: { threadId?: string; turnId?: string; draft?: string; itemId?: string } = {}): ChatState {
   const threadId = options.threadId ?? "thread";
   const turnId = options.turnId ?? "turn";
   let state = chatStateFixture({
@@ -787,11 +790,11 @@ function threadScopedResidue(options: { threadId?: string; turnId?: string; draf
         approvalDetails: new Set(["1:details"]),
         textDetails: new Set(["previous:details"]),
       },
-      messageActionMenu: { forkMenuItemId: "previous" },
+      threadStreamActionMenu: { forkMenuItemId: "previous" },
       goalEditor: { kind: "editing", threadId, objectiveDraft: "draft", tokenBudgetDraft: null },
     },
   });
-  state = withChatStateThreadStreamItems(state, [message(options.messageId ?? "previous-message")]);
+  state = withChatStateThreadStreamItems(state, [dialogueItem(options.itemId ?? "previous-message")]);
   return state;
 }
 
@@ -809,7 +812,7 @@ function expectThreadScopeReset(state: ChatState, options: { items: readonly Thr
   expect(state.composer.suggestions).toEqual([]);
   expect(state.composer.suggestionsDismissedSignature).toBeNull();
   expect(uiDisclosureCount(state)).toBe(0);
-  expect(state.ui.messageActionMenu.forkMenuItemId).toBeNull();
+  expect(state.ui.threadStreamActionMenu.forkMenuItemId).toBeNull();
   expect(state.ui.goalEditor.kind).toBe("closed");
 }
 
@@ -867,7 +870,7 @@ function uiDisclosureCount(state: ChatState): number {
     disclosures.details.size +
     disclosures.activityGroups.size +
     disclosures.textDetails.size +
-    disclosures.userMessageExpanded.size +
+    disclosures.userDialogueExpanded.size +
     disclosures.goalObjectiveExpanded.size +
     disclosures.approvalDetails.size
   );

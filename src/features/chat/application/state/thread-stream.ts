@@ -140,13 +140,13 @@ export function threadStreamRollbackCandidateFromItems(items: readonly ThreadStr
   const lastTurnId = latestTurnId(items);
   if (!lastTurnId) return null;
 
-  const userMessage = promptMessageForTurn(items, lastTurnId);
-  if (!userMessage) return null;
+  const turnInitiator = turnInitiatorDialogueForTurn(items, lastTurnId);
+  if (!turnInitiator) return null;
 
   return {
     turnId: lastTurnId,
-    itemId: userMessage.id,
-    text: userMessage.copyText ?? userMessage.text,
+    itemId: turnInitiator.id,
+    text: turnInitiator.copyText ?? turnInitiator.text,
   };
 }
 
@@ -502,7 +502,7 @@ function latestTurnId(items: readonly ThreadStreamItem[]): string | null {
   return null;
 }
 
-function promptMessageForTurn(items: readonly ThreadStreamItem[], turnId: string): ThreadStreamDialogueItem | null {
+function turnInitiatorDialogueForTurn(items: readonly ThreadStreamItem[], turnId: string): ThreadStreamDialogueItem | null {
   const classification = threadStreamSemanticClassifications(items).find(
     (classification) => classification.item.turnId === turnId && threadStreamIsTurnInitiator(classification),
   );

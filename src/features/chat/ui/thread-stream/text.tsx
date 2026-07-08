@@ -9,7 +9,7 @@ import type {
   ThreadStreamTextView,
 } from "../../presentation/thread-stream/text-view";
 import type { TextItemActionContext, TextItemContext, TextItemDetailStateContext, TextItemMetadataContext } from "./context";
-import { closeMessageRoleMenuOnOutsidePointer } from "./text.dom";
+import { closeStreamItemRoleMenuOnOutsidePointer } from "./text.dom";
 import { CollapsibleTextContent, TextContent } from "./text-content.dom";
 
 export function textNode(view: ThreadStreamTextView, context: TextItemContext): UiNode {
@@ -48,7 +48,7 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
     if (!forkMenuOpen) return;
     const role = roleRef.current;
     if (!role) return;
-    return closeMessageRoleMenuOnOutsidePointer(role, () => {
+    return closeStreamItemRoleMenuOnOutsidePointer(role, () => {
       context.onForkMenuToggle?.(null);
     });
   }, [context, forkMenuOpen]);

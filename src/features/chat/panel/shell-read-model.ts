@@ -49,7 +49,7 @@ interface ChatPanelShellSignals {
   threadStreamForkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
   threadStreamImplementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
   threadStreamDisclosures: ReadonlySignal<ChatPanelThreadStreamDisclosureState>;
-  threadStreamForkMenuItemId: ReadonlySignal<ChatState["ui"]["messageActionMenu"]["forkMenuItemId"]>;
+  threadStreamForkMenuItemId: ReadonlySignal<ChatState["ui"]["threadStreamActionMenu"]["forkMenuItemId"]>;
   hasThreadTurns: ReadonlySignal<boolean>;
   goalEditor: ReadonlySignal<ChatState["ui"]["goalEditor"]>;
   goalObjectiveExpanded: ReadonlySignal<ChatState["ui"]["disclosures"]["goalObjectiveExpanded"]>;
@@ -111,7 +111,7 @@ export interface ChatPanelThreadStreamReadModel {
   readonly activeItems: ReadonlySignal<readonly ThreadStreamItem[]>;
   readonly requests: ReadonlySignal<ChatState["requests"]>;
   readonly disclosures: ReadonlySignal<ChatPanelThreadStreamDisclosureState>;
-  readonly forkMenuItemId: ReadonlySignal<ChatState["ui"]["messageActionMenu"]["forkMenuItemId"]>;
+  readonly forkMenuItemId: ReadonlySignal<ChatState["ui"]["threadStreamActionMenu"]["forkMenuItemId"]>;
   readonly rollbackCandidate: ReadonlySignal<ThreadStreamRollbackCandidate | null>;
   readonly forkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
   readonly implementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
@@ -187,7 +187,7 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
       }),
     ),
     threadStreamDisclosures: createThreadStreamDisclosuresSignal(ui),
-    threadStreamForkMenuItemId: computed(() => ui.value.messageActionMenu.forkMenuItemId),
+    threadStreamForkMenuItemId: computed(() => ui.value.threadStreamActionMenu.forkMenuItemId),
     hasThreadTurns,
     goalEditor: computed(() => ui.value.goalEditor),
     goalObjectiveExpanded: computed(() => ui.value.disclosures.goalObjectiveExpanded),
@@ -347,7 +347,7 @@ function createThreadStreamDisclosuresSignal(ui: Signal<ChatState["ui"]>): Reado
       previous.details === disclosures.details &&
       previous.activityGroups === disclosures.activityGroups &&
       previous.textDetails === disclosures.textDetails &&
-      previous.userMessageExpanded === disclosures.userMessageExpanded &&
+      previous.userDialogueExpanded === disclosures.userDialogueExpanded &&
       previous.approvalDetails === disclosures.approvalDetails
     ) {
       return previous;
@@ -356,7 +356,7 @@ function createThreadStreamDisclosuresSignal(ui: Signal<ChatState["ui"]>): Reado
       details: disclosures.details,
       activityGroups: disclosures.activityGroups,
       textDetails: disclosures.textDetails,
-      userMessageExpanded: disclosures.userMessageExpanded,
+      userDialogueExpanded: disclosures.userDialogueExpanded,
       approvalDetails: disclosures.approvalDetails,
     };
     return previous;

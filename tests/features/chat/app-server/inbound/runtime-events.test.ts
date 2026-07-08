@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ServerNotification } from "../../../../../src/app-server/connection/rpc-messages";
 import { turnRuntimeEventsFromNotification } from "../../../../../src/features/chat/app-server/inbound/runtime-events";
 
-describe("app-server conversation runtime event mapping", () => {
+describe("app-server turn runtime event mapping", () => {
   it("maps assistant deltas to panel-owned runtime events", () => {
     const notification = {
       method: "item/agentMessage/delta",

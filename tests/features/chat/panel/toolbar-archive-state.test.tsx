@@ -201,7 +201,7 @@ const testThreadStreamContext: ThreadStreamContext = {
     details: new Set(),
     activityGroups: new Set(),
     textDetails: new Set(),
-    userMessageExpanded: new Set(),
+    userDialogueExpanded: new Set(),
     approvalDetails: new Set(),
   },
   forkMenuItemId: null,

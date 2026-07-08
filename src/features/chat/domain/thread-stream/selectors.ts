@@ -39,6 +39,6 @@ export function latestImplementablePlanTargetFromItems(items: readonly ThreadStr
   return classification ? { itemId: classification.item.id } : null;
 }
 
-export function isCompletedTurnOutcomeMessage(item: ThreadStreamItem): boolean {
+export function isCompletedTurnOutcomeDialogue(item: ThreadStreamItem): boolean {
   return threadStreamSemanticClassifications([item])[0]?.capabilities.isTurnOutcome ?? false;
 }

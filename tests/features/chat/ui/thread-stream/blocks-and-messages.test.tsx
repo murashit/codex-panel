@@ -23,7 +23,7 @@ import {
   withStreamItemContentScrollHeight,
 } from "./test-helpers";
 
-describe("thread stream rendering and message action menu", () => {
+describe("thread stream rendering and action menu", () => {
   it("inserts completed-turn activity groups between conversation blocks", () => {
     const parent = document.createElement("div");
 
@@ -289,7 +289,7 @@ describe("thread stream rendering and message action menu", () => {
     expect(element.querySelector("pre")?.textContent).toBe("Ship the feature");
   });
 
-  it("renders rollback action only for the eligible user message", () => {
+  it("renders rollback action only for the eligible user dialogue", () => {
     const onRollback = vi.fn();
     const items = [
       { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "older", turnId: "turn-1" },
@@ -429,7 +429,7 @@ describe("thread stream rendering and message action menu", () => {
     expect(onFork).toHaveBeenCalledWith({ itemId: "a1", turnId: "turn-1" }, true);
   });
 
-  it("updates message content when a streaming plan delta completes", () => {
+  it("updates text item content when a streaming plan delta completes", () => {
     const parent = document.createElement("div");
     const baseContext = {
       renderMarkdown: (element: HTMLElement, text: string) => element.createDiv({ text: `markdown:${text}` }),
@@ -476,7 +476,7 @@ describe("thread stream rendering and message action menu", () => {
     unmountUiRootInAct(parent);
   });
 
-  it("updates keyed message content", () => {
+  it("updates keyed text item content", () => {
     const parent = document.createElement("div");
     const renderMarkdown = (element: HTMLElement, text: string) => {
       const rendered = element.createDiv({ text: `markdown:${text}` });
@@ -724,7 +724,7 @@ describe("thread stream rendering and message action menu", () => {
     parent.remove();
   });
 
-  it("hides copy action for the active assistant message while a turn is running", () => {
+  it("hides copy action for the active assistant dialogue while a turn is running", () => {
     const item = {
       id: "a-running",
       sourceItemId: "a-running",
@@ -861,13 +861,13 @@ describe("thread stream rendering and message action menu", () => {
     expect(onRollback).toHaveBeenCalledWith();
   });
 
-  it("collapses tall user messages without changing the copy payload", () => {
+  it("collapses tall user dialogues without changing the copy payload", () => {
     withStreamItemContentScrollHeight(500, () => {
       const parent = document.createElement("div");
       const copyText = vi.fn();
       const expandedMessages = new Set<string>();
       const onDisclosureToggle = vi.fn((bucket: string, id: string, open: boolean) => {
-        if (bucket !== "userMessageExpanded") return;
+        if (bucket !== "userDialogueExpanded") return;
         if (open) {
           expandedMessages.add(id);
         } else {
@@ -887,7 +887,7 @@ describe("thread stream rendering and message action menu", () => {
               turnId: "turn-1",
             },
           ],
-          disclosures: testDisclosures({ userMessageExpanded: [...expandedMessages] }),
+          disclosures: testDisclosures({ userDialogueExpanded: [...expandedMessages] }),
           onDisclosureToggle,
           copyText,
         });
@@ -913,7 +913,7 @@ describe("thread stream rendering and message action menu", () => {
       expect(expandedMessages.has("u1")).toBe(true);
       expect(content()?.classList.contains("codex-panel__stream-item-content--collapsed")).toBe(false);
       expect(details()?.hidden).toBe(true);
-      expect(onDisclosureToggle).toHaveBeenCalledWith("userMessageExpanded", "u1", true);
+      expect(onDisclosureToggle).toHaveBeenCalledWith("userDialogueExpanded", "u1", true);
 
       void act(() => {
         document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
@@ -922,7 +922,7 @@ describe("thread stream rendering and message action menu", () => {
       expect(expandedMessages.has("u1")).toBe(false);
       expect(content()?.classList.contains("codex-panel__stream-item-content--collapsed")).toBe(true);
       expect(details()?.hidden).toBe(false);
-      expect(onDisclosureToggle).toHaveBeenCalledWith("userMessageExpanded", "u1", false);
+      expect(onDisclosureToggle).toHaveBeenCalledWith("userDialogueExpanded", "u1", false);
 
       parent.querySelector<HTMLButtonElement>(".codex-panel__copy-dialogue")?.click();
       expect(copyText).toHaveBeenCalledWith("full copied text");
@@ -931,7 +931,7 @@ describe("thread stream rendering and message action menu", () => {
     });
   });
 
-  it("does not show the collapse control for short user messages or assistant messages", () => {
+  it("does not show the collapse control for short user dialogues or assistant dialogues", () => {
     withStreamItemContentScrollHeight(120, () => {
       const shortUserBlock = threadStreamBlocks({
         items: [{ id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "short", turnId: "turn-1" }],
@@ -1192,7 +1192,7 @@ describe("thread stream rendering and message action menu", () => {
     expect(user.querySelector<HTMLElement>(".codex-panel__referenced-thread")?.getAttribute("title")).toBeNull();
   });
 
-  it("renders resolved file mentions as a collapsed user message attachment", () => {
+  it("renders resolved file mentions as a collapsed user dialogue attachment", () => {
     const blocks = threadStreamBlocks({
       items: [
         {
