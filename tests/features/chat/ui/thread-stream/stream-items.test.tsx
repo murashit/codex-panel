@@ -528,7 +528,7 @@ describe("thread stream item renderer decisions", () => {
     const header = expectPresent(element.querySelector<HTMLElement>("details summary"));
     const open = expectPresent(header.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]'));
 
-    expect(open.classList.contains("codex-panel__stream-item-action")).toBe(true);
+    expect(open.classList.contains("codex-panel__hover-action")).toBe(true);
     expect(open.classList.contains("codex-panel-ui__nav-row-action")).toBe(false);
     expect(textContents(element, "details summary")).toEqual(["agent"]);
     open.click();

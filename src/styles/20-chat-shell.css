@@ -28,6 +28,17 @@
   min-width: 0;
 }
 
+.codex-panel__hover-action {
+  --icon-size: var(--codex-panel-size-icon-xs);
+  --icon-stroke: var(--icon-xs-stroke-width, 2px);
+  opacity: 0;
+  transition: opacity 120ms ease-in-out;
+}
+
+.codex-panel__hover-action:focus-visible {
+  opacity: 1;
+}
+
 .codex-panel__region--goal {
   grid-row: 1;
 }

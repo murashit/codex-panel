@@ -4,7 +4,7 @@
 
 .codex-panel__goal {
   margin: var(--codex-panel-edge-padding-x) var(--codex-panel-edge-padding-x) 0;
-  padding-left: var(--codex-panel-message-indent);
+  padding-left: var(--codex-panel-rail-indent);
   border-left: var(--codex-panel-rail);
   color: var(--codex-panel-text-normal);
   white-space: pre-wrap;

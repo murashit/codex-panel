@@ -59,7 +59,7 @@
   --codex-panel-control-gap: var(--size-2-2, 4px);
   --codex-panel-panel-gap: var(--size-2-1, 2px);
   --codex-panel-toolbar-panel-row-gap: var(--codex-panel-control-gap);
-  --codex-panel-message-indent: calc(var(--codex-panel-section-gap) + var(--codex-panel-panel-gap));
+  --codex-panel-rail-indent: calc(var(--codex-panel-section-gap) + var(--codex-panel-panel-gap));
   --codex-panel-section-label-color: var(--codex-panel-text-faint);
   --codex-panel-section-label-size: var(--font-ui-smaller);
   --codex-panel-section-label-weight: var(--font-semibold);

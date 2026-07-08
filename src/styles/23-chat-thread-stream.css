@@ -69,7 +69,7 @@
   min-width: 0;
   max-width: 100%;
   margin-bottom: var(--codex-panel-edge-padding-x);
-  padding-left: var(--codex-panel-message-indent);
+  padding-left: var(--codex-panel-rail-indent);
   border-left: var(--codex-panel-rail-transparent);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -86,16 +86,8 @@
   font-weight: var(--codex-panel-role-label-weight);
 }
 
-.codex-panel__stream-item-action {
-  --icon-size: var(--codex-panel-size-icon-xs);
-  --icon-stroke: var(--icon-xs-stroke-width, 2px);
-  opacity: 0;
-  transition: opacity 120ms ease-in-out;
-}
-
-.codex-panel__stream-item:hover .codex-panel__stream-item-action,
-.codex-panel__stream-item-role--fork-open .codex-panel__stream-item-action,
-.codex-panel__stream-item-action:focus-visible {
+.codex-panel__stream-item-role--fork-open .codex-panel__hover-action,
+.codex-panel__stream-item:hover .codex-panel__hover-action {
   opacity: 1;
 }
 
@@ -234,7 +226,7 @@
   min-width: 0;
   max-width: 100%;
   margin: 0 0 var(--codex-panel-section-gap);
-  padding-left: var(--codex-panel-message-indent);
+  padding-left: var(--codex-panel-rail-indent);
   border-left: var(--codex-panel-rail);
   color: var(--text-muted);
   font-size: var(--font-ui-small);
@@ -248,7 +240,7 @@
   min-width: 0;
   max-width: 100%;
   margin: 0 0 var(--codex-panel-edge-padding-x);
-  padding-left: var(--codex-panel-message-indent);
+  padding-left: var(--codex-panel-rail-indent);
   border-left: var(--codex-panel-rail);
   color: var(--text-muted);
   font-size: var(--font-ui-small);

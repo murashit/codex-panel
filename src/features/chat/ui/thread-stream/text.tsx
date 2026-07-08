@@ -119,7 +119,7 @@ function TextAction({ icon, label, className, onClick }: { icon: string; label: 
     <IconButton
       icon={icon}
       label={label}
-      className={`clickable-icon codex-panel__stream-item-action ${className}`}
+      className={`clickable-icon codex-panel__hover-action ${className}`}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
