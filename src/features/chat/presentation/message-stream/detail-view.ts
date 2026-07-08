@@ -30,6 +30,7 @@ export interface DetailView {
   className: string;
   label: string;
   summary: string;
+  summaryThreadIds: readonly string[];
   detailsKey: string;
   sections: DetailSection[];
   state: ExecutionState;
@@ -68,11 +69,13 @@ function detailViewBase(
   detailsKey: string,
   sections: DetailSection[],
   summary = fallbackSummary(item),
+  summaryThreadIds: readonly string[] = [],
 ): DetailView {
   return {
     className: `codex-panel__message codex-panel__message--tool ${className}`,
     label,
     summary,
+    summaryThreadIds,
     detailsKey,
     sections,
     state: item.executionState ?? null,
@@ -152,6 +155,7 @@ function agentDetailView(item: AgentMessageStreamItem): DetailView {
     messageDetailKey(item.id, "agent-details"),
     agentDetailSections(item),
     agentSummaryText(item),
+    agentThreadIds(item),
   );
 }
 
@@ -428,6 +432,10 @@ function agentSummaryText(item: AgentMessageStreamItem): string {
   const target = item.receiverThreadIds.length === 0 ? "" : ` ${item.receiverThreadIds.map(shortThreadId).join(", ")}`;
   const promptPreview = agentPromptPreview(item.prompt);
   return `${agentActivityMetaLabel(item.tool)}${target}${promptPreview ? `: ${promptPreview}` : ""} (${item.status})`;
+}
+
+function agentThreadIds(item: AgentMessageStreamItem): readonly string[] {
+  return [...new Set([...item.receiverThreadIds, ...item.agents.map((agent) => agent.threadId)])].sort((a, b) => a.localeCompare(b));
 }
 
 function agentActivityMetaLabel(tool: string): string {

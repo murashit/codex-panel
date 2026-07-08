@@ -2,11 +2,13 @@ import type { ComponentChild as UiNode } from "preact";
 
 import { RawDiffView } from "../../../../shared/ui/diff-view";
 import type { DetailSection, DetailView } from "../../presentation/message-stream/detail-view";
+import { OpenAgentThreadAction } from "./agent-thread-action";
 import type { MessageStreamDisclosureState } from "./context";
 
 export interface DetailRenderContext {
   disclosures: MessageStreamDisclosureState;
   onDisclosureToggle?: (bucket: "details", id: string, open: boolean) => void;
+  openThreadInNewView?: (threadId: string) => void;
 }
 
 export function detailNode(view: DetailView, context: DetailRenderContext): UiNode {
@@ -30,7 +32,7 @@ function Detail({ view, context }: { view: DetailView; context: DetailRenderCont
   if (view.sections.length === 0) {
     return (
       <div className={className}>
-        <DetailHeader view={view} />
+        <DetailHeader view={view} openThreadInNewView={context.openThreadInNewView} />
         {hasSummary ? <DetailSummary text={view.summary} /> : null}
       </div>
     );
@@ -45,7 +47,7 @@ function Detail({ view, context }: { view: DetailView; context: DetailRenderCont
           context.onDisclosureToggle?.("details", view.detailsKey, event.currentTarget.open);
         }}
       >
-        <DetailHeader view={view} />
+        <DetailHeader view={view} openThreadInNewView={context.openThreadInNewView} />
         {view.sections.map((section, index) => (
           <DetailSectionView key={`${section.kind}:${section.title ?? ""}:${String(index)}`} section={section} />
         ))}
@@ -62,8 +64,25 @@ function executionClassName(state: DetailView["state"]): string {
   return "";
 }
 
-function DetailHeader({ view }: { view: DetailView }): UiNode {
-  const content = <span className="codex-panel__message-role codex-panel__detail-label">{view.label}</span>;
+function DetailHeader({
+  view,
+  openThreadInNewView,
+}: {
+  view: DetailView;
+  openThreadInNewView?: ((threadId: string) => void) | undefined;
+}): UiNode {
+  const content = (
+    <span className="codex-panel__message-role codex-panel__detail-label">
+      <span>{view.label}</span>
+      {openThreadInNewView && view.summaryThreadIds.length > 0 ? (
+        <span className="codex-panel__detail-header-actions">
+          {view.summaryThreadIds.map((threadId) => (
+            <OpenAgentThreadAction key={threadId} threadId={threadId} openThreadInNewView={openThreadInNewView} />
+          ))}
+        </span>
+      ) : null}
+    </span>
+  );
   return view.sections.length > 0 ? (
     <summary className="codex-panel__detail-header" tabIndex={-1}>
       {content}

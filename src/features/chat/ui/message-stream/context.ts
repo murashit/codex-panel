@@ -53,6 +53,7 @@ interface MessageStreamRenderContext {
   activeThreadId: string | null;
   workspaceRoot?: string | null;
   loadOlderTurns: () => void;
+  openThreadInNewView?: (threadId: string) => void;
   pendingRequests?: PendingRequestBlockContext;
 }
 

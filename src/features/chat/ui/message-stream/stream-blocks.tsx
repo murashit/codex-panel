@@ -56,7 +56,7 @@ function presentationBlockNode(block: MessageStreamViewBlock, context: MessageSt
     return <ActivityGroup group={block} context={context} />;
   }
   if (block.kind === "liveAgentSummary") {
-    return agentRunSummaryNode(block.view);
+    return agentRunSummaryNode(block.view, context);
   }
   if (block.kind === "pendingRequests") {
     const pendingRequests = pendingRequestContext(context);

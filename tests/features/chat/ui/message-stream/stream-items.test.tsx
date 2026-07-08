@@ -500,6 +500,102 @@ describe("message stream item renderer decisions", () => {
     expect(element.textContent).toContain("childcompleted: Done");
   });
 
+  it("opens agent threads from agent activity headers", () => {
+    const openThreadInNewView = vi.fn();
+    const block = messageStreamBlocks({
+      turnLifecycle: runningTurnLifecycle("turn"),
+      openThreadInNewView,
+      items: [
+        {
+          id: "agent-1",
+          kind: "agent",
+          role: "tool",
+          text: "Spawn agent",
+          turnId: "turn",
+          tool: "spawnAgent",
+          status: "completed",
+          senderThreadId: "parent",
+          receiverThreadIds: ["child"],
+          prompt: "Inspect the renderer.",
+          model: null,
+          reasoningEffort: null,
+          agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
+        },
+      ],
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+    const header = expectPresent(element.querySelector<HTMLElement>("details summary"));
+    const open = expectPresent(header.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]'));
+
+    expect(open.classList.contains("codex-panel__message-action")).toBe(true);
+    expect(open.classList.contains("codex-panel-ui__nav-row-action")).toBe(false);
+    expect(textContents(element, "details summary")).toEqual(["agent"]);
+    open.click();
+
+    expect(openThreadInNewView).toHaveBeenCalledWith("child");
+  });
+
+  it("keeps agent activity headers passive without an open thread handler", () => {
+    const block = messageStreamBlocks({
+      turnLifecycle: runningTurnLifecycle("turn"),
+      items: [
+        {
+          id: "agent-1",
+          kind: "agent",
+          role: "tool",
+          text: "Spawn agent",
+          turnId: "turn",
+          tool: "spawnAgent",
+          status: "completed",
+          senderThreadId: "parent",
+          receiverThreadIds: ["child"],
+          prompt: "Inspect the renderer.",
+          model: null,
+          reasoningEffort: null,
+          agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
+        },
+      ],
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+
+    expect(element.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]')).toBeNull();
+  });
+
+  it("keeps agent thread actions available after agent details expand", () => {
+    const openThreadInNewView = vi.fn();
+    const block = messageStreamBlocks({
+      turnLifecycle: runningTurnLifecycle("turn"),
+      openThreadInNewView,
+      disclosures: testDisclosures({ details: ["agent-1:agent-details"] }),
+      items: [
+        {
+          id: "agent-1",
+          kind: "agent",
+          role: "tool",
+          text: "Wait for agent",
+          turnId: "turn",
+          tool: "wait",
+          status: "completed",
+          senderThreadId: "parent",
+          receiverThreadIds: ["child"],
+          prompt: null,
+          model: null,
+          reasoningEffort: null,
+          agents: [{ threadId: "child", status: "completed", executionState: "completed", message: "Done" }],
+        },
+      ],
+    })[0];
+
+    const element = renderMessageBlockElement(block);
+    expect(element.querySelector("details")?.hasAttribute("open")).toBe(true);
+
+    expectPresent(element.querySelector<HTMLButtonElement>("details summary [aria-label='Open agent thread']")).click();
+
+    expect(openThreadInNewView).toHaveBeenCalledWith("child");
+  });
+
   it("keeps agent activity prompt previews visually constrained to one line", () => {
     const block = messageStreamBlocks({
       turnLifecycle: runningTurnLifecycle("turn"),
@@ -571,8 +667,10 @@ describe("message stream item renderer decisions", () => {
   });
 
   it("renders a compact live agent summary while subagents are running", () => {
+    const openThreadInNewView = vi.fn();
     const blocks = messageStreamBlocks({
       turnLifecycle: runningTurnLifecycle("turn"),
+      openThreadInNewView,
       items: [
         {
           id: "agent-1",
@@ -603,6 +701,13 @@ describe("message stream item renderer decisions", () => {
     expect(summary.textContent).toContain("Agents 1 running, 1 done");
     expect(summary.textContent).toContain("runningrunning: Inspecting renderer");
     expect(summary.textContent).not.toContain("donecompleted");
+    expect(summary.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]')).toBeNull();
+    const open = expectPresent(summary.querySelector<HTMLElement>(".codex-panel__agent-row--interactive"));
+    expect(open.classList.contains("codex-panel-ui__nav-item")).toBe(true);
+    expect(open.getAttribute("aria-label")).toBeNull();
+    expect(open.textContent).toBe("runningrunning: Inspecting renderer");
+    open.click();
+    expect(openThreadInNewView).toHaveBeenCalledWith("running");
   });
 
   it("renders context compaction as a one-line status item while running and after completion", () => {

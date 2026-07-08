@@ -2,9 +2,10 @@ import type { ComponentChild as UiNode } from "preact";
 
 import type { ExecutionState } from "../../domain/message-stream/items";
 import type { AgentRunSummaryView, MessageStreamStatusView } from "../../presentation/message-stream/status-view";
+import type { MessageStreamContext } from "./context";
 
-export function agentRunSummaryNode(view: AgentRunSummaryView): UiNode {
-  return <AgentRunSummary view={view} />;
+export function agentRunSummaryNode(view: AgentRunSummaryView, context: Pick<MessageStreamContext, "openThreadInNewView">): UiNode {
+  return <AgentRunSummary view={view} openThreadInNewView={context.openThreadInNewView} />;
 }
 
 export function statusNode(view: MessageStreamStatusView): UiNode {
@@ -26,11 +27,17 @@ export function createStatusMessageClassName(className: string, tone?: "warning"
     .join(" ");
 }
 
-function AgentRunSummary({ view }: { view: AgentRunSummaryView }): UiNode {
+function AgentRunSummary({
+  view,
+  openThreadInNewView,
+}: {
+  view: AgentRunSummaryView;
+  openThreadInNewView?: ((threadId: string) => void) | undefined;
+}): UiNode {
   return (
     <StatusMessage label={view.label} className={view.className} state={view.state}>
       <div className="codex-panel__stream-summary">{view.summary}</div>
-      <AgentSummaryRows view={view} />
+      <AgentSummaryRows view={view} openThreadInNewView={openThreadInNewView} />
     </StatusMessage>
   );
 }
@@ -127,14 +134,37 @@ function executionClassName(state: ExecutionState): string {
   return "";
 }
 
-function AgentSummaryRows({ view }: { view: AgentRunSummaryView }): UiNode {
+function AgentSummaryRows({
+  view,
+  openThreadInNewView,
+}: {
+  view: AgentRunSummaryView;
+  openThreadInNewView?: ((threadId: string) => void) | undefined;
+}): UiNode {
   if (view.rows.length === 0 && view.additionalAgents === 0) return null;
   return (
     <ul className="codex-panel__agent-list codex-panel__agent-list--summary">
       {view.rows.map((agent) => (
-        <li key={agent.threadId} className="codex-panel__agent-row">
-          <span className="codex-panel__agent-thread">{agent.threadLabel}</span>
-          <span className="codex-panel__agent-status">{agent.status}</span>
+        <li key={agent.threadId} className={openThreadInNewView ? "codex-panel__agent-row-shell" : "codex-panel__agent-row"}>
+          {openThreadInNewView ? (
+            // biome-ignore lint/a11y: Agent summary rows follow the toolbar subpanel nav-item pattern: pointer-first rows with visible text as the interaction target.
+            <div
+              className="codex-panel-ui__nav-item codex-panel__agent-row codex-panel__agent-row--interactive"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openThreadInNewView(agent.threadId);
+              }}
+            >
+              <span className="codex-panel__agent-thread">{agent.threadLabel}</span>
+              <span className="codex-panel__agent-status">{agent.status}</span>
+            </div>
+          ) : (
+            <>
+              <span className="codex-panel__agent-thread">{agent.threadLabel}</span>
+              <span className="codex-panel__agent-status">{agent.status}</span>
+            </>
+          )}
         </li>
       ))}
       {view.additionalAgents > 0 ? (

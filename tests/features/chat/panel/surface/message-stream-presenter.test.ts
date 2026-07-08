@@ -568,6 +568,7 @@ function testMessageStreamSurfaceContext(options: {
       rollbackThread: vi.fn(),
       forkThreadFromTurn: vi.fn(),
       implementPlan: vi.fn(),
+      openThreadInNewView: vi.fn(),
       openTurnDiff: vi.fn(),
     },
     requests: {
@@ -711,6 +712,7 @@ function messageStreamPresenter(
       rollbackThread: vi.fn(),
       forkThreadFromTurn: vi.fn(),
       implementPlan: vi.fn(),
+      openThreadInNewView: vi.fn(),
       openTurnDiff: vi.fn(),
     },
     requests: {

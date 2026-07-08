@@ -158,6 +158,34 @@
   margin-top: var(--codex-panel-panel-gap);
 }
 
+.codex-panel__detail-header-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0;
+}
+
+.codex-panel__agent-row-shell {
+  min-width: 0;
+}
+
+.codex-panel__agent-row--interactive {
+  min-height: 0;
+  padding: 0 var(--codex-panel-control-gap);
+  font: inherit;
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-tight);
+}
+
+.codex-panel__agent-row--interactive .codex-panel__agent-thread {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.codex-panel__agent-row--interactive:hover .codex-panel__agent-thread {
+  color: var(--nav-item-color-hover, var(--text-normal));
+}
+
 .codex-panel__agent-row--more .codex-panel__agent-status {
   color: var(--text-faint);
 }
