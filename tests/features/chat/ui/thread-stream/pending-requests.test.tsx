@@ -182,7 +182,7 @@ describe("pending request renderer decisions", () => {
     expect(actions.setUserInputDraft).toHaveBeenCalledWith("99:scope", "日本");
   });
 
-  it("renders pending approvals and Plan mode questions in the same request block", () => {
+  it("renders pending approvals and user input questions in the same request block", () => {
     const parent = document.createElement("div");
     const approval = pendingApproval();
     const input = pendingUserInput();

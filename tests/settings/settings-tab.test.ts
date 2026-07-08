@@ -67,7 +67,7 @@ describe("settings tab", () => {
       "Selection rewrite",
       "Composer",
       "Send shortcut",
-      "Scroll thread from composer line edges",
+      "Scroll conversation from composer line edges",
       "Reference active file on send",
       "Attachment folder",
       "Web clipping",
@@ -129,7 +129,7 @@ describe("settings tab", () => {
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    const toggle = inputForSetting(tab, "Scroll thread from composer line edges");
+    const toggle = inputForSetting(tab, "Scroll conversation from composer line edges");
     if (!toggle) throw new Error("Missing composer line edge scroll toggle");
     expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
 
@@ -138,7 +138,7 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(settingDesc(tab, "Scroll thread from composer line edges")).toContain("Up/Ctrl+P");
+    expect(settingDesc(tab, "Scroll conversation from composer line edges")).toContain("Up/Ctrl+P");
   });
 
   it("saves the active file reference setting", async () => {

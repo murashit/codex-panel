@@ -802,7 +802,7 @@ describe("runtime settings", () => {
         }),
       ),
     ).toMatchObject({
-      title: "Context: 1,000 / 100,000 (1%). Last request: 1,000 input, 200 output, 50 reasoning. Total: 2,600 tokens.",
+      title: "Context: 1,000 / 100,000 (1%). Latest usage: 1,000 input, 200 output, 50 reasoning. Total: 2,600 tokens.",
     });
     expect(
       contextSummary(

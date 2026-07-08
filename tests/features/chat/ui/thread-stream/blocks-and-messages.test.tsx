@@ -315,7 +315,7 @@ describe("thread stream rendering and action menu", () => {
     expect(expectPresent(rendered[0]).querySelector(".codex-panel__rollback-turn")).toBeNull();
     expect(expectPresent(rendered[1]).querySelector(".codex-panel__rollback-turn")).toBeNull();
     const button = expectPresent(rendered[2]).querySelector<HTMLButtonElement>(".codex-panel__rollback-turn");
-    expect(button?.getAttribute("aria-label")).toBe("Rollback last turn");
+    expect(button?.getAttribute("aria-label")).toBe("Roll back latest turn");
     button?.click();
     expect(onRollback).toHaveBeenCalledWith();
   });

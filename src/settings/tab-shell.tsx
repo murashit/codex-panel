@@ -126,8 +126,8 @@ function ComposerSettingsSection({ panel, actions }: { panel: SettingsTabPanelSt
             />
           </SettingRow>
           <SettingRow
-            name="Scroll thread from composer line edges"
-            desc="Lets Up/Ctrl+P and Down/Ctrl+N scroll the thread from composer line edges."
+            name="Scroll conversation from composer line edges"
+            desc="Lets Up/Ctrl+P and Down/Ctrl+N scroll the conversation from composer line edges."
           >
             <ObsidianToggle checked={panel.scrollThreadFromComposerEdges} onChange={actions.setScrollThreadFromComposerEdges} />
           </SettingRow>

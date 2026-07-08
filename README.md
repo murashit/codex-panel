@@ -50,7 +50,7 @@ For context outside the current composer, use `/refer <thread> <message>` to sen
 
 Completions cover slash commands, `$skill-name` skills, Obsidian tags, recent threads, models, reasoning levels, and permission profiles. Use `/help` for the current command list.
 
-While a turn is running, the panel streams the conversation, reasoning, tool activity, file changes, plans, and agent activity. You can answer Codex questions, approve commands, respond to requests, steer or interrupt the turn, and manage active goals above the message stream.
+While a turn is running, the panel streams the conversation, reasoning, tool activity, file changes, plans, and agent activity. You can answer Codex questions, approve commands, respond to requests, steer or interrupt the turn, and manage active goals above the conversation.
 
 When Codex changes files, open an Obsidian diff view to review the changes and copy the patch. For a focused note edit, select Markdown text and run **Codex Panel: Rewrite selection** to ask Codex for a replacement and review a selection-scoped diff before applying it.
 

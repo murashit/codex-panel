@@ -35,7 +35,7 @@ async function referencedThreadInput(
     const turns = await readReferencedThreadConversationSummaries(client, thread.id, REFERENCED_THREAD_TURN_LIMIT);
     if (host.currentClient() !== client) return null;
     if (turns.length === 0) {
-      host.addSystemMessage("Referenced thread has no readable conversation turns.");
+      host.addSystemMessage("Referenced thread has no readable turns.");
       return null;
     }
     const messageInput = host.prepareInput(message, snapshot);

@@ -105,7 +105,7 @@ function TextHeader({ view, context }: { view: ThreadStreamTextView; context: Te
       {rollback ? (
         <TextAction
           icon="undo-2"
-          label="Rollback last turn"
+          label="Roll back latest turn"
           className="codex-panel__rollback-turn"
           onClick={() => context.onRollback?.()}
         />

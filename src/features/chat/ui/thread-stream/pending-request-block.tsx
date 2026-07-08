@@ -75,7 +75,7 @@ function PendingRequestBlock({
   if (!hasPendingRequests(pendingRequestCountsFromQueues({ approvals, pendingUserInputs, pendingMcpElicitations }))) return null;
   return (
     <div ref={requestRef} className={createStatusStreamItemClassName("codex-panel__pending-request-block", "warning")}>
-      <div className="codex-panel__stream-item-role">Request</div>
+      <div className="codex-panel__stream-item-role">Codex request</div>
       {approvals.map((approval) => (
         <ApprovalCard key={String(approval.requestId)} approval={approval} approvalDetails={approvalDetails} actions={actions} />
       ))}

@@ -83,8 +83,8 @@ export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null
   const percent = contextWindow ? Math.min(100, Math.round((used / contextWindow) * 100)) : null;
   const level = percent !== null && percent >= 90 ? "danger" : percent !== null && percent >= 70 ? "warn" : "ok";
   const title = contextWindow
-    ? `Context: ${formatTokenCount(used)} / ${formatTokenCount(contextWindow)} (${String(percent)}%). Last request: ${formatTokenCount(usage.last.inputTokens)} input, ${formatTokenCount(usage.last.outputTokens)} output, ${formatTokenCount(usage.last.reasoningOutputTokens)} reasoning. Total: ${formatTokenCount(usage.total.totalTokens)} tokens.`
-    : `Context: ${formatTokenCount(used)} tokens. Last request: ${formatTokenCount(usage.last.totalTokens)} total. Total: ${formatTokenCount(usage.total.totalTokens)} tokens.`;
+    ? `Context: ${formatTokenCount(used)} / ${formatTokenCount(contextWindow)} (${String(percent)}%). Latest usage: ${formatTokenCount(usage.last.inputTokens)} input, ${formatTokenCount(usage.last.outputTokens)} output, ${formatTokenCount(usage.last.reasoningOutputTokens)} reasoning. Total: ${formatTokenCount(usage.total.totalTokens)} tokens.`
+    : `Context: ${formatTokenCount(used)} tokens. Latest usage: ${formatTokenCount(usage.last.totalTokens)} total. Total: ${formatTokenCount(usage.total.totalTokens)} tokens.`;
   return {
     label: percent === null ? `${formatTokenCount(used)} tokens` : `Context ${String(percent)}%`,
     title,

@@ -8,9 +8,9 @@ import { chatTurnBusy } from "../turns/turn-state";
 import type { ThreadMutationTransport } from "./thread-mutation-transport";
 
 const STATUS_COMPACTION_REQUESTED = "Compaction requested.";
-const STATUS_ROLLBACK_STARTING = "Rolling back latest turn...";
-const STATUS_ROLLBACK_COMPLETE = "Rolled back latest turn.";
-const STATUS_ROLLBACK_FAILED = "Rollback failed.";
+const STATUS_ROLLBACK_STARTING = "Rolling back the latest turn...";
+const STATUS_ROLLBACK_COMPLETE = "Rolled back the latest turn.";
+const STATUS_ROLLBACK_FAILED = "Could not roll back the latest turn.";
 
 export interface ThreadManagementActionsHost {
   stateStore: ChatStateStore;

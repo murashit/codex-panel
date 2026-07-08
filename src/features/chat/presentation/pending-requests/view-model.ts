@@ -146,7 +146,7 @@ function pendingUserInputViewModel(input: PendingUserInput): PendingUserInputVie
   return {
     requestId: input.requestId,
     title: "Codex needs input",
-    body: `Answer ${String(input.params.questions.length)} Plan mode question${input.params.questions.length === 1 ? "" : "s"} to continue.`,
+    body: `Answer ${String(input.params.questions.length)} question${input.params.questions.length === 1 ? "" : "s"} to continue.`,
     questions: input.params.questions.map((question) => ({
       id: question.id,
       header: question.header,
