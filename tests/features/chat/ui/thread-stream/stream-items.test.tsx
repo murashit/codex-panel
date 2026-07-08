@@ -73,7 +73,7 @@ describe("thread stream item renderer decisions", () => {
 
     const element = renderThreadStreamBlockElement(expectPresent(block));
 
-    expect(element.querySelector(".codex-panel__detail-header")?.textContent).toBe("steer");
+    expect(element.querySelector(".codex-panel__detail-header")?.textContent).toBe("steering");
     expect(element.querySelector(".codex-panel__stream-summary")?.textContent).toBe("also check tests and keep the summary compact");
   });
 

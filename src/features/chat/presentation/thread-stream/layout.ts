@@ -9,7 +9,7 @@ import {
 } from "../../domain/thread-stream/semantics/predicates";
 import type { ThreadStreamSemanticClassification } from "../../domain/thread-stream/semantics/types";
 
-const STEERING_ACTIVITY_LABEL = "steer";
+const STEERING_ACTIVITY_LABEL = "steering";
 
 export interface ThreadStreamItemAnnotations {
   editedFiles?: string[];
