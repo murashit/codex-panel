@@ -65,12 +65,12 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
     addSystemMessage: vi.fn(),
     addStructuredSystemMessage: vi.fn(),
     setStatus: vi.fn(),
-    statusSummaryLines: () => [],
+    statusDetails: () => [],
     permissionDetails: () => [],
     connectionDiagnosticDetails: () => [],
     toolInventoryDetails: vi.fn(() => []),
-    modelStatusLines: () => [],
-    effortStatusLines: () => [],
+    modelStatusDetails: () => [],
+    effortStatusDetails: () => [],
     ...overrides,
   };
   return { clipUrl, compactThread, host, referThread, stateStore };

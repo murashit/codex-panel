@@ -8,18 +8,18 @@ import type { ThreadStreamNoticeSection } from "../domain/thread-stream/items";
 import { appServerDiagnosticSections } from "../presentation/runtime/diagnostic-sections";
 import { runtimePermissionSections } from "../presentation/runtime/permission-sections";
 import {
-  effortStatusLines as buildEffortStatusLines,
-  modelStatusLines as buildModelStatusLines,
-  statusSummaryLines as buildStatusSummaryLines,
+  effortStatusDetails as buildEffortStatusDetails,
+  modelStatusDetails as buildModelStatusDetails,
+  statusDetails as buildStatusDetails,
 } from "../presentation/runtime/status";
 import { toolInventoryDiagnosticSections } from "../presentation/runtime/tool-inventory-diagnostic-sections";
 
 export interface ChatPanelRuntimeProjection {
   connectionDiagnosticDetails: () => ThreadStreamNoticeSection[];
   permissionDetails: () => ThreadStreamNoticeSection[];
-  modelStatusLines: () => string[];
-  effortStatusLines: () => string[];
-  statusSummaryLines: () => string[];
+  modelStatusDetails: () => ThreadStreamNoticeSection[];
+  effortStatusDetails: () => ThreadStreamNoticeSection[];
+  statusDetails: () => ThreadStreamNoticeSection[];
   toolInventoryDetails: () => ThreadStreamNoticeSection[];
 }
 
@@ -35,39 +35,45 @@ export function createChatPanelRuntimeProjection(input: ChatPanelRuntimeProjecti
   return {
     connectionDiagnosticDetails: () => connectionDiagnosticDetails(input),
     permissionDetails: () => permissionDetails(input),
-    modelStatusLines: () => modelStatusLines(input),
-    effortStatusLines: () => effortStatusLines(input),
-    statusSummaryLines: () => statusSummaryLines(input),
+    modelStatusDetails: () => modelStatusDetails(input),
+    effortStatusDetails: () => effortStatusDetails(input),
+    statusDetails: () => statusDetails(input),
     toolInventoryDetails: () => toolInventoryDetails(input),
   };
 }
 
-function statusSummaryLines(input: ChatPanelRuntimeProjectionInput): string[] {
+function statusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   const state = input.state();
-  return buildStatusSummaryLines({
-    activeThreadId: state.activeThread.id,
-    snapshot: runtimeSnapshot(state),
-    nowMs: input.nowMs(),
-  });
+  return noticeSectionsFromDiagnostics(
+    buildStatusDetails({
+      activeThreadId: state.activeThread.id,
+      snapshot: runtimeSnapshot(state),
+      nowMs: input.nowMs(),
+    }),
+  );
 }
 
-function modelStatusLines(input: ChatPanelRuntimeProjectionInput): string[] {
+function modelStatusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   const state = input.state();
-  return buildModelStatusLines({
-    runtimeConfig: state.connection.runtimeConfig,
-    pendingModel: state.runtime.pending.model,
-    snapshot: runtimeSnapshot(state),
-    collaborationModeLabel: collaborationModeLabel(state),
-  });
+  return noticeSectionsFromDiagnostics(
+    buildModelStatusDetails({
+      runtimeConfig: state.connection.runtimeConfig,
+      pendingModel: state.runtime.pending.model,
+      snapshot: runtimeSnapshot(state),
+      collaborationModeLabel: collaborationModeLabel(state),
+    }),
+  );
 }
 
-function effortStatusLines(input: ChatPanelRuntimeProjectionInput): string[] {
+function effortStatusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   const state = input.state();
-  return buildEffortStatusLines({
-    runtimeConfig: state.connection.runtimeConfig,
-    pendingReasoningEffort: state.runtime.pending.reasoningEffort,
-    snapshot: runtimeSnapshot(state),
-  });
+  return noticeSectionsFromDiagnostics(
+    buildEffortStatusDetails({
+      runtimeConfig: state.connection.runtimeConfig,
+      pendingReasoningEffort: state.runtime.pending.reasoningEffort,
+      snapshot: runtimeSnapshot(state),
+    }),
+  );
 }
 
 function connectionDiagnosticDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {

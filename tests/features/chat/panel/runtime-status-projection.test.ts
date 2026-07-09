@@ -7,7 +7,7 @@ import { createChatPanelRuntimeProjection } from "../../../../src/features/chat/
 import { chatStateFixture, chatStateWith } from "../support/state";
 
 describe("createChatPanelRuntimeProjection", () => {
-  it("builds slash-command status lines from chat state", () => {
+  it("builds slash-command runtime details from chat state", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
     state = chatStateWith(state, {
@@ -29,10 +29,42 @@ describe("createChatPanelRuntimeProjection", () => {
       nowMs: () => 0,
     });
 
-    expect(projection.statusSummaryLines()[1]).toBe("Thread: thread-1");
-    expect(projection.modelStatusLines()).toContain("Model: gpt-5.5");
-    expect(projection.modelStatusLines()).toContain("Mode: Default");
-    expect(projection.effortStatusLines()).toContain("Supported: high");
+    expect(projection.statusDetails()).toEqual([
+      {
+        title: "Thread",
+        auditFacts: [
+          { key: "Thread", value: "thread-1" },
+          { key: "Context", value: "0 tokens. No turns in this thread yet." },
+        ],
+      },
+      {
+        title: "Usage Limits",
+        auditFacts: [{ key: "Status", value: "not available" }],
+      },
+    ]);
+    expect(projection.modelStatusDetails()).toEqual([
+      {
+        title: "Model",
+        auditFacts: [
+          { key: "Model", value: "gpt-5.5" },
+          { key: "Override", value: "(none)" },
+          { key: "Provider", value: "openai" },
+          { key: "Effort", value: "high" },
+          { key: "Mode", value: "Default" },
+          { key: "Service tier", value: "fast" },
+        ],
+      },
+    ]);
+    expect(projection.effortStatusDetails()).toEqual([
+      {
+        title: "Reasoning",
+        auditFacts: [
+          { key: "Effort", value: "high" },
+          { key: "Override", value: "(none)" },
+          { key: "Supported", value: "high" },
+        ],
+      },
+    ]);
   });
 
   it("builds slash-command permission details from chat state", () => {

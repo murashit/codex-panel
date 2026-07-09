@@ -42,9 +42,9 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
   };
   const runtimeProjection = {
     connectionDiagnosticDetails: vi.fn(() => []),
-    modelStatusLines: vi.fn(() => []),
-    effortStatusLines: vi.fn(() => []),
-    statusSummaryLines: vi.fn(() => []),
+    modelStatusDetails: vi.fn(() => []),
+    effortStatusDetails: vi.fn(() => []),
+    statusDetails: vi.fn(() => []),
     permissionDetails: vi.fn(() => []),
     toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github, gmail" }] }]),
   };

@@ -55,12 +55,12 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
       setStatus: vi.fn().mockResolvedValue(true),
       clear: vi.fn().mockResolvedValue(true),
     },
-    statusSummaryLines: () => ["status"],
+    statusDetails: () => [{ title: "Thread", auditFacts: [{ key: "Thread", value: "thread-1" }] }],
     permissionDetails: () => [{ title: "Permissions", auditFacts: [{ key: "Profile", value: "read-only" }] }],
     connectionDiagnosticDetails: () => [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }],
     toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github" }] }]),
-    modelStatusLines: () => ["model"],
-    effortStatusLines: () => ["effort"],
+    modelStatusDetails: () => [{ title: "Model", auditFacts: [{ key: "Model", value: "gpt-5.5" }] }],
+    effortStatusDetails: () => [{ title: "Reasoning", auditFacts: [{ key: "Effort", value: "high" }] }],
     ...overrides,
   };
 }
@@ -620,20 +620,16 @@ describe("slash commands", () => {
   });
 
   it("shows status as a structured system result", async () => {
-    const ctx = context({ statusSummaryLines: () => ["Thread status", "Thread: thread-1", "Usage limits", "5h: 42%"] });
+    const details = [
+      { title: "Thread", auditFacts: [{ key: "Thread", value: "thread-1" }] },
+      { title: "Usage Limits", auditFacts: [{ key: "5h", value: "42%" }] },
+    ];
+    const ctx = context({ statusDetails: () => details });
 
     await executeSlashCommand("status", "", ctx);
 
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Thread status", [
-      {
-        auditFacts: [
-          { key: "Thread", value: "thread-1" },
-          { key: "message", value: "Usage limits" },
-          { key: "5h", value: "42%" },
-        ],
-      },
-    ]);
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Thread status", details);
   });
 
   it("rejects /status arguments", async () => {
@@ -776,16 +772,18 @@ describe("slash commands", () => {
   });
 
   it("shows model and reasoning status for empty runtime commands", async () => {
+    const modelDetails = [{ title: "Model", auditFacts: [{ key: "Model", value: "gpt-5.5" }] }];
+    const effortDetails = [{ title: "Reasoning", auditFacts: [{ key: "Effort", value: "high" }] }];
     const ctx = context({
-      modelStatusLines: () => ["model: gpt-5.5"],
-      effortStatusLines: () => ["effort: high"],
+      modelStatusDetails: () => modelDetails,
+      effortStatusDetails: () => effortDetails,
     });
 
     await executeSlashCommand("model", "", ctx);
     await executeSlashCommand("reasoning", "", ctx);
 
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Model settings", [{ auditFacts: [{ key: "model", value: "gpt-5.5" }] }]);
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Reasoning effort", [{ auditFacts: [{ key: "effort", value: "high" }] }]);
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Model settings", modelDetails);
+    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Reasoning effort", effortDetails);
     expect(ctx.runtimeSettings.requestModel).not.toHaveBeenCalled();
     expect(ctx.runtimeSettings.requestReasoningEffort).not.toHaveBeenCalled();
   });

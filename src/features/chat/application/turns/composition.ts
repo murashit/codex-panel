@@ -29,9 +29,9 @@ export interface TurnWorkflowContext {
   runtime: {
     connectionDiagnosticDetails: () => ThreadStreamNoticeSection[];
     permissionDetails: () => ThreadStreamNoticeSection[];
-    modelStatusLines: () => string[];
-    effortStatusLines: () => string[];
-    statusSummaryLines: () => string[];
+    modelStatusDetails: () => ThreadStreamNoticeSection[];
+    effortStatusDetails: () => ThreadStreamNoticeSection[];
+    statusDetails: () => ThreadStreamNoticeSection[];
     toolInventoryDetails: () => ThreadStreamNoticeSection[] | Promise<ThreadStreamNoticeSection[]>;
   };
   thread: {
@@ -105,12 +105,12 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     addSystemMessage: status.addSystemMessage,
     addStructuredSystemMessage: status.addStructuredSystemMessage,
     setStatus: status.set,
-    statusSummaryLines: runtime.statusSummaryLines,
+    statusDetails: runtime.statusDetails,
     permissionDetails: runtime.permissionDetails,
     connectionDiagnosticDetails: runtime.connectionDiagnosticDetails,
     toolInventoryDetails: runtime.toolInventoryDetails,
-    modelStatusLines: runtime.modelStatusLines,
-    effortStatusLines: runtime.effortStatusLines,
+    modelStatusDetails: runtime.modelStatusDetails,
+    effortStatusDetails: runtime.effortStatusDetails,
   };
   const planImplementationHost: PlanImplementationHost = {
     stateStore,

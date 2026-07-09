@@ -97,9 +97,9 @@ describe("createTurnWorkflowActions", () => {
         runtime: {
           connectionDiagnosticDetails: () => [],
           permissionDetails: () => [],
-          modelStatusLines: () => [],
-          effortStatusLines: () => [],
-          statusSummaryLines: () => [],
+          modelStatusDetails: () => [],
+          effortStatusDetails: () => [],
+          statusDetails: () => [],
           toolInventoryDetails: () => [],
         },
         thread: {

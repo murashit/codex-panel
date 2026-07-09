@@ -55,12 +55,12 @@ export interface SlashCommandExecutionPorts {
     setStatus: GoalActions["setStatus"];
     clear: GoalActions["clear"];
   };
-  statusSummaryLines: () => string[];
+  statusDetails: () => ThreadStreamNoticeSection[];
   permissionDetails: () => ThreadStreamNoticeSection[];
   connectionDiagnosticDetails: () => ThreadStreamNoticeSection[];
   toolInventoryDetails: () => ThreadStreamNoticeSection[] | Promise<ThreadStreamNoticeSection[]>;
-  modelStatusLines: () => string[];
-  effortStatusLines: () => string[];
+  modelStatusDetails: () => ThreadStreamNoticeSection[];
+  effortStatusDetails: () => ThreadStreamNoticeSection[];
 }
 
 export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts {
@@ -214,7 +214,7 @@ export async function executeSlashCommand(
     case "goal":
       return await executeGoalCommand(args, context);
     case "status":
-      context.addStructuredSystemMessage("Thread status", detailsFromLines(context.statusSummaryLines()));
+      context.addStructuredSystemMessage("Thread status", context.statusDetails());
       return;
     case "permissions": {
       const requested = parsePermissionProfileOverride(args);
@@ -241,7 +241,7 @@ export async function executeSlashCommand(
         context.addSystemMessage(modelOverrideMessage(requested));
         return;
       }
-      context.addStructuredSystemMessage("Model settings", detailsFromLines(context.modelStatusLines()));
+      context.addStructuredSystemMessage("Model settings", context.modelStatusDetails());
       return;
     }
     case "reasoning": {
@@ -260,7 +260,7 @@ export async function executeSlashCommand(
         context.addSystemMessage(`Unsupported reasoning level: ${args}. Usage: ${slashCommandDefinition(command).usage}`);
         return;
       }
-      context.addStructuredSystemMessage("Reasoning effort", detailsFromLines(context.effortStatusLines()));
+      context.addStructuredSystemMessage("Reasoning effort", context.effortStatusDetails());
       return;
     }
     case "help":
@@ -449,23 +449,6 @@ function formatGoalElapsed(seconds: number): string {
 function usageError(command: SlashCommandName, message: string): string {
   const definition = slashCommandDefinition(command);
   return `${definition.command} ${message}. Usage: ${definition.usage}`;
-}
-
-function detailsFromLines(lines: string[]): ThreadStreamNoticeSection[] {
-  const first = lines[0] ?? "";
-  const content = first.includes(": ") ? lines : lines.slice(1);
-  return [{ auditFacts: content.map(lineToRow) }];
-}
-
-function lineToRow(line: string): ThreadStreamAuditFact {
-  const separator = line.indexOf(": ");
-  if (separator > 0) {
-    return {
-      key: line.slice(0, separator),
-      value: line.slice(separator + 2),
-    };
-  }
-  return { key: "message", value: line };
 }
 
 type ThreadResolution = { ok: true; thread: Thread } | { ok: false; message: string };

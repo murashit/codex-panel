@@ -4,10 +4,12 @@ import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } fro
 import { serviceTierLabel as formatServiceTierLabel, pendingRuntimeSettingLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
+import type { DiagnosticSection } from "./diagnostic-sections";
 
 export interface ContextSummary {
   label: string;
   title: string;
+  detail: string;
   percent: number | null;
   level: "ok" | "warn" | "danger";
 }
@@ -28,20 +30,20 @@ interface RateLimitSummaryRow {
   level: "ok" | "warn" | "danger";
 }
 
-export interface StatusSummaryLinesInput {
+export interface StatusDetailsInput {
   activeThreadId: RuntimeSnapshot["activeThreadId"];
   snapshot: RuntimeSnapshot;
   nowMs: number;
 }
 
-export interface ModelStatusLinesInput {
+export interface ModelStatusDetailsInput {
   runtimeConfig: RuntimeSnapshot["runtimeConfig"];
   pendingModel: RuntimeSnapshot["pending"]["model"];
   snapshot: RuntimeSnapshot;
   collaborationModeLabel: string;
 }
 
-export interface EffortStatusLinesInput {
+export interface EffortStatusDetailsInput {
   runtimeConfig: RuntimeSnapshot["runtimeConfig"];
   pendingReasoningEffort: RuntimeSnapshot["pending"]["reasoningEffort"];
   snapshot: RuntimeSnapshot;
@@ -60,20 +62,24 @@ export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null
   if (!usage) {
     if (!snapshot.activeThreadId) return null;
     if (!snapshot.hasThreadTurns) {
+      const detail = contextWindow
+        ? `0 / ${formatTokenCount(contextWindow)} (0%). No turns in this thread yet.`
+        : "0 tokens. No turns in this thread yet.";
       return {
         label: "Context 0%",
-        title: contextWindow
-          ? `Context: 0 / ${formatTokenCount(contextWindow)} (0%). No turns in this thread yet.`
-          : "Context: 0 tokens. No turns in this thread yet.",
+        title: `Context: ${detail}`,
+        detail,
         percent: 0,
         level: "ok",
       };
     }
+    const detail = contextWindow
+      ? `usage is not available for this thread yet. It will update after the next token usage report. Context window: ${formatTokenCount(contextWindow)} tokens.`
+      : "usage is not available for this thread yet. It will update after the next token usage report.";
     return {
       label: "Context unknown",
-      title: contextWindow
-        ? `Context usage is not available for this thread yet. It will update after the next token usage report. Context window: ${formatTokenCount(contextWindow)} tokens.`
-        : "Context usage is not available for this thread yet. It will update after the next token usage report.",
+      title: `Context ${detail}`,
+      detail,
       percent: null,
       level: "ok",
     };
@@ -82,12 +88,13 @@ export function contextSummary(snapshot: RuntimeSnapshot): ContextSummary | null
   const used = contextUsageTokens(usage);
   const percent = contextWindow ? Math.min(100, Math.round((used / contextWindow) * 100)) : null;
   const level = percent !== null && percent >= 90 ? "danger" : percent !== null && percent >= 70 ? "warn" : "ok";
-  const title = contextWindow
-    ? `Context: ${formatTokenCount(used)} / ${formatTokenCount(contextWindow)} (${String(percent)}%). Latest usage: ${formatTokenCount(usage.last.inputTokens)} input, ${formatTokenCount(usage.last.outputTokens)} output, ${formatTokenCount(usage.last.reasoningOutputTokens)} reasoning. Total: ${formatTokenCount(usage.total.totalTokens)} tokens.`
-    : `Context: ${formatTokenCount(used)} tokens. Latest usage: ${formatTokenCount(usage.last.totalTokens)} total. Total: ${formatTokenCount(usage.total.totalTokens)} tokens.`;
+  const detail = contextWindow
+    ? `${formatTokenCount(used)} / ${formatTokenCount(contextWindow)} (${String(percent)}%). Latest usage: ${formatTokenCount(usage.last.inputTokens)} input, ${formatTokenCount(usage.last.outputTokens)} output, ${formatTokenCount(usage.last.reasoningOutputTokens)} reasoning. Total: ${formatTokenCount(usage.total.totalTokens)} tokens.`
+    : `${formatTokenCount(used)} tokens. Latest usage: ${formatTokenCount(usage.last.totalTokens)} total. Total: ${formatTokenCount(usage.total.totalTokens)} tokens.`;
   return {
     label: percent === null ? `${formatTokenCount(used)} tokens` : `Context ${String(percent)}%`,
-    title,
+    title: `Context: ${detail}`,
+    detail,
     percent,
     level,
   };
@@ -114,37 +121,54 @@ export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs: number): Rate
   };
 }
 
-export function statusSummaryLines(input: StatusSummaryLinesInput): string[] {
+export function statusDetails(input: StatusDetailsInput): DiagnosticSection[] {
   const context = contextSummary(input.snapshot);
   const limit = rateLimitSummary(input.snapshot, input.nowMs);
   return [
-    "Thread status",
-    `Thread: ${input.activeThreadId ?? "(none)"}`,
-    context ? context.title : "Context: not available",
-    ...(limit ? usageLimitStatusLines(limit) : ["Usage limits: not available"]),
+    {
+      title: "Thread",
+      rows: [
+        { label: "Thread", value: input.activeThreadId ?? "(none)" },
+        { label: "Context", value: context ? context.detail : "not available" },
+      ],
+    },
+    {
+      title: "Usage Limits",
+      rows: limit ? usageLimitRows(limit) : [{ label: "Status", value: "not available" }],
+    },
   ];
 }
 
-export function modelStatusLines(input: ModelStatusLinesInput): string[] {
+export function modelStatusDetails(input: ModelStatusDetailsInput): DiagnosticSection[] {
   const config = runtimeConfigOrDefault(input.runtimeConfig);
   const resolution = resolveRuntimeControls(input.snapshot, config);
   return [
-    `Model: ${resolution.model.effective ?? CODEX_DEFAULT_LABEL}`,
-    `Override: ${pendingRuntimeSettingLabel(input.pendingModel)}`,
-    `Provider: ${stringValue(config.modelProvider, CODEX_DEFAULT_LABEL)}`,
-    `Effort: ${resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL}`,
-    `Mode: ${input.collaborationModeLabel}`,
-    `Service tier: ${serviceTierLabel(input.snapshot, config)}`,
+    {
+      title: "Model",
+      rows: [
+        { label: "Model", value: resolution.model.effective ?? CODEX_DEFAULT_LABEL },
+        { label: "Override", value: pendingRuntimeSettingLabel(input.pendingModel) },
+        { label: "Provider", value: stringValue(config.modelProvider, CODEX_DEFAULT_LABEL) },
+        { label: "Effort", value: resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL },
+        { label: "Mode", value: input.collaborationModeLabel },
+        { label: "Service tier", value: serviceTierLabel(input.snapshot, config) },
+      ],
+    },
   ];
 }
 
-export function effortStatusLines(input: EffortStatusLinesInput): string[] {
+export function effortStatusDetails(input: EffortStatusDetailsInput): DiagnosticSection[] {
   const config = runtimeConfigOrDefault(input.runtimeConfig);
   const resolution = resolveRuntimeControls(input.snapshot, config);
   return [
-    `Effort: ${resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL}`,
-    `Override: ${pendingRuntimeSettingLabel(input.pendingReasoningEffort)}`,
-    `Supported: ${resolution.supportedReasoningEfforts.join(", ")}`,
+    {
+      title: "Reasoning",
+      rows: [
+        { label: "Effort", value: resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL },
+        { label: "Override", value: pendingRuntimeSettingLabel(input.pendingReasoningEffort) },
+        { label: "Supported", value: resolution.supportedReasoningEfforts.join(", ") },
+      ],
+    },
   ];
 }
 
@@ -152,8 +176,12 @@ function contextUsageTokens(usage: ThreadTokenUsage): number {
   return usage.last.inputTokens > 0 ? usage.last.inputTokens : usage.last.totalTokens;
 }
 
-function usageLimitStatusLines(limit: RateLimitSummary): string[] {
-  return ["Usage limits", ...limit.rows.map((row) => `${row.label}: ${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`)];
+function usageLimitRows(limit: RateLimitSummary): DiagnosticSection["rows"] {
+  return limit.rows.map((row) => ({
+    label: row.label,
+    value: `${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`,
+    level: row.level === "ok" ? "normal" : row.level === "warn" ? "warning" : "error",
+  }));
 }
 
 function rateLimitWindowSummary(
