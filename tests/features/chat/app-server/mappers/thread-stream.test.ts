@@ -233,6 +233,32 @@ describe("turn item conversion preserves app-server semantics", () => {
     });
   });
 
+  it("preserves hook prompt fragments as hook stream text", () => {
+    const item: TurnItem = {
+      type: "hookPrompt",
+      id: "hook-prompt-1",
+      fragments: [
+        { text: "First hook prompt", hookRunId: "hook-run-1" },
+        { text: "Second hook prompt", hookRunId: "hook-run-2" },
+      ],
+    };
+
+    expect(threadStreamItemFromTurnItem(item, "t1")).toMatchObject({
+      id: "hook-prompt-1",
+      kind: "hook",
+      role: "tool",
+      text: "First hook prompt\n\nSecond hook prompt",
+      turnId: "t1",
+      sourceItemId: "hook-prompt-1",
+      provenance: {
+        source: "appServer",
+        channel: "turnItem",
+        itemType: "hookPrompt",
+        itemId: "hook-prompt-1",
+      },
+    });
+  });
+
   it("formats structured plan progress as task progress", () => {
     expect(
       taskProgressThreadStreamItem("t1", "Working plan", [
