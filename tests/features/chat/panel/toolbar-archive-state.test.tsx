@@ -123,7 +123,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanel
           draft: "",
           busy: false,
           canInterrupt: false,
-          normalPlaceholder: "Ask Codex to work on this task...",
+          normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,
           callbacks: {

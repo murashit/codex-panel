@@ -41,7 +41,7 @@ interface RuntimeComposerChoicesInput {
 }
 
 function composerPlaceholder(threadName: string | null): string {
-  return threadName ? `Ask Codex to work on “${threadName}”...` : "Ask Codex to work on this task...";
+  return threadName ? `Ask Codex in “${threadName}”...` : "Ask Codex...";
 }
 
 export function ChatPanelComposer({

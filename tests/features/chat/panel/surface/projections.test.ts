@@ -385,7 +385,7 @@ describe("chat panel surface projections", () => {
     const projection = composerProjectionFromState(composerProjectionActionsFixture(), state);
 
     expect(projection).toMatchObject({
-      placeholder: "Ask Codex to work on this task...",
+      placeholder: "Ask Codex...",
       meta: {
         model: "gpt-5.5",
         effort: "high",
@@ -400,12 +400,8 @@ describe("chat panel surface projections", () => {
     activeState = chatStateWith(activeState, { activeThread: { id: "thread-1" } });
     activeState = chatStateWith(activeState, { threadList: { listedThreads: [threadFixture("thread-1", "Active")] } });
 
-    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState).placeholder).toBe(
-      "Ask Codex to work on “Active”...",
-    );
-    expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture()).placeholder).toBe(
-      "Ask Codex to work on this task...",
-    );
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState).placeholder).toBe("Ask Codex in “Active”...");
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture()).placeholder).toBe("Ask Codex...");
   });
 
   it("projects goal editor and disclosure state before action wiring", () => {

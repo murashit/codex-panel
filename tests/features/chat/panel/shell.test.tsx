@@ -443,7 +443,7 @@ function shellParts(
             draft: model.draft.value,
             busy: false,
             canInterrupt: false,
-            normalPlaceholder: "Ask Codex to work on this task...",
+            normalPlaceholder: "Ask Codex...",
             suggestions: [],
             selectedSuggestionIndex: 0,
             callbacks: {
@@ -519,7 +519,7 @@ function contextProvider(
 
 function composerProjectionFixture(_model: ChatPanelComposerReadModel) {
   return {
-    placeholder: "Ask Codex to work on this task...",
+    placeholder: "Ask Codex...",
     meta: {
       fatal: null,
       context: {

@@ -597,17 +597,17 @@ describe("CodexChatView connection lifecycle", () => {
     await view.setState({ threadId: "thread-1", threadTitle: "Restored title" }, {} as never);
     await view.onOpen();
 
-    expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+    expect(composerPlaceholder(view)).toBe("Ask Codex...");
 
     host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: "Explicit name" })] });
     await waitForAsyncWork(() => {
-      expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+      expect(composerPlaceholder(view)).toBe("Ask Codex...");
     });
 
     view.surface.applyThreadRenamed("thread-1", "Explicit name");
 
     await waitForAsyncWork(() => {
-      expect(composerPlaceholder(view)).toBe("Ask Codex to work on this task...");
+      expect(composerPlaceholder(view)).toBe("Ask Codex...");
     });
   });
 
@@ -633,7 +633,7 @@ describe("CodexChatView connection lifecycle", () => {
       expect(composer.value).toBe("keep this draft");
       expect(composer.selectionStart).toBe(5);
       expect(composer.selectionEnd).toBe(9);
-      expect(composer.getAttribute("placeholder")).toBe("Ask Codex to work on “Renamed thread”...");
+      expect(composer.getAttribute("placeholder")).toBe("Ask Codex in “Renamed thread”...");
     });
   });
 

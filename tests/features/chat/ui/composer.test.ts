@@ -85,7 +85,7 @@ describe("ComposerShell decisions", () => {
   it("renders composer meta as interactive context and runtime text without changing normal text", () => {
     const parent = document.createElement("div");
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
       fatal: null,
       context: {
         cells: [
@@ -150,7 +150,7 @@ describe("ComposerShell decisions", () => {
     const selectModel = vi.fn();
     const selectEffort = vi.fn();
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks, {
+    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, {
       fatal: null,
       context: {
         cells: [
@@ -234,7 +234,7 @@ describe("ComposerShell decisions", () => {
   it("hides composer meta fields only after measured overflow", async () => {
     const parent = document.createElement("div");
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
       fatal: null,
       context: {
         cells: [
@@ -277,7 +277,7 @@ describe("ComposerShell decisions", () => {
   it("replaces composer meta with fatal status text", () => {
     const parent = document.createElement("div");
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, composerCallbacks(), {
+    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, composerCallbacks(), {
       fatal: "Codex app-server disconnected",
       context: {
         cells: [
@@ -310,7 +310,7 @@ describe("ComposerShell decisions", () => {
       "",
       false,
       false,
-      "Ask Codex to work on this task...",
+      "Ask Codex...",
       [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
       0,
       {
@@ -344,13 +344,13 @@ describe("ComposerShell decisions", () => {
       "",
       false,
       false,
-      "Ask Codex to work on this task...",
+      "Ask Codex...",
       [{ display: "/help", detail: "Show help", replacement: "/help", start: 0 }],
       0,
       callbacks,
     );
 
-    mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
+    mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks);
 
     const suggestions = parent.querySelector<HTMLElement>(".codex-panel__composer-suggestions");
     expect(composer.getAttribute("aria-expanded")).toBe("false");
@@ -361,7 +361,7 @@ describe("ComposerShell decisions", () => {
   it("reports composer draft changes from the controlled input", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
+    const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks);
 
     changeInputValue(composer, "Draft text");
 
@@ -378,7 +378,7 @@ describe("ComposerShell decisions", () => {
       configurable: true,
     });
     try {
-      const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex to work on this task...", [], 0, callbacks);
+      const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks);
 
       scrollHeight = 120;
       changeInputValue(composer, "line one\nline two");
@@ -413,7 +413,7 @@ describe("ComposerShell decisions", () => {
           draft: "line one\nline two",
           busy: false,
           canInterrupt: false,
-          normalPlaceholder: "Ask Codex to work on this task...",
+          normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,
           callbacks,
@@ -450,7 +450,7 @@ describe("ComposerShell decisions", () => {
           draft: "",
           busy: false,
           canInterrupt: false,
-          normalPlaceholder: "Ask Codex to work on this task...",
+          normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,
           callbacks,
@@ -530,20 +530,20 @@ describe("ComposerShell decisions", () => {
   it("uses the composer action for interrupt only when a running turn has no steering text", () => {
     const parent = document.createElement("div");
     const callbacks = composerCallbacks();
-    const { composer } = mountComposerShell(parent, "view", "", true, true, "Ask Codex to work on this task...", [], 0, callbacks);
+    const { composer } = mountComposerShell(parent, "view", "", true, true, "Ask Codex...", [], 0, callbacks);
     let sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
 
     expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
-    expect(composer.getAttribute("placeholder")).toBe("Add steering message...");
+    expect(composer.getAttribute("placeholder")).toBe("Steer the current turn...");
     expect(composer.getAttribute("aria-label")).toBeNull();
     expect(sendButton?.classList.contains("is-interrupt")).toBe(true);
     expect(sendButton?.classList.contains("is-steer")).toBe(false);
     expect(sendButton?.dataset["icon"]).toBe("square");
 
-    mountComposerShell(parent, "view", "adjust course", true, true, "Ask Codex to work on this task...", [], 0, callbacks);
+    mountComposerShell(parent, "view", "adjust course", true, true, "Ask Codex...", [], 0, callbacks);
     sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
     expect(sendButton?.getAttribute("aria-label")).toBe("Steer");
-    expect(composer.getAttribute("placeholder")).toBe("Add steering message...");
+    expect(composer.getAttribute("placeholder")).toBe("Steer the current turn...");
     expect(sendButton?.classList.contains("is-interrupt")).toBe(false);
     expect(sendButton?.classList.contains("is-steer")).toBe(true);
     expect(sendButton?.dataset["icon"]).toBe("corner-down-right");

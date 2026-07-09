@@ -157,7 +157,7 @@ export function ComposerShell({
         <textarea
           ref={composerRef}
           className="codex-panel-ui__text-input codex-panel__composer-input"
-          placeholder={sendMode.canInterrupt ? "Add steering message..." : normalPlaceholder}
+          placeholder={sendMode.canInterrupt ? "Steer the current turn..." : normalPlaceholder}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={suggestions.length > 0 ? "true" : "false"}

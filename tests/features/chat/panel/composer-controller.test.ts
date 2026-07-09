@@ -896,7 +896,7 @@ function skill(name: string): SkillMetadata {
 
 function defaultComposerProjection(_model: ChatPanelComposerReadModel) {
   return {
-    placeholder: "Ask Codex to work on this task...",
+    placeholder: "Ask Codex...",
     meta: {
       fatal: null,
       context: {
