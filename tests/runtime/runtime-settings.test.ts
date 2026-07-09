@@ -22,7 +22,7 @@ import {
   permissionProfileRequestForThreadStart,
   serviceTierRequestForThreadStart,
 } from "../../src/features/chat/domain/runtime/thread-settings-patch";
-import { contextSummary, rateLimitSummary } from "../../src/features/chat/presentation/runtime/status";
+import { contextSummary, rateLimitSummary, statusDetails } from "../../src/features/chat/presentation/runtime/status";
 
 describe("runtime settings", () => {
   it("formats runtime override messages", () => {
@@ -982,6 +982,30 @@ describe("runtime settings", () => {
       rows: [{ label: "monthly", value: "$72 / $100", resetLabel: "reset in 2h 20m", percent: 72, meterDivisions: null }],
       level: "warn",
     });
+  });
+
+  it("formats runtime status details as flat rows", () => {
+    expect(
+      statusDetails({
+        activeThreadId: "thread",
+        snapshot: runtimeSnapshot({
+          activeThreadId: "thread",
+          rateLimit: {
+            limitId: "codex",
+            limitName: "Codex",
+            primary: { usedPercent: 15, windowDurationMins: 300, resetsAt: null },
+            secondary: { usedPercent: 38, windowDurationMins: 10_080, resetsAt: null },
+            individualLimit: null,
+            rateLimitReachedType: null,
+          },
+        }),
+        nowMs: 0,
+      }),
+    ).toEqual([
+      { label: "Thread", value: "thread" },
+      { label: "Context", value: "0 / 100,000 (0%). No turns in this thread yet." },
+      { label: "Usage Limits", value: "5h 15%, 1w 38%" },
+    ]);
   });
 });
 

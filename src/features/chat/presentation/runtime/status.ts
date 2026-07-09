@@ -4,7 +4,7 @@ import type { RateLimitWindow, SpendControlLimitSnapshot, ThreadTokenUsage } fro
 import { serviceTierLabel as formatServiceTierLabel, pendingRuntimeSettingLabel } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
-import type { DiagnosticSection } from "./diagnostic-sections";
+import type { DiagnosticRow } from "./diagnostic-sections";
 
 export interface ContextSummary {
   label: string;
@@ -121,54 +121,36 @@ export function rateLimitSummary(snapshot: RuntimeSnapshot, nowMs: number): Rate
   };
 }
 
-export function statusDetails(input: StatusDetailsInput): DiagnosticSection[] {
+export function statusDetails(input: StatusDetailsInput): DiagnosticRow[] {
   const context = contextSummary(input.snapshot);
   const limit = rateLimitSummary(input.snapshot, input.nowMs);
   return [
-    {
-      title: "Thread",
-      rows: [
-        { label: "Thread", value: input.activeThreadId ?? "(none)" },
-        { label: "Context", value: context ? context.detail : "not available" },
-      ],
-    },
-    {
-      title: "Usage Limits",
-      rows: limit ? usageLimitRows(limit) : [{ label: "Status", value: "not available" }],
-    },
+    { label: "Thread", value: input.activeThreadId ?? "(none)" },
+    { label: "Context", value: context ? context.detail : "not available" },
+    { label: "Usage Limits", value: limit ? usageLimitValue(limit) : "not available" },
   ];
 }
 
-export function modelStatusDetails(input: ModelStatusDetailsInput): DiagnosticSection[] {
+export function modelStatusDetails(input: ModelStatusDetailsInput): DiagnosticRow[] {
   const config = runtimeConfigOrDefault(input.runtimeConfig);
   const resolution = resolveRuntimeControls(input.snapshot, config);
   return [
-    {
-      title: "Model",
-      rows: [
-        { label: "Model", value: resolution.model.effective ?? CODEX_DEFAULT_LABEL },
-        { label: "Override", value: pendingRuntimeSettingLabel(input.pendingModel) },
-        { label: "Provider", value: stringValue(config.modelProvider, CODEX_DEFAULT_LABEL) },
-        { label: "Effort", value: resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL },
-        { label: "Mode", value: input.collaborationModeLabel },
-        { label: "Service tier", value: serviceTierLabel(input.snapshot, config) },
-      ],
-    },
+    { label: "Model", value: resolution.model.effective ?? CODEX_DEFAULT_LABEL },
+    { label: "Override", value: pendingRuntimeSettingLabel(input.pendingModel) },
+    { label: "Provider", value: stringValue(config.modelProvider, CODEX_DEFAULT_LABEL) },
+    { label: "Effort", value: resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL },
+    { label: "Mode", value: input.collaborationModeLabel },
+    { label: "Service tier", value: serviceTierLabel(input.snapshot, config) },
   ];
 }
 
-export function effortStatusDetails(input: EffortStatusDetailsInput): DiagnosticSection[] {
+export function effortStatusDetails(input: EffortStatusDetailsInput): DiagnosticRow[] {
   const config = runtimeConfigOrDefault(input.runtimeConfig);
   const resolution = resolveRuntimeControls(input.snapshot, config);
   return [
-    {
-      title: "Reasoning",
-      rows: [
-        { label: "Effort", value: resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL },
-        { label: "Override", value: pendingRuntimeSettingLabel(input.pendingReasoningEffort) },
-        { label: "Supported", value: resolution.supportedReasoningEfforts.join(", ") },
-      ],
-    },
+    { label: "Effort", value: resolution.reasoningEffort.effective ?? CODEX_DEFAULT_LABEL },
+    { label: "Override", value: pendingRuntimeSettingLabel(input.pendingReasoningEffort) },
+    { label: "Supported", value: resolution.supportedReasoningEfforts.join(", ") },
   ];
 }
 
@@ -176,12 +158,8 @@ function contextUsageTokens(usage: ThreadTokenUsage): number {
   return usage.last.inputTokens > 0 ? usage.last.inputTokens : usage.last.totalTokens;
 }
 
-function usageLimitRows(limit: RateLimitSummary): DiagnosticSection["rows"] {
-  return limit.rows.map((row) => ({
-    label: row.label,
-    value: `${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`,
-    level: row.level === "ok" ? "normal" : row.level === "warn" ? "warning" : "error",
-  }));
+function usageLimitValue(limit: RateLimitSummary): string {
+  return limit.rows.map((row) => `${row.label} ${row.value}${row.resetLabel ? ` (${row.resetLabel})` : ""}`).join(", ");
 }
 
 function rateLimitWindowSummary(

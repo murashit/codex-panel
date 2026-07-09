@@ -31,20 +31,15 @@ describe("createChatPanelRuntimeProjection", () => {
 
     expect(projection.statusDetails()).toEqual([
       {
-        title: "Thread",
         auditFacts: [
           { key: "Thread", value: "thread-1" },
           { key: "Context", value: "0 tokens. No turns in this thread yet." },
+          { key: "Usage Limits", value: "not available" },
         ],
-      },
-      {
-        title: "Usage Limits",
-        auditFacts: [{ key: "Status", value: "not available" }],
       },
     ]);
     expect(projection.modelStatusDetails()).toEqual([
       {
-        title: "Model",
         auditFacts: [
           { key: "Model", value: "gpt-5.5" },
           { key: "Override", value: "(none)" },
@@ -57,7 +52,6 @@ describe("createChatPanelRuntimeProjection", () => {
     ]);
     expect(projection.effortStatusDetails()).toEqual([
       {
-        title: "Reasoning",
         auditFacts: [
           { key: "Effort", value: "high" },
           { key: "Override", value: "(none)" },

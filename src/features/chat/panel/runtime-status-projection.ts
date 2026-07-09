@@ -5,7 +5,7 @@ import { collaborationModeLabel as formatCollaborationModeLabel } from "../domai
 import { resolveRuntimeControls } from "../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import type { ThreadStreamNoticeSection } from "../domain/thread-stream/items";
-import { appServerDiagnosticSections } from "../presentation/runtime/diagnostic-sections";
+import { appServerDiagnosticSections, type DiagnosticRow } from "../presentation/runtime/diagnostic-sections";
 import { runtimePermissionSections } from "../presentation/runtime/permission-sections";
 import {
   effortStatusDetails as buildEffortStatusDetails,
@@ -44,7 +44,7 @@ export function createChatPanelRuntimeProjection(input: ChatPanelRuntimeProjecti
 
 function statusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   const state = input.state();
-  return noticeSectionsFromDiagnostics(
+  return noticeSectionsFromRows(
     buildStatusDetails({
       activeThreadId: state.activeThread.id,
       snapshot: runtimeSnapshot(state),
@@ -55,7 +55,7 @@ function statusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoti
 
 function modelStatusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   const state = input.state();
-  return noticeSectionsFromDiagnostics(
+  return noticeSectionsFromRows(
     buildModelStatusDetails({
       runtimeConfig: state.connection.runtimeConfig,
       pendingModel: state.runtime.pending.model,
@@ -67,7 +67,7 @@ function modelStatusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStrea
 
 function effortStatusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoticeSection[] {
   const state = input.state();
-  return noticeSectionsFromDiagnostics(
+  return noticeSectionsFromRows(
     buildEffortStatusDetails({
       runtimeConfig: state.connection.runtimeConfig,
       pendingReasoningEffort: state.runtime.pending.reasoningEffort,
@@ -108,6 +108,10 @@ function noticeSectionsFromDiagnostics(
     title: section.title,
     auditFacts: section.rows.map((row) => ({ key: row.label, value: row.value })),
   }));
+}
+
+function noticeSectionsFromRows(rows: readonly DiagnosticRow[]): ThreadStreamNoticeSection[] {
+  return [{ auditFacts: rows.map((row) => ({ key: row.label, value: row.value })) }];
 }
 
 function collaborationModeLabel(state: ChatState): string {

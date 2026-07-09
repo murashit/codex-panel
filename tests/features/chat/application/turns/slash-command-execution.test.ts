@@ -55,12 +55,12 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
       setStatus: vi.fn().mockResolvedValue(true),
       clear: vi.fn().mockResolvedValue(true),
     },
-    statusDetails: () => [{ title: "Thread", auditFacts: [{ key: "Thread", value: "thread-1" }] }],
+    statusDetails: () => [{ auditFacts: [{ key: "Thread", value: "thread-1" }] }],
     permissionDetails: () => [{ title: "Permissions", auditFacts: [{ key: "Profile", value: "read-only" }] }],
     connectionDiagnosticDetails: () => [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }],
     toolInventoryDetails: vi.fn(() => [{ title: "Tool providers", auditFacts: [{ key: "codex_apps", value: "github" }] }]),
-    modelStatusDetails: () => [{ title: "Model", auditFacts: [{ key: "Model", value: "gpt-5.5" }] }],
-    effortStatusDetails: () => [{ title: "Reasoning", auditFacts: [{ key: "Effort", value: "high" }] }],
+    modelStatusDetails: () => [{ auditFacts: [{ key: "Model", value: "gpt-5.5" }] }],
+    effortStatusDetails: () => [{ auditFacts: [{ key: "Effort", value: "high" }] }],
     ...overrides,
   };
 }
@@ -621,8 +621,12 @@ describe("slash commands", () => {
 
   it("shows status as a structured system result", async () => {
     const details = [
-      { title: "Thread", auditFacts: [{ key: "Thread", value: "thread-1" }] },
-      { title: "Usage Limits", auditFacts: [{ key: "5h", value: "42%" }] },
+      {
+        auditFacts: [
+          { key: "Thread", value: "thread-1" },
+          { key: "Usage Limits", value: "5h 42%" },
+        ],
+      },
     ];
     const ctx = context({ statusDetails: () => details });
 
@@ -772,8 +776,8 @@ describe("slash commands", () => {
   });
 
   it("shows model and reasoning status for empty runtime commands", async () => {
-    const modelDetails = [{ title: "Model", auditFacts: [{ key: "Model", value: "gpt-5.5" }] }];
-    const effortDetails = [{ title: "Reasoning", auditFacts: [{ key: "Effort", value: "high" }] }];
+    const modelDetails = [{ auditFacts: [{ key: "Model", value: "gpt-5.5" }] }];
+    const effortDetails = [{ auditFacts: [{ key: "Effort", value: "high" }] }];
     const ctx = context({
       modelStatusDetails: () => modelDetails,
       effortStatusDetails: () => effortDetails,
