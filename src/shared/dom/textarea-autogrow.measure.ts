@@ -41,6 +41,7 @@ function textareaHeightMirror(doc: Document): HTMLTextAreaElement {
   const existing = textareaHeightMirrors.get(doc);
   if (existing?.isConnected) return existing;
   const staleMirrors = [...doc.querySelectorAll<HTMLTextAreaElement>(`.${TEXTAREA_HEIGHT_MIRROR_CLASS}`)];
+  // eslint-disable-next-line obsidianmd/prefer-create-el -- This detached mirror must belong to the measured textarea's document.
   const mirror = staleMirrors.shift() ?? doc.createElement("textarea");
   for (const duplicate of staleMirrors) duplicate.remove();
   mirror.tabIndex = -1;

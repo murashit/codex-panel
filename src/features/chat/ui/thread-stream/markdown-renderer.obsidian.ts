@@ -39,6 +39,7 @@ export class ThreadStreamMarkdownRenderer {
     const sourcePath = this.options.app.workspace.getActiveFile()?.path ?? "";
     const generation = (this.renderGenerations.get(parent) ?? 0) + 1;
     this.renderGenerations.set(parent, generation);
+    // eslint-disable-next-line obsidianmd/prefer-create-el -- This detached staging node must belong to the parent's document.
     const staging = parent.ownerDocument.createElement("div");
     void MarkdownRenderer.render(this.options.app, text, staging, sourcePath, this.options.owner).then(() => {
       if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
