@@ -213,6 +213,62 @@ describe("AppServerClient", () => {
     expect(latestSent(getTransport())).toEqual({ id: 99, error: { code: -32601, message: "Request not handled." } });
   });
 
+  it("logs malformed JSON-RPC envelopes without throwing from the transport callback", async () => {
+    const logs: string[] = [];
+    const notifications = vi.fn();
+    const serverRequests = vi.fn();
+    let transport!: FakeTransport;
+    const client = createTestClient({
+      handlers: {
+        onNotification: notifications,
+        onServerRequest: serverRequests,
+        onLog: (message) => logs.push(message),
+        onExit: () => undefined,
+      },
+      transportFactory: (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    });
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    for (const message of [null, 42, "text", [], {}, { method: "warning" }, { id: 4 }, { id: 5, method: "request", params: null }]) {
+      expect(() => transport.emitLine(message)).not.toThrow();
+    }
+
+    expect(notifications).not.toHaveBeenCalled();
+    expect(serverRequests).not.toHaveBeenCalled();
+    expect(logs).toHaveLength(8);
+    expect(logs.every((message) => message.startsWith("Invalid app-server JSON-RPC message:"))).toBe(true);
+  });
+
+  it("contains inbound handler failures at the JSON-RPC boundary", async () => {
+    const logs: string[] = [];
+    let transport!: FakeTransport;
+    const client = createTestClient({
+      handlers: {
+        onNotification: () => {
+          throw new Error("notification failed");
+        },
+        onServerRequest: () => undefined,
+        onLog: (message) => logs.push(message),
+        onExit: () => undefined,
+      },
+      transportFactory: (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    });
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    expect(() => transport.emitLine({ method: "warning", params: { message: "careful" } })).not.toThrow();
+    expect(logs).toEqual(["App-server notification handler failed: notification failed"]);
+  });
+
   it("sends typed client requests", async () => {
     const { client, transport } = await connectedClient();
 

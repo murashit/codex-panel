@@ -99,16 +99,27 @@ export class JsonRpcClient {
   handleLine(line: string): void {
     if (line.trim().length === 0) return;
 
-    let message: RpcInboundMessage;
+    let parsed: unknown;
     try {
-      message = JSON.parse(line) as RpcInboundMessage;
+      parsed = JSON.parse(line) as unknown;
     } catch {
       this.options.onLog(`Invalid app-server JSON: ${line}`);
       return;
     }
 
+    const message = rpcInboundMessage(parsed);
+    if (!message) {
+      this.options.onLog(`Invalid app-server JSON-RPC message: ${line}`);
+      return;
+    }
+
     if ("id" in message && "method" in message) {
-      this.options.onServerRequest(message);
+      try {
+        this.options.onServerRequest(message);
+      } catch (error) {
+        this.options.onLog(`App-server request handler failed: ${errorMessage(error)}`);
+        this.reject(message.id, -32603, "Codex Panel failed to handle the app-server request.");
+      }
       return;
     }
 
@@ -118,7 +129,11 @@ export class JsonRpcClient {
     }
 
     if ("method" in message) {
-      this.options.onNotification(message);
+      try {
+        this.options.onNotification(message);
+      } catch (error) {
+        this.options.onLog(`App-server notification handler failed: ${errorMessage(error)}`);
+      }
     }
   }
 
@@ -160,6 +175,33 @@ export class JsonRpcClient {
       }
     }
   }
+}
+
+function rpcInboundMessage(value: unknown): RpcInboundMessage | null {
+  if (!isRecord(value)) return null;
+  const hasId = Object.hasOwn(value, "id");
+  const hasMethod = Object.hasOwn(value, "method");
+  if (hasId && !isRequestId(value["id"])) return null;
+  if (hasMethod && (typeof value["method"] !== "string" || value["method"].length === 0 || !isRecord(value["params"]))) return null;
+  if (hasId && hasMethod) return value as unknown as ServerRequest;
+  if (hasId) {
+    const hasResult = Object.hasOwn(value, "result");
+    const hasError = Object.hasOwn(value, "error");
+    return hasResult !== hasError ? (value as unknown as RpcInboundMessage) : null;
+  }
+  return hasMethod ? (value as unknown as ServerNotification) : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isRequestId(value: unknown): value is RequestId {
+  return typeof value === "string" || (typeof value === "number" && Number.isFinite(value));
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function isRpcError(value: unknown): value is RpcError {
