@@ -48,18 +48,21 @@ describe("VaultNoteCandidateProvider", () => {
       {
         keyword: "today",
         display: "Today",
+        name: "2026-07-10",
         path: "Journal/2026/07/2026-07-10.md",
         linktext: "2026-07-10",
       },
       {
         keyword: "tomorrow",
         display: "Tomorrow",
+        name: "2026-07-11",
         path: "Journal/2026/07/2026-07-11.md",
         linktext: "Journal/2026/07/2026-07-11",
       },
       {
         keyword: "yesterday",
         display: "Yesterday",
+        name: "2026-07-09",
         path: "Journal/2026/07/2026-07-09.md",
         linktext: "Journal/2026/07/2026-07-09",
       },

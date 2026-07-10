@@ -236,7 +236,7 @@ describe("composer suggestions", () => {
         },
       })[0],
     ).toMatchObject({
-      display: "Active file",
+      display: "Active · Beta Note",
       detail: "topics/Beta Note.md",
       replacement: "[[Beta Note]]",
     });
@@ -257,20 +257,20 @@ describe("composer suggestions", () => {
             path: "topics/Beta Note.md",
             linktext: "Beta Note",
             range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
-            text: "selected",
+            text: "  selected\n\ttext  ",
           },
         },
       })[0],
     ).toMatchObject({
-      display: "Selection",
-      detail: "topics/Beta Note.md L42:C5-L47:C1",
+      display: "Selection · Beta Note · L42:C5-L47:C1",
+      detail: "selected text",
       replacement: "[[Beta Note]] (L42:C5-L47:C1)",
       selectionContext: {
         name: "Beta Note",
         path: "topics/Beta Note.md",
         linktext: "Beta Note",
         range: { from: { line: 41, ch: 4 }, to: { line: 46, ch: 0 } },
-        text: "selected",
+        text: "  selected\n\ttext  ",
       },
     });
     expect(activeComposerSuggestions("/pla", notes, [])[0]?.replacement).toBe("/plan");
@@ -281,23 +281,43 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
   });
 
+  it("bounds selection preview text before rendering it in the suggestion list", () => {
+    const suggestion = activeComposerSuggestions("@sel", notes, [], [], [], null, {
+      contextReferences: {
+        activeNote: null,
+        selection: {
+          name: "Beta Note",
+          path: "topics/Beta Note.md",
+          linktext: "Beta Note",
+          range: { from: { line: 0, ch: 0 }, to: { line: 0, ch: 600 } },
+          text: "x".repeat(600),
+        },
+      },
+    })[0];
+
+    expect(suggestion?.detail).toBe(`${"x".repeat(499)}…`);
+  });
+
   it("resolves relative daily-note references to configured wikilinks", () => {
     const dailyNoteReferences = [
       {
         keyword: "today",
         display: "Today",
+        name: "2026-07-10",
         path: "Journal/2026/07/2026-07-10.md",
         linktext: "Journal/2026/07/2026-07-10",
       },
       {
         keyword: "tomorrow",
         display: "Tomorrow",
+        name: "2026-07-11",
         path: "Journal/2026/07/2026-07-11.md",
         linktext: "Journal/2026/07/2026-07-11",
       },
       {
         keyword: "yesterday",
         display: "Yesterday",
+        name: "2026-07-09",
         path: "Journal/2026/07/2026-07-09.md",
         linktext: "Journal/2026/07/2026-07-09",
       },
@@ -309,12 +329,12 @@ describe("composer suggestions", () => {
       }),
     ).toMatchObject([
       {
-        display: "Today",
+        display: "Today · 2026-07-10",
         detail: "Journal/2026/07/2026-07-10.md",
         replacement: "[[Journal/2026/07/2026-07-10]]",
       },
       {
-        display: "Tomorrow",
+        display: "Tomorrow · 2026-07-11",
         detail: "Journal/2026/07/2026-07-11.md",
         replacement: "[[Journal/2026/07/2026-07-11]]",
       },
@@ -324,7 +344,7 @@ describe("composer suggestions", () => {
         dailyNoteReferences,
       })[0],
     ).toMatchObject({
-      display: "Yesterday",
+      display: "Yesterday · 2026-07-09",
       detail: "Journal/2026/07/2026-07-09.md",
       replacement: "[[Journal/2026/07/2026-07-09]]",
     });

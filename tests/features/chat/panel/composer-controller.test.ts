@@ -178,6 +178,7 @@ describe("ChatComposerController", () => {
       {
         keyword: "today" as const,
         display: "Today",
+        name: "2026-07-10",
         path: "Journal/2026-07-10.md",
         linktext: "Journal/2026-07-10",
       },

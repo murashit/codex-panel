@@ -3,7 +3,7 @@ import { type App, moment, normalizePath, TFile } from "obsidian";
 import { appHasDailyNotesPluginLoaded, getDailyNoteSettings, type IPeriodicNoteSettings } from "obsidian-daily-notes-interface";
 
 import type { DailyNoteReferenceCandidate } from "../../application/composer/daily-note-references";
-import { linktextForFile } from "./vault-note-links.obsidian";
+import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
 const RELATIVE_DAILY_NOTES = [
   { keyword: "today", display: "Today", dayOffset: 0 },
@@ -38,10 +38,15 @@ export function dailyNoteReferencesFromSettings(
     return {
       keyword,
       display,
+      name: existingFile instanceof TFile ? displayNameForFile(existingFile) : dailyNoteName(filename),
       path,
       linktext: existingFile instanceof TFile ? linktextForFile(app, existingFile, sourcePath) : path.replace(/\.md$/i, ""),
     };
   });
+}
+
+function dailyNoteName(filename: string): string {
+  return (filename.split("/").at(-1) ?? filename).replace(/\.md$/i, "");
 }
 
 function dailyNotePath(folder: string, filename: string): string {

@@ -94,6 +94,7 @@ const THREAD_COMMAND_SUGGESTION_POLICIES: Record<ThreadSuggestionCommand, Thread
 };
 
 const THREAD_SUGGESTION_COMMAND_PATTERN = new RegExp(`^/(${THREAD_SUGGESTION_COMMANDS.join("|")})\\s+([^\\s\\n]{0,120})$`);
+const SELECTION_SUGGESTION_PREVIEW_LIMIT = 500;
 
 export function parseSlashCommand(text: string): { command: SlashCommandName; args: string } | null {
   const match = /^\/([A-Za-z-]+)(?:\s+([\s\S]*))?$/.exec(text);
@@ -142,7 +143,7 @@ function activeContextReferenceSuggestions(
   const suggestions: ComposerSuggestion[] = [];
   if (references?.activeNote && "active".startsWith(query)) {
     suggestions.push({
-      display: "Active file",
+      display: `Active · ${references.activeNote.name}`,
       detail: references.activeNote.path,
       replacement: activeNoteContextReferenceMarker(references.activeNote),
       start,
@@ -151,8 +152,8 @@ function activeContextReferenceSuggestions(
   }
   if (references?.selection && "selection".startsWith(query) && query !== "selection") {
     suggestions.push({
-      display: "Selection",
-      detail: `${references.selection.path} ${formatComposerContextRange(references.selection.range)}`,
+      display: `Selection · ${references.selection.name} · ${formatComposerContextRange(references.selection.range)}`,
+      detail: selectionSuggestionPreview(references.selection),
       replacement: selectionContextReferenceMarker(references.selection),
       start,
       selectionContext: references.selection,
@@ -161,13 +162,18 @@ function activeContextReferenceSuggestions(
   const matchingDailyNotes = dailyNoteReferenceList(dailyNoteReferences).filter((candidate) => candidate.keyword.startsWith(query));
   suggestions.push(
     ...matchingDailyNotes.map((candidate) => ({
-      display: candidate.display,
+      display: `${candidate.display} · ${candidate.name}`,
       detail: candidate.path,
       replacement: `[[${candidate.linktext}]]`,
       start,
     })),
   );
   return suggestions.slice(0, 8);
+}
+
+function selectionSuggestionPreview(selection: SelectionContextReference): string {
+  const preview = selection.text.replace(/\s+/g, " ").trim();
+  return preview.length > SELECTION_SUGGESTION_PREVIEW_LIMIT ? `${preview.slice(0, SELECTION_SUGGESTION_PREVIEW_LIMIT - 1)}…` : preview;
 }
 
 function dailyNoteReferenceList(
