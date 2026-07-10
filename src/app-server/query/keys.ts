@@ -1,5 +1,3 @@
-import type { QueryKey } from "@tanstack/query-core";
-
 export interface AppServerQueryContext {
   codexPath: string;
   vaultPath: string;
@@ -45,10 +43,6 @@ export function appServerMetadataQueryKey(context: AppServerQueryContext): AppSe
 
 export function appServerModelsQueryKey(context: AppServerQueryContext): AppServerModelsQueryKey {
   return [...appServerQueryScope(context), "models"];
-}
-
-export function appServerQueriesFilter(context: AppServerQueryContext): { queryKey: QueryKey } {
-  return { queryKey: appServerQueryScope(context) };
 }
 
 function nonEmptyString(value: string): boolean {

@@ -17,10 +17,19 @@ import {
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 
 describe("AppServerQueryCache", () => {
-  it("allows inactive query contexts to be garbage-collected", () => {
-    const cache = new AppServerQueryCache();
+  it("garbage-collects inactive query contexts", async () => {
+    vi.useFakeTimers();
+    try {
+      const cache = new AppServerQueryCache();
+      const context = cacheContext();
+      cache.setActiveThreads(context, [thread("temporary")]);
 
-    expect(cache.client.getDefaultOptions().queries?.gcTime).toBe(300_000);
+      await vi.advanceTimersByTimeAsync(300_001);
+
+      expect(cache.activeThreadsSnapshot(context)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("preserves successful metadata resource values when probes fail", () => {
@@ -396,19 +405,6 @@ describe("AppServerQueryCache", () => {
       rateLimits: { status: "failed" },
     });
     expect(cache.appServerMetadataSnapshot(context)).toEqual(refreshed);
-  });
-
-  it("clears thread list snapshots by context", () => {
-    const cache = new AppServerQueryCache();
-    const context = cacheContext();
-
-    cache.setActiveThreads(context, [thread("thread")]);
-
-    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("thread")]);
-
-    cache.clearContext(context);
-
-    expect(cache.activeThreadsSnapshot(context)).toBeNull();
   });
 
   it("does not merge local thread list updates into in-flight app-server snapshots", async () => {

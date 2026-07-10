@@ -20,7 +20,6 @@ import {
   activeThreadsQueryKey,
   appServerMetadataQueryKey,
   appServerModelsQueryKey,
-  appServerQueriesFilter,
   appServerQueryContextIsComplete,
   archivedThreadsQueryKey,
   cloneAppServerQueryContext,
@@ -52,7 +51,7 @@ type ThreadListKind = "active" | "archived";
 type ThreadListUpdater = (threads: readonly Thread[] | null) => readonly Thread[] | null;
 
 export class AppServerQueryCache {
-  readonly client: QueryClient;
+  private readonly client: QueryClient;
   private readonly clientRunner: AppServerQueryClientRunner | null;
   private readonly activeThreadCursors = new Map<string, string | null>();
 
@@ -64,14 +63,6 @@ export class AppServerQueryCache {
   clear(): void {
     this.activeThreadCursors.clear();
     this.client.clear();
-  }
-
-  clearContext(context: AppServerQueryContext): void {
-    if (!appServerQueryContextIsComplete(context)) return;
-    const filter = appServerQueriesFilter(context);
-    void this.client.cancelQueries(filter);
-    this.client.removeQueries(filter);
-    this.activeThreadCursors.delete(this.activeThreadCursorKey(context));
   }
 
   activeThreadsSnapshot(context: AppServerQueryContext): readonly Thread[] | null {

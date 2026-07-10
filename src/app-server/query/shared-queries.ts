@@ -56,10 +56,6 @@ export class AppServerSharedQueries {
     return this.runForCurrentContext((context) => this.options.cache.loadMoreActiveThreads(context));
   }
 
-  fetchArchivedThreads(): Promise<readonly Thread[]> {
-    return this.runForCurrentContext((context) => this.options.cache.fetchArchivedThreads(context));
-  }
-
   refreshActiveThreads(): Promise<readonly Thread[]> {
     return this.runForCurrentContext((context) => this.options.cache.refreshActiveThreads(context));
   }

@@ -11,7 +11,6 @@ interface ThreadCatalogStore {
   fetchAllActiveThreads(): Promise<readonly Thread[]>;
   hasMoreActiveThreads(): boolean;
   loadMoreActiveThreads(): Promise<readonly Thread[]>;
-  fetchArchivedThreads(): Promise<readonly Thread[]>;
   refreshActiveThreads(): Promise<readonly Thread[]>;
   refreshArchivedThreads(): Promise<readonly Thread[]>;
   observeActiveThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
@@ -73,7 +72,6 @@ export interface ThreadCatalogPaginatedActiveReader extends ThreadCatalogActiveR
 
 export interface ThreadCatalogArchivedReader {
   archivedSnapshot(): readonly Thread[] | null;
-  loadArchived(): Promise<readonly Thread[]>;
   refreshArchived(): Promise<readonly Thread[]>;
   observeArchived(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
@@ -109,7 +107,6 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
         });
       }, observeOptions),
     archivedSnapshot: () => threadListProjection(store.archivedThreadsSnapshot(), currentFacts().archived),
-    loadArchived: () => loadThreadList(store.fetchArchivedThreads(), currentFacts().archived),
     refreshArchived: () => loadThreadList(store.refreshArchivedThreads(), currentFacts().archived),
     observeArchived: (observer, observeOptions) =>
       store.observeArchivedThreadsResult((result) => {

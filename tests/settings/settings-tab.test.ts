@@ -1107,7 +1107,6 @@ function settingsTabHost(
   };
   const threadCatalog = {
     archivedSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
-    loadArchived: vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
     refreshArchived: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
     observeArchived: options.observeArchived ?? vi.fn(() => () => undefined),
     apply: options.applyThreadCatalogEvent ?? vi.fn(),
