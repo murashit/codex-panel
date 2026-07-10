@@ -8,6 +8,7 @@ import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
 import { CodexPanelRuntime } from "./plugin-runtime";
 import { type CodexPanelSettings, DEFAULT_SETTINGS, getVaultPath, normalizeSettings, settingsMatchStoredSettings } from "./settings/model";
 import { CodexPanelSettingTab } from "./settings/tab.obsidian";
+import { disposeTextareaHeightMirrors } from "./shared/dom/textarea-autogrow.measure";
 
 export default class CodexPanelPlugin extends Plugin {
   settings: CodexPanelSettings = DEFAULT_SETTINGS;
@@ -19,6 +20,7 @@ export default class CodexPanelPlugin extends Plugin {
   });
 
   override async onload(): Promise<void> {
+    disposeTextareaHeightMirrors();
     this.runtime.reset();
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
@@ -77,6 +79,7 @@ export default class CodexPanelPlugin extends Plugin {
 
   override onunload(): void {
     this.runtime.cancelWorkspacePanelReconcile();
+    disposeTextareaHeightMirrors();
   }
 
   async loadSettings(): Promise<void> {

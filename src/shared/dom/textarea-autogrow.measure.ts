@@ -4,6 +4,7 @@ export interface TextareaHeightOptions {
 }
 
 const textareaHeightMirrors = new WeakMap<Document, HTMLTextAreaElement>();
+const textareaHeightMirrorDocuments = new Set<Document>();
 const TEXTAREA_HEIGHT_MIRROR_CLASS = "codex-panel-textarea-height-mirror";
 
 export function syncTextareaHeight(textarea: HTMLTextAreaElement | null, options: TextareaHeightOptions): void {
@@ -21,6 +22,14 @@ export function syncTextareaHeight(textarea: HTMLTextAreaElement | null, options
   textarea.setCssProps(sizingProps);
 }
 
+export function disposeTextareaHeightMirrors(): void {
+  for (const doc of textareaHeightMirrorDocuments) {
+    for (const mirror of doc.querySelectorAll(`.${TEXTAREA_HEIGHT_MIRROR_CLASS}`)) mirror.remove();
+    textareaHeightMirrors.delete(doc);
+  }
+  textareaHeightMirrorDocuments.clear();
+}
+
 function measureTextareaNaturalScrollHeight(textarea: HTMLTextAreaElement, style: CSSStyleDeclaration): number {
   const mirror = textareaHeightMirror(textarea.ownerDocument);
   mirror.value = textarea.value;
@@ -30,14 +39,17 @@ function measureTextareaNaturalScrollHeight(textarea: HTMLTextAreaElement, style
 
 function textareaHeightMirror(doc: Document): HTMLTextAreaElement {
   const existing = textareaHeightMirrors.get(doc);
-  if (existing) return existing;
-  const mirror = doc.createElement("textarea");
+  if (existing?.isConnected) return existing;
+  const staleMirrors = [...doc.querySelectorAll<HTMLTextAreaElement>(`.${TEXTAREA_HEIGHT_MIRROR_CLASS}`)];
+  const mirror = staleMirrors.shift() ?? doc.createElement("textarea");
+  for (const duplicate of staleMirrors) duplicate.remove();
   mirror.tabIndex = -1;
   mirror.setAttribute("aria-hidden", "true");
   mirror.readOnly = true;
   mirror.addClass(TEXTAREA_HEIGHT_MIRROR_CLASS);
-  doc.body.appendChild(mirror);
+  if (!mirror.isConnected) doc.body.appendChild(mirror);
   textareaHeightMirrors.set(doc, mirror);
+  textareaHeightMirrorDocuments.add(doc);
   return mirror;
 }
 
