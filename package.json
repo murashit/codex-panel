@@ -36,17 +36,17 @@
     "typecheck": "tsc -p tsconfig.json --noEmit --incremental --tsBuildInfoFile node_modules/.cache/typescript/tsconfig.tsbuildinfo"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.1",
-    "@types/node": "^26.0.1",
+    "@biomejs/biome": "^2.5.2",
+    "@types/node": "^26.1.0",
     "concurrently": "^10.0.3",
     "esbuild": "^0.28.0",
-    "eslint": "^10.5.0",
-    "eslint-plugin-obsidianmd": "^0.3.0",
+    "eslint": "^10.6.0",
+    "eslint-plugin-obsidianmd": "^0.4.1",
     "jsdom": "^29.1.1",
-    "knip": "^6.20.0",
+    "knip": "^6.24.0",
     "obsidian": "~1.12.3",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.62.0",
+    "typescript-eslint": "^8.62.1",
     "vitest": "^4.1.9"
   },
   "dependencies": {
