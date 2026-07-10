@@ -63,8 +63,8 @@ function textareaCaretTop(textarea: HTMLTextAreaElement, position: number): numb
   if (!window) return null;
 
   const style = window.getComputedStyle(textarea);
-  // eslint-disable-next-line obsidianmd/prefer-create-el -- This detached mirror must belong to the measured textarea's document.
-  const mirror = document.createElement("div");
+  const mirror = document.body.createDiv();
+  mirror.remove();
   for (const property of textareaMirrorStyleProperties) {
     mirror.style[property] = style[property];
   }
@@ -76,10 +76,8 @@ function textareaCaretTop(textarea: HTMLTextAreaElement, position: number): numb
   };
   mirror.setCssProps(mirrorProps);
 
-  // eslint-disable-next-line obsidianmd/prefer-create-el -- This detached marker must belong to the mirror's document.
-  const marker = document.createElement("span");
-  marker.textContent = "\u200b";
-  mirror.append(document.createTextNode(textarea.value.slice(0, position)), marker);
+  const marker = mirror.createSpan({ text: "\u200b" });
+  mirror.prepend(document.createTextNode(textarea.value.slice(0, position)));
   document.body.append(mirror);
 
   const top = marker.offsetTop;

@@ -1,4 +1,3 @@
-import type { Moment, MomentInput } from "moment";
 import { type App, moment, normalizePath, TFile } from "obsidian";
 import { appHasDailyNotesPluginLoaded, getDailyNoteSettings, type IPeriodicNoteSettings } from "obsidian-daily-notes-interface";
 
@@ -10,6 +9,11 @@ const RELATIVE_DAILY_NOTES = [
   { keyword: "tomorrow", display: "Tomorrow", dayOffset: 1 },
   { keyword: "yesterday", display: "Yesterday", dayOffset: -1 },
 ] as const;
+
+interface DailyNoteMoment {
+  add(amount: number, unit: "day"): DailyNoteMoment;
+  format(pattern: string): string;
+}
 
 export function configuredDailyNoteReferences(app: App, sourcePath: string): readonly DailyNoteReferenceCandidate[] {
   try {
@@ -30,7 +34,7 @@ export function dailyNoteReferencesFromSettings(
 ): readonly DailyNoteReferenceCandidate[] {
   const format = settings.format;
   if (!format) return [];
-  const createMoment = moment as unknown as (input?: MomentInput) => Moment;
+  const createMoment = moment as unknown as (input: Date) => DailyNoteMoment;
   return RELATIVE_DAILY_NOTES.map(({ keyword, display, dayOffset }) => {
     const filename = createMoment(referenceDate).add(dayOffset, "day").format(format);
     const path = dailyNotePath(settings.folder ?? "", filename);
