@@ -6,12 +6,7 @@ import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
-import {
-  type ChatConnectionActions,
-  createChatConnectionActions,
-  handleChatConnectionExit,
-} from "../../application/connection/connection-actions";
-import type { ConnectionWorkTracker } from "../../application/connection/connection-work";
+import { type ChatConnectionActions, createChatConnectionActions } from "../../application/connection/connection-actions";
 import { createServerDiagnosticsActions } from "../../application/connection/server-diagnostics-actions";
 import { createServerMetadataActions } from "../../application/connection/server-metadata-actions";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -40,7 +35,6 @@ interface ChatPanelConnectionBundleInput {
 interface ChatPanelConnectionBundleHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
-  connectionWork: ConnectionWorkTracker;
   deferredTasks: ChatViewDeferredTasks;
   invalidateThreadWork: () => void;
   deferLiveStateRefresh: () => void;
@@ -180,7 +174,6 @@ export function createConnectionBundle(
   );
   const connectionExitHost = {
     stateStore,
-    connectionWork: host.connectionWork,
     invalidateThreadWork: () => {
       host.invalidateThreadWork();
     },
@@ -212,7 +205,7 @@ export function createConnectionBundle(
           onExit: () => {
             serverRequestResponders.clear();
             serverDiagnostics.invalidate();
-            handleChatConnectionExit(connectionExitHost);
+            connectionActions.handleExit();
           },
         }),
       isConnected: () => connection.isConnected(),

@@ -1,7 +1,6 @@
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ChatConnectionPhase } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import type { ActiveConnectionWork, ConnectionWorkTracker } from "./connection-work";
 
 const STATUS_CONNECTION_STOPPED = "Codex app-server stopped.";
 const STATUS_CONNECTION_STARTING = "Starting Codex app-server...";
@@ -24,7 +23,6 @@ export interface ChatConnectionDiagnosticsActions {
 export interface ChatConnectionActionsHost {
   stateStore: ChatStateStore;
   connection: ChatConnectionAdapter;
-  connectionWork: ConnectionWorkTracker;
   metadata: ChatConnectionMetadataActions;
   diagnostics: ChatConnectionDiagnosticsActions;
   invalidateThreadWork: () => void;
@@ -44,11 +42,10 @@ export interface ChatConnectionActionsHost {
 
 type ChatConnectionExitHost = Pick<
   ChatConnectionActionsHost,
-  "connectionWork" | "invalidateThreadWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence" | "refreshLiveState"
+  "invalidateThreadWork" | "setStatus" | "stateStore" | "resetThreadTurnPresence" | "refreshLiveState"
 >;
 
-export function handleChatConnectionExit(host: ChatConnectionExitHost): void {
-  host.connectionWork.invalidate();
+function handleChatConnectionExit(host: ChatConnectionExitHost): void {
   host.invalidateThreadWork();
   host.setStatus(STATUS_CONNECTION_STOPPED, { kind: "disconnected", message: STATUS_CONNECTION_STOPPED });
   host.stateStore.dispatch({ type: "connection/scoped-cleared" });
@@ -66,12 +63,33 @@ export interface ChatConnectionActions {
 }
 
 export function createChatConnectionActions(host: ChatConnectionActionsHost): ChatConnectionActions {
+  let generation = 0;
+  let activeConnection: { generation: number; promise: Promise<void> } | null = null;
+  const invalidate = (): void => {
+    generation += 1;
+    activeConnection = null;
+  };
+  const isStale = (candidateGeneration: number): boolean => candidateGeneration !== generation;
   const actions: ChatConnectionActions = {
-    ensureConnected: () => ensureConnected(host),
-    invalidate: () => {
-      host.connectionWork.invalidate();
+    ensureConnected: async () => {
+      if (activeConnection) return activeConnection.promise;
+      if (host.connection.isConnected()) return;
+
+      const connectionGeneration = generation;
+      const promise = initializeConnection(host, () => isStale(connectionGeneration));
+      const active = { generation: connectionGeneration, promise };
+      activeConnection = active;
+      try {
+        await promise;
+      } finally {
+        if (activeConnection === active) {
+          activeConnection = null;
+        }
+      }
     },
+    invalidate,
     handleExit: () => {
+      invalidate();
       handleChatConnectionExit(host);
     },
     refreshActiveThreads: () => refreshActiveThreads(host),
@@ -79,24 +97,6 @@ export function createChatConnectionActions(host: ChatConnectionActionsHost): Ch
     refreshStatusPanel: () => refreshStatusPanel(host, actions),
   };
   return actions;
-}
-
-async function ensureConnected(host: ChatConnectionActionsHost): Promise<void> {
-  const connecting = host.connectionWork.active();
-  if (connecting?.promise) return connecting.promise;
-
-  if (host.connection.isConnected()) {
-    return;
-  }
-
-  const connection = host.connectionWork.begin();
-  const promise = initializeConnection(host, connection);
-  connection.promise = promise;
-  try {
-    await promise;
-  } finally {
-    host.connectionWork.finish(connection, promise);
-  }
 }
 
 async function refreshActiveThreads(host: ChatConnectionActionsHost): Promise<void> {
@@ -131,17 +131,17 @@ async function refreshStatusPanel(
   await actions.refreshActiveThreads();
 }
 
-async function initializeConnection(host: ChatConnectionActionsHost, connection: ActiveConnectionWork): Promise<void> {
+async function initializeConnection(host: ChatConnectionActionsHost, isStale: () => boolean): Promise<void> {
   host.setStatus(STATUS_CONNECTION_STARTING, { kind: "connecting" });
   try {
     const initialization = await host.connection.connect();
-    if (host.connectionWork.isStale(connection)) return;
+    if (isStale()) return;
     host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
     if (!host.connection.isConnected()) throw new Error("Codex app-server connection did not initialize.");
     host.refreshTabHeader();
     host.setStatus(STATUS_CONNECTED, { kind: "connected" });
   } catch (error) {
-    if (host.connectionWork.isStale(connection)) return;
+    if (isStale()) return;
     if (host.isStaleConnectionError(error)) return;
     if (host.isStaleSharedQueryError(error)) return;
     const message = connectionErrorMessage(error, host.configuredCommand());
@@ -151,25 +151,25 @@ async function initializeConnection(host: ChatConnectionActionsHost, connection:
     return;
   }
 
-  await hydrateConnectedResources(host, connection);
+  await hydrateConnectedResources(host, isStale);
 }
 
-async function hydrateConnectedResources(host: ChatConnectionActionsHost, connection: ActiveConnectionWork): Promise<void> {
+async function hydrateConnectedResources(host: ChatConnectionActionsHost, isStale: () => boolean): Promise<void> {
   try {
     await host.metadata.refreshAppServerMetadata();
   } catch (error) {
-    if (host.connectionWork.isStale(connection) || host.isStaleSharedQueryError(error)) return;
+    if (isStale() || host.isStaleSharedQueryError(error)) return;
     host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);
   }
-  if (host.connectionWork.isStale(connection)) return;
+  if (isStale()) return;
 
   try {
     await host.refreshSharedThreads();
   } catch (error) {
-    if (host.connectionWork.isStale(connection) || host.isStaleSharedQueryError(error)) return;
+    if (isStale() || host.isStaleSharedQueryError(error)) return;
     host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);
   }
-  if (host.connectionWork.isStale(connection)) return;
+  if (isStale()) return;
   host.scheduleDeferredDiagnostics();
 }
 

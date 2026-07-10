@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StaleAppServerSharedQueryContextError } from "../../../../src/app-server/query/shared-queries";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { ConnectionWorkTracker } from "../../../../src/features/chat/application/connection/connection-work";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
@@ -201,7 +200,7 @@ describe("createChatPanelSessionGraph actions", () => {
   });
 
   it("wires reconnect cleanup through the graph toolbar action", async () => {
-    const { graph, stateStore, connectionWork, deferredTasks } = sessionGraphFixture();
+    const { graph, stateStore, deferredTasks } = sessionGraphFixture();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -217,7 +216,7 @@ describe("createChatPanelSessionGraph actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    const activeConnectionWork = connectionWork.begin();
+    const invalidateConnection = vi.spyOn(graph.connection.actions, "invalidate");
     const clearDiagnostics = vi.spyOn(deferredTasks, "clearDiagnostics");
     const resetConnection = vi.spyOn(graph.connection.manager, "resetConnection");
     const ensureConnected = vi.spyOn(graph.connection.actions, "ensureConnected").mockResolvedValue(undefined);
@@ -228,7 +227,7 @@ describe("createChatPanelSessionGraph actions", () => {
     await waitForAsyncWork(() => {
       expect(resumeThread).toHaveBeenCalledWith("thread-1");
     });
-    expect(connectionWork.isStale(activeConnectionWork)).toBe(true);
+    expect(invalidateConnection).toHaveBeenCalledOnce();
     expect(clearDiagnostics).toHaveBeenCalledOnce();
     expect(resetConnection).toHaveBeenCalledOnce();
     expect(stateStore.getState().connection.statusText).toBe("Reconnecting...");
@@ -250,12 +249,10 @@ describe("createChatPanelSessionGraph actions", () => {
     graph: ReturnType<typeof createChatPanelSessionGraph>;
     stateStore: ChatStateStore;
     resumeWork: ChatResumeWorkTracker;
-    connectionWork: ConnectionWorkTracker;
     deferredTasks: ReturnType<typeof createChatViewDeferredTasks>;
   } {
     const stateStore = createChatStateStore();
     const resumeWork = new ChatResumeWorkTracker();
-    const connectionWork = new ConnectionWorkTracker();
     const deferredTasks = createChatViewDeferredTasks(() => window);
     const environment = chatPanelEnvironmentFixture(options.environment);
     const graph = createChatPanelSessionGraph({
@@ -263,12 +260,11 @@ describe("createChatPanelSessionGraph actions", () => {
       stateStore,
       deferredTasks,
       resumeWork,
-      connectionWork,
       threadStreamScrollBinding: createChatThreadStreamScrollBinding(),
       getClosing: () => false,
       viewWindow: () => window,
     });
-    return { graph, stateStore, resumeWork, connectionWork, deferredTasks };
+    return { graph, stateStore, resumeWork, deferredTasks };
   }
 
   interface PartialChatPanelEnvironment {

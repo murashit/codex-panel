@@ -2,7 +2,6 @@ import { codexPanelAppServerInitializeParams } from "../../../app-server/connect
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
 import { createChatAppServerGateway } from "../app-server/session-gateway";
-import type { ConnectionWorkTracker } from "../application/connection/connection-work";
 import { reconnectPanel } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
@@ -24,6 +23,7 @@ import { type ChatPanelShellBundle, createShellBundle } from "./bundles/shell-bu
 import { createThreadActionBundle, createThreadFoundation, createThreadLifecycleBundle } from "./bundles/thread-bundle";
 import { createTurnBundle } from "./bundles/turn-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
+import { createConnectedClientResolver } from "./session/connected-client-resolver";
 import type { ChatViewDeferredTasks } from "./session/deferred-work";
 import { type ChatPanelSharedStateBinding, createChatPanelSharedStateBinding } from "./session/shared-state-binding";
 
@@ -66,7 +66,6 @@ interface ChatPanelSessionGraphHost {
   stateStore: ChatStateStore;
   deferredTasks: ChatViewDeferredTasks;
   resumeWork: ChatResumeWorkTracker;
-  connectionWork: ConnectionWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
   viewWindow: () => Window;
@@ -77,18 +76,12 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const localItemIds = createLocalIdSource();
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
-  let ensureConnected: () => Promise<void> = async () => {
-    throw new Error("Codex app-server connection actions are not initialized.");
-  };
-  const connectedClient = async () => {
-    await ensureConnected();
-    return currentClient();
-  };
+  const connectedClient = createConnectedClientResolver(currentClient);
   const appServer = createChatAppServerGateway({
     codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
     vaultPath: environment.plugin.settingsRef.vaultPath,
     currentClient,
-    connectedClient,
+    connectedClient: () => connectedClient.resolve(),
   });
   const status = createSessionStatus(stateStore, localItemIds);
   const refreshTabHeader = () => {
@@ -116,7 +109,6 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     {
       environment,
       stateStore,
-      connectionWork: host.connectionWork,
       deferredTasks: host.deferredTasks,
       invalidateThreadWork: () => {
         threadFoundation.invalidateThreadWork();
@@ -137,7 +129,8 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     connection: { actions: connectionActions },
     inboundHandler,
   } = connectionBundle;
-  ensureConnected = () => connectionActions.ensureConnected();
+  const ensureConnected = () => connectionActions.ensureConnected();
+  connectedClient.bindEnsureConnected(ensureConnected);
   const refreshActiveThreads = () => connectionActions.refreshActiveThreads();
   const runtime = createRuntimeBundle(host, {
     connection,
@@ -182,7 +175,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     reconnectPanel({
       stateStore,
       invalidateConnectionWork: () => {
-        host.connectionWork.invalidate();
+        connectionActions.invalidate();
       },
       invalidateThreadWork: () => {
         threadFoundation.invalidateThreadWork();

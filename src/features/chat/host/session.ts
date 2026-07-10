@@ -2,7 +2,6 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import { type AppServerQueryContext, appServerQueryContextMatches, appServerQueryContextRawEquals } from "../../../app-server/query/keys";
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
-import { ConnectionWorkTracker } from "../application/connection/connection-work";
 import type { ChatState } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
 import { parseRestoredThreadState, type RestoredThreadPlaceholderState } from "../application/threads/restored-thread-lifecycle";
@@ -18,7 +17,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   private readonly graph: ChatPanelSessionGraph;
 
   private readonly deferredTasks: ChatViewDeferredTasks;
-  private readonly connectionWork = new ConnectionWorkTracker();
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly threadStreamScrollBinding: ChatThreadStreamScrollBinding = createChatThreadStreamScrollBinding();
   private observedAppServerContext: AppServerQueryContext;
@@ -156,7 +154,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   close(): void {
     this.opened = false;
     this.closing = true;
-    this.connectionWork.invalidate();
+    this.graph.connection.actions.invalidate();
     this.graph.actions.invalidateThreadWork();
     this.deferredTasks.clearAll();
     this.graph.runtime.sharedState.unsubscribe();
@@ -248,7 +246,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       stateStore: this.stateStore,
       deferredTasks: this.deferredTasks,
       resumeWork: this.resumeWork,
-      connectionWork: this.connectionWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
       viewWindow: () => this.viewWindow(),

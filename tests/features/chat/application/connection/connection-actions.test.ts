@@ -8,9 +8,9 @@ import {
   type ChatConnectionMetadataActions,
   createChatConnectionActions,
 } from "../../../../../src/features/chat/application/connection/connection-actions";
-import { ConnectionWorkTracker } from "../../../../../src/features/chat/application/connection/connection-work";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { deferred } from "../../../../support/async";
 
 function createActionsHarness({ connected = false } = {}) {
   const stateStore = createChatStateStore(createChatState());
@@ -34,7 +34,6 @@ function createActionsHarness({ connected = false } = {}) {
   const host: ChatConnectionActionsHost = {
     stateStore,
     connection,
-    connectionWork: new ConnectionWorkTracker(),
     metadata,
     diagnostics,
     invalidateThreadWork: vi.fn(),
@@ -57,11 +56,47 @@ function createActionsHarness({ connected = false } = {}) {
     host,
     refreshAppServerMetadata,
     refreshServerDiagnostics,
+    setConnected: (value: boolean) => {
+      isConnected = value;
+    },
     stateStore,
   };
 }
 
 describe("ChatConnectionActions", () => {
+  it("coalesces concurrent connection attempts inside the actions boundary", async () => {
+    const { actions, connect, setConnected } = createActionsHarness();
+    const pending = deferred<Awaited<ReturnType<ChatConnectionAdapter["connect"]>>>();
+    connect.mockImplementationOnce(() => pending.promise);
+
+    const first = actions.ensureConnected();
+    const second = actions.ensureConnected();
+
+    expect(connect).toHaveBeenCalledOnce();
+    setConnected(true);
+    pending.resolve({ codexHome: "/codex", platformFamily: "unix", platformOs: "macos", userAgent: "test" });
+    await Promise.all([first, second]);
+  });
+
+  it("starts fresh work after invalidation and ignores the obsolete result", async () => {
+    const { actions, connect, setConnected, stateStore } = createActionsHarness();
+    const obsolete = deferred<Awaited<ReturnType<ChatConnectionAdapter["connect"]>>>();
+    const current = deferred<Awaited<ReturnType<ChatConnectionAdapter["connect"]>>>();
+    connect.mockImplementationOnce(() => obsolete.promise).mockImplementationOnce(() => current.promise);
+
+    const first = actions.ensureConnected();
+    actions.invalidate();
+    const second = actions.ensureConnected();
+    setConnected(true);
+    current.resolve({ codexHome: "/current", platformFamily: "unix", platformOs: "macos", userAgent: "test" });
+    await second;
+    obsolete.resolve({ codexHome: "/obsolete", platformFamily: "unix", platformOs: "macos", userAgent: "test" });
+    await first;
+
+    expect(connect).toHaveBeenCalledTimes(2);
+    expect(stateStore.getState().connection.initializeResponse?.codexHome).toBe("/current");
+  });
+
   it("connects once and publishes startup metadata", async () => {
     const { connect, actions, host, refreshAppServerMetadata, stateStore } = createActionsHarness();
 
