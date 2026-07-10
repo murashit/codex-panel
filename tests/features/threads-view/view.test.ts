@@ -221,6 +221,36 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("loads another thread page only after the user requests it", async () => {
+    const first = threadFromRecord(threadFixture({ id: "first", preview: "First page" }));
+    const second = threadFromRecord(threadFixture({ id: "second", preview: "Second page" }));
+    let hasMore = true;
+    const loadMoreActive = vi.fn(async () => {
+      hasMore = false;
+      return [first, second];
+    });
+    const view = await threadsView(
+      threadsHost({
+        threadCatalog: {
+          refreshActive: vi.fn(async () => [first]),
+          hasMoreActive: vi.fn(() => hasMore),
+          loadMoreActive,
+        },
+      }),
+    );
+
+    await view.refresh();
+    expect(view.containerEl.textContent).toContain("First page");
+    expect(view.containerEl.textContent).not.toContain("Second page");
+
+    view.containerEl.querySelector<HTMLButtonElement>(".codex-panel-threads__load-more")?.click();
+    await waitForAsyncWork(() => {
+      expect(loadMoreActive).toHaveBeenCalledOnce();
+      expect(view.containerEl.textContent).toContain("Second page");
+    });
+    expect(view.containerEl.querySelector(".codex-panel-threads__load-more")).toBeNull();
+  });
+
   it("refreshes thread lists through the plugin coordinator", async () => {
     const threads = [{ id: "thread", preview: "Thread preview", name: null, archived: false, createdAt: 1, updatedAt: 1 }];
     const refresh = vi.fn().mockResolvedValue(threads);
@@ -591,6 +621,8 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
     threadCatalog: {
       apply: vi.fn(),
       loadActive: vi.fn(async () => []),
+      hasMoreActive: vi.fn(() => false),
+      loadMoreActive: vi.fn(async () => []),
       refreshActive: vi.fn(async () => {
         const client = connectionMock.state.client;
         if (!client) return [];

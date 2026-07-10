@@ -8,7 +8,9 @@ interface ThreadCatalogStore {
   contextKey(): string;
   activeThreadsSnapshot(): readonly Thread[] | null;
   archivedThreadsSnapshot(): readonly Thread[] | null;
-  fetchActiveThreads(): Promise<readonly Thread[]>;
+  fetchAllActiveThreads(): Promise<readonly Thread[]>;
+  hasMoreActiveThreads(): boolean;
+  loadMoreActiveThreads(): Promise<readonly Thread[]>;
   fetchArchivedThreads(): Promise<readonly Thread[]>;
   refreshActiveThreads(): Promise<readonly Thread[]>;
   refreshArchivedThreads(): Promise<readonly Thread[]>;
@@ -64,6 +66,11 @@ export interface ThreadCatalogActiveReader {
   observeActive(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
 
+export interface ThreadCatalogPaginatedActiveReader extends ThreadCatalogActiveReader {
+  hasMoreActive(): boolean;
+  loadMoreActive(): Promise<readonly Thread[]>;
+}
+
 export interface ThreadCatalogArchivedReader {
   archivedSnapshot(): readonly Thread[] | null;
   loadArchived(): Promise<readonly Thread[]>;
@@ -75,7 +82,7 @@ export interface ThreadCatalogEventSink {
   apply(event: ThreadCatalogEvent): void;
 }
 
-export interface ThreadCatalog extends ThreadCatalogActiveReader, ThreadCatalogArchivedReader, ThreadCatalogEventSink {}
+export interface ThreadCatalog extends ThreadCatalogPaginatedActiveReader, ThreadCatalogArchivedReader, ThreadCatalogEventSink {}
 
 export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalog {
   const factsByContext = new Map<string, ThreadCatalogFacts>();
@@ -90,8 +97,10 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
   return {
     apply,
     activeSnapshot: () => threadListProjection(store.activeThreadsSnapshot(), currentFacts().active),
-    loadActive: () => loadThreadList(store.fetchActiveThreads(), currentFacts().active),
+    loadActive: () => loadThreadList(store.fetchAllActiveThreads(), currentFacts().active),
     refreshActive: () => loadThreadList(store.refreshActiveThreads(), currentFacts().active),
+    hasMoreActive: () => store.hasMoreActiveThreads(),
+    loadMoreActive: () => loadThreadList(store.loadMoreActiveThreads(), currentFacts().active),
     observeActive: (observer, observeOptions) =>
       store.observeActiveThreadsResult((result) => {
         observer({

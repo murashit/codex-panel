@@ -8,7 +8,7 @@ import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
-import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../threads/catalog/thread-catalog";
+import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
@@ -40,7 +40,7 @@ export interface ThreadsViewHost {
   closeOpenPanelsForThread(threadId: string): void;
 }
 
-type ThreadsViewThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
+type ThreadsViewThreadCatalog = ThreadCatalogPaginatedActiveReader & ThreadCatalogEventSink;
 
 export interface ThreadsViewSettingsAccess {
   archiveExportEnabled(): boolean;
@@ -156,6 +156,25 @@ export class ThreadsViewSession {
     }
   }
 
+  async loadMore(): Promise<void> {
+    const lifetime = this.lifetime.signal();
+    if (!this.lifetime.isCurrent(lifetime) || !this.host.threadCatalog.hasMoreActive() || this.refreshLifecycle.kind === "loading") return;
+    const refresh = this.startRefresh();
+    this.render();
+    try {
+      const threads = await this.host.threadCatalog.loadMoreActive();
+      if (!this.lifetime.isCurrent(lifetime) || this.isStaleRefresh(refresh)) return;
+      this.threads = threads;
+      this.threadsLoaded = true;
+      this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
+    } catch (error) {
+      if (!this.lifetime.isCurrent(lifetime) || isStaleAppServerSharedQueryContextError(error)) return;
+      this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
+    } finally {
+      this.finishRefresh(refresh);
+    }
+  }
+
   refreshLiveState(): void {
     this.scheduleRender();
   }
@@ -217,6 +236,7 @@ export class ThreadsViewSession {
       {
         status: this.status.kind === "idle" ? null : this.status.message,
         loading: this.refreshLifecycle.kind === "loading",
+        hasMore: this.host.threadCatalog.hasMoreActive(),
         rows: threadRows(
           this.threads,
           this.host.openPanelActivities(),
@@ -227,6 +247,7 @@ export class ThreadsViewSession {
       },
       {
         refresh: () => void this.refresh(),
+        loadMore: () => void this.loadMore(),
         openNewPanel: () => void this.openNewPanel(),
         openThread: (threadId) => void this.openThread(threadId),
         startRename: (threadId, value) => {

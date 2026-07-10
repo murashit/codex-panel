@@ -11,11 +11,13 @@ type ButtonProps = ButtonHTMLAttributes & {
 export interface ThreadsViewShellModel {
   status: string | null;
   loading: boolean;
+  hasMore?: boolean;
   rows: ThreadsRowModel[];
 }
 
 export interface ThreadsViewShellActions {
   refresh: () => void;
+  loadMore: () => void;
   openNewPanel: () => void;
   openThread: (threadId: string) => void;
   startRename: (threadId: string, value: string) => void;
@@ -69,6 +71,16 @@ function ThreadsViewShell({ model, actions }: { model: ThreadsViewShellModel; ac
             {model.rows.map((row) => (
               <ThreadRow key={row.threadId} row={row} actions={actions} />
             ))}
+            {model.hasMore ? (
+              <button
+                type="button"
+                className="codex-panel-ui__nav-item codex-panel-threads__load-more"
+                disabled={model.loading}
+                onClick={actions.loadMore}
+              >
+                {model.loading ? "Loading..." : "Load more threads"}
+              </button>
+            ) : null}
           </>
         )}
       </div>

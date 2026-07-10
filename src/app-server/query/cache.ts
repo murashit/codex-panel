@@ -14,7 +14,7 @@ import type { AppServerClientAccessOptions } from "../connection/client-access";
 import { runtimeConfigSnapshotFromAppServerConfig } from "../protocol/runtime-config";
 import { listModelMetadata } from "../services/catalog";
 import { readEffectiveConfig } from "../services/runtime-metadata";
-import { listThreads } from "../services/threads";
+import { listThreads, readThreadPage } from "../services/threads";
 import {
   type AppServerQueryContext,
   activeThreadsQueryKey,
@@ -54,6 +54,7 @@ type ThreadListUpdater = (threads: readonly Thread[] | null) => readonly Thread[
 export class AppServerQueryCache {
   readonly client: QueryClient;
   private readonly clientRunner: AppServerQueryClientRunner | null;
+  private readonly activeThreadCursors = new Map<string, string | null>();
 
   constructor(options: { client?: QueryClient; clientRunner?: AppServerQueryClientRunner } = {}) {
     this.client = options.client ?? createAppServerQueryClient();
@@ -61,6 +62,7 @@ export class AppServerQueryCache {
   }
 
   clear(): void {
+    this.activeThreadCursors.clear();
     this.client.clear();
   }
 
@@ -69,6 +71,7 @@ export class AppServerQueryCache {
     const filter = appServerQueriesFilter(context);
     void this.client.cancelQueries(filter);
     this.client.removeQueries(filter);
+    this.activeThreadCursors.delete(this.activeThreadCursorKey(context));
   }
 
   activeThreadsSnapshot(context: AppServerQueryContext): readonly Thread[] | null {
@@ -105,6 +108,41 @@ export class AppServerQueryCache {
 
   async refreshActiveThreads(context: AppServerQueryContext): Promise<readonly Thread[]> {
     return this.fetchActiveThreads(context, { force: true });
+  }
+
+  async fetchAllActiveThreads(context: AppServerQueryContext): Promise<readonly Thread[]> {
+    const refreshContext = cloneAppServerQueryContext(context);
+    if (!appServerQueryContextIsComplete(refreshContext)) return [];
+    const cursorKey = this.activeThreadCursorKey(refreshContext);
+    const snapshot = this.activeThreadsSnapshot(refreshContext);
+    if (snapshot && this.activeThreadCursors.has(cursorKey) && !this.activeThreadCursors.get(cursorKey)) return snapshot;
+    const threads = await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath));
+    this.setActiveThreads(refreshContext, threads);
+    this.rememberActiveThreadCursor(refreshContext, null);
+    return cloneThreads(threads);
+  }
+
+  hasMoreActiveThreads(context: AppServerQueryContext): boolean {
+    if (!appServerQueryContextIsComplete(context)) return false;
+    return Boolean(this.activeThreadCursors.get(this.activeThreadCursorKey(context)));
+  }
+
+  async loadMoreActiveThreads(context: AppServerQueryContext): Promise<readonly Thread[]> {
+    const refreshContext = cloneAppServerQueryContext(context);
+    if (!appServerQueryContextIsComplete(refreshContext)) return [];
+    const current = this.activeThreadsSnapshot(refreshContext) ?? (await this.fetchActiveThreads(refreshContext));
+    const cursor = this.activeThreadCursors.get(this.activeThreadCursorKey(refreshContext)) ?? null;
+    if (!cursor) return current;
+    const page = await this.runWithClient(refreshContext, (client) =>
+      readThreadPage(client, refreshContext.vaultPath, { cursor, archived: false }),
+    );
+    if (page.nextCursor === cursor) throw new Error("Codex app-server returned a repeated thread list cursor.");
+    const latest = this.activeThreadsSnapshot(refreshContext) ?? current;
+    const existingIds = new Set(latest.map((thread) => thread.id));
+    const threads = [...latest, ...page.threads.filter((thread) => !existingIds.has(thread.id))];
+    this.setActiveThreads(refreshContext, threads);
+    this.rememberActiveThreadCursor(refreshContext, page.nextCursor);
+    return cloneThreads(threads);
   }
 
   async refreshArchivedThreads(context: AppServerQueryContext): Promise<readonly Thread[]> {
@@ -243,10 +281,15 @@ export class AppServerQueryCache {
     return {
       queryKey: this.threadListQueryKey(refreshContext, kind),
       queryFn: async (): Promise<readonly Thread[]> => {
+        if (kind === "active") {
+          const page = await this.runWithClient(refreshContext, (client) =>
+            readThreadPage(client, refreshContext.vaultPath, { archived: false }),
+          );
+          this.rememberActiveThreadCursor(refreshContext, page.nextCursor);
+          return cloneThreads(page.threads);
+        }
         return cloneThreads(
-          await this.runWithClient(refreshContext, (client) =>
-            listThreads(client, refreshContext.vaultPath, { archived: kind === "archived" }),
-          ),
+          await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath, { archived: true })),
         );
       },
       staleTime: THREAD_LIST_STALE_TIME_MS,
@@ -370,6 +413,22 @@ export class AppServerQueryCache {
       throw new Error("Codex app-server query client runner is not configured.");
     }
     return this.clientRunner.runWithClient(context, operation, options);
+  }
+
+  private activeThreadCursorKey(context: AppServerQueryContext): string {
+    return JSON.stringify(activeThreadsQueryKey(context));
+  }
+
+  private rememberActiveThreadCursor(context: AppServerQueryContext, cursor: string | null): void {
+    const key = this.activeThreadCursorKey(context);
+    this.activeThreadCursors.delete(key);
+    this.activeThreadCursors.set(key, cursor);
+    while (this.activeThreadCursors.size > 8) {
+      for (const oldestKey of this.activeThreadCursors.keys()) {
+        this.activeThreadCursors.delete(oldestKey);
+        break;
+      }
+    }
   }
 }
 

@@ -35,6 +35,13 @@
   overflow: auto;
 }
 
+.codex-panel-threads__load-more {
+  flex: 0 0 auto;
+  justify-content: center;
+  color: var(--codex-panel-text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
 .codex-panel-threads__row {
   grid-template-columns: minmax(0, 1fr) 0;
   gap: 0;

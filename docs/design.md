@@ -54,6 +54,8 @@ Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex 
 
 Thread history, archived state, forks, catalog snapshots, and other app-server resources should follow app-server semantics. Panel-side views are read models over app-server snapshots and lifecycle events; stale or partial refreshes must not overwrite newer state. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
 
+Routine panel and Threads view refreshes should load only the first recency-ordered thread page. Older active threads are appended through an explicit load-more action; workflows that explicitly need a complete inventory, such as opening the thread picker, may finish pagination on demand.
+
 Selection rewrite is intentionally scoped to a focused edit-and-review workflow. Avoid expanding it into a broader writing assistant without a separate design decision.
 
 Server requests should become panel UI only when the user can naturally answer them in context. Unknown or unsupported requests should stay diagnostic instead of pretending to be normal conversation text.

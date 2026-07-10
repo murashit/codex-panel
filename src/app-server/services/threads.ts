@@ -57,10 +57,15 @@ export interface AppServerStartEphemeralThreadOptions {
   developerInstructions: string;
 }
 
-interface AppServerThreadListOptions {
+export interface AppServerThreadListOptions {
   archived?: boolean;
   cursor?: string | null;
   limit?: number | null;
+}
+
+export interface ThreadPage {
+  readonly threads: readonly Thread[];
+  readonly nextCursor: string | null;
 }
 
 export function startThread(
@@ -107,19 +112,19 @@ export function resumeThread(
 
 export async function listThreads(client: AppServerRequestClient, cwd: string, options: { archived?: boolean } = {}): Promise<Thread[]> {
   const archived = options.archived ?? false;
-  const records: ThreadRecord[] = [];
+  const threads: Thread[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
 
   for (;;) {
-    const response = await listThreadPage(client, cwd, {
+    const page = await readThreadPage(client, cwd, {
       archived,
       cursor,
       limit: THREAD_LIST_PAGE_LIMIT,
     });
-    records.push(...response.data);
+    threads.push(...page.threads);
 
-    cursor = response.nextCursor ?? null;
+    cursor = page.nextCursor;
     if (!cursor) break;
     if (seenCursors.has(cursor)) {
       throw new Error("Codex app-server returned a repeated thread list cursor.");
@@ -127,7 +132,24 @@ export async function listThreads(client: AppServerRequestClient, cwd: string, o
     seenCursors.add(cursor);
   }
 
-  return threadsFromThreadRecords(records, { archived });
+  return threads;
+}
+
+export async function readThreadPage(
+  client: AppServerRequestClient,
+  cwd: string,
+  options: AppServerThreadListOptions = {},
+): Promise<ThreadPage> {
+  const archived = options.archived ?? false;
+  const page = await readThreadRecordPage(client, cwd, {
+    ...options,
+    archived,
+    limit: options.limit ?? THREAD_LIST_PAGE_LIMIT,
+  });
+  return {
+    threads: threadsFromThreadRecords(page.data, { archived }),
+    nextCursor: page.nextCursor ?? null,
+  };
 }
 
 export function threadFromAppServerRecord(thread: ThreadRecord, options: { archived?: boolean } = {}): Thread {
@@ -294,7 +316,7 @@ export function listThreadTurns(
   });
 }
 
-function listThreadPage(client: AppServerRequestClient, cwd: string, options: AppServerThreadListOptions) {
+function readThreadRecordPage(client: AppServerRequestClient, cwd: string, options: AppServerThreadListOptions) {
   return client.request("thread/list", {
     cwd,
     ...(options.cursor ? { cursor: options.cursor } : {}),

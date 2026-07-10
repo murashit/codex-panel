@@ -13,7 +13,7 @@ describe("threadPickerSuggestions", () => {
       thread({ id: "thread-beta", name: "Recent unrelated alpha mention", updatedAt: 30 }),
       thread({ id: "alpha-thread", name: "Newest unrelated", updatedAt: 40 }),
     ]);
-    const suggestions = modal.getSuggestions("alpha");
+    const suggestions = await modal.getSuggestions("alpha");
 
     expect(suggestions.map((item) => item.thread.id)).toEqual(["alpha-thread", "thread-beta", "thread-alpha"]);
   });
@@ -23,7 +23,7 @@ describe("threadPickerSuggestions", () => {
       thread({ id: "updated-newer", updatedAt: 20, recencyAt: 10 }),
       thread({ id: "recent", updatedAt: 10, recencyAt: 30 }),
     ]);
-    const suggestions = modal.getSuggestions("");
+    const suggestions = await modal.getSuggestions("");
 
     expect(suggestions.map((item) => item.thread.id)).toEqual(["recent", "updated-newer"]);
   });
@@ -32,9 +32,21 @@ describe("threadPickerSuggestions", () => {
     const modal = await openedThreadPicker(
       Array.from({ length: 25 }, (_, index) => thread({ id: `thread-${String(index + 1)}`, name: "Match" })),
     );
-    const suggestions = modal.getSuggestions("match");
+    const suggestions = await modal.getSuggestions("match");
 
     expect(suggestions).toHaveLength(25);
+  });
+
+  it("loads complete history only when a search needs it", async () => {
+    const host = threadPickerHost([thread({ id: "recent" })], [thread({ id: "recent" }), thread({ id: "older-target", name: "Needle" })]);
+    const modal = await openedThreadPicker(host);
+
+    expect((await modal.getSuggestions("")).map((item) => item.thread.id)).toEqual(["recent"]);
+    expect(host.completeHistoryLoads).toBe(0);
+
+    const [needleSuggestions] = await Promise.all([modal.getSuggestions("needle"), modal.getSuggestions("target")]);
+    expect(needleSuggestions.map((item) => item.thread.id)).toEqual(["older-target"]);
+    expect(host.completeHistoryLoads).toBe(1);
   });
 });
 
@@ -43,8 +55,8 @@ describe("threadOpenModeFromEvent", () => {
     const host = threadPickerHost([thread({ id: "thread" })]);
     const modal = await openedThreadPicker(host);
 
-    modal.onChooseSuggestion(firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter" }));
-    modal.onChooseSuggestion(firstSuggestion(modal), new MouseEvent("click"));
+    modal.onChooseSuggestion(await firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter" }));
+    modal.onChooseSuggestion(await firstSuggestion(modal), new MouseEvent("click"));
 
     expect(host.openedCurrent).toEqual(["thread", "thread"]);
     expect(host.openedAvailable).toEqual([]);
@@ -54,8 +66,8 @@ describe("threadOpenModeFromEvent", () => {
     const host = threadPickerHost([thread({ id: "thread" })]);
     const modal = await openedThreadPicker(host);
 
-    modal.onChooseSuggestion(firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter", metaKey: true }));
-    modal.onChooseSuggestion(firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true }));
+    modal.onChooseSuggestion(await firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter", metaKey: true }));
+    modal.onChooseSuggestion(await firstSuggestion(modal), new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true }));
 
     expect(host.openedCurrent).toEqual([]);
     expect(host.openedAvailable).toEqual(["thread", "thread"]);
@@ -68,7 +80,7 @@ interface ThreadSuggestion {
 }
 
 interface CapturedThreadPickerModal {
-  getSuggestions(query: string): ThreadSuggestion[];
+  getSuggestions(query: string): Promise<ThreadSuggestion[]>;
   onChooseSuggestion(item: ThreadSuggestion, evt: MouseEvent | KeyboardEvent): void;
 }
 
@@ -88,8 +100,8 @@ async function openedThreadPicker(input: readonly Thread[] | TestThreadPickerHos
   return modal;
 }
 
-function firstSuggestion(modal: CapturedThreadPickerModal): ThreadSuggestion {
-  const suggestion = modal.getSuggestions("")[0];
+async function firstSuggestion(modal: CapturedThreadPickerModal): Promise<ThreadSuggestion> {
+  const suggestion = (await modal.getSuggestions(""))[0];
   if (!suggestion) throw new Error("Expected thread picker suggestion");
   return suggestion;
 }
@@ -101,19 +113,24 @@ function isThreadPickerHost(input: readonly Thread[] | TestThreadPickerHost): in
 interface TestThreadPickerHost extends ThreadPickerHost {
   openedCurrent: string[];
   openedAvailable: string[];
+  completeHistoryLoads: number;
 }
 
-function threadPickerHost(threads: readonly Thread[]): TestThreadPickerHost {
+function threadPickerHost(firstPage: readonly Thread[], completeHistory: readonly Thread[] = firstPage): TestThreadPickerHost {
   const openedCurrent: string[] = [];
   const openedAvailable: string[] = [];
-  return {
+  const host: TestThreadPickerHost = {
     app: {} as never,
     openedCurrent,
     openedAvailable,
+    completeHistoryLoads: 0,
     threadCatalog: {
       activeSnapshot: () => null,
-      loadActive: async () => threads,
-      refreshActive: async () => threads,
+      loadActive: async () => {
+        host.completeHistoryLoads += 1;
+        return completeHistory;
+      },
+      refreshActive: async () => firstPage,
       observeActive: () => () => undefined,
     },
     openThreadInCurrentView: async (threadId) => {
@@ -123,6 +140,7 @@ function threadPickerHost(threads: readonly Thread[]): TestThreadPickerHost {
       openedAvailable.push(threadId);
     },
   };
+  return host;
 }
 
 function thread(options: Partial<Thread> & { id: string }): Thread {

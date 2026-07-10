@@ -230,6 +230,30 @@ describe("AppServerQueryCache", () => {
     expect(fetchThreads).toHaveBeenNthCalledWith(2, context, true);
   });
 
+  it("loads active thread history one page at a time", async () => {
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
+      .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    const context = cacheContext();
+
+    await expect(cache.refreshActiveThreads(context)).resolves.toEqual([thread("first")]);
+    expect(cache.hasMoreActiveThreads(context)).toBe(true);
+    expect(listThreads).toHaveBeenCalledOnce();
+
+    await expect(cache.loadMoreActiveThreads(context)).resolves.toEqual([thread("first"), thread("second")]);
+    expect(cache.hasMoreActiveThreads(context)).toBe(false);
+    expect(listThreads).toHaveBeenNthCalledWith(2, {
+      cwd: "/vault",
+      cursor: "page-2",
+      archived: false,
+      limit: 100,
+      sortKey: "recency_at",
+      sortDirection: "desc",
+    });
+  });
+
   it("keys thread list refresh snapshots by app-server query context", async () => {
     const oldContext = cacheContext({ codexPath: "codex-old" });
     const newContext = cacheContext({ codexPath: "codex-new" });

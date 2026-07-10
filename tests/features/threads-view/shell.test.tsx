@@ -52,6 +52,7 @@ function rowFixture(overrides: Partial<ThreadsRowModel> = {}): ThreadsRowModel {
 function threadsViewActions() {
   return {
     refresh: vi.fn(),
+    loadMore: vi.fn(),
     openNewPanel: vi.fn(),
     openThread: vi.fn(),
     startRename: vi.fn(),
