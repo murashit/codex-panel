@@ -32,6 +32,7 @@ import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads } from "./s
 const THREAD_LIST_STALE_TIME_MS = 10_000;
 const APP_SERVER_METADATA_STALE_TIME_MS = 10_000;
 const MODELS_STALE_TIME_MS = 60_000;
+const APP_SERVER_QUERY_GC_TIME_MS = 5 * 60_000;
 
 export interface AppServerQueryClientRunner {
   runWithClient<T>(
@@ -388,7 +389,7 @@ function createAppServerQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        gcTime: Infinity,
+        gcTime: APP_SERVER_QUERY_GC_TIME_MS,
         retry: false,
         refetchOnReconnect: false,
         refetchOnWindowFocus: false,

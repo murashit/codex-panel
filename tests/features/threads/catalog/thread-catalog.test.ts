@@ -194,6 +194,22 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
   });
 
+  it("evicts lifecycle facts for least-recently-used connection contexts", () => {
+    const context = { codexPath: "codex-a", vaultPath: "/vault" };
+    const { catalog } = catalogFixture({ context: () => context });
+    catalog.apply({ type: "thread-started", thread: thread("started-a") });
+
+    for (const suffix of ["b", "c", "d", "e"]) {
+      context.codexPath = `codex-${suffix}`;
+      catalog.activeSnapshot();
+    }
+
+    context.codexPath = "codex-a";
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("server-a")] });
+
+    expect(catalog.activeSnapshot()).toEqual([thread("server-a")]);
+  });
+
   it("keeps rollback fork metadata until active snapshots catch up to the rollback version", () => {
     const { catalog } = catalogFixture();
     const forkBeforeRollback = thread("forked", false, { name: "Before", preview: "Before rollback", updatedAt: 20 });

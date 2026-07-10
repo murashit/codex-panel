@@ -2,6 +2,7 @@ import type { ObservedResultListener } from "../../../app-server/query/observed-
 import type { Thread } from "../../../domain/threads/model";
 
 type ThreadListObserver = ObservedResultListener<readonly Thread[]>;
+const MAX_RETAINED_THREAD_CATALOG_CONTEXTS = 4;
 
 interface ThreadCatalogStore {
   contextKey(): string;
@@ -113,7 +114,20 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
 
 function threadCatalogFactsForContext(factsByContext: Map<string, ThreadCatalogFacts>, contextKey: string): ThreadCatalogFacts {
   const existing = factsByContext.get(contextKey);
-  if (existing) return existing;
+  if (existing) {
+    factsByContext.delete(contextKey);
+    factsByContext.set(contextKey, existing);
+    return existing;
+  }
+  while (factsByContext.size >= MAX_RETAINED_THREAD_CATALOG_CONTEXTS) {
+    let leastRecentlyUsed: string | undefined;
+    for (const key of factsByContext.keys()) {
+      leastRecentlyUsed = key;
+      break;
+    }
+    if (leastRecentlyUsed === undefined) break;
+    factsByContext.delete(leastRecentlyUsed);
+  }
   const facts = {
     active: pendingThreadListFacts(),
     archived: pendingThreadListFacts(),

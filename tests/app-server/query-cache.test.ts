@@ -17,6 +17,12 @@ import {
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 
 describe("AppServerQueryCache", () => {
+  it("allows inactive query contexts to be garbage-collected", () => {
+    const cache = new AppServerQueryCache();
+
+    expect(cache.client.getDefaultOptions().queries?.gcTime).toBe(300_000);
+  });
+
   it("preserves successful metadata resource values when probes fail", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
