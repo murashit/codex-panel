@@ -441,7 +441,17 @@ function shouldUseActiveSegment(
 }
 
 function appendActiveSegmentItem(segment: ChatThreadStreamActiveSegment, item: ThreadStreamItem): ChatThreadStreamActiveSegment {
-  return activeSegmentFromItems(segment.turnId, [...segment.items, item]);
+  const index = segment.items.length;
+  const indexById = new Map(segment.indexById);
+  indexById.set(item.id, index);
+  const indexBySourceItemId = new Map(segment.indexBySourceItemId);
+  if (item.sourceItemId) indexBySourceItemId.set(item.sourceItemId, index);
+  return {
+    turnId: segment.turnId,
+    items: [...segment.items, item],
+    indexById,
+    indexBySourceItemId,
+  };
 }
 
 function upsertActiveSegmentItem(segment: ChatThreadStreamActiveSegment, item: ThreadStreamItem): ChatThreadStreamActiveSegment {
@@ -461,6 +471,9 @@ function replaceActiveSegmentItem(
   if (next === previous) return segment;
   const items = [...segment.items];
   items[index] = next;
+  if (next.id === previous.id && next.sourceItemId === previous.sourceItemId) {
+    return { ...segment, items };
+  }
   return activeSegmentFromItems(segment.turnId, items);
 }
 
