@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -26,24 +26,44 @@ describe("development scripts", () => {
       cwd,
       async runCommand(command: string, args: string[], options: { cwd: string }) {
         calls.push({ command, args, cwd: options.cwd });
-        await mkdir(path.join(options.cwd, "src", "generated", "app-server", "v2"), { recursive: true });
+        const outIndex = args.indexOf("--out");
+        const outputDir = args[outIndex + 1];
+        if (!outputDir) throw new Error("Missing generated output directory");
+        await mkdir(path.join(options.cwd, outputDir, "v2"), { recursive: true });
         await writeFile(
-          path.join(options.cwd, "src", "generated", "app-server", "v2", "Example.ts"),
+          path.join(options.cwd, outputDir, "v2", "Example.ts"),
           "// GENERATED CODE! DO NOT MODIFY BY HAND!\nexport type Example = string | null | null;\n",
         );
       },
     });
 
-    expect(calls).toEqual([
-      {
-        command: "codex",
-        args: ["app-server", "generate-ts", "--experimental", "--out", "src/generated/app-server"],
-        cwd,
-      },
-    ]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ command: "codex", cwd });
+    expect(calls[0]?.args.slice(0, 4)).toEqual(["app-server", "generate-ts", "--experimental", "--out"]);
+    expect(calls[0]?.args[4]?.replaceAll("\\", "/")).toMatch(/^src\/generated\/\.app-server-/);
     await expect(readFile(path.join(cwd, "src", "generated", "app-server", "v2", "Example.ts"), "utf8")).resolves.toContain(
       "export type Example = string | null;",
     );
+  });
+
+  it("preserves generated bindings when generation fails", async () => {
+    const cwd = await tempWorkspace();
+    const generatedDir = path.join(cwd, "src", "generated", "app-server");
+    await mkdir(generatedDir, { recursive: true });
+    await writeFile(path.join(generatedDir, "Existing.ts"), "export type Existing = true;\n");
+    const { generateAppServerTypes } = await import(pathToFileURL(path.join(repoRoot, "scripts", "generate-app-server-types.mjs")).href);
+
+    await expect(
+      generateAppServerTypes({
+        cwd,
+        runCommand: async () => {
+          throw new Error("generation failed");
+        },
+      }),
+    ).rejects.toThrow("generation failed");
+
+    await expect(readFile(path.join(generatedDir, "Existing.ts"), "utf8")).resolves.toBe("export type Existing = true;\n");
+    await expect(readdir(path.join(cwd, "src", "generated"))).resolves.toEqual(["app-server"]);
   });
 
   it("reads app-server compatibility policy from the declared baseline in API baseline checks", async () => {

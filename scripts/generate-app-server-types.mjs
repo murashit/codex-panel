@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,21 +8,54 @@ const generatedHeader = "// GENERATED CODE! DO NOT MODIFY BY HAND!";
 const normalizationNotice = "// This file was mechanically normalized after generation by scripts/generate-app-server-types.mjs.";
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  await generateAppServerTypes();
+  try {
+    await generateAppServerTypes();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
 }
 
 export async function generateAppServerTypes(options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const generatedDir = path.resolve(cwd, generatedRelativeDir);
   const runCommand = options.runCommand ?? run;
-  await cleanGeneratedTypes(generatedDir);
-  await runCommand("codex", ["app-server", "generate-ts", "--experimental", "--out", generatedRelativeDir], { cwd });
-  await normalizeGeneratedTypes(generatedDir);
+  const generatedParent = path.dirname(generatedDir);
+  await mkdir(generatedParent, { recursive: true });
+  const stagedDir = await mkdtemp(path.join(generatedParent, ".app-server-"));
+  try {
+    const stagedRelativeDir = path.relative(cwd, stagedDir);
+    await runCommand("codex", ["app-server", "generate-ts", "--experimental", "--out", stagedRelativeDir], { cwd });
+    await normalizeGeneratedTypes(stagedDir);
+    await replaceGeneratedTypes(generatedDir, stagedDir);
+  } finally {
+    await rm(stagedDir, { recursive: true, force: true });
+  }
 }
 
-async function cleanGeneratedTypes(generatedDir) {
-  await rm(generatedDir, { recursive: true, force: true });
-  await mkdir(generatedDir, { recursive: true });
+async function replaceGeneratedTypes(generatedDir, stagedDir) {
+  const backupDir = `${generatedDir}.backup-${process.pid.toString()}-${Date.now().toString()}`;
+  let hasBackup = false;
+  try {
+    try {
+      await rename(generatedDir, backupDir);
+      hasBackup = true;
+    } catch (error) {
+      if (!isMissingPathError(error)) throw error;
+    }
+    await rename(stagedDir, generatedDir);
+    if (hasBackup) await rm(backupDir, { recursive: true, force: true });
+  } catch (error) {
+    if (hasBackup) {
+      await rm(generatedDir, { recursive: true, force: true });
+      await rename(backupDir, generatedDir);
+    }
+    throw error;
+  }
+}
+
+function isMissingPathError(error) {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 async function normalizeGeneratedTypes(generatedDir) {
@@ -72,8 +105,7 @@ function run(command, args, options = {}) {
     shell: false,
   });
   if (result.error) {
-    console.error(`Failed to run ${command} ${args.join(" ")}: ${result.error.message}`);
-    process.exit(1);
+    throw new Error(`Failed to run ${command} ${args.join(" ")}: ${result.error.message}`);
   }
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} exited with status ${(result.status ?? 1).toString()}.`);
 }
