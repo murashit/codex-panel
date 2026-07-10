@@ -1,10 +1,72 @@
 import { type App, type EventRef, TFile } from "obsidian";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const dailyNotesInterface = vi.hoisted(() => ({
+  appHasDailyNotesPluginLoaded: vi.fn<() => boolean>(),
+  getDailyNoteSettings: vi.fn(),
+}));
+
+vi.mock("obsidian-daily-notes-interface", () => dailyNotesInterface);
 
 import { VaultComposerContextReferenceProvider } from "../../../../src/features/chat/host/obsidian/vault-composer-context-reference-provider.obsidian";
+import {
+  configuredDailyNoteReferences,
+  dailyNoteReferencesFromSettings,
+} from "../../../../src/features/chat/host/obsidian/vault-daily-note-references.obsidian";
 import { VaultNoteCandidateProvider } from "../../../../src/features/chat/host/obsidian/vault-note-candidate-provider.obsidian";
 
 describe("VaultNoteCandidateProvider", () => {
+  beforeEach(() => {
+    dailyNotesInterface.appHasDailyNotesPluginLoaded.mockReset().mockReturnValue(false);
+    dailyNotesInterface.getDailyNoteSettings.mockReset().mockReturnValue(undefined);
+  });
+
+  it("keeps optional daily-note integration failures out of composer suggestions", () => {
+    dailyNotesInterface.appHasDailyNotesPluginLoaded.mockImplementation(() => {
+      throw new Error("Daily Notes API unavailable");
+    });
+
+    expect(configuredDailyNoteReferences(appFixture(), "Inbox.md")).toEqual([]);
+  });
+
+  it("builds relative references from the configured daily-note folder and format", () => {
+    const existingToday = tFile("Journal/2026/07/2026-07-10.md", "2026-07-10");
+    const fileToLinktext = vi.fn((file: TFile) => (file === existingToday ? "2026-07-10" : file.path));
+    const app = appFixture({
+      abstractFiles: new Map([[existingToday.path, existingToday]]),
+      fileToLinktext,
+    });
+
+    expect(
+      dailyNoteReferencesFromSettings(
+        app,
+        "Projects/Codex.md",
+        { folder: "Journal", format: "YYYY/MM/YYYY-MM-DD", template: "" },
+        new Date(2026, 6, 10, 12),
+      ),
+    ).toEqual([
+      {
+        keyword: "today",
+        display: "Today",
+        path: "Journal/2026/07/2026-07-10.md",
+        linktext: "2026-07-10",
+      },
+      {
+        keyword: "tomorrow",
+        display: "Tomorrow",
+        path: "Journal/2026/07/2026-07-11.md",
+        linktext: "Journal/2026/07/2026-07-11",
+      },
+      {
+        keyword: "yesterday",
+        display: "Yesterday",
+        path: "Journal/2026/07/2026-07-09.md",
+        linktext: "Journal/2026/07/2026-07-09",
+      },
+    ]);
+    expect(fileToLinktext).toHaveBeenCalledWith(existingToday, "Projects/Codex.md", true);
+  });
+
   it("builds note candidates from markdown files", () => {
     const app = appFixture({
       files: [

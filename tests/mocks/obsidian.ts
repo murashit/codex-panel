@@ -1,8 +1,12 @@
+import Moment from "moment";
+
 import { installObsidianElementHelpers } from "../support/obsidian-dom";
 
 export type App = Record<string, never>;
 
 export const notices: string[] = [];
+
+export const moment = Moment;
 
 export const Platform = {
   isDesktop: true,

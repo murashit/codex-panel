@@ -44,6 +44,7 @@
     "eslint-plugin-obsidianmd": "^0.4.1",
     "jsdom": "^29.1.1",
     "knip": "^6.24.0",
+    "moment": "^2.29.4",
     "obsidian": "~1.12.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1",
@@ -54,6 +55,7 @@
     "@tanstack/query-core": "^5.101.2",
     "defuddle": "^0.19.1",
     "micromark": "^4.0.2",
+    "obsidian-daily-notes-interface": "^0.9.5",
     "preact": "^10.29.3"
   }
 }

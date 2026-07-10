@@ -1,0 +1,50 @@
+import type { Moment, MomentInput } from "moment";
+import { type App, moment, normalizePath, TFile } from "obsidian";
+import { appHasDailyNotesPluginLoaded, getDailyNoteSettings, type IPeriodicNoteSettings } from "obsidian-daily-notes-interface";
+
+import type { DailyNoteReferenceCandidate } from "../../application/composer/daily-note-references";
+import { linktextForFile } from "./vault-note-links.obsidian";
+
+const RELATIVE_DAILY_NOTES = [
+  { keyword: "today", display: "Today", dayOffset: 0 },
+  { keyword: "tomorrow", display: "Tomorrow", dayOffset: 1 },
+  { keyword: "yesterday", display: "Yesterday", dayOffset: -1 },
+] as const;
+
+export function configuredDailyNoteReferences(app: App, sourcePath: string): readonly DailyNoteReferenceCandidate[] {
+  try {
+    if (!appHasDailyNotesPluginLoaded()) return [];
+    const settings = getDailyNoteSettings() as IPeriodicNoteSettings | undefined;
+    if (!settings?.format) return [];
+    return dailyNoteReferencesFromSettings(app, sourcePath, settings, new Date());
+  } catch {
+    return [];
+  }
+}
+
+export function dailyNoteReferencesFromSettings(
+  app: App,
+  sourcePath: string,
+  settings: IPeriodicNoteSettings,
+  referenceDate: Date,
+): readonly DailyNoteReferenceCandidate[] {
+  const format = settings.format;
+  if (!format) return [];
+  const createMoment = moment as unknown as (input?: MomentInput) => Moment;
+  return RELATIVE_DAILY_NOTES.map(({ keyword, display, dayOffset }) => {
+    const filename = createMoment(referenceDate).add(dayOffset, "day").format(format);
+    const path = dailyNotePath(settings.folder ?? "", filename);
+    const existingFile = app.vault.getAbstractFileByPath(path);
+    return {
+      keyword,
+      display,
+      path,
+      linktext: existingFile instanceof TFile ? linktextForFile(app, existingFile, sourcePath) : path.replace(/\.md$/i, ""),
+    };
+  });
+}
+
+function dailyNotePath(folder: string, filename: string): string {
+  const markdownFilename = filename.toLowerCase().endsWith(".md") ? filename : `${filename}.md`;
+  return normalizePath(folder ? `${folder}/${markdownFilename}` : markdownFilename);
+}

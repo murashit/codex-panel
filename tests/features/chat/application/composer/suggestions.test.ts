@@ -281,6 +281,55 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
   });
 
+  it("resolves relative daily-note references to configured wikilinks", () => {
+    const dailyNoteReferences = [
+      {
+        keyword: "today",
+        display: "Today",
+        path: "Journal/2026/07/2026-07-10.md",
+        linktext: "Journal/2026/07/2026-07-10",
+      },
+      {
+        keyword: "tomorrow",
+        display: "Tomorrow",
+        path: "Journal/2026/07/2026-07-11.md",
+        linktext: "Journal/2026/07/2026-07-11",
+      },
+      {
+        keyword: "yesterday",
+        display: "Yesterday",
+        path: "Journal/2026/07/2026-07-09.md",
+        linktext: "Journal/2026/07/2026-07-09",
+      },
+    ] as const;
+
+    expect(
+      activeComposerSuggestions("@to", notes, [], [], [], null, {
+        dailyNoteReferences,
+      }),
+    ).toMatchObject([
+      {
+        display: "Today",
+        detail: "Journal/2026/07/2026-07-10.md",
+        replacement: "[[Journal/2026/07/2026-07-10]]",
+      },
+      {
+        display: "Tomorrow",
+        detail: "Journal/2026/07/2026-07-11.md",
+        replacement: "[[Journal/2026/07/2026-07-11]]",
+      },
+    ]);
+    expect(
+      activeComposerSuggestions("Please inspect @yesterday", notes, [], [], [], null, {
+        dailyNoteReferences,
+      })[0],
+    ).toMatchObject({
+      display: "Yesterday",
+      detail: "Journal/2026/07/2026-07-09.md",
+      replacement: "[[Journal/2026/07/2026-07-09]]",
+    });
+  });
+
   it("suggests Obsidian tags after a hash trigger", () => {
     const options = {
       tagCandidates: ["project/codex", "project/obsidian", "daily-note", "web"],

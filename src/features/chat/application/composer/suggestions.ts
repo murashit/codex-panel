@@ -18,6 +18,7 @@ import {
   type SelectionContextReference,
   selectionContextReferenceMarker,
 } from "./context-references";
+import type { DailyNoteReferenceCandidate } from "./daily-note-references";
 import { SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
 
 export interface ComposerSuggestion {
@@ -35,6 +36,7 @@ export interface ComposerSuggestion {
 export interface ComposerSuggestionOptions {
   activeThreadId?: string | null;
   contextReferences?: ComposerContextReferences;
+  dailyNoteReferences?: readonly DailyNoteReferenceCandidate[] | (() => readonly DailyNoteReferenceCandidate[]);
   permissionProfiles?: readonly RuntimePermissionProfileSummary[];
   tagCandidates?: readonly string[] | (() => readonly string[]);
 }
@@ -112,7 +114,7 @@ export function activeComposerSuggestions(
 ): ComposerSuggestion[] {
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
-    activeContextReferenceSuggestions(beforeCursor, options.contextReferences) ??
+    activeContextReferenceSuggestions(beforeCursor, options.contextReferences, options.dailyNoteReferences) ??
     activeTagSuggestions(beforeCursor, options.tagCandidates ?? []) ??
     activeSlashSubcommandSuggestions(beforeCursor) ??
     activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
@@ -128,6 +130,7 @@ export function activeComposerSuggestions(
 function activeContextReferenceSuggestions(
   beforeCursor: string,
   references: ComposerContextReferences | undefined,
+  dailyNoteReferences: readonly DailyNoteReferenceCandidate[] | (() => readonly DailyNoteReferenceCandidate[]) | undefined,
 ): ComposerSuggestion[] | null {
   const match = /(^|[\s([{])@([A-Za-z-]{0,120})$/.exec(beforeCursor);
   if (!match) return null;
@@ -155,7 +158,23 @@ function activeContextReferenceSuggestions(
       selectionContext: references.selection,
     });
   }
+  const matchingDailyNotes = dailyNoteReferenceList(dailyNoteReferences).filter((candidate) => candidate.keyword.startsWith(query));
+  suggestions.push(
+    ...matchingDailyNotes.map((candidate) => ({
+      display: candidate.display,
+      detail: candidate.path,
+      replacement: `[[${candidate.linktext}]]`,
+      start,
+    })),
+  );
   return suggestions.slice(0, 8);
+}
+
+function dailyNoteReferenceList(
+  references: readonly DailyNoteReferenceCandidate[] | (() => readonly DailyNoteReferenceCandidate[]) | undefined,
+): readonly DailyNoteReferenceCandidate[] {
+  if (!references) return [];
+  return typeof references === "function" ? references() : references;
 }
 
 export function applyComposerSuggestionInsertion(

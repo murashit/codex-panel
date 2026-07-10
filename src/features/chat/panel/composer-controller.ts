@@ -249,6 +249,7 @@ export class ChatComposerController {
       {
         activeThreadId: state.activeThread.id,
         contextReferences: this.contextReferences(),
+        dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: state.connection.availablePermissionProfiles,
         tagCandidates: () => this.options.noteCandidateProvider.tags(),
       },
@@ -299,6 +300,7 @@ export class ChatComposerController {
       {
         activeThreadId: state.activeThread.id,
         contextReferences: this.contextReferences(),
+        dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: state.connection.availablePermissionProfiles,
         tagCandidates: () => this.options.noteCandidateProvider.tags(),
       },

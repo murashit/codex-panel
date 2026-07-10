@@ -3,6 +3,7 @@ import { stripHeadingForLink, TFile } from "obsidian";
 
 import type { NoteCandidateProvider, WikiLinkMention } from "../../application/composer/note-context";
 import type { NoteCandidate } from "../../application/composer/suggestions";
+import { configuredDailyNoteReferences } from "./vault-daily-note-references.obsidian";
 import { displayNameForFile, linktextForFile } from "./vault-note-links.obsidian";
 
 interface FileCandidate {
@@ -46,6 +47,10 @@ export class VaultNoteCandidateProvider implements NoteCandidateProvider {
 
   candidates(sourcePath: string): readonly NoteCandidate[] {
     return this.shared.catalog.candidates(sourcePath);
+  }
+
+  dailyNoteReferences(sourcePath: string): ReturnType<NoteCandidateProvider["dailyNoteReferences"]> {
+    return configuredDailyNoteReferences(this.app, sourcePath);
   }
 
   tags(): readonly string[] {

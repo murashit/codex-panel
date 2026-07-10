@@ -10,5 +10,10 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
+    server: {
+      deps: {
+        inline: ["obsidian-daily-notes-interface"],
+      },
+    },
   },
 });

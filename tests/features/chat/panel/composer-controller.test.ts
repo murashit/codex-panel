@@ -173,6 +173,32 @@ describe("ChatComposerController", () => {
     expect(tags).not.toHaveBeenCalled();
   });
 
+  it("inserts configured relative daily-note references as wikilinks", () => {
+    const dailyNoteReferences = vi.fn(() => [
+      {
+        keyword: "today" as const,
+        display: "Today",
+        path: "Journal/2026-07-10.md",
+        linktext: "Journal/2026-07-10",
+      },
+    ]);
+    const { controller, parent, stateStore } = composerControllerFixture({
+      controller: {
+        noteCandidateProvider: noteProvider({ dailyNoteReferences }),
+        sourcePath: () => "Inbox.md",
+      },
+    });
+
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "@today");
+    composer(parent).setSelectionRange(6, 6);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+
+    expect(composer(parent).value).toBe("[[Journal/2026-07-10]]");
+    expect(dailyNoteReferences).toHaveBeenCalledWith("Inbox.md");
+  });
+
   it("keeps Tab wikilink insertion before closing brackets while Enter lands after them", () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
@@ -919,6 +945,7 @@ describe("ChatComposerController", () => {
 function noteProvider(overrides: Partial<NoteCandidateProvider> = {}): NoteCandidateProvider {
   return {
     candidates: () => [],
+    dailyNoteReferences: () => [],
     tags: () => [],
     resolveMention: () => null,
     dispose: vi.fn(),
