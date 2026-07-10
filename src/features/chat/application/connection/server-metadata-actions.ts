@@ -1,4 +1,9 @@
-import { cloneServerDiagnostics, diagnosticsWithProbe, upsertMcpServerDiagnostic } from "../../../../domain/server/diagnostics";
+import {
+  cloneServerDiagnostics,
+  diagnosticsWithMetadataResourceProbes,
+  diagnosticsWithProbe,
+  upsertMcpServerDiagnostic,
+} from "../../../../domain/server/diagnostics";
 import type { McpServerStartupStatus } from "../../../../domain/server/mcp-status";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import type { ChatStateStore } from "../state/store";
@@ -54,6 +59,10 @@ async function applyAppServerResourceEvent(host: ServerMetadataActionsHost, even
 }
 
 function applyAppServerMetadata(host: ServerMetadataActionsHost, metadata: SharedServerMetadata): void {
+  const serverDiagnostics = diagnosticsWithMetadataResourceProbes(
+    cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics),
+    metadata.serverDiagnostics,
+  );
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     runtimeConfig: metadata.runtimeConfig,
@@ -61,7 +70,7 @@ function applyAppServerMetadata(host: ServerMetadataActionsHost, metadata: Share
     availableSkills: metadata.availableSkills,
     availablePermissionProfiles: metadata.availablePermissionProfiles,
     rateLimit: metadata.rateLimit,
-    serverDiagnostics: metadata.serverDiagnostics,
+    serverDiagnostics,
   });
 }
 
@@ -164,7 +173,6 @@ function applyMcpStartupStatusEvent(
     toolCount: null,
     message,
   });
-  host.updateAppServerMetadata((metadata) => (metadata ? { ...metadata, serverDiagnostics: diagnostics } : null));
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     serverDiagnostics: diagnostics,
@@ -172,7 +180,7 @@ function applyMcpStartupStatusEvent(
 }
 
 function currentMetadataDiagnostics(host: ServerMetadataActionsHost): SharedServerMetadata["serverDiagnostics"] {
-  return (
-    host.appServerMetadataSnapshot()?.serverDiagnostics ?? cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics)
-  );
+  const current = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
+  const metadata = host.appServerMetadataSnapshot();
+  return metadata ? diagnosticsWithMetadataResourceProbes(current, metadata.serverDiagnostics) : current;
 }

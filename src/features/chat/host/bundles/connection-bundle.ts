@@ -57,7 +57,7 @@ export interface ChatPanelConnectionBundle {
   sharedStateActions: {
     applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
   };
-  clearServerRequestResponders: () => void;
+  invalidateConnectionScope: () => void;
   refreshSharedThreads: () => Promise<void>;
 }
 
@@ -139,7 +139,6 @@ export function createConnectionBundle(
   const serverDiagnostics = createServerDiagnosticsActions({
     stateStore,
     diagnosticsTransport: appServer.serverDiagnostics,
-    updateAppServerMetadata: (updater) => environment.plugin.appServerQueries.updateAppServerMetadata(updater),
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
   });
   const refreshSharedThreads = async (): Promise<void> => {
@@ -212,6 +211,7 @@ export function createConnectionBundle(
           },
           onExit: () => {
             serverRequestResponders.clear();
+            serverDiagnostics.invalidate();
             handleChatConnectionExit(connectionExitHost);
           },
         }),
@@ -266,8 +266,9 @@ export function createConnectionBundle(
         serverMetadata.applyAppServerMetadata(metadata);
       },
     },
-    clearServerRequestResponders: () => {
+    invalidateConnectionScope: () => {
       serverRequestResponders.clear();
+      serverDiagnostics.invalidate();
     },
     refreshSharedThreads,
   };

@@ -1,6 +1,12 @@
 import { QueryClient, QueryObserver, type QueryObserverResult } from "@tanstack/query-core";
 import type { ModelMetadata } from "../../domain/catalog/metadata";
-import { createServerDiagnostics, diagnosticProbeError, diagnosticProbeOk, diagnosticsWithProbe } from "../../domain/server/diagnostics";
+import {
+  createServerDiagnostics,
+  diagnosticProbeError,
+  diagnosticProbeOk,
+  diagnosticsWithProbe,
+  metadataResourceDiagnostics,
+} from "../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { AppServerClient } from "../connection/client";
@@ -390,6 +396,7 @@ function metadataWithLastKnownGood(
     availablePermissionProfiles:
       probes.permissionProfiles.status === "ok" ? metadata.availablePermissionProfiles : (previous?.availablePermissionProfiles ?? []),
     rateLimit: probes.rateLimits.status === "ok" ? metadata.rateLimit : (previous?.rateLimit ?? null),
+    serverDiagnostics: metadataResourceDiagnostics(metadata.serverDiagnostics),
   });
 }
 

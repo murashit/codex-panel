@@ -9,6 +9,8 @@ import {
   diagnosticProbeError,
   diagnosticProbeOk,
   diagnosticsWithProbe,
+  diagnosticsWithToolInventory,
+  upsertMcpServerDiagnostic,
 } from "../../../../../src/domain/server/diagnostics";
 import type { McpServerStatusSummary } from "../../../../../src/domain/server/mcp-status";
 import type { SharedServerMetadata } from "../../../../../src/domain/server/metadata";
@@ -18,6 +20,7 @@ import { createServerDiagnosticsActions } from "../../../../../src/features/chat
 import { createServerMetadataActions } from "../../../../../src/features/chat/application/connection/server-metadata-actions";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { toolInventoryDiagnosticSections } from "../../../../../src/features/chat/presentation/runtime/tool-inventory-diagnostic-sections";
+import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("server metadata actions", () => {
@@ -35,6 +38,60 @@ describe("server metadata actions", () => {
     await actions.refreshAppServerMetadata();
 
     expect(stateStore.getState().connection.availableModels.map((model) => model.model)).toEqual(["gpt-5.1"]);
+  });
+
+  it("preserves panel-local tool diagnostics when applying shared metadata", async () => {
+    const localDiagnostics = diagnosticsWithToolInventory(
+      upsertMcpServerDiagnostic(createServerDiagnostics(), {
+        name: "github",
+        startupStatus: "ready",
+        authStatus: null,
+        toolCount: null,
+        message: null,
+      }),
+      toolInventory(),
+    );
+    const stateStore = createChatStateStore(chatStateFixture({ connection: { serverDiagnostics: localDiagnostics } }));
+    const metadata = serverMetadataFixture({
+      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "1 model", 2)),
+    });
+    const actions = createServerMetadataActions({
+      stateStore,
+      metadataResourceTransport: metadataResourceTransport(),
+      ...metadataCacheHost(),
+      refreshAppServerMetadata: vi.fn().mockResolvedValue(metadata),
+      isStaleSharedQueryError: () => false,
+    });
+
+    await actions.refreshAppServerMetadata();
+
+    expect(stateStore.getState().connection.serverDiagnostics).toMatchObject({
+      probes: { models: { status: "ok", summary: "1 model" } },
+      mcpServers: [{ name: "github", startupStatus: "ready" }],
+      toolInventory: { checkedAt: 1 },
+    });
+  });
+
+  it("keeps MCP startup notifications out of shared metadata", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const cache = { current: serverMetadataFixture() as SharedServerMetadata | null };
+    const actions = createServerMetadataActions({
+      stateStore,
+      metadataResourceTransport: metadataResourceTransport(),
+      ...metadataCacheHost(cache),
+      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
+      isStaleSharedQueryError: () => false,
+    });
+
+    await actions.applyAppServerResourceEvent({
+      type: "mcp-startup-status-updated",
+      name: "github",
+      status: "ready",
+      message: null,
+    });
+
+    expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toMatchObject([{ name: "github", startupStatus: "ready" }]);
+    expect(cache.current?.serverDiagnostics.mcpServers).toEqual([]);
   });
 
   it("ignores stale shared app-server metadata refreshes without applying state", async () => {
@@ -244,18 +301,15 @@ describe("server diagnostics actions", () => {
 
   it("does not apply diagnostic probes when the transport returns no snapshot", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const updateAppServerMetadata = vi.fn(() => null);
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
       diagnosticsTransport: { readServerDiagnostics: vi.fn().mockResolvedValue(null) },
       appServerMetadataSnapshot: () => null,
-      updateAppServerMetadata,
     });
 
     await diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
 
     expect(stateStore.getState().connection.serverDiagnostics.probes.mcpServers.status).toBe("unknown");
-    expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
   it("refreshes tool provider snapshots with cached MCP startup diagnostics", async () => {
@@ -295,6 +349,73 @@ describe("server diagnostics actions", () => {
 
     expect(sections.map((section) => section.title)).toEqual(["Plugins", "Tool providers", "Skills"]);
     expect(toolProviderRows.map((row) => `${row.label}: ${row.value}`)).toEqual(["github: MCP server, ready, auth oAuth, 1 tool"]);
+  });
+
+  it("drops a diagnostics result when its active thread is no longer current", async () => {
+    const pending = deferred<ReturnType<typeof serverDiagnosticsSnapshot>>();
+    const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread-1" } }));
+    const diagnostics = createServerDiagnosticsActions({
+      stateStore,
+      diagnosticsTransport: { readServerDiagnostics: vi.fn(() => pending.promise) },
+      ...metadataCacheHost(),
+    });
+
+    const refreshing = diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    pending.resolve(serverDiagnosticsSnapshot({ mcpServerStatuses: [mcpServerStatus()] }));
+    await refreshing;
+
+    expect(stateStore.getState().connection.serverDiagnostics.toolInventory).toBeNull();
+    expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([]);
+  });
+
+  it("drops a diagnostics result after its connection scope is invalidated", async () => {
+    const pending = deferred<ReturnType<typeof serverDiagnosticsSnapshot>>();
+    const stateStore = createChatStateStore(chatStateFixture({ activeThread: { id: "thread-1" } }));
+    const diagnostics = createServerDiagnosticsActions({
+      stateStore,
+      diagnosticsTransport: { readServerDiagnostics: vi.fn(() => pending.promise) },
+      ...metadataCacheHost(),
+    });
+
+    const refreshing = diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
+    diagnostics.invalidate();
+    pending.resolve(serverDiagnosticsSnapshot({ mcpServerStatuses: [mcpServerStatus()] }));
+    await refreshing;
+
+    expect(stateStore.getState().connection.serverDiagnostics.toolInventory).toBeNull();
+    expect(stateStore.getState().connection.serverDiagnostics.mcpServers).toEqual([]);
+  });
+
+  it("removes MCP providers missing from the latest thread-scoped inventory", async () => {
+    let initialDiagnostics = upsertMcpServerDiagnostic(createServerDiagnostics(), {
+      name: "github",
+      startupStatus: "ready",
+      authStatus: null,
+      toolCount: null,
+      message: null,
+    });
+    initialDiagnostics = upsertMcpServerDiagnostic(initialDiagnostics, {
+      name: "removed-provider",
+      startupStatus: "ready",
+      authStatus: null,
+      toolCount: null,
+      message: null,
+    });
+    const stateStore = createChatStateStore(
+      chatStateFixture({ activeThread: { id: "thread-1" }, connection: { serverDiagnostics: initialDiagnostics } }),
+    );
+    const diagnostics = createServerDiagnosticsActions({
+      stateStore,
+      diagnosticsTransport: {
+        readServerDiagnostics: vi.fn().mockResolvedValue(serverDiagnosticsSnapshot({ mcpServerStatuses: [mcpServerStatus()] })),
+      },
+      ...metadataCacheHost(),
+    });
+
+    await diagnostics.refreshServerDiagnostics({ appServerMetadataSnapshot: true });
+
+    expect(stateStore.getState().connection.serverDiagnostics.mcpServers.map((server) => server.name)).toEqual(["github"]);
   });
 });
 

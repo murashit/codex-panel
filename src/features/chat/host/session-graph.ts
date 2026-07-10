@@ -191,7 +191,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
         host.deferredTasks.clearDiagnostics();
       },
       resetConnection: () => {
-        connectionBundle.clearServerRequestResponders();
+        connectionBundle.invalidateConnectionScope();
         connection.resetConnection();
       },
       setStatus: (statusText, phase) => {
@@ -274,7 +274,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       refreshSharedThreads,
       startNewThread: () => threadActions.navigation.startNewThread(),
       dispose: () => {
-        connectionBundle.clearServerRequestResponders();
+        connectionBundle.invalidateConnectionScope();
         shell.dispose();
         composerController.dispose();
       },

@@ -12,6 +12,8 @@ const DIAGNOSTIC_PROBE_DEFINITIONS = {
   mcpServers: { label: "MCP servers" },
 } as const;
 
+const METADATA_RESOURCE_PROBE_IDS = ["models", "skills", "permissionProfiles", "rateLimits"] as const;
+
 export type DiagnosticProbeId = keyof typeof DIAGNOSTIC_PROBE_DEFINITIONS;
 type DiagnosticProbeStatus = "unknown" | "ok" | "failed";
 
@@ -62,6 +64,14 @@ export function diagnosticsWithToolInventory(diagnostics: Diagnostics, toolInven
     ...diagnostics,
     toolInventory: toolInventory ? cloneToolInventorySnapshot(toolInventory) : null,
   };
+}
+
+export function metadataResourceDiagnostics(diagnostics: Diagnostics): Diagnostics {
+  return diagnosticsWithMetadataResourceProbes(createServerDiagnostics(), diagnostics);
+}
+
+export function diagnosticsWithMetadataResourceProbes(diagnostics: Diagnostics, metadataDiagnostics: Diagnostics): Diagnostics {
+  return METADATA_RESOURCE_PROBE_IDS.reduce((current, id) => diagnosticsWithProbe(current, metadataDiagnostics.probes[id]), diagnostics);
 }
 
 function createDiagnosticProbeResult(id: DiagnosticProbeId): DiagnosticProbeResult {
@@ -123,6 +133,20 @@ export function upsertMcpServerStatusDiagnostics(diagnostics: Diagnostics, serve
   let next = diagnostics;
   for (const server of servers) next = upsertMcpServerDiagnostic(next, mcpServerDiagnosticFromStatus(server));
   return next;
+}
+
+export function replaceMcpServerStatusDiagnostics(diagnostics: Diagnostics, servers: readonly McpServerStatusSummary[]): Diagnostics {
+  return {
+    ...diagnostics,
+    mcpServers: servers
+      .map((server) =>
+        mergeMcpServerDiagnostic(
+          diagnostics.mcpServers.find((item) => item.name === server.name),
+          mcpServerDiagnosticFromStatus(server),
+        ),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
 }
 
 export function shortDiagnosticErrorMessage(error: unknown, maxLength = 160): string {

@@ -1,8 +1,9 @@
 import {
   cloneServerDiagnostics,
+  diagnosticsWithMetadataResourceProbes,
   diagnosticsWithProbe,
   diagnosticsWithToolInventory,
-  upsertMcpServerStatusDiagnostics,
+  replaceMcpServerStatusDiagnostics,
 } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import type { ChatStateStore } from "../state/store";
@@ -16,18 +17,23 @@ interface RefreshServerDiagnosticsOptions {
 export interface ServerDiagnosticsActionsHost {
   stateStore: ChatStateStore;
   diagnosticsTransport: ServerDiagnosticsTransport;
-  updateAppServerMetadata: (updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null) => SharedServerMetadata | null;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
 }
 
 export interface ServerDiagnosticsActions {
   refreshServerDiagnostics: (options?: RefreshServerDiagnosticsOptions) => Promise<void>;
+  invalidate(): void;
 }
 
 export function createServerDiagnosticsActions(host: ServerDiagnosticsActionsHost): ServerDiagnosticsActions {
+  let generation = 0;
   return {
     refreshServerDiagnostics: async (options) => {
-      await refreshServerDiagnostics(host, options);
+      const currentGeneration = ++generation;
+      await refreshServerDiagnostics(host, options, () => currentGeneration === generation);
+    },
+    invalidate: () => {
+      generation += 1;
     },
   };
 }
@@ -35,8 +41,9 @@ export function createServerDiagnosticsActions(host: ServerDiagnosticsActionsHos
 async function refreshServerDiagnostics(
   host: ServerDiagnosticsActionsHost,
   options: RefreshServerDiagnosticsOptions = {},
+  isCurrent: () => boolean,
 ): Promise<boolean> {
-  const initialDiagnostics = currentMetadataDiagnostics(host);
+  const initialDiagnostics = currentPanelDiagnostics(host);
   const state = host.stateStore.getState();
   const activeThreadId = state.activeThread.id;
   const metadataSnapshot = host.appServerMetadataSnapshot();
@@ -55,9 +62,9 @@ async function refreshServerDiagnostics(
     ...(cachedSkillsProbe !== undefined ? { cachedSkillsProbe } : {}),
   };
   const snapshot = await host.diagnosticsTransport.readServerDiagnostics(request);
-  if (!snapshot) return false;
+  if (!snapshot || !isCurrent() || host.stateStore.getState().activeThread.id !== activeThreadId) return false;
 
-  let diagnostics = currentMetadataDiagnostics(host);
+  let diagnostics = currentPanelDiagnostics(host);
   for (const probe of snapshot.resourceProbes) {
     diagnostics = diagnosticsWithProbe(diagnostics, probe);
   }
@@ -65,16 +72,15 @@ async function refreshServerDiagnostics(
     diagnostics = diagnosticsWithProbe(diagnostics, probe);
   }
   if (snapshot.toolInventory.mcpServerStatuses) {
-    diagnostics = upsertMcpServerStatusDiagnostics(diagnostics, snapshot.toolInventory.mcpServerStatuses);
+    diagnostics = replaceMcpServerStatusDiagnostics(diagnostics, snapshot.toolInventory.mcpServerStatuses);
   }
   diagnostics = diagnosticsWithToolInventory(diagnostics, snapshot.toolInventory.inventory);
-  host.updateAppServerMetadata((metadata) => (metadata ? { ...metadata, serverDiagnostics: diagnostics } : null));
   host.stateStore.dispatch({ type: "connection/metadata-applied", serverDiagnostics: diagnostics });
   return true;
 }
 
-function currentMetadataDiagnostics(host: ServerDiagnosticsActionsHost): SharedServerMetadata["serverDiagnostics"] {
-  return (
-    host.appServerMetadataSnapshot()?.serverDiagnostics ?? cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics)
-  );
+function currentPanelDiagnostics(host: ServerDiagnosticsActionsHost): SharedServerMetadata["serverDiagnostics"] {
+  const current = cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics);
+  const metadata = host.appServerMetadataSnapshot();
+  return metadata ? diagnosticsWithMetadataResourceProbes(current, metadata.serverDiagnostics) : current;
 }

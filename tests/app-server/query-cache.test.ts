@@ -11,6 +11,8 @@ import {
   diagnosticProbeError,
   diagnosticProbeOk,
   diagnosticsWithProbe,
+  diagnosticsWithToolInventory,
+  upsertMcpServerDiagnostic,
 } from "../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 
@@ -128,6 +130,47 @@ describe("AppServerQueryCache", () => {
     expect(cached?.availablePermissionProfiles).toEqual([]);
     expect(cached?.rateLimit).toBeNull();
     expect(cache.modelsSnapshot(context)).toBeNull();
+  });
+
+  it("keeps connection and thread diagnostics out of shared metadata snapshots", () => {
+    const cache = new AppServerQueryCache();
+    const context = cacheContext();
+    const polluted = metadata();
+    polluted.serverDiagnostics = diagnosticsWithToolInventory(
+      upsertMcpServerDiagnostic(polluted.serverDiagnostics, {
+        name: "github",
+        startupStatus: "ready",
+        authStatus: null,
+        toolCount: 1,
+        message: null,
+      }),
+      {
+        checkedAt: 1,
+        plugins: [],
+        pluginMarketplaceErrors: [],
+        pluginsError: null,
+        mcpServers: [],
+        mcpDiagnostics: [],
+        mcpError: null,
+        skills: [],
+        skillsError: null,
+      },
+    );
+
+    cache.writeAppServerMetadata(context, polluted);
+
+    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics).toMatchObject({
+      mcpServers: [],
+      toolInventory: null,
+      probes: {
+        models: { status: "ok" },
+        skills: { status: "ok" },
+        permissionProfiles: { status: "ok" },
+        rateLimits: { status: "ok" },
+        plugins: { status: "unknown" },
+        mcpServers: { status: "unknown" },
+      },
+    });
   });
 
   it("does not share or store snapshots before the cache context is complete", async () => {
