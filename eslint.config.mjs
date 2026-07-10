@@ -54,6 +54,8 @@ export default defineConfig([
         },
       ],
       "@typescript-eslint/require-await": "off",
+      // Declarative setting definitions require Obsidian 1.13; keep display() while the supported API baseline is 1.12.
+      "obsidianmd/settings-tab/prefer-setting-definitions": "off",
     },
   },
   {
