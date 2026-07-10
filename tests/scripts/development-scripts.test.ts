@@ -1,11 +1,17 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
+const tempWorkspaces = new Set<string>();
+
+afterEach(async () => {
+  await Promise.all([...tempWorkspaces].map((workspace) => rm(workspace, { recursive: true, force: true })));
+  tempWorkspaces.clear();
+});
 
 describe("development scripts", () => {
   it("fails style builds when CSS files are missing from the style order file", async () => {
@@ -193,7 +199,9 @@ describe("development scripts", () => {
 });
 
 async function tempWorkspace(): Promise<string> {
-  return mkdtemp(path.join(tmpdir(), "codex-panel-scripts-"));
+  const workspace = await mkdtemp(path.join(tmpdir(), "codex-panel-scripts-"));
+  tempWorkspaces.add(workspace);
+  return workspace;
 }
 
 async function styleOrderFixture(): Promise<string> {

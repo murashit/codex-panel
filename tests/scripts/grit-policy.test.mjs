@@ -1,11 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
+const tempWorkspaces = new Set();
+
+afterEach(async () => {
+  await Promise.all([...tempWorkspaces].map((workspace) => rm(workspace, { recursive: true, force: true })));
+  tempWorkspaces.clear();
+});
 const biomeBin = path.join(repoRoot, "node_modules", ".bin", "biome");
 const projectBiomeConfig = parseJsonc(readFileSync(path.join(repoRoot, "biome.jsonc"), "utf8"));
 const projectPluginEntries = projectBiomeConfig.plugins;
@@ -1486,6 +1492,7 @@ export async function read(client: AppServerClient): Promise<void> {
 
 async function tempBiomeWorkspace(plugins) {
   const cwd = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
+  tempWorkspaces.add(cwd);
   await mkdir(cwd, { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/domain/thread-stream"), { recursive: true });
   await mkdir(path.join(cwd, "src/features/chat/application/state"), { recursive: true });
