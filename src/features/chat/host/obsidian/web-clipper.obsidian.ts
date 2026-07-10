@@ -79,7 +79,7 @@ async function defuddleUrl(options: VaultWebClipperOptions, url: string): Promis
   const result = new Defuddle(document, { url, markdown: true, useAsync: false }).parse();
   return {
     title: result.title,
-    content: result.contentMarkdown ?? result.content,
+    content: result.content,
     site: result.site,
     domain: result.domain,
   };
