@@ -13,6 +13,9 @@
     "url": "https://github.com/murashit/codex-panel/issues"
   },
   "homepage": "https://github.com/murashit/codex-panel#readme",
+  "engines": {
+    "node": ">=26"
+  },
   "scripts": {
     "api:baseline": "node scripts/api-baseline.mjs",
     "build": "node esbuild.config.mjs",

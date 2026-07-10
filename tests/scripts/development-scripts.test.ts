@@ -131,6 +131,14 @@ describe("development scripts", () => {
     expect(report.codex.initializeExperimentalApi).toBe(true);
     expect(report.codex.initializeRequestAttestationDisabled).toBe(true);
     expect(report.failures).toEqual([]);
+
+    const recordedOnlyReport = await createApiBaselineReport({
+      cwd,
+      readCodexVersion: () => null,
+      skipLocalCodex: true,
+    });
+    expect(recordedOnlyReport.codex.localCliCheckSkipped).toBe(true);
+    expect(recordedOnlyReport.failures).toEqual([]);
   });
 
   it("reports representative CSS usage policy failures", async () => {

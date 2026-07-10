@@ -10,6 +10,8 @@ npm run fix
 npm run check
 ```
 
+Use Node.js 26, matching `.node-version`, CI, and the installed Node type definitions.
+
 Use this as the normal edit loop: make the change, run `npm run fix`, then run `npm run check`. Treat `npm run fix` as trusted mechanical cleanup for formatting, import ordering, and Knip safe fixes; review the resulting diff at normal change-boundary checkpoints rather than after each tool adjustment.
 
 Use focused scripts such as `npm run typecheck`, `npm run test`, or `npm run build` only when diagnosing a specific failure or when a full check would obscure the signal while iterating. Do not treat focused scripts as a substitute for the final `npm run check`. CI and release preflight run the same `npm run check` command as local development.
@@ -83,3 +85,5 @@ npm run api:baseline
 Obsidian runtime compatibility is declared through `manifest.json` and `versions.json`. The `obsidian` npm package provides compile-time TypeScript API definitions; it is not runtime validation for an Obsidian app-version matrix. Because the project does not run app-version smoke tests, keep the API type package in the same minor as `manifest.minAppVersion` and use the latest patch in that minor for local type checking. `npm run api:baseline` exits non-zero when the local environment or recorded baselines drift. Raise `manifest.minAppVersion` only when intentionally adopting a newer Obsidian app/API minor.
 
 Codex app-server compatibility is managed by Codex CLI minor version. README records the tested Codex CLI patch version, `src/app-server/connection/compatibility.json` records the machine-readable app-server capability baseline used by the panel client profile, and the baseline check verifies that the local `codex --version` is in the same minor before app-server binding or compatibility work.
+
+Pull-request CI runs `npm run api:baseline -- --recorded-only`, which validates checked-in compatibility declarations without requiring a Codex CLI installation. Local compatibility work should still run `npm run api:baseline` so the installed CLI is checked too.

@@ -3,19 +3,20 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const validArgs = new Set(["--json"]);
+const validArgs = new Set(["--json", "--recorded-only"]);
 
 if (isMain()) {
   const args = new Set(process.argv.slice(2));
   const asJson = args.has("--json");
+  const recordedOnly = args.has("--recorded-only");
   for (const arg of args) {
     if (!validArgs.has(arg)) {
-      console.error("Usage: node scripts/api-baseline.mjs [--json]");
+      console.error("Usage: node scripts/api-baseline.mjs [--json] [--recorded-only]");
       process.exit(1);
     }
   }
 
-  const report = await createApiBaselineReport();
+  const report = await createApiBaselineReport({ skipLocalCodex: recordedOnly });
   if (asJson) {
     console.log(JSON.stringify(report, null, 2));
   } else {
@@ -59,7 +60,11 @@ export async function createApiBaselineReport(options = {}) {
   const readmeBaselines = readCompatibilityBaselines(inputs.readme);
 
   const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
-  const codexLocalVersion = options.readCodexVersion ? await options.readCodexVersion() : readCodexVersion();
+  const codexLocalVersion = options.skipLocalCodex
+    ? null
+    : options.readCodexVersion
+      ? await options.readCodexVersion()
+      : readCodexVersion();
   const codexReadmeSemver = parseSemver(codexReadmeVersion);
   const codexLocalSemver = parseSemver(codexLocalVersion);
 
@@ -85,7 +90,7 @@ export async function createApiBaselineReport(options = {}) {
   if (!codexReadmeSemver) {
     fail("README.md Compatibility table must define `codex.testedCliVersion` as X.Y.Z.");
   }
-  if (!codexLocalSemver) {
+  if (!options.skipLocalCodex && !codexLocalSemver) {
     fail("local codex --version could not be read.");
   }
   if (codexReadmeSemver && codexLocalSemver && minorKey(codexReadmeSemver) !== minorKey(codexLocalSemver)) {
@@ -143,6 +148,7 @@ export async function createApiBaselineReport(options = {}) {
       readmeTestedMinor: minorKey(codexReadmeSemver),
       localCliVersion: codexLocalVersion,
       localCliMinor: minorKey(codexLocalSemver),
+      localCliCheckSkipped: options.skipLocalCodex === true,
       localCliMatchesTestedMinor: codexReadmeSemver && codexLocalSemver ? minorKey(codexReadmeSemver) === minorKey(codexLocalSemver) : null,
       appServerGenerationExperimentalDeclared,
       appServerGenerationExperimental,
@@ -275,8 +281,8 @@ function printReport(report) {
   console.log(`  policy: ${report.codex.policy}`);
   console.log(`  compatibility table CLI: ${displayValue(report.codex.readmeTestedCliVersion)}`);
   console.log(`  compatibility table minor: ${displayValue(report.codex.readmeTestedMinor)}`);
-  console.log(`  local codex CLI: ${displayValue(report.codex.localCliVersion)}`);
-  console.log(`  local codex minor: ${displayValue(report.codex.localCliMinor)}`);
+  console.log(`  local codex CLI: ${report.codex.localCliCheckSkipped ? "(skipped)" : displayValue(report.codex.localCliVersion)}`);
+  console.log(`  local codex minor: ${report.codex.localCliCheckSkipped ? "(skipped)" : displayValue(report.codex.localCliMinor)}`);
   console.log(`  declared generate-ts --experimental: ${report.codex.appServerGenerationExperimentalDeclared ? "yes" : "no"}`);
   console.log(`  generate-ts --experimental: ${report.codex.appServerGenerationExperimental ? "yes" : "no"}`);
   console.log(`  initialize experimentalApi: ${report.codex.initializeExperimentalApi ? "yes" : "no"}`);
