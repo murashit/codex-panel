@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@preact/signals": "^2.9.2",
-    "@tanstack/query-core": "^5.101.1",
+    "@tanstack/query-core": "^5.101.2",
     "defuddle": "^0.19.1",
     "micromark": "^4.0.2",
     "preact": "^10.29.2"
