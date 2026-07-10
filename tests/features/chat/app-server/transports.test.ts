@@ -390,10 +390,11 @@ describe("chat app-server transports", () => {
     });
 
     expect(snapshot?.resourceProbes.map((probe) => probe.id)).toEqual(["models", "rateLimits"]);
-    expect(request).toHaveBeenCalledWith("model/list", { includeHidden: false, limit: 100 });
+    expect(request).toHaveBeenCalledWith("model/list", { includeHidden: false, cursor: null, limit: 100 });
     expect(request).toHaveBeenCalledWith("account/rateLimits/read", undefined);
     expect(request).toHaveBeenCalledWith("mcpServerStatus/list", {
       detail: "toolsAndAuthOnly",
+      cursor: null,
       limit: 100,
       threadId: "thread",
     });

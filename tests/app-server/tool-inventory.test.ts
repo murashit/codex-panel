@@ -4,6 +4,41 @@ import type { AppServerRequestClient } from "../../src/app-server/services/reque
 import { readToolInventory } from "../../src/app-server/services/tool-inventory";
 
 describe("tool inventory", () => {
+  it("loads every MCP server status page", async () => {
+    const listMcpServers = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [mcpServerStatus("first")], nextCursor: "next" })
+      .mockResolvedValueOnce({ data: [mcpServerStatus("second")], nextCursor: null });
+    const client = toolInventoryClient({ "mcpServerStatus/list": listMcpServers });
+
+    const result = await readToolInventory(client, "/vault", { threadId: "thread" });
+
+    expect(result.inventory.mcpServers?.map((server) => server.name)).toEqual(["first", "second"]);
+    expect(listMcpServers).toHaveBeenNthCalledWith(1, {
+      detail: "toolsAndAuthOnly",
+      cursor: null,
+      limit: 100,
+      threadId: "thread",
+    });
+    expect(listMcpServers).toHaveBeenNthCalledWith(2, {
+      detail: "toolsAndAuthOnly",
+      cursor: "next",
+      limit: 100,
+      threadId: "thread",
+    });
+  });
+
+  it("reports repeated MCP server status cursors", async () => {
+    const client = toolInventoryClient({
+      "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [mcpServerStatus("github")], nextCursor: "repeat" }),
+    });
+
+    const result = await readToolInventory(client, "/vault");
+
+    expect(result.inventory.mcpServers).toBeNull();
+    expect(result.inventory.mcpError).toContain("repeated MCP server status list cursor");
+  });
+
   it("reads installed plugins without loading plugin details", async () => {
     const readPlugin = vi.fn();
     const client = toolInventoryClient({
@@ -91,6 +126,7 @@ function toolInventoryClient(
     "plugin/read": vi.fn().mockResolvedValue({
       plugin: { skills: [], hooks: [], apps: [], appTemplates: [], mcpServers: [] },
     }),
+    "mcpServerStatus/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
     ...overrides,
   };
   const request = vi.fn(async (method: string, params: unknown) => {
@@ -100,7 +136,7 @@ function toolInventoryClient(
       case "plugin/read":
         return (handlers["plugin/read"] as unknown as (params: unknown) => Promise<unknown>)(params);
       case "mcpServerStatus/list":
-        return { data: [] };
+        return (handlers["mcpServerStatus/list"] as unknown as (params: unknown) => Promise<unknown>)(params);
       case "skills/list":
         return { data: [{ cwd: "/vault", skills: [] }] };
       default:
@@ -110,6 +146,17 @@ function toolInventoryClient(
   return {
     request,
   } as unknown as AppServerRequestClient & { request: ReturnType<typeof vi.fn> };
+}
+
+function mcpServerStatus(name: string) {
+  return {
+    name,
+    serverInfo: null,
+    tools: {},
+    resources: [],
+    resourceTemplates: [],
+    authStatus: "oAuth",
+  };
 }
 
 function installedPlugin(name: string): {

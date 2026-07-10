@@ -22,11 +22,24 @@ export interface ModelMetadataClient {
 }
 
 export async function listModelMetadata(client: ModelMetadataClient, options: { includeHidden?: boolean } = {}): Promise<ModelMetadata[]> {
-  const response = await client.request("model/list", {
-    includeHidden: options.includeHidden ?? false,
-    limit: 100,
-  });
-  return modelMetadataFromCatalogModels(response.data);
+  const models: ClientResponseByMethod["model/list"]["data"] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  for (;;) {
+    const response: ClientResponseByMethod["model/list"] = await client.request("model/list", {
+      includeHidden: options.includeHidden ?? false,
+      cursor,
+      limit: 100,
+    });
+    models.push(...response.data);
+    cursor = response.nextCursor ?? null;
+    if (!cursor) break;
+    if (seenCursors.has(cursor)) throw new Error("Codex app-server returned a repeated model list cursor.");
+    seenCursors.add(cursor);
+  }
+
+  return modelMetadataFromCatalogModels(models);
 }
 
 export async function listPermissionProfiles(client: AppServerRequestClient, cwd: string): Promise<RuntimePermissionProfileSummary[]> {

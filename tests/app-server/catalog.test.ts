@@ -5,7 +5,13 @@ import {
   modelMetadataFromCatalogModels,
   skillMetadataFromCatalogSkills,
 } from "../../src/app-server/protocol/catalog";
-import { listHookCatalog, listSkillCatalog, setHookItemEnabled, trustHookItem } from "../../src/app-server/services/catalog";
+import {
+  listHookCatalog,
+  listModelMetadata,
+  listSkillCatalog,
+  setHookItemEnabled,
+  trustHookItem,
+} from "../../src/app-server/services/catalog";
 import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
 import type { HookMetadata } from "../../src/generated/app-server/v2/HookMetadata";
 import type { Model } from "../../src/generated/app-server/v2/Model";
@@ -84,6 +90,26 @@ describe("app-server catalog mappers", () => {
 });
 
 describe("app-server catalog adapters", () => {
+  it("loads every model page", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [modelFixture({ id: "first-id", model: "first" })], nextCursor: "next" })
+      .mockResolvedValueOnce({ data: [modelFixture({ id: "second-id", model: "second" })], nextCursor: null });
+    const client = { request } as unknown as AppServerRequestClient;
+
+    await expect(listModelMetadata(client)).resolves.toMatchObject([{ model: "first" }, { model: "second" }]);
+    expect(request).toHaveBeenNthCalledWith(1, "model/list", { includeHidden: false, cursor: null, limit: 100 });
+    expect(request).toHaveBeenNthCalledWith(2, "model/list", { includeHidden: false, cursor: "next", limit: 100 });
+  });
+
+  it("rejects repeated model cursors", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({ data: [modelFixture()], nextCursor: "repeat" }),
+    } as unknown as AppServerRequestClient;
+
+    await expect(listModelMetadata(client)).rejects.toThrow("repeated model list cursor");
+  });
+
   it("returns enabled skill options while preserving total app-server skill count", async () => {
     const client = {
       request: vi.fn(async () => ({
@@ -220,7 +246,7 @@ describe("app-server catalog adapters", () => {
   });
 });
 
-function modelFixture(): Model {
+function modelFixture(overrides: Partial<Model> = {}): Model {
   return {
     id: "gpt-5.5-id",
     model: "gpt-5.5",
@@ -241,6 +267,7 @@ function modelFixture(): Model {
     serviceTiers: [{ id: "priority", name: "Fast", description: "Fast tier" }],
     defaultServiceTier: "priority",
     isDefault: true,
+    ...overrides,
   };
 }
 
