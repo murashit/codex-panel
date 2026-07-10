@@ -15,6 +15,7 @@ import { ChatComposerController, type ChatComposerRenderActions } from "../../..
 import type { ChatPanelComposerReadModel } from "../../../../src/features/chat/panel/shell-read-model";
 import { ComposerShell } from "../../../../src/features/chat/ui/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/dom/preact-root.dom";
+import { deferred } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
 import { composerReadModelFromChatState } from "../support/shell-read-model";
 
@@ -445,6 +446,55 @@ describe("ChatComposerController", () => {
 
     expect(composer(parent).value).toBe("![[Codex Attachments/diagram.png]]");
     expect(submit).toHaveBeenCalledOnce();
+  });
+
+  it("does not submit or apply saved attachments after disposal", async () => {
+    const stateStore = createChatStateStore();
+    const parent = document.createElement("div");
+    const saved = deferred<ComposerAttachment[]>();
+    const attachmentHandler: ComposerAttachmentHandler = {
+      saveFiles: vi.fn(() => saved.promise),
+    };
+    const submit = vi.fn();
+    const controller = new ChatComposerController({
+      noteCandidateProvider: noteProvider(),
+      contextReferenceProvider: contextProvider(),
+      attachmentHandler,
+      sourcePath: () => "",
+      stateStore,
+      viewId: "view",
+      referenceActiveNoteOnSend: () => false,
+      sendShortcut: () => "enter",
+      scrollThreadFromComposerEdges: () => false,
+      threadScrollFromComposer: vi.fn(),
+      canInterrupt: (_state) => false,
+      composerProjection: defaultComposerProjection,
+      currentModelForSuggestions: () => null,
+      togglePlan: vi.fn(),
+      toggleAutoReview: vi.fn(),
+      toggleFast: vi.fn(),
+      onDraftChange: vi.fn(),
+      onHeightChange: vi.fn(),
+    });
+
+    renderComposerController(parent, controller, stateStore, { submit });
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
+    controller.dispose();
+    saved.resolve([
+      {
+        kind: "image",
+        name: "diagram",
+        path: "Codex Attachments/diagram.png",
+        marker: "![[Codex Attachments/diagram.png]]",
+      },
+    ]);
+    await flushComposerAttachment();
+    await flushComposerAttachment();
+
+    expect(submit).not.toHaveBeenCalled();
+    expect(stateStore.getState().composer.draft).toBe("");
+    expect(controller.captureInputSnapshot().attachments).toEqual([]);
   });
 
   it("saves dropped non-image files, inserts a wikilink, and sends a file mention", async () => {

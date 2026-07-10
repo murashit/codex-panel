@@ -1,4 +1,5 @@
 import { isComposerSendKey, type SendShortcut } from "../../../domain/input/send-shortcut";
+import { OwnerLifetime } from "../../../shared/runtime/owner-lifetime";
 import {
   type ComposerAttachment,
   type ComposerAttachmentHandler,
@@ -72,6 +73,7 @@ export interface ChatComposerRenderActions {
 }
 
 export class ChatComposerController {
+  private readonly lifetime = new OwnerLifetime();
   private composer: HTMLTextAreaElement | null = null;
   private attachments: ComposerAttachment[] = [];
   private pendingAttachmentTransfers = new Set<Promise<void>>();
@@ -145,6 +147,7 @@ export class ChatComposerController {
   }
 
   dispose(): void {
+    this.lifetime.dispose();
     this.composer = null;
     this.options.noteCandidateProvider.dispose();
     this.options.contextReferenceProvider.dispose();
@@ -350,12 +353,16 @@ export class ChatComposerController {
   }
 
   private async saveTransferredFiles(handler: ComposerAttachmentHandler, files: readonly File[]): Promise<void> {
+    const lifetime = this.lifetime.signal();
+    if (!this.lifetime.isCurrent(lifetime)) return;
     try {
       const attachments = await handler.saveFiles(files);
+      if (!this.lifetime.isCurrent(lifetime)) return;
       if (attachments.length === 0) return;
       this.attachments = [...this.attachments, ...attachments];
       this.insertAttachmentMarkers(attachments);
     } catch (error) {
+      if (!this.lifetime.isCurrent(lifetime)) return;
       this.options.onAttachmentError?.(error instanceof Error ? error.message : String(error));
     }
   }
@@ -456,11 +463,14 @@ export class ChatComposerController {
 
   private async submitAfterAttachmentTransfers(actions: ChatComposerRenderActions): Promise<void> {
     if (this.submitAfterAttachmentTransfersActive) return;
+    const lifetime = this.lifetime.signal();
+    if (!this.lifetime.isCurrent(lifetime)) return;
     this.submitAfterAttachmentTransfersActive = true;
     try {
       while (this.pendingAttachmentTransfers.size > 0) {
         await Promise.allSettled([...this.pendingAttachmentTransfers]);
       }
+      if (!this.lifetime.isCurrent(lifetime)) return;
       actions.submit();
     } finally {
       this.submitAfterAttachmentTransfersActive = false;

@@ -424,6 +424,27 @@ describe("settings tab", () => {
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
   });
 
+  it("does not display dynamic refresh results after disposal", async () => {
+    const models = deferred<ModelMetadata[]>();
+    const display = vi.fn();
+    const controller = new SettingsDynamicSectionsController(
+      settingsTabHost({
+        refreshModels: vi.fn(() => models.promise),
+        refreshArchived: vi.fn().mockResolvedValue([]),
+      }),
+      { display, notify: vi.fn() },
+    );
+
+    const refresh = controller.refreshDynamicSections();
+    await flushPromises();
+    display.mockClear();
+    controller.dispose();
+    models.resolve([]);
+    await refresh;
+
+    expect(display).not.toHaveBeenCalled();
+  });
+
   it("ignores stale hook reload results after a newer dynamic operation completes", async () => {
     const staleHooks = deferred<{
       data: { cwd: string; hooks: CatalogHookMetadata[]; warnings: string[]; errors: unknown[] }[];

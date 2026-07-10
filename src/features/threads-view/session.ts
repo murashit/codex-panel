@@ -7,6 +7,7 @@ import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
+import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
@@ -66,6 +67,7 @@ type ThreadsViewStatus =
   | { kind: "error"; message: string };
 
 export class ThreadsViewSession {
+  private readonly lifetime = new OwnerLifetime();
   private readonly operations: ThreadOperations;
   private readonly titleService: ThreadTitleService;
   private readonly deferredTasks: ThreadsViewDeferredTasks;
@@ -104,6 +106,7 @@ export class ThreadsViewSession {
   }
 
   open(): void {
+    this.lifetime.activate();
     this.environment.registerPointerDown((event) => {
       this.cancelArchiveConfirmOnOutsidePointer(event);
     });
@@ -120,6 +123,7 @@ export class ThreadsViewSession {
   }
 
   close(): void {
+    this.lifetime.dispose();
     this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
     this.deferredTasks.clearAll();
     this.unsubscribeThreads?.();
@@ -128,6 +132,8 @@ export class ThreadsViewSession {
   }
 
   async refresh(): Promise<void> {
+    const lifetime = this.lifetime.signal();
+    if (!this.lifetime.isCurrent(lifetime)) return;
     const refresh = this.startRefresh();
     if (!this.currentThreadsSnapshot()) {
       this.status = { kind: "loading", message: "Loading threads..." };
@@ -135,11 +141,12 @@ export class ThreadsViewSession {
     this.render();
     try {
       const threads = await this.host.threadCatalog.refreshActive();
-      if (this.isStaleRefresh(refresh)) return;
+      if (!this.lifetime.isCurrent(lifetime) || this.isStaleRefresh(refresh)) return;
       this.threads = threads;
       this.threadsLoaded = true;
       this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     } catch (error) {
+      if (!this.lifetime.isCurrent(lifetime)) return;
       if (isStaleAppServerSharedQueryContextError(error)) return;
       if (!this.currentThreadsSnapshot()) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
@@ -204,6 +211,7 @@ export class ThreadsViewSession {
   }
 
   private render(): void {
+    if (!this.lifetime.isActive()) return;
     renderThreadsViewShell(
       this.environment.root,
       {
@@ -272,12 +280,13 @@ export class ThreadsViewSession {
   }
 
   private async saveRename(threadId: string, value: string): Promise<void> {
+    const lifetime = this.lifetime.signal();
     const editingState = this.renameStates.get(threadId);
     if (!editingState || editingState.kind === "generating") return;
     try {
       if (this.renameStates.get(threadId) !== editingState) return;
       const result = await this.operations.renameThread(threadId, value);
-      if (this.renameStates.get(threadId) !== editingState) return;
+      if (!this.lifetime.isCurrent(lifetime) || this.renameStates.get(threadId) !== editingState) return;
       if (!result) {
         this.cancelRename(threadId);
         return;
@@ -285,12 +294,14 @@ export class ThreadsViewSession {
       this.renameStates.delete(threadId);
       this.render();
     } catch (error) {
+      if (!this.lifetime.isCurrent(lifetime)) return;
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();
     }
   }
 
   private async autoNameThread(threadId: string): Promise<void> {
+    const lifetime = this.lifetime.signal();
     const previousState = this.renameStates.get(threadId);
     const generatingState = this.transitionRenameState(threadId, {
       type: "auto-name-started",
@@ -303,13 +314,15 @@ export class ThreadsViewSession {
     try {
       if (this.renameStates.get(threadId) !== generatingState) return;
       const title = await this.titleService.generateTitle(threadId);
+      if (!this.lifetime.isCurrent(lifetime)) return;
       this.transitionRenameState(threadId, { type: "auto-name-generated", generatingState, title });
     } catch (error) {
+      if (!this.lifetime.isCurrent(lifetime)) return;
       if (this.renameStates.get(threadId) === generatingState) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       }
     } finally {
-      this.finishAutoNameThread(threadId, generatingState);
+      if (this.lifetime.isCurrent(lifetime)) this.finishAutoNameThread(threadId, generatingState);
     }
   }
 
@@ -326,14 +339,17 @@ export class ThreadsViewSession {
   }
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
+    const lifetime = this.lifetime.signal();
     try {
       await this.operations.archiveThread(threadId, {
         saveMarkdown,
       });
+      if (!this.lifetime.isCurrent(lifetime)) return;
       this.host.closeOpenPanelsForThread(threadId);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
     } catch (error) {
+      if (!this.lifetime.isCurrent(lifetime)) return;
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       this.render();
     }

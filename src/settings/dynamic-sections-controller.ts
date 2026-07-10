@@ -3,6 +3,7 @@ import type { HookItem, ModelMetadata, ReasoningEffort } from "../domain/catalog
 import { findModelMetadataByIdOrName, sortedModelMetadata, supportedEffortsForModelMetadata } from "../domain/catalog/metadata";
 import type { Thread } from "../domain/threads/model";
 import { threadArchiveDisplayTitle } from "../domain/threads/title";
+import { OwnerLifetime } from "../shared/runtime/owner-lifetime";
 import { isStaleSettingsDynamicDataContextError } from "./dynamic-data";
 import type { SettingsDynamicSectionsHost } from "./host";
 
@@ -31,6 +32,7 @@ export interface SettingsDynamicSectionsSnapshot {
 }
 
 export class SettingsDynamicSectionsController {
+  private readonly lifetime = new OwnerLifetime();
   private dynamicSectionsAutoLoadStarted = false;
   private modelsOperationToken = 0;
   private hooksOperationToken = 0;
@@ -56,6 +58,7 @@ export class SettingsDynamicSectionsController {
 
   activate(): void {
     if (this.unsubscribeModels) return;
+    this.lifetime.activate();
     this.models = [...(this.host.dynamicData.modelsSnapshot() ?? [])];
     const archivedThreads = this.host.dynamicData.archivedThreadsSnapshot();
     if (archivedThreads) {
@@ -101,6 +104,10 @@ export class SettingsDynamicSectionsController {
   }
 
   dispose(): void {
+    this.lifetime.dispose();
+    this.modelsOperationToken += 1;
+    this.hooksOperationToken += 1;
+    this.archivedThreadsOperationToken += 1;
     this.unsubscribeModels?.();
     this.unsubscribeModels = null;
     this.unsubscribeArchivedThreads?.();
@@ -126,6 +133,8 @@ export class SettingsDynamicSectionsController {
   }
 
   async refreshDynamicSections(options: { forceModels?: boolean } = {}): Promise<void> {
+    const lifetime = this.lifetime.signal();
+    if (!this.lifetime.isCurrent(lifetime)) return;
     this.dynamicSectionsAutoLoadStarted = true;
     const modelsOperationToken = this.nextModelsOperationToken();
     const hooksOperationToken = this.nextHooksOperationToken();
@@ -142,6 +151,7 @@ export class SettingsDynamicSectionsController {
         this.host.dynamicData.loadHooks(),
         this.host.dynamicData.refreshArchivedThreads(),
       ] as const);
+      if (!this.lifetime.isCurrent(lifetime)) return;
 
       if (this.isStaleModelsOperation(modelsOperationToken)) {
         // A newer models operation owns this section.
@@ -185,6 +195,7 @@ export class SettingsDynamicSectionsController {
         );
       }
     } catch (error) {
+      if (!this.lifetime.isCurrent(lifetime)) return;
       failedCount = 3;
       const message = errorMessage(error);
       if (!this.isStaleModelsOperation(modelsOperationToken)) {
@@ -197,10 +208,12 @@ export class SettingsDynamicSectionsController {
         this.archivedThreadsLifecycle = settingsDynamicSectionFailed(`Could not load archived threads: ${message}`);
       }
     } finally {
-      if (failedCount > 0) {
-        this.callbacks.notify("Could not refresh all Codex details.");
+      if (this.lifetime.isCurrent(lifetime)) {
+        if (failedCount > 0) {
+          this.callbacks.notify("Could not refresh all Codex details.");
+        }
+        this.callbacks.display();
       }
-      this.callbacks.display();
     }
   }
 
@@ -333,9 +346,12 @@ export class SettingsDynamicSectionsController {
     failureNotice: string;
     operation: (operationToken: number) => Promise<void>;
   }): Promise<void> {
+    const lifetime = this.lifetime.signal();
+    if (!this.lifetime.isCurrent(lifetime)) return;
     const operationToken = options.section === "hooks" ? this.nextHooksOperationToken() : this.nextArchivedThreadsOperationToken();
     const stale = (): boolean =>
-      options.section === "hooks" ? this.isStaleHooksOperation(operationToken) : this.isStaleArchivedThreadsOperation(operationToken);
+      !this.lifetime.isCurrent(lifetime) ||
+      (options.section === "hooks" ? this.isStaleHooksOperation(operationToken) : this.isStaleArchivedThreadsOperation(operationToken));
     const setLifecycle = (state: SettingsDynamicSectionLifecycleState): void => {
       if (options.section === "hooks") {
         this.hooksLifecycle = state;

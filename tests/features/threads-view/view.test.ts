@@ -468,6 +468,37 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("does not remount the threads view when auto-name finishes after close", async () => {
+    const generatedTitle = deferred<string | null>();
+    namingMock.generateThreadTitleWithCodex.mockReturnValue(generatedTitle.promise);
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/turns/list": vi.fn().mockResolvedValue({
+        data: [
+          turnFixture([
+            { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "name this", text_elements: [] }] },
+            { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
+          ]),
+        ],
+        nextCursor: null,
+      }),
+    });
+    const view = await threadsView();
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
+    await waitForAsyncWork(() => {
+      expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
+    });
+    await view.onClose();
+    generatedTitle.resolve("Late title");
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+
+    expect(view.containerEl.childElementCount).toBe(0);
+    expect(view.containerEl.textContent).not.toContain("Late title");
+  });
+
   it("keeps a manually edited rename draft when threads view auto-name finishes later", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [
