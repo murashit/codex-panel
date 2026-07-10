@@ -138,11 +138,6 @@ async function initializeConnection(host: ChatConnectionActionsHost, connection:
     if (host.connectionWork.isStale(connection)) return;
     host.stateStore.dispatch({ type: "connection/initialized", initializeResponse: initialization });
     if (!host.connection.isConnected()) throw new Error("Codex app-server connection did not initialize.");
-    await host.metadata.refreshAppServerMetadata();
-    if (host.connectionWork.isStale(connection)) return;
-    await host.refreshSharedThreads();
-    if (host.connectionWork.isStale(connection)) return;
-    host.scheduleDeferredDiagnostics();
     host.refreshTabHeader();
     host.setStatus(STATUS_CONNECTED, { kind: "connected" });
   } catch (error) {
@@ -153,13 +148,39 @@ async function initializeConnection(host: ChatConnectionActionsHost, connection:
     host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
     host.addSystemMessage(message);
     host.notifyConnectionFailed();
+    return;
   }
+
+  await hydrateConnectedResources(host, connection);
+}
+
+async function hydrateConnectedResources(host: ChatConnectionActionsHost, connection: ActiveConnectionWork): Promise<void> {
+  try {
+    await host.metadata.refreshAppServerMetadata();
+  } catch (error) {
+    if (host.connectionWork.isStale(connection) || host.isStaleSharedQueryError(error)) return;
+    host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);
+  }
+  if (host.connectionWork.isStale(connection)) return;
+
+  try {
+    await host.refreshSharedThreads();
+  } catch (error) {
+    if (host.connectionWork.isStale(connection) || host.isStaleSharedQueryError(error)) return;
+    host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);
+  }
+  if (host.connectionWork.isStale(connection)) return;
+  host.scheduleDeferredDiagnostics();
 }
 
 function connectionErrorMessage(error: unknown, configuredCommand: string): string {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error);
   if (!isMissingCommandError(error)) return message;
   return `Could not start Codex app-server because the configured command was not found: ${configuredCommand}. Check the Codex command path in settings. (${message})`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function isMissingCommandError(error: unknown): boolean {

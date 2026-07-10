@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
 
-import type { AppServerClient } from "../../../../app-server/connection/client";
+import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
@@ -21,8 +21,6 @@ import type { AutoTitleCoordinator } from "../../application/threads/auto-title-
 import type { ChatPanelEnvironment } from "../contracts";
 import type { ChatViewDeferredTasks } from "../session/deferred-work";
 
-type CurrentAppServerClient = () => AppServerClient | null;
-
 type RespondRequestId = Parameters<AppServerClient["respondToServerRequest"]>[0];
 type RejectRequestId = Parameters<AppServerClient["rejectServerRequest"]>[0];
 
@@ -33,7 +31,6 @@ interface ChatPanelConnectionStatus {
 
 interface ChatPanelConnectionBundleInput {
   connection: ConnectionManager;
-  currentClient: CurrentAppServerClient;
   appServer: ChatAppServerGateway;
   localItemIds: LocalIdSource;
   status: ChatPanelConnectionStatus;
@@ -60,6 +57,7 @@ export interface ChatPanelConnectionBundle {
   sharedStateActions: {
     applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
   };
+  clearServerRequestResponders: () => void;
   refreshSharedThreads: () => Promise<void>;
 }
 
@@ -79,29 +77,48 @@ export function scheduleDeferredDiagnosticsRefresh(host: DeferredDiagnosticsRefr
   });
 }
 
-function respondToCurrentServerRequest(currentClient: CurrentAppServerClient, requestId: RespondRequestId, result: unknown): boolean {
-  try {
-    const client = currentClient();
-    client?.respondToServerRequest(requestId, result);
-    return Boolean(client);
-  } catch {
-    return false;
-  }
+export interface ServerRequestResponderRegistry {
+  remember(requestId: RespondRequestId, responder: AppServerServerRequestResponder): void;
+  respond(requestId: RespondRequestId, result: unknown): boolean;
+  reject(requestId: RejectRequestId, code: number, message: string): boolean;
+  clear(): void;
 }
 
-function rejectCurrentServerRequest(
-  currentClient: CurrentAppServerClient,
-  requestId: RejectRequestId,
-  code: number,
-  message: string,
-): boolean {
-  try {
-    const client = currentClient();
-    client?.rejectServerRequest(requestId, code, message);
-    return Boolean(client);
-  } catch {
-    return false;
-  }
+export function createServerRequestResponderRegistry(): ServerRequestResponderRegistry {
+  const responders = new Map<RespondRequestId, AppServerServerRequestResponder>();
+  const take = (requestId: RespondRequestId): AppServerServerRequestResponder | null => {
+    const responder = responders.get(requestId) ?? null;
+    responders.delete(requestId);
+    return responder;
+  };
+  return {
+    remember: (requestId, responder) => {
+      responders.set(requestId, responder);
+    },
+    respond: (requestId, result) => {
+      const responder = take(requestId);
+      if (!responder) return false;
+      try {
+        responder.respond(result);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    reject: (requestId, code, message) => {
+      const responder = take(requestId);
+      if (!responder) return false;
+      try {
+        responder.reject(code, message);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    clear: () => {
+      responders.clear();
+    },
+  };
 }
 
 export function createConnectionBundle(
@@ -109,7 +126,8 @@ export function createConnectionBundle(
   input: ChatPanelConnectionBundleInput,
 ): ChatPanelConnectionBundle {
   const { environment, stateStore } = host;
-  const { connection, currentClient, appServer, localItemIds, status, autoTitleCoordinator } = input;
+  const { connection, appServer, localItemIds, status, autoTitleCoordinator } = input;
+  const serverRequestResponders = createServerRequestResponderRegistry();
   const serverMetadata = createServerMetadataActions({
     stateStore,
     metadataResourceTransport: appServer.metadataResource,
@@ -156,8 +174,8 @@ export function createConnectionBundle(
       applyThreadCatalogEvent: (event) => {
         environment.plugin.threadCatalog.apply(event);
       },
-      respondToServerRequest: (requestId, result) => respondToCurrentServerRequest(currentClient, requestId, result),
-      rejectServerRequest: (requestId, code, message) => rejectCurrentServerRequest(currentClient, requestId, code, message),
+      respondToServerRequest: (requestId, result) => serverRequestResponders.respond(requestId, result),
+      rejectServerRequest: (requestId, code, message) => serverRequestResponders.reject(requestId, code, message),
     },
     localItemIds,
   );
@@ -184,7 +202,8 @@ export function createConnectionBundle(
             inboundHandler.handleNotification(notification);
             host.deferLiveStateRefresh();
           },
-          onServerRequest: (request) => {
+          onServerRequest: (request, responder) => {
+            serverRequestResponders.remember(request.id, responder);
             inboundHandler.handleServerRequest(request);
             host.deferLiveStateRefresh();
           },
@@ -192,6 +211,7 @@ export function createConnectionBundle(
             inboundHandler.handleAppServerLog(message);
           },
           onExit: () => {
+            serverRequestResponders.clear();
             handleChatConnectionExit(connectionExitHost);
           },
         }),
@@ -245,6 +265,9 @@ export function createConnectionBundle(
       applyAppServerMetadata: (metadata) => {
         serverMetadata.applyAppServerMetadata(metadata);
       },
+    },
+    clearServerRequestResponders: () => {
+      serverRequestResponders.clear();
     },
     refreshSharedThreads,
   };

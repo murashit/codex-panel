@@ -22,7 +22,7 @@ export async function reconnectPanel(host: ChatReconnectActionsHost): Promise<vo
   host.invalidateThreadWork();
   host.clearDeferredDiagnostics();
   host.resetConnection();
-  host.stateStore.dispatch({ type: "turn/scoped-cleared" });
+  host.stateStore.dispatch({ type: "connection/scoped-cleared" });
   host.setStatus(STATUS_RECONNECTING, { kind: "connecting" });
 
   await host.ensureConnected();

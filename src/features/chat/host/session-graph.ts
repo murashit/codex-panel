@@ -43,6 +43,7 @@ export interface ChatPanelSessionGraph {
   shell: ChatPanelShellBundle;
   actions: {
     invalidateThreadWork(): void;
+    reconnect(): Promise<void>;
     refreshSharedThreads(): Promise<void>;
     startNewThread(): Promise<void>;
     dispose(): void;
@@ -126,7 +127,6 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     },
     {
       connection,
-      currentClient,
       appServer,
       localItemIds,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
@@ -191,6 +191,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
         host.deferredTasks.clearDiagnostics();
       },
       resetConnection: () => {
+        connectionBundle.clearServerRequestResponders();
         connection.resetConnection();
       },
       setStatus: (statusText, phase) => {
@@ -269,9 +270,11 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       invalidateThreadWork: () => {
         threadFoundation.invalidateThreadWork();
       },
+      reconnect,
       refreshSharedThreads,
       startNewThread: () => threadActions.navigation.startNewThread(),
       dispose: () => {
+        connectionBundle.clearServerRequestResponders();
         shell.dispose();
         composerController.dispose();
       },

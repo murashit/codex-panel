@@ -55,7 +55,10 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
   class ConnectionManager {
     private handlers: {
       onNotification: (notification: ServerNotification) => void;
-      onServerRequest: (request: unknown) => void;
+      onServerRequest: (
+        request: unknown,
+        responder: { respond(result: unknown): void; reject(code: number, message: string): void },
+      ) => void;
       onLog: (message: string) => void;
       onExit: () => void;
     } | null;
@@ -66,7 +69,10 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
 
     connect(handlers: {
       onNotification: (notification: ServerNotification) => void;
-      onServerRequest: (request: unknown) => void;
+      onServerRequest: (
+        request: unknown,
+        responder: { respond(result: unknown): void; reject(code: number, message: string): void },
+      ) => void;
       onLog: (message: string) => void;
       onExit: () => void;
     }): Promise<unknown> {
@@ -195,7 +201,7 @@ describe("CodexChatView connection lifecycle", () => {
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
   });
 
-  it("resets the app-server connection only when settings change the app-server context", async () => {
+  it("reconnects and resumes the active thread only when settings change the app-server context", async () => {
     connectionMock.state.client = connectedClient();
     const host = chatHost();
     const view = await chatView({ host });
@@ -208,9 +214,16 @@ describe("CodexChatView connection lifecycle", () => {
     view.surface.refreshSettings();
     expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true });
 
+    await view.surface.openThread("thread-1");
+    const nextClient = connectedClient();
+    connectionMock.state.client = nextClient;
     host.settingsSource.codexPath = "codex-next";
     view.surface.refreshSettings();
-    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false });
+    await waitForAsyncWork(() => {
+      expect(connectionMock.state.connectCalls).toBe(2);
+      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    });
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {

@@ -80,6 +80,32 @@ describe("ChatConnectionActions", () => {
     expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
   });
 
+  it("keeps the initialized connection usable when metadata hydration fails", async () => {
+    const { actions, host, refreshAppServerMetadata, stateStore } = createActionsHarness();
+    refreshAppServerMetadata.mockRejectedValueOnce(new Error("config unavailable"));
+
+    await actions.ensureConnected();
+
+    expect(stateStore.getState().connection.initializeResponse).toMatchObject({ codexHome: "/codex" });
+    expect(host.refreshSharedThreads).toHaveBeenCalledOnce();
+    expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
+    expect(host.setStatus).not.toHaveBeenCalledWith("Connection failed.", expect.anything());
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Could not refresh Codex metadata: config unavailable");
+    expect(host.notifyConnectionFailed).not.toHaveBeenCalled();
+  });
+
+  it("keeps the initialized connection usable when thread hydration fails", async () => {
+    const { actions, host } = createActionsHarness();
+    vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(new Error("threads unavailable"));
+
+    await actions.ensureConnected();
+
+    expect(host.setStatus).toHaveBeenCalledWith("Connected.", { kind: "connected" });
+    expect(host.setStatus).not.toHaveBeenCalledWith("Connection failed.", expect.anything());
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Could not refresh Codex threads: threads unavailable");
+    expect(host.notifyConnectionFailed).not.toHaveBeenCalled();
+  });
+
   it("refreshes metadata before server diagnostics", async () => {
     const { actions, host, refreshAppServerMetadata, refreshServerDiagnostics } = createActionsHarness({ connected: true });
 

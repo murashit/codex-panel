@@ -63,9 +63,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     const nextContext = this.currentAppServerContext();
     if (!appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
       this.observedAppServerContext = nextContext;
-      this.connectionWork.invalidate();
-      this.graph.actions.invalidateThreadWork();
-      this.graph.connection.manager.resetConnection();
+      void this.graph.actions.reconnect();
       this.graph.runtime.sharedState.applyCached();
     }
     this.mountOrRepairShell();

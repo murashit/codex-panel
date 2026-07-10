@@ -2,11 +2,11 @@ import type { ServerInitialization } from "../../domain/server/initialization";
 import type { InitializeParams } from "../../generated/app-server/InitializeParams";
 import type { ServerNotification } from "../../generated/app-server/ServerNotification";
 import type { ServerRequest } from "../../generated/app-server/ServerRequest";
-import { AppServerClient, type AppServerClientHandlers } from "./client";
+import { AppServerClient, type AppServerClientHandlers, type AppServerServerRequestResponder } from "./client";
 
 export interface ConnectionManagerHandlers {
   onNotification: (notification: ServerNotification) => void;
-  onServerRequest: (request: ServerRequest) => void;
+  onServerRequest: (request: ServerRequest, responder: AppServerServerRequestResponder) => void;
   onLog: (message: string) => void;
   onExit: () => void;
 }
@@ -82,9 +82,9 @@ export class ConnectionManager {
         if (this.isStale(generation)) return;
         handlers.onNotification(notification);
       },
-      onServerRequest: (request) => {
+      onServerRequest: (request, responder) => {
         if (this.isStale(generation)) return;
-        handlers.onServerRequest(request);
+        handlers.onServerRequest(request, responder);
       },
       onLog: (message) => {
         if (this.isStale(generation)) return;
