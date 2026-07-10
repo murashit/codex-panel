@@ -233,6 +233,7 @@ export function renderPendingRequestNode(
   autoFocusRequested = false,
   consumeAutoFocus?: () => boolean,
   autoFocusSignature = "",
+  controlNamespace = "test-panel",
 ): void {
   const snapshot = pendingRequestBlockSnapshotFromState({
     approvals,
@@ -255,6 +256,7 @@ export function renderPendingRequestNode(
       autoFocusRequested,
       consumeAutoFocus,
       autoFocusSignature,
+      controlNamespace,
     ),
   );
 }

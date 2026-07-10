@@ -24,6 +24,7 @@ interface ChatThreadStreamRequests {
 }
 
 export interface ChatThreadStreamSurfaceContext {
+  panelId: string;
   vaultPath: string;
   setDisclosureOpen: (bucket: ThreadStreamDisclosureBucket, id: string, open: boolean) => void;
   setForkMenuItem: (itemId: string | null) => void;
@@ -101,6 +102,7 @@ function threadStreamContextFromProjection(
     ...(pendingRequests
       ? {
           pendingRequests: {
+            controlNamespace: context.panelId,
             signature: pendingRequests.signature,
             snapshot: () => pendingRequests.snapshot,
             actions: context.requests.pendingActions,

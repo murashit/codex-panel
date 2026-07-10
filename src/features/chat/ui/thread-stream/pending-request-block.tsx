@@ -25,6 +25,7 @@ export function pendingRequestBlockNode(
   autoFocusRequested = false,
   consumeAutoFocus?: () => boolean,
   autoFocusSignature = "",
+  controlNamespace = "codex-panel",
 ): UiNode {
   return (
     <PendingRequestBlock
@@ -38,6 +39,7 @@ export function pendingRequestBlockNode(
       autoFocusRequested={autoFocusRequested}
       consumeAutoFocus={consumeAutoFocus}
       autoFocusSignature={autoFocusSignature}
+      controlNamespace={controlNamespace}
     />
   );
 }
@@ -53,6 +55,7 @@ function PendingRequestBlock({
   autoFocusRequested,
   consumeAutoFocus,
   autoFocusSignature,
+  controlNamespace,
 }: {
   approvals: readonly PendingApprovalViewModel[];
   pendingUserInputs: readonly PendingUserInputViewModel[];
@@ -64,6 +67,7 @@ function PendingRequestBlock({
   autoFocusRequested: boolean;
   consumeAutoFocus: (() => boolean) | undefined;
   autoFocusSignature: string;
+  controlNamespace: string;
 }): UiNode {
   const requestRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
@@ -80,7 +84,13 @@ function PendingRequestBlock({
         <ApprovalCard key={String(approval.requestId)} approval={approval} approvalDetails={approvalDetails} actions={actions} />
       ))}
       {pendingUserInputs.map((input) => (
-        <UserInputCard key={String(input.requestId)} input={input} userInputDrafts={userInputDrafts} actions={actions} />
+        <UserInputCard
+          key={String(input.requestId)}
+          input={input}
+          userInputDrafts={userInputDrafts}
+          actions={actions}
+          controlNamespace={controlNamespace}
+        />
       ))}
       {pendingMcpElicitations.map((elicitation) => (
         <McpElicitationCard
@@ -88,6 +98,7 @@ function PendingRequestBlock({
           elicitation={elicitation}
           mcpElicitationDrafts={mcpElicitationDrafts}
           actions={actions}
+          controlNamespace={controlNamespace}
         />
       ))}
     </div>
@@ -98,10 +109,12 @@ function McpElicitationCard({
   elicitation,
   mcpElicitationDrafts,
   actions,
+  controlNamespace,
 }: {
   elicitation: PendingMcpElicitationViewModel;
   mcpElicitationDrafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
+  controlNamespace: string;
 }): UiNode {
   const formRef = useRef<HTMLFormElement | null>(null);
   const accept = () => {
@@ -126,7 +139,12 @@ function McpElicitationCard({
               accept();
             }}
           >
-            <McpElicitationFields fields={elicitation.fields} drafts={mcpElicitationDrafts} actions={actions} />
+            <McpElicitationFields
+              fields={elicitation.fields}
+              drafts={mcpElicitationDrafts}
+              actions={actions}
+              controlNamespace={controlNamespace}
+            />
           </form>
         )}
       </div>
@@ -215,17 +233,19 @@ function UserInputCard({
   input,
   userInputDrafts,
   actions,
+  controlNamespace,
 }: {
   input: PendingUserInputViewModel;
   userInputDrafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
+  controlNamespace: string;
 }): UiNode {
   return (
     <PendingRequestCard className="codex-panel__user-input">
       <div className="codex-panel__pending-request-info">
         <div className="codex-panel__pending-request-title">{input.title}</div>
         <div className="codex-panel__pending-request-body">{input.body}</div>
-        <UserInputQuestions input={input} userInputDrafts={userInputDrafts} actions={actions} />
+        <UserInputQuestions input={input} userInputDrafts={userInputDrafts} actions={actions} controlNamespace={controlNamespace} />
       </div>
       <div className="codex-panel__pending-request-actions">
         <ActionButton
@@ -255,10 +275,12 @@ function UserInputQuestions({
   input,
   userInputDrafts,
   actions,
+  controlNamespace,
 }: {
   input: PendingUserInputViewModel;
   userInputDrafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
+  controlNamespace: string;
 }): UiNode {
   return (
     <>
@@ -272,7 +294,7 @@ function UserInputQuestions({
               {question.options && question.options.length > 0 ? (
                 <>
                   {question.options.map((option) => {
-                    const groupName = userInputRadioGroupName(input.requestId, question.id);
+                    const groupName = userInputRadioGroupName(controlNamespace, input.requestId, question.id);
                     return (
                       <label key={option.label} className="codex-panel__user-input-option">
                         <input
@@ -294,7 +316,7 @@ function UserInputQuestions({
                   })}
                   {question.isOther ? (
                     <OtherUserInputOption
-                      groupName={userInputRadioGroupName(input.requestId, question.id)}
+                      groupName={userInputRadioGroupName(controlNamespace, input.requestId, question.id)}
                       current={current}
                       optionLabels={new Set(question.options.map((option) => option.label))}
                       question={question}
@@ -318,15 +340,17 @@ function McpElicitationFields({
   fields,
   drafts,
   actions,
+  controlNamespace,
 }: {
   fields: readonly PendingMcpElicitationFieldViewModel[];
   drafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
+  controlNamespace: string;
 }): UiNode {
   return (
     <div className="codex-panel__mcp-elicitation-fields">
       {fields.map((field) => (
-        <McpElicitationField key={field.id} field={field} drafts={drafts} actions={actions} />
+        <McpElicitationField key={field.id} field={field} drafts={drafts} actions={actions} controlNamespace={controlNamespace} />
       ))}
     </div>
   );
@@ -336,14 +360,16 @@ function McpElicitationField({
   field,
   drafts,
   actions,
+  controlNamespace,
 }: {
   field: PendingMcpElicitationFieldViewModel;
   drafts: ReadonlyMap<string, string>;
   actions: PendingRequestBlockActions;
+  controlNamespace: string;
 }): UiNode {
   const current = drafts.get(field.draftKey) ?? field.defaultDraft;
-  const labelId = mcpElicitationFieldElementId("label", field.draftKey);
-  const controlId = mcpElicitationFieldElementId("control", field.draftKey);
+  const labelId = mcpElicitationFieldElementId(controlNamespace, "label", field.draftKey);
+  const controlId = mcpElicitationFieldElementId(controlNamespace, "control", field.draftKey);
   const labelContent = (
     <>
       <span>{field.title}</span>
@@ -362,7 +388,14 @@ function McpElicitationField({
         </div>
       )}
       {field.description ? <div className="codex-panel__mcp-elicitation-description">{field.description}</div> : null}
-      <McpElicitationFieldControl field={field} current={current} actions={actions} controlId={controlId} labelId={labelId} />
+      <McpElicitationFieldControl
+        field={field}
+        current={current}
+        actions={actions}
+        controlId={controlId}
+        labelId={labelId}
+        controlNamespace={controlNamespace}
+      />
     </div>
   );
 }
@@ -373,12 +406,14 @@ function McpElicitationFieldControl({
   actions,
   controlId,
   labelId,
+  controlNamespace,
 }: {
   field: PendingMcpElicitationFieldViewModel;
   current: string;
   actions: PendingRequestBlockActions;
   controlId: string;
   labelId: string;
+  controlNamespace: string;
 }): UiNode {
   switch (field.type) {
     case "boolean":
@@ -404,7 +439,7 @@ function McpElicitationFieldControl({
               <input
                 className="codex-panel__mcp-elicitation-radio"
                 type="radio"
-                name={`codex-panel-mcp-${field.draftKey}`}
+                name={controlName(controlNamespace, "mcp", field.draftKey)}
                 value={option.value}
                 required={field.required}
                 checked={current === option.value}
@@ -480,8 +515,8 @@ function mcpElicitationFieldHasSingleControl(field: PendingMcpElicitationFieldVi
   return field.type !== "single-select" && field.type !== "multi-select";
 }
 
-function mcpElicitationFieldElementId(kind: "control" | "label", draftKey: string): string {
-  return `codex-panel-mcp-${kind}-${encodeURIComponent(draftKey)}`;
+function mcpElicitationFieldElementId(namespace: string, kind: "control" | "label", draftKey: string): string {
+  return controlName(namespace, "mcp", kind, draftKey);
 }
 
 function selectedMcpElicitationValues(draft: string): Set<string> {
@@ -494,8 +529,12 @@ function selectedMcpElicitationValues(draft: string): Set<string> {
   return new Set();
 }
 
-function userInputRadioGroupName(requestId: PendingUserInputViewModel["requestId"], questionId: string): string {
-  return `codex-panel-${String(requestId)}-${questionId}`;
+function userInputRadioGroupName(namespace: string, requestId: PendingUserInputViewModel["requestId"], questionId: string): string {
+  return controlName(namespace, "user-input", typeof requestId, String(requestId), questionId);
+}
+
+function controlName(namespace: string, ...parts: string[]): string {
+  return ["codex-panel", namespace, ...parts].map(encodeURIComponent).join("-");
 }
 
 function OtherUserInputOption({

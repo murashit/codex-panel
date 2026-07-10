@@ -341,6 +341,7 @@ describe("thread stream item renderer decisions", () => {
         },
       ],
       pendingRequests: {
+        controlNamespace: "test-panel",
         signature: "request:1",
         snapshot: () => ({
           approvals: [],

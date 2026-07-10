@@ -62,6 +62,7 @@ export interface TextItemContext extends TextItemContentContext, TextItemActionC
 export interface ThreadStreamContext extends ThreadStreamRenderContext, TextItemContext {}
 
 export interface PendingRequestBlockContext {
+  controlNamespace: string;
   signature: string;
   snapshot: () => PendingRequestBlockSnapshot;
   actions: () => PendingRequestBlockActions;

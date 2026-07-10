@@ -71,6 +71,7 @@ function presentationBlockNode(block: ThreadStreamViewBlock, context: ThreadStre
       false,
       pendingRequests.consumeAutoFocus,
       block.signature,
+      pendingRequests.controlNamespace,
     );
   }
   return streamItemNode(block, context);

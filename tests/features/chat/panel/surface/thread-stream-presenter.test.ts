@@ -553,6 +553,7 @@ function testThreadStreamSurfaceContext(options: {
   dispatch: (action: ChatAction) => void;
 }): ChatThreadStreamSurfaceContext {
   return {
+    panelId: "test-panel",
     vaultPath: options.vaultPath,
     setDisclosureOpen: (bucket, id, open) => {
       options.dispatch({ type: "ui/disclosure-set", bucket, id, open });
@@ -680,6 +681,7 @@ function threadStreamPresenter(
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   const scrollPortBinding = createChatThreadStreamScrollBinding();
   const presenter = new ThreadStreamPresenter({
+    panelId: "test-panel",
     obsidian: {
       app: {
         workspace: {

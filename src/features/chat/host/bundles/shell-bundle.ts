@@ -86,6 +86,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     actions: goals,
   };
   const threadStreamPresenter = new ThreadStreamPresenter({
+    panelId: environment.obsidian.viewId,
     obsidian: {
       app: environment.obsidian.app,
       owner: environment.obsidian.owner,

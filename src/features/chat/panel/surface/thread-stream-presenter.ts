@@ -65,6 +65,7 @@ interface ThreadStreamPresenterHistoryContext {
 }
 
 export interface ThreadStreamPresenterOptions {
+  panelId: string;
   obsidian: ThreadStreamPresenterObsidianContext;
   state: ThreadStreamPresenterStateContext;
   workspace: ThreadStreamPresenterWorkspaceContext;
@@ -85,6 +86,7 @@ export class ThreadStreamPresenter {
       vaultPath: options.workspace.vaultPath,
     });
     this.surfaceContext = {
+      panelId: options.panelId,
       vaultPath: options.workspace.vaultPath,
       setDisclosureOpen: (bucket, id, open) => {
         this.dispatch({ type: "ui/disclosure-set", bucket, id, open });

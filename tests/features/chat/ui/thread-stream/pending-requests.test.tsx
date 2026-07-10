@@ -28,6 +28,34 @@ import {
 } from "./test-helpers";
 
 describe("pending request renderer decisions", () => {
+  it("keeps radio groups separate across panels with the same request id", () => {
+    const first = document.createElement("div");
+    const second = document.createElement("div");
+    const input = pendingUserInput();
+    const render = (parent: HTMLElement, namespace: string) =>
+      renderPendingRequestNode(
+        parent,
+        [],
+        [input],
+        { values: new Map() },
+        new Set(),
+        pendingRequestActions(),
+        false,
+        undefined,
+        "",
+        namespace,
+      );
+
+    render(first, "panel-a");
+    render(second, "panel-b");
+
+    const firstName = first.querySelector<HTMLInputElement>(".codex-panel__user-input-radio")?.name;
+    const secondName = second.querySelector<HTMLInputElement>(".codex-panel__user-input-radio")?.name;
+    expect(firstName).toContain("panel-a");
+    expect(secondName).toContain("panel-b");
+    expect(firstName).not.toBe(secondName);
+  });
+
   it("renders pending requests as one thread stream block and keeps user input drafts live", () => {
     const parent = document.createElement("div");
     const drafts = new Map<string, string>();
@@ -503,6 +531,7 @@ describe("pending request renderer decisions", () => {
     expect(parent.querySelector(".codex-panel__pending-request-title")?.textContent).toBe("MCP request from github");
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input"));
     const label = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-label"));
+    expect(label.id).toContain("test-panel");
     expect(label.tagName).toBe("LABEL");
     expect(label.getAttribute("for")).toBe(input.id);
     changeInputValue(input, "Updated");
@@ -681,6 +710,7 @@ function pendingRequestContext(options: {
   const snapshotFn =
     typeof snapshot === "function" ? (snapshot as () => PendingRequestBlockSnapshot) : () => snapshot ?? emptyPendingRequestBlockSnapshot();
   return {
+    controlNamespace: "test-panel",
     signature: options.signature,
     snapshot: snapshotFn,
     actions: () => options.actions ?? pendingRequestActions(),
