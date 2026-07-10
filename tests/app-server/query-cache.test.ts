@@ -303,6 +303,40 @@ describe("AppServerQueryCache", () => {
     expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-cached"]);
   });
 
+  it("keeps every last-known-good resource through the full metadata refresh path", async () => {
+    const context = cacheContext();
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockRejectedValue(new Error("models offline")),
+      "skills/list": vi.fn().mockRejectedValue(new Error("skills offline")),
+      "permissionProfile/list": vi.fn().mockRejectedValue(new Error("profiles offline")),
+      "account/rateLimits/read": vi.fn().mockRejectedValue(new Error("limits offline")),
+    });
+    cache.writeAppServerMetadata(
+      context,
+      metadata({
+        availableModels: [modelMetadata("gpt-cached")],
+        availableSkills: [skillMetadata("cached-skill")],
+        availablePermissionProfiles: [permissionProfile(":cached")],
+        rateLimit: rateLimit(17),
+      }),
+    );
+
+    const refreshed = await cache.refreshAppServerMetadata(context);
+
+    expect(refreshed?.availableModels.map((model) => model.model)).toEqual(["gpt-cached"]);
+    expect(refreshed?.availableSkills.map((skill) => skill.name)).toEqual(["cached-skill"]);
+    expect(refreshed?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":cached"]);
+    expect(refreshed?.rateLimit?.primary?.usedPercent).toBe(17);
+    expect(refreshed?.serverDiagnostics.probes).toMatchObject({
+      models: { status: "failed" },
+      skills: { status: "failed" },
+      permissionProfiles: { status: "failed" },
+      rateLimits: { status: "failed" },
+    });
+    expect(cache.appServerMetadataSnapshot(context)).toEqual(refreshed);
+  });
+
   it("clears thread list snapshots by context", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();

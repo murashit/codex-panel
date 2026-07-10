@@ -183,23 +183,14 @@ export class AppServerQueryCache {
       this.client.invalidateQueries({ queryKey: appServerModelsQueryKey(refreshContext) }),
     ]);
     const metadata = await this.client.fetchQuery(this.appServerMetadataQueryOptions(refreshContext, options));
-    return this.writeAppServerMetadata(refreshContext, metadata);
+    return cloneSharedServerMetadata(metadata);
   }
 
   writeAppServerMetadata(context: AppServerQueryContext, metadata: SharedServerMetadata): SharedServerMetadata | null {
     if (!appServerQueryContextIsComplete(context)) return null;
-    const previous = this.appServerMetadataSnapshot(context);
-    const probes = metadata.serverDiagnostics.probes;
-    const next = cloneSharedServerMetadata({
-      ...metadata,
-      availableModels: probes.models.status === "ok" ? metadata.availableModels : (this.modelsSnapshot(context) ?? []),
-      availableSkills: probes.skills.status === "ok" ? metadata.availableSkills : (previous?.availableSkills ?? []),
-      availablePermissionProfiles:
-        probes.permissionProfiles.status === "ok" ? metadata.availablePermissionProfiles : (previous?.availablePermissionProfiles ?? []),
-      rateLimit: probes.rateLimits.status === "ok" ? metadata.rateLimit : (previous?.rateLimit ?? null),
-    });
+    const next = metadataWithLastKnownGood(metadata, this.appServerMetadataSnapshot(context), this.modelsSnapshot(context));
     this.client.setQueryData(appServerMetadataQueryKey(context), cloneSharedServerMetadata(next));
-    if (probes.models.status === "ok") {
+    if (metadata.serverDiagnostics.probes.models.status === "ok") {
       this.client.setQueryData(appServerModelsQueryKey(context), cloneModelMetadata(next.availableModels));
     }
     return cloneSharedServerMetadata(next);
@@ -273,6 +264,7 @@ export class AppServerQueryCache {
     return {
       queryKey: appServerMetadataQueryKey(refreshContext),
       queryFn: async (): Promise<SharedServerMetadata> => {
+        const previous = this.appServerMetadataSnapshot(refreshContext);
         return this.runWithClient(refreshContext, async (client) => {
           const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, refreshContext.vaultPath));
           const [models, skills, permissionProfiles, rateLimit] = await Promise.all([
@@ -283,16 +275,20 @@ export class AppServerQueryCache {
           ]);
           const diagnostics = [models.probe, skills.probe, permissionProfiles.probe, rateLimit.probe].reduce(
             (current, probe) => diagnosticsWithProbe(current, probe),
-            this.appServerMetadataSnapshot(refreshContext)?.serverDiagnostics ?? createServerDiagnostics(),
+            previous?.serverDiagnostics ?? createServerDiagnostics(),
           );
-          return {
-            runtimeConfig,
-            availableModels: models.value,
-            availableSkills: skills.value,
-            availablePermissionProfiles: permissionProfiles.value,
-            rateLimit: rateLimit.value,
-            serverDiagnostics: diagnostics,
-          };
+          return metadataWithLastKnownGood(
+            {
+              runtimeConfig,
+              availableModels: models.value,
+              availableSkills: skills.value,
+              availablePermissionProfiles: permissionProfiles.value,
+              rateLimit: rateLimit.value,
+              serverDiagnostics: diagnostics,
+            },
+            previous,
+            this.modelsSnapshot(refreshContext),
+          );
         });
       },
       staleTime: APP_SERVER_METADATA_STALE_TIME_MS,
@@ -379,6 +375,22 @@ export class AppServerQueryCache {
     }
     return this.clientRunner.runWithClient(context, operation, options);
   }
+}
+
+function metadataWithLastKnownGood(
+  metadata: SharedServerMetadata,
+  previous: SharedServerMetadata | null,
+  models: readonly ModelMetadata[] | null,
+): SharedServerMetadata {
+  const probes = metadata.serverDiagnostics.probes;
+  return cloneSharedServerMetadata({
+    ...metadata,
+    availableModels: probes.models.status === "ok" ? metadata.availableModels : (models ?? previous?.availableModels ?? []),
+    availableSkills: probes.skills.status === "ok" ? metadata.availableSkills : (previous?.availableSkills ?? []),
+    availablePermissionProfiles:
+      probes.permissionProfiles.status === "ok" ? metadata.availablePermissionProfiles : (previous?.availablePermissionProfiles ?? []),
+    rateLimit: probes.rateLimits.status === "ok" ? metadata.rateLimit : (previous?.rateLimit ?? null),
+  });
 }
 
 function createAppServerQueryClient(): QueryClient {
