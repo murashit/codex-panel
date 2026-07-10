@@ -82,6 +82,31 @@ describe("GoalPanel", () => {
     expect(parent.querySelector<HTMLDetailsElement>(".codex-panel__goal-objective-collapse-details")?.hidden).toBe(true);
   });
 
+  it("recomputes objective overflow when its rendered size changes", async () => {
+    const parent = document.createElement("div");
+    let scrollHeight = 40;
+
+    await withResizeObserver(async (notifyResize) => {
+      await withGoalObjectiveScrollHeight(
+        () => scrollHeight,
+        async () => {
+          await act(async () => {
+            renderGoal(parent, goal({ objective: "resizable" }), actions());
+          });
+          const details = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__goal-objective-collapse-details"));
+          expect(details.hidden).toBe(true);
+
+          scrollHeight = 100;
+          await act(async () => {
+            notifyResize();
+          });
+
+          expect(details.hidden).toBe(false);
+        },
+      );
+    });
+  });
+
   it("saves inline edits from the editor frame icon while preserving the existing token budget", async () => {
     const parent = document.createElement("div");
     document.body.appendChild(parent);
@@ -324,12 +349,16 @@ async function outsidePointerDown(): Promise<void> {
   });
 }
 
-async function withGoalObjectiveScrollHeight<T>(scrollHeight: number, fn: () => Promise<T>): Promise<T> {
+async function withGoalObjectiveScrollHeight<T>(scrollHeight: number | (() => number), fn: () => Promise<T>): Promise<T> {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollHeight");
   Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
     configurable: true,
     get() {
-      return this.classList.contains("codex-panel__goal-objective") ? scrollHeight : 0;
+      return this.classList.contains("codex-panel__goal-objective")
+        ? typeof scrollHeight === "function"
+          ? scrollHeight()
+          : scrollHeight
+        : 0;
     },
   });
   try {
@@ -340,6 +369,30 @@ async function withGoalObjectiveScrollHeight<T>(scrollHeight: number, fn: () => 
     } else {
       Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
     }
+  }
+}
+
+async function withResizeObserver<T>(fn: (notifyResize: () => void) => Promise<T>): Promise<T> {
+  const original = window.ResizeObserver;
+  const callbacks: (() => void)[] = [];
+  class TestResizeObserver implements ResizeObserver {
+    constructor(callback: ResizeObserverCallback) {
+      callbacks.push(() => {
+        callback([], this);
+      });
+    }
+
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  window.ResizeObserver = TestResizeObserver;
+  try {
+    return await fn(() => {
+      for (const callback of callbacks) callback();
+    });
+  } finally {
+    window.ResizeObserver = original;
   }
 }
 

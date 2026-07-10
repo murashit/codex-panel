@@ -1,4 +1,5 @@
 import { disposeDomListeners, listenDomEscapeKey, listenOutsideDomEvent } from "../../../shared/dom/events.dom";
+import { observeElementResize } from "../../../shared/dom/resize-observer.measure";
 import { syncTextareaHeight } from "../../../shared/dom/textarea-autogrow.measure";
 
 export function syncGoalObjectiveHeight(textarea: HTMLTextAreaElement | null): void {
@@ -21,8 +22,10 @@ export function observeGoalObjectiveOverflow(content: HTMLElement, onOverflowCha
   };
   update();
   frame = win.requestAnimationFrame(update);
+  const disposeResizeObserver = observeElementResize(content, update);
   return () => {
     if (frame) win.cancelAnimationFrame(frame);
+    disposeResizeObserver();
   };
 }
 

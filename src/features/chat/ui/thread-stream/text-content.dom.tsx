@@ -1,7 +1,8 @@
 import type { Ref, ComponentChild as UiNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
-import { listenDomEvent, listenOutsideDomEvent } from "../../../../shared/dom/events.dom";
+import { disposeDomListeners, listenDomEvent, listenOutsideDomEvent } from "../../../../shared/dom/events.dom";
+import { observeElementResize } from "../../../../shared/dom/resize-observer.measure";
 import type { ThreadStreamTextView } from "../../presentation/thread-stream/text-view";
 import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "./content-rendered-event.dom";
 import type { TextItemContentContext } from "./context";
@@ -21,9 +22,10 @@ export function CollapsibleTextContent({ view, context }: { view: ThreadStreamTe
       setOverflows(content.scrollHeight > userDialogueCollapseHeight(content) + 1);
     };
     const disposeRendered = listenDomEvent(content, THREAD_STREAM_CONTENT_RENDERED_EVENT, update);
+    const disposeResizeObserver = observeElementResize(content, update);
     update();
     content.win.requestAnimationFrame(update);
-    return disposeRendered;
+    return disposeDomListeners(disposeRendered, disposeResizeObserver);
   }, [view.id, view.body, view.renderMode]);
 
   useEffect(() => {
