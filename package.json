@@ -54,6 +54,6 @@
     "@tanstack/query-core": "^5.101.1",
     "defuddle": "^0.19.1",
     "micromark": "^4.0.2",
-    "preact": "^10.29.2"
+    "preact": "^10.29.3"
   }
 }
