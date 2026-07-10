@@ -159,6 +159,8 @@ export function appServerMcpElicitationRequest(request: AppServerRequest): Pendi
       },
     };
   }
+  const fields = mcpElicitationFieldsFromRequestedSchema(params.requestedSchema);
+  if (!fields) return null;
   return {
     requestId: request.id,
     params: {
@@ -168,7 +170,7 @@ export function appServerMcpElicitationRequest(request: AppServerRequest): Pendi
       mode: "form",
       message: params.message,
       meta: params.meta,
-      fields: mcpElicitationFieldsFromRequestedSchema(params.requestedSchema),
+      fields,
     },
   };
 }
@@ -604,17 +606,19 @@ function normalizeMcpElicitationParams(params: McpElicitationParams): Normalized
   }
 }
 
-function mcpElicitationFieldsFromRequestedSchema(schema: unknown): PendingMcpElicitationField[] {
+function mcpElicitationFieldsFromRequestedSchema(schema: unknown): PendingMcpElicitationField[] | null {
   const record = asRecordOrNull(schema);
   const properties = asRecordOrNull(record?.["properties"]);
-  if (!properties) return [];
+  if (record?.["type"] !== "object" || !properties) return null;
   const required = new Set(
-    Array.isArray(record?.["required"]) ? record["required"].filter((item): item is string => typeof item === "string") : [],
+    Array.isArray(record["required"]) ? record["required"].filter((item): item is string => typeof item === "string") : [],
   );
-  return Object.entries(properties).flatMap(([id, fieldSchema]) => {
-    if (!isMcpElicitationPrimitiveSchema(fieldSchema)) return [];
-    return [mcpElicitationFieldFromSchema(id, fieldSchema, required.has(id))];
-  });
+  const fields: PendingMcpElicitationField[] = [];
+  for (const [id, fieldSchema] of Object.entries(properties)) {
+    if (!isMcpElicitationPrimitiveSchema(fieldSchema)) return null;
+    fields.push(mcpElicitationFieldFromSchema(id, fieldSchema, required.has(id)));
+  }
+  return fields;
 }
 
 function isMcpElicitationPrimitiveSchema(schema: unknown): schema is AppServerMcpElicitationPrimitiveSchema {

@@ -103,8 +103,12 @@ describe("MCP elicitation request model", () => {
     expect(input.params.fields).toEqual([expect.objectContaining({ id: "title", type: "string" })]);
   });
 
-  it("normalizes malformed schema fields without leaking invalid values", () => {
-    const input = expectPresent(toPendingMcpElicitation(malformedSchemaRequest()));
+  it("rejects a form instead of dropping unsupported schema fields", () => {
+    expect(toPendingMcpElicitation(malformedSchemaRequest())).toBeNull();
+  });
+
+  it("normalizes malformed primitive schema values without leaking them", () => {
+    const input = expectPresent(toPendingMcpElicitation(malformedSchemaRequest({ includeUnsupported: false })));
     if (input.params.mode !== "form") throw new Error("Expected form mode");
 
     expect(input.params.fields.map((field) => field.id)).toEqual(["badDefault", "brokenSelect", "enumSelect", "labels"]);
@@ -217,7 +221,7 @@ function openAiFormRequest(): ServerRequest {
   };
 }
 
-function malformedSchemaRequest(): ServerRequest {
+function malformedSchemaRequest({ includeUnsupported = true }: { includeUnsupported?: boolean } = {}): ServerRequest {
   return {
     id: 44,
     method: "mcpServer/elicitation/request",
@@ -230,8 +234,9 @@ function malformedSchemaRequest(): ServerRequest {
       message: "Provide issue details",
       requestedSchema: {
         type: "object",
+        required: includeUnsupported ? ["unsupported"] : [],
         properties: {
-          unsupported: { type: "object", title: "Unsupported" },
+          ...(includeUnsupported ? { unsupported: { type: "object", title: "Unsupported" } } : {}),
           badDefault: { type: "boolean", title: "Bad default", default: "yes" },
           brokenSelect: { type: "string", title: "Broken select", oneOf: { const: "low", title: "Low" } },
           enumSelect: { type: "string", title: "Enum select", enum: ["low", 1, "high"] },

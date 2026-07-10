@@ -119,6 +119,23 @@ describe("chat inbound routing", () => {
     expectRequestRouteKind({ ...request, params: { ...request.params, threadId: "thread-other" } } as ServerRequest, "inactive");
   });
 
+  it("routes MCP forms with unsupported fields to diagnostic rejection", () => {
+    const request = mcpElicitationRequest();
+    const unsupported = {
+      ...request,
+      params: {
+        ...request.params,
+        requestedSchema: {
+          type: "object",
+          required: ["nested"],
+          properties: { nested: { type: "object" } },
+        },
+      },
+    } as ServerRequest;
+
+    expectRequestRouteKind(unsupported, "unsupported");
+  });
+
   it("marks scoped messages inactive when the thread or turn does not match", () => {
     const otherThread = {
       method: "item/agentMessage/delta",
