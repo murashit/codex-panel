@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { AppServerQueryContext } from "../../src/app-server/query/keys";
-import type { ModelMetadata, SkillMetadata } from "../../src/domain/catalog/metadata";
+import type { SkillMetadata } from "../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
@@ -17,7 +17,7 @@ import {
 import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 
 describe("AppServerQueryCache", () => {
-  it("preserves successful resource values when metadata probes fail", () => {
+  it("preserves successful metadata resource values when probes fail", () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext();
     const goodMetadata = metadata({
@@ -27,12 +27,9 @@ describe("AppServerQueryCache", () => {
     });
 
     cache.writeAppServerMetadata(context, goodMetadata);
-    expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.5"]);
-
     cache.writeAppServerMetadata(
       context,
       metadata({
-        availableModels: [modelMetadata("gpt-5.6")],
         availableSkills: [skillMetadata("failed-skill")],
         availablePermissionProfiles: [permissionProfile(":failed")],
         rateLimit: rateLimit(90),
@@ -42,15 +39,13 @@ describe("AppServerQueryCache", () => {
       }),
     );
 
-    expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
     expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(cache.appServerMetadataSnapshot(context)?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":workspace"]);
     expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(42);
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.skills.status).toBe("failed");
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.rateLimits.status).toBe("failed");
 
-    cache.writeAppServerMetadata(context, metadata({ availableModels: [], modelProbeStatus: "failed" }));
-    expect(cache.appServerMetadataSnapshot(context)?.availableModels.map((model) => model.model)).toEqual(["gpt-5.6"]);
+    cache.writeAppServerMetadata(context, metadata({ modelProbeStatus: "failed" }));
     expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.models.status).toBe("failed");
   });
 
@@ -61,7 +56,6 @@ describe("AppServerQueryCache", () => {
       cache.writeAppServerMetadata(
         context,
         metadata({
-          availableModels: [modelMetadata("gpt-previous")],
           availableSkills: [skillMetadata("previous-skill")],
           availablePermissionProfiles: [permissionProfile(":previous")],
           rateLimit: rateLimit(11),
@@ -71,7 +65,6 @@ describe("AppServerQueryCache", () => {
       cache.writeAppServerMetadata(
         context,
         metadata({
-          availableModels: [modelMetadata("gpt-next")],
           availableSkills: [skillMetadata("next-skill")],
           availablePermissionProfiles: [permissionProfile(":next")],
           rateLimit: rateLimit(22),
@@ -84,14 +77,6 @@ describe("AppServerQueryCache", () => {
 
       const snapshot = cache.appServerMetadataSnapshot(context);
       const statusCase = metadataProbeStatusCase(statuses);
-      expect(
-        snapshot?.availableModels.map((model) => model.model),
-        statusCase,
-      ).toEqual([statuses.models === "ok" ? "gpt-next" : "gpt-previous"]);
-      expect(
-        cache.modelsSnapshot(context)?.map((model) => model.model),
-        statusCase,
-      ).toEqual([statuses.models === "ok" ? "gpt-next" : "gpt-previous"]);
       expect(
         snapshot?.availableSkills.map((skill) => skill.name),
         statusCase,
@@ -111,7 +96,6 @@ describe("AppServerQueryCache", () => {
     cache.writeAppServerMetadata(
       context,
       metadata({
-        availableModels: [modelMetadata("failed-model")],
         availableSkills: [skillMetadata("writer")],
         availablePermissionProfiles: [permissionProfile(":workspace")],
         rateLimit: rateLimit(90),
@@ -125,7 +109,6 @@ describe("AppServerQueryCache", () => {
     const cached = cache.appServerMetadataSnapshot(context);
     expect(cached?.runtimeConfig).not.toBeNull();
     expect(cached?.serverDiagnostics.probes.models.status).toBe("failed");
-    expect(cached?.availableModels).toEqual([]);
     expect(cached?.availableSkills).toEqual([]);
     expect(cached?.availablePermissionProfiles).toEqual([]);
     expect(cached?.rateLimit).toBeNull();
@@ -186,15 +169,16 @@ describe("AppServerQueryCache", () => {
     expect(cache.modelsSnapshot(context)).toBeNull();
   });
 
-  it("stores successful empty model snapshots as shared cache truth", () => {
-    const cache = new AppServerQueryCache();
+  it("does not let metadata writes overwrite the model query", async () => {
+    const cache = cacheWithRequestHandlers({
+      "model/list": vi.fn().mockResolvedValue({ data: [catalogModel("gpt-model-query")] }),
+    });
     const context = cacheContext();
 
-    cache.writeAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-5.6")] }));
-    cache.writeAppServerMetadata(context, metadata({ availableModels: [] }));
+    await cache.fetchModels(context);
+    cache.writeAppServerMetadata(context, metadata({ modelProbeStatus: "failed" }));
 
-    expect(cache.appServerMetadataSnapshot(context)?.availableModels).toEqual([]);
-    expect(cache.modelsSnapshot(context)).toEqual([]);
+    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-model-query"]);
   });
 
   it("does not reuse metadata or model snapshots across app-server cache contexts", () => {
@@ -279,7 +263,7 @@ describe("AppServerQueryCache", () => {
     expect(cache.activeThreadsSnapshot(context)).toBeNull();
   });
 
-  it("fetches app-server metadata through the query cache and syncs model snapshots", async () => {
+  it("fetches app-server metadata and models through their respective query records", async () => {
     const context = cacheContext();
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
@@ -291,7 +275,6 @@ describe("AppServerQueryCache", () => {
 
     const metadata = await cache.refreshAppServerMetadata(context);
 
-    expect(metadata?.availableModels.map((model) => model.model)).toEqual(["gpt-meta"]);
     expect(metadata?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(metadata?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":workspace"]);
     expect(metadata?.rateLimit?.primary?.usedPercent).toBe(64);
@@ -321,36 +304,41 @@ describe("AppServerQueryCache", () => {
     modelRefresh.resolve({ data: [catalogModel("gpt-shared")] });
 
     await expect(modelsPromise).resolves.toMatchObject([{ model: "gpt-shared" }]);
-    await expect(metadataPromise).resolves.toMatchObject({
-      availableModels: [{ model: "gpt-shared" }],
-    });
+    await expect(metadataPromise).resolves.toMatchObject({ serverDiagnostics: { probes: { models: { status: "ok" } } } });
     expect(listModels).toHaveBeenCalledOnce();
     expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-shared"]);
   });
 
   it("keeps query-cached models when app-server metadata model refresh fails", async () => {
     const context = cacheContext();
+    const listModels = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [catalogModel("gpt-cached")] })
+      .mockRejectedValueOnce(new Error("offline"));
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
-      "model/list": vi.fn().mockRejectedValue(new Error("offline")),
+      "model/list": listModels,
       "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
       "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
-    cache.writeAppServerMetadata(context, metadata({ availableModels: [modelMetadata("gpt-cached")] }));
+    await cache.fetchModels(context);
 
     const metadataSnapshot = await cache.refreshAppServerMetadata(context);
 
-    expect(metadataSnapshot?.availableModels.map((model) => model.model)).toEqual(["gpt-cached"]);
     expect(metadataSnapshot?.serverDiagnostics.probes.models.status).toBe("failed");
     expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-cached"]);
   });
 
   it("keeps every last-known-good resource through the full metadata refresh path", async () => {
     const context = cacheContext();
+    const listModels = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [catalogModel("gpt-cached")] })
+      .mockRejectedValueOnce(new Error("models offline"));
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
-      "model/list": vi.fn().mockRejectedValue(new Error("models offline")),
+      "model/list": listModels,
       "skills/list": vi.fn().mockRejectedValue(new Error("skills offline")),
       "permissionProfile/list": vi.fn().mockRejectedValue(new Error("profiles offline")),
       "account/rateLimits/read": vi.fn().mockRejectedValue(new Error("limits offline")),
@@ -358,16 +346,16 @@ describe("AppServerQueryCache", () => {
     cache.writeAppServerMetadata(
       context,
       metadata({
-        availableModels: [modelMetadata("gpt-cached")],
         availableSkills: [skillMetadata("cached-skill")],
         availablePermissionProfiles: [permissionProfile(":cached")],
         rateLimit: rateLimit(17),
       }),
     );
+    await cache.fetchModels(context);
 
     const refreshed = await cache.refreshAppServerMetadata(context);
 
-    expect(refreshed?.availableModels.map((model) => model.model)).toEqual(["gpt-cached"]);
+    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-cached"]);
     expect(refreshed?.availableSkills.map((skill) => skill.name)).toEqual(["cached-skill"]);
     expect(refreshed?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":cached"]);
     expect(refreshed?.rateLimit?.primary?.usedPercent).toBe(17);
@@ -455,7 +443,6 @@ function cacheWithRequestHandlers(handlers: Record<string, (params: unknown) => 
 
 function metadata(
   overrides: {
-    availableModels?: readonly ModelMetadata[];
     availableSkills?: readonly SkillMetadata[];
     availablePermissionProfiles?: readonly RuntimePermissionProfileSummary[];
     rateLimit?: RateLimitSnapshot | null;
@@ -493,7 +480,6 @@ function metadata(
   );
   return {
     runtimeConfig: overrides.runtimeConfig ?? emptyRuntimeConfigSnapshot(),
-    availableModels: overrides.availableModels ?? [modelMetadata("gpt-5.5")],
     availableSkills: overrides.availableSkills ?? [],
     availablePermissionProfiles: overrides.availablePermissionProfiles ?? [],
     rateLimit: overrides.rateLimit ?? null,
@@ -539,23 +525,6 @@ function rateLimit(usedPercent: number): RateLimitSnapshot {
     secondary: null,
     individualLimit: null,
     rateLimitReachedType: null,
-  };
-}
-
-function modelMetadata(model: string): ModelMetadata {
-  return {
-    id: model,
-    model,
-    displayName: model,
-    description: "",
-    hidden: false,
-    supportedReasoningEfforts: [],
-    defaultReasoningEffort: "medium",
-    inputModalities: [],
-    additionalSpeedTiers: [],
-    serviceTiers: [],
-    defaultServiceTier: null,
-    isDefault: false,
   };
 }
 

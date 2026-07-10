@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ModelMetadata, SkillMetadata } from "../../../../../src/domain/catalog/metadata";
+import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import type { RateLimitSnapshot } from "../../../../../src/domain/runtime/metrics";
 import {
@@ -24,9 +24,9 @@ import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("server metadata actions", () => {
-  it("applies refreshed app-server metadata", async () => {
+  it("applies refreshed non-model app-server metadata", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const metadata = serverMetadataFixture({ availableModels: [modelFixture("gpt-5.1")] });
+    const metadata = serverMetadataFixture({ availableSkills: [skillFixture("writer")] });
     const actions = createServerMetadataActions({
       stateStore,
       metadataResourceTransport: metadataResourceTransport(),
@@ -37,7 +37,7 @@ describe("server metadata actions", () => {
 
     await actions.refreshAppServerMetadata();
 
-    expect(stateStore.getState().connection.availableModels.map((model) => model.model)).toEqual(["gpt-5.1"]);
+    expect(stateStore.getState().connection.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
   });
 
   it("preserves panel-local tool diagnostics when applying shared metadata", async () => {
@@ -208,7 +208,6 @@ describe("server diagnostics actions", () => {
   it("reuses refreshed app-server metadata for deferred diagnostics", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const refreshedMetadata = serverMetadataFixture({
-      availableModels: [modelFixture("gpt-5.1")],
       availableSkills: [skillFixture("writer")],
       serverDiagnostics: diagnosticsWithProbe(
         diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "1 models", 1)),
@@ -458,23 +457,6 @@ function toolInventory(): ToolInventorySnapshot {
   };
 }
 
-function modelFixture(model: string): ModelMetadata {
-  return {
-    id: model,
-    model,
-    displayName: model,
-    description: "",
-    hidden: false,
-    supportedReasoningEfforts: [],
-    defaultReasoningEffort: "medium",
-    inputModalities: ["text"],
-    additionalSpeedTiers: [],
-    serviceTiers: [],
-    defaultServiceTier: null,
-    isDefault: false,
-  };
-}
-
 function skillFixture(name: string): SkillMetadata {
   return {
     name,
@@ -499,7 +481,6 @@ function rateLimitFixture(overrides: Partial<RateLimitSnapshot> = {}): RateLimit
 function serverMetadataFixture(overrides: Partial<SharedServerMetadata> = {}): SharedServerMetadata {
   return {
     runtimeConfig: emptyRuntimeConfigSnapshot(),
-    availableModels: [],
     availableSkills: [],
     availablePermissionProfiles: [],
     rateLimit: null,

@@ -456,7 +456,6 @@ describe("CodexChatView connection lifecycle", () => {
           () =>
             ({
               runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-cached" },
-              availableModels: [],
               availableSkills: [{ name: "writer", enabled: true }],
               availablePermissionProfiles: [],
               rateLimit: null,
@@ -1026,7 +1025,7 @@ interface ChatHostFixtureOverrides {
 function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   let activeThreads = overrides.activeSnapshot?.() ?? null;
   let metadata = overrides.appServerMetadataSnapshot?.() ?? null;
-  const models = overrides.modelsSnapshot?.() ?? null;
+  let models = overrides.modelsSnapshot?.() ?? null;
   const activeThreadResultListeners = new Set<(result: ObservedResult<readonly Thread[]>) => void>();
   const metadataResultListeners = new Set<(result: ObservedResult<SharedServerMetadata>) => void>();
   const modelResultListeners = new Set<(result: ObservedResult<readonly ModelMetadata[]>) => void>();
@@ -1040,7 +1039,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   const applyMetadataToCache = (nextMetadata: SharedServerMetadata): SharedServerMetadata => {
     metadata = nextMetadata;
     for (const listener of metadataResultListeners) listener(queryResult(nextMetadata));
-    for (const listener of modelResultListeners) listener(queryResult(nextMetadata.availableModels));
     return nextMetadata;
   };
   const loadAppServerMetadata = async (): Promise<SharedServerMetadata | null> => {
@@ -1049,16 +1047,18 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
     const connectionStillCurrent = () => connectionMock.state.client === client && connectionMock.state.connected;
     await client.request("config/read", { cwd: vaultPath, includeLayers: true });
     if (!connectionStillCurrent()) return null;
-    let availableModels: readonly ModelMetadata[];
+    let fetchedModels: readonly ModelMetadata[];
     if (overrides.fetchModels) {
-      availableModels = await overrides.fetchModels();
+      fetchedModels = await overrides.fetchModels();
     } else {
       const modelsResponse = (await client.request("model/list", { includeHidden: false, limit: 100 })) as {
         data: Parameters<typeof modelMetadataFromCatalogModels>[0];
       };
-      availableModels = modelMetadataFromCatalogModels(modelsResponse.data);
+      fetchedModels = modelMetadataFromCatalogModels(modelsResponse.data);
     }
     if (!connectionStillCurrent()) return null;
+    models = fetchedModels;
+    for (const listener of modelResultListeners) listener(queryResult(fetchedModels));
     const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: false })) as {
       data: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }[];
     };
@@ -1072,7 +1072,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
     if (!connectionStillCurrent()) return null;
     return {
       runtimeConfig: emptyRuntimeConfigSnapshot(),
-      availableModels,
       availableSkills: skillsResponse.data.flatMap(
         (entry: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }) =>
           entry.skills.map((skill) => ({

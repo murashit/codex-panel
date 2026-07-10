@@ -39,7 +39,7 @@ describe("AppServerSharedQueries", () => {
 
     const refresh = queries.refreshAppServerMetadata();
     context.vaultPath = "/other-vault";
-    pending.resolve(serverMetadata({ availableModels: [model("stale-model")] }));
+    pending.resolve(serverMetadata());
 
     await expect(refresh).rejects.toBeInstanceOf(StaleAppServerSharedQueryContextError);
   });
@@ -106,14 +106,15 @@ describe("AppServerSharedQueries", () => {
   });
 
   it("publishes metadata and model snapshots to shared query observers", () => {
-    const metadata = serverMetadata({ availableModels: [model("gpt-test")] });
+    const metadata = serverMetadata();
+    const models = [model("gpt-test")];
     const metadataListener = vi.fn();
     const modelListener = vi.fn();
     const queries = new AppServerSharedQueries({
       cache: cacheWith({
         appServerMetadataSnapshot: () => metadata,
         updateAppServerMetadata: () => metadata,
-        modelsSnapshot: () => metadata.availableModels,
+        modelsSnapshot: () => models,
         observeAppServerMetadataResult: (_context, listener) => {
           metadataObserver = listener;
           return () => undefined;
@@ -132,12 +133,12 @@ describe("AppServerSharedQueries", () => {
     queries.observeModelsResult(modelListener);
     queries.updateAppServerMetadata(() => metadata);
     metadataObserver(observedResult(metadata));
-    modelObserver(observedResult(metadata.availableModels));
+    modelObserver(observedResult(models));
 
     expect(queries.appServerMetadataSnapshot()).toEqual(metadata);
-    expect(queries.modelsSnapshot()).toEqual(metadata.availableModels);
+    expect(queries.modelsSnapshot()).toEqual(models);
     expect(metadataListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: metadata }));
-    expect(modelListener).toHaveBeenCalledWith(expect.objectContaining({ value: metadata.availableModels }));
+    expect(modelListener).toHaveBeenCalledWith(expect.objectContaining({ value: models }));
   });
 });
 
@@ -197,7 +198,6 @@ function serverMetadata(overrides: Partial<SharedServerMetadata> = {}): SharedSe
   const diagnostics = diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "0 models", 1));
   return {
     runtimeConfig: null,
-    availableModels: [],
     availableSkills: [],
     availablePermissionProfiles: [],
     rateLimit: null,

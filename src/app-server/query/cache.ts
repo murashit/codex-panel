@@ -194,11 +194,8 @@ export class AppServerQueryCache {
 
   writeAppServerMetadata(context: AppServerQueryContext, metadata: SharedServerMetadata): SharedServerMetadata | null {
     if (!appServerQueryContextIsComplete(context)) return null;
-    const next = metadataWithLastKnownGood(metadata, this.appServerMetadataSnapshot(context), this.modelsSnapshot(context));
+    const next = metadataWithLastKnownGood(metadata, this.appServerMetadataSnapshot(context));
     this.client.setQueryData(appServerMetadataQueryKey(context), cloneSharedServerMetadata(next));
-    if (metadata.serverDiagnostics.probes.models.status === "ok") {
-      this.client.setQueryData(appServerModelsQueryKey(context), cloneModelMetadata(next.availableModels));
-    }
     return cloneSharedServerMetadata(next);
   }
 
@@ -273,27 +270,25 @@ export class AppServerQueryCache {
         const previous = this.appServerMetadataSnapshot(refreshContext);
         return this.runWithClient(refreshContext, async (client) => {
           const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, refreshContext.vaultPath));
-          const [models, skills, permissionProfiles, rateLimit] = await Promise.all([
+          const [modelProbe, skills, permissionProfiles, rateLimit] = await Promise.all([
             this.readModelMetadataProbe(refreshContext, client),
             readSkillMetadataProbe(client, refreshContext.vaultPath, options.forceSkills ?? false),
             readPermissionProfileMetadataProbe(client, refreshContext.vaultPath),
             readRateLimitMetadataProbe(client),
           ]);
-          const diagnostics = [models.probe, skills.probe, permissionProfiles.probe, rateLimit.probe].reduce(
+          const diagnostics = [modelProbe, skills.probe, permissionProfiles.probe, rateLimit.probe].reduce(
             (current, probe) => diagnosticsWithProbe(current, probe),
             previous?.serverDiagnostics ?? createServerDiagnostics(),
           );
           return metadataWithLastKnownGood(
             {
               runtimeConfig,
-              availableModels: models.value,
               availableSkills: skills.value,
               availablePermissionProfiles: permissionProfiles.value,
               rateLimit: rateLimit.value,
               serverDiagnostics: diagnostics,
             },
             previous,
-            this.modelsSnapshot(refreshContext),
           );
         });
       },
@@ -319,18 +314,12 @@ export class AppServerQueryCache {
   private async readModelMetadataProbe(
     context: AppServerQueryContext,
     client: AppServerClient,
-  ): Promise<{
-    value: readonly ModelMetadata[];
-    probe: SharedServerMetadata["serverDiagnostics"]["probes"]["models"];
-  }> {
+  ): Promise<SharedServerMetadata["serverDiagnostics"]["probes"]["models"]> {
     try {
       const models = cloneModelMetadata(await this.client.fetchQuery(this.modelsQueryOptionsWithClient(context, client)));
-      return { value: models, probe: diagnosticProbeOk("models", `${String(models.length)} models`, Date.now()) };
+      return diagnosticProbeOk("models", `${String(models.length)} models`, Date.now());
     } catch (error) {
-      return {
-        value: this.modelsSnapshot(context) ?? [],
-        probe: diagnosticProbeError("models", error, Date.now()),
-      };
+      return diagnosticProbeError("models", error, Date.now());
     }
   }
 
@@ -383,15 +372,10 @@ export class AppServerQueryCache {
   }
 }
 
-function metadataWithLastKnownGood(
-  metadata: SharedServerMetadata,
-  previous: SharedServerMetadata | null,
-  models: readonly ModelMetadata[] | null,
-): SharedServerMetadata {
+function metadataWithLastKnownGood(metadata: SharedServerMetadata, previous: SharedServerMetadata | null): SharedServerMetadata {
   const probes = metadata.serverDiagnostics.probes;
   return cloneSharedServerMetadata({
     ...metadata,
-    availableModels: probes.models.status === "ok" ? metadata.availableModels : (models ?? previous?.availableModels ?? []),
     availableSkills: probes.skills.status === "ok" ? metadata.availableSkills : (previous?.availableSkills ?? []),
     availablePermissionProfiles:
       probes.permissionProfiles.status === "ok" ? metadata.availablePermissionProfiles : (previous?.availablePermissionProfiles ?? []),

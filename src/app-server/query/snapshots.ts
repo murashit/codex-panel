@@ -25,7 +25,6 @@ export function cloneSharedServerMetadata(metadata: SharedServerMetadata): Share
     ...metadata,
     runtimeConfig: metadata.runtimeConfig ? cloneRuntimeConfigSnapshot(metadata.runtimeConfig) : null,
     rateLimit: metadata.rateLimit ? cloneRateLimitSnapshot(metadata.rateLimit) : null,
-    availableModels: cloneModelMetadata(metadata.availableModels),
     availableSkills: metadata.availableSkills.map((skill) => ({ ...skill })),
     availablePermissionProfiles: metadata.availablePermissionProfiles.map((profile) => ({ ...profile })),
     serverDiagnostics: {

@@ -66,7 +66,6 @@ function applyAppServerMetadata(host: ServerMetadataActionsHost, metadata: Share
   host.stateStore.dispatch({
     type: "connection/metadata-applied",
     runtimeConfig: metadata.runtimeConfig,
-    availableModels: metadata.availableModels,
     availableSkills: metadata.availableSkills,
     availablePermissionProfiles: metadata.availablePermissionProfiles,
     rateLimit: metadata.rateLimit,
