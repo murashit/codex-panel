@@ -13,6 +13,42 @@ interface EventSource {
 }
 
 export class VaultComposerContextReferenceProvider implements ComposerContextReferenceProvider {
+  private readonly shared: SharedComposerContext;
+  private disposed = false;
+
+  constructor(private readonly app: App) {
+    const existing = sharedComposerContexts.get(app);
+    if (existing) {
+      existing.consumers += 1;
+      this.shared = existing;
+      return;
+    }
+    this.shared = { tracker: new VaultComposerContextTracker(app), consumers: 1 };
+    sharedComposerContexts.set(app, this.shared);
+  }
+
+  contextReferences(sourcePath: string): ComposerContextReferences {
+    return this.shared.tracker.contextReferences(sourcePath);
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.shared.consumers -= 1;
+    if (this.shared.consumers > 0) return;
+    this.shared.tracker.dispose();
+    sharedComposerContexts.delete(this.app);
+  }
+}
+
+interface SharedComposerContext {
+  readonly tracker: VaultComposerContextTracker;
+  consumers: number;
+}
+
+const sharedComposerContexts = new WeakMap<App, SharedComposerContext>();
+
+class VaultComposerContextTracker {
   private readonly unregisterEvents: (() => void)[] = [];
   private lastMarkdownView: MarkdownView | null = null;
 

@@ -22,7 +22,51 @@ interface MetadataCacheWithTags {
   getTags?: () => unknown;
 }
 
+interface SharedCandidateCatalog {
+  readonly catalog: VaultNoteCandidateCatalog;
+  consumers: number;
+}
+
+const candidateCatalogs = new WeakMap<App, SharedCandidateCatalog>();
+
 export class VaultNoteCandidateProvider implements NoteCandidateProvider {
+  private readonly shared: SharedCandidateCatalog;
+  private disposed = false;
+
+  constructor(private readonly app: App) {
+    const existing = candidateCatalogs.get(app);
+    if (existing) {
+      existing.consumers += 1;
+      this.shared = existing;
+      return;
+    }
+    this.shared = { catalog: new VaultNoteCandidateCatalog(app), consumers: 1 };
+    candidateCatalogs.set(app, this.shared);
+  }
+
+  candidates(sourcePath: string): readonly NoteCandidate[] {
+    return this.shared.catalog.candidates(sourcePath);
+  }
+
+  tags(): readonly string[] {
+    return this.shared.catalog.tags();
+  }
+
+  resolveMention(target: string, sourcePath: string): WikiLinkMention | null {
+    return this.shared.catalog.resolveMention(target, sourcePath);
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.shared.consumers -= 1;
+    if (this.shared.consumers > 0) return;
+    this.shared.catalog.dispose();
+    candidateCatalogs.delete(this.app);
+  }
+}
+
+class VaultNoteCandidateCatalog {
   private readonly unregisterEvents: (() => void)[] = [];
   private fileCandidatesCache: FileCandidate[] | null = null;
   private tagCandidatesCache: string[] | null = null;

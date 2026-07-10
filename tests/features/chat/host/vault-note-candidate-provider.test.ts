@@ -147,6 +147,23 @@ describe("VaultNoteCandidateProvider", () => {
     expect(app.offref).toHaveBeenCalledTimes(6);
   });
 
+  it("shares candidate caches and event subscriptions across panel providers", () => {
+    const getFiles = vi.fn(() => vaultFiles([{ basename: "Alpha", path: "Alpha.md", stat: { mtime: 1 } }]));
+    const app = appFixture({ getFiles });
+    const first = new VaultNoteCandidateProvider(app);
+    const second = new VaultNoteCandidateProvider(app);
+
+    first.candidates("Inbox.md");
+    second.candidates("Inbox.md");
+    first.dispose();
+
+    expect(getFiles).toHaveBeenCalledOnce();
+    expect(app.offref).not.toHaveBeenCalled();
+
+    second.dispose();
+    expect(app.offref).toHaveBeenCalledTimes(6);
+  });
+
   it("resolves wikilinks through metadata cache before direct path fallback", () => {
     const linked = tFile("notes/Alpha.md", "Alpha");
     const direct = tFile("Alpha.md", "Alpha direct");
@@ -217,6 +234,18 @@ describe("VaultNoteCandidateProvider", () => {
         text: "selected text",
       },
     });
+  });
+
+  it("shares active-view event tracking across panel context providers", () => {
+    const app = appFixture();
+    const first = new VaultComposerContextReferenceProvider(app);
+    const second = new VaultComposerContextReferenceProvider(app);
+
+    first.dispose();
+    expect(app.offref).not.toHaveBeenCalled();
+
+    second.dispose();
+    expect(app.offref).toHaveBeenCalledTimes(2);
   });
 });
 
