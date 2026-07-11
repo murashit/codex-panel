@@ -1,7 +1,7 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
-import type { AppServerQueryCache } from "./cache";
+import type { AppServerQueryCache, MetadataResourceKind } from "./cache";
 import {
   type AppServerQueryContext,
   appServerQueryContextMatches,
@@ -101,8 +101,19 @@ export class AppServerSharedQueries {
     return this.options.cache.appServerMetadataSnapshot(this.context());
   }
 
-  updateAppServerMetadata(updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null): SharedServerMetadata | null {
-    return this.options.cache.updateAppServerMetadata(this.context(), updater);
+  updateAppServerMetadata(
+    updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
+    resource?: MetadataResourceKind,
+  ): SharedServerMetadata | null {
+    return this.options.cache.updateAppServerMetadata(this.context(), updater, resource);
+  }
+
+  beginAppServerMetadataResourceRefresh(resource: MetadataResourceKind): () => boolean {
+    const context = this.context();
+    const revision = this.options.cache.beginMetadataResourceRefresh(context, resource);
+    return () =>
+      appServerQueryContextMatches(this.context(), context) &&
+      this.options.cache.metadataResourceRefreshIsCurrent(context, resource, revision);
   }
 
   refreshAppServerMetadata(options: { forceSkills?: boolean } = {}): Promise<SharedServerMetadata | null> {

@@ -32,6 +32,7 @@ const THREAD_LIST_STALE_TIME_MS = 10_000;
 const APP_SERVER_METADATA_STALE_TIME_MS = 10_000;
 const MODELS_STALE_TIME_MS = 60_000;
 const APP_SERVER_QUERY_GC_TIME_MS = 5 * 60_000;
+const FULL_ACTIVE_THREAD_FETCH_ATTEMPTS = 2;
 
 export interface AppServerQueryClientRunner {
   runWithClient<T>(
@@ -48,12 +49,16 @@ interface AppServerQueryOptions<T> {
 }
 
 type ThreadListKind = "active" | "archived";
+export type MetadataResourceKind = "skills" | "rateLimits";
 type ThreadListUpdater = (threads: readonly Thread[] | null) => readonly Thread[] | null;
 
 export class AppServerQueryCache {
   private readonly client: QueryClient;
   private readonly clientRunner: AppServerQueryClientRunner | null;
   private readonly activeThreadCursors = new Map<string, string | null>();
+  private readonly activeThreadRevisions = new Map<string, number>();
+  private readonly metadataRevisions = new Map<string, number>();
+  private readonly metadataWriteRevisions = new Map<string, number>();
 
   constructor(options: { client?: QueryClient; clientRunner?: AppServerQueryClientRunner } = {}) {
     this.client = options.client ?? createAppServerQueryClient();
@@ -62,6 +67,9 @@ export class AppServerQueryCache {
 
   clear(): void {
     this.activeThreadCursors.clear();
+    this.activeThreadRevisions.clear();
+    this.metadataRevisions.clear();
+    this.metadataWriteRevisions.clear();
     this.client.clear();
   }
 
@@ -107,10 +115,15 @@ export class AppServerQueryCache {
     const cursorKey = this.activeThreadCursorKey(refreshContext);
     const snapshot = this.activeThreadsSnapshot(refreshContext);
     if (snapshot && this.activeThreadCursors.has(cursorKey) && !this.activeThreadCursors.get(cursorKey)) return snapshot;
-    const threads = await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath));
-    this.setActiveThreads(refreshContext, threads);
-    this.rememberActiveThreadCursor(refreshContext, null);
-    return cloneThreads(threads);
+    for (let attempt = 0; attempt < FULL_ACTIVE_THREAD_FETCH_ATTEMPTS; attempt += 1) {
+      const revision = this.activeThreadRevision(refreshContext);
+      const threads = await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath));
+      if (this.activeThreadRevision(refreshContext) !== revision) continue;
+      this.setActiveThreads(refreshContext, threads);
+      this.rememberActiveThreadCursor(refreshContext, null);
+      return cloneThreads(threads);
+    }
+    throw new Error("Active thread inventory changed while it was being fetched.");
   }
 
   hasMoreActiveThreads(context: AppServerQueryContext): boolean {
@@ -124,10 +137,12 @@ export class AppServerQueryCache {
     const current = this.activeThreadsSnapshot(refreshContext) ?? (await this.fetchActiveThreads(refreshContext));
     const cursor = this.activeThreadCursors.get(this.activeThreadCursorKey(refreshContext)) ?? null;
     if (!cursor) return current;
+    const revision = this.activeThreadRevision(refreshContext);
     const page = await this.runWithClient(refreshContext, (client) =>
       readThreadPage(client, refreshContext.vaultPath, { cursor, archived: false }),
     );
     if (page.nextCursor === cursor) throw new Error("Codex app-server returned a repeated thread list cursor.");
+    if (this.activeThreadRevision(refreshContext) !== revision) return this.activeThreadsSnapshot(refreshContext) ?? current;
     const latest = this.activeThreadsSnapshot(refreshContext) ?? current;
     const existingIds = new Set(latest.map((thread) => thread.id));
     const threads = [...latest, ...page.threads.filter((thread) => !existingIds.has(thread.id))];
@@ -180,6 +195,7 @@ export class AppServerQueryCache {
   private setThreadList(context: AppServerQueryContext, kind: ThreadListKind, threads: readonly Thread[]): void {
     if (!appServerQueryContextIsComplete(context)) return;
     this.client.setQueryData(this.threadListQueryKey(context, kind), cloneThreads(threads));
+    if (kind === "active") this.bumpActiveThreadRevision(context);
   }
 
   private updateThreadList(context: AppServerQueryContext, kind: ThreadListKind, updater: ThreadListUpdater): readonly Thread[] | null {
@@ -188,6 +204,7 @@ export class AppServerQueryCache {
     const next = updater(current);
     if (!next) return null;
     this.client.setQueryData(this.threadListQueryKey(context, kind), cloneThreads(next), current ? undefined : { updatedAt: 0 });
+    if (kind === "active") this.bumpActiveThreadRevision(context);
     return cloneThreads(next);
   }
 
@@ -213,6 +230,8 @@ export class AppServerQueryCache {
     if (!appServerQueryContextIsComplete(refreshContext)) {
       return null;
     }
+    this.beginMetadataResourceRefresh(refreshContext, "skills");
+    this.beginMetadataResourceRefresh(refreshContext, "rateLimits");
     const key = appServerMetadataQueryKey(refreshContext);
     await Promise.all([
       this.client.invalidateQueries({ queryKey: key }),
@@ -226,16 +245,43 @@ export class AppServerQueryCache {
     if (!appServerQueryContextIsComplete(context)) return null;
     const next = metadataWithLastKnownGood(metadata, this.appServerMetadataSnapshot(context));
     this.client.setQueryData(appServerMetadataQueryKey(context), cloneSharedServerMetadata(next));
+    this.bumpMetadataRevision(context);
+    this.bumpMetadataWriteRevision(context);
     return cloneSharedServerMetadata(next);
   }
 
   updateAppServerMetadata(
     context: AppServerQueryContext,
     updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
+    resource?: MetadataResourceKind,
   ): SharedServerMetadata | null {
     if (!appServerQueryContextIsComplete(context)) return null;
     const next = updater(this.appServerMetadataSnapshot(context));
-    return next ? this.writeAppServerMetadata(context, next) : null;
+    if (!next) return null;
+    const merged = metadataWithLastKnownGood(next, this.appServerMetadataSnapshot(context));
+    this.client.setQueryData(appServerMetadataQueryKey(context), cloneSharedServerMetadata(merged));
+    if (resource) this.beginMetadataResourceRefresh(context, resource);
+    else this.bumpMetadataRevision(context);
+    this.bumpMetadataWriteRevision(context);
+    return cloneSharedServerMetadata(merged);
+  }
+
+  beginMetadataResourceRefresh(context: AppServerQueryContext, resource: MetadataResourceKind): number {
+    const key = this.metadataResourceRevisionKey(context, resource);
+    const revision = (this.metadataRevisions.get(key) ?? 0) + 1;
+    this.metadataRevisions.delete(key);
+    this.metadataRevisions.set(key, revision);
+    while (this.metadataRevisions.size > 16) {
+      for (const oldestKey of this.metadataRevisions.keys()) {
+        this.metadataRevisions.delete(oldestKey);
+        break;
+      }
+    }
+    return revision;
+  }
+
+  metadataResourceRefreshIsCurrent(context: AppServerQueryContext, resource: MetadataResourceKind, revision: number): boolean {
+    return this.metadataRevisions.get(this.metadataResourceRevisionKey(context, resource)) === revision;
   }
 
   modelsSnapshot(context: AppServerQueryContext): readonly ModelMetadata[] | null {
@@ -273,9 +319,11 @@ export class AppServerQueryCache {
       queryKey: this.threadListQueryKey(refreshContext, kind),
       queryFn: async (): Promise<readonly Thread[]> => {
         if (kind === "active") {
+          const revision = this.activeThreadRevision(refreshContext);
           const page = await this.runWithClient(refreshContext, (client) =>
             readThreadPage(client, refreshContext.vaultPath, { archived: false }),
           );
+          if (this.activeThreadRevision(refreshContext) !== revision) return this.activeThreadsSnapshot(refreshContext) ?? [];
           this.rememberActiveThreadCursor(refreshContext, page.nextCursor);
           return cloneThreads(page.threads);
         }
@@ -303,7 +351,8 @@ export class AppServerQueryCache {
       queryKey: appServerMetadataQueryKey(refreshContext),
       queryFn: async (): Promise<SharedServerMetadata> => {
         const previous = this.appServerMetadataSnapshot(refreshContext);
-        return this.runWithClient(refreshContext, async (client) => {
+        const revision = this.metadataRevision(refreshContext);
+        const metadata = await this.runWithClient(refreshContext, async (client) => {
           const runtimeConfig = runtimeConfigSnapshotFromAppServerConfig(await readEffectiveConfig(client, refreshContext.vaultPath));
           const [modelProbe, skills, permissionProfiles, rateLimit] = await Promise.all([
             this.readModelMetadataProbe(refreshContext, client),
@@ -326,6 +375,7 @@ export class AppServerQueryCache {
             previous,
           );
         });
+        return this.metadataRevision(refreshContext) === revision ? metadata : (this.appServerMetadataSnapshot(refreshContext) ?? metadata);
       },
       staleTime: APP_SERVER_METADATA_STALE_TIME_MS,
     };
@@ -414,12 +464,53 @@ export class AppServerQueryCache {
     const key = this.activeThreadCursorKey(context);
     this.activeThreadCursors.delete(key);
     this.activeThreadCursors.set(key, cursor);
+    this.bumpActiveThreadRevision(context);
     while (this.activeThreadCursors.size > 8) {
       for (const oldestKey of this.activeThreadCursors.keys()) {
         this.activeThreadCursors.delete(oldestKey);
+        this.activeThreadRevisions.delete(oldestKey);
         break;
       }
     }
+  }
+
+  private activeThreadRevision(context: AppServerQueryContext): number {
+    return this.activeThreadRevisions.get(this.activeThreadCursorKey(context)) ?? 0;
+  }
+
+  private bumpActiveThreadRevision(context: AppServerQueryContext): void {
+    const key = this.activeThreadCursorKey(context);
+    this.activeThreadRevisions.set(key, this.activeThreadRevision(context) + 1);
+  }
+
+  private metadataRevision(context: AppServerQueryContext): number {
+    return this.metadataWriteRevisions.get(this.metadataWriteRevisionKey(context)) ?? 0;
+  }
+
+  private bumpMetadataRevision(context: AppServerQueryContext): void {
+    this.beginMetadataResourceRefresh(context, "skills");
+    this.beginMetadataResourceRefresh(context, "rateLimits");
+  }
+
+  private bumpMetadataWriteRevision(context: AppServerQueryContext): void {
+    const key = this.metadataWriteRevisionKey(context);
+    const revision = this.metadataRevision(context) + 1;
+    this.metadataWriteRevisions.delete(key);
+    this.metadataWriteRevisions.set(key, revision);
+    while (this.metadataWriteRevisions.size > 8) {
+      for (const oldestKey of this.metadataWriteRevisions.keys()) {
+        this.metadataWriteRevisions.delete(oldestKey);
+        break;
+      }
+    }
+  }
+
+  private metadataWriteRevisionKey(context: AppServerQueryContext): string {
+    return JSON.stringify(appServerMetadataQueryKey(context));
+  }
+
+  private metadataResourceRevisionKey(context: AppServerQueryContext, resource: MetadataResourceKind): string {
+    return JSON.stringify([...appServerMetadataQueryKey(context), resource]);
   }
 }
 

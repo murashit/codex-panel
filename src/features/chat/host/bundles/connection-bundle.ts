@@ -125,7 +125,9 @@ export function createConnectionBundle(
   const serverMetadata = createServerMetadataActions({
     stateStore,
     metadataResourceTransport: appServer.metadataResource,
-    updateAppServerMetadata: (updater) => environment.plugin.appServerQueries.updateAppServerMetadata(updater),
+    beginAppServerMetadataResourceRefresh: (resource) =>
+      environment.plugin.appServerQueries.beginAppServerMetadataResourceRefresh(resource),
+    updateAppServerMetadata: (updater, resource) => environment.plugin.appServerQueries.updateAppServerMetadata(updater, resource),
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
     refreshAppServerMetadata: (options) => environment.plugin.appServerQueries.refreshAppServerMetadata(options),
     isStaleSharedQueryError: isStaleAppServerSharedQueryContextError,

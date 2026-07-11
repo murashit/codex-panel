@@ -263,6 +263,46 @@ describe("AppServerQueryCache", () => {
     });
   });
 
+  it("does not append a stale load-more page after a newer first-page refresh", async () => {
+    const oldPage = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [thread("old-first")], nextCursor: "old-page-2" })
+      .mockImplementationOnce(() => oldPage.promise)
+      .mockResolvedValueOnce({ data: [thread("new-first")], nextCursor: "new-page-2" });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    const context = cacheContext();
+    await cache.refreshActiveThreads(context);
+
+    const loadMore = cache.loadMoreActiveThreads(context);
+    await Promise.resolve();
+    await cache.refreshActiveThreads(context);
+    oldPage.resolve({ data: [thread("old-second")], nextCursor: null });
+
+    await expect(loadMore).resolves.toEqual([thread("new-first")]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("new-first")]);
+    expect(cache.hasMoreActiveThreads(context)).toBe(true);
+  });
+
+  it("retries a full active-thread inventory when a first-page refresh wins the race", async () => {
+    const oldInventory = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
+    const listThreads = vi
+      .fn()
+      .mockImplementationOnce(() => oldInventory.promise)
+      .mockResolvedValueOnce({ data: [thread("new-first")], nextCursor: "new-page-2" })
+      .mockResolvedValueOnce({ data: [thread("new-first"), thread("new-second")], nextCursor: null });
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    const context = cacheContext();
+
+    const inventory = cache.fetchAllActiveThreads(context);
+    await flushMicrotasks();
+    await cache.refreshActiveThreads(context);
+    oldInventory.resolve({ data: [thread("old")], nextCursor: null });
+
+    await expect(inventory).resolves.toEqual([thread("new-first"), thread("new-second")]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("new-first"), thread("new-second")]);
+  });
+
   it("keys thread list refresh snapshots by app-server query context", async () => {
     const oldContext = cacheContext({ codexPath: "codex-old" });
     const newContext = cacheContext({ codexPath: "codex-new" });
@@ -407,7 +447,33 @@ describe("AppServerQueryCache", () => {
     expect(cache.appServerMetadataSnapshot(context)).toEqual(refreshed);
   });
 
-  it("does not merge local thread list updates into in-flight app-server snapshots", async () => {
+  it("does not overwrite a newer sparse metadata write with an in-flight full refresh", async () => {
+    const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockResolvedValue({ data: [] }),
+      "skills/list": vi.fn(() => skills.promise),
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+    const context = cacheContext();
+    cache.writeAppServerMetadata(context, metadata({ availableSkills: [skillMetadata("initial")] }));
+    for (let index = 0; index < 5; index += 1) cache.beginMetadataResourceRefresh(context, "skills");
+    const refresh = cache.refreshAppServerMetadata(context);
+    await flushMicrotasks();
+
+    cache.updateAppServerMetadata(
+      context,
+      () => metadata({ availableSkills: [skillMetadata("event")], rateLimit: rateLimit(42) }),
+      "rateLimits",
+    );
+    skills.resolve({ data: [{ skills: [catalogSkill("old-full")] }] });
+
+    await expect(refresh).resolves.toMatchObject({ availableSkills: [{ name: "event" }] });
+    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["event"]);
+  });
+
+  it("does not overwrite local thread list updates with an in-flight app-server snapshot", async () => {
     const context = cacheContext();
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
     const cache = cacheWithThreads(() => refresh.promise);
@@ -419,8 +485,8 @@ describe("AppServerQueryCache", () => {
     cache.updateActiveThreads(context, (threads) => threads?.filter((item) => item.id !== "thread") ?? null);
     refresh.resolve([thread("thread"), thread("other")]);
 
-    await expect(promise).resolves.toEqual([thread("thread"), thread("other")]);
-    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("thread"), thread("other")]);
+    await expect(promise).resolves.toEqual([thread("other")]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("other")]);
   });
 });
 

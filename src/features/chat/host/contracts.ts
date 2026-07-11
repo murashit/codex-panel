@@ -51,7 +51,11 @@ interface WorkspacePanels {
 type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
 
 interface ChatAppServerQueries {
-  updateAppServerMetadata(updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null): SharedServerMetadata | null;
+  beginAppServerMetadataResourceRefresh(resource: "skills" | "rateLimits"): () => boolean;
+  updateAppServerMetadata(
+    updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
+    resource?: "skills" | "rateLimits",
+  ): SharedServerMetadata | null;
   appServerMetadataSnapshot(): SharedServerMetadata | null;
   refreshAppServerMetadata(options?: { forceSkills?: boolean }): Promise<SharedServerMetadata | null>;
   observeAppServerMetadataResult(listener: ObservedResultListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void;

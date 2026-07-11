@@ -362,6 +362,7 @@ describe("createChatPanelSessionGraph actions", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]> = {},
   ): ChatPanelEnvironment["plugin"]["appServerQueries"] {
     return {
+      beginAppServerMetadataResourceRefresh: vi.fn(() => () => true),
       updateAppServerMetadata: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(null),

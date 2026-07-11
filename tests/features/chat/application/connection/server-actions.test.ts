@@ -117,6 +117,7 @@ describe("server metadata actions", () => {
     const actions = createServerMetadataActions({
       stateStore,
       metadataResourceTransport: metadataResourceTransport({ readSkillMetadata: vi.fn().mockResolvedValue(null) }),
+      beginAppServerMetadataResourceRefresh: () => () => true,
       appServerMetadataSnapshot: () => null,
       updateAppServerMetadata,
       refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
@@ -151,6 +152,58 @@ describe("server metadata actions", () => {
 
     expect(stateStore.getState().connection.availableSkills).toEqual(previousSkills);
     expect(stateStore.getState().connection.serverDiagnostics.probes.skills).toMatchObject({ status: "failed" });
+  });
+
+  it("ignores an older skill refresh that completes after a newer refresh", async () => {
+    const older = deferred<Awaited<ReturnType<MetadataResourceTransport["readSkillMetadata"]>>>();
+    const newer = deferred<Awaited<ReturnType<MetadataResourceTransport["readSkillMetadata"]>>>();
+    const stateStore = createChatStateStore(chatStateFixture());
+    const actions = createServerMetadataActions({
+      stateStore,
+      metadataResourceTransport: metadataResourceTransport({
+        readSkillMetadata: vi
+          .fn()
+          .mockImplementationOnce(() => older.promise)
+          .mockImplementationOnce(() => newer.promise),
+      }),
+      ...metadataCacheHost(),
+      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
+      isStaleSharedQueryError: () => false,
+    });
+
+    const first = actions.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+    const second = actions.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+    newer.resolve({ value: [skillFixture("new")], probe: diagnosticProbeOk("skills", "new", 2) });
+    await second;
+    older.resolve({ value: [skillFixture("old")], probe: diagnosticProbeOk("skills", "old", 1) });
+    await first;
+
+    expect(stateStore.getState().connection.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
+  });
+
+  it("shares skill refresh ordering across panel action instances", async () => {
+    const older = deferred<Awaited<ReturnType<MetadataResourceTransport["readSkillMetadata"]>>>();
+    const cache = { current: serverMetadataFixture() as SharedServerMetadata | null };
+    const sharedCache = metadataCacheHost(cache);
+    const createActions = (readSkillMetadata: MetadataResourceTransport["readSkillMetadata"]) =>
+      createServerMetadataActions({
+        stateStore: createChatStateStore(chatStateFixture()),
+        metadataResourceTransport: metadataResourceTransport({ readSkillMetadata }),
+        ...sharedCache,
+        refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
+        isStaleSharedQueryError: () => false,
+      });
+    const firstPanel = createActions(vi.fn(() => older.promise));
+    const secondPanel = createActions(
+      vi.fn().mockResolvedValue({ value: [skillFixture("new")], probe: diagnosticProbeOk("skills", "new", 2) }),
+    );
+
+    const first = firstPanel.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+    await secondPanel.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+    older.resolve({ value: [skillFixture("old")], probe: diagnosticProbeOk("skills", "old", 1) });
+    await first;
+
+    expect(cache.current?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
   });
 
   it("publishes refreshed rate limits from sparse update notifications", async () => {
@@ -490,14 +543,24 @@ function serverMetadataFixture(overrides: Partial<SharedServerMetadata> = {}): S
 }
 
 function metadataCacheHost(cache: { current: SharedServerMetadata | null } = { current: null }): {
+  beginAppServerMetadataResourceRefresh: (resource: "skills" | "rateLimits") => () => boolean;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
-  updateAppServerMetadata: (updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null) => SharedServerMetadata | null;
+  updateAppServerMetadata: (
+    updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
+    resource?: "skills" | "rateLimits",
+  ) => SharedServerMetadata | null;
 } {
+  const generations = { skills: 0, rateLimits: 0 };
   return {
+    beginAppServerMetadataResourceRefresh: (resource) => {
+      const generation = ++generations[resource];
+      return () => generation === generations[resource];
+    },
     appServerMetadataSnapshot: () => cache.current,
-    updateAppServerMetadata: (updater) => {
+    updateAppServerMetadata: (updater, resource) => {
       const next = updater(cache.current);
       cache.current = next;
+      if (resource) generations[resource] += 1;
       return next;
     },
   };

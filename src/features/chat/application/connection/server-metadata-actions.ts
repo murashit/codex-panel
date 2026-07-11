@@ -17,7 +17,11 @@ export type AppServerResourceEvent =
 export interface ServerMetadataActionsHost {
   stateStore: ChatStateStore;
   metadataResourceTransport: MetadataResourceTransport;
-  updateAppServerMetadata: (updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null) => SharedServerMetadata | null;
+  beginAppServerMetadataResourceRefresh: (resource: "skills" | "rateLimits") => () => boolean;
+  updateAppServerMetadata: (
+    updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
+    resource?: "skills" | "rateLimits",
+  ) => SharedServerMetadata | null;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
   refreshAppServerMetadata: (options?: { forceSkills?: boolean }) => Promise<SharedServerMetadata | null>;
   isStaleSharedQueryError: (error: unknown) => boolean;
@@ -36,6 +40,18 @@ export function createServerMetadataActions(host: ServerMetadataActionsHost): Se
     },
     refreshAppServerMetadata: () => refreshAppServerMetadata(host),
     applyAppServerResourceEvent: async (event) => {
+      if (event.type === "skills-changed") {
+        await refreshSkillResource(host, event.forceReload, host.beginAppServerMetadataResourceRefresh("skills"));
+        return;
+      }
+      if (event.type === "rate-limits-updated") {
+        await refreshRateLimitResource(
+          host,
+          { preserveExistingOnFailure: event.preserveExistingOnFailure === true },
+          host.beginAppServerMetadataResourceRefresh("rateLimits"),
+        );
+        return;
+      }
       await applyAppServerResourceEvent(host, event);
     },
   };
@@ -44,10 +60,7 @@ export function createServerMetadataActions(host: ServerMetadataActionsHost): Se
 async function applyAppServerResourceEvent(host: ServerMetadataActionsHost, event: AppServerResourceEvent): Promise<void> {
   switch (event.type) {
     case "skills-changed":
-      await refreshSkillResource(host, event.forceReload);
-      return;
     case "rate-limits-updated":
-      await refreshRateLimitResource(host, { preserveExistingOnFailure: event.preserveExistingOnFailure === true });
       return;
     case "mcp-startup-status-updated":
       if (event.name.length > 0) {
@@ -91,9 +104,13 @@ function applyCurrentAppServerMetadataSnapshot(host: ServerMetadataActionsHost):
   if (metadata) applyAppServerMetadata(host, metadata);
 }
 
-async function refreshSkillResource(host: ServerMetadataActionsHost, forceReload = false): Promise<SharedServerMetadata | null> {
+async function refreshSkillResource(
+  host: ServerMetadataActionsHost,
+  forceReload = false,
+  isCurrent: () => boolean = () => true,
+): Promise<SharedServerMetadata | null> {
   const skills = await host.metadataResourceTransport.readSkillMetadata(forceReload);
-  if (!skills) return null;
+  if (!skills || !isCurrent()) return null;
   const next = host.updateAppServerMetadata((metadata) => {
     if (!metadata) return null;
     return {
@@ -101,7 +118,7 @@ async function refreshSkillResource(host: ServerMetadataActionsHost, forceReload
       ...(skills.probe.status === "ok" ? { availableSkills: skills.value } : {}),
       serverDiagnostics: diagnosticsWithProbe(cloneServerDiagnostics(metadata.serverDiagnostics), skills.probe),
     };
-  });
+  }, "skills");
   if (next) {
     applyAppServerMetadata(host, next);
     return next;
@@ -122,9 +139,10 @@ async function refreshSkillResource(host: ServerMetadataActionsHost, forceReload
 async function refreshRateLimitResource(
   host: ServerMetadataActionsHost,
   options: { preserveExistingOnFailure?: boolean } = {},
+  isCurrent: () => boolean = () => true,
 ): Promise<void> {
   const rateLimit = await host.metadataResourceTransport.readRateLimitMetadata();
-  if (!rateLimit) return;
+  if (!rateLimit || !isCurrent()) return;
   const preserveExistingOnFailure = options.preserveExistingOnFailure === true;
   const next = updateRateLimitMetadata(host, rateLimit, { preserveRateLimitOnFailure: preserveExistingOnFailure });
   if (next) {
@@ -156,7 +174,7 @@ function updateRateLimitMetadata(
       ...(rateLimit.probe.status === "ok" || !options.preserveRateLimitOnFailure ? { rateLimit: rateLimit.value } : {}),
       serverDiagnostics: diagnostics,
     };
-  });
+  }, "rateLimits");
 }
 
 function applyMcpStartupStatusEvent(

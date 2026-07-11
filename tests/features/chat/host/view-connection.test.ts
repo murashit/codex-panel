@@ -1154,6 +1154,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
     },
     appServerQueries: {
+      beginAppServerMetadataResourceRefresh: () => () => true,
       updateAppServerMetadata:
         overrides.updateAppServerMetadata ??
         ((updater) => {
