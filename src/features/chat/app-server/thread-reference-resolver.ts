@@ -1,4 +1,5 @@
-import { readReferencedThreadTurnTranscriptSummaries, type TurnTranscriptSummaryClient } from "../../../app-server/services/threads";
+import type { AppServerRequestClient } from "../../../app-server/services/request-client";
+import { readReferencedThreadTurnTranscriptSummaries } from "../../../app-server/services/threads";
 import { type CodexInput, codexTextInputWithAttachments } from "../../../domain/chat/input";
 import { shortThreadId } from "../../../domain/threads/id";
 import type { Thread } from "../../../domain/threads/model";
@@ -7,7 +8,7 @@ import type { ComposerInputSnapshot } from "../application/composer/input-snapsh
 import type { ThreadReferenceInput } from "../application/turns/slash-command-execution";
 
 interface ThreadReferenceResolverHost {
-  currentClient(): TurnTranscriptSummaryClient | null;
+  currentClient(): AppServerRequestClient | null;
   prepareInput(text: string, snapshot: ComposerInputSnapshot): { text: string; input: CodexInput };
   addSystemMessage(text: string): void;
   setStatus(status: string): void;

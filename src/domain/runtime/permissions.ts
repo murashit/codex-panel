@@ -38,8 +38,11 @@ export interface RuntimePermissionState {
 }
 
 export interface RuntimePermissionKnownState {
+  /** True when the active-thread layer is authoritative, including an authoritative null meaning the detail was not reported. */
   readonly approvalPolicyKnown: boolean;
+  /** True prevents fallback to a different config profile's sandbox; null still displays as not reported. */
   readonly sandboxPolicyKnown: boolean;
+  /** True when the active profile identity, including an authoritative null, supersedes config fallback. */
   readonly permissionProfileKnown: boolean;
 }
 

@@ -25,10 +25,6 @@ import type { AppServerRequestClient } from "./request-client";
 const THREAD_LIST_PAGE_LIMIT = 100;
 
 export type ThreadTurnSortDirection = "asc" | "desc";
-export type TurnTranscriptSummaryClient = AppServerRequestClient;
-export type ThreadForkClient = AppServerRequestClient;
-export type ThreadRollbackClient = AppServerRequestClient;
-export type ThreadCompactionClient = AppServerRequestClient;
 
 interface TurnTranscriptSummaryPage {
   summaries: TurnTranscriptSummary[];
@@ -165,7 +161,7 @@ export async function readThreadForArchiveExport(client: AppServerRequestClient,
 }
 
 export async function readCompletedTurnTranscriptSummariesPage(
-  client: TurnTranscriptSummaryClient,
+  client: AppServerRequestClient,
   threadId: string,
   cursor: string | null,
   limit: number,
@@ -179,7 +175,7 @@ export async function readCompletedTurnTranscriptSummariesPage(
 }
 
 export async function readReferencedThreadTurnTranscriptSummaries(
-  client: TurnTranscriptSummaryClient,
+  client: AppServerRequestClient,
   threadId: string,
   limit = REFERENCED_THREAD_TURN_LIMIT,
 ): Promise<TurnTranscriptSummary[]> {
@@ -208,13 +204,13 @@ function threadRollbackSnapshotFromAppServerResponse(response: ThreadRollbackRes
   };
 }
 
-export async function rollbackThread(client: ThreadRollbackClient, threadId: string, numTurns?: number): Promise<ThreadRollbackSnapshot> {
+export async function rollbackThread(client: AppServerRequestClient, threadId: string, numTurns?: number): Promise<ThreadRollbackSnapshot> {
   const response = await client.request("thread/rollback", { threadId, numTurns: numTurns ?? 1 });
   return threadRollbackSnapshotFromAppServerResponse(response);
 }
 
 export async function forkThread(
-  client: ThreadForkClient,
+  client: AppServerRequestClient,
   threadId: string,
   cwd: string,
   lastTurnId: string | null = null,
@@ -234,7 +230,7 @@ export interface EphemeralThreadForkSnapshot {
 }
 
 export async function forkEphemeralThread(
-  client: ThreadForkClient,
+  client: AppServerRequestClient,
   sourceThreadId: string,
   cwd: string,
 ): Promise<EphemeralThreadForkSnapshot> {
@@ -252,7 +248,7 @@ export async function forkEphemeralThread(
   };
 }
 
-export async function compactThread(client: ThreadCompactionClient, threadId: string): Promise<void> {
+export async function compactThread(client: AppServerRequestClient, threadId: string): Promise<void> {
   await client.request("thread/compact/start", { threadId });
 }
 

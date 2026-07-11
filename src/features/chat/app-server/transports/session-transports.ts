@@ -45,9 +45,6 @@ interface ChatAppServerTransportHost extends ConnectedChatAppServerClientHost {
   vaultPath: string;
 }
 
-type ChatThreadHistoryClient = AppServerRequestClient;
-type ChatThreadResumeClient = AppServerRequestClient;
-
 interface AppServerThreadTurnsPage {
   readonly data: ThreadTurnsPage["turns"];
   readonly nextCursor: string | null;
@@ -244,7 +241,7 @@ async function withCurrentChatAppServerClient<T>(
 }
 
 async function readChatThreadHistoryPage(
-  client: ChatThreadHistoryClient,
+  client: AppServerRequestClient,
   threadId: string,
   cursor: string | null,
   limit = 20,
@@ -260,7 +257,7 @@ function chatThreadHistoryPageFromTurnsPage(page: ThreadTurnsPage): ThreadHistor
   };
 }
 
-async function resumeChatThread(client: ChatThreadResumeClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
+async function resumeChatThread(client: AppServerRequestClient, threadId: string, cwd: string): Promise<ThreadResumeSnapshot> {
   const response = await resumeThread(client, threadId, cwd);
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),

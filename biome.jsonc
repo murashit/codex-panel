@@ -72,6 +72,7 @@
         "**/src/**/*.{ts,tsx}",
         "!**/src/app-server/connection/**",
         "!**/src/app-server/protocol/server-requests.ts",
+        "!**/src/app-server/protocol/thread.ts",
         "!**/src/app-server/protocol/turn.ts"
       ]
     },

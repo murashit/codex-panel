@@ -23,7 +23,7 @@ interface ChatThreadReferenceResolverOptions {
 export interface ChatAppServerGateway extends ChatSessionTransports, ChatMetadataTransports {
   clientAccess: AppServerClientAccess;
   connectionAvailable(): boolean;
-  readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string>;
+  readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string | null>;
   threadReferences(options: ChatThreadReferenceResolverOptions): ThreadReferenceResolver;
 }
 
@@ -70,9 +70,9 @@ async function readCurrentClientFileBase64(
   host: ChatAppServerGatewayHost,
   path: string,
   options: { timeoutMs?: number } = {},
-): Promise<string> {
+): Promise<string | null> {
   const client = host.currentClient();
-  if (!client) return "";
+  if (!client) return null;
   const response = await client.request("fs/readFile", { path }, options);
-  return host.currentClient() === client ? response.dataBase64 : "";
+  return host.currentClient() === client ? response.dataBase64 : null;
 }

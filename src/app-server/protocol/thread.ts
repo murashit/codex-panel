@@ -1,14 +1,15 @@
 import type { Thread, ThreadProvenance } from "../../domain/threads/model";
+import type { Thread as GeneratedThread } from "../../generated/app-server/v2/Thread";
 
-export interface ThreadRecord {
-  id: string;
-  preview: string;
-  name: string | null;
-  createdAt: number;
-  updatedAt: number;
-  recencyAt?: number | null;
-  [key: string]: unknown;
-}
+type RequiredThreadRecordFields = "id" | "preview" | "name" | "createdAt" | "updatedAt";
+
+export type ThreadRecord = Pick<GeneratedThread, RequiredThreadRecordFields> &
+  Partial<Omit<GeneratedThread, RequiredThreadRecordFields | "source" | "status" | "turns">> & {
+    /** Kept unknown at the protocol edge so a newer SessionSource variant degrades to `other` instead of breaking thread lists. */
+    source?: unknown;
+    status?: unknown;
+    turns?: readonly GeneratedThread["turns"][number][];
+  };
 
 export function threadFromThreadRecord(thread: ThreadRecord, options: { archived?: boolean } = {}): Thread {
   const hasRecencyAt = Object.hasOwn(thread, "recencyAt");

@@ -3,7 +3,7 @@ import type { ThreadTokenUsage, TokenUsageBreakdown } from "../../domain/runtime
 const ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS = 2_000;
 const ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES = 12 * 1024 * 1024;
 
-export type RolloutReadFileBase64 = (path: string, options: { timeoutMs: number }) => Promise<string>;
+export type RolloutReadFileBase64 = (path: string, options: { timeoutMs: number }) => Promise<string | null>;
 
 export async function recoverRolloutTokenUsage(
   path: string | null,
@@ -11,12 +11,13 @@ export async function recoverRolloutTokenUsage(
 ): Promise<ThreadTokenUsage | null> {
   if (!path || !isAbsolutePath(path)) return null;
 
-  let dataBase64: string;
+  let dataBase64: string | null;
   try {
     dataBase64 = await readFileBase64(path, { timeoutMs: ROLLOUT_TOKEN_USAGE_READ_TIMEOUT_MS });
   } catch {
     return null;
   }
+  if (dataBase64 === null) return null;
   if (dataBase64.length > ROLLOUT_TOKEN_USAGE_MAX_BASE64_BYTES) return null;
 
   const text = decodeBase64Text(dataBase64);

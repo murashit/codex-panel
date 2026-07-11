@@ -96,6 +96,7 @@ describe("Biome Grit plugin wiring", () => {
       "**/src/**/*.{ts,tsx}",
       "!**/src/app-server/connection/**",
       "!**/src/app-server/protocol/server-requests.ts",
+      "!**/src/app-server/protocol/thread.ts",
       "!**/src/app-server/protocol/turn.ts",
     ]);
     expect(projectPluginIncludes("no-restricted-css-policy.grit")).toEqual(["**/src/styles/**/*.css"]);
