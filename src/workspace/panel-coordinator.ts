@@ -77,11 +77,11 @@ export class WorkspacePanelCoordinator {
     return view;
   }
 
-  async activateNewView(options: { connect?: boolean } = {}): Promise<CodexChatView> {
+  async activateNewView(options: { connect?: boolean; state?: Record<string, unknown> } = {}): Promise<CodexChatView> {
     const leaf = this.createRightSidebarTab();
     if (!leaf) throw new Error("Could not create a right sidebar leaf.");
 
-    await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true });
+    await leaf.setViewState({ type: VIEW_TYPE_CODEX_PANEL, active: true, ...(options.state ? { state: options.state } : {}) });
     await this.options.app.workspace.revealLeaf(leaf);
     const view = leaf.view as CodexChatView;
     const surface = workspacePanelSurface(view);
@@ -93,6 +93,14 @@ export class WorkspacePanelCoordinator {
   async openThreadInNewView(threadId: string): Promise<void> {
     const view = await this.activateThreadResumeView();
     await workspacePanelSurface(view).openThread(threadId);
+  }
+
+  async openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void> {
+    const view = await this.activateNewView({
+      connect: false,
+      state: { version: 2, ephemeralSource: { threadId: sourceThreadId, title: sourceThreadTitle } },
+    });
+    await workspacePanelSurface(view).openSideChat({ sourceThreadId, sourceThreadTitle });
   }
 
   async openNewPanel(): Promise<void> {

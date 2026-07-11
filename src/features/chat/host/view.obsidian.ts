@@ -65,7 +65,7 @@ export class CodexChatView extends ItemView {
   }
 
   override async onClose(): Promise<void> {
-    this.surface.close();
+    await this.surface.close();
   }
 
   private refreshTabHeader(): void {

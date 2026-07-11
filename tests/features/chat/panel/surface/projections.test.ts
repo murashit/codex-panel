@@ -50,7 +50,7 @@ describe("chat panel surface projections", () => {
 
     expect(parent.querySelector('[data-codex-panel-toolbar-panel="history"]')).not.toBeNull();
     expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.tagName).toBe("DIV");
-    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.classList.contains("is-disabled")).toBe(true);
+    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.classList.contains("is-disabled")).toBe(false);
     expect(parent.querySelector<HTMLInputElement>(".codex-panel__thread-row--selected .codex-panel__thread-rename-input")?.value).toBe(
       "Active",
     );
@@ -401,6 +401,20 @@ describe("chat panel surface projections", () => {
     activeState = chatStateWith(activeState, { threadList: { listedThreads: [threadFixture("thread-1", "Active")] } });
 
     expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState).placeholder).toBe("Ask Codex in “Active”...");
+    activeState = chatStateWith(activeState, {
+      activeThread: {
+        lifetime: { kind: "ephemeral", sourceThreadId: "thread-source", sourceThreadTitle: "Source title" },
+      },
+    });
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState).placeholder).toBe(
+      "Ask in side chat for “Source title”...",
+    );
+    activeState = chatStateWith(activeState, {
+      activeThread: {
+        lifetime: { kind: "ephemeral", sourceThreadId: "thread-source", sourceThreadTitle: null },
+      },
+    });
+    expect(composerProjectionFromState(composerProjectionActionsFixture(), activeState).placeholder).toBe("Ask in side chat...");
     expect(composerProjectionFromState(composerProjectionActionsFixture(), chatStateFixture()).placeholder).toBe("Ask Codex...");
   });
 

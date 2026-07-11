@@ -33,6 +33,7 @@ export interface ToolbarUiActionDependencies {
   toolbarPanel: ToolbarPanelActions;
   rename: ThreadRenameEditorActions;
   navigation: ThreadNavigationActions;
+  openSideChat?: () => void;
 }
 
 export interface ToolbarOutsidePointerHit {
@@ -134,6 +135,7 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
       startNewThread: () => {
         void deps.navigation.startNewThread();
       },
+      ...(deps.openSideChat ? { startSideChat: deps.openSideChat } : {}),
       compactContext: () => {
         void deps.threadActions.compactActiveThread();
       },

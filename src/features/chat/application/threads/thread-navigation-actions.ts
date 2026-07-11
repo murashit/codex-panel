@@ -11,6 +11,7 @@ export interface ThreadNavigationActionsHost {
   resumeThread: (threadId: string) => Promise<void>;
   addSystemMessage: (text: string) => void;
   focusComposer: () => void;
+  prepareForPersistentNavigation?: () => Promise<boolean>;
 }
 
 export interface ThreadNavigationActions {
@@ -26,6 +27,7 @@ export function createThreadNavigationActions(host: ThreadNavigationActionsHost)
       return;
     }
 
+    if (host.prepareForPersistentNavigation && !(await host.prepareForPersistentNavigation())) return;
     host.closeForThreadSelection();
     if (await host.focusThreadInOpenView(threadId)) return;
     await host.resumeThread(threadId);
@@ -34,6 +36,7 @@ export function createThreadNavigationActions(host: ThreadNavigationActionsHost)
   return {
     async startNewThread(): Promise<void> {
       if (chatTurnBusy(host.stateStore.getState())) return;
+      if (host.prepareForPersistentNavigation && !(await host.prepareForPersistentNavigation())) return;
 
       host.identity.clearActiveThreadIdentity();
       host.stateStore.dispatch({ type: "ui/panel-set", panel: null });

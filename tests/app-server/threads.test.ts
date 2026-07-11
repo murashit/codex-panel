@@ -1,9 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
-import { listThreads, startEphemeralThread, startThread } from "../../src/app-server/services/threads";
+import { forkEphemeralThread, listThreads, startEphemeralThread, startThread } from "../../src/app-server/services/threads";
 
 describe("app-server thread response adapters", () => {
+  it("forks read-only ephemeral side-chat threads", async () => {
+    const client = {
+      request: vi.fn().mockResolvedValue({
+        thread: { id: "side", preview: "", name: null, createdAt: 1, updatedAt: 1 },
+        cwd: "/vault",
+        model: "gpt-5.5",
+        serviceTier: null,
+        approvalsReviewer: null,
+        reasoningEffort: null,
+        approvalPolicy: "never",
+        sandbox: { type: "readOnly", networkAccess: false },
+        activePermissionProfile: null,
+      }),
+    } as unknown as AppServerRequestClient;
+
+    const result = await forkEphemeralThread(client, "source", "/vault");
+
+    expect(client.request).toHaveBeenCalledWith("thread/fork", {
+      threadId: "source",
+      cwd: "/vault",
+      ephemeral: true,
+      sandbox: "read-only",
+      approvalPolicy: "never",
+      excludeTurns: true,
+    });
+    expect(result).toMatchObject({ sourceThreadId: "source", activation: { thread: { id: "side" }, cwd: "/vault" } });
+  });
+
   it("starts panel-owned threads with the codex-panel service name", async () => {
     const client = {
       request: vi.fn().mockResolvedValue({ thread: { id: "thread-new" } }),

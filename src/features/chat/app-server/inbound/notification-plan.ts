@@ -66,10 +66,14 @@ function runtimeEventsPlan(
   localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   const plan = planTurnRuntimeEvents(state, turnRuntimeEventsFromNotification(notification, localItemId));
-  return { actions: plan.actions, effects: plan.outcomes.flatMap(chatNotificationEffectsFromTurnRuntimeOutcome) };
+  return {
+    actions: plan.actions,
+    effects: plan.outcomes.flatMap((outcome) => chatNotificationEffectsFromTurnRuntimeOutcome(state, outcome)),
+  };
 }
 
-function chatNotificationEffectsFromTurnRuntimeOutcome(outcome: TurnRuntimeOutcome): readonly ChatNotificationEffect[] {
+function chatNotificationEffectsFromTurnRuntimeOutcome(state: ChatState, outcome: TurnRuntimeOutcome): readonly ChatNotificationEffect[] {
+  if (state.activeThread.lifetime?.kind === "ephemeral") return [];
   switch (outcome.type) {
     case "turn-started":
       return [
@@ -162,12 +166,14 @@ function threadStartedPlan(
   state: ChatState,
   notification: Extract<ThreadLifecycleNotification, { method: "thread/started" }>,
 ): ChatNotificationPlan {
-  const effects: ChatNotificationEffect[] = [
-    {
-      type: "apply-thread-catalog-event",
-      event: { type: "thread-started", thread: threadFromAppServerRecord(notification.params.thread) },
-    },
-  ];
+  const effects: ChatNotificationEffect[] = notification.params.thread.ephemeral
+    ? []
+    : [
+        {
+          type: "apply-thread-catalog-event",
+          event: { type: "thread-started", thread: threadFromAppServerRecord(notification.params.thread) },
+        },
+      ];
   if (!state.activeThread.id || state.activeThread.id === notification.params.thread.id) {
     return { actions: [{ type: "active-thread/cwd-set", cwd: notification.params.thread.cwd }], effects };
   }

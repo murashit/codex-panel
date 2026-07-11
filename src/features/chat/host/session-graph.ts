@@ -8,6 +8,7 @@ import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
 import type { ChatAction, ChatConnectionPhase } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
+import { createEphemeralThreadLifecycle, type EphemeralThreadLifecycle } from "../application/threads/ephemeral-thread-lifecycle";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeActions } from "../application/threads/resume-actions";
 import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
@@ -36,6 +37,7 @@ export interface ChatPanelSessionGraph {
     resume: ResumeActions;
     restoration: RestorationController;
     identity: ActiveThreadIdentitySync;
+    ephemeral: EphemeralThreadLifecycle;
   };
   composer: {
     controller: ChatComposerController;
@@ -162,6 +164,17 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
   const composerController = createChatComposerController(host, {
     runtimeSettings: runtime.settings,
   });
+  const ephemeral = createEphemeralThreadLifecycle({
+    stateStore,
+    transport: appServer.threadEphemeral,
+    ensureConnected: async () => {
+      await ensureConnected();
+      return connection.isConnected();
+    },
+    addSystemMessage: status.addSystemMessage,
+    notifyActiveThreadIdentityChanged,
+    interruptTurn: (threadId, turnId) => appServer.turn.interruptTurn(threadId, turnId),
+  });
   const threadActions = createThreadActionBundle(host, {
     appServer,
     status,
@@ -170,6 +183,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     lifecycle: threadLifecycle,
     refreshActiveThreads,
     notifyActiveThreadIdentityChanged,
+    prepareForPersistentNavigation: () => ephemeral.prepareForPersistentNavigation(),
   });
   const reconnect = () =>
     reconnectPanel({
@@ -254,6 +268,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       resume: threadLifecycle.resume,
       restoration: threadLifecycle.restoration,
       identity: threadLifecycle.identity,
+      ephemeral,
     },
     composer: {
       controller: composerController,

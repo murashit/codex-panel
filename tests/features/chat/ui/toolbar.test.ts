@@ -59,7 +59,7 @@ describe("Toolbar decisions", () => {
     parent.empty();
     mountToolbar(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
     expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.tagName).toBe("DIV");
-    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.classList.contains("is-disabled")).toBe(true);
+    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.classList.contains("is-disabled")).toBe(false);
 
     parent.empty();
     mountToolbar(parent, toolbarModel({ chatActionsOpen: true, historyOpen: true, statusPanelOpen: true }), toolbarActions());
@@ -76,23 +76,26 @@ describe("Toolbar decisions", () => {
     const startNewThread = vi.fn();
     const compactContext = vi.fn();
     const setGoal = vi.fn();
+    const startSideChat = vi.fn();
 
     mountToolbar(
       parent,
       toolbarModel({ chatActionsOpen: true, openPanel: "chat-actions" }),
-      toolbarActions({ startNewThread, compactContext, setGoal }),
+      toolbarActions({ startNewThread, startSideChat, compactContext, setGoal }),
     );
 
     const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
     expect(parent.querySelector(".codex-panel__chat-actions-panel-items")?.tagName).toBe("DIV");
     expect(parent.querySelector(".codex-panel__chat-actions-panel-items")?.getAttribute("aria-label")).toBeNull();
-    expect(items).toHaveLength(3);
-    expect(items.map((item) => item.tagName)).toEqual(["DIV", "DIV", "DIV"]);
-    expect(items.map((item) => item.getAttribute("role"))).toEqual([null, null, null]);
+    expect(items).toHaveLength(4);
+    expect(items.map((item) => item.tagName)).toEqual(["DIV", "DIV", "DIV", "DIV"]);
+    expect(items.map((item) => item.getAttribute("role"))).toEqual([null, null, null, null]);
     items[0]?.click();
     items[1]?.click();
     items[2]?.click();
+    items[3]?.click();
     expect(startNewThread).toHaveBeenCalledOnce();
+    expect(startSideChat).toHaveBeenCalledOnce();
     expect(compactContext).toHaveBeenCalledOnce();
     expect(setGoal).toHaveBeenCalledOnce();
   });
@@ -420,6 +423,7 @@ function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewMod
 interface ToolbarActionOverrides {
   toggleHistory?: () => void;
   startNewThread?: () => void;
+  startSideChat?: () => void;
   toggleChatActions?: () => void;
   compactContext?: () => void;
   setGoal?: () => void;
@@ -446,6 +450,7 @@ function toolbarActions(overrides: ToolbarActionOverrides = {}): ToolbarActions 
     },
     chat: {
       startNewThread: overrides.startNewThread ?? vi.fn(),
+      startSideChat: overrides.startSideChat ?? vi.fn(),
       compactContext: overrides.compactContext ?? vi.fn(),
       setGoal: overrides.setGoal ?? vi.fn(),
     },

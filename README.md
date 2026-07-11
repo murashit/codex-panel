@@ -42,7 +42,7 @@ You can also open the plugin page directly: <https://community.obsidian.md/plugi
 
 ## Using Codex Panel
 
-Each panel can keep a separate conversation, so related work can stay open side by side. Start fresh from the panel, reopen recent threads from the picker or panel history, or use the Threads view to see active work across the vault.
+Each panel can keep a separate conversation, so related work can stay open side by side, including temporary read-only side chats. Start fresh from the panel, reopen recent threads from the picker or panel history, or use the Threads view to see active work across the vault.
 
 The composer treats Obsidian content as prompt context. It suggests vault files and recent notes for wikilinks, keeps links readable while attaching resolved files, and opens file links from Codex replies back in Obsidian. Use `@active` or `@selection` to include the active file or current Markdown selection without pasting it manually, or enable **Reference active file on send** to reference the current active file with each composer send. When Obsidian Daily Notes or the daily section of Periodic Notes is enabled, `@today`, `@tomorrow`, and `@yesterday` insert wikilinks using that daily-note folder and date format. Paste or drop files to save them in the attachment folder and reference them from the same prompt.
 

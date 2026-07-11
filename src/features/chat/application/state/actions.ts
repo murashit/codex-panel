@@ -55,6 +55,9 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState, Runti
   status?: string;
   listedThreads?: readonly Thread[];
   preserveRequestedRuntimeSettings?: boolean;
+  lifetime?:
+    | { readonly kind: "persistent" }
+    | { readonly kind: "ephemeral"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
 }
 
 export interface ActiveThreadSettingsAppliedAction extends RuntimePermissionState, RuntimePermissionKnownState {
@@ -161,9 +164,29 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     sandboxPolicyKnown: response.sandboxPolicyKnown,
     permissionProfileKnown: response.permissionProfileKnown,
     ...permissions,
+    lifetime: { kind: "persistent" },
     ...(params.items ? { items: params.items } : {}),
     ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
+  };
+}
+
+export function ephemeralThreadActivatedAction(
+  params: ResumedThreadActionParams & { sourceThreadId: string; sourceThreadTitle: string | null },
+): ActiveThreadResumedAction {
+  const action = resumedThreadAction({
+    response: params.response,
+    ...(params.items ? { items: params.items } : {}),
+    ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
+    ...(params.serviceTierKnown === undefined ? {} : { serviceTierKnown: params.serviceTierKnown }),
+  });
+  return {
+    ...action,
+    lifetime: {
+      kind: "ephemeral",
+      sourceThreadId: params.sourceThreadId,
+      sourceThreadTitle: params.sourceThreadTitle,
+    },
   };
 }
 

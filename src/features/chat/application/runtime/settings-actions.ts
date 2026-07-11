@@ -140,13 +140,21 @@ async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsActionsHo
 }
 
 async function requestPermissionProfile(host: RuntimeSettingsActionsHost, permissionProfile: string): Promise<boolean> {
+  if (permissionChangesBlocked(host)) return false;
   dispatch(host, { type: "runtime/permission-profile-requested", permissionProfile });
   return applyPendingThreadSettings(host);
 }
 
 async function resetPermissionProfileToConfig(host: RuntimeSettingsActionsHost): Promise<boolean> {
+  if (permissionChangesBlocked(host)) return false;
   dispatch(host, { type: "runtime/permission-profile-reset-to-config" });
   return applyPendingThreadSettings(host);
+}
+
+function permissionChangesBlocked(host: RuntimeSettingsActionsHost): boolean {
+  if (state(host).activeThread.lifetime?.kind !== "ephemeral") return false;
+  host.addSystemMessage("Permission changes are unavailable in side chats.");
+  return true;
 }
 
 async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {

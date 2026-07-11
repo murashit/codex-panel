@@ -40,7 +40,8 @@ interface RuntimeComposerChoicesInput {
   requestReasoningEffort: (effort: ReasoningEffort) => void;
 }
 
-function composerPlaceholder(threadName: string | null): string {
+function composerPlaceholder(threadName: string | null, sideChatActive: boolean, sideChatSourceTitle: string | null): string {
+  if (sideChatActive) return sideChatSourceTitle ? `Ask in side chat for “${sideChatSourceTitle}”...` : "Ask in side chat...";
   return threadName ? `Ask Codex in “${threadName}”...` : "Ask Codex...";
 }
 
@@ -62,7 +63,11 @@ export function chatPanelComposerProjection(
 ): ChatPanelComposerProjection {
   const snapshot = readModel.runtimeSnapshot.value;
   return {
-    placeholder: composerPlaceholder(activeComposerThreadName(readModel)),
+    placeholder: composerPlaceholder(
+      activeComposerThreadName(readModel),
+      readModel.sideChatActive.value,
+      readModel.sideChatSourceTitle.value,
+    ),
     meta: {
       ...composerMetaViewModel(readModel, snapshot),
       ...runtimeComposerChoices({

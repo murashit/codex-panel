@@ -67,6 +67,12 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     toolbarPanel: toolbarPanelActions,
     rename,
     navigation,
+    openSideChat: () => {
+      const activeThreadId = stateStore.getState().activeThread.id;
+      if (!activeThreadId) return;
+      const thread = stateStore.getState().threadList.listedThreads.find((item) => item.id === activeThreadId);
+      void environment.plugin.workspace.openSideChat(activeThreadId, thread?.name ?? thread?.preview ?? null);
+    },
   });
   const toolbarSurface: ChatPanelToolbarSurface = {
     connection: {

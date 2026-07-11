@@ -55,6 +55,7 @@ interface ToolbarPrimaryActions {
 
 interface ToolbarChatActions {
   startNewThread: () => void;
+  startSideChat?: () => void;
   compactContext: () => void;
   setGoal: () => void;
 }
@@ -102,7 +103,6 @@ export function Toolbar({ model, actions }: { model: ToolbarViewModel; actions: 
             icon="messages-square"
             label={model.chatActionsOpen ? "Hide chat actions" : "Show chat actions"}
             className={["codex-panel__new-chat", model.chatActionsOpen ? "is-active" : ""].filter(Boolean).join(" ")}
-            disabled={model.newChatDisabled}
             onClick={actions.primary.toggleChatActions}
           />
           <StatusButton model={model} actions={actions.primary} />
@@ -168,6 +168,14 @@ function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions
         onClick={actions.startNewThread}
         className="codex-panel__chat-actions-panel-item"
         disabled={model.newChatDisabled}
+      />
+      <ToolbarPanelItem
+        label="Start side chat"
+        onClick={() => {
+          actions.startSideChat?.();
+        }}
+        className="codex-panel__chat-actions-panel-item"
+        disabled={model.threads.every((thread) => !thread.selected)}
       />
       <ToolbarPanelItem label="Compact context" onClick={actions.compactContext} className="codex-panel__chat-actions-panel-item" />
       <ToolbarPanelItem label="Set goal..." onClick={actions.setGoal} className="codex-panel__chat-actions-panel-item" />

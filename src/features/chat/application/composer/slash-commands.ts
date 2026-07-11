@@ -73,6 +73,7 @@ export const SLASH_COMMANDS = [
     detail: "Clip a URL into a vault note and send a wikilink reference with an optional message.",
   },
   { command: "/fork", usage: "/fork", argsKind: "none", surface: "panelAction", detail: "Fork the active Codex thread." },
+  { command: "/btw", usage: "/btw", argsKind: "none", surface: "panelAction", detail: "Open a temporary side chat." },
   {
     command: "/rollback",
     usage: "/rollback",

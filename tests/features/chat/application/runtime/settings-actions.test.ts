@@ -93,6 +93,27 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual([]);
   });
 
+  it("blocks permission profile changes for ephemeral side chats", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      activeThread: {
+        id: "side",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+    });
+    const store = createChatStateStore(state);
+    const transport = settingsTransportFixture();
+    const messages: string[] = [];
+    const actions = runtimeActionsFixture(store, transport, messages);
+
+    await expect(actions.requestPermissionProfile(":workspace")).resolves.toBe(false);
+    await expect(actions.resetPermissionProfileToConfig()).resolves.toBe(false);
+
+    expect(transport.updateThreadSettings).not.toHaveBeenCalled();
+    expect(store.getState().runtime.pending.permissionProfile).toEqual({ kind: "unchanged" });
+    expect(messages).toEqual(["Permission changes are unavailable in side chats.", "Permission changes are unavailable in side chats."]);
+  });
+
   it("reserves thread runtime settings when no thread is active", async () => {
     const store = createChatStateStore(chatStateFixture());
     const transport = settingsTransportFixture();

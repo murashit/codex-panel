@@ -228,6 +228,30 @@ export async function forkThread(
   return threadFromThreadRecord(response.thread);
 }
 
+export interface EphemeralThreadForkSnapshot {
+  readonly activation: ThreadActivationSnapshot;
+  readonly sourceThreadId: string;
+}
+
+export async function forkEphemeralThread(
+  client: ThreadForkClient,
+  sourceThreadId: string,
+  cwd: string,
+): Promise<EphemeralThreadForkSnapshot> {
+  const response = await client.request("thread/fork", {
+    threadId: sourceThreadId,
+    cwd,
+    ephemeral: true,
+    sandbox: "read-only",
+    approvalPolicy: "never",
+    excludeTurns: true,
+  });
+  return {
+    activation: threadActivationSnapshotFromAppServerResponse(response),
+    sourceThreadId,
+  };
+}
+
 export async function compactThread(client: ThreadCompactionClient, threadId: string): Promise<void> {
   await client.request("thread/compact/start", { threadId });
 }

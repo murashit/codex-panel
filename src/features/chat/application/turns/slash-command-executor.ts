@@ -35,6 +35,7 @@ export async function executeSlashCommandWithState(
   return runSlashCommand(command, args, {
     ...host,
     activeThreadId: state.activeThreadId,
+    activeThreadEphemeral: state.activeThreadEphemeral,
     listedThreads: state.listedThreads,
     referThread: host.referThread,
     clipUrl: host.clipUrl,

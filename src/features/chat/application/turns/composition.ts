@@ -40,6 +40,7 @@ export interface TurnWorkflowContext {
     selectThread: (threadId: string) => Promise<void>;
     notifyIdentityChanged: () => void;
     resetTurnPresence: (hadTurns: boolean) => void;
+    openSideChat?: (threadId: string) => Promise<void>;
   };
   composer: {
     prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
@@ -100,6 +101,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     resumeThread: thread.selectThread,
     threadActions: refs.threadActions,
     reconnect: refs.reconnectPanel,
+    ...(thread.openSideChat ? { openSideChat: thread.openSideChat } : {}),
     runtimeSettings: refs.runtimeSettings,
     goals: refs.goals,
     addSystemMessage: status.addSystemMessage,

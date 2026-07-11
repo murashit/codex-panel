@@ -3,6 +3,8 @@ import type { AppServerRequestClient } from "../../../../app-server/services/req
 import {
   clearThreadGoal,
   compactThread,
+  deleteThread,
+  forkEphemeralThread,
   forkThread,
   listThreadTurns,
   readThreadGoal,
@@ -18,6 +20,7 @@ import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/serv
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
 import type { RuntimeSettingsTransport } from "../../application/runtime/settings-transport";
+import type { EphemeralThreadTransport } from "../../application/threads/ephemeral-thread-transport";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../../application/threads/goal-transport";
 import type {
   ThreadHistoryPage,
@@ -57,6 +60,7 @@ export interface ChatSessionTransports {
   readonly threadHistory: ThreadHistoryTransport;
   readonly threadResume: ThreadResumeTransport;
   readonly threadMutation: ThreadMutationTransport;
+  readonly threadEphemeral: EphemeralThreadTransport;
   readonly threadGoalRead: ThreadGoalReadTransport;
   readonly threadGoal: ThreadGoalTransport;
 }
@@ -69,6 +73,7 @@ export function createChatSessionTransports(host: ChatAppServerTransportHost): C
     threadHistory: createChatThreadHistoryTransport(host),
     threadResume: createChatThreadResumeTransport(host),
     threadMutation: createChatThreadMutationTransport(host),
+    threadEphemeral: createChatEphemeralThreadTransport(host),
     threadGoalRead: createChatThreadGoalReadTransport(host),
     threadGoal: createChatThreadGoalTransport(host),
   };
@@ -164,6 +169,20 @@ function createChatThreadMutationTransport(host: ChatAppServerTransportHost): Th
           items: threadStreamItemsFromTurns(snapshot.turns),
         };
       }),
+  };
+}
+
+function createChatEphemeralThreadTransport(host: ChatAppServerTransportHost): EphemeralThreadTransport {
+  return {
+    forkEphemeralThread: (sourceThreadId) =>
+      withConnectedChatAppServerClient(host, (client) => forkEphemeralThread(client, sourceThreadId, host.vaultPath)),
+    deleteEphemeralThread: async (threadId) => {
+      const result = await withCurrentChatAppServerClient(host, async (client) => {
+        await deleteThread(client, threadId, { timeoutMs: 5_000 });
+        return true;
+      });
+      return result ?? false;
+    },
   };
 }
 

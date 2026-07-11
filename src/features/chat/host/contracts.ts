@@ -45,6 +45,7 @@ interface WorkspacePanels {
   focusThreadInOpenView(threadId: string): Promise<boolean>;
   openTurnDiff(state: TurnDiffViewState): Promise<void>;
   refreshThreadsViewLiveState(): void;
+  openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void>;
 }
 
 type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
@@ -83,7 +84,7 @@ export interface ChatViewLifecycleSurface {
   persistedState(): Record<string, unknown>;
   applyViewState(state: unknown): void;
   open(): void;
-  close(): void;
+  close(): Promise<void>;
   refreshSettings(): void;
 }
 
@@ -106,6 +107,7 @@ export interface ChatWorkspacePanelSurface {
   focusComposer(): void;
   connect(): Promise<void>;
   startNewThread(): Promise<void>;
+  openSideChat(input: { sourceThreadId: string; sourceThreadTitle: string | null }): Promise<boolean>;
 }
 
 export interface ChatSharedThreadSurface {

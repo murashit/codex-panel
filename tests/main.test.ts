@@ -466,6 +466,27 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(openThread).not.toHaveBeenCalled();
   });
 
+  it("opens side chats as regular Codex panels with ephemeral source metadata", async () => {
+    const newLeaf = leaf();
+    const plugin = await pluginWithLeaves([]);
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(newLeaf);
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const view = chatView(CodexChatView, newLeaf);
+    newLeaf.setViewState.mockImplementation(async () => {
+      newLeaf.view = view;
+    });
+    const openSideChat = vi.spyOn(view.surface, "openSideChat").mockResolvedValue(true);
+
+    await panels(plugin).openSideChat("source", "Source thread");
+
+    expect(newLeaf.setViewState).toHaveBeenCalledWith({
+      type: VIEW_TYPE_CODEX_PANEL,
+      active: true,
+      state: { version: 2, ephemeralSource: { threadId: "source", title: "Source thread" } },
+    });
+    expect(openSideChat).toHaveBeenCalledWith({ sourceThreadId: "source", sourceThreadTitle: "Source thread" });
+  });
+
   it("does not refresh shared thread lists after known archive mutations", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();
@@ -826,6 +847,7 @@ function chatHostFixture(): CodexChatHost {
       focusThreadInOpenView: vi.fn(),
       openTurnDiff: vi.fn(),
       refreshThreadsViewLiveState: vi.fn(),
+      openSideChat: vi.fn(),
     },
     appServerQueries: {
       updateAppServerMetadata: vi.fn(() => null),

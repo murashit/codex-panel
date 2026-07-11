@@ -36,6 +36,7 @@ export interface SlashCommandExecutionPorts {
     renameThread: ThreadManagementActions["renameThread"];
   };
   reconnect: () => Promise<void>;
+  openSideChat?: (threadId: string) => Promise<void>;
   addSystemMessage: (text: string) => void;
   addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
   runtimeSettings: {
@@ -65,6 +66,7 @@ export interface SlashCommandExecutionPorts {
 
 export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts {
   activeThreadId: string | null;
+  activeThreadEphemeral: boolean;
   listedThreads: readonly Thread[];
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
   clipUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ClipUrlInput | null>;
@@ -164,6 +166,21 @@ export async function executeSlashCommand(
       }
       await context.threadActions.forkThread(context.activeThreadId);
       return;
+    case "btw":
+      if (!context.activeThreadId) {
+        context.addSystemMessage("No active thread for a side chat.");
+        return;
+      }
+      if (context.activeThreadEphemeral) {
+        context.addSystemMessage("Side chats cannot be started from another side chat.");
+        return;
+      }
+      if (!context.openSideChat) {
+        context.addSystemMessage("Side chat is not available.");
+        return;
+      }
+      await context.openSideChat(context.activeThreadId);
+      return;
     case "rollback":
       if (!context.activeThreadId) {
         context.addSystemMessage("No active thread to roll back.");
@@ -219,6 +236,10 @@ export async function executeSlashCommand(
     case "permissions": {
       const requested = parsePermissionProfileOverride(args);
       if (requested !== undefined) {
+        if (context.activeThreadEphemeral) {
+          context.addSystemMessage("Permission changes are unavailable in side chats.");
+          return;
+        }
         const applied = await applyPermissionProfileOverride(context, requested);
         if (applied === false) return;
         context.addSystemMessage(permissionProfileOverrideMessage(requested));

@@ -109,7 +109,12 @@ export interface ChatActiveThreadState {
   readonly cwd: string | null;
   readonly goal: ThreadGoal | null;
   readonly tokenUsage: ThreadTokenUsage | null;
+  readonly lifetime: ActiveThreadLifetime | null;
 }
+
+type ActiveThreadLifetime =
+  | { readonly kind: "persistent" }
+  | { readonly kind: "ephemeral"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
 
 interface ChatComposerState {
   readonly draft: string;
@@ -325,6 +330,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       cwd: action.cwd,
       goal: null,
       tokenUsage: null,
+      lifetime: action.lifetime ?? { kind: "persistent" },
     },
     runtime: {
       ...runtimeBase,
@@ -649,6 +655,7 @@ function initialActiveThreadState(): ChatActiveThreadState {
     cwd: null,
     goal: null,
     tokenUsage: null,
+    lifetime: null,
   };
 }
 

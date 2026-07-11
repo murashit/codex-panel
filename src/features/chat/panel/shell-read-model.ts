@@ -132,6 +132,8 @@ export interface ChatPanelComposerReadModel {
     readonly availableModels: ReadonlySignal<ChatPanelComposerConnectionState["availableModels"]>;
   };
   readonly activeListedThreadName: ReadonlySignal<string | null>;
+  readonly sideChatActive: ReadonlySignal<boolean>;
+  readonly sideChatSourceTitle: ReadonlySignal<string | null>;
   readonly draft: ReadonlySignal<ChatState["composer"]["draft"]>;
   readonly suggestions: ReadonlySignal<ChatState["composer"]["suggestions"]>;
   readonly selectedSuggestionIndex: ReadonlySignal<ChatState["composer"]["suggestSelected"]>;
@@ -177,7 +179,9 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
     threadStreamStableItems: computed(() => threadStreamStableItems(threadStream.value)),
     threadStreamActiveItems: computed(() => threadStreamActiveItems(threadStream.value)),
     threadStreamRollbackCandidate: computed(() => (turnBusy.value ? null : threadStreamRollbackCandidateFromItems(streamItems.value))),
-    threadStreamForkCandidates: computed(() => (turnBusy.value ? [] : forkCandidatesFromItems(streamItems.value))),
+    threadStreamForkCandidates: computed(() =>
+      turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" ? [] : forkCandidatesFromItems(streamItems.value),
+    ),
     threadStreamImplementPlanTarget: computed(() =>
       implementPlanTargetFromState({
         activeThread: { id: activeThreadIdSignal.value },
@@ -317,6 +321,11 @@ function composerReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanel
       availableModels: computed(() => signals.connection.value.availableModels),
     },
     activeListedThreadName: computed(() => activeListedThreadName(signals)),
+    sideChatActive: computed(() => signals.activeThread.value.lifetime?.kind === "ephemeral"),
+    sideChatSourceTitle: computed(() => {
+      const lifetime = signals.activeThread.value.lifetime;
+      return lifetime?.kind === "ephemeral" ? lifetime.sourceThreadTitle : null;
+    }),
     draft: computed(() => signals.composer.value.draft),
     suggestions: computed(() => signals.composer.value.suggestions),
     selectedSuggestionIndex: computed(() => signals.composer.value.suggestSelected),

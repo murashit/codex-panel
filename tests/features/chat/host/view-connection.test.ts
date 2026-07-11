@@ -563,6 +563,17 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
   });
 
+  it("turns a restored unavailable side-chat tab into a normal empty chat", async () => {
+    const view = await chatView();
+    await view.setState({ version: 2, ephemeralSource: { threadId: "source", title: "Source" } }, {} as never);
+
+    expect(view.getDisplayText()).toBe("Side chat");
+    await view.surface.startNewThread();
+
+    expect(view.getState()).toEqual({ version: 1 });
+    expect(view.getDisplayText()).not.toBe("Side chat");
+  });
+
   it("focuses the composer after panel thread actions", async () => {
     const client = connectedClient();
     connectionMock.state.client = client;
@@ -1011,6 +1022,7 @@ interface ChatHostFixtureOverrides {
   focusThreadInOpenView?: CodexChatHost["workspace"]["focusThreadInOpenView"];
   openTurnDiff?: CodexChatHost["workspace"]["openTurnDiff"];
   refreshThreadsViewLiveState?: CodexChatHost["workspace"]["refreshThreadsViewLiveState"];
+  openSideChat?: CodexChatHost["workspace"]["openSideChat"];
   applyThreadCatalogEvent?: CodexChatHost["threadCatalog"]["apply"];
   updateAppServerMetadata?: CodexChatHost["appServerQueries"]["updateAppServerMetadata"];
   refreshActive?: CodexChatHost["threadCatalog"]["refreshActive"];
@@ -1137,6 +1149,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       focusThreadInOpenView: overrides.focusThreadInOpenView ?? vi.fn().mockResolvedValue(false),
       openTurnDiff: overrides.openTurnDiff ?? vi.fn(),
       refreshThreadsViewLiveState: overrides.refreshThreadsViewLiveState ?? vi.fn(),
+      openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
     },
     appServerQueries: {
       updateAppServerMetadata:

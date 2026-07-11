@@ -331,6 +331,7 @@ describe("createChatPanelSessionGraph actions", () => {
           openTurnDiff: vi.fn().mockResolvedValue(undefined),
           refreshThreadsViewLiveState: vi.fn(),
           ...overrides.plugin?.workspace,
+          openSideChat: overrides.plugin?.workspace?.openSideChat ?? vi.fn().mockResolvedValue(undefined),
         },
         appServerQueries,
         threadCatalog,

@@ -99,6 +99,7 @@ interface ChatPanelThreadActionInput {
   lifecycle: ChatPanelThreadLifecycleBundle;
   refreshActiveThreads: () => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
+  prepareForPersistentNavigation: () => Promise<boolean>;
 }
 
 interface ChatPanelThreadActionBundle {
@@ -285,6 +286,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     focusComposer: () => {
       composerController.focusComposer();
     },
+    prepareForPersistentNavigation: input.prepareForPersistentNavigation,
   });
   return { actions, toolbarPanelActions, navigation };
 }

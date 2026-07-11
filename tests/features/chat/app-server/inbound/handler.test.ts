@@ -1420,6 +1420,19 @@ describe("ChatInboundHandler", () => {
       });
     });
 
+    it("keeps ephemeral thread-started notifications out of the shared catalog", () => {
+      const applyThreadCatalogEvent = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
+
+      handler.handleNotification({
+        method: "thread/started",
+        params: { thread: { ...appServerThread("side", "/workspace/active"), ephemeral: true } },
+      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
+
+      expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+    });
+
     it("replaces optimistic user echoes when completed turns are reconciled", () => {
       let state = activeRunningState();
       state = withChatStateThreadStreamItems(state, [

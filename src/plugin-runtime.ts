@@ -121,6 +121,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
         openThreadInNewView: (threadId) => this.panels.openThreadInNewView(threadId),
         focusThreadInOpenView: (threadId) => this.panels.focusThreadInOpenView(threadId),
         openTurnDiff: (state) => this.openTurnDiff(state),
+        openSideChat: (sourceThreadId, sourceThreadTitle) => this.panels.openSideChat(sourceThreadId, sourceThreadTitle),
         refreshThreadsViewLiveState: () => {
           this.refreshThreadsViewLiveState();
         },
