@@ -87,6 +87,8 @@ class VaultNoteCandidateCatalog {
     this.registerEvent(app.vault, app.vault.on("modify", invalidate));
     this.registerEvent(app.metadataCache, app.metadataCache.on("changed", invalidate));
     this.registerEvent(app.metadataCache, app.metadataCache.on("deleted", invalidate));
+    this.registerEvent(app.workspace, app.workspace.on("file-open", invalidate));
+    this.registerEvent(app.workspace, app.workspace.on("active-leaf-change", invalidate));
   }
 
   candidates(sourcePath: string): readonly NoteCandidate[] {

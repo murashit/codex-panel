@@ -107,6 +107,13 @@ export class JsonRpcClient {
       return;
     }
 
+    const invalidParamsRequest = invalidKnownParamsRequest(parsed);
+    if (invalidParamsRequest) {
+      this.options.onLog(`Invalid app-server params: ${invalidParamsRequest.method}`);
+      this.reject(invalidParamsRequest.id, -32602, "Invalid params.");
+      return;
+    }
+
     const message = rpcInboundMessage(parsed);
     if (!message) {
       this.options.onLog(`Invalid app-server JSON-RPC message: ${line}`);
@@ -198,6 +205,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isRequestId(value: unknown): value is RequestId {
   return typeof value === "string" || (typeof value === "number" && Number.isFinite(value));
+}
+
+function invalidKnownParamsRequest(value: unknown): { id: RequestId; method: string } | null {
+  if (!isRecord(value) || !Object.hasOwn(value, "id") || typeof value["method"] !== "string") return null;
+  const method = value["method"];
+  const id = value["id"];
+  const params = value["params"];
+  const required = requiredStringFields(method);
+  if (!required) return null;
+  if (!isRecord(params)) return isRequestId(id) ? { id, method } : null;
+  return required.every((field) => typeof params[field] === "string") ? null : isRequestId(id) ? { id, method } : null;
+}
+
+function requiredStringFields(method: string): readonly string[] | null {
+  switch (method) {
+    case "item/commandExecution/requestApproval":
+    case "item/fileChange/requestApproval":
+      return ["threadId", "turnId", "itemId"];
+    case "item/tool/requestUserInput":
+    case "mcpServer/elicitation/request":
+      return ["threadId", "turnId", "itemId"];
+    case "currentTime/read":
+      return ["threadId"];
+    case "applyPatchApproval":
+    case "execCommandApproval":
+      return ["conversationId", "callId"];
+    default:
+      return null;
+  }
 }
 
 function errorMessage(error: unknown): string {

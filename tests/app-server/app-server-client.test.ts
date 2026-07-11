@@ -269,6 +269,29 @@ describe("AppServerClient", () => {
     expect(logs).toEqual(["App-server notification handler failed: notification failed"]);
   });
 
+  it("rejects known server requests with malformed required params", async () => {
+    let transport!: FakeTransport;
+    const client = createTestClient({
+      handlers: {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: () => undefined,
+        onExit: () => undefined,
+      },
+      transportFactory: (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    });
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    transport.emitLine({ id: 12, method: "currentTime/read", params: { threadId: 42 } });
+
+    expect(latestSent(transport)).toEqual({ id: 12, error: { code: -32602, message: "Invalid params." } });
+  });
+
   it("sends typed client requests", async () => {
     const { client, transport } = await connectedClient();
 

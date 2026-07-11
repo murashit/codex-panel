@@ -5,6 +5,7 @@ import {
   sanitizeVaultPathSegment,
   uniqueVaultPath,
   vaultRelativeFolderPath,
+  withVaultWriteLock,
 } from "../../../../domain/vault/write-paths";
 import { DEFAULT_ATTACHMENT_FOLDER } from "../../../../settings/model";
 import { createObsidianVaultPathDestination } from "../../../../shared/obsidian/vault-write-destination.obsidian";
@@ -50,22 +51,23 @@ async function saveComposerAttachmentFiles(
   const vault = options.app.vault;
   const destination = createObsidianVaultPathDestination(vault);
   const folder = attachmentFolderPath(options.attachmentFolder(), (path) => destination.normalizePath(path));
-  await ensureVaultFolder(destination, folder);
-
-  const attachments: ComposerAttachment[] = [];
-  for (const file of files) {
-    const filename = attachmentFilename(file, options.now?.() ?? new Date());
-    const path = await uniqueVaultPath(destination, folder, filename);
-    await vault.createBinary(path, await file.arrayBuffer());
-    const kind = isImageFile(file, path) ? "image" : "file";
-    attachments.push({
-      kind,
-      name: attachmentDisplayName(path),
-      path,
-      marker: kind === "image" ? `![[${path}]]` : `[[${path}]]`,
-    });
-  }
-  return attachments;
+  return withVaultWriteLock(destination, async () => {
+    await ensureVaultFolder(destination, folder);
+    const attachments: ComposerAttachment[] = [];
+    for (const file of files) {
+      const filename = attachmentFilename(file, options.now?.() ?? new Date());
+      const path = await uniqueVaultPath(destination, folder, filename);
+      await vault.createBinary(path, await file.arrayBuffer());
+      const kind = isImageFile(file, path) ? "image" : "file";
+      attachments.push({
+        kind,
+        name: attachmentDisplayName(path),
+        path,
+        marker: kind === "image" ? `![[${path}]]` : `[[${path}]]`,
+      });
+    }
+    return attachments;
+  });
 }
 
 function attachmentFolderPath(value: string, normalizePath: (path: string) => string): string {

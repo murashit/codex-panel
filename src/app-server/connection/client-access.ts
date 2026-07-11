@@ -1,6 +1,6 @@
 import type { AppServerClient } from "./client";
 
-export type AppServerClientRequestPolicy = { kind: "interactive" } | { kind: "reject"; message: string };
+export type AppServerClientRequestPolicy = { kind: "reject"; message: string };
 
 export interface AppServerClientAccessOptions {
   serverRequests?: AppServerClientRequestPolicy;

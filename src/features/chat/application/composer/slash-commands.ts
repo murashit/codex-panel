@@ -185,6 +185,10 @@ type SlashCommand = (typeof SLASH_COMMANDS)[number]["command"];
 
 export type SlashCommandName = SlashCommand extends `/${infer Name}` ? Name : never;
 
+export function isSlashCommandName(value: string): value is SlashCommandName {
+  return SLASH_COMMANDS.some((item) => item.command === `/${value}`);
+}
+
 export type SlashCommandDefinition = (typeof SLASH_COMMANDS)[number];
 
 const CONNECTION_INDEPENDENT_SLASH_COMMANDS = new Set<SlashCommandName>(["compact", "reconnect"]);

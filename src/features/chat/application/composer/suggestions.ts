@@ -19,7 +19,7 @@ import {
   selectionContextReferenceMarker,
 } from "./context-references";
 import type { DailyNoteReferenceCandidate } from "./daily-note-references";
-import { SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
+import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
 
 export interface ComposerSuggestion {
   display: string;
@@ -99,8 +99,8 @@ const SELECTION_SUGGESTION_PREVIEW_LIMIT = 500;
 export function parseSlashCommand(text: string): { command: SlashCommandName; args: string } | null {
   const match = /^\/([A-Za-z-]+)(?:\s+([\s\S]*))?$/.exec(text);
   if (!match) return null;
-  const command = match[1] as SlashCommandName;
-  if (!SLASH_COMMANDS.some((item) => item.command === `/${command}`)) return null;
+  const command = match[1];
+  if (!command || !isSlashCommandName(command)) return null;
   return { command, args: match.at(2)?.trim() ?? "" };
 }
 
@@ -416,10 +416,9 @@ function activeSlashSubcommandSuggestions(beforeCursor: string): ComposerSuggest
   const match = /^\/([A-Za-z-]+)\s+([A-Za-z-]{0,120})$/.exec(beforeCursor);
   if (!match) return null;
 
-  const command = match[1] as SlashCommandName | undefined;
+  const command = match[1];
   const rawQuery = match[2];
-  if (!command || rawQuery === undefined) return null;
-  if (!SLASH_COMMANDS.some((item) => item.command === `/${command}`)) return null;
+  if (!command || !isSlashCommandName(command) || rawQuery === undefined) return null;
 
   const query = rawQuery.toLowerCase();
   const subcommands = slashCommandSubcommands(command);

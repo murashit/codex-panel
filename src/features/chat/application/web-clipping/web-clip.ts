@@ -10,6 +10,7 @@ import {
   sanitizeVaultPathSegment,
   uniqueVaultPath,
   type VaultMarkdownDestination,
+  withVaultWriteLock,
 } from "../../../../domain/vault/write-paths";
 
 export interface WebClipSettings {
@@ -53,11 +54,12 @@ export async function saveWebClipMarkdown(
   const normalizePath = (path: string): string => destination.normalizePath(path);
   const folder = folderPath(settings.clipFolder, normalizePath);
   const filename = filenameFromTemplate(settings.clipFilenameTemplate, context, normalizePath);
-  await ensureVaultFolder(destination, folder);
-
-  const path = await uniqueVaultPath(destination, folder, filename);
-  await destination.createMarkdownFile(path, webClipMarkdown(page, settings, context.title, now));
-  return { path, wikilink: `[[${path}]]` };
+  return withVaultWriteLock(destination, async () => {
+    await ensureVaultFolder(destination, folder);
+    const path = await uniqueVaultPath(destination, folder, filename);
+    await destination.createMarkdownFile(path, webClipMarkdown(page, settings, context.title, now));
+    return { path, wikilink: `[[${path}]]` };
+  });
 }
 
 export function webClipMarkdown(page: WebClipPage, settings: Pick<WebClipSettings, "clipTags">, title?: string, now = new Date()): string {

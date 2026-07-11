@@ -8,18 +8,18 @@ export function vaultRelativePath(vaultPath: string, path: string, options: Vaul
   if (!normalizedPath || !normalizedVaultPath) return null;
 
   if (!isFilesystemAbsolutePath(normalizedPath)) return options.allowRelative === true ? normalizedPath : null;
-  if (normalizedPath === normalizedVaultPath) return null;
+  if (pathsEqual(normalizedPath, normalizedVaultPath)) return null;
 
   const vaultPrefix = normalizedVaultPath.endsWith("/") ? normalizedVaultPath : `${normalizedVaultPath}/`;
-  return normalizedPath.startsWith(vaultPrefix) ? normalizedPath.slice(vaultPrefix.length) : null;
+  return pathStartsWith(normalizedPath, vaultPrefix) ? normalizedPath.slice(vaultPrefix.length) : null;
 }
 
 export function pathRelativeToRoot(path: string, root?: string | null): string {
   const normalizedPath = normalizeFilePath(path);
   const normalizedRoot = normalizeFilePath(root ?? "");
   if (!normalizedRoot) return normalizedPath;
-  if (normalizedPath === normalizedRoot) return ".";
-  return normalizedPath.startsWith(`${normalizedRoot}/`) ? normalizedPath.slice(normalizedRoot.length + 1) : normalizedPath;
+  if (pathsEqual(normalizedPath, normalizedRoot)) return ".";
+  return pathStartsWith(normalizedPath, `${normalizedRoot}/`) ? normalizedPath.slice(normalizedRoot.length + 1) : normalizedPath;
 }
 
 export function isFilesystemAbsolutePath(path: string): boolean {
@@ -29,7 +29,7 @@ export function isFilesystemAbsolutePath(path: string): boolean {
 export function isVaultConfigPath(path: string, configDir: string): boolean {
   const normalizedPath = normalizeFilePath(path);
   const normalizedConfigDir = normalizeFilePath(configDir);
-  return normalizedPath === normalizedConfigDir || normalizedPath.startsWith(`${normalizedConfigDir}/`);
+  return pathsEqual(normalizedPath, normalizedConfigDir) || pathStartsWith(normalizedPath, `${normalizedConfigDir}/`);
 }
 
 export function normalizeFilePath(path: string): string {
@@ -39,4 +39,14 @@ export function normalizeFilePath(path: string): string {
 
 function isWindowsAbsolutePath(path: string): boolean {
   return /^[a-z]:[\\/]/i.test(path);
+}
+
+function pathsEqual(left: string, right: string): boolean {
+  return isWindowsAbsolutePath(left) || isWindowsAbsolutePath(right) ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+
+function pathStartsWith(path: string, prefix: string): boolean {
+  return isWindowsAbsolutePath(path) || isWindowsAbsolutePath(prefix)
+    ? path.toLowerCase().startsWith(prefix.toLowerCase())
+    : path.startsWith(prefix);
 }

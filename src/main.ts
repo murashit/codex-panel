@@ -1,4 +1,4 @@
-import { Plugin } from "obsidian";
+import { Notice, Plugin } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { CodexChatView } from "./features/chat/host/view.obsidian";
@@ -35,25 +35,25 @@ export default class CodexPanelPlugin extends Plugin {
     );
 
     this.addRibbonIcon("bot-message-square", "Open panel", () => {
-      void this.runtime.activatePanel();
+      void this.runtime.activatePanel().catch(reportCommandError);
     });
 
     this.addCommand({
       id: "open-panel",
       name: "Open panel",
-      callback: () => void this.runtime.activatePanel(),
+      callback: () => void this.runtime.activatePanel().catch(reportCommandError),
     });
 
     this.addCommand({
       id: "open-new-panel",
       name: "Open new panel",
-      callback: () => void this.runtime.activateNewPanel(),
+      callback: () => void this.runtime.activateNewPanel().catch(reportCommandError),
     });
 
     this.addCommand({
       id: "open-threads-view",
       name: "Open threads view",
-      callback: () => void this.runtime.activateThreadsView(),
+      callback: () => void this.runtime.activateThreadsView().catch(reportCommandError),
     });
 
     this.addCommand({
@@ -67,7 +67,7 @@ export default class CodexPanelPlugin extends Plugin {
     this.addCommand({
       id: "new-chat",
       name: "Start new chat",
-      callback: () => void this.runtime.startNewChat(),
+      callback: () => void this.runtime.startNewChat().catch(reportCommandError),
     });
 
     registerSelectionRewriteCommand(this);
@@ -93,4 +93,8 @@ export default class CodexPanelPlugin extends Plugin {
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
   }
+}
+
+function reportCommandError(error: unknown): void {
+  new Notice(`Codex Panel command failed: ${error instanceof Error ? error.message : String(error)}`);
 }

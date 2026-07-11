@@ -55,6 +55,33 @@ describe("vault web clipper parser integration", () => {
     expect(markdown).not.toContain("Navigation that should not be clipped");
     expect(result?.text).toBe("[[Clips/Integration Article.md]]");
   });
+
+  it("preserves full-parser Markdown features required by the clip contract", async () => {
+    mocks.requestUrl.mockResolvedValue({
+      text: `<!doctype html><html><head><title>Rich Article</title></head><body><article>
+        <h1>Rich heading</h1><p>Formula <math><mi>x</mi></math></p>
+        <p>See the note<sup><a href="#fn-1">1</a></sup>.</p>
+        <blockquote class="callout"><p>Obsidian callout</p></blockquote>
+        <pre><code>const value = 1;</code></pre>
+        <ol><li id="fn-1">Footnote detail</li></ol>
+      </article></body></html>`,
+    });
+    const { vault, createdContent } = memoryVault();
+
+    await createVaultWebClipper({
+      vault,
+      settings: () => ({ clipFolder: "Clips", clipFilenameTemplate: "{{title}}.md", clipTags: "" }),
+      prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+      viewWindow: () => window,
+      now: () => new Date("2026-07-10T00:00:00.000Z"),
+    }).clipUrl("https://example.com/rich", "", {} as ComposerInputSnapshot);
+
+    const markdown = createdContent.get("Clips/Rich Article.md") ?? "";
+    expect(markdown).toContain("Rich heading");
+    expect(markdown).toMatch(/\$|\\frac|math/);
+    expect(markdown).toContain("Footnote detail");
+    expect(markdown).toContain("```\nconst value = 1;\n```");
+  });
 });
 
 function memoryVault(): { vault: Vault; createdContent: Map<string, string> } {

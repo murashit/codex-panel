@@ -209,7 +209,7 @@ describe("VaultNoteCandidateProvider", () => {
 
     provider.dispose();
 
-    expect(app.offref).toHaveBeenCalledTimes(6);
+    expect(app.offref).toHaveBeenCalledTimes(8);
   });
 
   it("shares candidate caches and event subscriptions across panel providers", () => {
@@ -226,7 +226,7 @@ describe("VaultNoteCandidateProvider", () => {
     expect(app.offref).not.toHaveBeenCalled();
 
     second.dispose();
-    expect(app.offref).toHaveBeenCalledTimes(6);
+    expect(app.offref).toHaveBeenCalledTimes(8);
   });
 
   it("resolves wikilinks through metadata cache before direct path fallback", () => {

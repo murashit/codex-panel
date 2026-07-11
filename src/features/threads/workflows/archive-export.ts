@@ -12,6 +12,7 @@ import {
   sanitizeVaultPathSegment,
   uniqueVaultPath,
   type VaultMarkdownDestination,
+  withVaultWriteLock,
 } from "../../../domain/vault/write-paths";
 
 export interface ArchiveExportResult {
@@ -38,11 +39,12 @@ export async function exportArchivedThreadMarkdown(
   const normalizePath = (path: string): string => destination.normalizePath(path);
   const folder = folderPath(settings.archiveExportFolderTemplate, normalizePath);
   const filename = filenameFromTemplate(settings.archiveExportFilenameTemplate, context, normalizePath);
-  await ensureVaultFolder(destination, folder);
-
-  const path = await uniqueVaultPath(destination, folder, filename);
-  await destination.createMarkdownFile(path, archivedThreadMarkdown(thread, now, settings));
-  return { path };
+  return withVaultWriteLock(destination, async () => {
+    await ensureVaultFolder(destination, folder);
+    const path = await uniqueVaultPath(destination, folder, filename);
+    await destination.createMarkdownFile(path, archivedThreadMarkdown(thread, now, settings));
+    return { path };
+  });
 }
 
 function templateContext(thread: ArchiveThreadInput, now: Date): TemplateContext {

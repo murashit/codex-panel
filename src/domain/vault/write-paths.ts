@@ -1,4 +1,5 @@
 export interface VaultPathDestination {
+  readonly writeLockKey?: object;
   normalizePath(path: string): string;
   exists(path: string): Promise<boolean>;
   createFolder(path: string): Promise<void>;
@@ -6,6 +7,26 @@ export interface VaultPathDestination {
 
 export interface VaultMarkdownDestination extends VaultPathDestination {
   createMarkdownFile(path: string, content: string): Promise<void>;
+}
+
+const writeTails = new WeakMap<object, Promise<void>>();
+
+export async function withVaultWriteLock<T>(destination: VaultPathDestination, operation: () => Promise<T>): Promise<T> {
+  const key = destination.writeLockKey ?? destination;
+  const previous = writeTails.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => current);
+  writeTails.set(key, tail);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (writeTails.get(key) === tail) writeTails.delete(key);
+  }
 }
 
 export interface VaultRelativeFolderPathOptions {

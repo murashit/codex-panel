@@ -41,14 +41,19 @@ export class ThreadStreamMarkdownRenderer {
     this.renderGenerations.set(parent, generation);
     const staging = parent.createDiv();
     staging.remove();
-    void MarkdownRenderer.render(this.options.app, text, staging, sourcePath, this.options.owner).then(() => {
-      if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
-      parent.replaceChildren(...Array.from(staging.childNodes));
-      bindRenderedWikiLinks(parent, sourcePath, this.options);
-      bindRenderedMarkdownFileLinks(parent, sourcePath, this.options);
-      bindRenderedTags(parent, this.options);
-      notifyThreadStreamContentRendered(parent);
-    });
+    void MarkdownRenderer.render(this.options.app, text, staging, sourcePath, this.options.owner)
+      .then(() => {
+        if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
+        parent.replaceChildren(...Array.from(staging.childNodes));
+        bindRenderedWikiLinks(parent, sourcePath, this.options);
+        bindRenderedMarkdownFileLinks(parent, sourcePath, this.options);
+        bindRenderedTags(parent, this.options);
+        notifyThreadStreamContentRendered(parent);
+      })
+      .catch((error: unknown) => {
+        if (!parent.isConnected || this.renderGenerations.get(parent) !== generation) return;
+        new Notice(`Failed to render Codex message: ${error instanceof Error ? error.message : String(error)}`);
+      });
   }
 }
 

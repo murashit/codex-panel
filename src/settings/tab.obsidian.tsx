@@ -6,6 +6,7 @@ import { listenDomEvent } from "../shared/dom/events.dom";
 import { renderUiRoot, unmountUiRoot } from "../shared/dom/preact-root.dom";
 import { SettingsDynamicSectionsController } from "./dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "./host";
+import type { CodexPanelSettings } from "./model";
 import {
   DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
   DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
@@ -20,6 +21,7 @@ const SETTINGS_INTRO_TEXT = "Codex Panel stores panel preferences only. Runtime 
 
 export class CodexPanelSettingTab extends PluginSettingTab {
   private readonly dynamicSections: SettingsDynamicSectionsController;
+  private lastSavedSettings: CodexPanelSettings;
   private archivedDeleteConfirmThreadId: string | null = null;
   private disposeOutsidePointer: (() => void) | null = null;
   private readonly cancelArchivedDeleteConfirmOnOutsidePointer = (event: PointerEvent): void => {
@@ -40,6 +42,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     private readonly plugin: CodexPanelSettingTabHost,
   ) {
     super(app, owner);
+    this.lastSavedSettings = { ...plugin.settings };
     this.dynamicSections = new SettingsDynamicSectionsController(plugin, {
       display: () => {
         this.renderSettingsShell();
@@ -201,7 +204,7 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     const codexPath = value.trim() || DEFAULT_CODEX_PATH;
     if (codexPath === this.plugin.settings.codexPath) return;
     this.plugin.settings.codexPath = codexPath;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.dynamicSections.resetDynamicSectionContext();
     this.plugin.dynamicData.notifyContextChanged();
     this.plugin.refreshOpenViews();
@@ -210,74 +213,74 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private async setShowToolbar(value: boolean): Promise<void> {
     this.plugin.settings.showToolbar = value;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.plugin.refreshOpenViews();
     this.renderSettingsShell();
   }
 
   private async setSendShortcut(value: "enter" | "mod-enter"): Promise<void> {
     this.plugin.settings.sendShortcut = value;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setScrollThreadFromComposerEdges(value: boolean): Promise<void> {
     this.plugin.settings.scrollThreadFromComposerEdges = value;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setReferenceActiveNoteOnSend(value: boolean): Promise<void> {
     this.plugin.settings.referenceActiveNoteOnSend = value;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setAttachmentFolder(value: string): Promise<void> {
     this.plugin.settings.attachmentFolder = value.trim() || DEFAULT_ATTACHMENT_FOLDER;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setClipFolder(value: string): Promise<void> {
     this.plugin.settings.clipFolder = value.trim() || DEFAULT_CLIP_FOLDER;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setClipFilenameTemplate(value: string): Promise<void> {
     this.plugin.settings.clipFilenameTemplate = value.trim() || DEFAULT_CLIP_FILENAME_TEMPLATE;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setClipTags(value: string): Promise<void> {
     this.plugin.settings.clipTags = value.trim();
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setArchiveExportEnabled(enabled: boolean): Promise<void> {
     this.plugin.settings.archiveExportEnabled = enabled;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setArchiveExportFolderTemplate(value: string): Promise<void> {
     this.plugin.settings.archiveExportFolderTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setArchiveExportFilenameTemplate(value: string): Promise<void> {
     this.plugin.settings.archiveExportFilenameTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setArchiveExportTags(value: string): Promise<void> {
     this.plugin.settings.archiveExportTags = value.trim();
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
@@ -286,13 +289,13 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     if (!this.dynamicSections.namingEffortSupported(this.plugin.settings.threadNamingEffort)) {
       this.plugin.settings.threadNamingEffort = null;
     }
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setThreadNamingEffort(value: ReasoningEffort | null): Promise<void> {
     this.plugin.settings.threadNamingEffort = value;
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
   }
 
   private async setRewriteSelectionModel(value: string | null): Promise<void> {
@@ -300,12 +303,25 @@ export class CodexPanelSettingTab extends PluginSettingTab {
     if (!this.dynamicSections.rewriteSelectionEffortSupported(this.plugin.settings.rewriteSelectionEffort)) {
       this.plugin.settings.rewriteSelectionEffort = null;
     }
-    await this.plugin.saveSettings();
+    if (!(await this.persistSettings())) return;
     this.renderSettingsShell();
   }
 
   private async setRewriteSelectionEffort(value: ReasoningEffort | null): Promise<void> {
     this.plugin.settings.rewriteSelectionEffort = value;
-    await this.plugin.saveSettings();
+    await this.persistSettings();
+  }
+
+  private async persistSettings(): Promise<boolean> {
+    try {
+      await this.plugin.saveSettings();
+      this.lastSavedSettings = { ...this.plugin.settings };
+      return true;
+    } catch (error) {
+      Object.assign(this.plugin.settings, this.lastSavedSettings);
+      new Notice(`Failed to save Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);
+      this.renderSettingsShell();
+      return false;
+    }
   }
 }

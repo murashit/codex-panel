@@ -4,6 +4,7 @@ import type { VaultMarkdownDestination, VaultPathDestination } from "../../domai
 
 export function createObsidianVaultPathDestination(vault: Vault): VaultPathDestination {
   return {
+    writeLockKey: vault,
     normalizePath,
     exists: async (path: string): Promise<boolean> => vault.getAbstractFileByPath(normalizePath(path)) !== null,
     createFolder: async (path: string): Promise<void> => {
