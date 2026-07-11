@@ -248,6 +248,7 @@ export class ChatComposerController {
       this.options.currentModelForSuggestions(),
       {
         activeThreadId: state.activeThread.id,
+        activeThreadEphemeral: state.activeThread.lifetime?.kind === "ephemeral",
         contextReferences: this.contextReferences(),
         dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: state.connection.availablePermissionProfiles,

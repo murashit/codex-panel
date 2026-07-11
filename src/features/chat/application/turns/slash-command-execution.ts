@@ -164,6 +164,10 @@ export async function executeSlashCommand(
         context.addSystemMessage("No active thread to fork.");
         return;
       }
+      if (context.activeThreadEphemeral) {
+        context.addSystemMessage("Side chats cannot be forked.");
+        return;
+      }
       await context.threadActions.forkThread(context.activeThreadId);
       return;
     case "btw":
@@ -184,6 +188,10 @@ export async function executeSlashCommand(
     case "rollback":
       if (!context.activeThreadId) {
         context.addSystemMessage("No active thread to roll back.");
+        return;
+      }
+      if (context.activeThreadEphemeral) {
+        context.addSystemMessage("Side chats cannot be rolled back.");
         return;
       }
       await context.threadActions.rollbackThread(context.activeThreadId);

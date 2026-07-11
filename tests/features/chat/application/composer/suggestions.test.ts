@@ -281,6 +281,16 @@ describe("composer suggestions", () => {
     expect(activeComposerSuggestions("/help", notes, [])).toEqual([]);
   });
 
+  it("omits unavailable thread mutations from side-chat slash suggestions", () => {
+    const options = { activeThreadEphemeral: true };
+
+    expect(suggestionReplacements(activeComposerSuggestions("/f", notes, [], [], [], null, options))).not.toContain("/fork");
+    expect(suggestionReplacements(activeComposerSuggestions("/r", notes, [], [], [], null, options))).not.toContain("/rollback");
+    expect(suggestionReplacements(activeComposerSuggestions("/b", notes, [], [], [], null, options))).not.toContain("/btw");
+    expect(suggestionReplacements(activeComposerSuggestions("/c", notes, [], [], [], null, options))).toContain("/compact");
+    expect(suggestionReplacements(activeComposerSuggestions("/g", notes, [], [], [], null, options))).toContain("/goal");
+  });
+
   it("bounds selection preview text before rendering it in the suggestion list", () => {
     const suggestion = activeComposerSuggestions("@sel", notes, [], [], [], null, {
       contextReferences: {

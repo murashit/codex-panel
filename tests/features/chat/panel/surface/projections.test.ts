@@ -25,6 +25,30 @@ import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 installObsidianDomShims();
 
 describe("chat panel surface projections", () => {
+  it("does not project rollback actions for side chats", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      activeThread: {
+        id: "side-thread",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+    });
+    state = withChatStateThreadStreamItems(state, [
+      { id: "user", kind: "dialogue", dialogueKind: "user", role: "user", text: "Question", turnId: "turn" },
+      {
+        id: "assistant",
+        kind: "dialogue",
+        dialogueKind: "assistantResponse",
+        dialogueState: "completed",
+        role: "assistant",
+        text: "Answer",
+        turnId: "turn",
+      },
+    ]);
+
+    expect(createChatPanelShellReadModelBinding(state).readModel.threadStream.rollbackCandidate.value).toBeNull();
+  });
+
   it("builds toolbar rows from immutable chat state snapshots", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });

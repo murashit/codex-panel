@@ -299,6 +299,15 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fork does not take arguments. Usage: /fork");
   });
 
+  it("does not fork a side chat", async () => {
+    const ctx = context({ activeThreadId: "side-thread", activeThreadEphemeral: true });
+
+    await executeSlashCommand("fork", "", ctx);
+
+    expect(ctx.threadActions.forkThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be forked.");
+  });
+
   it("opens a side chat from the active thread", async () => {
     const openSideChat = vi.fn().mockResolvedValue(undefined);
     const ctx = context({ activeThreadId: "active-thread", openSideChat });
@@ -324,6 +333,15 @@ describe("slash commands", () => {
     await executeSlashCommand("rollback", "", ctx);
 
     expect(ctx.threadActions.rollbackThread).toHaveBeenCalledWith("active-thread");
+  });
+
+  it("does not roll back a side chat", async () => {
+    const ctx = context({ activeThreadId: "side-thread", activeThreadEphemeral: true });
+
+    await executeSlashCommand("rollback", "", ctx);
+
+    expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be rolled back.");
   });
 
   it("rejects /rollback without an active thread", async () => {

@@ -14,7 +14,7 @@ import type {
 } from "../../../../../src/features/chat/application/threads/thread-mutation-transport";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { deferred, waitForAsyncWork } from "../../../../support/async";
-import { chatStateFixture } from "../../support/state";
+import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 interface ThreadMutationTransportMock {
@@ -54,6 +54,22 @@ type ThreadManagementActionsHostMock = Omit<
 };
 
 describe("thread management actions", () => {
+  it("does not fork an ephemeral side chat", async () => {
+    const host = hostMock({
+      items: [],
+      activeThread: {
+        id: "side-thread",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+    });
+    const controller = threadManagementActions(host);
+
+    await controller.forkThread("side-thread");
+
+    expect(host.threadTransport.forkThread).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be forked.");
+  });
+
   it("requests thread compaction and reports the shared status", async () => {
     const host = hostMock({ items: [] });
     const controller = threadManagementActions(host);
@@ -363,6 +379,22 @@ describe("thread management actions", () => {
     expect(callOrder(host.addSystemMessage)).toBeLessThan(callOrder(host.refreshAfterThreadMutation));
   });
 
+  it("does not roll back an ephemeral side chat", async () => {
+    const host = hostMock({
+      items: turnItems(),
+      activeThread: {
+        id: "side-thread",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+    });
+    const controller = threadManagementActions(host);
+
+    await controller.rollbackThread("side-thread");
+
+    expect(host.threadTransport.rollbackThread).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be rolled back.");
+  });
+
   it("ignores stale rollback responses after the panel switches threads", async () => {
     const rollback = deferred<ThreadRollbackSnapshot | null>();
     const host = hostMock({ items: turnItems() });
@@ -512,14 +544,17 @@ function threadManagementActions(host: ThreadManagementActionsHost): ThreadManag
 
 function hostMock({
   items,
+  activeThread,
   operations: operationOverrides = {},
   threadTransport: transportOverrides = {},
 }: {
   items: ThreadStreamItem[];
+  activeThread?: Partial<ReturnType<typeof chatStateFixture>["activeThread"]>;
   operations?: Partial<ThreadOperationsMock>;
   threadTransport?: Partial<ThreadMutationTransportMock>;
 }): ThreadManagementActionsHostMock {
-  const state = withChatStateThreadStreamItems(chatStateFixture(), items);
+  let state = withChatStateThreadStreamItems(chatStateFixture(), items);
+  if (activeThread) state = chatStateWith(state, { activeThread });
   const stateStore = createChatStateStore(state);
   const threadTransport: ThreadMutationTransportMock = {
     compactThread: vi.fn<ThreadMutationTransport["compactThread"]>().mockResolvedValue(true),

@@ -178,7 +178,11 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
     threadStreamItems: streamItems,
     threadStreamStableItems: computed(() => threadStreamStableItems(threadStream.value)),
     threadStreamActiveItems: computed(() => threadStreamActiveItems(threadStream.value)),
-    threadStreamRollbackCandidate: computed(() => (turnBusy.value ? null : threadStreamRollbackCandidateFromItems(streamItems.value))),
+    threadStreamRollbackCandidate: computed(() =>
+      turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral"
+        ? null
+        : threadStreamRollbackCandidateFromItems(streamItems.value),
+    ),
     threadStreamForkCandidates: computed(() =>
       turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" ? [] : forkCandidatesFromItems(streamItems.value),
     ),

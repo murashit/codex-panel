@@ -107,6 +107,11 @@ async function forkThreadFromTurn(
   turnId: string | null,
   archiveSource: boolean,
 ): Promise<void> {
+  const activeThread = threadManagementState(host).activeThread;
+  if (activeThread.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
+    host.addSystemMessage("Side chats cannot be forked.");
+    return;
+  }
   if (chatTurnBusy(threadManagementState(host))) {
     host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
     return;
@@ -167,6 +172,11 @@ async function renameThread(host: ThreadManagementActionsHost, threadId: string,
 }
 
 async function rollbackThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
+  const activeThread = threadManagementState(host).activeThread;
+  if (activeThread.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
+    host.addSystemMessage("Side chats cannot be rolled back.");
+    return;
+  }
   if (chatTurnBusy(threadManagementState(host))) {
     host.addSystemMessage("Interrupt the current turn before rolling back.");
     return;

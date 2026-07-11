@@ -35,6 +35,7 @@ export interface ComposerSuggestion {
 
 export interface ComposerSuggestionOptions {
   activeThreadId?: string | null;
+  activeThreadEphemeral?: boolean;
   contextReferences?: ComposerContextReferences;
   dailyNoteReferences?: readonly DailyNoteReferenceCandidate[] | (() => readonly DailyNoteReferenceCandidate[]);
   permissionProfiles?: readonly RuntimePermissionProfileSummary[];
@@ -122,7 +123,7 @@ export function activeComposerSuggestions(
     modelOverrideSuggestions(beforeCursor, models) ??
     reasoningEffortOverrideSuggestions(beforeCursor, models, currentModel) ??
     permissionProfileOverrideSuggestions(beforeCursor, options.permissionProfiles ?? []) ??
-    activeSlashCommandSuggestions(beforeCursor) ??
+    activeSlashCommandSuggestions(beforeCursor, options.activeThreadEphemeral ?? false) ??
     activeSkillSuggestions(beforeCursor, skills) ??
     []
   );
@@ -392,7 +393,9 @@ function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCand
   return b.mtime - a.mtime || a.basename.localeCompare(b.basename) || a.path.localeCompare(b.path);
 }
 
-function activeSlashCommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
+const SIDE_CHAT_UNAVAILABLE_SLASH_COMMANDS = new Set(["/btw", "/fork", "/rollback"]);
+
+function activeSlashCommandSuggestions(beforeCursor: string, activeThreadEphemeral: boolean): ComposerSuggestion[] | null {
   const match = /^(\/[A-Za-z-]*)$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
@@ -401,7 +404,10 @@ function activeSlashCommandSuggestions(beforeCursor: string): ComposerSuggestion
   const query = rawQuery.toLowerCase();
   if (SLASH_COMMANDS.some((item) => item.command.toLowerCase() === query)) return null;
   const start = match.index + match[0].lastIndexOf("/");
-  return SLASH_COMMANDS.filter((item) => item.command.toLowerCase().startsWith(query))
+  return SLASH_COMMANDS.filter(
+    (item) =>
+      item.command.toLowerCase().startsWith(query) && (!activeThreadEphemeral || !SIDE_CHAT_UNAVAILABLE_SLASH_COMMANDS.has(item.command)),
+  )
     .slice(0, 8)
     .map((item) => ({
       display: item.command,
