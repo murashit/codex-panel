@@ -347,6 +347,8 @@ export class WorkspacePanelCoordinator {
         await target.leaf.loadIfDeferred();
         if (target.leaf.view instanceof CodexChatView) {
           await workspacePanelSurface(target.leaf.view).focusThread(threadId);
+        } else {
+          await this.openThreadInNewView(threadId);
         }
         return;
       case "restored-reuse":
@@ -354,6 +356,8 @@ export class WorkspacePanelCoordinator {
         await target.leaf.loadIfDeferred();
         if (target.leaf.view instanceof CodexChatView) {
           await workspacePanelSurface(target.leaf.view).openThread(threadId);
+        } else {
+          await this.openThreadInNewView(threadId);
         }
         return;
       case "empty":

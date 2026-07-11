@@ -47,6 +47,7 @@ export interface ThreadCatalogOptions {
 }
 
 export type ThreadCatalogEvent =
+  // Snapshot inputs are retained as an explicit ingestion seam for deterministic ordering tests.
   | { type: "active-list-snapshot-received"; threads: readonly Thread[] }
   | { type: "archived-list-snapshot-received"; threads: readonly Thread[] }
   | { type: "thread-started"; thread: Thread }
@@ -382,16 +383,17 @@ function promoteThreadInList(threads: readonly Thread[], thread: Thread): readon
 function refreshArchivedThreadsAfterUnknownArchive(store: ThreadCatalogStore, archivedFacts: PendingThreadListFacts): void {
   // A force refresh can join an older in-flight archived request. Run one more
   // refresh afterward so an archive recorded during that request is not lost.
-  void store
-    .refreshArchivedThreads()
-    .then((threads) => {
-      acknowledgeThreadListSnapshot(archivedFacts, threads);
-      return store.refreshArchivedThreads();
-    })
-    .then((threads) => {
-      acknowledgeThreadListSnapshot(archivedFacts, threads);
-    })
-    .catch(() => undefined);
+  void refreshArchivedThreadsTwice(store, archivedFacts);
+}
+
+async function refreshArchivedThreadsTwice(store: ThreadCatalogStore, archivedFacts: PendingThreadListFacts): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      acknowledgeThreadListSnapshot(archivedFacts, await store.refreshArchivedThreads());
+    } catch {
+      // The query observer retains the failure for diagnostics; continue so a joined stale request gets one fresh retry.
+    }
+  }
 }
 
 function refreshThreadListsAfterUnknownUnarchive(
@@ -400,10 +402,8 @@ function refreshThreadListsAfterUnknownUnarchive(
   archivedFacts: PendingThreadListFacts,
 ): void {
   // Unknown unarchives need both lists: active gains the thread, archived loses it.
-  void Promise.all([store.refreshActiveThreads(), store.refreshArchivedThreads()])
-    .then(([activeThreads, archivedThreads]) => {
-      acknowledgeThreadListSnapshot(activeFacts, activeThreads);
-      acknowledgeThreadListSnapshot(archivedFacts, archivedThreads);
-    })
-    .catch(() => undefined);
+  void Promise.allSettled([store.refreshActiveThreads(), store.refreshArchivedThreads()]).then(([active, archived]) => {
+    if (active.status === "fulfilled") acknowledgeThreadListSnapshot(activeFacts, active.value);
+    if (archived.status === "fulfilled") acknowledgeThreadListSnapshot(archivedFacts, archived.value);
+  });
 }

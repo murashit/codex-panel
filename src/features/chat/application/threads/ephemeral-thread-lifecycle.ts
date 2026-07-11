@@ -3,6 +3,8 @@ import type { ChatStateStore } from "../state/store";
 import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
 import type { EphemeralThreadTransport } from "./ephemeral-thread-transport";
 
+const EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS = 1_000;
+
 interface OpenEphemeralThreadInput {
   sourceThreadId: string;
   sourceThreadTitle: string | null;
@@ -87,11 +89,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       const threadId = state.activeThread.lifetime?.kind === "ephemeral" ? state.activeThread.id : null;
       const turnId = activeTurnId(state);
       if (threadId && turnId) {
-        try {
-          await host.interruptTurn(threadId, turnId);
-        } catch {
-          // Continue with deletion when interruption fails.
-        }
+        await settleWithin(host.interruptTurn(threadId, turnId), EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS);
       }
       try {
         await deleteActiveEphemeralThread();
@@ -100,4 +98,20 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       }
     },
   };
+}
+
+async function settleWithin(operation: Promise<unknown>, timeoutMs: number): Promise<void> {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  await Promise.race([
+    operation.catch(() => undefined),
+    new Promise<void>((resolve) => {
+      timeout.addEventListener(
+        "abort",
+        () => {
+          resolve();
+        },
+        { once: true },
+      );
+    }),
+  ]);
 }

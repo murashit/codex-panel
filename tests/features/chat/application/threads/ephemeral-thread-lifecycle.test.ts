@@ -130,6 +130,32 @@ describe("ephemeral thread lifecycle", () => {
     expect(transport.deleteEphemeralThread).toHaveBeenCalledWith("side");
   });
 
+  it("continues close cleanup when interrupting a running side turn does not settle", async () => {
+    vi.useFakeTimers();
+    try {
+      const store = createChatStateStore();
+      const transport = transportMock();
+      const lifecycle = createEphemeralThreadLifecycle({
+        stateStore: store,
+        transport,
+        ensureConnected: vi.fn().mockResolvedValue(true),
+        addSystemMessage: vi.fn(),
+        notifyActiveThreadIdentityChanged: vi.fn(),
+        interruptTurn: vi.fn(() => new Promise<boolean>(() => undefined)),
+      });
+      await lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: null });
+      store.dispatch({ type: "turn/started", threadId: "side", turnId: "turn" });
+
+      const disposal = lifecycle.dispose();
+      await vi.advanceTimersByTimeAsync(1_000);
+      await disposal;
+
+      expect(transport.deleteEphemeralThread).toHaveBeenCalledWith("side");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the side chat active when deletion fails before navigation", async () => {
     const store = createChatStateStore();
     const transport = transportMock();

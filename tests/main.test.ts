@@ -253,6 +253,26 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(focusThread).not.toHaveBeenCalled();
   });
 
+  it("opens picker selections in a new panel when a restored current leaf no longer loads a Codex view", async () => {
+    const restoredLeaf = leaf({ state: { threadId: "restored-thread" } });
+    const newLeaf = leaf();
+    const plugin = await pluginWithLeaves([restoredLeaf]);
+    (plugin.app.workspace.getMostRecentLeaf as ReturnType<typeof vi.fn>).mockReturnValue(restoredLeaf);
+    (plugin.app.workspace.getRightLeaf as ReturnType<typeof vi.fn>).mockReturnValue(newLeaf);
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const view = chatView(CodexChatView, newLeaf);
+    const openThread = vi.spyOn(view.surface, "openThread").mockResolvedValue(undefined);
+    newLeaf.setViewState.mockImplementation(async () => {
+      newLeaf.view = view;
+    });
+
+    await panels(plugin).openThreadInCurrentView("selected-thread");
+
+    expect(restoredLeaf.loadIfDeferred).toHaveBeenCalledOnce();
+    expect(newLeaf.setViewState).toHaveBeenCalledOnce();
+    expect(openThread).toHaveBeenCalledWith("selected-thread");
+  });
+
   it("opens a thread in a new panel without a separate pre-connect", async () => {
     const newLeaf = leaf();
     const plugin = await pluginWithLeaves([]);
@@ -850,6 +870,7 @@ function chatHostFixture(): CodexChatHost {
       openSideChat: vi.fn(),
     },
     appServerQueries: {
+      beginAppServerMetadataResourceRefresh: vi.fn(() => () => true),
       updateAppServerMetadata: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
