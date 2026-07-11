@@ -10,6 +10,7 @@ import {
   createTurnSubmissionActions,
   type TurnSubmissionActionsHost,
 } from "../../../../../src/features/chat/application/turns/turn-submission-actions";
+import { deferred } from "../../../../support/async";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
@@ -288,6 +289,23 @@ describe("TurnSubmissionActions", () => {
     expect(host.addSystemMessage).toHaveBeenCalledWith("Current turn is not steerable yet.");
     expect(steerTurn).not.toHaveBeenCalled();
     expect(startTurn).not.toHaveBeenCalled();
+  });
+
+  it("rejects a second submission while the first submission is still preparing", async () => {
+    const settings = deferred<boolean>();
+    const { host, startTurn, stateStore } = createHost({ applyPendingThreadSettings: vi.fn(() => settings.promise) });
+    resumeThread(stateStore);
+    const actions = createTurnSubmissionActions(host);
+
+    const first = actions.sendTurnText({ text: "first" });
+    await Promise.resolve();
+    const second = actions.sendTurnText({ text: "second" });
+    settings.resolve(true);
+
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(false);
+    expect(startTurn).toHaveBeenCalledOnce();
+    expect(startTurn).toHaveBeenCalledWith(expect.objectContaining({ input: textInput("first") }));
   });
 
   it("keeps local user ids distinct when submissions share the same timestamp", async () => {

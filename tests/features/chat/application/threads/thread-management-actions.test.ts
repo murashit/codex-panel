@@ -450,6 +450,38 @@ describe("thread management actions", () => {
     expect(host.refreshAfterThreadMutation).not.toHaveBeenCalled();
   });
 
+  it("ignores rollback responses after a new turn starts in the same thread", async () => {
+    const rollback = deferred<ThreadRollbackSnapshot | null>();
+    const host = hostMock({ items: turnItems() });
+    host.threadTransport.rollbackThread.mockReturnValue(rollback.promise);
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: panelThread("source"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    host.stateStore.dispatch({ type: "thread-stream/items-replaced", items: turnItems(), historyCursor: null, loadingHistory: false });
+    const controller = threadManagementActions(host);
+
+    const pendingRollback = controller.rollbackThread("source");
+    await waitForAsyncWork(() => expect(host.threadTransport.rollbackThread).toHaveBeenCalledOnce());
+    host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "new-turn" });
+    rollback.resolve(rollbackSnapshot());
+    await pendingRollback;
+
+    expect(host.stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
+    expect(host.setComposerText).not.toHaveBeenCalled();
+  });
+
   it("ignores rollback when the transport has no result", async () => {
     const host = hostMock({
       items: turnItems(),

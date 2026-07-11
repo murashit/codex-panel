@@ -44,6 +44,7 @@ export interface ThreadManagementActions {
 interface ThreadManagementPanelScope {
   targetThreadId: string;
   initialActiveThreadId: string | null;
+  initialTurnLifecycle: ChatState["turn"]["lifecycle"];
 }
 
 export function createThreadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
@@ -240,11 +241,13 @@ function captureThreadManagementPanelScope(host: ThreadManagementActionsHost, ta
   return {
     targetThreadId,
     initialActiveThreadId: threadManagementState(host).activeThread.id,
+    initialTurnLifecycle: threadManagementState(host).turn.lifecycle,
   };
 }
 
 function threadManagementScopeStillTargetsPanel(host: ThreadManagementActionsHost, scope: ThreadManagementPanelScope): boolean {
-  return threadManagementState(host).activeThread.id === scope.targetThreadId;
+  const state = threadManagementState(host);
+  return state.activeThread.id === scope.targetThreadId && state.turn.lifecycle === scope.initialTurnLifecycle;
 }
 
 function threadManagementScopeStillTargetsOriginalPanel(host: ThreadManagementActionsHost, scope: ThreadManagementPanelScope): boolean {

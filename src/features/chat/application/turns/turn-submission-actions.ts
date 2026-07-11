@@ -52,8 +52,17 @@ export interface TurnSubmissionRequest {
 }
 
 export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): TurnSubmissionActions {
+  let submissionInFlight = false;
   return {
-    sendTurnText: (request) => sendTurnText(host, host.localItemIds, request),
+    sendTurnText: async (request) => {
+      if (submissionInFlight) return false;
+      submissionInFlight = true;
+      try {
+        return await sendTurnText(host, host.localItemIds, request);
+      } finally {
+        submissionInFlight = false;
+      }
+    },
   };
 }
 
