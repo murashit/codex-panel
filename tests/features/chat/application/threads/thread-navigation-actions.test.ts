@@ -8,7 +8,7 @@ import {
   type ThreadNavigationActionsHost,
 } from "../../../../../src/features/chat/application/threads/thread-navigation-actions";
 
-function resumeThreadState(stateStore: ChatStateStore, threadId: string): void {
+function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagent = false): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
     approvalPolicyKnown: true,
@@ -17,7 +17,21 @@ function resumeThreadState(stateStore: ChatStateStore, threadId: string): void {
     approvalPolicy: null,
     sandboxPolicy: null,
     activePermissionProfile: null,
-    thread: { id: threadId, cliVersion: "test" } as never,
+    thread: {
+      id: threadId,
+      cliVersion: "test",
+      provenance: subagent
+        ? {
+            kind: "subagent",
+            subagentKind: "thread-spawn",
+            parentThreadId: "parent",
+            sessionId: "session",
+            depth: 1,
+            agentNickname: "Scout",
+            agentRole: "explorer",
+          }
+        : { kind: "interactive" },
+    } as never,
     cwd: "/vault",
     model: null,
     reasoningEffort: null,
@@ -67,6 +81,17 @@ describe("ThreadNavigationActions", () => {
     expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
     expect(stateStore.getState().ui.toolbarPanel).toBe("history");
     expect(host.focusComposer).not.toHaveBeenCalled();
+  });
+
+  it("starts a blank chat while a subagent turn continues", async () => {
+    const { actions, host, stateStore } = createActionsHarness();
+    resumeThreadState(stateStore, "child", true);
+    stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
+
+    await actions.startNewThread();
+
+    expect(host.identity.clearActiveThreadIdentity).toHaveBeenCalledOnce();
+    expect(host.focusComposer).toHaveBeenCalledOnce();
   });
 
   it("focuses an already open thread without resuming it", async () => {

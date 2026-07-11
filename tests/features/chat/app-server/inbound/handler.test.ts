@@ -1433,6 +1433,37 @@ describe("ChatInboundHandler", () => {
       expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
     });
 
+    it("keeps subagent thread-started notifications out of the shared catalog", () => {
+      const applyThreadCatalogEvent = vi.fn();
+      const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
+      const child = appServerThread("child", "/workspace/active");
+
+      handler.handleNotification({
+        method: "thread/started",
+        params: {
+          thread: {
+            ...child,
+            parentThreadId: "parent",
+            source: {
+              subAgent: {
+                thread_spawn: {
+                  parent_thread_id: "parent",
+                  depth: 1,
+                  agent_path: null,
+                  agent_nickname: "Scout",
+                  agent_role: "explorer",
+                },
+              },
+            },
+            agentNickname: "Scout",
+            agentRole: "explorer",
+          },
+        },
+      } satisfies Extract<ServerNotification, { method: "thread/started" }>);
+
+      expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+    });
+
     it("replaces optimistic user echoes when completed turns are reconciled", () => {
       let state = activeRunningState();
       state = withChatStateThreadStreamItems(state, [
@@ -2219,6 +2250,7 @@ function panelThread(id: string): PanelThread {
     updatedAt: 0,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
   };
 }
 

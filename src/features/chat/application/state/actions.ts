@@ -7,7 +7,7 @@ import {
 import { parseServiceTier, type ServiceTier } from "../../../../domain/runtime/policy";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
-import { type Thread, upsertThread } from "../../../../domain/threads/model";
+import { isSubagentThread, type Thread, upsertThread } from "../../../../domain/threads/model";
 import type { CollaborationModeSelection } from "../../domain/runtime/intent";
 import type { ActiveThreadRuntimeState } from "../../domain/runtime/state";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
@@ -166,7 +166,9 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
     ...permissions,
     lifetime: { kind: "persistent" },
     ...(params.items ? { items: params.items } : {}),
-    ...(params.listedThreads ? { listedThreads: upsertThread(params.listedThreads, response.thread) } : {}),
+    ...(params.listedThreads
+      ? { listedThreads: isSubagentThread(response.thread) ? params.listedThreads : upsertThread(params.listedThreads, response.thread) }
+      : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
   };
 }

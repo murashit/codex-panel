@@ -7,6 +7,7 @@ import { activeTurnId, chatTurnBusy, type PendingTurnStart, pendingTurnStart } f
 export interface SubmissionStateSnapshot {
   activeThreadId: string | null;
   activeThreadEphemeral: boolean;
+  activeThreadSubagent: boolean;
   activeTurnId: string | null;
   busy: boolean;
   listedThreads: readonly Thread[];
@@ -18,6 +19,7 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
   return {
     activeThreadId: state.activeThread.id,
     activeThreadEphemeral: state.activeThread.lifetime?.kind === "ephemeral",
+    activeThreadSubagent: state.activeThread.provenance?.kind === "subagent",
     activeTurnId: activeTurnId(state),
     busy: chatTurnBusy(state),
     listedThreads: state.threadList.listedThreads,

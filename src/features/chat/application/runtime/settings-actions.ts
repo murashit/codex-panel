@@ -108,11 +108,13 @@ async function commitPendingThreadSettings(host: RuntimeSettingsActionsHost): Pr
 }
 
 async function requestModel(host: RuntimeSettingsActionsHost, model: string): Promise<boolean> {
+  if (agentThreadSettingsBlocked(host)) return false;
   dispatch(host, { type: "runtime/model-requested", model });
   return applyPendingThreadSettings(host);
 }
 
 async function resetModelToConfig(host: RuntimeSettingsActionsHost): Promise<boolean> {
+  if (agentThreadSettingsBlocked(host)) return false;
   dispatch(host, { type: "runtime/model-reset-to-config" });
   return applyPendingThreadSettings(host);
 }
@@ -122,11 +124,13 @@ async function requestModelFromUi(host: RuntimeSettingsActionsHost, model: strin
 }
 
 async function requestReasoningEffort(host: RuntimeSettingsActionsHost, effort: ReasoningEffort): Promise<boolean> {
+  if (agentThreadSettingsBlocked(host)) return false;
   dispatch(host, { type: "runtime/reasoning-effort-requested", effort });
   return applyPendingThreadSettings(host);
 }
 
 async function resetReasoningEffortToConfig(host: RuntimeSettingsActionsHost): Promise<boolean> {
+  if (agentThreadSettingsBlocked(host)) return false;
   dispatch(host, { type: "runtime/reasoning-effort-reset-to-config" });
   return applyPendingThreadSettings(host);
 }
@@ -140,12 +144,14 @@ async function resetReasoningEffortToConfigFromUi(host: RuntimeSettingsActionsHo
 }
 
 async function requestPermissionProfile(host: RuntimeSettingsActionsHost, permissionProfile: string): Promise<boolean> {
+  if (agentThreadSettingsBlocked(host)) return false;
   if (permissionChangesBlocked(host)) return false;
   dispatch(host, { type: "runtime/permission-profile-requested", permissionProfile });
   return applyPendingThreadSettings(host);
 }
 
 async function resetPermissionProfileToConfig(host: RuntimeSettingsActionsHost): Promise<boolean> {
+  if (agentThreadSettingsBlocked(host)) return false;
   if (permissionChangesBlocked(host)) return false;
   dispatch(host, { type: "runtime/permission-profile-reset-to-config" });
   return applyPendingThreadSettings(host);
@@ -157,12 +163,19 @@ function permissionChangesBlocked(host: RuntimeSettingsActionsHost): boolean {
   return true;
 }
 
+function agentThreadSettingsBlocked(host: RuntimeSettingsActionsHost): boolean {
+  if (state(host).activeThread.provenance?.kind !== "subagent") return false;
+  host.addSystemMessage("Thread settings are unavailable in agent threads.");
+  return true;
+}
+
 async function toggleFastMode(host: RuntimeSettingsActionsHost): Promise<void> {
   const { snapshot, config } = runtimeProjection(host);
   await setFastMode(host, resolveRuntimeControls(snapshot, config).fastMode.active ? "disabled" : "enabled");
 }
 
 async function setFastMode(host: RuntimeSettingsActionsHost, mode: FastModeState): Promise<void> {
+  if (agentThreadSettingsBlocked(host)) return;
   const fastMode: RequestedFastMode = mode;
   await runRuntimeUiCommand(
     host,
@@ -181,6 +194,7 @@ async function toggleCollaborationMode(host: RuntimeSettingsActionsHost): Promis
 }
 
 async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborationMode: CollaborationModeSelection): Promise<boolean> {
+  if (agentThreadSettingsBlocked(host)) return false;
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode });
   const result = await commitPendingThreadSettings(host);
   if (result.ok) closeRuntimePanel(host);
@@ -191,6 +205,7 @@ async function setCollaborationMode(host: RuntimeSettingsActionsHost, collaborat
 }
 
 function requestDefaultCollaborationModeForNextTurn(host: RuntimeSettingsActionsHost): void {
+  if (agentThreadSettingsBlocked(host)) return;
   dispatch(host, { type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
 }
 
@@ -201,6 +216,7 @@ async function toggleAutoReview(host: RuntimeSettingsActionsHost): Promise<void>
 }
 
 async function setAutoReview(host: RuntimeSettingsActionsHost, mode: AutoReviewState): Promise<void> {
+  if (agentThreadSettingsBlocked(host)) return;
   await runRuntimeUiCommand(
     host,
     async () => {

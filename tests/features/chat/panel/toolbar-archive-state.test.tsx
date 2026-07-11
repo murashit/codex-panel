@@ -123,6 +123,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanel
           draft: "",
           busy: false,
           canInterrupt: false,
+          submissionDisabled: false,
           normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,
@@ -215,6 +216,7 @@ function threadFixture(id: string, name: string): Thread {
     name,
     preview: "",
     archived: false,
+    provenance: { kind: "interactive" },
     createdAt: 1,
     updatedAt: 1,
   };

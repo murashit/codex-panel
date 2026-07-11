@@ -112,6 +112,10 @@ async function forkThreadFromTurn(
     host.addSystemMessage("Side chats cannot be forked.");
     return;
   }
+  if (activeThread.id === threadId && activeThread.provenance?.kind === "subagent") {
+    host.addSystemMessage("Agent threads cannot be forked.");
+    return;
+  }
   if (chatTurnBusy(threadManagementState(host))) {
     host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
     return;
@@ -175,6 +179,10 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
   const activeThread = threadManagementState(host).activeThread;
   if (activeThread.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
     host.addSystemMessage("Side chats cannot be rolled back.");
+    return;
+  }
+  if (activeThread.id === threadId && activeThread.provenance?.kind === "subagent") {
+    host.addSystemMessage("Agent threads cannot be rolled back.");
     return;
   }
   if (chatTurnBusy(threadManagementState(host))) {

@@ -58,6 +58,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     preview: "",
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
     createdAt: 1,
     updatedAt: 1,
     ...overrides,

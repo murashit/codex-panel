@@ -162,6 +162,9 @@ async function sendTurnText(
 }
 
 function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
+  if (state.activeThreadSubagent) {
+    return { kind: "blocked", message: "Messages are unavailable in agent threads. Start a new chat to continue." };
+  }
   if (state.busy) {
     return state.activeThreadId && state.activeTurnId
       ? { kind: "steer", threadId: state.activeThreadId, turnId: state.activeTurnId }

@@ -166,14 +166,16 @@ function threadStartedPlan(
   state: ChatState,
   notification: Extract<ThreadLifecycleNotification, { method: "thread/started" }>,
 ): ChatNotificationPlan {
-  const effects: ChatNotificationEffect[] = notification.params.thread.ephemeral
-    ? []
-    : [
-        {
-          type: "apply-thread-catalog-event",
-          event: { type: "thread-started", thread: threadFromAppServerRecord(notification.params.thread) },
-        },
-      ];
+  const thread = threadFromAppServerRecord(notification.params.thread);
+  const effects: ChatNotificationEffect[] =
+    notification.params.thread.ephemeral || thread.provenance.kind === "subagent"
+      ? []
+      : [
+          {
+            type: "apply-thread-catalog-event",
+            event: { type: "thread-started", thread },
+          },
+        ];
   if (!state.activeThread.id || state.activeThread.id === notification.params.thread.id) {
     return { actions: [{ type: "active-thread/cwd-set", cwd: notification.params.thread.cwd }], effects };
   }

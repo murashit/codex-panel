@@ -19,6 +19,7 @@ function thread(id: string, name: string | null = null): Thread {
     updatedAt: 0,
     name,
     archived: false,
+    provenance: { kind: "interactive" },
   };
 }
 

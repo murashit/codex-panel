@@ -126,6 +126,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
   };
   const composerSubmitHost: ComposerSubmitActionsHost = {
     stateStore,
+    ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     composer: {
       get trimmedDraft() {
         return composer.trimmedDraft();

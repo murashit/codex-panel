@@ -144,7 +144,15 @@ describe("turn item conversion preserves app-server semantics", () => {
 
   it("hides persisted /refer context in displayed user messages", () => {
     const { prompt: text } = referencedThreadPromptBundle(
-      { id: "thread-reference", name: "参照元", preview: "", archived: false, createdAt: 1, updatedAt: 1 } satisfies Thread,
+      {
+        id: "thread-reference",
+        name: "参照元",
+        preview: "",
+        archived: false,
+        createdAt: 1,
+        updatedAt: 1,
+        provenance: { kind: "interactive" },
+      } satisfies Thread,
       [
         { userText: "元の依頼", assistantText: "元の回答" },
         { userText: "次の依頼", assistantText: "次の回答" },

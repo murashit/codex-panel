@@ -73,6 +73,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       const thread = stateStore.getState().threadList.listedThreads.find((item) => item.id === activeThreadId);
       void environment.plugin.workspace.openSideChat(activeThreadId, thread?.name ?? thread?.preview ?? null);
     },
+    activeThreadChatActionsDisabled: () => stateStore.getState().activeThread.provenance?.kind === "subagent",
   });
   const toolbarSurface: ChatPanelToolbarSurface = {
     connection: {

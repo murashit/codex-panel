@@ -39,6 +39,7 @@ interface ToolbarViewModelInput {
 
 interface ToolbarStateProjection {
   newChatDisabled: boolean;
+  activeThreadChatActionsDisabled: boolean;
   chatActionsOpen: boolean;
   historyOpen: boolean;
   statusPanelOpen: boolean;
@@ -82,6 +83,7 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
   });
   return {
     newChatDisabled: projection.newChatDisabled,
+    activeThreadChatActionsDisabled: projection.activeThreadChatActionsDisabled,
     chatActionsOpen: projection.chatActionsOpen,
     historyOpen: projection.historyOpen,
     statusPanelOpen: projection.statusPanelOpen,
@@ -140,7 +142,8 @@ function toolbarStateProjection(input: {
   const chatActionsOpen = toolbarPanel === "chat-actions";
   const statusPanelOpen = toolbarPanel === "status-panel";
   return {
-    newChatDisabled: input.turnBusy,
+    newChatDisabled: input.turnBusy && !input.model.activeThreadSubagent.value,
+    activeThreadChatActionsDisabled: input.model.activeThreadSubagent.value,
     chatActionsOpen,
     historyOpen,
     statusPanelOpen,

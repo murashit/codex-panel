@@ -63,11 +63,9 @@ export function chatPanelComposerProjection(
 ): ChatPanelComposerProjection {
   const snapshot = readModel.runtimeSnapshot.value;
   return {
-    placeholder: composerPlaceholder(
-      activeComposerThreadName(readModel),
-      readModel.sideChatActive.value,
-      readModel.sideChatSourceTitle.value,
-    ),
+    placeholder: readModel.activeThreadSubagent.value
+      ? "Agent thread is read-only."
+      : composerPlaceholder(activeComposerThreadName(readModel), readModel.sideChatActive.value, readModel.sideChatSourceTitle.value),
     meta: {
       ...composerMetaViewModel(readModel, snapshot),
       ...runtimeComposerChoices({

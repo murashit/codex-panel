@@ -88,6 +88,27 @@ describe("chat thread resume helpers", () => {
     });
     expect(action.listedThreads).toBeUndefined();
   });
+
+  it("keeps resumed subagent threads out of the ordinary thread list", () => {
+    const existing = threadFixture("existing", "Existing");
+    const subagent = {
+      ...threadFixture("child", "Child"),
+      provenance: {
+        kind: "subagent" as const,
+        subagentKind: "thread-spawn" as const,
+        parentThreadId: "parent",
+        sessionId: "session",
+        depth: 1,
+        agentNickname: "Scout",
+        agentRole: "explorer",
+      },
+    };
+
+    const action = resumedThreadAction({ response: responseFixture(subagent), listedThreads: [existing] });
+
+    expect(action.thread.provenance).toEqual(subagent.provenance);
+    expect(action.listedThreads).toEqual([existing]);
+  });
 });
 
 function responseFixture(thread: Thread): ThreadActivationSnapshot {
@@ -119,6 +140,7 @@ function threadFixture(id: string, name: string): Thread {
     preview: "",
     name,
     archived: false,
+    provenance: { kind: "interactive" },
     createdAt: 1,
     updatedAt: 1,
   };

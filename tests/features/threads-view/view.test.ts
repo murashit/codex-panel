@@ -665,6 +665,7 @@ function threadFromRecord(record: Record<string, unknown>): Thread {
     preview: typeof record["preview"] === "string" ? record["preview"] : "",
     name: typeof record["name"] === "string" ? record["name"] : null,
     archived: false,
+    provenance: { kind: "interactive" },
     createdAt: Number(record["createdAt"] ?? 0),
     updatedAt: Number(record["updatedAt"] ?? 0),
   };

@@ -6,6 +6,23 @@ export interface Thread {
   readonly createdAt: number;
   readonly updatedAt: number;
   readonly recencyAt?: number | null;
+  readonly provenance: ThreadProvenance;
+}
+
+export type ThreadProvenance =
+  | { readonly kind: "interactive" }
+  | {
+      readonly kind: "subagent";
+      readonly subagentKind: "thread-spawn" | "review" | "compact" | "memory-consolidation" | "other";
+      readonly parentThreadId: string | null;
+      readonly sessionId: string | null;
+      readonly depth: number | null;
+      readonly agentNickname: string | null;
+      readonly agentRole: string | null;
+    };
+
+export function isSubagentThread(thread: Thread): boolean {
+  return thread.provenance.kind === "subagent";
 }
 
 export function explicitThreadName(thread: Thread): string | null {

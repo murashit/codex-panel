@@ -103,6 +103,7 @@ export class ChatComposerController {
       draft: model.draft.value,
       busy: model.turnBusy.value,
       canInterrupt: this.options.canInterrupt(model),
+      submissionDisabled: model.activeThreadSubagent.value,
       normalPlaceholder: projection.placeholder,
       suggestions: model.suggestions.value,
       selectedSuggestionIndex: model.selectedSuggestionIndex.value,
@@ -249,6 +250,7 @@ export class ChatComposerController {
       {
         activeThreadId: state.activeThread.id,
         activeThreadEphemeral: state.activeThread.lifetime?.kind === "ephemeral",
+        activeThreadSubagent: state.activeThread.provenance?.kind === "subagent",
         contextReferences: this.contextReferences(),
         dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: state.connection.availablePermissionProfiles,

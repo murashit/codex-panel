@@ -152,5 +152,6 @@ function thread(options: Partial<Thread> & { id: string }): Thread {
     ...(options.recencyAt === undefined ? {} : { recencyAt: options.recencyAt }),
     name: options.name ?? null,
     archived: false,
+    provenance: options.provenance ?? { kind: "interactive" },
   };
 }

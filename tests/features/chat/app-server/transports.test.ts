@@ -446,7 +446,15 @@ describe("chat app-server transports", () => {
     });
 
     const result = await resolver.referThread(
-      { id: "019abcde-0000-7000-8000-000000000001", preview: "", name: "Other", createdAt: 1, updatedAt: 1, archived: false },
+      {
+        id: "019abcde-0000-7000-8000-000000000001",
+        preview: "",
+        name: "Other",
+        createdAt: 1,
+        updatedAt: 1,
+        archived: false,
+        provenance: { kind: "interactive" },
+      },
       "summarize",
       inputSnapshot,
     );

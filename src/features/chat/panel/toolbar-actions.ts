@@ -34,6 +34,7 @@ export interface ToolbarUiActionDependencies {
   rename: ThreadRenameEditorActions;
   navigation: ThreadNavigationActions;
   openSideChat?: () => void;
+  activeThreadChatActionsDisabled: () => boolean;
 }
 
 export interface ToolbarOutsidePointerHit {
@@ -135,11 +136,20 @@ export function createToolbarUiActions(deps: ToolbarUiActionDependencies): Toolb
       startNewThread: () => {
         void deps.navigation.startNewThread();
       },
-      ...(deps.openSideChat ? { startSideChat: deps.openSideChat } : {}),
+      ...(deps.openSideChat
+        ? {
+            startSideChat: () => {
+              if (deps.activeThreadChatActionsDisabled()) return;
+              deps.openSideChat?.();
+            },
+          }
+        : {}),
       compactContext: () => {
+        if (deps.activeThreadChatActionsDisabled()) return;
         void deps.threadActions.compactActiveThread();
       },
       setGoal: () => {
+        if (deps.activeThreadChatActionsDisabled()) return;
         deps.goals.startEditingCurrent();
       },
     },

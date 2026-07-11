@@ -380,6 +380,7 @@ describe("createChatPanelSessionGraph actions", () => {
       preview: "",
       name: null,
       archived: false,
+      provenance: { kind: "interactive" },
       createdAt: 1,
       updatedAt: 1,
       ...overrides,

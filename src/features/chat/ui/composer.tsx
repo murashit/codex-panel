@@ -88,6 +88,7 @@ export interface ComposerShellProps {
   draft: string;
   busy: boolean;
   canInterrupt: boolean;
+  submissionDisabled: boolean;
   normalPlaceholder: string;
   meta: ComposerMetaViewModel;
   suggestions: readonly ComposerSuggestion[];
@@ -103,6 +104,7 @@ export function ComposerShell({
   draft,
   busy,
   canInterrupt,
+  submissionDisabled,
   normalPlaceholder,
   meta,
   suggestions,
@@ -147,7 +149,7 @@ export function ComposerShell({
     if (pendingSelection.value === draft) restoreComposerCursor(composerRef.current, pendingSelection.cursor);
     onPendingSelectionApplied?.();
   }, [draft, pendingSelection, onPendingSelectionApplied]);
-  const sendMode = composerSendMode(busy, canInterrupt, draft);
+  const sendMode = composerSendMode(busy, canInterrupt, draft, submissionDisabled);
   const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
   const selectedSuggestionId = suggestions.length > 0 ? composerSuggestionOptionId(viewId, normalizedSelectedSuggestionIndex) : undefined;
 
@@ -164,6 +166,7 @@ export function ComposerShell({
           aria-controls={composerSuggestionsListId(viewId)}
           aria-activedescendant={selectedSuggestionId}
           value={draft}
+          readOnly={submissionDisabled}
           onInput={(event) => {
             if (syncComposerHeight(event.currentTarget)) callbacks.onHeightChange();
             callbacks.onInput(event.currentTarget.value);
@@ -184,7 +187,7 @@ export function ComposerShell({
             callbacks.onDragOver?.(event);
           }}
         />
-        <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} />
+        <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} disabled={submissionDisabled} />
       </div>
       <ComposerSuggestions
         containerRef={suggestionsRef}
@@ -202,10 +205,12 @@ function ComposerMeta({
   meta,
   sendMode,
   callbacks,
+  disabled,
 }: {
   meta: ComposerMetaViewModel;
   sendMode: ComposerSendMode;
   callbacks: ComposerCallbacks;
+  disabled: boolean;
 }): UiNode {
   const metaRef = useRef<HTMLDivElement | null>(null);
   const statusRef = useRef<HTMLSpanElement | null>(null);
@@ -226,6 +231,7 @@ function ComposerMeta({
     });
   }, [picker]);
   const openPicker = (kind: ComposerMetaPickerKind) => {
+    if (disabled) return;
     const nextPicker = composerMetaPickerState(
       kind,
       kind === "model" ? modelTriggerRef.current : effortTriggerRef.current,
@@ -253,6 +259,7 @@ function ComposerMeta({
             <ComposerMetaModeButton
               icon="list-todo"
               active={meta.planActive}
+              disabled={disabled}
               onMouseDown={() => {
                 callbacks.onTogglePlan?.();
               }}
@@ -260,6 +267,7 @@ function ComposerMeta({
             <ComposerMetaModeButton
               icon="shield"
               active={meta.autoReviewActive}
+              disabled={disabled}
               onMouseDown={() => {
                 callbacks.onToggleAutoReview?.();
               }}
@@ -267,6 +275,7 @@ function ComposerMeta({
             <ComposerMetaModeButton
               icon="zap"
               active={meta.fastActive}
+              disabled={disabled}
               onMouseDown={() => {
                 callbacks.onToggleFast?.();
               }}
@@ -280,6 +289,7 @@ function ComposerMeta({
               triggerRef={modelTriggerRef}
               kind="model"
               value={meta.model}
+              disabled={disabled}
               onMouseDown={() => {
                 openPicker("model");
               }}
@@ -292,6 +302,7 @@ function ComposerMeta({
                 triggerRef={effortTriggerRef}
                 kind="effort"
                 value={meta.effort}
+                disabled={disabled}
                 onMouseDown={() => {
                   openPicker("effort");
                 }}
@@ -337,7 +348,17 @@ function ComposerContextMeter({ context }: { context: ComposerMetaViewModel["con
   );
 }
 
-function ComposerMetaModeButton({ icon, active, onMouseDown }: { icon: string; active: boolean; onMouseDown: () => void }): UiNode {
+function ComposerMetaModeButton({
+  icon,
+  active,
+  disabled,
+  onMouseDown,
+}: {
+  icon: string;
+  active: boolean;
+  disabled: boolean;
+  onMouseDown: () => void;
+}): UiNode {
   const iconRef = useRef<HTMLSpanElement | null>(null);
   useLayoutEffect(() => {
     const element = iconRef.current;
@@ -348,12 +369,17 @@ function ComposerMetaModeButton({ icon, active, onMouseDown }: { icon: string; a
     <span
       ref={iconRef}
       aria-hidden="true"
-      className={["codex-panel__composer-meta-trigger", "codex-panel__composer-meta-icon", active ? "is-active" : ""]
+      className={[
+        "codex-panel__composer-meta-trigger",
+        "codex-panel__composer-meta-icon",
+        active ? "is-active" : "",
+        disabled ? "is-disabled" : "",
+      ]
         .filter(Boolean)
         .join(" ")}
       onMouseDown={(event) => {
         event.preventDefault();
-        onMouseDown();
+        if (!disabled) onMouseDown();
       }}
     />
   );
@@ -363,21 +389,30 @@ function ComposerMetaPickerButton({
   triggerRef,
   kind,
   value,
+  disabled,
   onMouseDown,
 }: {
   triggerRef: Ref<HTMLSpanElement>;
   kind: ComposerMetaPickerKind;
   value: string;
+  disabled: boolean;
   onMouseDown: () => void;
 }): UiNode {
   return (
     // biome-ignore lint/a11y: Composer meta triggers are visual pointer shortcuts; screen readers get the status summary and full runtime controls remain available through the toolbar and slash commands.
     <span
       ref={triggerRef}
-      className={`codex-panel__composer-meta-trigger codex-panel__composer-meta-value codex-panel__composer-meta-${kind}`}
+      className={[
+        "codex-panel__composer-meta-trigger",
+        "codex-panel__composer-meta-value",
+        `codex-panel__composer-meta-${kind}`,
+        disabled ? "is-disabled" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       onMouseDown={(event) => {
         event.preventDefault();
-        onMouseDown();
+        if (!disabled) onMouseDown();
       }}
     >
       {value}
@@ -436,7 +471,7 @@ interface ComposerSendMode {
   canInterrupt: boolean;
 }
 
-function composerSendMode(busy: boolean, canInterrupt: boolean, draft: string): ComposerSendMode {
+function composerSendMode(busy: boolean, canInterrupt: boolean, draft: string, submissionDisabled: boolean): ComposerSendMode {
   const hasDraft = Boolean(draft.trim());
   const canSteer = canInterrupt && hasDraft;
   const interruptMode = canInterrupt && !hasDraft;
@@ -444,7 +479,7 @@ function composerSendMode(busy: boolean, canInterrupt: boolean, draft: string): 
     icon: interruptMode ? "square" : canSteer ? "corner-down-right" : "send",
     label: interruptMode ? "Interrupt" : canSteer ? "Steer" : "Send",
     className: interruptMode ? "is-interrupt" : canSteer ? "is-steer" : "",
-    disabled: busy && !canInterrupt,
+    disabled: submissionDisabled || (busy && !canInterrupt),
     canInterrupt,
   };
 }

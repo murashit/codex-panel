@@ -264,7 +264,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     const threadId = this.state.activeThread.id;
     if (!threadId) return null;
     const thread = this.state.threadList.listedThreads.find((item) => item.id === threadId);
-    return thread ? threadMeaningfulTitle(thread) : null;
+    return thread ? threadMeaningfulTitle(thread) : (this.state.activeThread.title ?? null);
   }
 
   private restoredThreadTitle(): string | null {

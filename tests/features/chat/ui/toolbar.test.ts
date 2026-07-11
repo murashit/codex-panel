@@ -405,6 +405,7 @@ describe("Toolbar decisions", () => {
 function toolbarModel(overrides: Partial<ToolbarViewModel> = {}): ToolbarViewModel {
   return {
     newChatDisabled: false,
+    activeThreadChatActionsDisabled: false,
     chatActionsOpen: false,
     historyOpen: false,
     statusPanelOpen: false,

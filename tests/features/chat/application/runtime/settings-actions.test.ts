@@ -114,6 +114,39 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual(["Permission changes are unavailable in side chats.", "Permission changes are unavailable in side chats."]);
   });
 
+  it("blocks all thread setting changes for subagent threads", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      activeThread: {
+        id: "child",
+        provenance: {
+          kind: "subagent",
+          subagentKind: "thread-spawn",
+          parentThreadId: "parent",
+          sessionId: "session",
+          depth: 1,
+          agentNickname: null,
+          agentRole: null,
+        },
+      },
+    });
+    const store = createChatStateStore(state);
+    const transport = settingsTransportFixture();
+    const messages: string[] = [];
+    const actions = runtimeActionsFixture(store, transport, messages);
+
+    await expect(actions.requestModel("gpt-5.5")).resolves.toBe(false);
+    await expect(actions.requestReasoningEffort("high")).resolves.toBe(false);
+    await expect(actions.requestPermissionProfile(":workspace")).resolves.toBe(false);
+    await expect(actions.setCollaborationMode("plan")).resolves.toBe(false);
+    await actions.enableFastMode();
+    await actions.enableAutoReview();
+
+    expect(transport.updateThreadSettings).not.toHaveBeenCalled();
+    expect(messages).toHaveLength(6);
+    expect(new Set(messages)).toEqual(new Set(["Thread settings are unavailable in agent threads."]));
+  });
+
   it("reserves thread runtime settings when no thread is active", async () => {
     const store = createChatStateStore(chatStateFixture());
     const transport = settingsTransportFixture();

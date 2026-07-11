@@ -28,6 +28,7 @@ function thread(id: string): Thread {
     updatedAt: 0,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
   };
 }
 

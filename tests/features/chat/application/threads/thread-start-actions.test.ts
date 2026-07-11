@@ -178,6 +178,7 @@ function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {
     preview: "",
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
     createdAt: 0,
     updatedAt: 0,
     recencyAt: null,

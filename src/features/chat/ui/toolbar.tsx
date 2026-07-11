@@ -34,6 +34,7 @@ interface ToolbarStatusSection {
 
 export interface ToolbarViewModel {
   newChatDisabled: boolean;
+  activeThreadChatActionsDisabled: boolean;
   chatActionsOpen: boolean;
   historyOpen: boolean;
   statusPanelOpen: boolean;
@@ -175,10 +176,20 @@ function ChatActionsPanel({ model, actions }: { model: ToolbarViewModel; actions
           actions.startSideChat?.();
         }}
         className="codex-panel__chat-actions-panel-item"
-        disabled={model.threads.every((thread) => !thread.selected)}
+        disabled={model.activeThreadChatActionsDisabled || model.threads.every((thread) => !thread.selected)}
       />
-      <ToolbarPanelItem label="Compact context" onClick={actions.compactContext} className="codex-panel__chat-actions-panel-item" />
-      <ToolbarPanelItem label="Set goal..." onClick={actions.setGoal} className="codex-panel__chat-actions-panel-item" />
+      <ToolbarPanelItem
+        label="Compact context"
+        onClick={actions.compactContext}
+        className="codex-panel__chat-actions-panel-item"
+        disabled={model.activeThreadChatActionsDisabled}
+      />
+      <ToolbarPanelItem
+        label="Set goal..."
+        onClick={actions.setGoal}
+        className="codex-panel__chat-actions-panel-item"
+        disabled={model.activeThreadChatActionsDisabled}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
 
 export interface ComposerSubmitActionsHost {
   stateStore: ChatStateStore;
+  ensureRestoredThreadLoaded?: () => Promise<boolean>;
   composer: {
     readonly trimmedDraft: string;
     setDraft(text: string, options?: { clearSuggestions?: boolean; focus?: boolean; preserveContext?: boolean }): void;
@@ -45,16 +46,20 @@ export interface ComposerSubmitActions {
 
 export async function submitComposer(host: ComposerSubmitActionsHost): Promise<void> {
   const draft = host.composer.trimmedDraft;
+  if (host.ensureRestoredThreadLoaded && !(await host.ensureRestoredThreadLoaded())) return;
   const state = submissionStateSnapshot(host.stateStore.getState());
+  if (state.activeThreadSubagent) {
+    host.status.addSystemMessage("Messages and slash commands are unavailable in agent threads. Start a new chat to continue.");
+    return;
+  }
   if (state.busy && state.activeThreadId && state.activeTurnId && draft.length === 0) {
     await interruptTurn(host);
     return;
   }
-  await sendMessage(host);
+  await sendMessage(host, draft);
 }
 
-async function sendMessage(host: ComposerSubmitActionsHost): Promise<void> {
-  const text = host.composer.trimmedDraft;
+async function sendMessage(host: ComposerSubmitActionsHost, text: string): Promise<void> {
   if (!text) return;
   const inputSnapshot = host.composer.captureInputSnapshot();
 

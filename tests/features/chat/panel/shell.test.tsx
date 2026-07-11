@@ -443,6 +443,7 @@ function shellParts(
             draft: model.draft.value,
             busy: false,
             canInterrupt: false,
+            submissionDisabled: false,
             normalPlaceholder: "Ask Codex...",
             suggestions: [],
             selectedSuggestionIndex: 0,

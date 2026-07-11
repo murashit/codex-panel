@@ -599,6 +599,7 @@ function panelThread(id: string, overrides: Partial<Thread> = {}): Thread {
     updatedAt: 0,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
     ...overrides,
   };
 }

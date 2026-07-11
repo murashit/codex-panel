@@ -38,6 +38,7 @@ function thread(overrides: Partial<Thread> = {}): Thread {
     updatedAt: 1,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
     ...overrides,
   };
 }
@@ -289,6 +290,14 @@ describe("composer suggestions", () => {
     expect(suggestionReplacements(activeComposerSuggestions("/b", notes, [], [], [], null, options))).not.toContain("/btw");
     expect(suggestionReplacements(activeComposerSuggestions("/c", notes, [], [], [], null, options))).toContain("/compact");
     expect(suggestionReplacements(activeComposerSuggestions("/g", notes, [], [], [], null, options))).toContain("/goal");
+  });
+
+  it("omits slash suggestions from subagent threads", () => {
+    const options = { activeThreadSubagent: true };
+    expect(activeComposerSuggestions("/", notes, [], [], [], null, options)).toEqual([]);
+    expect(activeComposerSuggestions("/permissions ", notes, [], [], [], null, options)).toEqual([]);
+    expect(activeComposerSuggestions("/resume ", notes, [], [], [], null, options)).toEqual([]);
+    expect(activeComposerSuggestions("/model ", notes, [], [], [], null, options)).toEqual([]);
   });
 
   it("bounds selection preview text before rendering it in the suggestion list", () => {

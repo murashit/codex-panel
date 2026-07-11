@@ -106,10 +106,12 @@ interface ChatThreadListState {
 
 export interface ChatActiveThreadState {
   readonly id: string | null;
+  readonly title?: string | null;
   readonly cwd: string | null;
   readonly goal: ThreadGoal | null;
   readonly tokenUsage: ThreadTokenUsage | null;
   readonly lifetime: ActiveThreadLifetime | null;
+  readonly provenance: Thread["provenance"] | null;
 }
 
 type ActiveThreadLifetime =
@@ -327,10 +329,12 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
     },
     activeThread: {
       id: action.thread.id,
+      title: (action.thread.name ?? action.thread.preview) || null,
       cwd: action.cwd,
       goal: null,
       tokenUsage: null,
       lifetime: action.lifetime ?? { kind: "persistent" },
+      provenance: action.thread.provenance,
     },
     runtime: {
       ...runtimeBase,
@@ -656,6 +660,7 @@ function initialActiveThreadState(): ChatActiveThreadState {
     goal: null,
     tokenUsage: null,
     lifetime: null,
+    provenance: null,
   };
 }
 

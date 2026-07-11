@@ -599,6 +599,7 @@ function thread(id: string, archived = false) {
     archived,
     createdAt: 1,
     updatedAt: 1,
+    provenance: { kind: "interactive" as const },
   };
 }
 

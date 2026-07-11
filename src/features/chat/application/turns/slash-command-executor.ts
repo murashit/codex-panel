@@ -31,6 +31,9 @@ export async function executeSlashCommandWithState(
   inputSnapshot?: ComposerInputSnapshot,
 ): Promise<SlashCommandExecutionResult | undefined> {
   const state = submissionStateSnapshot(host.stateStore.getState());
+  if (state.activeThreadSubagent) {
+    throw new Error("Slash commands are unavailable in agent threads. Start a new chat to continue.");
+  }
   if (!host.connectionAvailable() && command !== "reconnect" && command !== "compact") return;
   return runSlashCommand(command, args, {
     ...host,

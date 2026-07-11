@@ -884,6 +884,7 @@ function threadFromRecord(record: ThreadRecord): Thread {
     preview: record.preview,
     name: record.name,
     archived: false,
+    provenance: { kind: "interactive" },
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -922,6 +923,7 @@ function panelThread(overrides: Partial<Thread> = {}): Thread {
     updatedAt: 1,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
     ...overrides,
   };
 }

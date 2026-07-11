@@ -72,6 +72,7 @@ function thread(overrides: Partial<ArchiveThreadInput> = {}): ArchiveThreadInput
     updatedAt: 1,
     name: "Thread",
     archived: false,
+    provenance: { kind: "interactive" },
     transcriptEntries: [transcriptEntry("user", "Hello", 1)],
     ...overrides,
   };

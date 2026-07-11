@@ -15,13 +15,14 @@ export interface PlanImplementationHost {
 }
 
 export function implementPlanTargetFromState(state: {
-  activeThread: Pick<ChatActiveThreadState, "id">;
+  activeThread: Pick<ChatActiveThreadState, "id"> & { provenance?: ChatActiveThreadState["provenance"] };
   turn: ChatTurnState;
   runtime: { pending: Pick<ChatRuntimeState["pending"], "collaborationMode"> };
   threadStream: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">;
 }): PlanImplementationTarget | null {
   if (
     !state.activeThread.id ||
+    state.activeThread.provenance?.kind === "subagent" ||
     chatTurnBusy(state) ||
     state.runtime.pending.collaborationMode.kind !== "set" ||
     state.runtime.pending.collaborationMode.value !== "plan"

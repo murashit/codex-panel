@@ -10,7 +10,17 @@ describe("ephemeral thread lifecycle", () => {
     const store = createChatStateStore();
     store.dispatch({
       type: "thread-list/applied",
-      threads: [{ id: "source", preview: "Source", name: null, archived: false, createdAt: 1, updatedAt: 1 }],
+      threads: [
+        {
+          id: "source",
+          preview: "Source",
+          name: null,
+          archived: false,
+          createdAt: 1,
+          updatedAt: 1,
+          provenance: { kind: "interactive" },
+        },
+      ],
     });
     const transport = transportMock();
     const lifecycle = createEphemeralThreadLifecycle({
@@ -151,7 +161,15 @@ function transportMock(): EphemeralThreadTransport {
 
 function activationFixture(): ThreadActivationSnapshot {
   return {
-    thread: { id: "side", preview: "", name: null, archived: false, createdAt: 1, updatedAt: 1 },
+    thread: {
+      id: "side",
+      preview: "",
+      name: null,
+      archived: false,
+      createdAt: 1,
+      updatedAt: 1,
+      provenance: { kind: "interactive" },
+    },
     cwd: "/vault",
     model: "gpt-5.5",
     serviceTier: null,

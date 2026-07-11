@@ -31,6 +31,7 @@ function threadFixture(overrides: Partial<Thread> = {}): Thread {
     updatedAt: 1,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
     ...overrides,
   };
 }

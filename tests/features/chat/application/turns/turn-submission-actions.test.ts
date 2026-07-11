@@ -22,6 +22,7 @@ function thread(id: string): Thread {
     updatedAt: 0,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
   };
 }
 
@@ -75,7 +76,52 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>) {
   });
 }
 
+function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore>) {
+  const child: Thread = {
+    ...thread("child"),
+    provenance: {
+      kind: "subagent",
+      subagentKind: "thread-spawn",
+      parentThreadId: "parent",
+      sessionId: "session",
+      depth: 1,
+      agentNickname: null,
+      agentRole: null,
+    },
+  };
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: child,
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
+}
+
 describe("TurnSubmissionActions", () => {
+  it("blocks direct turn submission after a restored thread resolves to a subagent", async () => {
+    const { host, startTurn, stateStore } = createHost({
+      ensureRestoredThreadLoaded: vi.fn().mockImplementation(async () => {
+        resumeSubagentThread(stateStore);
+        return true;
+      }),
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    await expect(actions.sendTurnText({ text: "hello" })).resolves.toBe(false);
+
+    expect(startTurn).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith("Messages are unavailable in agent threads. Start a new chat to continue.");
+  });
+
   it("starts a thread when needed and acknowledges the optimistic turn", async () => {
     const { host, startTurn, stateStore } = createHost();
     const actions = createTurnSubmissionActions(host);

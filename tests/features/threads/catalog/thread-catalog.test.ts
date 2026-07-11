@@ -587,6 +587,7 @@ function thread(id: string, archived = false, overrides: Partial<Thread> = {}): 
     updatedAt: 1,
     name: null,
     archived,
+    provenance: { kind: "interactive" },
     ...overrides,
   };
 }

@@ -13,11 +13,32 @@ function thread(id: string): Thread {
     updatedAt: 0,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
   };
 }
 
-function createHost(draft: string) {
-  const stateStore = createChatStateStore(createChatState());
+function createHost(draft: string, options: { subagent?: boolean } = {}) {
+  const initialState = createChatState();
+  const stateStore = createChatStateStore(
+    options.subagent
+      ? {
+          ...initialState,
+          activeThread: {
+            ...initialState.activeThread,
+            id: "child",
+            provenance: {
+              kind: "subagent",
+              subagentKind: "thread-spawn",
+              parentThreadId: "parent",
+              sessionId: "session",
+              depth: 1,
+              agentNickname: "Scout",
+              agentRole: "explorer",
+            },
+          },
+        }
+      : initialState,
+  );
   const interruptTurn = vi.fn().mockResolvedValue({});
   const setDraft = vi.fn();
   const sendTurnText = vi.fn().mockResolvedValue(true);
@@ -62,6 +83,18 @@ function createHost(draft: string) {
 }
 
 describe("submitComposer", () => {
+  it.each(["hello", "/status"])("blocks composer submission from subagent threads for %s", async (draft) => {
+    const { host, execute, sendTurnText } = createHost(draft, { subagent: true });
+
+    await submitComposer(host);
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
+    expect(host.status.addSystemMessage).toHaveBeenCalledWith(
+      "Messages and slash commands are unavailable in agent threads. Start a new chat to continue.",
+    );
+  });
+
   it("sends plain drafts as turn text", async () => {
     const { host, ensureConnected, inputSnapshot, sendTurnText, showLatest } = createHost("hello");
 

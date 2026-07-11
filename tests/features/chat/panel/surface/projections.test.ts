@@ -25,6 +25,39 @@ import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 installObsidianDomShims();
 
 describe("chat panel surface projections", () => {
+  it("disables subagent chat actions except starting a new chat", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      activeThread: {
+        id: "child",
+        provenance: {
+          kind: "subagent",
+          subagentKind: "thread-spawn",
+          parentThreadId: "parent",
+          sessionId: "session",
+          depth: 1,
+          agentNickname: "Scout",
+          agentRole: "explorer",
+        },
+      },
+      turn: { lifecycle: { kind: "running", turnId: "child-turn" } },
+      ui: { toolbarPanel: "chat-actions" },
+    });
+    const actions = toolbarActionsFixture();
+    const parent = renderWithShellReadModel(state, (readModel) =>
+      h(ChatPanelToolbar, { model: readModel.toolbar, surface: toolbarSurfaceFixture(), actions }),
+    );
+
+    const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
+    expect(items.map((item) => [item.textContent, item.classList.contains("is-disabled")])).toEqual([
+      ["Start new chat", false],
+      ["Start side chat", true],
+      ["Compact context", true],
+      ["Set goal...", true],
+    ]);
+    unmountUiRoot(parent);
+  });
+
   it("does not project rollback actions for side chats", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {
@@ -571,6 +604,7 @@ function threadFixture(id: string, name: string | null): Thread {
     updatedAt: 1,
     name,
     archived: false,
+    provenance: { kind: "interactive" },
   };
 }
 

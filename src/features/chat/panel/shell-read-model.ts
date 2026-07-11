@@ -80,6 +80,7 @@ interface ChatPanelToolbarDebugState {
 export interface ChatPanelToolbarReadModel {
   readonly threads: ReadonlySignal<ChatState["threadList"]["listedThreads"]>;
   readonly activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
+  readonly activeThreadSubagent: ReadonlySignal<boolean>;
   readonly turnBusy: ReadonlySignal<boolean>;
   readonly runtimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
   readonly toolbarPanel: ReadonlySignal<ChatState["ui"]["toolbarPanel"]>;
@@ -138,6 +139,7 @@ export interface ChatPanelComposerReadModel {
   readonly suggestions: ReadonlySignal<ChatState["composer"]["suggestions"]>;
   readonly selectedSuggestionIndex: ReadonlySignal<ChatState["composer"]["suggestSelected"]>;
   readonly activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
+  readonly activeThreadSubagent: ReadonlySignal<boolean>;
   readonly turnBusy: ReadonlySignal<boolean>;
   readonly activeTurnId: ReadonlySignal<string | null>;
   readonly runtimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
@@ -179,16 +181,18 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
     threadStreamStableItems: computed(() => threadStreamStableItems(threadStream.value)),
     threadStreamActiveItems: computed(() => threadStreamActiveItems(threadStream.value)),
     threadStreamRollbackCandidate: computed(() =>
-      turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral"
+      turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" || activeThread.value.provenance?.kind === "subagent"
         ? null
         : threadStreamRollbackCandidateFromItems(streamItems.value),
     ),
     threadStreamForkCandidates: computed(() =>
-      turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" ? [] : forkCandidatesFromItems(streamItems.value),
+      turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" || activeThread.value.provenance?.kind === "subagent"
+        ? []
+        : forkCandidatesFromItems(streamItems.value),
     ),
     threadStreamImplementPlanTarget: computed(() =>
       implementPlanTargetFromState({
-        activeThread: { id: activeThreadIdSignal.value },
+        activeThread: { id: activeThreadIdSignal.value, provenance: activeThread.value.provenance },
         turn: turn.value,
         runtime: { pending: { collaborationMode: runtime.value.pending.collaborationMode } },
         threadStream: threadStream.value,
@@ -256,6 +260,7 @@ function toolbarReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanelT
   return {
     threads: computed(() => signals.threadList.value.listedThreads),
     activeThreadId: signals.activeThreadId,
+    activeThreadSubagent: computed(() => signals.activeThread.value.provenance?.kind === "subagent"),
     turnBusy: signals.turnBusy,
     runtimeSnapshot: signals.toolbarRuntimeSnapshot,
     toolbarPanel: computed(() => signals.ui.value.toolbarPanel),
@@ -334,6 +339,7 @@ function composerReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanel
     suggestions: computed(() => signals.composer.value.suggestions),
     selectedSuggestionIndex: computed(() => signals.composer.value.suggestSelected),
     activeThreadId: signals.activeThreadId,
+    activeThreadSubagent: computed(() => signals.activeThread.value.provenance?.kind === "subagent"),
     turnBusy: signals.turnBusy,
     activeTurnId: signals.activeTurnId,
     runtimeSnapshot: signals.composerRuntimeSnapshot,

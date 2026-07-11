@@ -35,7 +35,8 @@ export function createThreadNavigationActions(host: ThreadNavigationActionsHost)
 
   return {
     async startNewThread(): Promise<void> {
-      if (chatTurnBusy(host.stateStore.getState())) return;
+      const state = host.stateStore.getState();
+      if (chatTurnBusy(state) && state.activeThread.provenance?.kind !== "subagent") return;
       if (host.prepareForPersistentNavigation && !(await host.prepareForPersistentNavigation())) return;
 
       host.identity.clearActiveThreadIdentity();

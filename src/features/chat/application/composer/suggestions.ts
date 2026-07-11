@@ -36,6 +36,7 @@ export interface ComposerSuggestion {
 export interface ComposerSuggestionOptions {
   activeThreadId?: string | null;
   activeThreadEphemeral?: boolean;
+  activeThreadSubagent?: boolean;
   contextReferences?: ComposerContextReferences;
   dailyNoteReferences?: readonly DailyNoteReferenceCandidate[] | (() => readonly DailyNoteReferenceCandidate[]);
   permissionProfiles?: readonly RuntimePermissionProfileSummary[];
@@ -114,16 +115,19 @@ export function activeComposerSuggestions(
   currentModel: string | null = null,
   options: ComposerSuggestionOptions = {},
 ): ComposerSuggestion[] {
+  const slashSuggestions = options.activeThreadSubagent
+    ? null
+    : (activeSlashSubcommandSuggestions(beforeCursor) ??
+      activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
+      modelOverrideSuggestions(beforeCursor, models) ??
+      reasoningEffortOverrideSuggestions(beforeCursor, models, currentModel) ??
+      permissionProfileOverrideSuggestions(beforeCursor, options.permissionProfiles ?? []) ??
+      activeSlashCommandSuggestions(beforeCursor, options.activeThreadEphemeral ?? false, false));
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
     activeContextReferenceSuggestions(beforeCursor, options.contextReferences, options.dailyNoteReferences) ??
     activeTagSuggestions(beforeCursor, options.tagCandidates ?? []) ??
-    activeSlashSubcommandSuggestions(beforeCursor) ??
-    activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
-    modelOverrideSuggestions(beforeCursor, models) ??
-    reasoningEffortOverrideSuggestions(beforeCursor, models, currentModel) ??
-    permissionProfileOverrideSuggestions(beforeCursor, options.permissionProfiles ?? []) ??
-    activeSlashCommandSuggestions(beforeCursor, options.activeThreadEphemeral ?? false) ??
+    slashSuggestions ??
     activeSkillSuggestions(beforeCursor, skills) ??
     []
   );
@@ -395,13 +399,18 @@ function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCand
 
 const SIDE_CHAT_UNAVAILABLE_SLASH_COMMANDS = new Set(["/btw", "/fork", "/rollback"]);
 
-function activeSlashCommandSuggestions(beforeCursor: string, activeThreadEphemeral: boolean): ComposerSuggestion[] | null {
+function activeSlashCommandSuggestions(
+  beforeCursor: string,
+  activeThreadEphemeral: boolean,
+  activeThreadSubagent: boolean,
+): ComposerSuggestion[] | null {
   const match = /^(\/[A-Za-z-]*)$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
 
   const rawQuery = match[1];
   if (rawQuery === undefined) return null;
   const query = rawQuery.toLowerCase();
+  if (activeThreadSubagent) return [];
   if (SLASH_COMMANDS.some((item) => item.command.toLowerCase() === query)) return null;
   const start = match.index + match[0].lastIndexOf("/");
   return SLASH_COMMANDS.filter(

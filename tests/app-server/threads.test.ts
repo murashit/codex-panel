@@ -1,9 +1,50 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerRequestClient } from "../../src/app-server/services/request-client";
-import { forkEphemeralThread, listThreads, startEphemeralThread, startThread } from "../../src/app-server/services/threads";
+import {
+  forkEphemeralThread,
+  listThreads,
+  startEphemeralThread,
+  startThread,
+  threadFromAppServerRecord,
+} from "../../src/app-server/services/threads";
 
 describe("app-server thread response adapters", () => {
+  it("preserves spawned subagent provenance in the domain thread", () => {
+    const thread = threadFromAppServerRecord({
+      id: "child",
+      preview: "Inspect",
+      name: null,
+      createdAt: 1,
+      updatedAt: 2,
+      sessionId: "session",
+      parentThreadId: "parent",
+      source: {
+        subAgent: {
+          thread_spawn: {
+            parent_thread_id: "parent",
+            depth: 2,
+            agent_path: null,
+            agent_nickname: "Scout",
+            agent_role: "explorer",
+          },
+        },
+      },
+      agentNickname: "Scout",
+      agentRole: "explorer",
+    });
+
+    expect(thread.provenance).toEqual({
+      kind: "subagent",
+      subagentKind: "thread-spawn",
+      parentThreadId: "parent",
+      sessionId: "session",
+      depth: 2,
+      agentNickname: "Scout",
+      agentRole: "explorer",
+    });
+  });
+
   it("forks read-only ephemeral side-chat threads", async () => {
     const client = {
       request: vi.fn().mockResolvedValue({
@@ -90,7 +131,15 @@ describe("app-server thread response adapters", () => {
     } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault", { archived: true })).resolves.toEqual([
-      { id: "thread-1", preview: "Preview", name: null, archived: true, createdAt: 10, updatedAt: 20 },
+      {
+        id: "thread-1",
+        preview: "Preview",
+        name: null,
+        archived: true,
+        createdAt: 10,
+        updatedAt: 20,
+        provenance: { kind: "interactive" },
+      },
     ]);
     expect(clientListThreads).toHaveBeenCalledWith("thread/list", {
       cwd: "/vault",
@@ -109,7 +158,16 @@ describe("app-server thread response adapters", () => {
     } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault")).resolves.toEqual([
-      { id: "thread-1", preview: "Preview", name: null, archived: false, createdAt: 10, updatedAt: 20, recencyAt: 30 },
+      {
+        id: "thread-1",
+        preview: "Preview",
+        name: null,
+        archived: false,
+        createdAt: 10,
+        updatedAt: 20,
+        recencyAt: 30,
+        provenance: { kind: "interactive" },
+      },
     ]);
   });
 
@@ -121,7 +179,16 @@ describe("app-server thread response adapters", () => {
     } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault")).resolves.toEqual([
-      { id: "thread-1", preview: "Preview", name: null, archived: false, createdAt: 10, updatedAt: 20, recencyAt: null },
+      {
+        id: "thread-1",
+        preview: "Preview",
+        name: null,
+        archived: false,
+        createdAt: 10,
+        updatedAt: 20,
+        recencyAt: null,
+        provenance: { kind: "interactive" },
+      },
     ]);
   });
 
@@ -141,8 +208,24 @@ describe("app-server thread response adapters", () => {
     } as unknown as AppServerRequestClient;
 
     await expect(listThreads(client, "/vault")).resolves.toEqual([
-      { id: "thread-1", preview: "First", name: null, archived: false, createdAt: 10, updatedAt: 20 },
-      { id: "thread-2", preview: "Second", name: null, archived: false, createdAt: 30, updatedAt: 40 },
+      {
+        id: "thread-1",
+        preview: "First",
+        name: null,
+        archived: false,
+        createdAt: 10,
+        updatedAt: 20,
+        provenance: { kind: "interactive" },
+      },
+      {
+        id: "thread-2",
+        preview: "Second",
+        name: null,
+        archived: false,
+        createdAt: 30,
+        updatedAt: 40,
+        provenance: { kind: "interactive" },
+      },
     ]);
     expect(clientListThreads).toHaveBeenNthCalledWith(1, "thread/list", {
       cwd: "/vault",

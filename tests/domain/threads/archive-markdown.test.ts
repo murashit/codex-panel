@@ -227,6 +227,7 @@ function thread(
     updatedAt: 1,
     name: null,
     archived: false,
+    provenance: { kind: "interactive" },
     transcriptEntries: [],
     ...overrides,
   };
