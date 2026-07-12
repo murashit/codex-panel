@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { registerSelectionRewriteCommand } from "../../../src/features/selection-rewrite/command.obsidian";
 import type { SelectionRewritePopoverOptions } from "../../../src/features/selection-rewrite/popover.dom";
+import type { SelectionRewriteTransport } from "../../../src/features/selection-rewrite/transport";
 
 const popoverMock = vi.hoisted(() => {
   const instances: { options: SelectionRewritePopoverOptions; open: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }[] = [];
@@ -60,7 +61,8 @@ describe("selection rewrite command", () => {
     Object.assign(view, { containerEl: { doc: document } });
     view.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });
 
-    registerSelectionRewriteCommand(plugin as never);
+    const transport: SelectionRewriteTransport = { generate: vi.fn() };
+    registerSelectionRewriteCommand(plugin as never, transport);
     expect(addedCommand.current).not.toBeNull();
     addedCommand.current?.editorCallback(editor, view);
     from.line = 99;
@@ -77,6 +79,7 @@ describe("selection rewrite command", () => {
       },
     });
     expect(popoverMock.instances[0]?.open).toHaveBeenCalledOnce();
+    expect(popoverMock.instances[0]?.options.transport).toBe(transport);
 
     cleanup.current?.();
     expect(popoverMock.instances[0]?.close).toHaveBeenCalledOnce();

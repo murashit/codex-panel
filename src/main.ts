@@ -2,6 +2,7 @@ import { Notice, Plugin } from "obsidian";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { CodexChatView } from "./features/chat/host/view.obsidian";
+import { createAppServerSelectionRewriteTransport } from "./features/selection-rewrite/app-server-transport";
 import { registerSelectionRewriteCommand } from "./features/selection-rewrite/command.obsidian";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
@@ -70,7 +71,13 @@ export default class CodexPanelPlugin extends Plugin {
       callback: () => void this.runtime.startNewChat().catch(reportCommandError),
     });
 
-    registerSelectionRewriteCommand(this);
+    registerSelectionRewriteCommand(
+      this,
+      createAppServerSelectionRewriteTransport({
+        codexPath: () => this.settings.codexPath,
+        cwd: this.vaultPath,
+      }),
+    );
 
     this.addSettingTab(new CodexPanelSettingTab(this.app, this, this.runtime.settingTabHost()));
 

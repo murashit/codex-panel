@@ -941,6 +941,10 @@ describe("Biome Grit include boundaries", () => {
     expect(pluginMessages(report, "src/shared/runtime/connection-client.ts")).toEqual([
       "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
     ]);
+    expect(pluginMessages(report, "src/features/selection-rewrite/session.ts")).toEqual([
+      "Do not import app-server connection internals from this module. Keep connection usage at app-server adapters.",
+    ]);
+    expect(pluginDiagnostics(report, "src/features/selection-rewrite/app-server-transport.ts")).toEqual([]);
   });
 
   it("keeps app-server root modules from becoming boundary escape hatches", async () => {
@@ -1434,6 +1438,22 @@ export type Client = AppServerClient;
 `.trimStart(),
   );
   await writeFile(
+    path.join(cwd, "src/features/selection-rewrite/session.ts"),
+    `
+import type { AppServerClient } from "../../app-server/connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+  );
+  await writeFile(
+    path.join(cwd, "src/features/selection-rewrite/app-server-transport.ts"),
+    `
+import type { AppServerClient } from "../../app-server/connection/client";
+
+export type Client = AppServerClient;
+`.trimStart(),
+  );
+  await writeFile(
     path.join(cwd, "src/features/chat/application/threads/history.ts"),
     `
 import type { AppServerClient } from "../../../../app-server/connection/client";
@@ -1512,6 +1532,8 @@ export async function read(client: AppServerClient): Promise<void> {
       "src/app-server/services/catalog.ts",
       "src/domain/connection-client.ts",
       "src/shared/runtime/connection-client.ts",
+      "src/features/selection-rewrite/session.ts",
+      "src/features/selection-rewrite/app-server-transport.ts",
       "src/features/chat/application/threads/history.ts",
       "src/app-server/services/threads.ts",
       "src/features/chat/host/bundles/connection-bundle.ts",

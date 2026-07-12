@@ -56,7 +56,13 @@
     },
     {
       "path": "./scripts/grit/import-boundaries/no-app-server-connection-boundary-imports.grit",
-      "includes": ["**/src/app-server/protocol/**/*.ts", "**/src/domain/**/*.ts", "**/src/shared/**/*.{ts,tsx}"]
+      "includes": [
+        "**/src/app-server/protocol/**/*.ts",
+        "**/src/domain/**/*.ts",
+        "**/src/shared/**/*.{ts,tsx}",
+        "**/src/features/selection-rewrite/**/*.{ts,tsx}",
+        "!**/src/features/selection-rewrite/app-server-transport.ts"
+      ]
     },
     {
       "path": "./scripts/grit/import-boundaries/no-app-server-protocol-boundary-imports.grit",

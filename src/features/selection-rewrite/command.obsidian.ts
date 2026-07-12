@@ -2,16 +2,13 @@ import { type Editor, MarkdownView, Notice, type Plugin } from "obsidian";
 import type { SendShortcut } from "../../domain/input/send-shortcut";
 import type { SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
 import { SelectionRewritePopover } from "./popover.dom";
+import type { SelectionRewriteTransport } from "./transport";
 
 export interface SelectionRewriteCommandHost extends Plugin {
-  settings: {
-    codexPath: string;
-    sendShortcut: SendShortcut;
-  } & SelectionRewriteRuntimeSettings;
-  vaultPath: string;
+  settings: { sendShortcut: SendShortcut } & SelectionRewriteRuntimeSettings;
 }
 
-export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandHost): void {
+export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandHost, transport: SelectionRewriteTransport): void {
   const activePopovers = new Set<SelectionRewritePopover>();
 
   plugin.register(() => {
@@ -57,8 +54,6 @@ export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandH
 
       let popover: SelectionRewritePopover | null = null;
       popover = new SelectionRewritePopover({
-        codexPath: plugin.settings.codexPath,
-        cwd: plugin.vaultPath,
         editor,
         onClose: () => {
           if (popover) activePopovers.delete(popover);
@@ -66,6 +61,7 @@ export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandH
         runtimeSettings: plugin.settings,
         sendShortcut: plugin.settings.sendShortcut,
         state: rewriteState,
+        transport,
         viewDocument,
         viewWindow,
       });

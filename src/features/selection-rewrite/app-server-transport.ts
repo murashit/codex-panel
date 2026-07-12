@@ -6,71 +6,63 @@ import {
   type StructuredTurnOutputSchema,
 } from "../../app-server/services/ephemeral-structured-turn";
 import { resolvedRuntimeOverrideForClient } from "../../app-server/services/runtime-overrides";
-import type { SelectionRewriteRuntimeSettings } from "./model";
-import { type SelectionRewriteOutput, SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText } from "./output";
+import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText } from "./output";
 import { SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS, SELECTION_REWRITE_SERVICE_NAME } from "./prompt";
+import type { SelectionRewriteTransport, SelectionRewriteTransportRequest } from "./transport";
 
 const SELECTION_REWRITE_TIMEOUT_MS = 120_000;
 
 const SELECTION_REWRITE_OUTPUT_SCHEMA: StructuredTurnOutputSchema = {
   type: "object",
-  properties: {
-    replacementText: {
-      type: "string",
-    },
-  },
+  properties: { replacementText: { type: "string" } },
   required: ["replacementText"],
   additionalProperties: false,
 };
 
-export interface RunSelectionRewriteOptions {
-  codexPath: string;
-  cwd: string;
-  prompt: string;
-  runtimeSettings?: SelectionRewriteRuntimeSettings;
-  onActivity?: (activity: SelectionRewriteActivity) => void;
-  onPreview?: (text: string) => void;
-  signal?: AbortSignal;
-  clientFactory?: SelectionRewriteClientFactory;
-}
-
-export type SelectionRewriteActivity = "reasoning" | "writing";
-
 type SelectionRewriteClient = EphemeralStructuredTurnClient & ModelMetadataClient;
 type SelectionRewriteClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => SelectionRewriteClient;
 
-export async function runSelectionRewrite(options: RunSelectionRewriteOptions): Promise<SelectionRewriteOutput> {
+export interface AppServerSelectionRewriteTransportOptions {
+  codexPath(): string;
+  cwd: string;
+  clientFactory?: SelectionRewriteClientFactory;
+}
+
+export function createAppServerSelectionRewriteTransport(options: AppServerSelectionRewriteTransportOptions): SelectionRewriteTransport {
+  return {
+    generate: (request) => runAppServerSelectionRewrite(options, request),
+  };
+}
+
+async function runAppServerSelectionRewrite(options: AppServerSelectionRewriteTransportOptions, request: SelectionRewriteTransportRequest) {
   let preview = "";
-  const runtimeSettings = options.runtimeSettings;
   const lastAgentText = await runEphemeralStructuredTurnForLastAgentText({
-    codexPath: options.codexPath,
+    codexPath: options.codexPath(),
     cwd: options.cwd,
     serviceName: SELECTION_REWRITE_SERVICE_NAME,
     developerInstructions: SELECTION_REWRITE_DEVELOPER_INSTRUCTIONS,
-    prompt: options.prompt,
+    prompt: request.prompt,
     outputSchema: SELECTION_REWRITE_OUTPUT_SCHEMA,
     timeoutMs: SELECTION_REWRITE_TIMEOUT_MS,
     serverRequests: { kind: "reject", message: "Selection rewrite does not handle server requests." },
     exitedMessage: "Selection rewrite app-server exited.",
     timedOutMessage: "Timed out while rewriting the selection.",
     abortMessage: "Selection rewrite cancelled.",
-    signal: options.signal,
-    resolveRuntime: runtimeSettings
-      ? (client) =>
-          resolvedRuntimeOverrideForClient(client, {
-            model: runtimeSettings.rewriteSelectionModel,
-            effort: runtimeSettings.rewriteSelectionEffort,
-          })
-      : undefined,
+    signal: request.signal,
+    resolveRuntime: (client) =>
+      resolvedRuntimeOverrideForClient(client, {
+        model: request.runtimeSettings.rewriteSelectionModel,
+        effort: request.runtimeSettings.rewriteSelectionEffort,
+      }),
     clientFactory: options.clientFactory,
     onProgress: (event) => {
       if (event.type === "reasoning-activity") {
-        options.onActivity?.("reasoning");
+        request.onActivity("reasoning");
         return;
       }
       preview = `${preview}${event.delta}`;
-      options.onActivity?.("writing");
-      options.onPreview?.(preview);
+      request.onActivity("writing");
+      request.onPreview(preview);
     },
   });
   const { output, rawText } = selectionRewriteOutputParseResultFromText(lastAgentText);

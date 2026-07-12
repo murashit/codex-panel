@@ -8,6 +8,10 @@ import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn
 import type { AppServerStartStructuredTurnOptions } from "../../../src/app-server/services/turns";
 import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
 import type { ServerInitialization } from "../../../src/domain/server/initialization";
+import {
+  type AppServerSelectionRewriteTransportOptions,
+  createAppServerSelectionRewriteTransport,
+} from "../../../src/features/selection-rewrite/app-server-transport";
 import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
 import {
   canApplySelectionRewrite,
@@ -19,8 +23,7 @@ import { selectionRewriteOutputParseResultFromText } from "../../../src/features
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
-import * as selectionRewriteRunner from "../../../src/features/selection-rewrite/runner";
-import { runSelectionRewrite } from "../../../src/features/selection-rewrite/runner";
+import type { SelectionRewriteTransportRequest } from "../../../src/features/selection-rewrite/transport";
 import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
 import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
 import { deferred } from "../../support/async";
@@ -31,14 +34,18 @@ type Turn = TurnRecord;
 interface TurnStartResponse {
   turn: TurnRecord;
 }
-type SelectionRewriteClientFactory = NonNullable<Parameters<typeof runSelectionRewrite>[0]["clientFactory"]>;
+type SelectionRewriteClientFactory = NonNullable<AppServerSelectionRewriteTransportOptions["clientFactory"]>;
 type SelectionRewriteClient = ReturnType<SelectionRewriteClientFactory>;
+type SelectionRewriteTestRunOptions = SelectionRewriteTransportRequest & { clientFactory: SelectionRewriteClientFactory };
+
+const selectionRewriteGenerate = vi.fn();
 
 installObsidianDomShims();
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 beforeEach(() => {
   document.body.replaceChildren();
+  selectionRewriteGenerate.mockReset();
 });
 
 afterEach(() => {
@@ -376,7 +383,7 @@ describe("selection rewrite popover", () => {
   it("generates from the Enter shortcut, renders a preview diff, and applies from the action shortcut", async () => {
     const editor = editorFixture();
     const onClose = vi.fn();
-    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockImplementation(async (options) => {
+    selectionRewriteGenerate.mockImplementation(async (options) => {
       options.onPreview?.("Rewritten sentence.");
       return { replacementText: "Rewritten sentence." };
     });
@@ -397,7 +404,7 @@ describe("selection rewrite popover", () => {
       await Promise.resolve();
     });
 
-    expect(selectionRewriteRunner.runSelectionRewrite).toHaveBeenCalledOnce();
+    expect(selectionRewriteGenerate).toHaveBeenCalledOnce();
     expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Rewritten sentence.");
     const apply = expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Apply"]'));
     expect(apply.disabled).toBe(false);
@@ -473,7 +480,7 @@ describe("selection rewrite popover", () => {
   it("aborts the active generation when closed and ignores its late result", async () => {
     const rewrite = deferred<{ replacementText: string }>();
     let signal: AbortSignal | undefined;
-    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockImplementation((options) => {
+    selectionRewriteGenerate.mockImplementation((options) => {
       signal = options.signal;
       return rewrite.promise;
     });
@@ -501,7 +508,7 @@ describe("selection rewrite popover", () => {
     const rewrite = deferred<{ replacementText: string }>();
     const options = popoverOptions();
     const preview: { current: ((text: string) => void) | null } = { current: null };
-    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockImplementation((runOptions) => {
+    selectionRewriteGenerate.mockImplementation((runOptions) => {
       preview.current = runOptions.onPreview ?? null;
       return rewrite.promise;
     });
@@ -528,7 +535,7 @@ describe("selection rewrite popover", () => {
 
   it("keeps only one generation run active while a rewrite is pending", async () => {
     const rewrite = deferred<{ replacementText: string }>();
-    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockReturnValue(rewrite.promise);
+    selectionRewriteGenerate.mockReturnValue(rewrite.promise);
     const popover = new SelectionRewritePopover(popoverOptions());
 
     openPopover(popover);
@@ -539,7 +546,7 @@ describe("selection rewrite popover", () => {
       await Promise.resolve();
     });
 
-    expect(selectionRewriteRunner.runSelectionRewrite).toHaveBeenCalledOnce();
+    expect(selectionRewriteGenerate).toHaveBeenCalledOnce();
 
     rewrite.resolve({ replacementText: "Rewritten once." });
     await act(async () => {
@@ -550,7 +557,7 @@ describe("selection rewrite popover", () => {
   });
 
   it("restores the current draft after accidental instruction history navigation", async () => {
-    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockResolvedValue({ replacementText: "Rewritten." });
+    selectionRewriteGenerate.mockResolvedValue({ replacementText: "Rewritten." });
 
     await generateInstructionHistoryItem("History item one.");
     await generateInstructionHistoryItem("History item two.");
@@ -576,7 +583,7 @@ describe("selection rewrite popover", () => {
   });
 
   it("preserves edited instruction history drafts while navigating history", async () => {
-    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockResolvedValue({ replacementText: "Rewritten." });
+    selectionRewriteGenerate.mockResolvedValue({ replacementText: "Rewritten." });
 
     await generateInstructionHistoryItem("History item one.");
     await generateInstructionHistoryItem("History item two.");
@@ -617,7 +624,7 @@ describe("selection rewrite popover", () => {
   });
 
   it("records edited history items as new entries only when generated", async () => {
-    vi.spyOn(selectionRewriteRunner, "runSelectionRewrite").mockResolvedValue({ replacementText: "Rewritten." });
+    selectionRewriteGenerate.mockResolvedValue({ replacementText: "Rewritten." });
 
     await generateInstructionHistoryItem("Rewrite as bullets.");
 
@@ -739,12 +746,13 @@ function popoverOptions(
   overrides: Partial<ConstructorParameters<typeof SelectionRewritePopover>[0]> = {},
 ): ConstructorParameters<typeof SelectionRewritePopover>[0] {
   return {
-    codexPath: "/usr/local/bin/codex",
-    cwd: "/vault",
     editor: editorFixture().editor,
     runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
     sendShortcut: "enter",
     state: rewriteState(),
+    transport: {
+      generate: (request) => selectionRewriteGenerate(request),
+    },
     viewDocument: document,
     viewWindow: window,
     ...overrides,
@@ -791,11 +799,22 @@ async function flushPromises(): Promise<void> {
   await Promise.resolve();
 }
 
-function runOptions(clientFactory: SelectionRewriteClientFactory): Parameters<typeof runSelectionRewrite>[0] {
-  return {
-    codexPath: "/bin/codex",
+function runSelectionRewrite(options: SelectionRewriteTestRunOptions) {
+  const { clientFactory, ...request } = options;
+  return createAppServerSelectionRewriteTransport({
+    codexPath: () => "/bin/codex",
     cwd: "/vault",
+    clientFactory,
+  }).generate(request);
+}
+
+function runOptions(clientFactory: SelectionRewriteClientFactory): SelectionRewriteTestRunOptions {
+  return {
     prompt: "Rewrite this.",
+    runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
+    onActivity: () => undefined,
+    onPreview: () => undefined,
+    signal: new AbortController().signal,
     clientFactory,
   };
 }
