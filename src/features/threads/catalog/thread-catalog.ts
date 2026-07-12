@@ -81,7 +81,9 @@ export interface ThreadCatalogEventSink {
   apply(event: ThreadCatalogEvent): void;
 }
 
-export interface ThreadCatalog extends ThreadCatalogPaginatedActiveReader, ThreadCatalogArchivedReader, ThreadCatalogEventSink {}
+export interface ThreadCatalog extends ThreadCatalogPaginatedActiveReader, ThreadCatalogArchivedReader, ThreadCatalogEventSink {
+  clear(): void;
+}
 
 export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalog {
   const factsByContext = new Map<string, ThreadCatalogFacts>();
@@ -95,6 +97,9 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
 
   return {
     apply,
+    clear: () => {
+      factsByContext.clear();
+    },
     activeSnapshot: () => threadListProjection(store.activeThreadsSnapshot(), currentFacts().active),
     loadActive: () => loadThreadList(store.fetchAllActiveThreads(), currentFacts().active),
     refreshActive: () => loadThreadList(store.refreshActiveThreads(), currentFacts().active),

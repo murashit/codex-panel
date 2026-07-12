@@ -194,6 +194,21 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
   });
 
+  it("clears pending lifecycle facts across every app-server query context", () => {
+    const context = { codexPath: "codex-a", vaultPath: "/vault" };
+    const { catalog, cache } = catalogFixture({ context: () => context });
+    catalog.apply({ type: "thread-started", thread: thread("started-a") });
+    context.codexPath = "codex-b";
+    catalog.apply({ type: "thread-started", thread: thread("started-b") });
+
+    cache.clear();
+    catalog.clear();
+
+    expect(catalog.activeSnapshot()).toBeNull();
+    context.codexPath = "codex-a";
+    expect(catalog.activeSnapshot()).toBeNull();
+  });
+
   it("evicts lifecycle facts for least-recently-used connection contexts", () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
     const { catalog } = catalogFixture({ context: () => context });
@@ -535,8 +550,9 @@ function catalogFixture(
     onEventApplied?: ThreadCatalogEventObserver;
   } = {},
 ) {
+  const cache = cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([])));
   const store = new AppServerSharedQueries({
-    cache: cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([]))),
+    cache,
     context: options.context ?? (() => ({ codexPath: "codex", vaultPath: "/vault" })),
   });
   const catalog = createThreadCatalog(
@@ -547,7 +563,7 @@ function catalogFixture(
         }
       : { store },
   );
-  return { catalog };
+  return { cache, catalog };
 }
 
 function cacheWithThreads(

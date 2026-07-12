@@ -69,6 +69,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   reset(): void {
     this.panels.reset();
     this.appServerQueries.clear();
+    this.threadCatalog.clear();
   }
 
   reconcileWorkspacePanels(leaf: Parameters<WorkspacePanelCoordinator["reconcileWorkspacePanels"]>[0]): void {
