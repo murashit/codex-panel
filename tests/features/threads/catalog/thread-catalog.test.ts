@@ -209,7 +209,7 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toBeNull();
   });
 
-  it("evicts lifecycle facts for least-recently-used connection contexts", () => {
+  it("retains unacknowledged lifecycle facts across connection contexts", () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
     const { catalog } = catalogFixture({ context: () => context });
     catalog.apply({ type: "thread-started", thread: thread("started-a") });
@@ -222,7 +222,50 @@ describe("ThreadCatalog", () => {
     context.codexPath = "codex-a";
     catalog.apply({ type: "active-list-snapshot-received", threads: [thread("server-a")] });
 
-    expect(catalog.activeSnapshot()).toEqual([thread("server-a")]);
+    expect(catalog.activeSnapshot()).toEqual([thread("started-a"), thread("server-a")]);
+  });
+
+  it("prunes inactive contexts after their lifecycle facts settle", () => {
+    const context = { codexPath: "codex-a", vaultPath: "/vault" };
+    const { catalog } = catalogFixture({ context: () => context });
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("server-a")] });
+
+    context.codexPath = "codex-b";
+    expect(catalog.activeSnapshot()).toBeNull();
+    context.codexPath = "codex-a";
+
+    expect(catalog.activeSnapshot()).toBeNull();
+  });
+
+  it("prunes revisited contexts after pending lifecycle facts settle", () => {
+    const context = { codexPath: "codex-a", vaultPath: "/vault" };
+    const { catalog } = catalogFixture({ context: () => context });
+    catalog.apply({ type: "thread-started", thread: thread("started-a") });
+    context.codexPath = "codex-b";
+    catalog.apply({ type: "thread-started", thread: thread("started-b") });
+
+    context.codexPath = "codex-a";
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("started-a")] });
+    context.codexPath = "codex-b";
+    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("started-b")] });
+    context.codexPath = "codex-a";
+
+    expect(catalog.activeSnapshot()).toBeNull();
+  });
+
+  it("preserves raw query status when lifecycle overlays publish", async () => {
+    const refresh = deferred<readonly Thread[]>();
+    const { catalog } = catalogFixture({ fetchThreads: () => refresh.promise });
+    const listener = vi.fn();
+    catalog.observeActive(listener);
+    const refreshing = catalog.refreshActive();
+    await flushMicrotasks();
+
+    catalog.apply({ type: "thread-started", thread: thread("started") });
+
+    expect(listener).toHaveBeenLastCalledWith({ value: [thread("started")], error: null, isFetching: true });
+    refresh.resolve([]);
+    await refreshing;
   });
 
   it("keeps rollback fork metadata until active snapshots catch up to the rollback version", () => {

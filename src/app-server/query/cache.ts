@@ -50,7 +50,6 @@ interface AppServerQueryOptions<T> {
 
 type ThreadListKind = "active" | "archived";
 export type MetadataResourceKind = "skills" | "rateLimits";
-type ThreadListUpdater = (threads: readonly Thread[] | null) => readonly Thread[] | null;
 
 export class AppServerQueryCache {
   private readonly client: QueryClient;
@@ -119,7 +118,7 @@ export class AppServerQueryCache {
       const revision = this.activeThreadRevision(refreshContext);
       const threads = await this.runWithClient(refreshContext, (client) => listThreads(client, refreshContext.vaultPath));
       if (this.activeThreadRevision(refreshContext) !== revision) continue;
-      this.setActiveThreads(refreshContext, threads);
+      this.storeThreadList(refreshContext, "active", threads);
       this.rememberActiveThreadCursor(refreshContext, null);
       return cloneThreads(threads);
     }
@@ -146,29 +145,13 @@ export class AppServerQueryCache {
     const latest = this.activeThreadsSnapshot(refreshContext) ?? current;
     const existingIds = new Set(latest.map((thread) => thread.id));
     const threads = [...latest, ...page.threads.filter((thread) => !existingIds.has(thread.id))];
-    this.setActiveThreads(refreshContext, threads);
+    this.storeThreadList(refreshContext, "active", threads);
     this.rememberActiveThreadCursor(refreshContext, page.nextCursor);
     return cloneThreads(threads);
   }
 
   async refreshArchivedThreads(context: AppServerQueryContext): Promise<readonly Thread[]> {
     return this.fetchArchivedThreads(context, { force: true });
-  }
-
-  setActiveThreads(context: AppServerQueryContext, threads: readonly Thread[]): void {
-    this.setThreadList(context, "active", threads);
-  }
-
-  setArchivedThreads(context: AppServerQueryContext, threads: readonly Thread[]): void {
-    this.setThreadList(context, "archived", threads);
-  }
-
-  updateActiveThreads(context: AppServerQueryContext, updater: ThreadListUpdater): readonly Thread[] | null {
-    return this.updateThreadList(context, "active", updater);
-  }
-
-  updateArchivedThreads(context: AppServerQueryContext, updater: ThreadListUpdater): readonly Thread[] | null {
-    return this.updateThreadList(context, "archived", updater);
   }
 
   private threadListSnapshot(context: AppServerQueryContext, kind: ThreadListKind): readonly Thread[] | null {
@@ -192,20 +175,10 @@ export class AppServerQueryCache {
     return cloneThreads(threads);
   }
 
-  private setThreadList(context: AppServerQueryContext, kind: ThreadListKind, threads: readonly Thread[]): void {
+  private storeThreadList(context: AppServerQueryContext, kind: ThreadListKind, threads: readonly Thread[]): void {
     if (!appServerQueryContextIsComplete(context)) return;
     this.client.setQueryData(this.threadListQueryKey(context, kind), cloneThreads(threads));
     if (kind === "active") this.bumpActiveThreadRevision(context);
-  }
-
-  private updateThreadList(context: AppServerQueryContext, kind: ThreadListKind, updater: ThreadListUpdater): readonly Thread[] | null {
-    if (!appServerQueryContextIsComplete(context)) return null;
-    const current = this.threadListSnapshot(context, kind);
-    const next = updater(current);
-    if (!next) return null;
-    this.client.setQueryData(this.threadListQueryKey(context, kind), cloneThreads(next), current ? undefined : { updatedAt: 0 });
-    if (kind === "active") this.bumpActiveThreadRevision(context);
-    return cloneThreads(next);
   }
 
   appServerMetadataSnapshot(context: AppServerQueryContext): SharedServerMetadata | null {

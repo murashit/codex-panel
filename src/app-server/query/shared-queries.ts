@@ -64,22 +64,6 @@ export class AppServerSharedQueries {
     return this.runForCurrentContext((context) => this.options.cache.refreshArchivedThreads(context));
   }
 
-  setActiveThreads(threads: readonly Thread[]): void {
-    this.options.cache.setActiveThreads(this.context(), threads);
-  }
-
-  setArchivedThreads(threads: readonly Thread[]): void {
-    this.options.cache.setArchivedThreads(this.context(), threads);
-  }
-
-  updateActiveThreads(updater: (threads: readonly Thread[] | null) => readonly Thread[] | null): readonly Thread[] | null {
-    return this.options.cache.updateActiveThreads(this.context(), updater);
-  }
-
-  updateArchivedThreads(updater: (threads: readonly Thread[] | null) => readonly Thread[] | null): readonly Thread[] | null {
-    return this.options.cache.updateArchivedThreads(this.context(), updater);
-  }
-
   observeActiveThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
       (context, contextListener, observeOptions) => this.options.cache.observeActiveThreadsResult(context, contextListener, observeOptions),

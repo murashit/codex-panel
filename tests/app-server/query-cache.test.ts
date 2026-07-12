@@ -20,9 +20,9 @@ describe("AppServerQueryCache", () => {
   it("garbage-collects inactive query contexts", async () => {
     vi.useFakeTimers();
     try {
-      const cache = new AppServerQueryCache();
+      const cache = cacheWithThreads(() => Promise.resolve([thread("temporary")]));
       const context = cacheContext();
-      cache.setActiveThreads(context, [thread("temporary")]);
+      await cache.fetchActiveThreads(context);
 
       await vi.advanceTimersByTimeAsync(300_001);
 
@@ -176,7 +176,6 @@ describe("AppServerQueryCache", () => {
     const context = cacheContext({ codexPath: "" });
 
     await expect(cache.fetchActiveThreads(context)).resolves.toEqual([]);
-    cache.setActiveThreads(context, [thread("applied")]);
     cache.writeAppServerMetadata(context, metadata());
 
     expect(cache.activeThreadsSnapshot(context)).toBeNull();
@@ -212,11 +211,6 @@ describe("AppServerQueryCache", () => {
     const fetchThreads = vi.fn().mockResolvedValue([]);
     const cache = cacheWithThreads(fetchThreads);
     const context = cacheContext();
-
-    cache.setActiveThreads(context, [thread("cached")]);
-    cache.setActiveThreads(context, []);
-
-    expect(cache.activeThreadsSnapshot(context)).toEqual([]);
 
     await expect(cache.refreshActiveThreads(context)).resolves.toEqual([]);
     expect(cache.activeThreadsSnapshot(context)).toEqual([]);
@@ -473,20 +467,18 @@ describe("AppServerQueryCache", () => {
     expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["event"]);
   });
 
-  it("does not overwrite local thread list updates with an in-flight app-server snapshot", async () => {
+  it("stores an in-flight app-server snapshot as raw thread-list truth", async () => {
     const context = cacheContext();
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
     const cache = cacheWithThreads(() => refresh.promise);
 
-    cache.setActiveThreads(context, [thread("thread"), thread("other")]);
     const promise = cache.refreshActiveThreads(context);
     await flushMicrotasks();
 
-    cache.updateActiveThreads(context, (threads) => threads?.filter((item) => item.id !== "thread") ?? null);
     refresh.resolve([thread("thread"), thread("other")]);
 
-    await expect(promise).resolves.toEqual([thread("other")]);
-    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("other")]);
+    await expect(promise).resolves.toEqual([thread("thread"), thread("other")]);
+    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("thread"), thread("other")]);
   });
 });
 
