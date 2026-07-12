@@ -47,7 +47,13 @@ Chat application workflows should receive chat-owned contracts, not root `src/ap
 
 Thread workflows should likewise depend on contracts under `src/features/threads/workflows/`. Keep thread RPC sequencing, client continuity, persisted transcript reads, and Codex-backed title generation in `src/features/threads/app-server/` adapters.
 
+Keep shared thread query records as raw last-known-good app-server snapshots. `ThreadCatalog` owns lifecycle-event overlays and publishes the resulting projection immediately; chat panels, the Threads view, and settings consume that projection without writing optimistic state back into the query cache.
+
+Selection rewrite sessions should depend on the feature-owned transport contract. Keep executable-path and vault-path wiring, short-lived app-server lifecycle, runtime override resolution, and server-request policy in the selection rewrite app-server adapter.
+
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the panel read model adapter. Use Preact Signals only in chat panel rendering adapters such as the shell read model and surface projections. When a surface needs fewer dependencies, narrow the read model instead of passing broad reducer slices.
+
+Each `ChatPanelSession` owns one concrete `ChatPanelSessionRuntime`. That runtime is the per-leaf composition owner for the connection, responder registry, controllers, presenters, shared subscriptions, and disposal ordering; do not add a parallel session graph or late-bound connection bootstrap registry.
 
 Chat feature dependencies should flow from pure workflow and meaning code toward owned adapters and render surfaces. Lower layers must not reach into host/session wiring, panel internals, or UI implementation details.
 

@@ -24,11 +24,10 @@ import { type ChatPanelShellBundle, createShellBundle } from "./bundles/shell-bu
 import { createThreadActionBundle, createThreadFoundation, createThreadLifecycleBundle } from "./bundles/thread-bundle";
 import { createTurnBundle } from "./bundles/turn-bundle";
 import type { ChatPanelEnvironment } from "./contracts";
-import { createConnectedClientResolver } from "./session/connected-client-resolver";
 import type { ChatViewDeferredTasks } from "./session/deferred-work";
 import { type ChatPanelSharedStateBinding, createChatPanelSharedStateBinding } from "./session/shared-state-binding";
 
-export interface ChatPanelSessionGraph {
+interface ChatPanelSessionRuntimeParts {
   connection: {
     manager: ConnectionManager;
     actions: ChatPanelConnectionBundle["connection"]["actions"];
@@ -48,13 +47,13 @@ export interface ChatPanelSessionGraph {
     reconnect(): Promise<void>;
     refreshSharedThreads(): Promise<void>;
     startNewThread(): Promise<void>;
-    dispose(): void;
   };
   runtime: {
     sharedState: ChatPanelSharedStateBinding;
     refreshLiveState(): void;
     deferLiveStateRefresh(): void;
   };
+  disposeOwnedResources: () => void;
 }
 
 interface ChatPanelSessionStatus {
@@ -63,7 +62,7 @@ interface ChatPanelSessionStatus {
   addStructuredSystemMessage: (text: string, details: ThreadStreamNoticeSection[]) => void;
 }
 
-interface ChatPanelSessionGraphHost {
+interface ChatPanelSessionRuntimeHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
   deferredTasks: ChatViewDeferredTasks;
@@ -73,17 +72,54 @@ interface ChatPanelSessionGraphHost {
   viewWindow: () => Window;
 }
 
-export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): ChatPanelSessionGraph {
+export class ChatPanelSessionRuntime {
+  readonly connection: ChatPanelSessionRuntimeParts["connection"];
+  readonly thread: ChatPanelSessionRuntimeParts["thread"];
+  readonly composer: ChatPanelSessionRuntimeParts["composer"];
+  readonly shell: ChatPanelSessionRuntimeParts["shell"];
+  readonly actions: ChatPanelSessionRuntimeParts["actions"];
+  readonly runtime: ChatPanelSessionRuntimeParts["runtime"];
+  private readonly disposeOwnedResources: ChatPanelSessionRuntimeParts["disposeOwnedResources"];
+
+  constructor(private readonly host: ChatPanelSessionRuntimeHost) {
+    const parts = composeChatPanelSessionRuntime(host);
+    this.connection = parts.connection;
+    this.thread = parts.thread;
+    this.composer = parts.composer;
+    this.shell = parts.shell;
+    this.actions = parts.actions;
+    this.runtime = parts.runtime;
+    this.disposeOwnedResources = parts.disposeOwnedResources;
+  }
+
+  async dispose(unmount: () => void): Promise<void> {
+    this.connection.actions.invalidate();
+    this.actions.invalidateThreadWork();
+    this.host.deferredTasks.clearAll();
+    this.runtime.sharedState.unsubscribe();
+    await this.thread.ephemeral.dispose();
+    this.disposeOwnedResources();
+    unmount();
+    this.connection.manager.disconnect();
+    this.runtime.refreshLiveState();
+    this.runtime.deferLiveStateRefresh();
+  }
+}
+
+function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): ChatPanelSessionRuntimeParts {
   const { environment, stateStore } = host;
   const localItemIds = createLocalIdSource();
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
-  const connectedClient = createConnectedClientResolver(currentClient);
+  let ensureConnected = (): Promise<void> => Promise.reject(new Error("Codex app-server connection actions are not initialized."));
   const appServer = createChatAppServerGateway({
     codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
     vaultPath: environment.plugin.settingsRef.vaultPath,
     currentClient,
-    connectedClient: () => connectedClient.resolve(),
+    connectedClient: async () => {
+      await ensureConnected();
+      return currentClient();
+    },
   });
   const status = createSessionStatus(stateStore, localItemIds);
   const refreshTabHeader = () => {
@@ -131,8 +167,7 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
     connection: { actions: connectionActions },
     inboundHandler,
   } = connectionBundle;
-  const ensureConnected = () => connectionActions.ensureConnected();
-  connectedClient.bindEnsureConnected(ensureConnected);
+  ensureConnected = () => connectionActions.ensureConnected();
   const refreshActiveThreads = () => connectionActions.refreshActiveThreads();
   const runtime = createRuntimeBundle(host, {
     connection,
@@ -281,16 +316,16 @@ export function createChatPanelSessionGraph(host: ChatPanelSessionGraphHost): Ch
       reconnect,
       refreshSharedThreads,
       startNewThread: () => threadActions.navigation.startNewThread(),
-      dispose: () => {
-        connectionBundle.invalidateConnectionScope();
-        shell.dispose();
-        composerController.dispose();
-      },
     },
     runtime: {
       sharedState,
       refreshLiveState,
       deferLiveStateRefresh,
+    },
+    disposeOwnedResources: () => {
+      connectionBundle.invalidateConnectionScope();
+      shell.dispose();
+      composerController.dispose();
     },
   };
 }

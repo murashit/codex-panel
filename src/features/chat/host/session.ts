@@ -10,11 +10,11 @@ import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom"
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot, ChatWorkspacePanelTurnLifecycle } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
-import { type ChatPanelSessionGraph, createChatPanelSessionGraph } from "./session-graph";
+import { ChatPanelSessionRuntime } from "./session-runtime";
 
 export class ChatPanelSession implements ChatPanelHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();
-  private readonly graph: ChatPanelSessionGraph;
+  private readonly runtime: ChatPanelSessionRuntime;
 
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly resumeWork = new ChatResumeWorkTracker();
@@ -27,7 +27,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   constructor(private readonly environment: ChatPanelEnvironment) {
     this.observedAppServerContext = this.currentAppServerContext();
     this.deferredTasks = createChatViewDeferredTasks(() => this.viewWindow());
-    this.graph = this.createSessionGraph();
+    this.runtime = this.createSessionRuntime();
   }
 
   displayTitle(): string {
@@ -63,8 +63,8 @@ export class ChatPanelSession implements ChatPanelHandle {
     const ephemeralSource = parseEphemeralSourceState(state);
     if (ephemeralSource) {
       this.ephemeralSourcePlaceholder = ephemeralSource;
-      this.graph.actions.invalidateThreadWork();
-      this.graph.thread.restoration.clear();
+      this.runtime.actions.invalidateThreadWork();
+      this.runtime.thread.restoration.clear();
       this.stateStore.dispatch({
         type: "thread-stream/system-item-added",
         item: {
@@ -79,12 +79,12 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.ephemeralSourcePlaceholder = null;
     const restoredThread = parseRestoredThreadState(state);
     if (restoredThread) {
-      this.graph.thread.restoration.restore(restoredThread);
+      this.runtime.thread.restoration.restore(restoredThread);
       return;
     }
 
-    this.graph.actions.invalidateThreadWork();
-    this.graph.thread.restoration.clear();
+    this.runtime.actions.invalidateThreadWork();
+    this.runtime.thread.restoration.clear();
     this.scheduleWarmup();
   }
 
@@ -92,18 +92,18 @@ export class ChatPanelSession implements ChatPanelHandle {
     const nextContext = this.currentAppServerContext();
     if (!appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
       this.observedAppServerContext = nextContext;
-      void this.graph.actions.reconnect();
-      this.graph.runtime.sharedState.applyCached();
+      void this.runtime.actions.reconnect();
+      this.runtime.runtime.sharedState.applyCached();
     }
     this.mountOrRepairShell();
   }
 
   refreshSharedThreads(): Promise<void> {
-    return this.graph.actions.refreshSharedThreads();
+    return this.runtime.actions.refreshSharedThreads();
   }
 
   canServeAppServerContext(context: AppServerQueryContext): boolean {
-    const connectionContext = this.graph.connection.manager.currentConnectionContext();
+    const connectionContext = this.runtime.connection.manager.currentConnectionContext();
     return Boolean(
       connectionContext &&
         appServerQueryContextMatches(
@@ -117,10 +117,10 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> {
-    const client = this.graph.connection.manager.currentClient();
+    const client = this.runtime.connection.manager.currentClient();
     if (!client) throw new Error("Codex app-server is not connected.");
     const result = await operation(client);
-    if (this.graph.connection.manager.currentClient() !== client) {
+    if (this.runtime.connection.manager.currentClient() !== client) {
       throw new Error("Codex app-server connection changed while loading shared queries.");
     }
     return result;
@@ -134,20 +134,20 @@ export class ChatPanelSession implements ChatPanelHandle {
       turnLifecycle: openPanelTurnLifecycle(this.state.turn.lifecycle),
       pendingRequests,
       hasComposerDraft: this.state.composer.draft.trim().length > 0,
-      connected: this.graph.connection.manager.isConnected(),
+      connected: this.runtime.connection.manager.isConnected(),
     };
   }
 
   async openThread(threadId: string): Promise<void> {
-    if (!(await this.graph.thread.ephemeral.prepareForPersistentNavigation())) return;
+    if (!(await this.runtime.thread.ephemeral.prepareForPersistentNavigation())) return;
     this.ephemeralSourcePlaceholder = null;
-    await this.graph.thread.resume.resumeThread(threadId);
+    await this.runtime.thread.resume.resumeThread(threadId);
     this.focusComposer();
   }
 
   async focusThread(threadId: string | null = null): Promise<void> {
     const restoredThreadId = this.restoredThread()?.threadId ?? null;
-    if ((threadId && this.graph.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
+    if ((threadId && this.runtime.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
       await this.ensureRestoredThreadLoaded();
     }
     this.focusComposer();
@@ -158,16 +158,16 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   focusComposer(): void {
-    this.graph.composer.controller.focusComposer();
+    this.runtime.composer.controller.focusComposer();
   }
 
   applyThreadArchived(threadId: string): void {
-    this.graph.thread.identity.applyThreadArchiveToActiveIdentity(threadId);
+    this.runtime.thread.identity.applyThreadArchiveToActiveIdentity(threadId);
   }
 
   applyThreadRenamed(threadId: string, name: string | null): void {
     const previousRestoredExplicitName = this.restoredThread()?.explicitName ?? null;
-    this.graph.thread.identity.applyThreadRenameToActiveIdentity(threadId, name);
+    this.runtime.thread.identity.applyThreadRenameToActiveIdentity(threadId, name);
     if (this.restoredThread()?.explicitName !== previousRestoredExplicitName) {
       this.mountOrRepairShell();
     }
@@ -179,7 +179,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     this.environment.obsidian.registerPointerDown((event) => {
       this.closeToolbarPanelOnOutsidePointer(event);
     });
-    this.graph.runtime.sharedState.subscribe();
+    this.runtime.runtime.sharedState.subscribe();
     this.mountOrRepairShell();
     this.scheduleWarmup();
   }
@@ -187,34 +187,27 @@ export class ChatPanelSession implements ChatPanelHandle {
   async close(): Promise<void> {
     this.opened = false;
     this.closing = true;
-    this.graph.connection.actions.invalidate();
-    this.graph.actions.invalidateThreadWork();
-    this.deferredTasks.clearAll();
-    this.graph.runtime.sharedState.unsubscribe();
-    await this.graph.thread.ephemeral.dispose();
     const panelRoot = this.environment.view.panelRoot();
-    this.graph.actions.dispose();
-    unmountChatPanelShell(panelRoot);
-    this.graph.connection.manager.disconnect();
-    this.graph.runtime.refreshLiveState();
-    this.graph.runtime.deferLiveStateRefresh();
+    await this.runtime.dispose(() => {
+      unmountChatPanelShell(panelRoot);
+    });
   }
 
   setComposerText(text: string): void {
-    this.graph.composer.controller.setDraft(text, { focus: true });
+    this.runtime.composer.controller.setDraft(text, { focus: true });
   }
 
   async connect(): Promise<void> {
-    await this.graph.connection.actions.ensureConnected();
+    await this.runtime.connection.actions.ensureConnected();
   }
 
   async startNewThread(): Promise<void> {
-    await this.graph.actions.startNewThread();
+    await this.runtime.actions.startNewThread();
     if (!this.state.activeThread.id) this.ephemeralSourcePlaceholder = null;
   }
 
   async openSideChat(input: { sourceThreadId: string; sourceThreadTitle: string | null }): Promise<boolean> {
-    const opened = await this.graph.thread.ephemeral.open(input);
+    const opened = await this.runtime.thread.ephemeral.open(input);
     if (!opened) return false;
     this.ephemeralSourcePlaceholder = null;
     this.focusComposer();
@@ -231,17 +224,17 @@ export class ChatPanelSession implements ChatPanelHandle {
     renderChatPanelShell(root, {
       stateStore: this.stateStore,
       showToolbar: this.environment.plugin.settingsRef.settings.showToolbar(),
-      parts: this.graph.shell.parts,
+      parts: this.runtime.shell.parts,
     });
   }
 
   private scheduleWarmup(): void {
-    const shouldWarmup = (): boolean => this.opened && !this.graph.connection.manager.isConnected();
+    const shouldWarmup = (): boolean => this.opened && !this.runtime.connection.manager.isConnected();
     if (!shouldWarmup()) return;
 
     this.deferredTasks.scheduleAppServerWarmup(() => {
       if (!shouldWarmup() || this.closing) return;
-      void this.graph.connection.actions.ensureConnected();
+      void this.runtime.connection.actions.ensureConnected();
     });
   }
 
@@ -257,7 +250,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {
-    this.graph.shell.closeToolbarPanelOnOutsidePointer(event);
+    this.runtime.shell.closeToolbarPanelOnOutsidePointer(event);
   }
 
   private activeThreadTitle(): string | null {
@@ -272,7 +265,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   private restoredThread(): RestoredThreadPlaceholderState | null {
-    return this.graph.thread.restoration.placeholder();
+    return this.runtime.thread.restoration.placeholder();
   }
 
   private panelThreadId(): string | null {
@@ -280,11 +273,11 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   private ensureRestoredThreadLoaded(): Promise<boolean> {
-    return this.graph.thread.restoration.ensureLoaded((threadId) => this.graph.thread.resume.resumeThread(threadId));
+    return this.runtime.thread.restoration.ensureLoaded((threadId) => this.runtime.thread.resume.resumeThread(threadId));
   }
 
-  private createSessionGraph(): ChatPanelSessionGraph {
-    return createChatPanelSessionGraph({
+  private createSessionRuntime(): ChatPanelSessionRuntime {
+    return new ChatPanelSessionRuntime({
       environment: this.environment,
       stateStore: this.stateStore,
       deferredTasks: this.deferredTasks,

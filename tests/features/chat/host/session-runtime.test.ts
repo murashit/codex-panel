@@ -10,7 +10,7 @@ import { HistoryController } from "../../../../src/features/chat/application/thr
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
 import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/contracts";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
-import { createChatPanelSessionGraph } from "../../../../src/features/chat/host/session-graph";
+import { ChatPanelSessionRuntime } from "../../../../src/features/chat/host/session-runtime";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { ThreadStreamPresenter } from "../../../../src/features/chat/panel/surface/thread-stream-presenter";
 import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
@@ -21,7 +21,7 @@ import { chatPanelSettingsAccess } from "../support/settings";
 
 installObsidianDomShims();
 
-describe("createChatPanelSessionGraph actions", () => {
+describe("ChatPanelSessionRuntime actions", () => {
   let panelRoot: HTMLElement;
 
   beforeEach(() => {
@@ -33,21 +33,21 @@ describe("createChatPanelSessionGraph actions", () => {
     document.body.replaceChildren();
   });
 
-  it("invalidates thread work through the graph action", () => {
-    const { graph, resumeWork } = sessionGraphFixture();
+  it("invalidates thread work through the runtime action", () => {
+    const { runtime, resumeWork } = sessionRuntimeFixture();
     const resume = resumeWork.begin("thread-1");
     const invalidateHistory = vi.spyOn(HistoryController.prototype, "invalidate");
 
-    graph.actions.invalidateThreadWork();
+    runtime.actions.invalidateThreadWork();
 
     expect(resumeWork.isStale(resume)).toBe(true);
     expect(invalidateHistory).toHaveBeenCalledOnce();
   });
 
-  it("refreshes shared threads inside the graph connection bundle", async () => {
+  it("refreshes shared threads inside the runtime connection bundle", async () => {
     const thread = threadFixture({ id: "thread-1", preview: "From catalog" });
     const refresh = vi.fn().mockResolvedValue([thread]);
-    const { graph, stateStore } = sessionGraphFixture({
+    const { runtime, stateStore } = sessionRuntimeFixture({
       environment: {
         plugin: {
           threadCatalog: {
@@ -57,16 +57,16 @@ describe("createChatPanelSessionGraph actions", () => {
       },
     });
 
-    await graph.actions.refreshSharedThreads();
+    await runtime.actions.refreshSharedThreads();
 
     expect(refresh).toHaveBeenCalledOnce();
     expect(stateStore.getState().threadList.listedThreads).toEqual([thread]);
     expect(stateStore.getState().threadList.threadsLoaded).toBe(true);
   });
 
-  it("treats stale shared thread refreshes as graph-local no-ops", async () => {
+  it("treats stale shared thread refreshes as runtime-local no-ops", async () => {
     const refresh = vi.fn().mockRejectedValue(new StaleAppServerSharedQueryContextError());
-    const { graph, stateStore } = sessionGraphFixture({
+    const { runtime, stateStore } = sessionRuntimeFixture({
       environment: {
         plugin: {
           threadCatalog: {
@@ -76,7 +76,7 @@ describe("createChatPanelSessionGraph actions", () => {
       },
     });
 
-    await expect(graph.actions.refreshSharedThreads()).resolves.toBeUndefined();
+    await expect(runtime.actions.refreshSharedThreads()).resolves.toBeUndefined();
 
     expect(refresh).toHaveBeenCalledOnce();
     expect(stateStore.getState().threadList.threadsLoaded).toBe(false);
@@ -85,7 +85,7 @@ describe("createChatPanelSessionGraph actions", () => {
   it("applies cached shared state from the runtime binding", () => {
     const thread = threadFixture({ id: "thread-1", preview: "Cached thread" });
     const model = modelFixture({ id: "model-1", model: "gpt-cached" });
-    const { graph, stateStore } = sessionGraphFixture({
+    const { runtime, stateStore } = sessionRuntimeFixture({
       environment: {
         plugin: {
           threadCatalog: {
@@ -98,7 +98,7 @@ describe("createChatPanelSessionGraph actions", () => {
       },
     });
 
-    graph.runtime.sharedState.applyCached();
+    runtime.runtime.sharedState.applyCached();
 
     expect(stateStore.getState().threadList.listedThreads).toEqual([thread]);
     expect(stateStore.getState().connection.availableModels).toEqual([model]);
@@ -111,7 +111,7 @@ describe("createChatPanelSessionGraph actions", () => {
     const observeThreads = vi.fn(() => cleanupThreads);
     const observeMetadata = vi.fn(() => cleanupMetadata);
     const observeModels = vi.fn(() => cleanupModels);
-    const { graph } = sessionGraphFixture({
+    const { runtime } = sessionRuntimeFixture({
       environment: {
         plugin: {
           threadCatalog: {
@@ -125,8 +125,8 @@ describe("createChatPanelSessionGraph actions", () => {
       },
     });
 
-    graph.runtime.sharedState.subscribe();
-    graph.runtime.sharedState.unsubscribe();
+    runtime.runtime.sharedState.subscribe();
+    runtime.runtime.sharedState.unsubscribe();
 
     expect(observeThreads).toHaveBeenCalledWith(expect.any(Function), { emitCurrent: false });
     expect(observeMetadata).toHaveBeenCalledWith(expect.any(Function), { emitCurrent: false });
@@ -136,12 +136,12 @@ describe("createChatPanelSessionGraph actions", () => {
     expect(cleanupModels).toHaveBeenCalledOnce();
   });
 
-  it("starts a new thread from graph state and composer actions", async () => {
+  it("starts a new thread from runtime state and composer actions", async () => {
     const focusComposer = vi.spyOn(ChatComposerController.prototype, "focusComposer").mockImplementation(() => undefined);
     const refreshLiveState = vi.fn();
     const requestWorkspaceLayoutSave = vi.fn();
     const refreshTabHeader = vi.fn();
-    const { graph, stateStore } = sessionGraphFixture({
+    const { runtime, stateStore } = sessionRuntimeFixture({
       environment: {
         obsidian: {
           requestWorkspaceLayoutSave,
@@ -173,7 +173,7 @@ describe("createChatPanelSessionGraph actions", () => {
     });
     stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
 
-    await graph.actions.startNewThread();
+    await runtime.actions.startNewThread();
 
     expect(stateStore.getState().activeThread.id).toBeNull();
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
@@ -186,21 +186,21 @@ describe("createChatPanelSessionGraph actions", () => {
 
   it("does not clear the current thread while a turn is busy", async () => {
     const focusComposer = vi.spyOn(ChatComposerController.prototype, "focusComposer").mockImplementation(() => undefined);
-    const { graph, stateStore } = sessionGraphFixture();
+    const { runtime, stateStore } = sessionRuntimeFixture();
     stateStore.dispatch({
       type: "turn/started",
       threadId: "thread-1",
       turnId: "turn-1",
     });
 
-    await graph.actions.startNewThread();
+    await runtime.actions.startNewThread();
 
     expect(stateStore.getState().activeThread.id).toBe("thread-1");
     expect(focusComposer).not.toHaveBeenCalled();
   });
 
-  it("wires reconnect cleanup through the graph toolbar action", async () => {
-    const { graph, stateStore, deferredTasks } = sessionGraphFixture();
+  it("wires reconnect cleanup through the runtime toolbar action", async () => {
+    const { runtime, stateStore, deferredTasks } = sessionRuntimeFixture();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -216,13 +216,13 @@ describe("createChatPanelSessionGraph actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    const invalidateConnection = vi.spyOn(graph.connection.actions, "invalidate");
+    const invalidateConnection = vi.spyOn(runtime.connection.actions, "invalidate");
     const clearDiagnostics = vi.spyOn(deferredTasks, "clearDiagnostics");
-    const resetConnection = vi.spyOn(graph.connection.manager, "resetConnection");
-    const ensureConnected = vi.spyOn(graph.connection.actions, "ensureConnected").mockResolvedValue(undefined);
-    const resumeThread = vi.spyOn(graph.thread.resume, "resumeThread").mockResolvedValue(undefined);
+    const resetConnection = vi.spyOn(runtime.connection.manager, "resetConnection");
+    const ensureConnected = vi.spyOn(runtime.connection.actions, "ensureConnected").mockResolvedValue(undefined);
+    const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue(undefined);
 
-    graph.shell.parts.toolbar.actions.status.connect();
+    runtime.shell.parts.toolbar.actions.status.connect();
 
     await waitForAsyncWork(() => {
       expect(resumeThread).toHaveBeenCalledWith("thread-1");
@@ -234,19 +234,19 @@ describe("createChatPanelSessionGraph actions", () => {
     expect(ensureConnected).toHaveBeenCalledOnce();
   });
 
-  it("disposes presenter and composer resources from the graph action", () => {
+  it("disposes presenter and composer resources through the complete runtime lifecycle", async () => {
     const disposePresenter = vi.spyOn(ThreadStreamPresenter.prototype, "dispose").mockImplementation(() => undefined);
     const disposeComposer = vi.spyOn(ChatComposerController.prototype, "dispose").mockImplementation(() => undefined);
-    const { graph } = sessionGraphFixture();
+    const { runtime } = sessionRuntimeFixture();
 
-    graph.actions.dispose();
+    await runtime.dispose(() => undefined);
 
     expect(disposePresenter).toHaveBeenCalledOnce();
     expect(disposeComposer).toHaveBeenCalledOnce();
   });
 
-  function sessionGraphFixture(options: { environment?: PartialChatPanelEnvironment } = {}): {
-    graph: ReturnType<typeof createChatPanelSessionGraph>;
+  function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment } = {}): {
+    runtime: ChatPanelSessionRuntime;
     stateStore: ChatStateStore;
     resumeWork: ChatResumeWorkTracker;
     deferredTasks: ReturnType<typeof createChatViewDeferredTasks>;
@@ -255,7 +255,7 @@ describe("createChatPanelSessionGraph actions", () => {
     const resumeWork = new ChatResumeWorkTracker();
     const deferredTasks = createChatViewDeferredTasks(() => window);
     const environment = chatPanelEnvironmentFixture(options.environment);
-    const graph = createChatPanelSessionGraph({
+    const runtime = new ChatPanelSessionRuntime({
       environment,
       stateStore,
       deferredTasks,
@@ -264,7 +264,7 @@ describe("createChatPanelSessionGraph actions", () => {
       getClosing: () => false,
       viewWindow: () => window,
     });
-    return { graph, stateStore, resumeWork, deferredTasks };
+    return { runtime, stateStore, resumeWork, deferredTasks };
   }
 
   interface PartialChatPanelEnvironment {
