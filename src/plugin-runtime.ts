@@ -16,6 +16,7 @@ import type {
   CodexChatHost,
 } from "./features/chat/host/contracts";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
+import { createThreadOperationsTransport, createThreadTitleTransport } from "./features/threads/app-server/workflow-transports";
 import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
@@ -158,8 +159,15 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     return {
       settings: this.threadsSettings(),
       vaultPath: this.options.settingsRef.vaultPath,
-      clientAccess: this,
       threadCatalog: this.threadCatalog,
+      threadOperationsTransport: createThreadOperationsTransport(this),
+      threadTitleTransport: createThreadTitleTransport({
+        clientAccess: this,
+        codexPath: () => this.options.settingsRef.settings.codexPath,
+        vaultPath: this.options.settingsRef.vaultPath,
+        threadNamingModel: () => this.options.settingsRef.settings.threadNamingModel,
+        threadNamingEffort: () => this.options.settingsRef.settings.threadNamingEffort,
+      }),
       openNewPanel: () => this.panels.openNewPanel(),
       openThreadInAvailableView: (threadId) => this.panels.openThreadInAvailableView(threadId),
       openPanelActivities: () => this.openPanelActivities(),

@@ -1,6 +1,5 @@
 import { Notice } from "obsidian";
 
-import type { AppServerClientAccess } from "../../app-server/connection/client-access";
 import type { ObservedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
@@ -10,6 +9,7 @@ import type { Thread } from "../../domain/threads/model";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
+import type { ThreadOperationsTransport, ThreadTitleTransport } from "../threads/workflows/ports";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
@@ -32,8 +32,9 @@ import {
 export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
-  readonly clientAccess: AppServerClientAccess;
   readonly threadCatalog: ThreadsViewThreadCatalog;
+  readonly threadOperationsTransport: ThreadOperationsTransport;
+  readonly threadTitleTransport: ThreadTitleTransport;
   openNewPanel(): Promise<unknown>;
   openThreadInAvailableView(threadId: string): Promise<void>;
   openPanelActivities(): readonly ThreadsViewPanelActivity[];
@@ -83,7 +84,7 @@ export class ThreadsViewSession {
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
     this.deferredTasks = createThreadsViewDeferredTasks(() => this.viewWindow());
     this.operations = createThreadOperations({
-      clientAccess: this.host.clientAccess,
+      transport: this.host.threadOperationsTransport,
       archiveExport: {
         settings: () => this.host.settings.archiveExportSettings(),
         enabled: () => this.host.settings.archiveExportEnabled(),
@@ -97,11 +98,7 @@ export class ThreadsViewSession {
       },
     });
     this.titleService = createThreadTitleService({
-      codexPath: () => this.host.settings.codexPath(),
-      vaultPath: this.host.vaultPath,
-      threadNamingModel: () => this.host.settings.threadNamingModel(),
-      threadNamingEffort: () => this.host.settings.threadNamingEffort(),
-      clientAccess: this.host.clientAccess,
+      transport: this.host.threadTitleTransport,
     });
   }
 

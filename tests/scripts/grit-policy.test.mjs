@@ -42,6 +42,7 @@ const CHAT_PRESENTATION_OUTER_LAYER_MESSAGE =
   "Chat presentation modules must stay pure view-model projection; keep application, app-server, host, panel, and UI dependencies outward.";
 const CHAT_UI_OUTER_LAYER_MESSAGE =
   "Chat UI modules must not import application, app-server, host, or panel layers; pass render-ready props and actions through UI contracts.";
+const THREAD_WORKFLOW_APP_SERVER_MESSAGE = "Thread workflows must depend on feature-owned ports instead of app-server clients or services.";
 const DOM_BOUNDARY_MESSAGE =
   "Keep DOM reads, writes, measurements, hit-tests, focus, and event wiring in files named with a .dom, .obsidian, or .measure suffix.";
 const DOM_EVENTS_IMPORT_MESSAGE = "Import DOM event listener helpers only from explicit .dom, .obsidian, or .measure bridge files.";
@@ -104,6 +105,36 @@ describe("Biome Grit plugin wiring", () => {
 });
 
 describe("GritQL matcher assumptions", () => {
+  it("keeps thread workflows behind feature-owned app-server ports", async () => {
+    const cwd = await tempBiomeWorkspace(["no-thread-workflow-app-server-imports.grit"]);
+    await writeFile(
+      path.join(cwd, "src/features/threads/workflows/bad.ts"),
+      `
+import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
+import { renameThread } from "../../../app-server/services/threads";
+
+export const values = [renameThread] satisfies unknown[];
+export type Access = AppServerClientAccess;
+`.trimStart(),
+    );
+    await writeFile(
+      path.join(cwd, "src/features/threads/workflows/good.ts"),
+      `
+import type { ThreadOperationsTransport } from "./ports";
+
+export type Transport = ThreadOperationsTransport;
+`.trimStart(),
+    );
+
+    const report = biomeLint(["src/features/threads/workflows/bad.ts", "src/features/threads/workflows/good.ts"], cwd);
+
+    expect(pluginMessages(report, "src/features/threads/workflows/bad.ts")).toEqual([
+      THREAD_WORKFLOW_APP_SERVER_MESSAGE,
+      THREAD_WORKFLOW_APP_SERVER_MESSAGE,
+    ]);
+    expect(pluginDiagnostics(report, "src/features/threads/workflows/good.ts")).toEqual([]);
+  });
+
   it("documents project-wide source-shape policy matchers as Biome plugin diagnostics", async () => {
     const cwd = await tempBiomeWorkspace([
       "no-handwritten-reexports.grit",

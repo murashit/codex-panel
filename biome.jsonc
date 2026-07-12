@@ -93,6 +93,10 @@
       "path": "./scripts/grit/import-boundaries/no-workspace-chat-internal-imports.grit",
       "includes": ["**/src/workspace/**/*.ts"]
     },
+    {
+      "path": "./scripts/grit/import-boundaries/no-thread-workflow-app-server-imports.grit",
+      "includes": ["**/src/features/threads/workflows/**/*.ts"]
+    },
 
     // Chat feature layer boundaries.
     {

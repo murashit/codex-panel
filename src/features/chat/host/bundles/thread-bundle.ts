@@ -1,6 +1,7 @@
 import { Notice } from "obsidian";
 
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
+import { createThreadOperationsTransport, createThreadTitleTransport } from "../../../threads/app-server/workflow-transports";
 import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
 import type { ChatAppServerGateway } from "../../app-server/session-gateway";
@@ -111,18 +112,22 @@ interface ChatPanelThreadActionBundle {
 export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPanelThreadFoundationInput): ChatPanelThreadFoundation {
   const { appServer, localItemIds, status, refreshLiveState } = input;
   const { environment, stateStore } = host;
-  const titleService = createThreadTitleService({
+  const threadOperationsTransport = createThreadOperationsTransport(appServer.clientAccess);
+  const threadTitleTransport = createThreadTitleTransport({
+    clientAccess: appServer.clientAccess,
     codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
     vaultPath: environment.plugin.settingsRef.vaultPath,
     threadNamingModel: () => environment.plugin.settingsRef.settings.threadNamingModel(),
     threadNamingEffort: () => environment.plugin.settingsRef.settings.threadNamingEffort(),
-    clientAccess: appServer.clientAccess,
+  });
+  const titleService = createThreadTitleService({
+    transport: threadTitleTransport,
     visibleContext: (threadId) => activeThreadRenameTitleContext(stateStore.getState(), threadId),
     visibleCompletedTurnContext: (turnId) =>
       threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
   });
   const threadOperations = createThreadOperations({
-    clientAccess: appServer.clientAccess,
+    transport: threadOperationsTransport,
     archiveExport: {
       settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
       enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),

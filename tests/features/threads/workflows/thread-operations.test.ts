@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import { createThreadOperationsTransport } from "../../../../src/features/threads/app-server/workflow-transports";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
 import {
   type ArchiveThreadResult,
@@ -117,7 +118,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
   };
   const notice = vi.fn();
   const host: ThreadOperationsHost = {
-    clientAccess: {
+    transport: createThreadOperationsTransport({
       withClient: async (operation) => {
         const client = currentClient() as AppServerClient | null;
         if (!client) throw new Error("No current client.");
@@ -125,7 +126,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
         if ((currentClient() as AppServerClient | null) !== client) throw new Error("Client changed.");
         return result;
       },
-    },
+    }),
     archiveExport: {
       settings: archiveExportSettings,
       enabled: () => false,

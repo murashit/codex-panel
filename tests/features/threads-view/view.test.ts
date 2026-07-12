@@ -5,6 +5,7 @@ import type { TurnRecord } from "../../../src/app-server/protocol/turn";
 import type { ObservedResult } from "../../../src/app-server/query/observed-result";
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
 import type { Thread } from "../../../src/domain/threads/model";
+import { createThreadOperationsTransport, createThreadTitleTransport } from "../../../src/features/threads/app-server/workflow-transports";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -594,6 +595,13 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
   const threadCatalogOverrides =
     "threadCatalog" in overrides && typeof overrides["threadCatalog"] === "object" ? overrides["threadCatalog"] : {};
   const hostOverrides = Object.fromEntries(Object.entries(overrides).filter(([key]) => key !== "threadCatalog"));
+  const clientAccess = {
+    withClient: async <T>(operation: (client: never) => Promise<T>): Promise<T> => {
+      const client = connectionMock.state.client;
+      if (!client) throw new Error("No current client.");
+      return operation(client as never);
+    },
+  };
   return {
     settings: {
       archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
@@ -607,13 +615,14 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       }),
     },
     vaultPath: "/vault",
-    clientAccess: {
-      withClient: async <T>(operation: (client: never) => Promise<T>): Promise<T> => {
-        const client = connectionMock.state.client;
-        if (!client) throw new Error("No current client.");
-        return operation(client as never);
-      },
-    },
+    threadOperationsTransport: createThreadOperationsTransport(clientAccess),
+    threadTitleTransport: createThreadTitleTransport({
+      clientAccess,
+      codexPath: () => "codex",
+      vaultPath: "/vault",
+      threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
+      threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
+    }),
     openNewPanel: vi.fn().mockResolvedValue(undefined),
     openThreadInAvailableView: vi.fn().mockResolvedValue(undefined),
     openPanelActivities: vi.fn(() => []),

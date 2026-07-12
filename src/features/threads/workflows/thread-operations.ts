@@ -1,16 +1,11 @@
-import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import {
-  archiveThread as archiveAppServerThread,
-  readThreadForArchiveExport,
-  renameThread as renameAppServerThread,
-} from "../../../app-server/services/threads";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { ThreadCatalogEventSink } from "../catalog/thread-catalog";
 import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "./archive-export";
+import type { ThreadOperationsTransport } from "./ports";
 
 export interface ThreadOperationsHost {
-  clientAccess: AppServerClientAccess;
+  transport: ThreadOperationsTransport;
   archiveExport: {
     settings(): ArchiveExportSettings;
     enabled(): boolean;
@@ -55,7 +50,7 @@ async function renameThread(
   const name = normalizeExplicitThreadName(value);
   if (!name) return false;
 
-  await host.clientAccess.withClient((client) => renameAppServerThread(client, threadId, name));
+  await host.transport.renameThread(threadId, name);
   if (options.shouldPublish?.() ?? true) {
     host.catalog.apply({ type: "thread-renamed", threadId, name });
   }
@@ -67,24 +62,25 @@ async function archiveThread(
   threadId: string,
   options: ArchiveThreadOptions = {},
 ): Promise<ArchiveThreadResult> {
-  const exportedPath = await host.clientAccess.withClient(async (client) => {
-    let path: string | null = null;
-    if (options.saveMarkdown ?? host.archiveExport.enabled()) {
-      const archiveSettings = host.archiveExport.settings();
-      const result = await exportArchivedThreadMarkdown(
-        await readThreadForArchiveExport(client, threadId),
-        {
-          ...archiveSettings,
-          vaultPath: host.archiveExport.vaultPath,
-          vaultConfigDir: host.archiveExport.vaultConfigDir,
-        },
-        host.archiveDestination(),
-      );
-      path = result.path;
-    }
-    await archiveAppServerThread(client, threadId);
-    return path;
-  });
+  const shouldExport = options.saveMarkdown ?? host.archiveExport.enabled();
+  const exportedPath = await host.transport.archiveThread(
+    threadId,
+    shouldExport
+      ? async (thread) => {
+          const archiveSettings = host.archiveExport.settings();
+          const result = await exportArchivedThreadMarkdown(
+            thread,
+            {
+              ...archiveSettings,
+              vaultPath: host.archiveExport.vaultPath,
+              vaultConfigDir: host.archiveExport.vaultConfigDir,
+            },
+            host.archiveDestination(),
+          );
+          return result.path;
+        }
+      : undefined,
+  );
   if (exportedPath) {
     host.notice(`Saved archived thread to ${exportedPath}.`);
   }

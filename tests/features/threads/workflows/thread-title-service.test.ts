@@ -6,7 +6,6 @@ import {
   type ThreadTitleService,
   type ThreadTitleServiceHost,
 } from "../../../../src/features/threads/workflows/thread-title-service";
-import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
 
 describe("ThreadTitleService", () => {
   it("generates a title from visible context without saving it", async () => {
@@ -15,7 +14,10 @@ describe("ThreadTitleService", () => {
     const service = titleService({
       visibleContext: () => titleContext("visible request", "visible response"),
       generateThreadTitle,
-      clientAccess: { withClient },
+      transport: {
+        persistedContext: withClient,
+        generateTitle: generateThreadTitle,
+      },
     });
 
     await expect(service.generateTitle("thread")).resolves.toBe("Generated title");
@@ -53,12 +55,9 @@ describe("ThreadTitleService", () => {
 
 function titleService(options: Partial<ThreadTitleServiceHost> = {}): ThreadTitleService {
   return createThreadTitleService({
-    codexPath: () => "codex",
-    vaultPath: "/vault",
-    threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
-    threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
-    clientAccess: {
-      withClient: vi.fn().mockResolvedValue(null),
+    transport: {
+      persistedContext: vi.fn().mockResolvedValue(null),
+      generateTitle: vi.fn().mockResolvedValue(null),
     },
     ...options,
   });

@@ -45,6 +45,8 @@ Generated app-server types should stay behind app-server connection and protocol
 
 Chat application workflows should receive chat-owned contracts, not root `src/app-server/` modules or direct `AppServerClient` access. Keep app-server access, connection freshness checks, vault-path injection, and payload projection in `src/features/chat/app-server/` transports or host-owned wiring.
 
+Thread workflows should likewise depend on contracts under `src/features/threads/workflows/`. Keep thread RPC sequencing, client continuity, persisted transcript reads, and Codex-backed title generation in `src/features/threads/app-server/` adapters.
+
 Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the panel read model adapter. Use Preact Signals only in chat panel rendering adapters such as the shell read model and surface projections. When a surface needs fewer dependencies, narrow the read model instead of passing broad reducer slices.
 
 Chat feature dependencies should flow from pure workflow and meaning code toward owned adapters and render surfaces. Lower layers must not reach into host/session wiring, panel internals, or UI implementation details.

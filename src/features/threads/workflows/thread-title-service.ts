@@ -1,21 +1,13 @@
-import type { AppServerClientAccess } from "../../../app-server/connection/client-access";
-import { generateThreadTitleWithCodex } from "../../../app-server/services/thread-title-generation";
-import { readCompletedTurnTranscriptSummariesPage } from "../../../app-server/services/threads";
-import type { ReasoningEffort } from "../../../domain/catalog/metadata";
 import {
-  findThreadTitleContext,
   THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE,
   type ThreadTitleContext,
   threadTitleContextFromTurnTranscriptSummary,
 } from "../../../domain/threads/title-generation-model";
 import type { TurnTranscriptSummary } from "../../../domain/threads/transcript";
+import type { ThreadTitleTransport } from "./ports";
 
 export interface ThreadTitleServiceHost {
-  codexPath: () => string;
-  vaultPath: string;
-  threadNamingModel: () => string | null;
-  threadNamingEffort: () => ReasoningEffort | null;
-  clientAccess: AppServerClientAccess;
+  transport: ThreadTitleTransport;
   visibleContext?(threadId: string): ThreadTitleContext | null;
   visibleCompletedTurnContext?(turnId: string): ThreadTitleContext | null;
   generateThreadTitle?(context: ThreadTitleContext): Promise<string | null>;
@@ -53,12 +45,7 @@ async function resolveThreadTitleContext(host: ThreadTitleServiceHost, threadId:
 }
 
 async function persistedThreadTitleContext(host: ThreadTitleServiceHost, threadId: string): Promise<ThreadTitleContext | null> {
-  return host.clientAccess.withClient((client) =>
-    findThreadTitleContext({
-      threadId,
-      readTurns: (id, cursor, limit, sortDirection) => readCompletedTurnTranscriptSummariesPage(client, id, cursor, limit, sortDirection),
-    }),
-  );
+  return host.transport.persistedContext(threadId);
 }
 
 function completedTurnContext(
@@ -73,9 +60,5 @@ function completedTurnContext(
 }
 
 async function generateTitleFromContext(host: ThreadTitleServiceHost, context: ThreadTitleContext): Promise<string | null> {
-  if (host.generateThreadTitle) return host.generateThreadTitle(context);
-  return generateThreadTitleWithCodex(host.codexPath(), host.vaultPath, context, {
-    threadNamingModel: host.threadNamingModel(),
-    threadNamingEffort: host.threadNamingEffort(),
-  });
+  return host.generateThreadTitle ? host.generateThreadTitle(context) : host.transport.generateTitle(context);
 }

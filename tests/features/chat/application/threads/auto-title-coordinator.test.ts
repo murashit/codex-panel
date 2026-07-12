@@ -11,6 +11,7 @@ import {
   createAutoTitleCoordinator,
 } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 import { threadTitleContextFromThreadStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
+import { createThreadOperationsTransport } from "../../../../../src/features/threads/app-server/workflow-transports";
 import { createThreadOperations } from "../../../../../src/features/threads/workflows/thread-operations";
 import { createThreadTitleService } from "../../../../../src/features/threads/workflows/thread-title-service";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
@@ -137,9 +138,9 @@ function coordinatorFixture(
   const currentClient = overrides.currentClient ?? (() => fakeClient());
   const notifyThreadRenamed = vi.fn();
   const threadOperations = createThreadOperations({
-    clientAccess: {
+    transport: createThreadOperationsTransport({
       withClient: async (operation) => operation(currentClient()),
-    },
+    }),
     archiveExport: {
       settings: () => DEFAULT_SETTINGS,
       enabled: () => false,
@@ -160,16 +161,12 @@ function coordinatorFixture(
     notice: vi.fn(),
   });
   const titleService = createThreadTitleService({
-    codexPath: () => "codex",
-    vaultPath: "/vault",
-    threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
-    threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
-    clientAccess: {
-      withClient: async (operation) => operation(currentClient()),
+    transport: {
+      persistedContext: vi.fn().mockResolvedValue(null),
+      generateTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
     },
     visibleCompletedTurnContext: (turnId) =>
       threadTitleContextFromThreadStreamItems(turnId, threadStreamItems(stateStore.getState().threadStream)),
-    generateThreadTitle: overrides.generateThreadTitle ?? vi.fn().mockResolvedValue("Generated title"),
   });
   const host = {
     stateStore,
