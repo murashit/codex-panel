@@ -78,7 +78,6 @@ interface ChatPanelThreadLifecycleInput {
   status: ChatPanelThreadStatus;
   threadStart: ThreadStartActions;
   foundation: ChatPanelThreadFoundation;
-  refreshTabHeader: () => void;
   refreshLiveState: () => void;
   notifyActiveThreadIdentityChanged: () => void;
 }
@@ -190,17 +189,8 @@ export function createThreadLifecycleBundle(
   host: ChatPanelThreadHost,
   input: ChatPanelThreadLifecycleInput,
 ): ChatPanelThreadLifecycleBundle {
-  const {
-    appServer,
-    localItemIds,
-    ensureConnected,
-    status,
-    threadStart,
-    foundation,
-    refreshTabHeader,
-    refreshLiveState,
-    notifyActiveThreadIdentityChanged,
-  } = input;
+  const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, refreshLiveState, notifyActiveThreadIdentityChanged } =
+    input;
   const goals = createGoalActions({
     stateStore: host.stateStore,
     goalTransport: appServer.threadGoal,
@@ -230,7 +220,6 @@ export function createThreadLifecycleBundle(
     invalidateThreadWork: () => {
       foundation.invalidateThreadWork();
     },
-    refreshTabHeader,
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });
@@ -305,7 +294,6 @@ function createSessionThreadLifecycle(
     autoTitleCoordinator: AutoTitleCoordinator;
     history: HistoryController;
     invalidateThreadWork: () => void;
-    refreshTabHeader: () => void;
     refreshLiveState: () => void;
     notifyActiveThreadIdentityChanged: () => void;
   },
@@ -317,14 +305,11 @@ function createSessionThreadLifecycle(
     autoTitleCoordinator,
     history,
     invalidateThreadWork,
-    refreshTabHeader,
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   } = input;
   const restoration = new RestorationController({
-    invalidateThreadWork,
-    setStatus: status.set,
-    refreshTabHeader,
+    stateStore: host.stateStore,
   });
   const resetThreadTurnPresence = (hadTurns: boolean) => {
     autoTitleCoordinator.resetThreadTurnPresence(hadTurns);
@@ -334,7 +319,6 @@ function createSessionThreadLifecycle(
     resumeTransport: appServer.threadResume,
     resumeWork: host.resumeWork,
     history,
-    restoration,
     closing: host.getClosing,
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged,
@@ -346,11 +330,9 @@ function createSessionThreadLifecycle(
   });
   const identity = createActiveThreadIdentitySync({
     stateStore: host.stateStore,
-    restoration,
     invalidateThreadWork,
     resetThreadTurnPresence,
     notifyActiveThreadIdentityChanged,
-    refreshTabHeader,
   });
 
   return {

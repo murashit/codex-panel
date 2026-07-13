@@ -2,17 +2,15 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { deferred } from "../../../../support/async";
 
 describe("RestorationController", () => {
-  it("restores a placeholder for explicit hydration", async () => {
+  it("loads the store-owned restored thread on explicit hydration", async () => {
     const resumeThread = vi.fn().mockResolvedValue(undefined);
-    const controller = restoredThreadControllerFixture();
-
-    controller.restore({ threadId: "thread", title: "Title", explicitName: null });
-
-    expect(controller.placeholder()).toMatchObject({ threadId: "thread", title: "Title" });
+    const { controller, stateStore } = restoredThreadControllerFixture();
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: "Title" });
     expect(resumeThread).not.toHaveBeenCalled();
 
     await controller.ensureLoaded(resumeThread);
@@ -23,35 +21,36 @@ describe("RestorationController", () => {
   it("shares an in-flight restore load", async () => {
     const resume = deferred<undefined>();
     const loadThread = vi.fn(() => resume.promise);
-    const controller = restoredThreadControllerFixture();
-    controller.restore({ threadId: "thread", title: null, explicitName: null });
+    const { controller, stateStore } = restoredThreadControllerFixture();
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: null });
 
     const first = controller.ensureLoaded(loadThread);
     const second = controller.ensureLoaded(loadThread);
     await Promise.resolve();
-    expect(controller.placeholder()?.loading).toBe(resume.promise);
+    expect(loadThread).toHaveBeenCalledOnce();
 
     resume.resolve(undefined);
     await Promise.all([first, second]);
 
-    expect(controller.placeholder()?.loading).toBeNull();
+    expect(loadThread).toHaveBeenCalledOnce();
   });
 
-  it("updates placeholder rename state without touching other threads", () => {
-    const controller = restoredThreadControllerFixture();
-    controller.restore({ threadId: "thread", title: "Old", explicitName: null });
+  it("does not load a replaced restored thread through a stale request", async () => {
+    const first = deferred<undefined>();
+    const loadThread = vi.fn(() => first.promise);
+    const { controller, stateStore } = restoredThreadControllerFixture();
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "first", fallbackTitle: null });
+    const loading = controller.ensureLoaded(loadThread);
 
-    expect(controller.rename("other", "Other")).toBe(false);
-    expect(controller.rename("thread", "New")).toBe(true);
-    expect(controller.placeholder()).toMatchObject({ title: "New", explicitName: "New" });
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "second", fallbackTitle: null });
+    first.resolve(undefined);
+
+    await expect(loading).resolves.toBe(false);
+    expect(controller.isPending("second")).toBe(true);
   });
 });
 
-function restoredThreadControllerFixture(overrides: Partial<ConstructorParameters<typeof RestorationController>[0]> = {}) {
-  return new RestorationController({
-    invalidateThreadWork: vi.fn(),
-    setStatus: vi.fn(),
-    refreshTabHeader: vi.fn(),
-    ...overrides,
-  });
+function restoredThreadControllerFixture() {
+  const stateStore = createChatStateStore();
+  return { controller: new RestorationController({ stateStore }), stateStore };
 }

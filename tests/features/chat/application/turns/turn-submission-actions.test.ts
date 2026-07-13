@@ -5,6 +5,7 @@ import type { Thread } from "../../../../../src/domain/threads/model";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { optimisticTurnStart } from "../../../../../src/features/chat/application/turns/optimistic-turn-start";
 import {
   createTurnSubmissionActions,
@@ -108,6 +109,27 @@ function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore
 }
 
 describe("TurnSubmissionActions", () => {
+  it("aborts when restoration changes target while hydration is pending", async () => {
+    const { host, startTurn, stateStore } = createHost();
+    const restoration = new RestorationController({ stateStore });
+    const resume = deferred<void>();
+    const loadThread = vi.fn(() => resume.promise);
+    host.ensureRestoredThreadLoaded = () => restoration.ensureLoaded(loadThread);
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "first", fallbackTitle: null });
+    const actions = createTurnSubmissionActions(host);
+
+    const submitting = actions.sendTurnText({ text: "hello" });
+    await vi.waitFor(() => {
+      expect(loadThread).toHaveBeenCalledWith("first");
+    });
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "second", fallbackTitle: null });
+    resume.resolve(undefined);
+
+    await expect(submitting).resolves.toBe(false);
+    expect(host.startThread).not.toHaveBeenCalled();
+    expect(startTurn).not.toHaveBeenCalled();
+  });
+
   it("blocks direct turn submission after a restored thread resolves to a subagent", async () => {
     const { host, startTurn, stateStore } = createHost({
       ensureRestoredThreadLoaded: vi.fn().mockImplementation(async () => {

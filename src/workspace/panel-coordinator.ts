@@ -4,6 +4,7 @@ import { VIEW_TYPE_CODEX_PANEL } from "../constants";
 import { hasPendingRequests, pendingRequestCounts } from "../domain/pending-requests/aggregate";
 import type { ChatWorkspacePanelSnapshot, ChatWorkspacePanelSurface } from "../features/chat/host/contracts";
 import { CodexChatView } from "../features/chat/host/view.obsidian";
+import { parseChatPanelViewState } from "../features/chat/host/view-state";
 
 type ThreadPanelTarget =
   | {
@@ -446,10 +447,8 @@ function workspacePanelSurface(view: CodexChatView): ChatWorkspacePanelSurface {
 }
 
 function restoredThreadId(leaf: WorkspaceLeaf): string | null {
-  const state = leaf.getViewState().state;
-  if (!state || typeof state !== "object") return null;
-  const threadId = (state as { threadId?: unknown }).threadId;
-  return typeof threadId === "string" && threadId.length > 0 ? threadId : null;
+  const state = parseChatPanelViewState(leaf.getViewState().state);
+  return state.kind === "thread" ? state.threadId : null;
 }
 
 function restoredPanelSnapshot(leaf: WorkspaceLeaf, index: number): WorkspacePanelSnapshot | null {

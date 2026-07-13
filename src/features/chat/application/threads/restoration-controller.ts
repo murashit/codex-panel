@@ -1,74 +1,45 @@
-import {
-  type RestoredThreadLifecycleState,
-  type RestoredThreadPlaceholderState,
-  type RestoredThreadState,
-  transitionRestoredThreadLifecycle,
-} from "./restored-thread-lifecycle";
-
-const STATUS_THREAD_READY_TO_RESUME = "Thread ready to resume.";
+import type { ChatStateStore } from "../state/store";
 
 export interface RestorationControllerHost {
-  invalidateThreadWork: () => void;
-  setStatus: (status: string) => void;
-  refreshTabHeader: () => void;
+  stateStore: ChatStateStore;
 }
 
 export type RestoredThreadLoader = (threadId: string) => Promise<void>;
 
 export class RestorationController {
-  private lifecycle: RestoredThreadLifecycleState = { kind: "idle" };
+  private loading: { threadId: string; promise: Promise<void> } | null = null;
 
   constructor(private readonly host: RestorationControllerHost) {}
 
-  placeholder(): RestoredThreadPlaceholderState | null {
-    return this.lifecycle.kind === "placeholder" ? this.lifecycle : null;
-  }
-
-  title(): string | null {
-    return this.placeholder()?.title ?? null;
-  }
-
-  clear(): void {
-    this.lifecycle = transitionRestoredThreadLifecycle(this.lifecycle, { type: "cleared" });
-  }
-
-  rename(threadId: string, name: string | null): boolean {
-    const previous = this.placeholder();
-    this.lifecycle = transitionRestoredThreadLifecycle(this.lifecycle, { type: "renamed", threadId, name });
-    return this.placeholder() !== previous;
-  }
-
-  restore(restoredThread: RestoredThreadState): void {
-    this.host.invalidateThreadWork();
-    this.lifecycle = transitionRestoredThreadLifecycle(this.lifecycle, {
-      type: "placeholder-restored",
-      restoredThread,
-    });
-    this.host.setStatus(STATUS_THREAD_READY_TO_RESUME);
-    this.host.refreshTabHeader();
+  invalidate(): void {
+    this.loading = null;
   }
 
   async ensureLoaded(loadThread: RestoredThreadLoader): Promise<boolean> {
-    const restoredThread = this.placeholder();
-    if (!restoredThread) return true;
-    if (restoredThread.loading) {
-      const threadId = restoredThread.threadId;
-      await restoredThread.loading;
-      return !this.isPending(threadId);
+    const restoredThread = this.host.stateStore.getState().restoration;
+    if (restoredThread.kind !== "thread") return true;
+    if (this.loading?.threadId === restoredThread.threadId) {
+      await this.loading.promise;
+      return this.restorationLoaded();
     }
 
     const threadId = restoredThread.threadId;
-    const loading = loadThread(threadId);
-    this.lifecycle = transitionRestoredThreadLifecycle(this.lifecycle, { type: "loading-started", loading });
+    const loading = { threadId, promise: loadThread(threadId) };
+    this.loading = loading;
     try {
-      await loading;
+      await loading.promise;
     } finally {
-      this.lifecycle = transitionRestoredThreadLifecycle(this.lifecycle, { type: "loading-finished", loading });
+      if (this.loading === loading) this.loading = null;
     }
-    return !this.isPending(threadId);
+    return this.restorationLoaded();
   }
 
   isPending(threadId: string): boolean {
-    return this.placeholder()?.threadId === threadId;
+    const restoration = this.host.stateStore.getState().restoration;
+    return restoration.kind === "thread" && restoration.threadId === threadId;
+  }
+
+  private restorationLoaded(): boolean {
+    return this.host.stateStore.getState().restoration.kind === "none";
   }
 }

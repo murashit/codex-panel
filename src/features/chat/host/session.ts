@@ -2,15 +2,15 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import { type AppServerQueryContext, appServerQueryContextMatches, appServerQueryContextRawEquals } from "../../../app-server/query/keys";
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
-import type { ChatState } from "../application/state/root-reducer";
+import type { ChatPanelRestorationState, ChatState } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
-import { parseRestoredThreadState, type RestoredThreadPlaceholderState } from "../application/threads/restored-thread-lifecycle";
 import { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
 import { type ChatThreadStreamScrollBinding, createChatThreadStreamScrollBinding } from "../panel/thread-stream-scroll-binding";
 import type { ChatPanelEnvironment, ChatPanelHandle, ChatWorkspacePanelSnapshot, ChatWorkspacePanelTurnLifecycle } from "./contracts";
 import { type ChatViewDeferredTasks, createChatViewDeferredTasks } from "./session/deferred-work";
 import { ChatPanelSessionRuntime } from "./session-runtime";
+import { parseChatPanelViewState } from "./view-state";
 
 export class ChatPanelSession implements ChatPanelHandle {
   private readonly stateStore: ChatStateStore = createChatStateStore();
@@ -20,7 +20,6 @@ export class ChatPanelSession implements ChatPanelHandle {
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly threadStreamScrollBinding: ChatThreadStreamScrollBinding = createChatThreadStreamScrollBinding();
   private observedAppServerContext: AppServerQueryContext;
-  private ephemeralSourcePlaceholder: { threadId: string; title: string | null } | null = null;
   private opened = false;
   private closing = false;
 
@@ -31,7 +30,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   displayTitle(): string {
-    if (this.state.activeThread.lifetime?.kind === "ephemeral" || (!this.state.activeThread.id && this.ephemeralSourcePlaceholder)) {
+    if (this.state.activeThread.lifetime?.kind === "ephemeral") {
       return "Side chat";
     }
     return threadWindowTitle(this.panelThreadId(), this.state.threadList.listedThreads, this.restoredThreadTitle());
@@ -45,9 +44,6 @@ export class ChatPanelSession implements ChatPanelHandle {
         ephemeralSource: { threadId: lifetime.sourceThreadId, title: lifetime.sourceThreadTitle },
       };
     }
-    if (!this.state.activeThread.id && this.ephemeralSourcePlaceholder) {
-      return { version: 2, ephemeralSource: { ...this.ephemeralSourcePlaceholder } };
-    }
     const threadId = this.panelThreadId();
     if (!threadId) return { version: 1 };
 
@@ -60,31 +56,20 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   applyViewState(state: unknown): void {
-    const ephemeralSource = parseEphemeralSourceState(state);
-    if (ephemeralSource) {
-      this.ephemeralSourcePlaceholder = ephemeralSource;
-      this.runtime.actions.invalidateThreadWork();
-      this.runtime.thread.restoration.clear();
+    const restoredState = parseChatPanelViewState(state);
+    this.runtime.actions.invalidateThreadWork();
+    if (restoredState.kind === "thread") {
       this.stateStore.dispatch({
-        type: "thread-stream/system-item-added",
-        item: {
-          id: "restored-side-chat-unavailable",
-          kind: "system",
-          role: "system",
-          text: "This side conversation is no longer available.",
-        },
+        type: "panel/restored-thread-applied",
+        threadId: restoredState.threadId,
+        fallbackTitle: restoredState.fallbackTitle,
       });
-      return;
-    }
-    this.ephemeralSourcePlaceholder = null;
-    const restoredThread = parseRestoredThreadState(state);
-    if (restoredThread) {
-      this.runtime.thread.restoration.restore(restoredThread);
+      this.environment.view.refreshTabHeader();
       return;
     }
 
-    this.runtime.actions.invalidateThreadWork();
-    this.runtime.thread.restoration.clear();
+    this.stateStore.dispatch({ type: "panel/view-state-cleared" });
+    this.environment.view.refreshTabHeader();
     this.scheduleWarmup();
   }
 
@@ -140,13 +125,13 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   async openThread(threadId: string): Promise<void> {
     if (!(await this.runtime.thread.ephemeral.prepareForPersistentNavigation())) return;
-    this.ephemeralSourcePlaceholder = null;
     await this.runtime.thread.resume.resumeThread(threadId);
     this.focusComposer();
   }
 
   async focusThread(threadId: string | null = null): Promise<void> {
-    const restoredThreadId = this.restoredThread()?.threadId ?? null;
+    const restoredThread = this.restoredThread();
+    const restoredThreadId = restoredThread.kind === "thread" ? restoredThread.threadId : null;
     if ((threadId && this.runtime.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
       await this.ensureRestoredThreadLoaded();
     }
@@ -166,11 +151,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   applyThreadRenamed(threadId: string, name: string | null): void {
-    const previousRestoredExplicitName = this.restoredThread()?.explicitName ?? null;
     this.runtime.thread.identity.applyThreadRenameToActiveIdentity(threadId, name);
-    if (this.restoredThread()?.explicitName !== previousRestoredExplicitName) {
-      this.mountOrRepairShell();
-    }
   }
 
   open(): void {
@@ -203,13 +184,11 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   async startNewThread(): Promise<void> {
     await this.runtime.actions.startNewThread();
-    if (!this.state.activeThread.id) this.ephemeralSourcePlaceholder = null;
   }
 
   async openSideChat(input: { sourceThreadId: string; sourceThreadTitle: string | null }): Promise<boolean> {
     const opened = await this.runtime.thread.ephemeral.open(input);
     if (!opened) return false;
-    this.ephemeralSourcePlaceholder = null;
     this.focusComposer();
     return true;
   }
@@ -261,15 +240,19 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   private restoredThreadTitle(): string | null {
-    return this.restoredThread()?.title ?? null;
+    const restoredThread = this.restoredThread();
+    if (restoredThread.kind !== "thread") return null;
+    const listedThread = this.state.threadList.listedThreads.find((thread) => thread.id === restoredThread.threadId);
+    return listedThread ? threadMeaningfulTitle(listedThread) : restoredThread.fallbackTitle;
   }
 
-  private restoredThread(): RestoredThreadPlaceholderState | null {
-    return this.runtime.thread.restoration.placeholder();
+  private restoredThread(): ChatPanelRestorationState {
+    return this.state.restoration;
   }
 
   private panelThreadId(): string | null {
-    return this.restoredThread()?.threadId ?? this.state.activeThread.id;
+    const restoredThread = this.restoredThread();
+    return restoredThread.kind === "thread" ? restoredThread.threadId : this.state.activeThread.id;
   }
 
   private ensureRestoredThreadLoaded(): Promise<boolean> {
@@ -287,16 +270,6 @@ export class ChatPanelSession implements ChatPanelHandle {
       viewWindow: () => this.viewWindow(),
     });
   }
-}
-
-function parseEphemeralSourceState(state: unknown): { threadId: string; title: string | null } | null {
-  if (!state || typeof state !== "object") return null;
-  const source = (state as { ephemeralSource?: unknown }).ephemeralSource;
-  if (!source || typeof source !== "object") return null;
-  const threadId = (source as { threadId?: unknown }).threadId;
-  const title = (source as { title?: unknown }).title;
-  if (typeof threadId !== "string" || threadId.length === 0) return null;
-  return { threadId, title: typeof title === "string" ? title : null };
 }
 
 function openPanelTurnLifecycle(state: ChatState["turn"]["lifecycle"]): ChatWorkspacePanelTurnLifecycle {

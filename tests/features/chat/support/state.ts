@@ -9,6 +9,7 @@ interface ChatStateFixturePatch {
   connection?: Partial<ChatState["connection"]>;
   threadList?: Partial<ChatState["threadList"]>;
   activeThread?: Partial<ChatState["activeThread"]>;
+  restoration?: ChatState["restoration"];
   runtime?: RuntimePatch;
   turn?: Partial<ChatState["turn"]>;
   threadStream?: Partial<ChatState["threadStream"]>;
@@ -31,6 +32,7 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
     ...(patch.connection ? { connection: { ...state.connection, ...patch.connection } } : {}),
     ...(patch.threadList ? { threadList: { ...state.threadList, ...patch.threadList } } : {}),
     ...(patch.activeThread ? { activeThread: { ...state.activeThread, ...patch.activeThread } } : {}),
+    ...(patch.restoration ? { restoration: patch.restoration } : {}),
     ...(patch.runtime ? { runtime: runtimeWithPatch(state.runtime, patch.runtime) } : {}),
     ...(patch.turn ? { turn: { ...state.turn, ...patch.turn } } : {}),
     ...(patch.threadStream ? { threadStream: { ...state.threadStream, ...patch.threadStream } } : {}),

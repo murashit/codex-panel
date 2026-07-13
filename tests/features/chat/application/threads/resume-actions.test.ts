@@ -5,7 +5,6 @@ import type { Thread as PanelThread } from "../../../../../src/domain/threads/mo
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { HistoryController } from "../../../../../src/features/chat/application/threads/history-controller";
-import type { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { createResumeActions, type ResumeActionsHost } from "../../../../../src/features/chat/application/threads/resume-actions";
 import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import type {
@@ -43,12 +42,10 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyLatestPage = vi.fn();
   const invalidateHistory = vi.fn();
-  const restoredClear = vi.fn();
   const host = {
     stateStore,
     resumeWork: new ChatResumeWorkTracker(),
     history: { loadLatest, applyLatestPage, invalidate: invalidateHistory } as unknown as HistoryController,
-    restoration: { clear: restoredClear } as unknown as RestorationController,
     resumeTransport: { resumeThread },
     closing: () => false,
     systemItem: (text: string) => ({ id: "system", kind: "system" as const, role: "system" as const, text }),
@@ -65,7 +62,6 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     applyLatestPage,
     invalidateHistory,
     loadLatest,
-    restoredClear,
     resumeThread,
     stateStore,
   };
@@ -73,7 +69,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
 
 describe("ResumeActions", () => {
   it("resumes the thread and loads its latest history", async () => {
-    const { actions, host, loadLatest, restoredClear, resumeThread, stateStore } = createActions();
+    const { actions, host, loadLatest, resumeThread, stateStore } = createActions();
 
     await actions.resumeThread("thread");
 
@@ -81,7 +77,6 @@ describe("ResumeActions", () => {
     expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
     expect(stateStore.getState().activeThread.id).toBe("thread");
     expect(loadLatest).toHaveBeenCalledWith("thread");
-    expect(restoredClear).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
   });
@@ -98,14 +93,13 @@ describe("ResumeActions", () => {
   });
 
   it("does not change active thread when the resume transport has no snapshot", async () => {
-    const { actions, host, loadLatest, restoredClear, resumeThread, stateStore } = createActions(null);
+    const { actions, host, loadLatest, resumeThread, stateStore } = createActions(null);
 
     await actions.resumeThread("thread");
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
     expect(stateStore.getState().activeThread.id).toBeNull();
     expect(loadLatest).not.toHaveBeenCalled();
-    expect(restoredClear).not.toHaveBeenCalled();
     expect(host.syncThreadGoal).not.toHaveBeenCalled();
   });
 

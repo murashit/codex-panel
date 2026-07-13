@@ -192,7 +192,6 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     status,
     threadStart,
     foundation: threadFoundation,
-    refreshTabHeader,
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });
@@ -312,6 +311,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     actions: {
       invalidateThreadWork: () => {
         threadFoundation.invalidateThreadWork();
+        threadLifecycle.restoration.invalidate();
       },
       reconnect,
       refreshSharedThreads,

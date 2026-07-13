@@ -42,6 +42,7 @@ function cloneChatState(state: ChatState): ChatState {
       threadsLoaded: state.threadList.threadsLoaded,
     },
     activeThread: { ...state.activeThread },
+    restoration: { ...state.restoration },
     runtime: { ...state.runtime },
     turn: { lifecycle: state.turn.lifecycle },
     threadStream: cloneThreadStreamState(state.threadStream),

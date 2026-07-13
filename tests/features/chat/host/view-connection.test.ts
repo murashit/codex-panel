@@ -414,6 +414,27 @@ describe("CodexChatView connection lifecycle", () => {
     );
   });
 
+  it("replaces active thread-scoped state when late workspace state restores another thread", async () => {
+    const client = connectedClient();
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.onOpen();
+    await view.surface.openThread("thread-1");
+    view.surface.setComposerText("stale draft");
+
+    await view.setState({ threadId: "thread-2", threadTitle: "Restored thread 2" }, {} as never);
+
+    expect(view.getDisplayText()).toBe("Codex: Restored thread 2");
+    expect(view.getState()).toEqual({ version: 1, threadId: "thread-2", threadTitle: "Restored thread 2" });
+    expect(view.surface.openPanelSnapshot()).toMatchObject({
+      threadId: "thread-2",
+      turnLifecycle: { kind: "idle" },
+      hasComposerDraft: false,
+    });
+    expect(composerElement(view).value).toBe("");
+  });
+
   it("warms app-server metadata for an empty restored panel after the shell is open", async () => {
     vi.useFakeTimers();
     const client = connectedClient({
@@ -496,6 +517,32 @@ describe("CodexChatView connection lifecycle", () => {
     );
   });
 
+  it("starts fresh hydration when the same restored view state is reapplied", async () => {
+    const resume = deferred<ReturnType<typeof resumedThread>>();
+    const client = connectedClient({
+      "thread/resume": vi.fn(() => resume.promise),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
+    await view.onOpen();
+    const firstHydration = view.surface.focusThread("thread-1");
+    await waitForAsyncWork(() => {
+      expectRequestTimes(client, "thread/resume", 1);
+    });
+
+    await view.setState({ threadId: "thread-1", threadTitle: "Restored thread" }, {} as never);
+    const secondHydration = view.surface.focusThread("thread-1");
+    await waitForAsyncWork(() => {
+      expectRequestTimes(client, "thread/resume", 2);
+    });
+
+    resume.resolve(resumedThread("thread-1"));
+    await Promise.all([firstHydration, secondHydration]);
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "thread-1" });
+  });
+
   it("resumes a restored thread before sending the first message", async () => {
     const client = connectedClient();
     connectionMock.state.client = client;
@@ -563,15 +610,14 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requestSaveLayout).toHaveBeenCalledTimes(2);
   });
 
-  it("turns a restored unavailable side-chat tab into a normal empty chat", async () => {
+  it("restores an unavailable side-chat tab as a normal empty chat", async () => {
     const view = await chatView();
     await view.setState({ version: 2, ephemeralSource: { threadId: "source", title: "Source" } }, {} as never);
 
-    expect(view.getDisplayText()).toBe("Side chat");
-    await view.surface.startNewThread();
-
     expect(view.getState()).toEqual({ version: 1 });
     expect(view.getDisplayText()).not.toBe("Side chat");
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: null, turnLifecycle: { kind: "idle" }, hasComposerDraft: false });
+    expect(view.containerEl.textContent).not.toContain("This side conversation is no longer available.");
   });
 
   it("focuses the composer after panel thread actions", async () => {

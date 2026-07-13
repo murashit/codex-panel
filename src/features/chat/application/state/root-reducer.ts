@@ -114,6 +114,10 @@ export interface ChatActiveThreadState {
   readonly provenance: Thread["provenance"] | null;
 }
 
+export type ChatPanelRestorationState =
+  | { readonly kind: "none" }
+  | { readonly kind: "thread"; readonly threadId: string; readonly fallbackTitle: string | null };
+
 type ActiveThreadLifetime =
   | { readonly kind: "persistent" }
   | { readonly kind: "ephemeral"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
@@ -129,6 +133,7 @@ interface ChatStateShape {
   connection: ChatConnectionState;
   threadList: ChatThreadListState;
   activeThread: ChatActiveThreadState;
+  restoration: ChatPanelRestorationState;
   runtime: ChatRuntimeState;
   turn: ChatTurnState;
   threadStream: ChatThreadStreamState;
@@ -235,6 +240,9 @@ type ChatTransitionAction =
   | ActiveThreadResumedAction
   | ActiveThreadSettingsAppliedAction
   | { type: "active-thread/goal-set"; goal: ThreadGoal | null }
+  | { type: "panel/restored-thread-applied"; threadId: string; fallbackTitle: string | null }
+  | { type: "panel/restored-thread-renamed"; threadId: string; name: string | null }
+  | { type: "panel/view-state-cleared" }
   | TurnAction
   | RequestResolvedAction
   | PendingStartHookUpsertedAction;
@@ -254,6 +262,7 @@ export function createChatState(): ChatState {
     connection: initialConnectionState(),
     threadList: initialThreadListState(),
     activeThread: initialActiveThreadState(),
+    restoration: initialPanelRestorationState(),
     runtime: initialChatRuntimeState(),
     turn: initialTurnState(),
     threadStream: initialThreadStreamState(),
@@ -270,6 +279,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "active-thread/resumed":
     case "active-thread/settings-applied":
     case "active-thread/goal-set":
+    case "panel/restored-thread-applied":
+    case "panel/restored-thread-renamed":
+    case "panel/view-state-cleared":
     case "turn/started":
     case "turn/completed":
     case "turn/scoped-cleared":
@@ -296,6 +308,12 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
       return reduceActiveThreadSettingsAppliedTransition(state, action);
     case "active-thread/goal-set":
       return reduceActiveThreadGoalSetTransition(state, action.goal);
+    case "panel/restored-thread-applied":
+      return reduceRestoredThreadAppliedTransition(state, action.threadId, action.fallbackTitle);
+    case "panel/restored-thread-renamed":
+      return reduceRestoredThreadRenamedTransition(state, action.threadId, action.name);
+    case "panel/view-state-cleared":
+      return reduceViewStateClearedTransition(state);
     case "turn/started":
       return reduceTurnStartedTransition(state, action);
     case "turn/completed":
@@ -336,6 +354,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       lifetime: action.lifetime ?? { kind: "persistent" },
       provenance: action.thread.provenance,
     },
+    restoration: initialPanelRestorationState(),
     runtime: {
       ...runtimeBase,
       active: {
@@ -401,10 +420,29 @@ function reduceActiveThreadGoalSetTransition(state: ChatState, goal: ThreadGoal 
   });
 }
 
+function reduceRestoredThreadAppliedTransition(state: ChatState, threadId: string, fallbackTitle: string | null): ChatState {
+  const cleared = clearThreadScopedState(state);
+  return patchChatState(cleared, {
+    connection: { ...cleared.connection, statusText: "Thread ready to resume." },
+    restoration: { kind: "thread", threadId, fallbackTitle },
+  });
+}
+
+function reduceRestoredThreadRenamedTransition(state: ChatState, threadId: string, name: string | null): ChatState {
+  if (state.restoration.kind !== "thread" || state.restoration.threadId !== threadId) return state;
+  return patchChatState(state, { restoration: { ...state.restoration, fallbackTitle: name } });
+}
+
+function reduceViewStateClearedTransition(state: ChatState): ChatState {
+  const cleared = clearThreadScopedState(state);
+  return patchChatState(cleared, { connection: { ...cleared.connection, statusText: "Idle" } });
+}
+
 function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction): ChatState {
   const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "started", turnId: action.turnId });
   return patchChatState(state, {
     activeThread: { ...state.activeThread, id: action.threadId },
+    restoration: initialPanelRestorationState(),
     turn: { lifecycle },
     connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
     threadStream: action.items
@@ -494,6 +532,7 @@ function clearThreadScopedState(state: ChatState): ChatState {
   return clearTurnScopedState(
     patchChatState(state, {
       activeThread: initialActiveThreadState(),
+      restoration: initialPanelRestorationState(),
       runtime: initialChatRuntimeState(),
       threadStream: initialThreadStreamState(),
       composer: initialComposerState(),
@@ -523,6 +562,7 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
     connection: reduceConnectionSlice(state.connection, action),
     threadList: reduceThreadListSlice(state.threadList, action),
     activeThread: reduceActiveThreadSlice(state.activeThread, action),
+    restoration: state.restoration,
     runtime: reduceRuntimeSlice(state.runtime, action),
     turn: state.turn,
     requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
@@ -662,6 +702,10 @@ function initialActiveThreadState(): ChatActiveThreadState {
     lifetime: null,
     provenance: null,
   };
+}
+
+function initialPanelRestorationState(): ChatPanelRestorationState {
+  return { kind: "none" };
 }
 
 function initialTurnState(): ChatTurnState {

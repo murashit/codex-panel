@@ -3,7 +3,6 @@ import { resumedThreadAction } from "../state/actions";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import type { HistoryController } from "./history-controller";
-import type { RestorationController } from "./restoration-controller";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
 import type { ThreadResumeSnapshot, ThreadResumeTransport } from "./thread-loading-transport";
 import { canSwitchToThread } from "./thread-switching";
@@ -12,7 +11,6 @@ export interface ResumeActionsHost {
   stateStore: ChatStateStore;
   resumeWork: ChatResumeWorkTracker;
   history: HistoryController;
-  restoration: RestorationController;
   resumeTransport: ThreadResumeTransport;
   closing: () => boolean;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
@@ -73,7 +71,6 @@ function applyResumedThread(host: ResumeActionsHost, response: ThreadResumeSnaps
       listedThreads: host.stateStore.getState().threadList.listedThreads,
     }),
   );
-  host.restoration.clear();
   host.resetThreadTurnPresence(false);
   host.notifyActiveThreadIdentityChanged();
 }

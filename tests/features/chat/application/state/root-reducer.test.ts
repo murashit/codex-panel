@@ -11,6 +11,24 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("chatReducer", () => {
+  it("applies restored thread identity as an atomic thread-scoped transition", () => {
+    const state = threadScopedResidue({ threadId: "old-thread", draft: "stale draft", itemId: "stale-item" });
+
+    const restored = chatReducer(state, {
+      type: "panel/restored-thread-applied",
+      threadId: "restored-thread",
+      fallbackTitle: "Restored title",
+    });
+
+    expect(restored.restoration).toEqual({ kind: "thread", threadId: "restored-thread", fallbackTitle: "Restored title" });
+    expect(restored.activeThread.id).toBeNull();
+    expect(restored.connection.statusText).toBe("Thread ready to resume.");
+    expectThreadScopeReset(restored, { items: [] });
+
+    const disconnected = chatReducer(restored, { type: "connection/scoped-cleared" });
+    expect(disconnected.restoration).toEqual(restored.restoration);
+  });
+
   it("clears active turn and thread-scoped state", () => {
     let state = threadScopedResidue({ draft: "keep me", itemId: "m1" });
     state = chatStateWith(state, {
