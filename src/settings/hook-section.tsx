@@ -44,27 +44,34 @@ function Hooks({ state }: { state: HookSectionState }): UiNode {
 
 function HookRow({ hook, state }: { hook: HookItem; state: HookSectionState }): UiNode {
   const canTrust = !hook.isManaged && (hook.trustStatus === "untrusted" || hook.trustStatus === "modified");
+  const canToggle = !hook.isManaged && hook.trustStatus === "trusted";
   const hookName = firstNonEmptyString(hook.statusMessage, hook.command, hook.matcher, hook.eventName);
+  const executionStatus =
+    hook.trustStatus === "trusted" || hook.trustStatus === "managed" ? (hook.enabled ? "enabled" : "disabled") : "inactive";
   return (
     <SettingRow
       className="codex-panel-settings__dynamic-row codex-panel-settings__hook-row"
       name={hookName}
-      desc={`${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${hook.enabled ? "enabled" : "disabled"}`}
+      desc={`${hook.eventName} · ${hook.matcher ?? "(no matcher)"} · ${hook.trustStatus} · ${executionStatus}`}
     >
-      <ObsidianButton
-        text="Trust"
-        disabled={state.loading || !canTrust}
-        onClick={() => {
-          state.onTrust(hook);
-        }}
-      />
-      <ObsidianButton
-        text={hook.enabled ? "Disable" : "Enable"}
-        disabled={state.loading || hook.isManaged}
-        onClick={() => {
-          state.onToggleEnabled(hook, !hook.enabled);
-        }}
-      />
+      {canTrust ? (
+        <ObsidianButton
+          text="Trust"
+          disabled={state.loading}
+          onClick={() => {
+            state.onTrust(hook);
+          }}
+        />
+      ) : null}
+      {canToggle ? (
+        <ObsidianButton
+          text={hook.enabled ? "Disable" : "Enable"}
+          disabled={state.loading}
+          onClick={() => {
+            state.onToggleEnabled(hook, !hook.enabled);
+          }}
+        />
+      ) : null}
     </SettingRow>
   );
 }

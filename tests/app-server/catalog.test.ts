@@ -180,7 +180,6 @@ describe("app-server catalog adapters", () => {
           keyPath: "hooks.state",
           value: {
             "hook-trust": {
-              enabled: true,
               trusted_hash: "newhash",
             },
           },
@@ -191,7 +190,7 @@ describe("app-server catalog adapters", () => {
     });
   });
 
-  it("preserves trusted hashes when toggling already trusted hooks", async () => {
+  it("updates hook enablement without rewriting independently managed trust state", async () => {
     const client = {
       request: vi.fn().mockResolvedValue({}),
     } as unknown as AppServerRequestClient;
@@ -207,7 +206,6 @@ describe("app-server catalog adapters", () => {
           value: {
             "hook-enabled": {
               enabled: false,
-              trusted_hash: "trustedhash",
             },
           },
           mergeStrategy: "upsert",
@@ -217,7 +215,7 @@ describe("app-server catalog adapters", () => {
     });
   });
 
-  it("does not write trusted hashes when toggling untrusted hook revisions", async () => {
+  it("rejects enablement changes for untrusted hook revisions", async () => {
     const client = {
       request: vi.fn().mockResolvedValue({}),
     } as unknown as AppServerRequestClient;
@@ -226,22 +224,8 @@ describe("app-server catalog adapters", () => {
     ])[0];
     if (!hook) throw new Error("Expected mapped hook");
 
-    await setHookItemEnabled(client, hook, true);
-
-    expect(client.request).toHaveBeenCalledWith("config/batchWrite", {
-      edits: [
-        {
-          keyPath: "hooks.state",
-          value: {
-            "hook-modified": {
-              enabled: true,
-            },
-          },
-          mergeStrategy: "upsert",
-        },
-      ],
-      reloadUserConfig: true,
-    });
+    await expect(setHookItemEnabled(client, hook, true)).rejects.toThrow("Trust the current hook definition before enabling it.");
+    expect(client.request).not.toHaveBeenCalled();
   });
 });
 

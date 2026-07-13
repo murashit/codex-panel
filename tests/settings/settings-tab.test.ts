@@ -854,7 +854,11 @@ describe("settings tab", () => {
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__hook-list .codex-panel-settings__hook-row")).toHaveLength(1);
     expect(tab.containerEl.querySelectorAll(".codex-panel-settings__archived-list .codex-panel-settings__archived-row")).toHaveLength(1);
     expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).not.toContain("abc123");
+    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")?.textContent).toContain("untrusted · inactive");
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-list")?.textContent).toContain("Archived thread");
+    expect(buttonTexts(tab)).toContain("Trust");
+    expect(buttonTexts(tab)).not.toContain("Enable");
+    expect(buttonTexts(tab)).not.toContain("Disable");
     expect(buttonLabels(tab)).toContain("Restore thread");
     expect(buttonLabels(tab)).toContain("Delete thread");
   });

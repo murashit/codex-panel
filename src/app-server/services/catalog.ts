@@ -95,15 +95,15 @@ export async function listHookCatalog(client: AppServerRequestClient, cwd: strin
 export async function trustHookItem(client: AppServerRequestClient, hook: HookItem): Promise<void> {
   const operation = appServerHookOperationFromHookItem(hook);
   await writeHookState(client, operation.key, {
-    enabled: true,
     trusted_hash: operation.currentHash,
   });
 }
 
 export async function setHookItemEnabled(client: AppServerRequestClient, hook: HookItem, enabled: boolean): Promise<void> {
+  if (hook.isManaged) throw new Error("Managed hooks cannot be enabled or disabled here.");
   const operation = appServerHookOperationFromHookItem(hook);
-  const state: HookConfigState = operation.trustStatus === "trusted" ? { enabled, trusted_hash: operation.currentHash } : { enabled };
-  await writeHookState(client, operation.key, state);
+  if (operation.trustStatus !== "trusted") throw new Error("Trust the current hook definition before enabling it.");
+  await writeHookState(client, operation.key, { enabled });
 }
 
 type HookConfigState = Record<string, string | boolean | null>;
