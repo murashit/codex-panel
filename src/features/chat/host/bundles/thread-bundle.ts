@@ -127,6 +127,7 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   });
   const threadOperations = createThreadOperations({
     transport: threadOperationsTransport,
+    nameMutations: environment.plugin.threadNameMutations,
     archiveExport: {
       settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
       enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),
@@ -145,7 +146,10 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
       titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
     renameGeneratedTitle: (threadId, title, options) =>
-      threadOperations.renameThread(threadId, title, { shouldPublish: options.shouldPublish }),
+      threadOperations.renameThread(threadId, title, {
+        shouldStart: options.shouldStart,
+        shouldPublish: options.shouldPublish,
+      }),
   });
   const history = new HistoryController({
     stateStore,

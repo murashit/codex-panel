@@ -7,6 +7,7 @@ import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../src/constants
 import type { Thread } from "../src/domain/threads/model";
 import type { CodexChatHost } from "../src/features/chat/host/contracts";
 import type { CodexChatView } from "../src/features/chat/host/view.obsidian";
+import { createThreadNameMutationCoordinator } from "../src/features/threads/workflows/thread-name-mutation-coordinator";
 import type CodexPanelPlugin from "../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../src/settings/model";
 import { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
@@ -858,6 +859,7 @@ function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf) {
 function chatHostFixture(): CodexChatHost {
   const settings: CodexPanelSettings = { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" };
   return {
+    threadNameMutations: createThreadNameMutationCoordinator(),
     settingsRef: {
       settings: chatPanelSettingsAccess(settings),
       vaultPath: "/vault",

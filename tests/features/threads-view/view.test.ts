@@ -6,6 +6,7 @@ import type { ObservedResult } from "../../../src/app-server/query/observed-resu
 import type * as ThreadTitleGeneratorModule from "../../../src/app-server/services/thread-title-generation";
 import type { Thread } from "../../../src/domain/threads/model";
 import { createThreadOperationsTransport, createThreadTitleTransport } from "../../../src/features/threads/app-server/workflow-transports";
+import { createThreadNameMutationCoordinator } from "../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { DEFAULT_SETTINGS } from "../../../src/settings/model";
 import { deferred, waitForAsyncWork } from "../../support/async";
 import { changeInputValue, installObsidianDomShims } from "../../support/dom";
@@ -615,6 +616,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       }),
     },
     vaultPath: "/vault",
+    threadNameMutations: createThreadNameMutationCoordinator(),
     threadOperationsTransport: createThreadOperationsTransport(clientAccess),
     threadTitleTransport: createThreadTitleTransport({
       clientAccess,

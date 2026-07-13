@@ -18,6 +18,7 @@ import type {
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
 import { createThreadOperationsTransport, createThreadTitleTransport } from "./features/threads/app-server/workflow-transports";
 import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
+import { createThreadNameMutationCoordinator } from "./features/threads/workflows/thread-name-mutation-coordinator";
 import type { ThreadsViewHost, ThreadsViewSettingsAccess } from "./features/threads-view/session";
 import type { ThreadsViewPanelActivity } from "./features/threads-view/state";
 import { CodexThreadsView } from "./features/threads-view/view.obsidian";
@@ -51,6 +52,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   });
   private readonly panels: WorkspacePanelCoordinator;
   private readonly threadCatalog: ThreadCatalog;
+  private readonly threadNameMutations = createThreadNameMutationCoordinator();
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
     this.panels = new WorkspacePanelCoordinator({
@@ -130,6 +132,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       },
       appServerQueries: this.appServerSharedQueries,
       threadCatalog: this.threadCatalog,
+      threadNameMutations: this.threadNameMutations,
     };
   }
 
@@ -160,6 +163,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       settings: this.threadsSettings(),
       vaultPath: this.options.settingsRef.vaultPath,
       threadCatalog: this.threadCatalog,
+      threadNameMutations: this.threadNameMutations,
       threadOperationsTransport: createThreadOperationsTransport(this),
       threadTitleTransport: createThreadTitleTransport({
         clientAccess: this,

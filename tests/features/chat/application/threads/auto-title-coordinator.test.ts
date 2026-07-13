@@ -12,6 +12,7 @@ import {
 } from "../../../../../src/features/chat/application/threads/auto-title-coordinator";
 import { threadTitleContextFromThreadStreamItems } from "../../../../../src/features/chat/application/threads/title-context";
 import { createThreadOperationsTransport } from "../../../../../src/features/threads/app-server/workflow-transports";
+import { createThreadNameMutationCoordinator } from "../../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { createThreadOperations } from "../../../../../src/features/threads/workflows/thread-operations";
 import { createThreadTitleService } from "../../../../../src/features/threads/workflows/thread-title-service";
 import { DEFAULT_SETTINGS } from "../../../../../src/settings/model";
@@ -106,24 +107,40 @@ describe("AutoTitleCoordinator", () => {
     expect(notifyThreadRenamed).not.toHaveBeenCalled();
   });
 
-  it("does not overwrite a manual name when auto-title save finishes later", async () => {
-    const savedName = deferred<object>();
-    const renameThreadRequest = vi.fn(() => savedName.promise);
-    const { coordinator, stateStore, notifyThreadRenamed } = coordinatorFixture({
+  it("lets a manual rename win when an older auto-title save finishes later", async () => {
+    const savedAutoTitle = deferred<void>();
+    let persistedName: string | null = null;
+    let stateStoreForNotification: ReturnType<typeof createChatStateStore> | null = null;
+    const renameThreadRequest = vi.fn(async ({ name }: { threadId: string; name: string }) => {
+      if (name === "Generated title") await savedAutoTitle.promise;
+      persistedName = name;
+      if (name === "Generated title") {
+        stateStoreForNotification?.dispatch({
+          type: "thread-list/applied",
+          threads: [{ ...threadFixture("thread"), name }],
+        });
+      }
+      return {};
+    });
+    const { coordinator, stateStore, threadOperations } = coordinatorFixture({
       currentClient: () => fakeClient({ renameThreadRequest }),
       generateThreadTitle: vi.fn().mockResolvedValue("Generated title"),
     });
+    stateStoreForNotification = stateStore;
 
     coordinator.maybeAutoTitleThread("thread", "turn", { userText: "Please name this.", assistantText: "Done." });
     await flushPromises();
     expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Generated title" });
 
-    stateStore.dispatch({ type: "thread-list/applied", threads: [{ ...threadFixture("thread"), name: "Manual title" }] });
-    savedName.resolve({});
+    const manualRename = threadOperations.renameThread("thread", "Manual title");
+    await flushPromises();
+    savedAutoTitle.resolve(undefined);
+    await manualRename;
     await flushPromises();
 
+    expect(renameThreadRequest).toHaveBeenNthCalledWith(2, { threadId: "thread", name: "Manual title" });
+    expect(persistedName).toBe("Manual title");
     expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Manual title");
-    expect(notifyThreadRenamed).not.toHaveBeenCalled();
   });
 });
 
@@ -132,6 +149,7 @@ function coordinatorFixture(
 ): AutoTitleCoordinatorHost & {
   coordinator: AutoTitleCoordinator;
   notifyThreadRenamed: ReturnType<typeof vi.fn>;
+  threadOperations: ReturnType<typeof createThreadOperations>;
 } {
   const stateStore = createChatStateStore();
   stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture("thread")] });
@@ -141,6 +159,7 @@ function coordinatorFixture(
     transport: createThreadOperationsTransport({
       withClient: async (operation) => operation(currentClient()),
     }),
+    nameMutations: createThreadNameMutationCoordinator(),
     archiveExport: {
       settings: () => DEFAULT_SETTINGS,
       enabled: () => false,
@@ -155,7 +174,15 @@ function coordinatorFixture(
     }),
     catalog: {
       apply: (event) => {
-        if (event.type === "thread-renamed") notifyThreadRenamed(event.threadId, event.name);
+        if (event.type === "thread-renamed") {
+          stateStore.dispatch({
+            type: "thread-list/applied",
+            threads: stateStore
+              .getState()
+              .threadList.listedThreads.map((thread) => (thread.id === event.threadId ? { ...thread, name: event.name } : thread)),
+          });
+          notifyThreadRenamed(event.threadId, event.name);
+        }
       },
     },
     notice: vi.fn(),
@@ -173,10 +200,10 @@ function coordinatorFixture(
     completedTurnTitleContext: (turnId: string, completedTurnTranscriptSummary) =>
       titleService.completedTurnContext(turnId, completedTurnTranscriptSummary),
     generateTitleFromContext: (context) => titleService.generate(context),
-    renameGeneratedTitle: (threadId: string, value: string, options: { shouldPublish: () => boolean }) =>
+    renameGeneratedTitle: (threadId: string, value: string, options: { shouldStart: () => boolean; shouldPublish: () => boolean }) =>
       threadOperations.renameThread(threadId, value, options),
   } satisfies AutoTitleCoordinatorHost;
-  return { ...host, notifyThreadRenamed, coordinator: createAutoTitleCoordinator(host) };
+  return { ...host, notifyThreadRenamed, threadOperations, coordinator: createAutoTitleCoordinator(host) };
 }
 
 function fakeClient(options: { renameThreadRequest?: ReturnType<typeof vi.fn> } = {}): AppServerClient {

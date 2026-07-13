@@ -14,6 +14,7 @@ import { ChatPanelSessionRuntime } from "../../../../src/features/chat/host/sess
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { ThreadStreamPresenter } from "../../../../src/features/chat/panel/surface/thread-stream-presenter";
 import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
+import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
@@ -335,6 +336,7 @@ describe("ChatPanelSessionRuntime actions", () => {
         },
         appServerQueries,
         threadCatalog,
+        threadNameMutations: createThreadNameMutationCoordinator(),
       },
       view: {
         panelRoot: () => panelRoot,

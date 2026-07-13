@@ -10,6 +10,7 @@ import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
 import type { ThreadOperationsTransport, ThreadTitleTransport } from "../threads/workflows/ports";
+import type { ThreadNameMutationCoordinator } from "../threads/workflows/thread-name-mutation-coordinator";
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
@@ -33,6 +34,7 @@ export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
   readonly threadCatalog: ThreadsViewThreadCatalog;
+  readonly threadNameMutations: ThreadNameMutationCoordinator;
   readonly threadOperationsTransport: ThreadOperationsTransport;
   readonly threadTitleTransport: ThreadTitleTransport;
   openNewPanel(): Promise<unknown>;
@@ -85,6 +87,7 @@ export class ThreadsViewSession {
     this.deferredTasks = createThreadsViewDeferredTasks(() => this.viewWindow());
     this.operations = createThreadOperations({
       transport: this.host.threadOperationsTransport,
+      nameMutations: this.host.threadNameMutations,
       archiveExport: {
         settings: () => this.host.settings.archiveExportSettings(),
         enabled: () => this.host.settings.archiveExportEnabled(),

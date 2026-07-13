@@ -4,12 +4,14 @@ import type { AppServerClient } from "../../../../src/app-server/connection/clie
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import { createThreadOperationsTransport } from "../../../../src/features/threads/app-server/workflow-transports";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
+import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import {
   type ArchiveThreadResult,
   createThreadOperations,
   type ThreadOperationsHost,
 } from "../../../../src/features/threads/workflows/thread-operations";
 import { DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { deferred } from "../../../support/async";
 
 describe("ThreadOperations", () => {
   it("renames a thread and notifies shared surfaces after success", async () => {
@@ -27,6 +29,30 @@ describe("ThreadOperations", () => {
     await operations.renameThread("thread", "Generated title", { shouldPublish: () => false });
 
     expect(catalog.apply).not.toHaveBeenCalled();
+  });
+
+  it("serializes successive names for the same thread", async () => {
+    const generatedSave = deferred<object>();
+    const client = clientMock();
+    client.request.mockImplementationOnce(async (method: string) => {
+      if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
+      return generatedSave.promise;
+    });
+    const { operations } = operationsFixture({ client });
+
+    const generated = operations.renameThread("thread", "Generated title");
+    await Promise.resolve();
+    const firstManual = operations.renameThread("thread", "First manual title");
+    const latestManual = operations.renameThread("thread", "Latest manual title");
+    await Promise.resolve();
+
+    expect(client.request).toHaveBeenCalledTimes(1);
+    generatedSave.resolve({});
+    await Promise.all([generated, firstManual, latestManual]);
+
+    expect(client.request).toHaveBeenNthCalledWith(1, "thread/name/set", { threadId: "thread", name: "Generated title" });
+    expect(client.request).toHaveBeenNthCalledWith(2, "thread/name/set", { threadId: "thread", name: "First manual title" });
+    expect(client.request).toHaveBeenNthCalledWith(3, "thread/name/set", { threadId: "thread", name: "Latest manual title" });
   });
 
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
@@ -127,6 +153,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
         return result;
       },
     }),
+    nameMutations: createThreadNameMutationCoordinator(),
     archiveExport: {
       settings: archiveExportSettings,
       enabled: () => false,

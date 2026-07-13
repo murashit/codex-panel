@@ -12,6 +12,7 @@ import type { SharedServerMetadata } from "../../../../src/domain/server/metadat
 import type { Thread } from "../../../../src/domain/threads/model";
 import type { CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadCatalogEvent } from "../../../../src/features/threads/catalog/thread-catalog";
+import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
@@ -1188,6 +1189,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   };
   return {
     settingsSource: settings,
+    threadNameMutations: createThreadNameMutationCoordinator(),
     settingsRef: {
       settings: chatPanelSettingsAccess(settings),
       vaultPath,

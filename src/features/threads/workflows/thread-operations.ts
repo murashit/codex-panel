@@ -3,9 +3,11 @@ import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { ThreadCatalogEventSink } from "../catalog/thread-catalog";
 import { type ArchiveExportDestination, exportArchivedThreadMarkdown } from "./archive-export";
 import type { ThreadOperationsTransport } from "./ports";
+import type { ThreadNameMutationCoordinator } from "./thread-name-mutation-coordinator";
 
 export interface ThreadOperationsHost {
   transport: ThreadOperationsTransport;
+  nameMutations: ThreadNameMutationCoordinator;
   archiveExport: {
     settings(): ArchiveExportSettings;
     enabled(): boolean;
@@ -26,6 +28,7 @@ export interface ArchiveThreadResult {
 }
 
 interface RenameThreadOptions {
+  shouldStart?: () => boolean;
   shouldPublish?: () => boolean;
 }
 
@@ -50,11 +53,14 @@ async function renameThread(
   const name = normalizeExplicitThreadName(value);
   if (!name) return false;
 
-  await host.transport.renameThread(threadId, name);
-  if (options.shouldPublish?.() ?? true) {
-    host.catalog.apply({ type: "thread-renamed", threadId, name });
-  }
-  return true;
+  return host.nameMutations.run(threadId, async () => {
+    if (!(options.shouldStart?.() ?? true)) return false;
+    await host.transport.renameThread(threadId, name);
+    if (options.shouldPublish?.() ?? true) {
+      host.catalog.apply({ type: "thread-renamed", threadId, name });
+    }
+    return true;
+  });
 }
 
 async function archiveThread(

@@ -10,6 +10,7 @@ import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../../threads/workflows/archive-export";
+import type { ThreadNameMutationCoordinator } from "../../threads/workflows/thread-name-mutation-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
 
 export interface CodexChatHost {
@@ -17,6 +18,7 @@ export interface CodexChatHost {
   readonly workspace: WorkspacePanels;
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
+  readonly threadNameMutations: ThreadNameMutationCoordinator;
 }
 
 interface ChatPanelSettingsRef {

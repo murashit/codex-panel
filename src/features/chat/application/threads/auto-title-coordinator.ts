@@ -7,7 +7,11 @@ export interface AutoTitleCoordinatorHost {
   stateStore: ChatStateStore;
   completedTurnTitleContext(turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null): ThreadTitleContext | null;
   generateTitleFromContext(context: ThreadTitleContext): Promise<string | null>;
-  renameGeneratedTitle(threadId: string, title: string, options: { shouldPublish: () => boolean }): Promise<boolean>;
+  renameGeneratedTitle(
+    threadId: string,
+    title: string,
+    options: { shouldStart: () => boolean; shouldPublish: () => boolean },
+  ): Promise<boolean>;
 }
 
 export interface AutoTitleCoordinator {
@@ -33,6 +37,7 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
       if (!title || !threadCanReceiveGeneratedTitle(threadId)) return;
 
       await host.renameGeneratedTitle(threadId, title, {
+        shouldStart: () => threadCanReceiveGeneratedTitle(threadId),
         shouldPublish: () => threadCanReceiveGeneratedTitle(threadId),
       });
     } catch {
