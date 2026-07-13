@@ -124,6 +124,99 @@ describe("settings tab", () => {
     expect(settingDesc(tab, "Show chat toolbar")).toContain("toolbar above chat panels");
   });
 
+  it("finishes a pending settings save without remounting a hidden tab", async () => {
+    const save = deferred<void>();
+    const saveSettings = vi.fn(() => save.promise);
+    const refreshOpenViews = vi.fn();
+    const tab = newSettingsTab({ saveSettings, refreshOpenViews });
+
+    tab.display();
+    const toggle = inputForSetting(tab, "Show chat toolbar");
+    if (!toggle) throw new Error("Missing toolbar visibility toggle");
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+
+    tab.hide();
+    expect(tab.containerEl.children).toHaveLength(0);
+
+    save.resolve(undefined);
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(refreshOpenViews).toHaveBeenCalledOnce();
+    expect(tab.containerEl.children).toHaveLength(0);
+  });
+
+  it("serializes overlapping settings saves", async () => {
+    const firstSave = deferred<void>();
+    const saveSettings = vi.fn().mockReturnValueOnce(firstSave.promise).mockResolvedValueOnce(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const shortcut = selectForSetting(tab, "Send shortcut");
+    const toggle = inputForSetting(tab, "Reference active file on send");
+    if (!shortcut || !toggle) throw new Error("Missing settings controls");
+
+    shortcut.value = "mod-enter";
+    shortcut.dispatchEvent(new Event("change"));
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+
+    firstSave.resolve(undefined);
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the latest native control value while an earlier save is pending", async () => {
+    const firstSave = deferred<void>();
+    const saveSettings = vi.fn().mockReturnValueOnce(firstSave.promise).mockResolvedValueOnce(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const toggle = inputForSetting(tab, "Show chat toolbar");
+    if (!toggle) throw new Error("Missing toolbar visibility toggle");
+
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+
+    expect(toggle.checked).toBe(true);
+    expect(saveSettings).toHaveBeenCalledOnce();
+
+    firstSave.resolve(undefined);
+    await flushPromises();
+
+    expect(inputForSetting(tab, "Show chat toolbar")?.checked).toBe(true);
+    expect(saveSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it("rolls back only the failed mutation after an earlier queued save succeeds", async () => {
+    const saveSettings = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("disk full"));
+    const tab = newSettingsTab({ saveSettings });
+
+    tab.display();
+    const shortcut = selectForSetting(tab, "Send shortcut");
+    const toggle = inputForSetting(tab, "Reference active file on send");
+    if (!shortcut || !toggle) throw new Error("Missing settings controls");
+
+    shortcut.value = "mod-enter";
+    shortcut.dispatchEvent(new Event("change"));
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(selectForSetting(tab, "Send shortcut")?.value).toBe("mod-enter");
+    expect(inputForSetting(tab, "Reference active file on send")?.checked).toBe(false);
+    expect(notices).toContain("Failed to save Codex Panel settings: disk full");
+  });
+
   it("saves the composer line edge scroll setting", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const tab = newSettingsTab({ saveSettings });
