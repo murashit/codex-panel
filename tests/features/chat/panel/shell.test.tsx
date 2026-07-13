@@ -282,8 +282,9 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("removes and restores the toolbar from shell props without replacing the body regions", async () => {
+  it("removes and restores the toolbar without losing composer or thread viewport state", async () => {
     const store = createChatStateStore();
+    store.dispatch({ type: "composer/draft-set", draft: "toolbar continuity" });
     const container = document.createElement("div");
     document.body.appendChild(container);
     const parts = shellParts();
@@ -296,6 +297,12 @@ describe("ChatPanelShell", () => {
     expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
     expect(container.querySelector(".codex-panel__region--thread-stream")).not.toBeNull();
     expect(container.querySelector(".codex-panel__region--composer")).not.toBeNull();
+    const initialComposer = composer(container);
+    const initialThreadStream = container.querySelector<HTMLElement>(".codex-panel__region--thread-stream");
+    if (!initialThreadStream) throw new Error("Missing thread stream");
+    initialComposer.focus();
+    initialComposer.setSelectionRange(2, 9);
+    initialThreadStream.scrollTop = 42;
 
     await act(async () => {
       renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
@@ -304,6 +311,21 @@ describe("ChatPanelShell", () => {
 
     expect(container.querySelector(".codex-panel__toolbar")).not.toBeNull();
     expect(container.firstElementChild?.classList.contains("codex-panel__toolbar")).toBe(true);
+    expect(document.activeElement).toBe(composer(container));
+    expect(composer(container).selectionStart).toBe(2);
+    expect(composer(container).selectionEnd).toBe(9);
+    expect(container.querySelector<HTMLElement>(".codex-panel__region--thread-stream")?.scrollTop).toBe(42);
+
+    await act(async () => {
+      renderChatPanelShell(container, { stateStore: store, showToolbar: false, parts });
+      await settleShellEffects();
+    });
+
+    expect(container.querySelector(".codex-panel__toolbar")).toBeNull();
+    expect(document.activeElement).toBe(composer(container));
+    expect(composer(container).selectionStart).toBe(2);
+    expect(composer(container).selectionEnd).toBe(9);
+    expect(container.querySelector<HTMLElement>(".codex-panel__region--thread-stream")?.scrollTop).toBe(42);
 
     await act(async () => {
       unmountChatPanelShell(container);

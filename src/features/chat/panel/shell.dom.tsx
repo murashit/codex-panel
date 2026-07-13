@@ -42,8 +42,7 @@ export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShe
   container.addClass("codex-panel");
   const existing = shellMounts.get(container);
   const mount = existing?.stateStore === props.stateStore ? existing : createShellMount(container, props);
-  mount.props = props;
-  renderMountedShell(container, mount);
+  renderMountedShell(container, mount, props);
 }
 
 export function unmountChatPanelShell(container: HTMLElement | null): void {
@@ -75,13 +74,14 @@ function createShellMount(container: HTMLElement, props: ChatPanelShellProps): C
   return mount;
 }
 
-function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount): void {
+function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount, props: ChatPanelShellProps): void {
   if (!uiRootIntact(container, mount.props.showToolbar)) {
     unmountUiRoot(container);
     container.replaceChildren();
   }
   syncStatusBarClearance(container);
-  renderUiRoot(container, <ChatPanelShell {...mount.props} shellReadModelBinding={mount.shellReadModelBinding} />);
+  renderUiRoot(container, <ChatPanelShell {...props} shellReadModelBinding={mount.shellReadModelBinding} />);
+  mount.props = props;
 }
 
 function uiRootIntact(container: HTMLElement, showToolbar: boolean): boolean {
