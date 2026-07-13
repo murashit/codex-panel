@@ -28,10 +28,11 @@ interface EphemeralThreadLifecycleHost {
 export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHost): EphemeralThreadLifecycle {
   let disposed = false;
   let openGeneration = 0;
-  const deleteActiveEphemeralThread = async (): Promise<boolean> => {
+  const cleanupRequiredThreadIds = new Set<string>();
+  const unsubscribeActiveEphemeralThread = async (): Promise<boolean> => {
     const active = host.stateStore.getState().activeThread;
     if (active.id && active.lifetime?.kind === "ephemeral") {
-      return host.transport.deleteEphemeralThread(active.id);
+      return host.transport.unsubscribeEphemeralThread(active.id);
     }
     return true;
   };
@@ -40,11 +41,17 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
     async open(input): Promise<boolean> {
       const generation = ++openGeneration;
       if (!(await host.ensureConnected())) return false;
-      const snapshot = await host.transport.forkEphemeralThread(input.sourceThreadId);
-      if (!snapshot) return false;
+      const result = await host.transport.forkEphemeralThread(input.sourceThreadId);
+      if (!result) return false;
+      if (result.kind === "cleanup-required") {
+        cleanupRequiredThreadIds.add(result.threadId);
+        host.addSystemMessage("Could not prepare the side chat. Cleanup will be retried when this view closes.");
+        return false;
+      }
+      const snapshot = result;
       if (disposed || generation !== openGeneration) {
         try {
-          await host.transport.deleteEphemeralThread(snapshot.activation.thread.id);
+          await host.transport.unsubscribeEphemeralThread(snapshot.activation.thread.id);
         } catch {
           // A late fork must never become active, even when best-effort cleanup fails.
         }
@@ -69,7 +76,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
         return false;
       }
       try {
-        if (!(await deleteActiveEphemeralThread())) {
+        if (!(await unsubscribeActiveEphemeralThread())) {
           host.addSystemMessage("Could not discard the side chat. Try again before switching threads.");
           return false;
         }
@@ -92,9 +99,16 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
         await settleWithin(host.interruptTurn(threadId, turnId), EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS);
       }
       try {
-        await deleteActiveEphemeralThread();
+        await unsubscribeActiveEphemeralThread();
       } catch {
         // Ephemeral cleanup must not prevent the panel from closing.
+      }
+      for (const threadId of cleanupRequiredThreadIds) {
+        try {
+          if (await host.transport.unsubscribeEphemeralThread(threadId)) cleanupRequiredThreadIds.delete(threadId);
+        } catch {
+          // Closing the app-server connection provides the final subscription cleanup boundary.
+        }
       }
     },
   };

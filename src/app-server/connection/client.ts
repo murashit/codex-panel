@@ -36,6 +36,7 @@ import type { ThreadSettingsUpdateResponse } from "../../generated/app-server/v2
 import type { ThreadStartResponse } from "../../generated/app-server/v2/ThreadStartResponse";
 import type { ThreadTurnsListResponse } from "../../generated/app-server/v2/ThreadTurnsListResponse";
 import type { ThreadUnarchiveResponse } from "../../generated/app-server/v2/ThreadUnarchiveResponse";
+import type { ThreadUnsubscribeResponse } from "../../generated/app-server/v2/ThreadUnsubscribeResponse";
 import type { TurnInterruptResponse } from "../../generated/app-server/v2/TurnInterruptResponse";
 import type { TurnStartResponse } from "../../generated/app-server/v2/TurnStartResponse";
 import type { TurnSteerResponse } from "../../generated/app-server/v2/TurnSteerResponse";
@@ -84,6 +85,7 @@ export interface ClientResponseByMethod {
   "thread/read": ThreadReadResponse;
   "thread/archive": ThreadArchiveResponse;
   "thread/delete": ThreadDeleteResponse;
+  "thread/unsubscribe": ThreadUnsubscribeResponse;
   "thread/unarchive": ThreadUnarchiveResponse;
   "thread/rollback": ThreadRollbackResponse;
   "thread/name/set": ThreadSetNameResponse;

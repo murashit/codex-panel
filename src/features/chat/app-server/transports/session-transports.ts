@@ -3,7 +3,7 @@ import type { AppServerRequestClient } from "../../../../app-server/services/req
 import {
   clearThreadGoal,
   compactThread,
-  deleteThread,
+  EphemeralThreadCleanupRequiredError,
   forkEphemeralThread,
   forkThread,
   listThreadTurns,
@@ -14,6 +14,7 @@ import {
   setThreadGoal,
   startThread,
   threadActivationSnapshotFromAppServerResponse,
+  unsubscribeThread,
   updateThreadSettings,
 } from "../../../../app-server/services/threads";
 import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/services/turns";
@@ -172,10 +173,20 @@ function createChatThreadMutationTransport(host: ChatAppServerTransportHost): Th
 function createChatEphemeralThreadTransport(host: ChatAppServerTransportHost): EphemeralThreadTransport {
   return {
     forkEphemeralThread: (sourceThreadId) =>
-      withConnectedChatAppServerClient(host, (client) => forkEphemeralThread(client, sourceThreadId, host.vaultPath)),
-    deleteEphemeralThread: async (threadId) => {
+      withConnectedChatAppServerClient(host, async (client) => {
+        try {
+          const snapshot = await forkEphemeralThread(client, sourceThreadId, host.vaultPath);
+          return { kind: "ready" as const, ...snapshot };
+        } catch (error) {
+          if (error instanceof EphemeralThreadCleanupRequiredError) {
+            return { kind: "cleanup-required" as const, threadId: error.threadId };
+          }
+          throw error;
+        }
+      }),
+    unsubscribeEphemeralThread: async (threadId) => {
       const result = await withCurrentChatAppServerClient(host, async (client) => {
-        await deleteThread(client, threadId, { timeoutMs: 5_000 });
+        await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
         return true;
       });
       return result ?? false;

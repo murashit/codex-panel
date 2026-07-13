@@ -12,6 +12,7 @@ import { REFERENCED_THREAD_TURN_LIMIT } from "../../domain/threads/reference";
 import type { TurnTranscriptSummary } from "../../domain/threads/transcript";
 import type { ClientResponseByMethod } from "../connection/client";
 import type { ClientRequestParams } from "../connection/rpc-messages";
+import { appServerSideChatBoundaryItem, sideChatDeveloperInstructions } from "../protocol/side-chat";
 import { type ThreadRecord, threadFromThreadRecord, threadsFromThreadRecords } from "../protocol/thread";
 import { appServerThreadGoalUpdate, appServerThreadGoalUserHistoryItem, threadGoalFromAppServerGoal } from "../protocol/thread-goal";
 import { appServerRuntimeSettingsPatch } from "../protocol/thread-settings";
@@ -229,19 +230,47 @@ export interface EphemeralThreadForkSnapshot {
   readonly sourceThreadId: string;
 }
 
+export class EphemeralThreadCleanupRequiredError extends Error {
+  readonly cleanupError: unknown;
+  readonly threadId: string;
+
+  constructor(threadId: string, cause: unknown, cleanupError: unknown) {
+    super(`Could not prepare or unsubscribe side chat ${threadId}.`, { cause });
+    this.name = "EphemeralThreadCleanupRequiredError";
+    this.threadId = threadId;
+    this.cleanupError = cleanupError;
+  }
+}
+
 export async function forkEphemeralThread(
   client: AppServerRequestClient,
   sourceThreadId: string,
   cwd: string,
 ): Promise<EphemeralThreadForkSnapshot> {
+  const source = await client.request("thread/read", { threadId: sourceThreadId, includeTurns: false });
+  const config = await client.request("config/read", { cwd: source.thread.cwd });
   const response = await client.request("thread/fork", {
     threadId: sourceThreadId,
     cwd,
     ephemeral: true,
     sandbox: "read-only",
     approvalPolicy: "never",
+    developerInstructions: sideChatDeveloperInstructions(config.config.developer_instructions),
     excludeTurns: true,
   });
+  try {
+    await client.request("thread/inject_items", {
+      threadId: response.thread.id,
+      items: [appServerSideChatBoundaryItem()],
+    });
+  } catch (error) {
+    try {
+      await unsubscribeThread(client, response.thread.id, { timeoutMs: 5_000 });
+    } catch (cleanupError) {
+      throw new EphemeralThreadCleanupRequiredError(response.thread.id, error, cleanupError);
+    }
+    throw error;
+  }
   return {
     activation: threadActivationSnapshotFromAppServerResponse(response),
     sourceThreadId,
@@ -258,6 +287,14 @@ export async function archiveThread(client: AppServerRequestClient, threadId: st
 
 export async function deleteThread(client: AppServerRequestClient, threadId: string, options: { timeoutMs?: number } = {}): Promise<void> {
   await client.request("thread/delete", { threadId }, options);
+}
+
+export async function unsubscribeThread(
+  client: AppServerRequestClient,
+  threadId: string,
+  options: { timeoutMs?: number } = {},
+): Promise<void> {
+  await client.request("thread/unsubscribe", { threadId }, options);
 }
 
 export async function restoreArchivedThread(client: AppServerRequestClient, threadId: string): Promise<Thread> {
