@@ -9,7 +9,6 @@ export interface CatalogModel {
   supportedReasoningEfforts: readonly { reasoningEffort: string; description: string }[];
   defaultReasoningEffort: string | null;
   inputModalities: readonly string[];
-  additionalSpeedTiers: readonly string[];
   serviceTiers: readonly { id: string; name: string }[];
   defaultServiceTier: string | null;
   isDefault: boolean;
@@ -62,7 +61,6 @@ function modelMetadataFromCatalogModel(model: CatalogModel): ModelMetadata {
     })),
     defaultReasoningEffort: model.defaultReasoningEffort,
     inputModalities: [...model.inputModalities],
-    additionalSpeedTiers: [...model.additionalSpeedTiers],
     serviceTiers: model.serviceTiers.map((tier) => ({ id: tier.id, name: tier.name })),
     defaultServiceTier: model.defaultServiceTier,
     isDefault: model.isDefault,

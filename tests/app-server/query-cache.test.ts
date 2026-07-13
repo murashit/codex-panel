@@ -622,7 +622,6 @@ function catalogModel(model: string): CatalogModel {
     supportedReasoningEfforts: [],
     defaultReasoningEffort: "medium",
     inputModalities: ["text"],
-    additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
     isDefault: false,

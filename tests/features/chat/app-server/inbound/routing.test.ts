@@ -13,12 +13,12 @@ type NotificationRouteKind = ReturnType<typeof routeServerNotification>["kind"];
 type RequestRouteKind = ReturnType<typeof routeServerRequest>["kind"];
 
 describe("chat inbound routing", () => {
-  it("keeps generated app-server notifications explicitly routed or ignored", () => {
+  it("leaves only deprecated generated app-server notifications unhandled", () => {
     const unhandled = generatedServerNotificationMethods().filter(
       (method) => routeServerNotification(notificationFixture(method), activeScope).kind === "unhandled",
     );
 
-    expect(unhandled).toEqual([]);
+    expect(unhandled).toEqual(["item/fileChange/outputDelta", "thread/compacted"]);
   });
 
   it("keeps routed notification methods covered by matching planners", () => {

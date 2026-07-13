@@ -1037,7 +1037,6 @@ function model(modelId: string, isDefault = false, hidden = false, efforts: Reas
     defaultReasoningEffort: "medium",
     inputModalities: ["text"],
     supportsPersonality: false,
-    additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
   } satisfies CatalogModel;

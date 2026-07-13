@@ -186,7 +186,6 @@ function model(modelId: string): ModelMetadata {
     supportedReasoningEfforts: [],
     defaultReasoningEffort: null,
     inputModalities: [],
-    additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
     isDefault: false,

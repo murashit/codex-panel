@@ -1004,7 +1004,6 @@ function modelMetadata(name: string, efforts: ReasoningEffort[]): ModelMetadata 
     supportedReasoningEfforts: efforts,
     defaultReasoningEffort: efforts[0] ?? "low",
     inputModalities: ["text"],
-    additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
     isDefault: false,

@@ -18,7 +18,6 @@ export interface ModelMetadata {
   readonly reasoningEffortOptions?: readonly ReasoningEffortMetadata[];
   readonly defaultReasoningEffort: string | null;
   readonly inputModalities: readonly string[];
-  readonly additionalSpeedTiers: readonly string[];
   readonly serviceTiers: readonly ModelServiceTier[];
   readonly defaultServiceTier: string | null;
   readonly isDefault: boolean;

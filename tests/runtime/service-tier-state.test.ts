@@ -60,7 +60,6 @@ function fastMode(serviceTier: string | null, serviceTiers: ModelMetadata["servi
           supportedReasoningEfforts: [],
           defaultReasoningEffort: null,
           inputModalities: [],
-          additionalSpeedTiers: [],
           serviceTiers,
           defaultServiceTier: null,
         },

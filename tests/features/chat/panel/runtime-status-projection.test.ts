@@ -224,7 +224,6 @@ function modelFixture(model: string): ModelMetadata {
     supportedReasoningEfforts: ["high"],
     defaultReasoningEffort: "high",
     inputModalities: [],
-    additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
     isDefault: true,

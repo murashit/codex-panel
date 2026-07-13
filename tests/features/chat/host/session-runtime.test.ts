@@ -398,7 +398,6 @@ describe("ChatPanelSessionRuntime actions", () => {
       supportedReasoningEfforts: [],
       defaultReasoningEffort: null,
       inputModalities: [],
-      additionalSpeedTiers: [],
       serviceTiers: [],
       defaultServiceTier: null,
       isDefault: false,

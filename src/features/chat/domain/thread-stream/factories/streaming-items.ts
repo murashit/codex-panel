@@ -2,7 +2,6 @@ import { RUNNING_EXECUTION_STATE } from "../execution-state";
 import type { ThreadStreamItem, ThreadStreamItemKind } from "../items";
 
 export const STREAMED_COMMAND_RUNNING_TEXT = "Command running";
-export const STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT = "File change inProgress";
 export const STREAMED_MCP_PROGRESS_LABEL = "mcp progress";
 const UNKNOWN_STREAMED_COMMAND_CWD = "(unknown)";
 

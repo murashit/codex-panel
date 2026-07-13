@@ -27,9 +27,9 @@ export type ServerNotificationRoute =
   | { kind: "unhandled"; notification: ServerNotification }
   | { kind: "inactive"; notification: ServerNotification };
 
-type ServerNotificationScopeExtractors = {
+type ServerNotificationScopeExtractors = Partial<{
   [Method in ServerNotificationMethod]: (notification: Extract<ServerNotification, { method: Method }>) => AppServerRouteScope;
-};
+}>;
 
 const GLOBALLY_ROUTED_THREAD_CATALOG_NOTIFICATION_METHODS = [
   "thread/started",
@@ -50,7 +50,6 @@ const STREAM_UPDATE_NOTIFICATION_METHODS = [
   "item/completed",
   "item/commandExecution/outputDelta",
   "item/fileChange/patchUpdated",
-  "item/fileChange/outputDelta",
   "turn/diff/updated",
   "hook/started",
   "hook/completed",
@@ -91,7 +90,6 @@ const DIAGNOSTIC_STATUS_NOTIFICATION_METHODS = [
 type DiagnosticStatusNotificationMethod = (typeof DIAGNOSTIC_STATUS_NOTIFICATION_METHODS)[number];
 
 const USER_VISIBLE_NOTICE_NOTIFICATION_METHODS = [
-  "thread/compacted",
   "model/rerouted",
   "deprecationNotice",
   "error",
@@ -166,7 +164,6 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
   "process/exited": unscopedNotificationScope,
   "item/commandExecution/outputDelta": threadTurnNotificationScope,
   "item/commandExecution/terminalInteraction": threadTurnNotificationScope,
-  "item/fileChange/outputDelta": threadTurnNotificationScope,
   "item/fileChange/patchUpdated": threadTurnNotificationScope,
   "serverRequest/resolved": threadOnlyNotificationScope,
   "item/mcpToolCall/progress": threadTurnNotificationScope,
@@ -182,7 +179,6 @@ const SERVER_NOTIFICATION_SCOPE_EXTRACTORS: ServerNotificationScopeExtractors = 
   "item/reasoning/summaryTextDelta": threadTurnNotificationScope,
   "item/reasoning/summaryPartAdded": threadTurnNotificationScope,
   "item/reasoning/textDelta": threadTurnNotificationScope,
-  "thread/compacted": threadTurnNotificationScope,
   "model/rerouted": threadTurnNotificationScope,
   "model/verification": threadTurnNotificationScope,
   "turn/moderationMetadata": threadTurnNotificationScope,

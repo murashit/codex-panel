@@ -618,7 +618,6 @@ function modelFixture(model: string, fastTierId?: string): ModelMetadata {
     supportedReasoningEfforts: ["high"],
     defaultReasoningEffort: "high",
     inputModalities: [],
-    additionalSpeedTiers: fastTierId ? ["fast"] : [],
     serviceTiers: fastTierId ? [{ id: fastTierId, name: "Fast" }] : [],
     defaultServiceTier: null,
     isDefault: true,

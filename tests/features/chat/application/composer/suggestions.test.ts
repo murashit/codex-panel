@@ -53,7 +53,6 @@ function model(name: string, efforts: ReasoningEffort[], overrides: Partial<Mode
     supportedReasoningEfforts: efforts,
     defaultReasoningEffort: efforts[0] ?? "medium",
     inputModalities: ["text"],
-    additionalSpeedTiers: [],
     serviceTiers: [],
     defaultServiceTier: null,
     isDefault: false,

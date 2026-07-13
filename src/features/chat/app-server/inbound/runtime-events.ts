@@ -1,11 +1,7 @@
 import type { ServerNotification } from "../../../../app-server/connection/rpc-messages";
 import { jsonPreview } from "../../../../domain/display/json-preview";
 import type { TurnRuntimeEvent } from "../../application/turns/runtime-events";
-import {
-  STREAMED_COMMAND_RUNNING_TEXT,
-  STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
-  STREAMED_MCP_PROGRESS_LABEL,
-} from "../../domain/thread-stream/factories/streaming-items";
+import { STREAMED_COMMAND_RUNNING_TEXT, STREAMED_MCP_PROGRESS_LABEL } from "../../domain/thread-stream/factories/streaming-items";
 import { createSystemItem } from "../../domain/thread-stream/factories/system-items";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { type AppServerFileChange, normalizeFileChanges, streamingFileChangeThreadStreamItem } from "../mappers/thread-stream/file-changes";
@@ -20,8 +16,6 @@ import {
   threadStreamItemsFromTurns,
 } from "../mappers/thread-stream/turn-items";
 import type { StreamUpdateNotification, TurnLifecycleNotification, UserVisibleNoticeNotification } from "./notification-routing";
-
-const MESSAGE_CONTEXT_COMPACTED = "Context compacted.";
 
 type RuntimeEventSource =
   | StreamUpdateNotification
@@ -105,17 +99,6 @@ export function turnRuntimeEventsFromNotification(
           item: fileChangeItem(notification.params.itemId, notification.params.turnId, notification.params.changes, "inProgress"),
         },
       ];
-    case "item/fileChange/outputDelta":
-      return [
-        {
-          type: "itemOutputDelta",
-          itemId: notification.params.itemId,
-          turnId: notification.params.turnId,
-          delta: notification.params.delta,
-          kind: "fileChange",
-          fallbackText: STREAMED_FILE_CHANGE_IN_PROGRESS_TEXT,
-        },
-      ];
     case "turn/diff/updated":
       return [{ type: "turnDiffUpdated", turnId: notification.params.turnId, diff: notification.params.diff }];
     case "hook/started":
@@ -159,8 +142,6 @@ export function turnRuntimeEventsFromNotification(
       ];
     case "serverRequest/resolved":
       return [{ type: "requestResolved", requestId: notification.params.requestId }];
-    case "thread/compacted":
-      return [{ type: "systemNotice", item: createSystemItem(localItemId("system"), MESSAGE_CONTEXT_COMPACTED) }];
     case "model/rerouted":
     case "deprecationNotice":
     case "error":
@@ -198,10 +179,7 @@ function hookRunEvents(
   return item ? [{ type: "hookRunObserved", item, turnId, eventName: run.eventName }] : [];
 }
 
-function jsonNoticeEvent(
-  notification: Extract<UserVisibleNoticeNotification, { method: Exclude<UserVisibleNoticeNotification["method"], "thread/compacted"> }>,
-  localItemId: (prefix: string) => string,
-): TurnRuntimeEvent {
+function jsonNoticeEvent(notification: UserVisibleNoticeNotification, localItemId: (prefix: string) => string): TurnRuntimeEvent {
   return {
     type: "systemNotice",
     item: createSystemItem(localItemId("system"), `${notification.method}: ${jsonPreview(notification.params)}`),
