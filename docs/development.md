@@ -10,26 +10,24 @@ npm run fix
 npm run check
 ```
 
-Use Node.js 26, matching `.node-version`, CI, and the installed Node type definitions.
+Use the Node.js version in `.node-version`.
 
-Use this as the normal edit loop: make the change, run `npm run fix`, then run `npm run check`. Treat `npm run fix` as trusted mechanical cleanup for formatting, import ordering, and Knip safe fixes; review the resulting diff at normal change-boundary checkpoints rather than after each tool adjustment.
+Use `npm run fix` for mechanical cleanup, review its diff, and run `npm run check` before handoff.
 
 ## Commit Messages
 
-Commits after the `5.0.0` tag follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
+Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) for new commits:
 
 ```text
 feat(composer): add daily note context suggestions
-fix(threads): prevent manual titles from being overwritten
-refactor(chat): move session wiring into the runtime
-chore(release): 5.0.1
+fix: prevent manual titles from being overwritten
 ```
 
-Use one of `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, or `test`. Scopes are optional and are not restricted to a fixed list. Keep the description concise and omit a trailing period. Both lowercase and uppercase starts are accepted so Dependabot's generated `Bump ...` descriptions follow the same validation path. Use `!` before the colon or a `BREAKING CHANGE:` footer for a disruptive change.
+Use one of `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, or `test`. Scopes are optional. Keep the description concise and omit a trailing period; capitalization is unrestricted. Use `!` before the colon or a `BREAKING CHANGE:` footer for a disruptive change.
 
-CI checks every commit introduced by a pull request or direct push. GitHub-generated `Merge pull request ...` commits are the only format exemption; write manual reverts as `revert: ...`, and rewrite `fixup!` or `squash!` commits before publication. Run `npm run commitlint -- --from <base> --to <head> --verbose` for the same local check; local Git hooks are optional and are not a substitute for CI in the Jujutsu-first workflow.
+CI checks commits introduced by pull requests and direct pushes; GitHub-generated pull-request merge commits are exempt. To check a range locally, run `npm run commitlint -- --from <base> --to <head> --verbose`.
 
-Use focused scripts such as `npm run typecheck`, `npm run test`, or `npm run build` only when diagnosing a specific failure or when a full check would obscure the signal while iterating. Do not treat focused scripts as a substitute for the final `npm run check`. CI and release preflight run the same `npm run check` command as local development.
+Use focused scripts while iterating, but run `npm run check` before handoff. CI and release preflight use the same check.
 
 Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
 
@@ -46,49 +44,25 @@ npm run generate:app-server-types
 npm run check
 ```
 
-The generation script uses `codex app-server generate-ts --experimental` because the panel depends on experimental app-server fields. Do not hand-edit generated bindings.
+The bindings include experimental app-server fields. Do not hand-edit them.
 
 ## Placement Rules
 
-The source tree is organized by implementation ownership, not by the single Obsidian plugin entrypoint. Put behavior where its reason to change lives: app-server protocol adaptation at the app-server boundary, app-server-independent domain models in domain code, cross-feature reusable adapters and primitives under `src/shared/`, and feature workflows under their owning feature. Keep shared subfolders named by the boundary or primitive they own, such as DOM, Obsidian, runtime, or UI rendering.
+Follow the ownership boundaries in `docs/design.md` and the import and source-shape lint rules. Put behavior where its reason to change lives, and update the lint policy and its tests when intentionally changing a boundary.
 
-Within chat, keep state transitions and workflow orchestration separate from app-server adaptation, session/Obsidian wiring, and rendering surfaces. Tests should mirror the ownership boundary of the code under test.
-
-Keep new code near the state or API it owns. A feature may import another feature only for a capability that feature owns. When moving behavior across an ownership boundary or adding a new shared classification, update the lint policy and its tests with that boundary in the same change.
-
-Generated app-server types should stay behind app-server connection and protocol adapter modules. If domain, shared code, settings, workspace, or feature code needs app-server data, add or reuse a panel-owned projection at the boundary instead of importing generated payload types directly.
-
-Chat application workflows should receive chat-owned contracts, not root `src/app-server/` modules or direct `AppServerClient` access. Keep app-server access, connection freshness checks, vault-path injection, and payload projection in `src/features/chat/app-server/` transports or host-owned wiring.
-
-Thread workflows should likewise depend on contracts under `src/features/threads/workflows/`. Keep thread RPC sequencing, client continuity, persisted transcript reads, and Codex-backed title generation in `src/features/threads/app-server/` adapters.
-
-Keep shared thread query records as raw last-known-good app-server snapshots. `ThreadCatalog` owns lifecycle-event overlays and publishes the resulting projection immediately; chat panels, the Threads view, and settings consume that projection without writing optimistic state back into the query cache.
-
-Selection rewrite sessions should depend on the feature-owned transport contract. Keep executable-path and vault-path wiring, short-lived app-server lifecycle, runtime override resolution, and server-request policy in the selection rewrite app-server adapter.
-
-Chat panel-visible state belongs in `ChatStateStore` and should flow through named reducer actions and the panel read model adapter. Use Preact Signals only in chat panel rendering adapters such as the shell read model and surface projections. When a surface needs fewer dependencies, narrow the read model instead of passing broad reducer slices.
-
-Each `ChatPanelSession` owns one concrete `ChatPanelSessionRuntime`. That runtime is the per-leaf composition owner for the connection, responder registry, controllers, presenters, shared subscriptions, and disposal ordering; do not add a parallel session graph or late-bound connection bootstrap registry.
-
-Chat feature dependencies should flow from pure workflow and meaning code toward owned adapters and render surfaces. Lower layers must not reach into host/session wiring, panel internals, or UI implementation details.
-
-Chat modules should not import `src/workspace/` directly; workspace operations enter chat through host contracts, while workspace modules may coordinate concrete Obsidian chat views.
-
-Use DOM reads, writes, measurements, hit-tests, focus/selection operations, and DOM event listener wiring only from explicit bridge modules, Obsidian-owned API boundaries, or rendering and measurement code that cannot be expressed cleanly as Preact components. Normal modules may keep refs and call named adapters, but they should not interpret DOM structure or layout directly. Name bridge files with a `.dom`, `.obsidian`, or `.measure` suffix.
-
-Use `.tsx` only where the module owns rendering or a host rendering bridge. Non-rendering source should use `.ts`; when a new rendering-owned location is intentional, update the source-shape lint policy and its tests rather than relying on convention alone.
+Keep generated protocol types behind app-server adapters and expose panel-owned contracts or projections to features. Keep direct DOM work in explicit bridge, measurement, or rendering modules; use the established filename suffixes for those boundaries and reserve `.tsx` for rendering.
 
 ## CSS Rules
 
 CSS should stay native to Obsidian. Prefer Obsidian variables and Codex Panel tokens for color, typography, spacing, and layout dimensions instead of hardcoded values.
 
-Keep selectors shallow and specific to Codex Panel classes. Avoid broad invalidation patterns such as `:has()`, hidden specificity inside `:where()`, IDs, and universal selectors. Keep needed type selectors under Codex Panel-owned class roots for Obsidian-rendered or semantic child DOM. Add new authored CSS files to `src/styles/order.json`, and remove unused or test-only `codex-panel` classes instead of keeping dead styles.
+Keep selectors shallow and scoped to Codex Panel classes. Add new authored CSS files to `src/styles/order.json`, and remove unused or test-only classes.
 
 ## Naming Conventions
 
-Name modules by responsibility: use `Controller` only for stateful lifecycle/control surfaces, `Handler` for inbound event or request entrypoints, `Actions` for caller-facing command or callback bundles without lifecycle ownership, `Coordinator` for stateful background or cross-surface coordination, `Service` for reusable domain capabilities, `Presenter` for UI state projection, `Renderer` for render-only UI contracts, and `Host`/`Ports` for dependency boundary objects. Use `State`, `Snapshot`, `Projection`, `ViewModel`, `Options`, `Context`, `Result`, `Target`, `Capabilities`, or `ActionTargets` for passive value objects; do not use `Actions` for passive values. Use boundary/infrastructure nouns such as `Client`, `Transport`, `Cache`, `Store`, `Catalog`, `Manager`, `Bridge`, `Tracker`, `Session`, `Runtime`, `Provider`, or `Adapter` only when the object owns that concrete boundary or lifecycle role.
+Name modules by owned responsibility. Use lifecycle or boundary nouns only when the object owns that lifecycle or boundary, and passive-data names for values.
 
-Prefer functions and factory-created objects over classes. Use a class only when it owns mutable lifecycle/resource state, extends or implements an external class-based API such as Obsidian views/modals/tabs, or represents an `Error`; do not use a class merely to group pure functions or dependencies.
+Prefer functions and factories. Reserve classes for mutable resource ownership, external class APIs, and `Error` types.
 
 ## Common Pitfalls
 
@@ -99,8 +73,6 @@ Prefer functions and factory-created objects over classes. Use a class only when
 
 ## API Baselines
 
-Use the local API baseline report when checking whether the development environment matches the supported API policy:
-
 ```sh
 npm run api:baseline
 ```
@@ -109,4 +81,4 @@ Obsidian runtime compatibility is declared through `manifest.json` and `versions
 
 Codex app-server compatibility is managed by Codex CLI minor version. README records the tested Codex CLI patch version, `src/app-server/connection/compatibility.json` records the machine-readable app-server capability baseline used by the panel client profile, and the baseline check verifies that the local `codex --version` is in the same minor before app-server binding or compatibility work.
 
-Pull-request CI runs `npm run api:baseline -- --recorded-only`, which validates checked-in compatibility declarations without requiring a Codex CLI installation. Local compatibility work should still run `npm run api:baseline` so the installed CLI is checked too.
+Pull-request CI validates recorded compatibility declarations without requiring a Codex CLI installation. Local compatibility work should run `npm run api:baseline` so the installed CLI is checked too.

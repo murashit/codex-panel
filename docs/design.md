@@ -18,7 +18,7 @@ Panel settings should store only panel-specific preferences. Do not mirror Codex
 
 The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility.
 
-Runtime controls should express visible user intent for the active thread. They should not copy Codex configuration, and diagnostics should expose only actionable troubleshooting facts.
+Runtime controls should express visible user intent for the active thread rather than copy Codex configuration. Diagnostics should expose only actionable troubleshooting facts.
 
 ## Code Boundaries
 
@@ -42,7 +42,7 @@ Obsidian and app-server boundaries stay outside Preact components. External life
 
 Chat-visible state belongs in the chat state store and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth.
 
-Shared app-server resources should likewise have one query record per resource. In particular, model catalog data belongs to the model query; broader server metadata may report the model probe status but must not carry a second model snapshot.
+Each shared app-server resource should have one authoritative query record. Derived metadata may report status but must not duplicate its snapshot.
 
 Preact Signals are a chat panel rendering adapter, not a second state system. Panel surfaces may read narrow signal-backed read models, but application workflows, domain code, presentation helpers, and pure UI components must not depend on broad reducer slices or reactive state primitives.
 
@@ -54,9 +54,9 @@ Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex 
 
 Subagent threads opened from agent activity remain persistent and restorable but stay outside ordinary thread history. Treat their panels as read-only conversation surfaces while preserving their parent and agent provenance for future specialized behavior.
 
-Thread history, archived state, forks, catalog snapshots, and other app-server resources should follow app-server semantics. Panel-side views are read models over app-server snapshots and lifecycle events; stale or partial refreshes must not overwrite newer state. Obsidian integrations such as archive note export are convenience views of Codex state, not replacements for Codex history.
+Thread history and other app-server resources should follow app-server semantics. Panel-side views are read models over app-server snapshots and lifecycle events; stale or partial refreshes must not overwrite newer state. Obsidian integrations such as archive note export are convenience views, not replacements for Codex history.
 
-Routine panel and Threads view refreshes should load only the first recency-ordered thread page. Older active threads are appended through an explicit load-more action; workflows that explicitly need a complete inventory, such as opening the thread picker, may finish pagination on demand.
+Routine thread lists should load a bounded recent set and paginate older threads on demand instead of eagerly fetching complete inventories.
 
 Selection rewrite is intentionally scoped to a focused edit-and-review workflow. Avoid expanding it into a broader writing assistant without a separate design decision.
 
@@ -70,7 +70,7 @@ Codex Panel UI should feel native inside Obsidian. Prefer Obsidian variables, st
 
 Tests should protect user expectations, app-server/panel responsibility boundaries, and state-transition invariants.
 
-Prefer tests for visible behavior: independent panels, thread-scoped resets, pending request handling, approval flows, readable transcript/detail/status grouping, scroll preservation, and display fallbacks for structured app-server values.
+Prefer tests for visible behavior and state-transition invariants across panels, threads, requests, streams, and display fallbacks.
 
 Avoid tests that freeze incidental implementation details such as exact DOM nesting, render counts, node reuse, helper decomposition, or no-op array updates unless those details directly protect a user-visible invariant.
 
