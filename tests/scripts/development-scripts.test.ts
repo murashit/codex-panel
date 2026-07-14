@@ -14,14 +14,15 @@ afterEach(async () => {
 });
 
 describe("development scripts", () => {
-  it("enforces Conventional Commits except for GitHub merge commits", () => {
-    for (const message of ["feat: add side chats", "Merge pull request #123 from owner/feature"]) {
-      expect(runCommitlint(message), message).toBe(0);
-    }
-
-    for (const message of ['Revert "feat: add side chats"', "v5.1.0", "fixup! feat: add side chats", "squash! feat: add side chats"]) {
-      expect(runCommitlint(message), message).toBe(1);
-    }
+  it.each([
+    { message: "feat: add side chats", expectedStatus: 0 },
+    { message: "Merge pull request #123 from owner/feature", expectedStatus: 0 },
+    { message: 'Revert "feat: add side chats"', expectedStatus: 1 },
+    { message: "v5.1.0", expectedStatus: 1 },
+    { message: "fixup! feat: add side chats", expectedStatus: 1 },
+    { message: "squash! feat: add side chats", expectedStatus: 1 },
+  ])("enforces the commit message policy for $message", ({ message, expectedStatus }) => {
+    expect(runCommitlint(message)).toBe(expectedStatus);
   });
 
   it("fails style builds when CSS files are missing from the style order file", async () => {
