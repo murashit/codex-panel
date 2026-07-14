@@ -21,6 +21,40 @@ describe("reconcileCompletedTurnItems", () => {
     expect(next.map((item) => item.id)).toEqual(["local-user-2", "u1", "u2", "a1"]);
   });
 
+  it("keeps local context attachment metadata when replacing an optimistic user dialogue", () => {
+    const optimistic = {
+      ...userDialogue("local-user-1", "https://example.com/ summarize this", "turn", "local-user-1"),
+      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+    } satisfies ThreadStreamItem;
+    const server = userDialogue("u1", "https://example.com/ summarize this", "turn", "local-user-1");
+
+    const next = reconcileCompletedTurnItems({ currentItems: [optimistic], completedTurnId: "turn", turnItems: [server] });
+
+    expect(next).toEqual([
+      expect.objectContaining({
+        id: "u1",
+        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      }),
+    ]);
+  });
+
+  it("keeps local context attachment metadata when reconciling by text without client ids", () => {
+    const optimistic = {
+      ...userDialogue("local-user-1", "https://example.com/ summarize this", "turn"),
+      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+    } satisfies ThreadStreamItem;
+    const server = userDialogue("u1", "https://example.com/ summarize this", "turn");
+
+    const next = reconcileCompletedTurnItems({ currentItems: [optimistic], completedTurnId: "turn", turnItems: [server] });
+
+    expect(next).toEqual([
+      expect.objectContaining({
+        id: "u1",
+        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      }),
+    ]);
+  });
+
   it("falls back to local user text only when server user dialogues have no client ids", () => {
     const currentItems: ThreadStreamItem[] = [
       userDialogue("local-user-without-client-id", "fallback text", "turn"),
@@ -88,7 +122,7 @@ function currentIds(items: readonly ThreadStreamItem[]): string {
   return items.map((item) => item.id).join(",");
 }
 
-function userDialogue(id: string, text: string, turnId: string, clientId?: string): ThreadStreamItem {
+function userDialogue(id: string, text: string, turnId: string, clientId?: string): Extract<ThreadStreamItem, { dialogueKind: "user" }> {
   return {
     id,
     kind: "dialogue",

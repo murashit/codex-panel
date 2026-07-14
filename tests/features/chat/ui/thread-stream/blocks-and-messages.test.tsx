@@ -1208,13 +1208,37 @@ describe("thread stream rendering and action menu", () => {
     });
 
     const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
-    const summary = user.querySelector<HTMLElement>(".codex-panel__mentioned-files summary");
+    const summary = user.querySelector<HTMLElement>(".codex-panel__context-items summary");
 
     expect(user.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Read [[Alpha]].");
     expect(summary?.textContent).toBe("Context · 1 item");
     expect(summary?.tabIndex).toBe(-1);
-    expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("Alpha");
-    expect(user.querySelector(".codex-panel__mentioned-files")?.textContent).toContain("thoughts/Alpha.md");
+    expect(user.querySelector(".codex-panel__context-items")?.textContent).toContain("Alpha");
+    expect(user.querySelector(".codex-panel__context-items")?.textContent).toContain("thoughts/Alpha.md");
+  });
+
+  it("includes web attachments in the collapsed user dialogue context", () => {
+    const blocks = threadStreamBlocks({
+      items: [
+        {
+          id: "u1",
+          kind: "dialogue",
+          dialogueKind: "user",
+          role: "user",
+          text: "https://example.com/ summarize this",
+          copyText: "https://example.com/ summarize this",
+          mentionedFiles: [{ name: "Alpha", path: "thoughts/Alpha.md" }],
+          contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+        },
+      ],
+    });
+
+    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:u1")));
+    const summary = user.querySelector<HTMLElement>(".codex-panel__context-items summary");
+
+    expect(summary?.textContent).toBe("Context · 2 items");
+    expect(user.querySelector(".codex-panel__context-items")?.textContent).toContain("Web page");
+    expect(user.querySelector(".codex-panel__context-items")?.textContent).toContain("https://example.com/");
   });
 
   it("does not render the open diff action without aggregated turn diff", () => {

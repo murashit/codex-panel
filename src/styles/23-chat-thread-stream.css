@@ -325,7 +325,7 @@
 
 .codex-panel__edited-files,
 .codex-panel__referenced-thread,
-.codex-panel__mentioned-files,
+.codex-panel__context-items,
 .codex-panel__auto-reviews {
   margin-top: var(--codex-panel-item-gap);
   color: var(--text-muted);
@@ -346,7 +346,7 @@
   display: block;
 }
 
-.codex-panel__mentioned-files-details {
+.codex-panel__context-items-details {
   display: block;
 }
 
@@ -357,13 +357,13 @@
 }
 
 .codex-panel__edited-files-details > summary,
-.codex-panel__mentioned-files-details > summary,
+.codex-panel__context-items-details > summary,
 .codex-panel__auto-reviews > summary {
   cursor: default;
 }
 
 .codex-panel__edited-files-details > summary:hover,
-.codex-panel__mentioned-files-details > summary:hover,
+.codex-panel__context-items-details > summary:hover,
 .codex-panel__auto-reviews > summary:hover {
   color: var(--nav-item-color-hover, var(--text-normal));
 }

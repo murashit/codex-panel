@@ -55,6 +55,24 @@ describe("optimistic turn start helpers", () => {
     });
   });
 
+  it("keeps web context visible as user message attachment metadata", () => {
+    const text = "https://example.com/ summarize this";
+    const input = [
+      { type: "text" as const, text },
+      {
+        type: "additionalContext" as const,
+        key: "codex_panel_web_context",
+        kind: "untrusted" as const,
+        value: "Web page context for the current user input:\nSource: https://example.com/\nTitle: Example\n\nReadable article",
+      },
+    ];
+
+    expect(localUserDialogueItemFromInput({ id: "local-user", text, codexInput: input })).toMatchObject({
+      text,
+      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+    });
+  });
+
   it("keeps active file mentions visible even when the same file is mentioned explicitly", () => {
     const text = "Read [[Note]].";
     const input = [

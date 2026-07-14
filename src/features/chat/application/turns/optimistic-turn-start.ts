@@ -1,4 +1,5 @@
 import type { CodexInput } from "../../../../domain/chat/input";
+import { contextAttachmentsFromInput } from "../../domain/thread-stream/format/context-attachments";
 import { fileMentionsFromInput } from "../../domain/thread-stream/format/file-mentions";
 import { userMessageDisplayText } from "../../domain/thread-stream/format/user-message-text";
 import type { ThreadStreamDialogueItem, ThreadStreamFileMention, ThreadStreamItem } from "../../domain/thread-stream/items";
@@ -14,6 +15,7 @@ interface LocalUserDialogueParams {
   turnId?: string;
   referencedThread?: ThreadStreamDialogueItem["referencedThread"];
   mentionedFiles?: readonly ThreadStreamFileMention[];
+  contextAttachments?: ThreadStreamDialogueItem["contextAttachments"];
 }
 
 export interface OptimisticTurnStartAckParams {
@@ -49,6 +51,7 @@ export interface FailedTurnStartCleanupParams {
 
 function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDialogueItem {
   const mentionedFiles = params.mentionedFiles ?? [];
+  const contextAttachments = params.contextAttachments ?? [];
   return {
     id: params.id,
     kind: "dialogue",
@@ -60,6 +63,7 @@ function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDia
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     ...(mentionedFiles.length > 0 ? { mentionedFiles: [...mentionedFiles] } : {}),
+    ...(contextAttachments.length > 0 ? { contextAttachments: [...contextAttachments] } : {}),
   };
 }
 
@@ -80,6 +84,7 @@ export function localUserDialogueItemFromInput(params: LocalUserDialogueFromInpu
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     mentionedFiles: fileMentionsFromInput([...params.codexInput]),
+    contextAttachments: contextAttachmentsFromInput(params.codexInput),
   });
 }
 

@@ -2,8 +2,8 @@ import { Fragment, type ComponentChild as UiNode } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import { IconButton } from "../../../../shared/obsidian/components.obsidian";
 import type {
+  ContextItemTextView,
   EditedFilesTextView,
-  MentionedFileTextView,
   ReferencedThreadTextView,
   TextItemDetailSectionView,
   ThreadStreamTextView,
@@ -27,8 +27,8 @@ function Text({ view, context }: { view: ThreadStreamTextView; context: TextItem
       )}
       {view.metadata.editedFiles ? <EditedFiles view={view.metadata.editedFiles} context={context} /> : null}
       {view.metadata.referencedThread ? <ReferencedThread reference={view.metadata.referencedThread} /> : null}
-      {view.metadata.mentionedFiles ? (
-        <MentionedFiles itemId={view.metadata.mentionedFiles.itemId} files={view.metadata.mentionedFiles.files} context={context} />
+      {view.metadata.contextItems ? (
+        <ContextItems itemId={view.metadata.contextItems.itemId} items={view.metadata.contextItems.items} context={context} />
       ) : null}
       {view.metadata.autoReviewSummaries.length > 0 ? <AutoReviewSummaries summaries={[...view.metadata.autoReviewSummaries]} /> : null}
       {view.metadata.systemDetails.length > 0 ? <SystemDetails details={view.metadata.systemDetails} /> : null}
@@ -189,30 +189,34 @@ function EditedFiles({ view, context }: { view: EditedFilesTextView; context: Te
   );
 }
 
-function MentionedFiles({
+function ContextItems({
   itemId,
-  files,
+  items,
   context,
 }: {
   itemId: string;
-  files: readonly MentionedFileTextView[];
+  items: readonly ContextItemTextView[];
   context: TextItemDetailStateContext;
 }): UiNode {
-  const label = `Context · ${String(files.length)} ${files.length === 1 ? "item" : "items"}`;
+  const label = `Context · ${String(items.length)} ${items.length === 1 ? "item" : "items"}`;
   return (
     <RememberedDetails
-      wrapperClassName="codex-panel__mentioned-files"
-      detailsClassName="codex-panel__mentioned-files-details"
-      detailsKey={`${itemId}:mentioned-files`}
+      wrapperClassName="codex-panel__context-items"
+      detailsClassName="codex-panel__context-items-details"
+      detailsKey={`${itemId}:context-items`}
       summary={label}
       context={context}
     >
       <ul>
-        {files.map((file) => (
-          <li key={`${file.name}\n${file.path}`}>
-            <span>{file.name}</span>
-            <span className="codex-panel__edited-files-separator"> · </span>
-            <span>{file.path}</span>
+        {items.map((item) => (
+          <li key={`${item.label}\n${item.detail ?? ""}`}>
+            <span>{item.label}</span>
+            {item.detail ? (
+              <>
+                <span className="codex-panel__edited-files-separator"> · </span>
+                <span>{item.detail}</span>
+              </>
+            ) : null}
           </li>
         ))}
       </ul>

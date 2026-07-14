@@ -12,7 +12,26 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
   const { currentItems, completedTurnId, turnItems } = input;
   if (turnItems.length === 0) return currentItems;
 
-  const serverUserDialogues = turnItems.filter(isUserDialogue);
+  const contextAttachmentsByClientId = new Map(
+    currentItems.flatMap((item) =>
+      isUserDialogue(item) && isLocalUserDialogueId(item.id) && item.contextAttachments
+        ? [[item.id, item.contextAttachments] as const]
+        : [],
+    ),
+  );
+  const serverHasUserDialogueClientIds = turnItems.some((item) => isUserDialogue(item) && item.clientId);
+  const contextAttachmentsByFallbackText = serverHasUserDialogueClientIds
+    ? new Map<string, ThreadStreamDialogueItem["contextAttachments"]>()
+    : fallbackContextAttachmentsByText(currentItems, completedTurnId);
+  const turnItemsWithLocalContext = turnItems.map((item) => {
+    if (!isUserDialogue(item)) return item;
+    const contextAttachments = item.clientId
+      ? contextAttachmentsByClientId.get(item.clientId)
+      : contextAttachmentsByFallbackText.get(item.copyText ?? item.text);
+    return contextAttachments ? { ...item, contextAttachments } : item;
+  });
+
+  const serverUserDialogues = turnItemsWithLocalContext.filter(isUserDialogue);
   const serverUserDialogueClientIds = new Set(serverUserDialogues.map((item) => item.clientId).filter(isString));
   const serverUserDialoguesByClientId = new Map(
     serverUserDialogues.flatMap((item) => (item.clientId ? ([[item.clientId, item]] as const) : [])),
@@ -28,7 +47,7 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
     .filter(
       (item) => !isReconciledOptimisticUserDialogue(item, completedTurnId, serverUserDialogueClientIds, serverUserDialogueFallbackTexts),
     );
-  for (const item of turnItems) {
+  for (const item of turnItemsWithLocalContext) {
     mergedTurnItems = upsertThreadStreamItemById(mergedTurnItems, item);
   }
 
@@ -38,6 +57,19 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
       (item) => !isReconciledOptimisticUserDialogue(item, completedTurnId, serverUserDialogueClientIds, serverUserDialogueFallbackTexts),
     );
   return [...retainedItems, ...mergedTurnItems];
+}
+
+function fallbackContextAttachmentsByText(
+  currentItems: readonly ThreadStreamItem[],
+  completedTurnId: string,
+): Map<string, ThreadStreamDialogueItem["contextAttachments"]> {
+  const attachmentsByText = new Map<string, ThreadStreamDialogueItem["contextAttachments"]>();
+  for (const item of currentItems) {
+    if (!isUserDialogue(item) || !isLocalUserDialogueId(item.id) || !item.contextAttachments) continue;
+    if (item.turnId && item.turnId !== completedTurnId) continue;
+    attachmentsByText.set(item.copyText ?? item.text, item.contextAttachments);
+  }
+  return attachmentsByText;
 }
 
 function isUserDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {

@@ -24,9 +24,9 @@ export interface ReferencedThreadTextView {
   turnLimit: number;
 }
 
-export interface MentionedFileTextView {
-  name: string;
-  path: string;
+export interface ContextItemTextView {
+  label: string;
+  detail?: string;
 }
 
 export interface EditedFilesTextView {
@@ -46,9 +46,9 @@ export interface TextItemDetailSectionView {
 interface ThreadStreamTextMetadataView {
   editedFiles?: EditedFilesTextView;
   referencedThread?: ReferencedThreadTextView;
-  mentionedFiles?: {
+  contextItems?: {
     itemId: string;
-    files: readonly MentionedFileTextView[];
+    items: readonly ContextItemTextView[];
   };
   autoReviewSummaries: readonly string[];
   systemDetails: readonly TextItemDetailSectionView[];
@@ -118,7 +118,7 @@ function textMetadataView(item: ThreadStreamItem, annotations?: ThreadStreamItem
   return {
     ...definedProp("editedFiles", editedFilesView(item, annotations)),
     ...definedProp("referencedThread", referencedThreadView(item)),
-    ...definedProp("mentionedFiles", mentionedFilesView(item)),
+    ...definedProp("contextItems", contextItemsView(item)),
     autoReviewSummaries: item.kind === "dialogue" ? (annotations?.autoReviewSummaries ?? []) : [],
     systemDetails: item.kind === "system" ? systemDetailViews(item.noticeSections ?? []) : [],
     userInputDetails: item.kind === "userInputResult" ? userInputQuestionDetailViews(item.questions) : [],
@@ -138,9 +138,13 @@ function referencedThreadView(item: ThreadStreamItem): ReferencedThreadTextView 
   return item.referencedThread;
 }
 
-function mentionedFilesView(item: ThreadStreamItem): ThreadStreamTextMetadataView["mentionedFiles"] | undefined {
-  if (item.kind !== "dialogue" || !item.mentionedFiles || item.mentionedFiles.length === 0) return undefined;
-  return { itemId: item.id, files: item.mentionedFiles };
+function contextItemsView(item: ThreadStreamItem): ThreadStreamTextMetadataView["contextItems"] | undefined {
+  if (item.kind !== "dialogue") return undefined;
+  const items = [
+    ...(item.mentionedFiles ?? []).map((file) => ({ label: file.name, detail: file.path })),
+    ...(item.contextAttachments ?? []),
+  ];
+  return items.length > 0 ? { itemId: item.id, items } : undefined;
 }
 
 function systemDetailViews(sections: readonly ThreadStreamNoticeSection[]): readonly TextItemDetailSectionView[] {

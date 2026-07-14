@@ -123,6 +123,7 @@ interface ThreadStreamDialogueBase extends ThreadStreamBase {
   readonly copyText?: string;
   readonly referencedThread?: ReferencedThreadMetadata;
   readonly mentionedFiles?: readonly ThreadStreamFileMention[];
+  readonly contextAttachments?: readonly ThreadStreamContextAttachment[];
 }
 
 interface UserThreadStreamDialogueItem extends ThreadStreamDialogueBase {
@@ -151,6 +152,11 @@ export type ThreadStreamDialogueItem =
 export interface ThreadStreamFileMention {
   readonly name: string;
   readonly path: string;
+}
+
+export interface ThreadStreamContextAttachment {
+  readonly label: string;
+  readonly detail?: string;
 }
 
 interface SystemThreadStreamItem extends ThreadStreamBase {

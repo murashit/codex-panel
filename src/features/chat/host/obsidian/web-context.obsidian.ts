@@ -4,8 +4,7 @@ import { htmlToMarkdown, requestUrl } from "obsidian";
 import type { CodexInput } from "../../../../domain/chat/input";
 import { codexTextInputWithAttachments } from "../../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
-
-const WEB_CONTEXT_KEY = "codex_panel_web_context";
+import { WEB_CONTEXT_KEY } from "../../domain/thread-stream/format/context-attachments";
 
 export interface WebUrlInput {
   text: string;
