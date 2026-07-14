@@ -57,7 +57,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@preact/signals": "^2.9.2",
+    "@preact/signals": "^2.9.3",
     "@tanstack/query-core": "^5.101.2",
     "defuddle": "^0.19.1",
     "micromark": "^4.0.2",
