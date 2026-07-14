@@ -89,6 +89,7 @@ run("git", ["rev-parse", "--verify", `refs/tags/${previousTag}`], { capture: tru
 run("npm", ["run", "commitlint", "--", "--from", previousTag, "--to", "main", "--verbose"]);
 run("npm", ["run", "release:check"]);
 run("npm", ["run", "api:baseline"]);
+run("npm", ["run", "generate:app-server-types:check"]);
 run("npm", ["ci", "--dry-run"]);
 run("npm", ["run", "check"]);
 

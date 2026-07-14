@@ -3,20 +3,19 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const validArgs = new Set(["--json", "--recorded-only"]);
+const validArgs = new Set(["--json"]);
 
 if (isMain()) {
   const args = new Set(process.argv.slice(2));
   const asJson = args.has("--json");
-  const recordedOnly = args.has("--recorded-only");
   for (const arg of args) {
     if (!validArgs.has(arg)) {
-      console.error("Usage: node scripts/api-baseline.mjs [--json] [--recorded-only]");
+      console.error("Usage: node scripts/api-baseline.mjs [--json]");
       process.exit(1);
     }
   }
 
-  const report = await createApiBaselineReport({ skipLocalCodex: recordedOnly });
+  const report = await createApiBaselineReport();
   if (asJson) {
     console.log(JSON.stringify(report, null, 2));
   } else {
@@ -60,12 +59,10 @@ export async function createApiBaselineReport(options = {}) {
   const readmeBaselines = readCompatibilityBaselines(inputs.readme);
 
   const codexReadmeVersion = readmeBaselines.codexTestedCliVersion;
-  const codexLocalVersion = options.skipLocalCodex
-    ? null
-    : options.readCodexVersion
-      ? await options.readCodexVersion()
-      : readCodexVersion();
+  const codexRecordedVersion = inputs.appServerCompatibilityJson.codexAppServer?.testedCliVersion ?? null;
+  const codexLocalVersion = options.readCodexVersion ? await options.readCodexVersion() : readCodexVersion();
   const codexReadmeSemver = parseSemver(codexReadmeVersion);
+  const codexRecordedSemver = parseSemver(codexRecordedVersion);
   const codexLocalSemver = parseSemver(codexLocalVersion);
 
   const obsidianMinVersion = inputs.manifestJson.minAppVersion;
@@ -78,11 +75,12 @@ export async function createApiBaselineReport(options = {}) {
   const obsidianLockSemver = parseSemver(obsidianLockVersion);
   const obsidianMinSemver = parseSemver(obsidianMinVersion);
 
-  const appServerGenerationExperimentalDeclared = inputs.appServerCompatibilityJson.codexAppServer?.typeGeneration?.experimental === true;
-  const appServerGenerationExperimental =
-    inputs.appServerGenerateSource.includes("app-server") &&
-    inputs.appServerGenerateSource.includes("generate-ts") &&
-    inputs.appServerGenerateSource.includes("--experimental");
+  const generationArguments = inputs.appServerCompatibilityJson.codexAppServer?.typeGeneration?.arguments ?? null;
+  const expectedGenerationArguments = ["app-server", "generate-ts", "--experimental"];
+  const appServerGenerationArgumentsDeclared =
+    Array.isArray(generationArguments) && generationArguments.every((argument) => typeof argument === "string");
+  const appServerGenerationArgumentsSupported =
+    appServerGenerationArgumentsDeclared && arraysEqual(generationArguments, expectedGenerationArguments);
   const initializeCapabilities = inputs.appServerCompatibilityJson.codexAppServer?.initialize?.capabilities ?? {};
   const initializeExperimentalApi = initializeCapabilities.experimentalApi === true;
   const initializeRequestAttestationDisabled = initializeCapabilities.requestAttestation === false;
@@ -90,18 +88,22 @@ export async function createApiBaselineReport(options = {}) {
   if (!codexReadmeSemver) {
     fail("README.md Compatibility table must define `codex.testedCliVersion` as X.Y.Z.");
   }
-  if (!options.skipLocalCodex && !codexLocalSemver) {
+  if (!codexRecordedSemver || codexRecordedSemver.version !== codexRecordedVersion) {
+    fail("src/app-server/connection/compatibility.json must declare codexAppServer.testedCliVersion as X.Y.Z.");
+  }
+  if (!codexLocalSemver) {
     fail("local codex --version could not be read.");
   }
-  if (codexReadmeSemver && codexLocalSemver && minorKey(codexReadmeSemver) !== minorKey(codexLocalSemver)) {
-    fail(`local Codex CLI minor ${minorKey(codexLocalSemver)} does not match compatibility table minor ${minorKey(codexReadmeSemver)}.`);
+  if (codexReadmeVersion && codexRecordedVersion && codexReadmeVersion !== codexRecordedVersion) {
+    fail(`README Codex CLI ${codexReadmeVersion} does not match recorded tested CLI ${codexRecordedVersion}.`);
   }
-  if (!appServerGenerationExperimentalDeclared) {
-    fail("src/app-server/connection/compatibility.json must declare codexAppServer.typeGeneration.experimental: true.");
+  if (codexLocalSemver && codexRecordedSemver && codexLocalSemver.version !== codexRecordedSemver.version) {
+    fail(`local Codex CLI ${codexLocalSemver.version} does not match recorded tested CLI ${codexRecordedSemver.version}.`);
   }
-  if (!appServerGenerationExperimental) fail("generate:app-server-types must use codex app-server generate-ts --experimental.");
-  if (appServerGenerationExperimentalDeclared !== appServerGenerationExperimental) {
-    fail("app-server type generation declaration must match scripts/generate-app-server-types.mjs.");
+  if (!appServerGenerationArgumentsDeclared) {
+    fail("src/app-server/connection/compatibility.json must declare codexAppServer.typeGeneration.arguments as a string array.");
+  } else if (!appServerGenerationArgumentsSupported) {
+    fail(`app-server type generation arguments must be ${expectedGenerationArguments.join(" ")}.`);
   }
   if (!initializeExperimentalApi) {
     fail("src/app-server/connection/compatibility.json must declare codexAppServer.initialize.capabilities.experimentalApi: true.");
@@ -143,15 +145,17 @@ export async function createApiBaselineReport(options = {}) {
 
   return {
     codex: {
-      policy: "managed by minor version",
+      policy: "compatibility is managed by minor; generated bindings are proven against an exact CLI patch",
+      recordedTestedCliVersion: codexRecordedVersion,
       readmeTestedCliVersion: codexReadmeVersion,
       readmeTestedMinor: minorKey(codexReadmeSemver),
       localCliVersion: codexLocalVersion,
       localCliMinor: minorKey(codexLocalSemver),
-      localCliCheckSkipped: options.skipLocalCodex === true,
-      localCliMatchesTestedMinor: codexReadmeSemver && codexLocalSemver ? minorKey(codexReadmeSemver) === minorKey(codexLocalSemver) : null,
-      appServerGenerationExperimentalDeclared,
-      appServerGenerationExperimental,
+      readmeMatchesRecordedVersion: codexReadmeVersion && codexRecordedVersion ? codexReadmeVersion === codexRecordedVersion : false,
+      localCliMatchesRecordedVersion:
+        codexLocalSemver && codexRecordedSemver ? codexLocalSemver.version === codexRecordedSemver.version : null,
+      generationArguments,
+      appServerGenerationArgumentsSupported,
       initializeExperimentalApi,
       initializeRequestAttestationDisabled,
     },
@@ -243,21 +247,22 @@ function displayValue(value) {
   return value ?? "(missing)";
 }
 
+function arraysEqual(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 async function readBaselineInputs(cwd) {
-  const [packageJson, packageLockJson, manifestJson, versionsJson, readme, appServerCompatibilityJson, appServerGenerateSource] =
-    await Promise.all([
-      readJson(cwd, "package.json"),
-      readJson(cwd, "package-lock.json"),
-      readJson(cwd, "manifest.json"),
-      readJson(cwd, "versions.json"),
-      readFile(path.join(cwd, "README.md"), "utf8"),
-      readJson(cwd, "src/app-server/connection/compatibility.json"),
-      readFile(path.join(cwd, "scripts/generate-app-server-types.mjs"), "utf8"),
-    ]);
+  const [packageJson, packageLockJson, manifestJson, versionsJson, readme, appServerCompatibilityJson] = await Promise.all([
+    readJson(cwd, "package.json"),
+    readJson(cwd, "package-lock.json"),
+    readJson(cwd, "manifest.json"),
+    readJson(cwd, "versions.json"),
+    readFile(path.join(cwd, "README.md"), "utf8"),
+    readJson(cwd, "src/app-server/connection/compatibility.json"),
+  ]);
 
   return {
     appServerCompatibilityJson,
-    appServerGenerateSource,
     manifestJson,
     packageJson,
     packageLockJson,
@@ -280,11 +285,11 @@ function printReport(report) {
   console.log("Codex app-server");
   console.log(`  policy: ${report.codex.policy}`);
   console.log(`  compatibility table CLI: ${displayValue(report.codex.readmeTestedCliVersion)}`);
+  console.log(`  recorded tested CLI: ${displayValue(report.codex.recordedTestedCliVersion)}`);
   console.log(`  compatibility table minor: ${displayValue(report.codex.readmeTestedMinor)}`);
-  console.log(`  local codex CLI: ${report.codex.localCliCheckSkipped ? "(skipped)" : displayValue(report.codex.localCliVersion)}`);
-  console.log(`  local codex minor: ${report.codex.localCliCheckSkipped ? "(skipped)" : displayValue(report.codex.localCliMinor)}`);
-  console.log(`  declared generate-ts --experimental: ${report.codex.appServerGenerationExperimentalDeclared ? "yes" : "no"}`);
-  console.log(`  generate-ts --experimental: ${report.codex.appServerGenerationExperimental ? "yes" : "no"}`);
+  console.log(`  local codex CLI: ${displayValue(report.codex.localCliVersion)}`);
+  console.log(`  local codex minor: ${displayValue(report.codex.localCliMinor)}`);
+  console.log(`  generation arguments: ${report.codex.generationArguments?.join(" ") ?? "(missing)"}`);
   console.log(`  initialize experimentalApi: ${report.codex.initializeExperimentalApi ? "yes" : "no"}`);
   console.log(`  initialize requestAttestation disabled: ${report.codex.initializeRequestAttestationDisabled ? "yes" : "no"}`);
   console.log("");

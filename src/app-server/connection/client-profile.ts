@@ -5,8 +5,9 @@ import compatibility from "./compatibility.json";
 
 interface AppServerCompatibility {
   codexAppServer: {
+    testedCliVersion: string;
     typeGeneration: {
-      experimental: boolean;
+      arguments: string[];
     };
     initialize: {
       capabilities: Pick<InitializeCapabilities, "experimentalApi" | "requestAttestation">;

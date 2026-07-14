@@ -30,6 +30,7 @@
     "check:unused": "knip --no-progress",
     "fix": "biome check --fix --skip=plugin --diagnostic-level=warn --error-on-warnings && knip --fix --no-progress",
     "generate:app-server-types": "node scripts/generate-app-server-types.mjs",
+    "generate:app-server-types:check": "node scripts/generate-app-server-types.mjs --check",
     "release:check": "node scripts/release/check.mjs",
     "release:notes": "node scripts/release/notes.mjs",
     "release:preflight": "node scripts/release/preflight.mjs",

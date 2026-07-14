@@ -39,8 +39,11 @@ describe("development scripts", () => {
     const calls: { command: string; args: string[]; cwd: string }[] = [];
     const { generateAppServerTypes } = await import(pathToFileURL(path.join(repoRoot, "scripts", "generate-app-server-types.mjs")).href);
 
+    await writeAppServerCompatibility(cwd, "0.144.4", ["app-server", "generate-ts", "--experimental", "--test-setting"]);
+
     await generateAppServerTypes({
       cwd,
+      readCodexVersion: () => "0.144.4",
       async runCommand(command: string, args: string[], options: { cwd: string }) {
         calls.push({ command, args, cwd: options.cwd });
         const outIndex = args.indexOf("--out");
@@ -56,8 +59,8 @@ describe("development scripts", () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({ command: "codex", cwd });
-    expect(calls[0]?.args.slice(0, 4)).toEqual(["app-server", "generate-ts", "--experimental", "--out"]);
-    expect(calls[0]?.args[4]?.replaceAll("\\", "/")).toMatch(/^src\/generated\/\.app-server-/);
+    expect(calls[0]?.args.slice(0, 5)).toEqual(["app-server", "generate-ts", "--experimental", "--test-setting", "--out"]);
+    expect(calls[0]?.args[5]?.replaceAll("\\", "/")).toMatch(/^src\/generated\/\.app-server-/);
     await expect(readFile(path.join(cwd, "src", "generated", "app-server", "v2", "Example.ts"), "utf8")).resolves.toContain(
       "export type Example = string | null;",
     );
@@ -68,11 +71,13 @@ describe("development scripts", () => {
     const generatedDir = path.join(cwd, "src", "generated", "app-server");
     await mkdir(generatedDir, { recursive: true });
     await writeFile(path.join(generatedDir, "Existing.ts"), "export type Existing = true;\n");
+    await writeAppServerCompatibility(cwd, "0.144.4");
     const { generateAppServerTypes } = await import(pathToFileURL(path.join(repoRoot, "scripts", "generate-app-server-types.mjs")).href);
 
     await expect(
       generateAppServerTypes({
         cwd,
+        readCodexVersion: () => "0.144.4",
         runCommand: async () => {
           throw new Error("generation failed");
         },
@@ -83,9 +88,61 @@ describe("development scripts", () => {
     await expect(readdir(path.join(cwd, "src", "generated"))).resolves.toEqual(["app-server"]);
   });
 
+  it("checks normalized generated bindings without replacing the tracked tree", async () => {
+    const cwd = await tempWorkspace();
+    const generatedDir = path.join(cwd, "src", "generated", "app-server");
+    await mkdir(path.join(generatedDir, "v2"), { recursive: true });
+    await writeFile(
+      path.join(generatedDir, "v2", "Example.ts"),
+      "// GENERATED CODE! DO NOT MODIFY BY HAND!\n// This file was mechanically normalized after generation by scripts/generate-app-server-types.mjs.\nexport type Example = string | null;\n",
+    );
+    await writeAppServerCompatibility(cwd, "0.144.4");
+    const { generateAppServerTypes } = await import(pathToFileURL(path.join(repoRoot, "scripts", "generate-app-server-types.mjs")).href);
+
+    const generate = async (_command: string, args: string[], options: { cwd: string }) => {
+      const outputDir = args[args.indexOf("--out") + 1];
+      if (!outputDir) throw new Error("Missing generated output directory");
+      await mkdir(path.join(options.cwd, outputDir, "v2"), { recursive: true });
+      await writeFile(
+        path.join(options.cwd, outputDir, "v2", "Example.ts"),
+        "// GENERATED CODE! DO NOT MODIFY BY HAND!\nexport type Example = string | null | null;\n",
+      );
+    };
+
+    await expect(
+      generateAppServerTypes({ cwd, check: true, readCodexVersion: () => "0.144.4", runCommand: generate }),
+    ).resolves.toBeUndefined();
+
+    const trackedSource = await readFile(path.join(generatedDir, "v2", "Example.ts"), "utf8");
+    await expect(
+      generateAppServerTypes({
+        cwd,
+        check: true,
+        readCodexVersion: () => "0.144.4",
+        async runCommand(command: string, args: string[], options: { cwd: string }) {
+          await generate(command, args, options);
+          const outputDir = args[args.indexOf("--out") + 1];
+          if (!outputDir) throw new Error("Missing generated output directory");
+          await writeFile(path.join(options.cwd, outputDir, "v2", "Extra.ts"), "export type Extra = true;\n");
+        },
+      }),
+    ).rejects.toThrow("generated app-server bindings are out of date:\n  added: v2/Extra.ts");
+    await expect(readFile(path.join(generatedDir, "v2", "Example.ts"), "utf8")).resolves.toBe(trackedSource);
+    await expect(readdir(path.join(cwd, "src", "generated"))).resolves.toEqual(["app-server"]);
+  });
+
+  it("refuses to generate bindings with a different Codex CLI patch", async () => {
+    const cwd = await tempWorkspace();
+    await writeAppServerCompatibility(cwd, "0.144.4");
+    const { generateAppServerTypes } = await import(pathToFileURL(path.join(repoRoot, "scripts", "generate-app-server-types.mjs")).href);
+
+    await expect(generateAppServerTypes({ cwd, readCodexVersion: () => "0.144.5", runCommand: async () => undefined })).rejects.toThrow(
+      "Codex CLI 0.144.4 is required to generate app-server bindings; found 0.144.5.",
+    );
+  });
+
   it("reads app-server compatibility policy from the declared baseline in API baseline checks", async () => {
     const cwd = await tempWorkspace();
-    await mkdir(path.join(cwd, "scripts"), { recursive: true });
     await mkdir(path.join(cwd, "src", "app-server"), { recursive: true });
     const { createApiBaselineReport } = await import(pathToFileURL(path.join(repoRoot, "scripts", "api-baseline.mjs")).href);
 
@@ -120,15 +177,12 @@ describe("development scripts", () => {
         "| `obsidian` API types | `1.12.3` | Compile-time API package. |",
       ].join("\n"),
     );
-    await writeFile(
-      path.join(cwd, "scripts", "generate-app-server-types.mjs"),
-      'run("codex", ["app-server", "generate-ts", "--experimental"]);\n',
-    );
     await mkdir(path.join(cwd, "src", "app-server", "connection"), { recursive: true });
     await writeJson(path.join(cwd, "src", "app-server", "connection", "compatibility.json"), {
       codexAppServer: {
+        testedCliVersion: "0.139.0",
         typeGeneration: {
-          experimental: true,
+          arguments: ["app-server", "generate-ts", "--experimental"],
         },
         initialize: {
           capabilities: {
@@ -144,18 +198,51 @@ describe("development scripts", () => {
       readCodexVersion: () => "0.139.0",
     });
 
-    expect(report.codex.appServerGenerationExperimentalDeclared).toBe(true);
+    expect(report.codex.recordedTestedCliVersion).toBe("0.139.0");
+    expect(report.codex.generationArguments).toEqual(["app-server", "generate-ts", "--experimental"]);
+    expect(report.codex.readmeMatchesRecordedVersion).toBe(true);
+    expect(report.codex.localCliMatchesRecordedVersion).toBe(true);
     expect(report.codex.initializeExperimentalApi).toBe(true);
     expect(report.codex.initializeRequestAttestationDisabled).toBe(true);
     expect(report.failures).toEqual([]);
 
-    const recordedOnlyReport = await createApiBaselineReport({
+    const missingLocalCliReport = await createApiBaselineReport({
       cwd,
       readCodexVersion: () => null,
-      skipLocalCodex: true,
     });
-    expect(recordedOnlyReport.codex.localCliCheckSkipped).toBe(true);
-    expect(recordedOnlyReport.failures).toEqual([]);
+    expect(missingLocalCliReport.failures).toContain("local codex --version could not be read.");
+  });
+
+  it("rejects the obsolete recorded-only API baseline mode", () => {
+    const result = runNodeScript("scripts/api-baseline.mjs", ["--recorded-only"], repoRoot);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Usage: node scripts/api-baseline.mjs [--json]");
+  });
+
+  it("reports app-server provenance drift between the recorded, README, and local CLI versions", async () => {
+    const cwd = await apiBaselineFixture({ recordedCodexVersion: "0.144.4", readmeCodexVersion: "0.144.0" });
+    const { createApiBaselineReport } = await import(pathToFileURL(path.join(repoRoot, "scripts", "api-baseline.mjs")).href);
+
+    const report = await createApiBaselineReport({ cwd, readCodexVersion: () => "0.144.5" });
+
+    expect(report.failures).toContain("README Codex CLI 0.144.0 does not match recorded tested CLI 0.144.4.");
+    expect(report.failures).toContain("local Codex CLI 0.144.5 does not match recorded tested CLI 0.144.4.");
+  });
+
+  it("checks generated app-server bindings in CI and release paths", async () => {
+    const [checkWorkflow, releaseWorkflow, releasePreflight] = await Promise.all([
+      readFile(path.join(repoRoot, ".github", "workflows", "check.yml"), "utf8"),
+      readFile(path.join(repoRoot, ".github", "workflows", "release.yml"), "utf8"),
+      readFile(path.join(repoRoot, "scripts", "release", "preflight.mjs"), "utf8"),
+    ]);
+
+    for (const workflow of [checkWorkflow, releaseWorkflow]) {
+      expect(workflow).toContain("npm install --global");
+      expect(workflow).toContain("node scripts/app-server-compatibility.mjs --tested-cli-version");
+      expect(workflow).toContain("npm run generate:app-server-types:check");
+    }
+    expect(releasePreflight).toContain('run("npm", ["run", "generate:app-server-types:check"]);');
   });
 
   it("reports representative CSS usage policy failures", async () => {
@@ -250,6 +337,52 @@ async function styleOrderFixture(): Promise<string> {
   await writeFile(path.join(cwd, "src", "styles", "00-tokens.css"), ".codex-panel { color: var(--text-normal); }\n");
   await writeFile(path.join(cwd, "src", "styles", "10-unlisted.css"), ".codex-panel__extra { display: block; }\n");
   return cwd;
+}
+
+async function apiBaselineFixture(options: { recordedCodexVersion: string; readmeCodexVersion: string }): Promise<string> {
+  const cwd = await tempWorkspace();
+  await writeJson(path.join(cwd, "package.json"), { version: "1.0.0", devDependencies: { obsidian: "~1.12.3" } });
+  await writeJson(path.join(cwd, "package-lock.json"), {
+    packages: { "node_modules/obsidian": { version: "1.12.3" } },
+  });
+  await writeJson(path.join(cwd, "manifest.json"), { minAppVersion: "1.12.0" });
+  await writeJson(path.join(cwd, "versions.json"), { "1.0.0": "1.12.0" });
+  await writeFile(
+    path.join(cwd, "README.md"),
+    [
+      "## Compatibility",
+      "",
+      "| Key | Version | Notes |",
+      "| --- | --- | --- |",
+      `| \`codex.testedCliVersion\` | \`${options.readmeCodexVersion}\` | Tested CLI. |`,
+      "| `manifest.minAppVersion` | `1.12.0` | Minimum app version. |",
+      "| `obsidian` API types | `1.12.3` | Compile-time API package. |",
+    ].join("\n"),
+  );
+  await writeAppServerCompatibility(cwd, options.recordedCodexVersion);
+  return cwd;
+}
+
+async function writeAppServerCompatibility(
+  cwd: string,
+  testedCliVersion: string,
+  generationArguments = ["app-server", "generate-ts", "--experimental"],
+): Promise<void> {
+  await mkdir(path.join(cwd, "src", "app-server", "connection"), { recursive: true });
+  await writeJson(path.join(cwd, "src", "app-server", "connection", "compatibility.json"), {
+    codexAppServer: {
+      testedCliVersion,
+      typeGeneration: {
+        arguments: generationArguments,
+      },
+      initialize: {
+        capabilities: {
+          experimentalApi: true,
+          requestAttestation: false,
+        },
+      },
+    },
+  });
 }
 
 async function cssUsageFixture(files: Record<string, string>): Promise<string> {
