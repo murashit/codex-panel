@@ -16,6 +16,7 @@ interface WebContextReaderOptions {
   prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
   viewWindow: () => Window | null;
   requestTimeoutMs?: number;
+  isCurrent?: () => boolean;
 }
 
 type DomParserWindow = Window & { DOMParser: typeof DOMParser };
@@ -35,9 +36,11 @@ async function readUrlToInput(
 ): Promise<WebUrlInput> {
   const parsedUrl = normalizedHttpUrl(url);
   if (!parsedUrl) throw new Error(`Unsupported web URL: ${url}`);
+  assertCurrentWebImport(options);
 
   const page = await fetchWebPage(options, parsedUrl);
   const content = htmlToMarkdown(page.content).trim();
+  assertCurrentWebImport(options);
   if (!content) throw new Error(`No readable web content found for ${parsedUrl}`);
 
   const messageInput = options.prepareInput(message.trim(), inputSnapshot);
@@ -54,6 +57,7 @@ async function readUrlToInput(
 
 async function fetchWebPage(options: WebContextReaderOptions, url: string): Promise<{ title: string; content: string }> {
   const response = await requestWebPage(options, url, options.requestTimeoutMs ?? 30_000);
+  assertCurrentWebImport(options);
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Web request failed for ${url} (HTTP ${String(response.status)}).`);
   }
@@ -62,6 +66,10 @@ async function fetchWebPage(options: WebContextReaderOptions, url: string): Prom
   const document = new Parser().parseFromString(response.text, "text/html");
   const result = new Defuddle(document, { url, useAsync: false }).parse();
   return { title: result.title, content: result.content };
+}
+
+function assertCurrentWebImport(options: WebContextReaderOptions): void {
+  if (options.isCurrent?.() === false) throw new Error("Web import cancelled.");
 }
 
 function requestWebPage(options: WebContextReaderOptions, url: string, timeoutMs: number): Promise<RequestUrlResponse> {

@@ -84,18 +84,46 @@ function composerControllerFixture(
 }
 
 describe("ChatComposerController", () => {
-  it("disables composer submission while web context is being fetched", () => {
+  it("locks composer input while exposing a pending web import to the send control", () => {
     const { controller, stateStore } = composerControllerFixture();
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
     if (!pending) throw new Error("Expected pending web submission");
     stateStore.dispatch({
       type: "web-submission/pending",
-      submission: { id: pending.id, item: pending, targetThreadId: null },
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: null,
+        originalDraft: "/web https://example.com summarize",
+        phase: "cancellable",
+      },
     });
 
     const props = controller.renderState(composerReadModelFromChatState(stateStore.getState()), { submit: vi.fn() });
 
     expect(props.submissionDisabled).toBe(true);
+    expect(props.webSubmissionCancellable).toBe(true);
+  });
+
+  it("locks composer input without offering cancel after a web submission commits", () => {
+    const { controller, stateStore } = composerControllerFixture();
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: null,
+        originalDraft: "/web https://example.com summarize",
+        phase: "committed",
+      },
+    } as never);
+
+    const props = controller.renderState(composerReadModelFromChatState(stateStore.getState()), { submit: vi.fn() });
+
+    expect(props.submissionDisabled).toBe(true);
+    expect(props.webSubmissionCancellable).toBe(false);
   });
 
   it("keeps a pending web submission after a turn that completes during the fetch", () => {
@@ -114,7 +142,13 @@ describe("ChatComposerController", () => {
     stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
     stateStore.dispatch({
       type: "web-submission/pending",
-      submission: { id: pending.id, item: pending, targetThreadId: "thread" },
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: "thread",
+        originalDraft: "/web https://example.com",
+        phase: "cancellable",
+      },
     });
     stateStore.dispatch({ type: "turn/completed", turnId: "turn", status: "completed", items: [assistant] });
 
@@ -355,7 +389,7 @@ describe("ChatComposerController", () => {
     ]);
   });
 
-  it("preserves pasted image attachments across temporary slash command draft clears", async () => {
+  it("preserves pasted image attachments when connection exit restores a cancellable web draft", async () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     const attachmentHandler: ComposerAttachmentHandler = {
@@ -400,11 +434,26 @@ describe("ChatComposerController", () => {
     await flushComposerAttachment();
     const marker = composer(parent).value;
     const snapshot = controller.captureInputSnapshot();
+    const originalDraft = `/web https://example.com Inspect ${marker}`;
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", `Inspect ${marker}`);
+    if (!pending) throw new Error("Expected pending web submission");
 
+    controller.setDraft(originalDraft);
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: null,
+        originalDraft,
+        phase: "cancellable",
+      },
+    });
     controller.setDraft("", { clearSuggestions: true, preserveContext: true });
-    controller.setDraft(`Inspect ${marker}`);
+    stateStore.dispatch({ type: "connection/scoped-cleared" });
     const restoredSnapshot = controller.captureInputSnapshot();
 
+    expect(controller.draft).toBe(originalDraft);
     expect(controller.preparedInput(`Inspect ${marker}`, snapshot).input).toEqual([
       { type: "text", text: `Inspect ${marker}` },
       { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },

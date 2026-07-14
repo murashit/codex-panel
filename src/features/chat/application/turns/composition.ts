@@ -20,7 +20,7 @@ export interface TurnWorkflowContext {
   connectionAvailable: () => boolean;
   turnTransport: ChatTurnTransport;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<WebUrlInput>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -45,6 +45,7 @@ export interface TurnWorkflowContext {
   composer: {
     prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
     captureInputSnapshot: () => ComposerInputSnapshot;
+    draft: () => string;
     trimmedDraft: () => string;
     setDraft: (text: string, options?: { focus?: boolean; clearSuggestions?: boolean; preserveContext?: boolean }) => void;
   };
@@ -143,6 +144,9 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     localItemIds,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     composer: {
+      get draft() {
+        return composer.draft();
+      },
       get trimmedDraft() {
         return composer.trimmedDraft();
       },
@@ -150,7 +154,8 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
       captureInputSnapshot: composer.captureInputSnapshot,
     },
     slashCommandExecutor: {
-      execute: (command, args, inputSnapshot) => executeSlashCommandWithState(slashCommandExecutorHost, command, args, inputSnapshot),
+      execute: (command, args, inputSnapshot, isWebImportCurrent) =>
+        executeSlashCommandWithState(slashCommandExecutorHost, command, args, inputSnapshot, isWebImportCurrent),
     },
     turnSubmission,
     connection: {

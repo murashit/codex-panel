@@ -50,6 +50,7 @@ interface ChatPanelShellSignals {
   threadStreamForkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
   threadStreamImplementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
   webSubmissionPending: ReadonlySignal<boolean>;
+  webSubmissionCancellable: ReadonlySignal<boolean>;
   threadStreamDisclosures: ReadonlySignal<ChatPanelThreadStreamDisclosureState>;
   threadStreamForkMenuItemId: ReadonlySignal<ChatState["ui"]["threadStreamActionMenu"]["forkMenuItemId"]>;
   hasThreadTurns: ReadonlySignal<boolean>;
@@ -143,6 +144,7 @@ export interface ChatPanelComposerReadModel {
   readonly activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
   readonly activeThreadSubagent: ReadonlySignal<boolean>;
   readonly webSubmissionPending: ReadonlySignal<boolean>;
+  readonly webSubmissionCancellable: ReadonlySignal<boolean>;
   readonly turnBusy: ReadonlySignal<boolean>;
   readonly activeTurnId: ReadonlySignal<string | null>;
   readonly runtimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
@@ -213,6 +215,7 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
       }),
     ),
     webSubmissionPending: computed(() => pendingSubmission.value !== null),
+    webSubmissionCancellable: computed(() => pendingSubmission.value?.phase === "cancellable"),
     threadStreamDisclosures: createThreadStreamDisclosuresSignal(ui),
     threadStreamForkMenuItemId: computed(() => ui.value.threadStreamActionMenu.forkMenuItemId),
     hasThreadTurns,
@@ -364,6 +367,7 @@ function composerReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanel
     activeThreadId: signals.activeThreadId,
     activeThreadSubagent: computed(() => signals.activeThread.value.provenance?.kind === "subagent"),
     webSubmissionPending: signals.webSubmissionPending,
+    webSubmissionCancellable: signals.webSubmissionCancellable,
     turnBusy: signals.turnBusy,
     activeTurnId: signals.activeTurnId,
     runtimeSnapshot: signals.composerRuntimeSnapshot,

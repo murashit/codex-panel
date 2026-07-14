@@ -112,6 +112,48 @@ describe("web context reader", () => {
     expect(mocks.requestUrl).not.toHaveBeenCalled();
   });
 
+  it("rejects URLs containing credentials before fetching", async () => {
+    await expect(
+      createWebContextReader({
+        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+        viewWindow: fakeDomWindow,
+      }).readUrl("https://user:secret@example.com/article", "", {} as ComposerInputSnapshot),
+    ).rejects.toThrow("Unsupported web URL: https://user:secret@example.com/article");
+
+    expect(mocks.requestUrl).not.toHaveBeenCalled();
+  });
+
+  it("stops before DOM parsing when the import is cancelled after the response", async () => {
+    const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
+
+    await expect(
+      createWebContextReader({
+        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+        viewWindow: fakeDomWindow,
+        isCurrent,
+      }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot),
+    ).rejects.toThrow("Web import cancelled.");
+
+    expect(mocks.defuddleParse).not.toHaveBeenCalled();
+    expect(mocks.htmlToMarkdown).not.toHaveBeenCalled();
+  });
+
+  it("stops after conversion when the import is cancelled during processing", async () => {
+    const prepareInput = vi.fn(() => ({ text: "", input: [{ type: "text" as const, text: "" }] }));
+    const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(true).mockReturnValue(false);
+
+    await expect(
+      createWebContextReader({ prepareInput, viewWindow: fakeDomWindow, isCurrent }).readUrl(
+        "https://example.com/article",
+        "",
+        {} as ComposerInputSnapshot,
+      ),
+    ).rejects.toThrow("Web import cancelled.");
+
+    expect(mocks.htmlToMarkdown).toHaveBeenCalledOnce();
+    expect(prepareInput).not.toHaveBeenCalled();
+  });
+
   it("rejects web requests that do not respond before the timeout", async () => {
     vi.useFakeTimers();
     try {

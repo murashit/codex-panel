@@ -466,6 +466,7 @@ function shellParts(
             busy: false,
             canInterrupt: false,
             submissionDisabled: false,
+            webSubmissionCancellable: false,
             normalPlaceholder: "Ask Codex...",
             suggestions: [],
             selectedSuggestionIndex: 0,

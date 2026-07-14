@@ -20,7 +20,7 @@ export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;
   connectionAvailable: () => boolean;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<WebUrlInput>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
   setStatus: (status: string) => void;
 }
 
@@ -29,6 +29,7 @@ export async function executeSlashCommandWithState(
   command: SlashCommandName,
   args: string,
   inputSnapshot?: ComposerInputSnapshot,
+  isWebImportCurrent?: () => boolean,
 ): Promise<SlashCommandExecutionResult | undefined> {
   const state = submissionStateSnapshot(host.stateStore.getState());
   if (state.activeThreadSubagent) {
@@ -43,6 +44,7 @@ export async function executeSlashCommandWithState(
     referThread: host.referThread,
     readWebUrl: host.readWebUrl,
     ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),
+    ...(isWebImportCurrent ? { isWebImportCurrent } : {}),
     supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
   });
 }

@@ -99,10 +99,11 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       connectionAvailable: () => appServer.connectionAvailable(),
       turnTransport: appServer.turn,
       referThread: (thread, message, snapshot) => threadReferenceResolver.referThread(thread, message, snapshot),
-      readWebUrl: (url, message, snapshot) =>
+      readWebUrl: (url, message, snapshot, isCurrent) =>
         createWebContextReader({
           prepareInput: (text, inputSnapshot) => composerController.preparedInput(text, inputSnapshot),
           viewWindow: host.environment.view.viewWindow,
+          ...(isCurrent ? { isCurrent } : {}),
         }).readUrl(url, message, snapshot),
       status,
       runtime: {
@@ -136,6 +137,7 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       composer: {
         prepareInput: (text, snapshot) => composerController.preparedInput(text, snapshot),
         captureInputSnapshot: () => composerController.captureInputSnapshot(),
+        draft: () => composerController.draft,
         trimmedDraft: () => composerController.trimmedDraft,
         setDraft: (text, options) => {
           composerController.setDraft(text, options);

@@ -89,6 +89,7 @@ export interface ComposerShellProps {
   busy: boolean;
   canInterrupt: boolean;
   submissionDisabled: boolean;
+  webSubmissionCancellable: boolean;
   normalPlaceholder: string;
   meta: ComposerMetaViewModel;
   suggestions: readonly ComposerSuggestion[];
@@ -105,6 +106,7 @@ export function ComposerShell({
   busy,
   canInterrupt,
   submissionDisabled,
+  webSubmissionCancellable,
   normalPlaceholder,
   meta,
   suggestions,
@@ -149,7 +151,8 @@ export function ComposerShell({
     if (pendingSelection.value === draft) restoreComposerCursor(composerRef.current, pendingSelection.cursor);
     onPendingSelectionApplied?.();
   }, [draft, pendingSelection, onPendingSelectionApplied]);
-  const sendMode = composerSendMode(busy, canInterrupt, draft, submissionDisabled);
+  const sendMode = composerSendMode(busy, canInterrupt, draft, submissionDisabled, webSubmissionCancellable);
+  const composerLocked = submissionDisabled;
   const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
   const selectedSuggestionId = suggestions.length > 0 ? composerSuggestionOptionId(viewId, normalizedSelectedSuggestionIndex) : undefined;
 
@@ -166,7 +169,7 @@ export function ComposerShell({
           aria-controls={composerSuggestionsListId(viewId)}
           aria-activedescendant={selectedSuggestionId}
           value={draft}
-          readOnly={submissionDisabled}
+          readOnly={composerLocked}
           onInput={(event) => {
             if (syncComposerHeight(event.currentTarget)) callbacks.onHeightChange();
             callbacks.onInput(event.currentTarget.value);
@@ -187,7 +190,7 @@ export function ComposerShell({
             callbacks.onDragOver?.(event);
           }}
         />
-        <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} disabled={submissionDisabled} />
+        <ComposerMeta meta={meta} sendMode={sendMode} callbacks={callbacks} disabled={composerLocked} />
       </div>
       <ComposerSuggestions
         containerRef={suggestionsRef}
@@ -471,7 +474,22 @@ interface ComposerSendMode {
   canInterrupt: boolean;
 }
 
-function composerSendMode(busy: boolean, canInterrupt: boolean, draft: string, submissionDisabled: boolean): ComposerSendMode {
+function composerSendMode(
+  busy: boolean,
+  canInterrupt: boolean,
+  draft: string,
+  submissionDisabled: boolean,
+  webSubmissionCancellable: boolean,
+): ComposerSendMode {
+  if (webSubmissionCancellable) {
+    return {
+      icon: "square",
+      label: "Cancel web import",
+      className: "is-interrupt",
+      disabled: false,
+      canInterrupt: false,
+    };
+  }
   const hasDraft = Boolean(draft.trim());
   const canSteer = canInterrupt && hasDraft;
   const interruptMode = canInterrupt && !hasDraft;

@@ -28,7 +28,7 @@ function accessRows(profile: string | null, sandbox: RuntimeSandboxPolicy | null
   return [
     { label: "Profile", value: profileLabel(profile, sandbox) },
     { label: "Sandbox", value: sandboxLabel(sandbox) },
-    { label: "Network", value: networkLabel(sandbox) },
+    { label: "Codex network", value: networkLabel(sandbox) },
     { label: "Extra writable roots", value: writableRootsLabel(sandbox, vaultPath) },
   ];
 }

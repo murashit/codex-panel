@@ -69,9 +69,10 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
   activeThreadEphemeral: boolean;
   listedThreads: readonly Thread[];
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<WebUrlInput>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot, isCurrent?: () => boolean) => Promise<WebUrlInput>;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
   inputSnapshot?: ComposerInputSnapshot;
+  isWebImportCurrent?: () => boolean;
 }
 
 export interface SlashCommandExecutionResult {
@@ -155,7 +156,9 @@ export async function executeSlashCommand(
         context.addSystemMessage("Cannot read a web URL without composer input context.");
         return;
       }
-      const web = await context.readWebUrl(parsed.url, parsed.message, context.inputSnapshot);
+      const web = context.isWebImportCurrent
+        ? await context.readWebUrl(parsed.url, parsed.message, context.inputSnapshot, context.isWebImportCurrent)
+        : await context.readWebUrl(parsed.url, parsed.message, context.inputSnapshot);
       return { sendText: web.text, sendInput: web.input };
     }
     case "fork":

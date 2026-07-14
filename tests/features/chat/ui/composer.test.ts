@@ -22,6 +22,8 @@ function mountComposerShell(
   selectedSuggestionIndex: number,
   callbacks: ComposerCallbacks,
   meta?: ComposerMetaViewModel,
+  webSubmissionPending = false,
+  webSubmissionCancellable = webSubmissionPending,
 ): { composer: HTMLTextAreaElement } {
   const elements: { composer: HTMLTextAreaElement | null } = { composer: null };
   renderUiRoot(
@@ -31,7 +33,8 @@ function mountComposerShell(
       draft,
       busy,
       canInterrupt,
-      submissionDisabled: false,
+      submissionDisabled: webSubmissionPending,
+      webSubmissionCancellable,
       normalPlaceholder,
       suggestions,
       selectedSuggestionIndex,
@@ -415,6 +418,7 @@ describe("ComposerShell decisions", () => {
           busy: false,
           canInterrupt: false,
           submissionDisabled: false,
+          webSubmissionCancellable: false,
           normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,
@@ -453,6 +457,7 @@ describe("ComposerShell decisions", () => {
           busy: false,
           canInterrupt: false,
           submissionDisabled: false,
+          webSubmissionCancellable: false,
           normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,
@@ -550,6 +555,30 @@ describe("ComposerShell decisions", () => {
     expect(sendButton?.classList.contains("is-interrupt")).toBe(false);
     expect(sendButton?.classList.contains("is-steer")).toBe(true);
     expect(sendButton?.dataset["icon"]).toBe("corner-down-right");
+  });
+
+  it("renders an enabled cancel control while a web import locks composer input", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, undefined, true);
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+
+    expect(composer.readOnly).toBe(true);
+    expect(sendButton?.getAttribute("aria-label")).toBe("Cancel web import");
+    expect(sendButton?.disabled).toBe(false);
+    sendButton?.click();
+    expect(callbacks.onSendOrInterrupt).toHaveBeenCalledOnce();
+  });
+
+  it("keeps composer locked without offering cancel after a web import commits", () => {
+    const parent = document.createElement("div");
+    const callbacks = composerCallbacks();
+    const { composer } = mountComposerShell(parent, "view", "", false, false, "Ask Codex...", [], 0, callbacks, undefined, true, false);
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+
+    expect(composer.readOnly).toBe(true);
+    expect(sendButton?.getAttribute("aria-label")).toBe("Send");
+    expect(sendButton?.disabled).toBe(true);
   });
 
   it("honors the smaller viewport branch of the composer max-height CSS", () => {

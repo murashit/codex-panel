@@ -99,16 +99,27 @@ async function sendTurnText(
       case "steer":
         return await steerCurrentTurn(host, localItemIds, plan, text, prepared, request, referencedThread);
       case "start-thread-then-turn":
-        if (!(await startThreadForTurn(host, prepared.text, request.pendingSubmissionId))) return false;
+        if (!commitPendingRequest(host, request)) return false;
+        if (!(await startThreadForTurn(host, prepared.text, request.pendingSubmissionId))) {
+          if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
+          return false;
+        }
         if (!pendingRequestIsCurrent(host, request)) return false;
         break;
       case "start-turn":
         break;
     }
     const activeThreadId = plan.kind === "start-turn" ? plan.threadId : submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
-    if (!activeThreadId) return false;
+    if (!activeThreadId) {
+      if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
+      return false;
+    }
     expectedThreadId = activeThreadId;
-    if (!(await host.applyPendingThreadSettings())) return false;
+    if (!commitPendingRequest(host, request)) return false;
+    if (!(await host.applyPendingThreadSettings())) {
+      if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
+      return false;
+    }
     if (!pendingRequestIsCurrent(host, request) || submissionStateSnapshot(host.stateStore.getState()).activeThreadId !== activeThreadId) {
       return false;
     }
@@ -184,6 +195,7 @@ async function sendTurnText(
         pendingTurnStart: failedState.pendingTurnStart,
       });
       host.stateStore.dispatch({ type: "turn/start-failed", items });
+      failPendingRequest(host, request);
       restoreSubmittedDraft(host, text, request);
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -223,6 +235,7 @@ async function steerCurrentTurn(
   referencedThread?: ReferencedThreadMetadata,
 ): Promise<boolean> {
   if (!pendingRequestIsCurrent(host, request)) return false;
+  if (!commitPendingRequest(host, request)) return false;
   const localSteerId = localItemIds.next("local-steer");
   clearDraftForSubmission(host, request, { clearSuggestions: true });
 
@@ -234,7 +247,10 @@ async function steerCurrentTurn(
       clientUserMessageId: localSteerId,
     });
     if (!steered) {
-      if (pendingRequestIsCurrent(host, request)) restoreSubmittedDraft(host, text, request, { focus: true });
+      if (pendingRequestIsCurrent(host, request)) {
+        failPendingRequest(host, request);
+        restoreSubmittedDraft(host, text, request, { focus: true });
+      }
       return false;
     }
     const currentTurn = isCurrentTurn(host, plan.threadId, plan.turnId);
@@ -260,6 +276,7 @@ async function steerCurrentTurn(
       isCurrentTurn(host, plan.threadId, plan.turnId) ||
       (request.pendingSubmissionId !== undefined && pendingRequestIsCurrent(host, request))
     ) {
+      failPendingRequest(host, request);
       restoreSubmittedDraft(host, text, request, { focus: true });
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -310,4 +327,17 @@ function isCurrentTurn(host: TurnSubmissionActionsHost, threadId: string, turnId
 
 function pendingRequestIsCurrent(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {
   return request.pendingSubmissionId ? pendingSubmissionMatches(host.stateStore.getState(), request.pendingSubmissionId) : true;
+}
+
+function commitPendingRequest(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {
+  if (!request.pendingSubmissionId) return true;
+  if (!pendingRequestIsCurrent(host, request)) return false;
+  host.stateStore.dispatch({ type: "web-submission/committed", submissionId: request.pendingSubmissionId });
+  return pendingRequestIsCurrent(host, request) && host.stateStore.getState().pendingSubmission?.phase === "committed";
+}
+
+function failPendingRequest(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {
+  if (!request.pendingSubmissionId || !pendingRequestIsCurrent(host, request)) return false;
+  host.stateStore.dispatch({ type: "web-submission/failed", submissionId: request.pendingSubmissionId });
+  return true;
 }

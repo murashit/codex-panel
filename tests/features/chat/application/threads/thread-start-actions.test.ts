@@ -98,7 +98,13 @@ describe("thread start actions", () => {
     if (!pending) throw new Error("Expected pending web submission");
     stateStore.dispatch({
       type: "web-submission/pending",
-      submission: { id: pending.id, item: pending, targetThreadId: null },
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: null,
+        originalDraft: "/web https://example.com",
+        phase: "cancellable",
+      },
     });
     const actions = createThreadStartActions({
       stateStore,
@@ -119,7 +125,13 @@ describe("thread start actions", () => {
     if (!pending) throw new Error("Expected pending web submission");
     stateStore.dispatch({
       type: "web-submission/pending",
-      submission: { id: pending.id, item: pending, targetThreadId: null },
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: null,
+        originalDraft: "/web https://example.com",
+        phase: "cancellable",
+      },
     });
     const started = deferred<ThreadActivationSnapshot | null>();
     const recordStartedThread = vi.fn();

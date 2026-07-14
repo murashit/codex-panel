@@ -113,6 +113,7 @@ describe("createTurnWorkflowActions", () => {
         composer: {
           prepareInput,
           captureInputSnapshot: vi.fn(() => composerSnapshot),
+          draft: () => "",
           trimmedDraft: () => "",
           setDraft: vi.fn(),
         },

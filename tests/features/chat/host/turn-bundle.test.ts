@@ -75,6 +75,9 @@ function turnBundleFixture(options: { stateStore?: ReturnType<typeof createChatS
         selectThread: vi.fn(),
       },
       composerController: {
+        get draft() {
+          return "/tools";
+        },
         get trimmedDraft() {
           return "/tools";
         },

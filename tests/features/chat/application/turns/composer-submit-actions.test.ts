@@ -54,8 +54,11 @@ function createHost(draft: string, options: { subagent?: boolean } = {}) {
     stateStore,
     localItemIds: createLocalIdSource(),
     composer: {
-      get trimmedDraft() {
+      get draft() {
         return draft;
+      },
+      get trimmedDraft() {
+        return draft.trim();
       },
       setDraft,
       captureInputSnapshot,
@@ -87,6 +90,30 @@ function createHost(draft: string, options: { subagent?: boolean } = {}) {
 }
 
 describe("submitComposer", () => {
+  it("does not cancel or restore a committed web submission", async () => {
+    const { host, execute, setDraft, stateStore } = createHost("");
+    const pending = {
+      id: "local-web",
+      item: {
+        id: "local-web",
+        kind: "dialogue" as const,
+        dialogueKind: "user" as const,
+        role: "user" as const,
+        text: "https://example.com/ summarize",
+      },
+      targetThreadId: null,
+      originalDraft: "/web https://example.com summarize",
+      phase: "committed" as const,
+    };
+    stateStore.dispatch({ type: "web-submission/pending", submission: pending } as never);
+
+    await submitComposer(host);
+
+    expect(stateStore.getState().pendingSubmission).toEqual(pending);
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it.each(["hello", "/status"])("blocks composer submission from subagent threads for %s", async (draft) => {
     const { host, execute, sendTurnText } = createHost(draft, { subagent: true });
 
@@ -177,7 +204,11 @@ describe("submitComposer", () => {
       pendingSubmissionId: expect.stringMatching(/^local-web-/),
       failureDraft: "/web https://example.com [[Note]]",
     });
-    expect(setDraft).toHaveBeenCalledWith("/web https://example.com [[Note]]", { focus: true, clearSuggestions: true });
+    expect(setDraft).toHaveBeenCalledWith("/web https://example.com [[Note]]", {
+      focus: true,
+      clearSuggestions: true,
+      preserveContext: true,
+    });
   });
 
   it("shows a pending web message while context is fetched and hands it to turn submission", async () => {
@@ -217,18 +248,74 @@ describe("submitComposer", () => {
     });
   });
 
-  it("prevents a second submission while web context is being fetched", async () => {
-    const { host, execute } = createHost("/web https://example.com summarize");
+  it("cancels a pending web import and restores its exact draft before late success", async () => {
+    const { host, execute, sendTurnText, setDraft, stateStore } = createHost("  /web https://example.com summarize  ");
     const fetch = deferred<{ sendText: string }>();
     execute.mockImplementation(() => fetch.promise);
 
     const first = submitComposer(host);
-    await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
     await submitComposer(host);
 
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    expect(setDraft.mock.calls.at(-1)).toEqual([
+      "  /web https://example.com summarize  ",
+      { focus: true, clearSuggestions: true, preserveContext: true },
+    ]);
     expect(execute).toHaveBeenCalledOnce();
     fetch.resolve({ sendText: "https://example.com/ summarize" });
     await first;
+    expect(sendTurnText).not.toHaveBeenCalled();
+  });
+
+  it("ignores a late web import failure after explicit cancellation", async () => {
+    const { host, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
+    const fetch = deferred<{ sendText: string }>();
+    execute.mockImplementation(() => fetch.promise);
+
+    const first = submitComposer(host);
+    await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
+    await submitComposer(host);
+    fetch.reject(new Error("offline"));
+    await first;
+
+    expect(setDraft.mock.calls).toEqual([
+      ["", { clearSuggestions: true, preserveContext: true }],
+      ["/web https://example.com summarize", { focus: true, clearSuggestions: true, preserveContext: true }],
+    ]);
+    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("ignores late connection result %s after explicit web cancellation", async (connected) => {
+    const { host, ensureConnected, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
+    const connecting = deferred<boolean>();
+    ensureConnected.mockImplementation(() => connecting.promise);
+
+    const first = submitComposer(host);
+    await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
+    await submitComposer(host);
+    connecting.resolve(connected);
+    await first;
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(setDraft.mock.calls.at(-1)).toEqual([
+      "/web https://example.com summarize",
+      { focus: true, clearSuggestions: true, preserveContext: true },
+    ]);
+    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not create pending UI for a web URL containing credentials", async () => {
+    const { host, execute, stateStore } = createHost("/web https://user:secret@example.com/article summarize");
+    const reading = deferred<undefined>();
+    execute.mockImplementation(() => reading.promise);
+
+    const submitting = submitComposer(host);
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    reading.resolve(undefined);
+    await submitting;
   });
 
   it("drops a pending web submission when the active thread changes during fetch", async () => {
@@ -279,6 +366,30 @@ describe("submitComposer", () => {
     expect(stateStore.getState().pendingSubmission).toBeNull();
   });
 
+  it.each([
+    "connection/scoped-cleared",
+    "connection/context-replaced",
+  ] as const)("recovers the web draft and ignores late fetch success after %s", async (type) => {
+    const { host, execute, sendTurnText, setDraft, stateStore } = createHost("  /web https://example.com summarize  ");
+    const fetch = deferred<{ sendText: string }>();
+    execute.mockImplementation(() => fetch.promise);
+
+    const submitting = submitComposer(host);
+    await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
+    stateStore.dispatch({ type });
+
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    expect(stateStore.getState().composer.draft).toBe("  /web https://example.com summarize  ");
+
+    fetch.resolve({ sendText: "https://example.com/ summarize" });
+    await submitting;
+
+    expect(sendTurnText).not.toHaveBeenCalled();
+    expect(setDraft.mock.calls).toEqual([["", { clearSuggestions: true, preserveContext: true }]]);
+    expect(stateStore.getState().composer.draft).toBe("  /web https://example.com summarize  ");
+    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
+  });
+
   it("does not execute connection-dependent slash commands when connection fails", async () => {
     const { host, ensureConnected, execute, setDraft } = createHost("/clear");
     ensureConnected.mockResolvedValue(false);
@@ -301,7 +412,7 @@ describe("submitComposer", () => {
     expect(stateStore.getState().pendingSubmission).toBeNull();
     expect(setDraft.mock.calls).toEqual([
       ["", { clearSuggestions: true, preserveContext: true }],
-      ["/web https://example.com summarize", { focus: true, clearSuggestions: true }],
+      ["/web https://example.com summarize", { focus: true, clearSuggestions: true, preserveContext: true }],
     ]);
   });
 

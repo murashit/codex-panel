@@ -6,12 +6,56 @@ import { type ChatState, chatReducer } from "../../../../../src/features/chat/ap
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("chatReducer", () => {
+  it.each([
+    "connection/scoped-cleared",
+    "connection/context-replaced",
+  ] as const)("restores cancellable web drafts when %s clears their context", (type) => {
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    const state = chatReducer(chatReducer(chatStateFixture(), { type: "composer/draft-set", draft: "" }), {
+      type: "web-submission/pending",
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: null,
+        originalDraft: "  /web https://example.com summarize  ",
+        phase: "cancellable",
+      },
+    } as never);
+
+    const cleared = chatReducer(state, { type });
+
+    expect(cleared.pendingSubmission).toBeNull();
+    expect(cleared.composer.draft).toBe("  /web https://example.com summarize  ");
+  });
+
+  it("does not restore committed web drafts when their connection context is replaced", () => {
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    const state = chatReducer(chatStateFixture(), {
+      type: "web-submission/pending",
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: null,
+        originalDraft: "/web https://example.com summarize",
+        phase: "committed",
+      },
+    } as never);
+
+    const cleared = chatReducer(state, { type: "connection/context-replaced" });
+
+    expect(cleared.pendingSubmission).toBeNull();
+    expect(cleared.composer.draft).toBe("");
+  });
+
   it("clears connection metadata only when the app-server context is replaced", () => {
     const state = chatStateWith(chatStateFixture(), {
       connection: {

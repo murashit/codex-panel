@@ -124,6 +124,7 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanel
           busy: false,
           canInterrupt: false,
           submissionDisabled: false,
+          webSubmissionCancellable: false,
           normalPlaceholder: "Ask Codex...",
           suggestions: [],
           selectedSuggestionIndex: 0,

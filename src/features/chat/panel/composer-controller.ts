@@ -92,8 +92,12 @@ export class ChatComposerController {
     this.options.stateStore.dispatch(action);
   }
 
+  get draft(): string {
+    return this.composer?.value ?? this.state.composer.draft;
+  }
+
   get trimmedDraft(): string {
-    return this.composer?.value.trim() ?? this.state.composer.draft.trim();
+    return this.draft.trim();
   }
 
   renderState(model: ChatPanelComposerReadModel, actions: ChatComposerRenderActions): ComposerShellProps {
@@ -104,6 +108,7 @@ export class ChatComposerController {
       busy: model.turnBusy.value,
       canInterrupt: this.options.canInterrupt(model),
       submissionDisabled: model.activeThreadSubagent.value || model.webSubmissionPending.value,
+      webSubmissionCancellable: model.webSubmissionCancellable.value,
       normalPlaceholder: projection.placeholder,
       suggestions: model.suggestions.value,
       selectedSuggestionIndex: model.selectedSuggestionIndex.value,
@@ -520,6 +525,11 @@ export class ChatComposerController {
         if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
       },
       onSendOrInterrupt: () => {
+        if (this.state.pendingSubmission?.phase === "cancellable") {
+          actions.submit();
+          return;
+        }
+        if (this.state.pendingSubmission) return;
         void this.submitAfterAttachmentTransfers(actions);
       },
       onHeightChange: () => {

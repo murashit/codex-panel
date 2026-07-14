@@ -298,7 +298,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "turn/pending-start-hook-upserted":
     case "request/resolved":
     case "web-submission/pending":
+    case "web-submission/committed":
     case "web-submission/cancelled":
+    case "web-submission/failed":
     case "web-submission/steer-adopted":
       return reduceChatTransition(state, action);
     default:
@@ -344,10 +346,20 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
       return reduceRequestResolvedTransition(state, action);
     case "web-submission/pending":
       return patchChatState(state, { pendingSubmission: action.submission });
+    case "web-submission/committed":
+      return state.pendingSubmission?.id === action.submissionId && state.pendingSubmission.phase === "cancellable"
+        ? patchChatState(state, { pendingSubmission: { ...state.pendingSubmission, phase: "committed" } })
+        : state;
     case "web-submission/cancelled":
-      return state.pendingSubmission?.id === action.submissionId ? patchChatState(state, { pendingSubmission: null }) : state;
+      return state.pendingSubmission?.id === action.submissionId && state.pendingSubmission.phase === "cancellable"
+        ? patchChatState(state, { pendingSubmission: null })
+        : state;
+    case "web-submission/failed":
+      return state.pendingSubmission?.id === action.submissionId && state.pendingSubmission.phase === "committed"
+        ? patchChatState(state, { pendingSubmission: null })
+        : state;
     case "web-submission/steer-adopted":
-      if (state.pendingSubmission?.id !== action.submissionId) return state;
+      if (state.pendingSubmission?.id !== action.submissionId || state.pendingSubmission.phase !== "committed") return state;
       return patchChatState(state, {
         pendingSubmission: null,
         threadStream: adoptPendingSteerItem(state.threadStream, action.item),
@@ -508,7 +520,12 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
 }
 
 function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOptimisticStartedAction): ChatState {
-  if (action.pendingSubmissionId && state.pendingSubmission?.id !== action.pendingSubmissionId) return state;
+  if (
+    action.pendingSubmissionId &&
+    (state.pendingSubmission?.id !== action.pendingSubmissionId || state.pendingSubmission.phase !== "committed")
+  ) {
+    return state;
+  }
   const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, {
     type: "optimistic-started",
     pendingTurnStart: action.pendingTurnStart,
@@ -604,6 +621,10 @@ function clearConnectionScopedState(state: ChatState): ChatState {
     },
     threadList: initialThreadListState(),
     pendingSubmission: null,
+    composer:
+      state.pendingSubmission?.phase === "cancellable"
+        ? { ...initialComposerState(), draft: state.pendingSubmission.originalDraft }
+        : state.composer,
   });
 }
 
