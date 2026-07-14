@@ -2,6 +2,7 @@ import { type CodexInput, codexTextInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { LocalIdSource } from "../local-id-source";
+import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import {
   acknowledgeOptimisticTurnStart,
@@ -21,7 +22,7 @@ export interface TurnSubmissionActionsHost {
   localItemIds: LocalIdSource;
   turnTransport: ChatTurnTransport;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
-  startThread: (preview?: string) => Promise<boolean>;
+  startThread: (preview?: string, options?: { preservePendingSubmissionId?: string }) => Promise<boolean>;
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
@@ -49,6 +50,8 @@ export interface TurnSubmissionRequest {
   codexInputOverride?: CodexInput;
   referencedThread?: ReferencedThreadMetadata;
   preserveComposerContextOnFailure?: boolean;
+  pendingSubmissionId?: string;
+  failureDraft?: string;
 }
 
 export function createTurnSubmissionActions(host: TurnSubmissionActionsHost): TurnSubmissionActions {
@@ -77,33 +80,44 @@ async function sendTurnText(
     : inputSnapshot
       ? host.prepareInput(text, inputSnapshot)
       : { text, input: codexTextInput(text) };
+  if (!pendingRequestIsCurrent(host, request)) return false;
   if (!(await host.turnTransport.ensureConnected())) return false;
+  if (!pendingRequestIsCurrent(host, request)) return false;
   if (!(await host.ensureRestoredThreadLoaded())) return false;
+  if (!pendingRequestIsCurrent(host, request)) return false;
 
   const initialState = submissionStateSnapshot(host.stateStore.getState());
   const plan = planTurnSubmission(initialState);
 
-  let optimisticUserId: string | null = null;
+  let optimisticItemId: string | null = null;
+  let expectedThreadId: string | null = null;
   try {
     switch (plan.kind) {
       case "blocked":
-        host.addSystemMessage(plan.message);
+        if (pendingRequestIsCurrent(host, request)) host.addSystemMessage(plan.message);
         return false;
       case "steer":
         return await steerCurrentTurn(host, localItemIds, plan, text, prepared, request, referencedThread);
       case "start-thread-then-turn":
-        if (!(await startThreadForTurn(host, prepared.text))) return false;
+        if (!(await startThreadForTurn(host, prepared.text, request.pendingSubmissionId))) return false;
+        if (!pendingRequestIsCurrent(host, request)) return false;
         break;
       case "start-turn":
         break;
     }
     const activeThreadId = plan.kind === "start-turn" ? plan.threadId : submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
     if (!activeThreadId) return false;
+    expectedThreadId = activeThreadId;
     if (!(await host.applyPendingThreadSettings())) return false;
+    if (!pendingRequestIsCurrent(host, request) || submissionStateSnapshot(host.stateStore.getState()).activeThreadId !== activeThreadId) {
+      return false;
+    }
 
-    optimisticUserId = localItemIds.next("local-user");
+    const clientUserMessageId = localItemIds.next("local-user");
+    optimisticItemId = request.pendingSubmissionId ?? clientUserMessageId;
     const optimistic = optimisticTurnStart({
-      id: optimisticUserId,
+      id: optimisticItemId,
+      ...(request.pendingSubmissionId ? { clientId: clientUserMessageId } : {}),
       text: prepared.text,
       codexInput: prepared.input,
       referencedThread,
@@ -112,26 +126,27 @@ async function sendTurnText(
       type: "turn/optimistic-started",
       item: optimistic.item,
       pendingTurnStart: optimistic.pendingTurnStart,
+      ...(request.pendingSubmissionId ? { pendingSubmissionId: request.pendingSubmissionId } : {}),
     });
     clearDraftForSubmission(host, request);
 
     const response = await host.turnTransport.startTurn({
       threadId: activeThreadId,
       input: prepared.input,
-      clientUserMessageId: optimisticUserId,
+      clientUserMessageId,
     });
     if (!response) {
       const failedState = submissionStateSnapshot(host.stateStore.getState());
+      if (failedState.activeThreadId !== activeThreadId || failedState.pendingTurnStart?.anchorItemId !== optimisticItemId) return false;
       const items = cleanupFailedTurnStart({
         items: failedState.items,
-        optimisticUserId,
+        optimisticUserId: optimisticItemId,
         pendingTurnStart: failedState.pendingTurnStart,
       });
       host.stateStore.dispatch({ type: "turn/start-failed", items });
       restoreSubmittedDraft(host, text, request);
       return false;
     }
-    prunePreservedComposerContext(host, request);
     const acknowledgedState = submissionStateSnapshot(host.stateStore.getState());
     const pendingStart = acknowledgedState.pendingTurnStart;
     if (
@@ -140,13 +155,14 @@ async function sendTurnText(
         activeThreadId: acknowledgedState.activeThreadId,
         pendingTurnStart: pendingStart,
         activeTurnId: acknowledgedState.activeTurnId,
-        optimisticUserId,
+        optimisticUserId: optimisticItemId,
         responseTurnId: response.turnId,
       })
     ) {
+      prunePreservedComposerContext(host, request);
       const items = acknowledgeOptimisticTurnStart({
         items: acknowledgedState.items,
-        optimisticUserId,
+        optimisticUserId: optimisticItemId,
         turnId: response.turnId,
         pendingTurnStart: pendingStart,
       });
@@ -156,10 +172,15 @@ async function sendTurnText(
     return true;
   } catch (error) {
     const failedState = submissionStateSnapshot(host.stateStore.getState());
-    if (!optimisticUserId || failedState.pendingTurnStart?.anchorItemId === optimisticUserId) {
+    const currentBeforeAdoption = !optimisticItemId && pendingRequestIsCurrent(host, request);
+    const currentAfterAdoption =
+      optimisticItemId !== null &&
+      failedState.activeThreadId === expectedThreadId &&
+      failedState.pendingTurnStart?.anchorItemId === optimisticItemId;
+    if (currentBeforeAdoption || currentAfterAdoption) {
       const items = cleanupFailedTurnStart({
         items: failedState.items,
-        optimisticUserId,
+        optimisticUserId: optimisticItemId,
         pendingTurnStart: failedState.pendingTurnStart,
       });
       host.stateStore.dispatch({ type: "turn/start-failed", items });
@@ -182,8 +203,11 @@ function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
   return state.activeThreadId ? { kind: "start-turn", threadId: state.activeThreadId } : { kind: "start-thread-then-turn" };
 }
 
-async function startThreadForTurn(host: TurnSubmissionActionsHost, text: string): Promise<boolean> {
-  if (!(await host.startThread(text))) return false;
+async function startThreadForTurn(host: TurnSubmissionActionsHost, text: string, pendingSubmissionId?: string): Promise<boolean> {
+  const started = pendingSubmissionId
+    ? await host.startThread(text, { preservePendingSubmissionId: pendingSubmissionId })
+    : await host.startThread(text);
+  if (!started) return false;
   host.notifyActiveThreadIdentityChanged();
   host.resetThreadTurnPresence(false);
   return true;
@@ -198,6 +222,7 @@ async function steerCurrentTurn(
   request: TurnSubmissionRequest,
   referencedThread?: ReferencedThreadMetadata,
 ): Promise<boolean> {
+  if (!pendingRequestIsCurrent(host, request)) return false;
   const localSteerId = localItemIds.next("local-steer");
   clearDraftForSubmission(host, request, { clearSuggestions: true });
 
@@ -209,25 +234,32 @@ async function steerCurrentTurn(
       clientUserMessageId: localSteerId,
     });
     if (!steered) {
-      restoreSubmittedDraft(host, text, request, { focus: true });
+      if (pendingRequestIsCurrent(host, request)) restoreSubmittedDraft(host, text, request, { focus: true });
       return false;
     }
+    const currentTurn = isCurrentTurn(host, plan.threadId, plan.turnId);
+    if (!pendingRequestIsCurrent(host, request) || (!currentTurn && !request.pendingSubmissionId)) return true;
     prunePreservedComposerContext(host, request, { clearSuggestions: true });
-    if (!isCurrentTurn(host, plan.threadId, plan.turnId)) return true;
-    host.stateStore.dispatch({
-      type: "thread-stream/item-added",
-      item: localUserDialogueItemFromInput({
-        id: localSteerId,
-        text: prepared.text,
-        turnId: plan.turnId,
-        referencedThread,
-        codexInput: prepared.input,
-      }),
+    const item = localUserDialogueItemFromInput({
+      id: request.pendingSubmissionId ?? localSteerId,
+      ...(request.pendingSubmissionId ? { clientId: localSteerId, interaction: "steer" as const } : {}),
+      text: prepared.text,
+      turnId: plan.turnId,
+      referencedThread,
+      codexInput: prepared.input,
     });
-    host.setStatus(STATUS_STEERED_CURRENT_TURN);
+    host.stateStore.dispatch(
+      request.pendingSubmissionId
+        ? { type: "web-submission/steer-adopted", submissionId: request.pendingSubmissionId, item }
+        : { type: "thread-stream/item-added", item },
+    );
+    if (currentTurn) host.setStatus(STATUS_STEERED_CURRENT_TURN);
     return true;
   } catch (error) {
-    if (isCurrentTurn(host, plan.threadId, plan.turnId)) {
+    if (
+      isCurrentTurn(host, plan.threadId, plan.turnId) ||
+      (request.pendingSubmissionId !== undefined && pendingRequestIsCurrent(host, request))
+    ) {
       restoreSubmittedDraft(host, text, request, { focus: true });
       host.addSystemMessage(error instanceof Error ? error.message : String(error));
     }
@@ -257,7 +289,7 @@ function restoreSubmittedDraft(
   request: TurnSubmissionRequest,
   options: { focus?: boolean } = {},
 ): void {
-  host.setDraft(text, {
+  host.setDraft(request.failureDraft ?? text, {
     ...options,
     ...(request.preserveComposerContextOnFailure ? { preserveContext: true } : {}),
   });
@@ -274,4 +306,8 @@ function prunePreservedComposerContext(
 function isCurrentTurn(host: TurnSubmissionActionsHost, threadId: string, turnId: string): boolean {
   const state = submissionStateSnapshot(host.stateStore.getState());
   return state.activeThreadId === threadId && state.activeTurnId === turnId;
+}
+
+function pendingRequestIsCurrent(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {
+  return request.pendingSubmissionId ? pendingSubmissionMatches(host.stateStore.getState(), request.pendingSubmissionId) : true;
 }

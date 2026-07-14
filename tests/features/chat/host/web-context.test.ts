@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CodexInput } from "../../../../src/domain/chat/input";
 import type { ComposerInputSnapshot } from "../../../../src/features/chat/application/composer/input-snapshot";
+import { deferred } from "../../../support/async";
 
 const mocks = vi.hoisted(() => ({
   defuddleParse: vi.fn(),
@@ -52,7 +53,7 @@ describe("web context reader", () => {
 
     const result = await createWebContextReader({
       prepareInput,
-      viewWindow: () => ({ DOMParser: FakeDOMParser }) as unknown as Window,
+      viewWindow: fakeDomWindow,
     }).readUrl("https://example.com/article", "  Summarize [[Alpha]] [[Files/Sketch.png]]  ", inputSnapshot);
 
     expect(mocks.requestUrl).toHaveBeenCalledWith({ url: "https://example.com/article", method: "GET", throw: false });
@@ -82,7 +83,7 @@ describe("web context reader", () => {
     await expect(
       createWebContextReader({
         prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: () => ({ DOMParser: FakeDOMParser }) as unknown as Window,
+        viewWindow: fakeDomWindow,
       }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot),
     ).rejects.toThrow(`Web request failed for https://example.com/article (HTTP ${status}).`);
 
@@ -95,7 +96,7 @@ describe("web context reader", () => {
     await expect(
       createWebContextReader({
         prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: () => ({ DOMParser: FakeDOMParser }) as unknown as Window,
+        viewWindow: fakeDomWindow,
       }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot),
     ).rejects.toThrow("No readable web content found for https://example.com/article");
   });
@@ -104,11 +105,31 @@ describe("web context reader", () => {
     await expect(
       createWebContextReader({
         prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
-        viewWindow: () => ({ DOMParser: FakeDOMParser }) as unknown as Window,
+        viewWindow: fakeDomWindow,
       }).readUrl("file:///tmp/article.html", "", {} as ComposerInputSnapshot),
     ).rejects.toThrow("Unsupported web URL: file:///tmp/article.html");
 
     expect(mocks.requestUrl).not.toHaveBeenCalled();
+  });
+
+  it("rejects web requests that do not respond before the timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const response = deferred<never>();
+      mocks.requestUrl.mockReturnValue(response.promise);
+      const reading = createWebContextReader({
+        prepareInput: () => ({ text: "", input: [{ type: "text", text: "" }] }),
+        viewWindow: fakeDomWindow,
+        requestTimeoutMs: 10,
+      }).readUrl("https://example.com/article", "", {} as ComposerInputSnapshot);
+      const rejected = expect(reading).rejects.toThrow("Web request timed out for https://example.com/article.");
+
+      await vi.advanceTimersByTimeAsync(10);
+
+      await rejected;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -116,4 +137,12 @@ class FakeDOMParser {
   parseFromString(): Document {
     return {} as Document;
   }
+}
+
+function fakeDomWindow(): Window {
+  return {
+    DOMParser: FakeDOMParser,
+    setTimeout: globalThis.setTimeout.bind(globalThis),
+    clearTimeout: globalThis.clearTimeout.bind(globalThis),
+  } as unknown as Window;
 }

@@ -4,6 +4,7 @@ import { MarkdownRenderer } from "obsidian";
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/turns/plan-implementation";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
@@ -1239,6 +1240,18 @@ describe("thread stream rendering and action menu", () => {
     expect(summary?.textContent).toBe("Context · 2 items");
     expect(user.querySelector(".codex-panel__context-items")?.textContent).toContain("Web page");
     expect(user.querySelector(".codex-panel__context-items")?.textContent).toContain("https://example.com/");
+  });
+
+  it("renders pending web submissions immediately as running user dialogue", () => {
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    const blocks = threadStreamBlocks({ items: [pending] });
+
+    const user = renderThreadStreamBlockElement(expectPresent(blocks.find((block) => block.key === "item:local-web")));
+
+    expect(user.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("https://example.com/ summarize");
+    expect(user.querySelector(".codex-panel__context-items summary")?.textContent).toBe("Context · 1 item");
+    expect(user.classList.contains("codex-panel__execution--running")).toBe(true);
   });
 
   it("does not render the open diff action without aggregated turn diff", () => {

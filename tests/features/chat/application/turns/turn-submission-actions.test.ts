@@ -11,6 +11,7 @@ import {
   createTurnSubmissionActions,
   type TurnSubmissionActionsHost,
 } from "../../../../../src/features/chat/application/turns/turn-submission-actions";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { deferred } from "../../../../support/async";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
@@ -43,8 +44,8 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
       interruptTurn: vi.fn().mockResolvedValue(true),
     },
     ensureRestoredThreadLoaded: vi.fn().mockResolvedValue(true),
-    startThread: vi.fn().mockImplementation(async () => {
-      resumeThread(stateStore);
+    startThread: vi.fn().mockImplementation(async (_preview, options) => {
+      resumeThread(stateStore, options?.preservePendingSubmissionId);
       return true;
     }),
     notifyActiveThreadIdentityChanged: vi.fn(),
@@ -60,7 +61,7 @@ function createHost(overrides: TurnSubmissionHostOverrides = {}) {
   return { host, startTurn, stateStore, steerTurn };
 }
 
-function resumeThread(stateStore: ReturnType<typeof createChatStateStore>) {
+function resumeThread(stateStore: ReturnType<typeof createChatStateStore>, preservePendingSubmissionId?: string, threadId = "thread") {
   stateStore.dispatch({
     type: "active-thread/resumed",
     approvalPolicyKnown: true,
@@ -69,12 +70,13 @@ function resumeThread(stateStore: ReturnType<typeof createChatStateStore>) {
     approvalPolicy: null,
     sandboxPolicy: null,
     activePermissionProfile: null,
-    thread: thread("thread"),
+    thread: thread(threadId),
     cwd: "/vault",
     model: null,
     reasoningEffort: null,
     serviceTier: null,
     approvalsReviewer: null,
+    ...(preservePendingSubmissionId ? { preservePendingSubmissionId } : {}),
   });
 }
 
@@ -164,6 +166,146 @@ describe("TurnSubmissionActions", () => {
     expect(stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "turn" });
     expect(host.setDraft).toHaveBeenCalledWith("");
     expect(host.setStatus).toHaveBeenCalledWith("Turn running...");
+  });
+
+  it("replaces a pending web submission when starting a turn", async () => {
+    const { host, stateStore } = createHost();
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: null },
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    await actions.sendTurnText({
+      text: "https://example.com/ summarize",
+      codexInputOverride: textInput("https://example.com/ summarize"),
+      pendingSubmissionId: pending.id,
+    });
+
+    const dialogues = chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "dialogue");
+    expect(dialogues).toHaveLength(1);
+    expect(dialogues[0]).toMatchObject({
+      id: pending.id,
+      clientId: expect.stringMatching(/^local-user-/),
+      text: "https://example.com/ summarize",
+    });
+  });
+
+  it("keeps a pending web submission visible through internal thread creation and settings", async () => {
+    const settings = deferred<boolean>();
+    const { host, startTurn, stateStore } = createHost({ applyPendingThreadSettings: vi.fn(() => settings.promise) });
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: null },
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    const submitting = actions.sendTurnText({
+      text: pending.text,
+      codexInputOverride: textInput(pending.text),
+      pendingSubmissionId: pending.id,
+    });
+    await vi.waitFor(() => expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce());
+
+    expect(stateStore.getState().activeThread.id).toBe("thread");
+    expect(stateStore.getState().pendingSubmission).toMatchObject({ id: pending.id, targetThreadId: "thread" });
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+
+    settings.resolve(true);
+    await expect(submitting).resolves.toBe(true);
+
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    expect(chatStateThreadStreamItems(stateStore.getState())[0]).toMatchObject({
+      id: pending.id,
+      clientId: startTurn.mock.calls[0]?.[0].clientUserMessageId,
+    });
+  });
+
+  it("restores the original web command when starting the adopted turn returns no response", async () => {
+    const { host, startTurn, stateStore } = createHost();
+    resumeThread(stateStore);
+    startTurn.mockResolvedValue(null);
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: "thread" },
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    await expect(
+      actions.sendTurnText({
+        text: pending.text,
+        codexInputOverride: textInput(pending.text),
+        preserveComposerContextOnFailure: true,
+        pendingSubmissionId: pending.id,
+        failureDraft: "/web https://example.com summarize",
+      }),
+    ).resolves.toBe(false);
+
+    expect(host.setDraft).toHaveBeenCalledWith("/web https://example.com summarize", { preserveContext: true });
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+  });
+
+  it("restores the original web command when starting the adopted turn throws", async () => {
+    const { host, startTurn, stateStore } = createHost();
+    resumeThread(stateStore);
+    startTurn.mockRejectedValue(new Error("offline"));
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: "thread" },
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    await expect(
+      actions.sendTurnText({
+        text: pending.text,
+        codexInputOverride: textInput(pending.text),
+        preserveComposerContextOnFailure: true,
+        pendingSubmissionId: pending.id,
+        failureDraft: "/web https://example.com summarize",
+      }),
+    ).resolves.toBe(false);
+
+    expect(host.setDraft).toHaveBeenCalledWith("/web https://example.com summarize", { preserveContext: true });
+    expect(host.addSystemMessage).toHaveBeenCalledWith("offline");
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+  });
+
+  it("does not send fetched web context to a thread selected while settings are pending", async () => {
+    const settings = deferred<boolean>();
+    const { host, startTurn, stateStore } = createHost({ applyPendingThreadSettings: vi.fn(() => settings.promise) });
+    resumeThread(stateStore);
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: "thread" },
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    const submitting = actions.sendTurnText({
+      text: pending.text,
+      codexInputOverride: textInput(pending.text),
+      pendingSubmissionId: pending.id,
+    });
+    await vi.waitFor(() => expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce());
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    resumeThread(stateStore, undefined, "other-thread");
+    settings.resolve(true);
+
+    await expect(submitting).resolves.toBe(false);
+    expect(startTurn).not.toHaveBeenCalled();
+    expect(host.setDraft).not.toHaveBeenCalledWith(pending.text, expect.anything());
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("applies reserved runtime settings after creating a thread and before starting the turn", async () => {
@@ -293,6 +435,96 @@ describe("TurnSubmissionActions", () => {
         (item) => item.kind === "dialogue" && item.id === localSteerId && item.text === "follow up",
       ),
     ).toBe(true);
+  });
+
+  it("replaces a pending web submission after steering succeeds", async () => {
+    const { host, stateStore } = createHost();
+    resumeThread(stateStore);
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: "thread" },
+    });
+    const actions = createTurnSubmissionActions(host);
+
+    await actions.sendTurnText({
+      text: "https://example.com/ summarize",
+      codexInputOverride: textInput("https://example.com/ summarize"),
+      pendingSubmissionId: pending.id,
+    });
+
+    const dialogues = chatStateThreadStreamItems(stateStore.getState()).filter((item) => item.kind === "dialogue");
+    expect(dialogues).toHaveLength(1);
+    expect(dialogues[0]).toMatchObject({
+      id: pending.id,
+      clientId: expect.stringMatching(/^local-steer-/),
+      text: "https://example.com/ summarize",
+      turnId: "turn",
+    });
+  });
+
+  it("adopts a successful pending web steer after the active turn completes", async () => {
+    const { host, stateStore, steerTurn } = createHost();
+    resumeThread(stateStore);
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: "thread" },
+    });
+    const steering = deferred<boolean>();
+    steerTurn.mockImplementation(() => steering.promise);
+    const actions = createTurnSubmissionActions(host);
+    const input = [
+      { type: "text" as const, text: pending.text },
+      {
+        type: "additionalContext" as const,
+        key: "codex_panel_web_context",
+        kind: "untrusted" as const,
+        value: "Web page context for the current user input:\nSource: https://example.com/\n\nReadable article",
+      },
+    ];
+
+    const submitting = actions.sendTurnText({
+      text: pending.text,
+      codexInputOverride: input,
+      preserveComposerContextOnFailure: true,
+      pendingSubmissionId: pending.id,
+      failureDraft: "/web https://example.com summarize",
+    });
+    await vi.waitFor(() => expect(steerTurn).toHaveBeenCalledOnce());
+    const clientId = steerTurn.mock.calls[0]?.[0].clientUserMessageId;
+    stateStore.dispatch({
+      type: "turn/completed",
+      turnId: "turn",
+      status: "completed",
+      items: [
+        {
+          id: "server-user",
+          kind: "dialogue",
+          dialogueKind: "user",
+          role: "user",
+          text: pending.text,
+          copyText: pending.text,
+          turnId: "turn",
+          clientId,
+        },
+      ],
+    });
+    steering.resolve(true);
+
+    await expect(submitting).resolves.toBe(true);
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([
+      expect.objectContaining({
+        id: "server-user",
+        clientId,
+        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      }),
+    ]);
   });
 
   it("reports busy turns that cannot be steered", async () => {

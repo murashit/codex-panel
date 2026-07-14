@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { submitComposer } from "../../../../../src/features/chat/application/turns/composer-submit-actions";
+import { deferred } from "../../../../support/async";
+import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 function thread(id: string): Thread {
   return {
@@ -49,6 +52,7 @@ function createHost(draft: string, options: { subagent?: boolean } = {}) {
   const captureInputSnapshot = vi.fn(() => inputSnapshot);
   const host = {
     stateStore,
+    localItemIds: createLocalIdSource(),
     composer: {
       get trimmedDraft() {
         return draft;
@@ -170,8 +174,109 @@ describe("submitComposer", () => {
         { type: "mention", name: "Note", path: "Note.md" },
       ],
       preserveComposerContextOnFailure: true,
+      pendingSubmissionId: expect.stringMatching(/^local-web-/),
+      failureDraft: "/web https://example.com [[Note]]",
     });
     expect(setDraft).toHaveBeenCalledWith("/web https://example.com [[Note]]", { focus: true, clearSuggestions: true });
+  });
+
+  it("shows a pending web message while context is fetched and hands it to turn submission", async () => {
+    const { host, execute, inputSnapshot, sendTurnText, setDraft, showLatest, stateStore } = createHost(
+      "/web https://example.com summarize",
+    );
+    const fetch = deferred<{ sendText: string; sendInput: [{ type: "text"; text: string }] }>();
+    execute.mockImplementation(() => fetch.promise);
+
+    const submitting = submitComposer(host);
+    await vi.waitFor(() => {
+      expect(stateStore.getState().pendingSubmission).not.toBeNull();
+    });
+
+    const pending = stateStore.getState().pendingSubmission?.item;
+    expect(pending).toMatchObject({
+      kind: "dialogue",
+      text: "https://example.com/ summarize",
+      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      provenance: { source: "localUser", channel: "preflight" },
+    });
+    expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true, preserveContext: true });
+    expect(showLatest).toHaveBeenCalledOnce();
+    expect(sendTurnText).not.toHaveBeenCalled();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+
+    fetch.resolve({ sendText: "https://example.com/ summarize", sendInput: [{ type: "text", text: "prepared" }] });
+    await submitting;
+
+    expect(sendTurnText).toHaveBeenCalledWith({
+      text: "https://example.com/ summarize",
+      inputSnapshot,
+      codexInputOverride: [{ type: "text", text: "prepared" }],
+      preserveComposerContextOnFailure: true,
+      pendingSubmissionId: pending?.id,
+      failureDraft: "/web https://example.com summarize",
+    });
+  });
+
+  it("prevents a second submission while web context is being fetched", async () => {
+    const { host, execute } = createHost("/web https://example.com summarize");
+    const fetch = deferred<{ sendText: string }>();
+    execute.mockImplementation(() => fetch.promise);
+
+    const first = submitComposer(host);
+    await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+    await submitComposer(host);
+
+    expect(execute).toHaveBeenCalledOnce();
+    fetch.resolve({ sendText: "https://example.com/ summarize" });
+    await first;
+  });
+
+  it("drops a pending web submission when the active thread changes during fetch", async () => {
+    const { host, execute, sendTurnText, stateStore } = createHost("/web https://example.com summarize");
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: thread("first"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    const fetch = deferred<{ sendText: string }>();
+    execute.mockImplementation(() => fetch.promise);
+
+    const submitting = submitComposer(host);
+    await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    fetch.resolve({ sendText: "https://example.com/ summarize" });
+    await submitting;
+
+    expect(sendTurnText).not.toHaveBeenCalled();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+  });
+
+  it("does not restore or report a stale web fetch failure after the active thread changes", async () => {
+    const { host, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
+    resumeActiveThread(stateStore, "first");
+    const fetch = deferred<{ sendText: string }>();
+    execute.mockImplementation(() => fetch.promise);
+
+    const submitting = submitComposer(host);
+    await vi.waitFor(() => expect(stateStore.getState().pendingSubmission).not.toBeNull());
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    fetch.reject(new Error("offline"));
+    await submitting;
+
+    expect(setDraft.mock.calls).toEqual([["", { clearSuggestions: true, preserveContext: true }]]);
+    expect(host.status.addSystemMessage).not.toHaveBeenCalled();
+    expect(stateStore.getState().pendingSubmission).toBeNull();
   });
 
   it("does not execute connection-dependent slash commands when connection fails", async () => {
@@ -183,6 +288,21 @@ describe("submitComposer", () => {
     expect(ensureConnected).toHaveBeenCalledOnce();
     expect(setDraft).not.toHaveBeenCalled();
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("rolls back a pending web message when connection setup fails", async () => {
+    const { host, ensureConnected, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
+    ensureConnected.mockResolvedValue(false);
+
+    await submitComposer(host);
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(chatStateThreadStreamItems(stateStore.getState())).toEqual([]);
+    expect(stateStore.getState().pendingSubmission).toBeNull();
+    expect(setDraft.mock.calls).toEqual([
+      ["", { clearSuggestions: true, preserveContext: true }],
+      ["/web https://example.com summarize", { focus: true, clearSuggestions: true }],
+    ]);
   });
 
   it("executes reconnect without a connected client preflight", async () => {
@@ -233,8 +353,9 @@ describe("submitComposer", () => {
       { focus: true, clearSuggestions: true },
     ]);
     expect(host.status.addSystemMessage).toHaveBeenCalledWith("No readable content found for https://obsidian.md/help/plugins/web-viewer");
-    expect(showLatest).not.toHaveBeenCalled();
+    expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).not.toHaveBeenCalled();
+    expect(chatStateThreadStreamItems(host.stateStore.getState())).toEqual([]);
   });
 
   it("interrupts a running turn when submitting an empty draft", async () => {
@@ -262,3 +383,21 @@ describe("submitComposer", () => {
     expect(interruptTurn).toHaveBeenCalledWith("thread", "turn");
   });
 });
+
+function resumeActiveThread(stateStore: ReturnType<typeof createChatStateStore>, id: string): void {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: thread(id),
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
+}

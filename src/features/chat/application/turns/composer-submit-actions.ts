@@ -1,16 +1,20 @@
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import { type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
 import { parseSlashCommand } from "../composer/suggestions";
+import type { LocalIdSource } from "../local-id-source";
+import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
-import type { SlashCommandExecutionResult } from "./slash-command-execution";
+import { parseWebCommandArgs, type SlashCommandExecutionResult } from "./slash-command-execution";
 import { submissionStateSnapshot } from "./submission-state";
 import type { TurnSubmissionRequest } from "./turn-submission-actions";
 import type { ChatTurnTransport } from "./turn-transport";
+import { pendingWebSubmissionItem } from "./web-submission";
 
 const STATUS_INTERRUPT_REQUESTED = "Interrupt requested.";
 
 export interface ComposerSubmitActionsHost {
   stateStore: ChatStateStore;
+  localItemIds: LocalIdSource;
   ensureRestoredThreadLoaded?: () => Promise<boolean>;
   composer: {
     readonly trimmedDraft: string;
@@ -48,6 +52,7 @@ export async function submitComposer(host: ComposerSubmitActionsHost): Promise<v
   const draft = host.composer.trimmedDraft;
   if (host.ensureRestoredThreadLoaded && !(await host.ensureRestoredThreadLoaded())) return;
   const state = submissionStateSnapshot(host.stateStore.getState());
+  if (host.stateStore.getState().pendingSubmission) return;
   if (state.activeThreadSubagent) {
     host.status.addSystemMessage("Messages and slash commands are unavailable in agent threads. Start a new chat to continue.");
     return;
@@ -65,26 +70,49 @@ async function sendMessage(host: ComposerSubmitActionsHost, text: string): Promi
 
   const slashCommand = parseSlashCommand(text);
   if (slashCommand) {
-    if (slashCommandRequiresConnection(slashCommand.command) && !(await host.connection.ensureConnected())) return;
-    const execution = await executeSlashCommandAndRestoreOnFailure(host, slashCommand.command, slashCommand.args, inputSnapshot, text);
+    const pendingWeb = beginPendingWebSubmission(host, slashCommand.command, slashCommand.args);
+    if (slashCommandRequiresConnection(slashCommand.command) && !(await host.connection.ensureConnected())) {
+      if (pendingWeb && pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id, text);
+      return;
+    }
+    const execution = await executeSlashCommandAndRestoreOnFailure(
+      host,
+      slashCommand.command,
+      slashCommand.args,
+      inputSnapshot,
+      text,
+      pendingWeb?.id,
+    );
     if (execution.failed) return;
     const result = execution.result;
     if (result?.composerDraft !== undefined) {
       host.composer.setDraft(result.composerDraft, { focus: true, clearSuggestions: true });
     }
     if (result?.sendText) {
-      host.scroll.showLatest();
+      if (pendingWeb && !pendingWebSubmissionIsCurrent(host, pendingWeb.id)) return;
+      if (!pendingWeb) host.scroll.showLatest();
       const submitted = await host.turnSubmission.sendTurnText({
         text: result.sendText,
         inputSnapshot,
         ...(result.sendInput !== undefined ? { codexInputOverride: result.sendInput } : {}),
         ...(result.referencedThread !== undefined ? { referencedThread: result.referencedThread } : {}),
         ...(result.sendInput !== undefined ? { preserveComposerContextOnFailure: true } : {}),
+        ...(pendingWeb ? { pendingSubmissionId: pendingWeb.id, failureDraft: text } : {}),
       });
-      if (!submitted) host.composer.setDraft(text, { focus: true, clearSuggestions: true });
+      if (!submitted) {
+        if (pendingWeb) {
+          if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id, text);
+        } else {
+          host.composer.setDraft(text, { focus: true, clearSuggestions: true });
+        }
+      }
     }
     if (result === undefined || (result.sendText === undefined && result.composerDraft === undefined)) {
-      host.composer.setDraft("", { clearSuggestions: true });
+      if (pendingWeb) {
+        if (pendingWebSubmissionIsCurrent(host, pendingWeb.id)) rollbackPendingWebSubmission(host, pendingWeb.id, text);
+      } else {
+        host.composer.setDraft("", { clearSuggestions: true });
+      }
     }
     return;
   }
@@ -99,14 +127,51 @@ async function executeSlashCommandAndRestoreOnFailure(
   args: string,
   inputSnapshot: ComposerInputSnapshot,
   originalText: string,
+  pendingWebSubmissionId?: string,
 ): Promise<{ failed: false; result: SlashCommandExecutionResult | undefined } | { failed: true }> {
   try {
     return { failed: false, result: await host.slashCommandExecutor.execute(command, args, inputSnapshot) };
   } catch (error) {
+    if (pendingWebSubmissionId && !pendingWebSubmissionIsCurrent(host, pendingWebSubmissionId)) return { failed: true };
+    if (pendingWebSubmissionId) cancelPendingWebSubmission(host, pendingWebSubmissionId);
     host.composer.setDraft(originalText, { focus: true, clearSuggestions: true });
     host.status.addSystemMessage(error instanceof Error ? error.message : String(error));
     return { failed: true };
   }
+}
+
+interface PendingWebSubmission {
+  id: string;
+}
+
+function beginPendingWebSubmission(host: ComposerSubmitActionsHost, command: SlashCommandName, args: string): PendingWebSubmission | null {
+  if (command !== "web") return null;
+  const parsed = parseWebCommandArgs(args);
+  if (!parsed) return null;
+  const id = host.localItemIds.next("local-web");
+  const item = pendingWebSubmissionItem(id, parsed.url, parsed.message);
+  if (!item) return null;
+  const activeThreadId = submissionStateSnapshot(host.stateStore.getState()).activeThreadId;
+  host.stateStore.dispatch({
+    type: "web-submission/pending",
+    submission: { id, item, targetThreadId: activeThreadId },
+  });
+  host.composer.setDraft("", { clearSuggestions: true, preserveContext: true });
+  host.scroll.showLatest();
+  return { id };
+}
+
+function pendingWebSubmissionIsCurrent(host: ComposerSubmitActionsHost, submissionId: string): boolean {
+  return pendingSubmissionMatches(host.stateStore.getState(), submissionId);
+}
+
+function cancelPendingWebSubmission(host: ComposerSubmitActionsHost, id: string): void {
+  host.stateStore.dispatch({ type: "web-submission/cancelled", submissionId: id });
+}
+
+function rollbackPendingWebSubmission(host: ComposerSubmitActionsHost, id: string, text: string): void {
+  cancelPendingWebSubmission(host, id);
+  host.composer.setDraft(text, { focus: true, clearSuggestions: true });
 }
 
 async function interruptTurn(host: ComposerSubmitActionsHost): Promise<void> {

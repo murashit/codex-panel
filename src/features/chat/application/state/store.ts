@@ -46,6 +46,7 @@ function cloneChatState(state: ChatState): ChatState {
     runtime: { ...state.runtime },
     turn: { lifecycle: state.turn.lifecycle },
     threadStream: cloneThreadStreamState(state.threadStream),
+    pendingSubmission: state.pendingSubmission ? { ...state.pendingSubmission, item: { ...state.pendingSubmission.item } } : null,
     requests: {
       approvals: [...state.requests.approvals],
       pendingUserInputs: [...state.requests.pendingUserInputs],

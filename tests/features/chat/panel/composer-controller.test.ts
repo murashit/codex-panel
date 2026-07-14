@@ -11,13 +11,15 @@ import type {
 import type { NoteCandidateProvider } from "../../../../src/features/chat/application/composer/note-context";
 import type { ChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { pendingWebSubmissionItem } from "../../../../src/features/chat/application/turns/web-submission";
+import type { ThreadStreamItem } from "../../../../src/features/chat/domain/thread-stream/items";
 import { ChatComposerController, type ChatComposerRenderActions } from "../../../../src/features/chat/panel/composer-controller";
 import type { ChatPanelComposerReadModel } from "../../../../src/features/chat/panel/shell-read-model";
 import { ComposerShell } from "../../../../src/features/chat/ui/composer";
 import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/dom/preact-root.dom";
 import { deferred } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
-import { composerReadModelFromChatState } from "../support/shell-read-model";
+import { composerReadModelFromChatState, threadStreamReadModelFromChatState } from "../support/shell-read-model";
 
 installObsidianDomShims();
 
@@ -82,6 +84,46 @@ function composerControllerFixture(
 }
 
 describe("ChatComposerController", () => {
+  it("disables composer submission while web context is being fetched", () => {
+    const { controller, stateStore } = composerControllerFixture();
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: null },
+    });
+
+    const props = controller.renderState(composerReadModelFromChatState(stateStore.getState()), { submit: vi.fn() });
+
+    expect(props.submissionDisabled).toBe(true);
+  });
+
+  it("keeps a pending web submission after a turn that completes during the fetch", () => {
+    const stateStore = createChatStateStore();
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    const assistant: ThreadStreamItem = {
+      id: "assistant",
+      kind: "dialogue",
+      dialogueKind: "assistantResponse",
+      role: "assistant",
+      text: "done",
+      dialogueState: "completed",
+      turnId: "turn",
+    };
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: "thread" },
+    });
+    stateStore.dispatch({ type: "turn/completed", turnId: "turn", status: "completed", items: [assistant] });
+
+    const model = threadStreamReadModelFromChatState(stateStore.getState());
+    expect(model.items.value.map((item) => item.id)).toEqual(["assistant", pending.id]);
+    expect(model.stableItems.value.map((item) => item.id)).toEqual(["assistant", pending.id]);
+    expect(stateStore.getState().pendingSubmission?.id).toBe(pending.id);
+  });
+
   it("derives composer placeholder and meta from the projection", () => {
     const projection = vi.fn((model: ChatPanelComposerReadModel) => ({
       placeholder: `Projected ${model.draft.value || "empty"}`,

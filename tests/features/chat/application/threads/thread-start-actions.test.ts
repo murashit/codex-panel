@@ -4,9 +4,12 @@ import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/co
 import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
+import { resumedThreadAction } from "../../../../../src/features/chat/application/state/actions";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createThreadStartActions } from "../../../../../src/features/chat/application/threads/thread-start-actions";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
+import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("thread start actions", () => {
@@ -87,6 +90,54 @@ describe("thread start actions", () => {
     await actions.startThread("first goal", { syncGoal: false });
 
     expect(syncThreadGoal).not.toHaveBeenCalled();
+  });
+
+  it("retargets an explicitly preserved pending submission to the newly started thread", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: null },
+    });
+    const actions = createThreadStartActions({
+      stateStore,
+      threadStartTransport: { startThread: vi.fn().mockResolvedValue(activationFixture(threadFixture("started"))) },
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      recordStartedThread: vi.fn(),
+      syncThreadGoal: vi.fn(),
+    });
+
+    await actions.startThread(pending.text, { preservePendingSubmissionId: pending.id });
+
+    expect(stateStore.getState().pendingSubmission).toMatchObject({ id: pending.id, targetThreadId: "started" });
+  });
+
+  it("does not activate a delayed new thread after its pending submission is superseded", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
+    if (!pending) throw new Error("Expected pending web submission");
+    stateStore.dispatch({
+      type: "web-submission/pending",
+      submission: { id: pending.id, item: pending, targetThreadId: null },
+    });
+    const started = deferred<ThreadActivationSnapshot | null>();
+    const recordStartedThread = vi.fn();
+    const actions = createThreadStartActions({
+      stateStore,
+      threadStartTransport: { startThread: vi.fn(() => started.promise) },
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      recordStartedThread,
+      syncThreadGoal: vi.fn(),
+    });
+
+    const starting = actions.startThread(pending.text, { preservePendingSubmissionId: pending.id });
+    stateStore.dispatch(resumedThreadAction({ response: activationFixture(threadFixture("selected")) }));
+    started.resolve(activationFixture(threadFixture("delayed")));
+
+    await expect(starting).resolves.toBeNull();
+    expect(stateStore.getState().activeThread.id).toBe("selected");
+    expect(recordStartedThread).not.toHaveBeenCalled();
   });
 
   it("starts threads with service tier from explicit effective config", async () => {

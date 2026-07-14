@@ -10,6 +10,8 @@ import type { PendingTurnStart } from "./turn-state";
 
 interface LocalUserDialogueParams {
   id: string;
+  clientId?: string;
+  interaction?: "prompt" | "steer";
   text: string;
   copyText?: string;
   turnId?: string;
@@ -59,7 +61,8 @@ function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDia
     role: "user",
     text: params.text,
     copyText: params.copyText ?? params.text,
-    provenance: localUserDialogueProvenance(params.id),
+    provenance: localUserDialogueProvenance(params.clientId ?? params.id, params.interaction),
+    ...(params.clientId ? { clientId: params.clientId } : {}),
     ...(params.turnId ? { turnId: params.turnId } : {}),
     ...(params.referencedThread ? { referencedThread: params.referencedThread } : {}),
     ...(mentionedFiles.length > 0 ? { mentionedFiles: [...mentionedFiles] } : {}),
@@ -67,11 +70,11 @@ function localUserDialogueItem(params: LocalUserDialogueParams): ThreadStreamDia
   };
 }
 
-function localUserDialogueProvenance(id: string): ThreadStreamItemProvenance {
+function localUserDialogueProvenance(id: string, interaction?: "prompt" | "steer"): ThreadStreamItemProvenance {
   return {
     source: "localUser",
     channel: "optimistic",
-    interaction: isLocalSteerDialogueClientId(id) ? "steer" : "prompt",
+    interaction: interaction ?? (isLocalSteerDialogueClientId(id) ? "steer" : "prompt"),
     sourceId: id,
   };
 }
@@ -79,6 +82,8 @@ function localUserDialogueProvenance(id: string): ThreadStreamItemProvenance {
 export function localUserDialogueItemFromInput(params: LocalUserDialogueFromInputParams): ThreadStreamDialogueItem {
   return localUserDialogueItem({
     id: params.id,
+    ...(params.clientId ? { clientId: params.clientId } : {}),
+    ...(params.interaction ? { interaction: params.interaction } : {}),
     text: userMessageDisplayText(params.text, params.codexInput),
     copyText: params.text,
     ...(params.turnId ? { turnId: params.turnId } : {}),

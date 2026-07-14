@@ -1,9 +1,10 @@
 import Defuddle from "defuddle";
-import { htmlToMarkdown, requestUrl } from "obsidian";
+import { htmlToMarkdown, type RequestUrlResponse, requestUrl } from "obsidian";
 
 import type { CodexInput } from "../../../../domain/chat/input";
 import { codexTextInputWithAttachments } from "../../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../../application/composer/input-snapshot";
+import { normalizedHttpUrl } from "../../application/turns/web-submission";
 import { WEB_CONTEXT_KEY } from "../../domain/thread-stream/format/context-attachments";
 
 export interface WebUrlInput {
@@ -14,6 +15,7 @@ export interface WebUrlInput {
 interface WebContextReaderOptions {
   prepareInput: (text: string, snapshot: ComposerInputSnapshot) => { text: string; input: CodexInput };
   viewWindow: () => Window | null;
+  requestTimeoutMs?: number;
 }
 
 type DomParserWindow = Window & { DOMParser: typeof DOMParser };
@@ -51,7 +53,7 @@ async function readUrlToInput(
 }
 
 async function fetchWebPage(options: WebContextReaderOptions, url: string): Promise<{ title: string; content: string }> {
-  const response = await requestUrl({ url, method: "GET", throw: false });
+  const response = await requestWebPage(options, url, options.requestTimeoutMs ?? 30_000);
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Web request failed for ${url} (HTTP ${String(response.status)}).`);
   }
@@ -62,6 +64,26 @@ async function fetchWebPage(options: WebContextReaderOptions, url: string): Prom
   return { title: result.title, content: result.content };
 }
 
+function requestWebPage(options: WebContextReaderOptions, url: string, timeoutMs: number): Promise<RequestUrlResponse> {
+  const timerHost = options.viewWindow();
+  if (!timerHost) throw new Error(`Web request unavailable for ${url}.`);
+  return new Promise((resolve, reject) => {
+    const timeout = timerHost.setTimeout(() => {
+      reject(new Error(`Web request timed out for ${url}.`));
+    }, timeoutMs);
+    void requestUrl({ url, method: "GET", throw: false }).then(
+      (response) => {
+        timerHost.clearTimeout(timeout);
+        resolve(response);
+      },
+      (error: unknown) => {
+        timerHost.clearTimeout(timeout);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 function webContextValue(url: string, title: string, content: string): string {
   return [
     "Web page context for the current user input:",
@@ -70,14 +92,4 @@ function webContextValue(url: string, title: string, content: string): string {
     "",
     content,
   ].join("\n");
-}
-
-function normalizedHttpUrl(value: string): string | null {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
 }

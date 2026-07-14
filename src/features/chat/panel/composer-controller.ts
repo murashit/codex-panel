@@ -103,7 +103,7 @@ export class ChatComposerController {
       draft: model.draft.value,
       busy: model.turnBusy.value,
       canInterrupt: this.options.canInterrupt(model),
-      submissionDisabled: model.activeThreadSubagent.value,
+      submissionDisabled: model.activeThreadSubagent.value || model.webSubmissionPending.value,
       normalPlaceholder: projection.placeholder,
       suggestions: model.suggestions.value,
       selectedSuggestionIndex: model.selectedSuggestionIndex.value,

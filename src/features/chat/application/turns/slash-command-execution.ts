@@ -146,7 +146,7 @@ export async function executeSlashCommand(
       return { sendText: reference.text, sendInput: reference.input, referencedThread: reference.referencedThread };
     }
     case "web": {
-      const parsed = parseUrlAndMessageArgs(args);
+      const parsed = parseWebCommandArgs(args);
       if (!parsed) {
         context.addSystemMessage(usageError(command, "requires a URL"));
         return;
@@ -351,7 +351,7 @@ function validateSlashCommandArguments(command: SlashCommandName, args: string):
   if (definition.argsKind === "requiredThread" && !args) return usageError(command, "requires a thread");
   if (definition.argsKind === "threadAndMessage" && !parseReferArgs(args)) return usageError(command, "requires a thread and a message");
   if (definition.argsKind === "threadAndName" && !parseThreadAndNameArgs(args)) return usageError(command, "requires a thread and a name");
-  if (definition.argsKind === "urlAndOptionalMessage" && !parseUrlAndMessageArgs(args)) return usageError(command, "requires a URL");
+  if (definition.argsKind === "urlAndOptionalMessage" && !parseWebCommandArgs(args)) return usageError(command, "requires a URL");
   return null;
 }
 
@@ -506,7 +506,7 @@ function parseThreadAndNameArgs(args: string): { threadQuery: string; text: stri
   return text ? { threadQuery: parsed.threadQuery, text } : null;
 }
 
-function parseUrlAndMessageArgs(args: string): { url: string; message: string } | null {
+export function parseWebCommandArgs(args: string): { url: string; message: string } | null {
   const match = /^(\S+)(?:\s+([\s\S]*\S))?\s*$/.exec(args);
   if (!match) return null;
   const url = match[1];

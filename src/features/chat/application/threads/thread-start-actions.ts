@@ -3,6 +3,7 @@ import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import { resumedThreadAction } from "../state/actions";
+import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadStartTransport } from "./thread-start-transport";
@@ -20,7 +21,10 @@ export interface ThreadStartActionsHost {
 }
 
 export interface ThreadStartActions {
-  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<StartedThreadSummary | null>;
+  startThread: (
+    preview?: string,
+    options?: { syncGoal?: boolean; preservePendingSubmissionId?: string },
+  ) => Promise<StartedThreadSummary | null>;
 }
 
 export function createThreadStartActions(host: ThreadStartActionsHost): ThreadStartActions {
@@ -32,7 +36,7 @@ export function createThreadStartActions(host: ThreadStartActionsHost): ThreadSt
 async function startThread(
   host: ThreadStartActionsHost,
   preview?: string,
-  options: { syncGoal?: boolean } = {},
+  options: { syncGoal?: boolean; preservePendingSubmissionId?: string } = {},
 ): Promise<StartedThreadSummary | null> {
   const requestState = host.stateStore.getState();
   const runtimeSnapshot = host.runtimeSnapshotForState(requestState);
@@ -42,6 +46,9 @@ async function startThread(
     permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
   });
   if (!activation) return null;
+  if (options.preservePendingSubmissionId && !pendingSubmissionMatches(host.stateStore.getState(), options.preservePendingSubmissionId)) {
+    return null;
+  }
 
   const state = host.stateStore.getState();
   const fallbackPreview = preview?.trim();
@@ -54,6 +61,7 @@ async function startThread(
     response: patchedActivation,
     listedThreads: state.threadList.listedThreads,
     preserveRequestedRuntimeSettings: requestState.activeThread.id === null,
+    ...(options.preservePendingSubmissionId ? { preservePendingSubmissionId: options.preservePendingSubmissionId } : {}),
   });
   host.stateStore.dispatch(action);
   host.recordStartedThread(action.thread);

@@ -19,6 +19,7 @@ interface ResumedThreadActionParams {
   items?: readonly ThreadStreamItem[];
   preserveRequestedRuntimeSettings?: boolean;
   serviceTierKnown?: boolean;
+  preservePendingSubmissionId?: string;
 }
 
 interface ResumedThreadFromActiveRuntimeParams {
@@ -55,6 +56,7 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState, Runti
   status?: string;
   listedThreads?: readonly Thread[];
   preserveRequestedRuntimeSettings?: boolean;
+  preservePendingSubmissionId?: string;
   lifetime?:
     | { readonly kind: "persistent" }
     | { readonly kind: "ephemeral"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
@@ -113,6 +115,7 @@ export interface TurnOptimisticStartedAction {
   type: "turn/optimistic-started";
   item: ThreadStreamItem;
   pendingTurnStart: PendingTurnStart;
+  pendingSubmissionId?: string;
 }
 
 export interface TurnStartAcknowledgedAction {
@@ -170,6 +173,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
       ? { listedThreads: isSubagentThread(response.thread) ? params.listedThreads : upsertThread(params.listedThreads, response.thread) }
       : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
+    ...(params.preservePendingSubmissionId ? { preservePendingSubmissionId: params.preservePendingSubmissionId } : {}),
   };
 }
 

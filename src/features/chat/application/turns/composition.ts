@@ -62,7 +62,10 @@ export interface TurnWorkflowRefs {
 }
 
 interface TurnWorkflowThreadStarter {
-  startThread: (preview?: string, options?: { syncGoal?: boolean }) => Promise<{ threadId: string } | null>;
+  startThread: (
+    preview?: string,
+    options?: { syncGoal?: boolean; preservePendingSubmissionId?: string },
+  ) => Promise<{ threadId: string } | null>;
 }
 
 interface PlanImplementation {
@@ -93,7 +96,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     localItemIds,
     turnTransport,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
-    startThread: async (preview) => (await refs.threadStarter.startThread(preview)) !== null,
+    startThread: async (preview, options) => (await refs.threadStarter.startThread(preview, options)) !== null,
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     resetThreadTurnPresence: thread.resetTurnPresence,
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
@@ -137,6 +140,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
   };
   const composerSubmitHost: ComposerSubmitActionsHost = {
     stateStore,
+    localItemIds,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
     composer: {
       get trimmedDraft() {

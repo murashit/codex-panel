@@ -14,8 +14,8 @@ export function reconcileCompletedTurnItems(input: CompletedTurnReconciliationIn
 
   const contextAttachmentsByClientId = new Map(
     currentItems.flatMap((item) =>
-      isUserDialogue(item) && isLocalUserDialogueId(item.id) && item.contextAttachments
-        ? [[item.id, item.contextAttachments] as const]
+      isOptimisticUserDialogue(item) && item.contextAttachments
+        ? [[optimisticDialogueClientId(item), item.contextAttachments] as const]
         : [],
     ),
   );
@@ -65,7 +65,7 @@ function fallbackContextAttachmentsByText(
 ): Map<string, ThreadStreamDialogueItem["contextAttachments"]> {
   const attachmentsByText = new Map<string, ThreadStreamDialogueItem["contextAttachments"]>();
   for (const item of currentItems) {
-    if (!isUserDialogue(item) || !isLocalUserDialogueId(item.id) || !item.contextAttachments) continue;
+    if (!isOptimisticUserDialogue(item) || !item.contextAttachments) continue;
     if (item.turnId && item.turnId !== completedTurnId) continue;
     attachmentsByText.set(item.copyText ?? item.text, item.contextAttachments);
   }
@@ -80,8 +80,8 @@ function serverUserDialogueForOptimisticItem(
   item: ThreadStreamItem,
   serverUserDialoguesByClientId: ReadonlyMap<string, ThreadStreamDialogueItem & { role: "user" }>,
 ): (ThreadStreamDialogueItem & { role: "user" }) | null {
-  if (!isUserDialogue(item) || !isLocalUserDialogueId(item.id)) return null;
-  return serverUserDialoguesByClientId.get(item.id) ?? null;
+  if (!isOptimisticUserDialogue(item)) return null;
+  return serverUserDialoguesByClientId.get(optimisticDialogueClientId(item)) ?? null;
 }
 
 function isReconciledOptimisticUserDialogue(
@@ -90,11 +90,22 @@ function isReconciledOptimisticUserDialogue(
   serverUserDialogueClientIds: Set<string>,
   serverUserDialogueFallbackTexts: Set<string>,
 ): boolean {
-  if (!isUserDialogue(item) || !isLocalUserDialogueId(item.id)) return false;
+  if (!isOptimisticUserDialogue(item)) return false;
   return (
-    serverUserDialogueClientIds.has(item.id) ||
+    serverUserDialogueClientIds.has(optimisticDialogueClientId(item)) ||
     isFallbackOptimisticUserDialogueForTurn(item, completedTurnId, serverUserDialogueFallbackTexts)
   );
+}
+
+function isOptimisticUserDialogue(item: ThreadStreamItem): item is ThreadStreamDialogueItem & { role: "user" } {
+  return (
+    isUserDialogue(item) &&
+    (isLocalUserDialogueId(item.id) || (item.provenance?.source === "localUser" && item.provenance.channel === "optimistic"))
+  );
+}
+
+function optimisticDialogueClientId(item: ThreadStreamDialogueItem): string {
+  return item.clientId ?? item.id;
 }
 
 function isFallbackOptimisticUserDialogueForTurn(

@@ -28,7 +28,7 @@ import {
   resetReasoningEffortToConfigRuntimeState,
   setSelectedCollaborationModeRuntimeState,
 } from "../../domain/runtime/state";
-import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamDialogueItem, ThreadStreamItem } from "../../domain/thread-stream/items";
 import type { ComposerSuggestion } from "../composer/suggestions";
 import {
   type ChatRequestState,
@@ -58,6 +58,7 @@ import type {
   TurnStartFailedAction,
 } from "./actions";
 import { definedPatch, patchObject } from "./patch";
+import type { ChatPendingSubmissionState, PendingSubmissionAction } from "./pending-submission";
 import {
   type ChatThreadStreamState,
   initialChatThreadStreamState,
@@ -137,6 +138,7 @@ interface ChatStateShape {
   runtime: ChatRuntimeState;
   turn: ChatTurnState;
   threadStream: ChatThreadStreamState;
+  pendingSubmission: ChatPendingSubmissionState | null;
   requests: ChatRequestState;
   composer: ChatComposerState;
   ui: ChatUiState;
@@ -245,7 +247,8 @@ type ChatTransitionAction =
   | { type: "panel/view-state-cleared" }
   | TurnAction
   | RequestResolvedAction
-  | PendingStartHookUpsertedAction;
+  | PendingStartHookUpsertedAction
+  | PendingSubmissionAction;
 
 type ChatSliceAction =
   | ConnectionAction
@@ -266,6 +269,7 @@ export function createChatState(): ChatState {
     runtime: initialChatRuntimeState(),
     turn: initialTurnState(),
     threadStream: initialThreadStreamState(),
+    pendingSubmission: null,
     requests: initialRequestState(),
     composer: initialComposerState(),
     ui: initialUiState(),
@@ -290,6 +294,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "turn/start-failed":
     case "turn/pending-start-hook-upserted":
     case "request/resolved":
+    case "web-submission/pending":
+    case "web-submission/cancelled":
+    case "web-submission/steer-adopted":
       return reduceChatTransition(state, action);
     default:
       return reduceChatSlices(state, action);
@@ -330,7 +337,37 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
       return reducePendingStartHookUpsertedTransition(state, action);
     case "request/resolved":
       return reduceRequestResolvedTransition(state, action);
+    case "web-submission/pending":
+      return patchChatState(state, { pendingSubmission: action.submission });
+    case "web-submission/cancelled":
+      return state.pendingSubmission?.id === action.submissionId ? patchChatState(state, { pendingSubmission: null }) : state;
+    case "web-submission/steer-adopted":
+      if (state.pendingSubmission?.id !== action.submissionId) return state;
+      return patchChatState(state, {
+        pendingSubmission: null,
+        threadStream: adoptPendingSteerItem(state.threadStream, action.item),
+      });
   }
+}
+
+function adoptPendingSteerItem(state: ChatThreadStreamState, item: ThreadStreamDialogueItem): ChatThreadStreamState {
+  if (!item.clientId) {
+    return reduceThreadStreamSlice(state, { type: "thread-stream/item-added", item });
+  }
+  const matchedIndex = state.stableItems.findIndex(
+    (current) => current.kind === "dialogue" && current.role === "user" && current.clientId === item.clientId,
+  );
+  if (matchedIndex === -1) return reduceThreadStreamSlice(state, { type: "thread-stream/item-added", item });
+  const current = state.stableItems[matchedIndex];
+  if (current?.kind !== "dialogue") return state;
+  const stableItems = [...state.stableItems];
+  stableItems[matchedIndex] = {
+    ...current,
+    ...(item.contextAttachments ? { contextAttachments: item.contextAttachments } : {}),
+    ...(item.mentionedFiles ? { mentionedFiles: item.mentionedFiles } : {}),
+    ...(item.referencedThread ? { referencedThread: item.referencedThread } : {}),
+  };
+  return { ...state, stableItems };
 }
 
 function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThreadResumedAction): ChatState {
@@ -374,6 +411,10 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
     },
     turn: initialTurnState(),
     threadStream: initialThreadStreamState(action.items ?? []),
+    pendingSubmission:
+      action.preservePendingSubmissionId && state.pendingSubmission?.id === action.preservePendingSubmissionId
+        ? { ...state.pendingSubmission, targetThreadId: action.thread.id }
+        : null,
     requests: initialRequestState(),
     composer: initialComposerState(),
     ui: initialUiState(),
@@ -462,12 +503,14 @@ function reduceTurnCompletedTransition(state: ChatState, action: TurnCompletedAc
 }
 
 function reduceTurnOptimisticStartedTransition(state: ChatState, action: TurnOptimisticStartedAction): ChatState {
+  if (action.pendingSubmissionId && state.pendingSubmission?.id !== action.pendingSubmissionId) return state;
   const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, {
     type: "optimistic-started",
     pendingTurnStart: action.pendingTurnStart,
   });
   return patchChatState(state, {
     turn: { lifecycle },
+    pendingSubmission: action.pendingSubmissionId ? null : state.pendingSubmission,
     threadStream: threadStreamStartActiveSegment(state.threadStream, null, [action.item]),
   });
 }
@@ -535,6 +578,7 @@ function clearThreadScopedState(state: ChatState): ChatState {
       restoration: initialPanelRestorationState(),
       runtime: initialChatRuntimeState(),
       threadStream: initialThreadStreamState(),
+      pendingSubmission: null,
       composer: initialComposerState(),
       ui: initialUiState(),
     }),
@@ -554,6 +598,7 @@ function clearConnectionScopedState(state: ChatState): ChatState {
       availablePermissionProfiles: [],
     },
     threadList: initialThreadListState(),
+    pendingSubmission: null,
   });
 }
 
@@ -565,6 +610,7 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
     restoration: state.restoration,
     runtime: reduceRuntimeSlice(state.runtime, action),
     turn: state.turn,
+    pendingSubmission: state.pendingSubmission,
     requests: isRequestAction(action) ? reduceRequestSlice(state.requests, action) : state.requests,
     threadStream: isThreadStreamAction(action) ? reduceThreadStreamSlice(state.threadStream, action) : state.threadStream,
     composer: reduceComposerSlice(state.composer, action),

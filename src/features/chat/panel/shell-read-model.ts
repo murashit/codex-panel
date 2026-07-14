@@ -34,6 +34,7 @@ interface ChatPanelShellSignals {
   runtime: Signal<ChatState["runtime"]>;
   turn: Signal<ChatState["turn"]>;
   threadStream: Signal<ChatState["threadStream"]>;
+  pendingSubmission: Signal<ChatState["pendingSubmission"]>;
   requests: Signal<ChatState["requests"]>;
   composer: Signal<ChatState["composer"]>;
   ui: Signal<ChatState["ui"]>;
@@ -48,6 +49,7 @@ interface ChatPanelShellSignals {
   threadStreamRollbackCandidate: ReadonlySignal<ThreadStreamRollbackCandidate | null>;
   threadStreamForkCandidates: ReadonlySignal<readonly ForkCandidate[]>;
   threadStreamImplementPlanTarget: ReadonlySignal<PlanImplementationTarget | null>;
+  webSubmissionPending: ReadonlySignal<boolean>;
   threadStreamDisclosures: ReadonlySignal<ChatPanelThreadStreamDisclosureState>;
   threadStreamForkMenuItemId: ReadonlySignal<ChatState["ui"]["threadStreamActionMenu"]["forkMenuItemId"]>;
   hasThreadTurns: ReadonlySignal<boolean>;
@@ -140,6 +142,7 @@ export interface ChatPanelComposerReadModel {
   readonly selectedSuggestionIndex: ReadonlySignal<ChatState["composer"]["suggestSelected"]>;
   readonly activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
   readonly activeThreadSubagent: ReadonlySignal<boolean>;
+  readonly webSubmissionPending: ReadonlySignal<boolean>;
   readonly turnBusy: ReadonlySignal<boolean>;
   readonly activeTurnId: ReadonlySignal<string | null>;
   readonly runtimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
@@ -152,12 +155,14 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
   const runtime = signal(initialState.runtime);
   const turn = signal(initialState.turn);
   const threadStream = signal(initialState.threadStream);
+  const pendingSubmission = signal(initialState.pendingSubmission);
   const requests = signal(initialState.requests);
   const composer = signal(initialState.composer);
   const ui = signal(initialState.ui);
   const turnBusy = computed(() => chatTurnBusy({ turn: turn.value }));
-  const streamItems = computed(() => threadStreamItems(threadStream.value));
-  const hasThreadTurns = computed(() => threadStreamItemsHaveThreadTurns(streamItems.value));
+  const canonicalStreamItems = computed(() => threadStreamItems(threadStream.value));
+  const streamItems = computed(() => appendPendingSubmission(canonicalStreamItems.value, pendingSubmission.value));
+  const hasThreadTurns = computed(() => threadStreamItemsHaveThreadTurns(canonicalStreamItems.value));
   const activeThreadIdSignal = computed(() => activeThread.value.id);
   const activeThreadCwd = computed(() => activeThread.value.cwd);
   const activeThreadTokenUsage = computed(() => activeThread.value.tokenUsage);
@@ -169,6 +174,7 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
     runtime,
     turn,
     threadStream,
+    pendingSubmission,
     requests,
     composer,
     ui,
@@ -178,17 +184,25 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
     activeThreadCwd,
     activeThreadGoal,
     threadStreamItems: streamItems,
-    threadStreamStableItems: computed(() => threadStreamStableItems(threadStream.value)),
-    threadStreamActiveItems: computed(() => threadStreamActiveItems(threadStream.value)),
+    threadStreamStableItems: computed(() =>
+      threadStream.value.activeSegment
+        ? threadStreamStableItems(threadStream.value)
+        : appendPendingSubmission(threadStreamStableItems(threadStream.value), pendingSubmission.value),
+    ),
+    threadStreamActiveItems: computed(() =>
+      threadStream.value.activeSegment
+        ? appendPendingSubmission(threadStreamActiveItems(threadStream.value), pendingSubmission.value)
+        : threadStreamActiveItems(threadStream.value),
+    ),
     threadStreamRollbackCandidate: computed(() =>
       turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" || activeThread.value.provenance?.kind === "subagent"
         ? null
-        : threadStreamRollbackCandidateFromItems(streamItems.value),
+        : threadStreamRollbackCandidateFromItems(canonicalStreamItems.value),
     ),
     threadStreamForkCandidates: computed(() =>
       turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" || activeThread.value.provenance?.kind === "subagent"
         ? []
-        : forkCandidatesFromItems(streamItems.value),
+        : forkCandidatesFromItems(canonicalStreamItems.value),
     ),
     threadStreamImplementPlanTarget: computed(() =>
       implementPlanTargetFromState({
@@ -198,6 +212,7 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
         threadStream: threadStream.value,
       }),
     ),
+    webSubmissionPending: computed(() => pendingSubmission.value !== null),
     threadStreamDisclosures: createThreadStreamDisclosuresSignal(ui),
     threadStreamForkMenuItemId: computed(() => ui.value.threadStreamActionMenu.forkMenuItemId),
     hasThreadTurns,
@@ -241,10 +256,18 @@ function syncShellSignals(signals: ChatPanelShellSignals, nextState: ChatState):
     if (signals.runtime.value !== nextState.runtime) signals.runtime.value = nextState.runtime;
     if (signals.turn.value !== nextState.turn) signals.turn.value = nextState.turn;
     if (signals.threadStream.value !== nextState.threadStream) signals.threadStream.value = nextState.threadStream;
+    if (signals.pendingSubmission.value !== nextState.pendingSubmission) signals.pendingSubmission.value = nextState.pendingSubmission;
     if (signals.requests.value !== nextState.requests) signals.requests.value = nextState.requests;
     if (signals.composer.value !== nextState.composer) signals.composer.value = nextState.composer;
     if (signals.ui.value !== nextState.ui) signals.ui.value = nextState.ui;
   });
+}
+
+function appendPendingSubmission(
+  items: readonly ThreadStreamItem[],
+  pendingSubmission: ChatState["pendingSubmission"],
+): readonly ThreadStreamItem[] {
+  return pendingSubmission ? [...items, pendingSubmission.item] : items;
 }
 
 function shellReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanelShellReadModel {
@@ -340,6 +363,7 @@ function composerReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanel
     selectedSuggestionIndex: computed(() => signals.composer.value.suggestSelected),
     activeThreadId: signals.activeThreadId,
     activeThreadSubagent: computed(() => signals.activeThread.value.provenance?.kind === "subagent"),
+    webSubmissionPending: signals.webSubmissionPending,
     turnBusy: signals.turnBusy,
     activeTurnId: signals.activeTurnId,
     runtimeSnapshot: signals.composerRuntimeSnapshot,

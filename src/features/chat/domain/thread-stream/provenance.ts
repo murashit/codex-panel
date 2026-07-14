@@ -13,7 +13,7 @@ export type ThreadStreamItemProvenance =
     }
   | {
       source: "localUser";
-      channel: "optimistic" | "response";
+      channel: "preflight" | "optimistic" | "response";
       interaction: "prompt" | "steer" | "approvalResponse" | "userInputResponse";
       sourceId?: string;
     }

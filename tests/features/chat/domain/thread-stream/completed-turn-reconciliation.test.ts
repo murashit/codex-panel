@@ -38,6 +38,24 @@ describe("reconcileCompletedTurnItems", () => {
     ]);
   });
 
+  it("reconciles a stable pending display id through its reserved client id", () => {
+    const optimistic = {
+      ...userDialogue("local-web-1", "https://example.com/ summarize", "turn", "local-user-1"),
+      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      provenance: { source: "localUser", channel: "optimistic", interaction: "prompt", sourceId: "local-user-1" },
+    } satisfies ThreadStreamItem;
+    const server = userDialogue("server-user", optimistic.text, "turn", "local-user-1");
+
+    const next = reconcileCompletedTurnItems({ currentItems: [optimistic], completedTurnId: "turn", turnItems: [server] });
+
+    expect(next).toEqual([
+      expect.objectContaining({
+        id: "server-user",
+        contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      }),
+    ]);
+  });
+
   it("keeps local context attachment metadata when reconciling by text without client ids", () => {
     const optimistic = {
       ...userDialogue("local-user-1", "https://example.com/ summarize this", "turn"),
