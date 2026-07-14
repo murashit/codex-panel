@@ -52,6 +52,7 @@ import type {
   ClearDisconnectedConnectionStateAction,
   ClearLocalTurnAction,
   ConnectionInitializedAction,
+  ReplaceConnectionContextAction,
   ThreadListAppliedAction,
   TurnOptimisticStartedAction,
   TurnStartAcknowledgedAction,
@@ -238,6 +239,7 @@ interface PendingStartHookUpsertedAction {
 
 type ChatTransitionAction =
   | ClearDisconnectedConnectionStateAction
+  | ReplaceConnectionContextAction
   | ClearActiveThreadAction
   | ActiveThreadResumedAction
   | ActiveThreadSettingsAppliedAction
@@ -279,6 +281,7 @@ export function createChatState(): ChatState {
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case "connection/scoped-cleared":
+    case "connection/context-replaced":
     case "active-thread/cleared":
     case "active-thread/resumed":
     case "active-thread/settings-applied":
@@ -307,6 +310,8 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
   switch (action.type) {
     case "connection/scoped-cleared":
       return clearConnectionScopedState(state);
+    case "connection/context-replaced":
+      return clearConnectionContextState(state);
     case "active-thread/cleared":
       return clearThreadScopedState(state);
     case "active-thread/resumed":
@@ -599,6 +604,17 @@ function clearConnectionScopedState(state: ChatState): ChatState {
     },
     threadList: initialThreadListState(),
     pendingSubmission: null,
+  });
+}
+
+function clearConnectionContextState(state: ChatState): ChatState {
+  const cleared = clearConnectionScopedState(state);
+  return patchChatState(cleared, {
+    connection: {
+      ...cleared.connection,
+      runtimeConfig: null,
+      initializeResponse: null,
+    },
   });
 }
 

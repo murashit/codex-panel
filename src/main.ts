@@ -17,7 +17,7 @@ export default class CodexPanelPlugin extends Plugin {
   readonly runtime = new CodexPanelRuntime({
     app: this.app,
     settingsRef: this,
-    saveSettings: () => this.saveSettings(),
+    saveSettings: (settings) => this.saveSettings(settings),
   });
 
   override async onload(): Promise<void> {
@@ -71,12 +71,14 @@ export default class CodexPanelPlugin extends Plugin {
       callback: () => void this.runtime.startNewChat().catch(reportCommandError),
     });
 
-    registerSelectionRewriteCommand(
-      this,
-      createAppServerSelectionRewriteTransport({
-        codexPath: () => this.settings.codexPath,
-        cwd: this.vaultPath,
-      }),
+    this.runtime.setSelectionRewriteController(
+      registerSelectionRewriteCommand(
+        this,
+        createAppServerSelectionRewriteTransport({
+          codexPath: () => this.settings.codexPath,
+          cwd: this.vaultPath,
+        }),
+      ),
     );
 
     this.addSettingTab(new CodexPanelSettingTab(this.app, this, this.runtime.settingTabHost()));
@@ -97,8 +99,8 @@ export default class CodexPanelPlugin extends Plugin {
     }
   }
 
-  async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+  async saveSettings(settings: CodexPanelSettings = this.settings): Promise<void> {
+    await this.saveData(settings);
   }
 }
 

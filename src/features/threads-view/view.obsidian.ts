@@ -48,4 +48,12 @@ export class CodexThreadsView extends ItemView {
   refreshLiveState(): void {
     this.session.refreshLiveState();
   }
+
+  prepareAppServerContextChange(): void {
+    this.session.prepareAppServerContextChange();
+  }
+
+  refreshSettings(): void {
+    this.session.refreshSettings();
+  }
 }

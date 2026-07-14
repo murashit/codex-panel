@@ -422,6 +422,52 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("clears old rows and suppresses a delayed rename across an app-server context replacement", async () => {
+    let codexPath = "codex-a";
+    const saved = deferred<object>();
+    const renameThreadRequest = vi.fn(() => saved.promise);
+    const oldClient = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread-a", preview: "Old thread" })] }),
+      "thread/name/set": renameThreadRequest,
+    });
+    connectionMock.state.client = oldClient;
+    const applyThreadCatalogEvent = vi.fn();
+    const host = threadsHost({
+      settings: {
+        archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
+        codexPath: () => codexPath,
+        threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
+        threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
+        archiveExportSettings: () => ({
+          archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
+          archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
+          archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
+        }),
+      },
+      threadCatalog: { apply: applyThreadCatalogEvent },
+    });
+    const view = await threadsView(host);
+    await view.onOpen();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Old thread"));
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    if (!input) throw new Error("Missing rename input");
+    changeInputValue(input, "Renamed old thread");
+    input.dispatchEvent(new FocusEvent("blur"));
+    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
+
+    view.prepareAppServerContextChange();
+    expect(view.containerEl.textContent).not.toContain("Old thread");
+    codexPath = "codex-b";
+    connectionMock.state.client = clientFixture({ "thread/list": vi.fn().mockResolvedValue({ data: [] }) });
+    view.refreshSettings();
+    saved.resolve({});
+
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("No threads"));
+    expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+    expect(view.containerEl.textContent).not.toContain("Old thread");
+  });
+
   it("auto-names a thread rename draft from completed history", async () => {
     const threadTurnsList = vi.fn().mockResolvedValue({
       data: [

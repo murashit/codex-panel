@@ -3,8 +3,8 @@ import type { AppServerClient } from "./app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
 import { AppServerQueryCache } from "./app-server/query/cache";
-import { type AppServerQueryContext, appServerQueryContextIsComplete } from "./app-server/query/keys";
-import { AppServerSharedQueries } from "./app-server/query/shared-queries";
+import { type AppServerQueryContext, appServerQueryContextIsComplete, appServerQueryContextRawEquals } from "./app-server/query/keys";
+import { AppServerSharedQueries, StaleAppServerSharedQueryContextError } from "./app-server/query/shared-queries";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { hasPendingRequests } from "./domain/pending-requests/aggregate";
 import type {
@@ -15,6 +15,7 @@ import type {
   ChatWorkspacePanelSurface,
   CodexChatHost,
 } from "./features/chat/host/contracts";
+import type { SelectionRewriteCommandController } from "./features/selection-rewrite/command.obsidian";
 import { openThreadPicker, type ThreadPickerHost } from "./features/thread-picker/modal.obsidian";
 import { createThreadOperationsTransport, createThreadTitleTransport } from "./features/threads/app-server/workflow-transports";
 import { createThreadCatalog, type ThreadCatalog, type ThreadCatalogEvent } from "./features/threads/catalog/thread-catalog";
@@ -37,7 +38,7 @@ interface CodexPanelRuntimeSettingsRef {
 export interface CodexPanelRuntimeOptions {
   app: App;
   settingsRef: CodexPanelRuntimeSettingsRef;
-  saveSettings(): Promise<void>;
+  saveSettings(settings: CodexPanelSettings): Promise<void>;
 }
 
 export class CodexPanelRuntime implements AppServerClientAccess {
@@ -53,6 +54,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   private readonly panels: WorkspacePanelCoordinator;
   private readonly threadCatalog: ThreadCatalog;
   private readonly threadNameMutations = createThreadNameMutationCoordinator();
+  private selectionRewriteController: SelectionRewriteCommandController | null = null;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
     this.panels = new WorkspacePanelCoordinator({
@@ -70,6 +72,8 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   }
 
   reset(): void {
+    this.selectionRewriteController?.closeAll();
+    this.selectionRewriteController = null;
     this.panels.reset();
     this.appServerQueries.clear();
     this.threadCatalog.clear();
@@ -113,6 +117,10 @@ export class CodexPanelRuntime implements AppServerClientAccess {
 
   cancelWorkspacePanelReconcile(): void {
     this.panels.cancelWorkspacePanelReconcile();
+  }
+
+  setSelectionRewriteController(controller: SelectionRewriteCommandController): void {
+    this.selectionRewriteController = controller;
   }
 
   chatHost(): CodexChatHost {
@@ -201,7 +209,12 @@ export class CodexPanelRuntime implements AppServerClientAccess {
         appServerQueries: this.appServerSharedQueries,
         threadCatalog: this.threadCatalog,
       }),
-      saveSettings: () => this.options.saveSettings(),
+      saveSettings: (settings) => this.options.saveSettings(settings),
+      prepareAppServerContextChange: () => {
+        this.selectionRewriteController?.closeAll();
+        for (const view of this.panels.panelViews()) view.surface.prepareAppServerContextChange();
+        for (const view of this.threadsViews()) view.prepareAppServerContextChange();
+      },
       refreshOpenViews: () => {
         this.refreshOpenViews();
       },
@@ -237,6 +250,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       const surface: ChatViewLifecycleSurface = view.surface;
       surface.refreshSettings();
     }
+    for (const view of this.threadsViews()) view.refreshSettings();
   }
 
   private applyThreadArchived(threadId: string): void {
@@ -302,12 +316,25 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     if (!appServerQueryContextIsComplete(context)) {
       throw new Error("Codex app-server query context is incomplete.");
     }
+    const result = await this.runWithContextClient(context, operation, options);
+    if (!appServerQueryContextRawEquals(this.appServerQueryContext(), context)) {
+      throw new StaleAppServerSharedQueryContextError();
+    }
+    return result;
+  }
+
+  private runWithContextClient<T>(
+    context: AppServerQueryContext,
+    operation: (client: AppServerClient) => Promise<T>,
+    options: AppServerClientAccessOptions,
+  ): Promise<T> {
     if (options.serverRequests?.kind === "reject") {
       return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
     }
     const chatSurface = this.connectedClientSurface(context);
-    if (chatSurface) return chatSurface.runWithAppServerClient(operation);
-    return withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
+    return chatSurface
+      ? chatSurface.runWithAppServerClient(operation)
+      : withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
   }
 
   private connectedClientSurface(context: AppServerQueryContext): ChatPanelClientSurface | null {

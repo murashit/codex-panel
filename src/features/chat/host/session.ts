@@ -20,6 +20,9 @@ export class ChatPanelSession implements ChatPanelHandle {
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly threadStreamScrollBinding: ChatThreadStreamScrollBinding = createChatThreadStreamScrollBinding();
   private observedAppServerContext: AppServerQueryContext;
+  private appServerContextReconnectAttemptGeneration = 0;
+  private appServerContextReplacementGeneration = 0;
+  private pendingAppServerContextReplacement: { activeThreadId: string | null; generation: number } | null = null;
   private opened = false;
   private closing = false;
 
@@ -77,10 +80,56 @@ export class ChatPanelSession implements ChatPanelHandle {
     const nextContext = this.currentAppServerContext();
     if (!appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
       this.observedAppServerContext = nextContext;
-      void this.runtime.actions.reconnect();
+      const replacement = this.pendingAppServerContextReplacement ?? this.captureAppServerContextReplacement(this.state.activeThread.id);
+      void this.reconnectAfterAppServerContextChange(replacement);
       this.runtime.runtime.sharedState.applyCached();
     }
     this.mountOrRepairShell();
+  }
+
+  prepareAppServerContextChange(): void {
+    const activeThreadId = this.pendingAppServerContextReplacement?.activeThreadId ?? this.state.activeThread.id;
+    this.captureAppServerContextReplacement(activeThreadId);
+    this.runtime.actions.prepareAppServerContextChange();
+  }
+
+  private captureAppServerContextReplacement(activeThreadId: string | null): {
+    activeThreadId: string | null;
+    generation: number;
+  } {
+    const replacement = { activeThreadId, generation: ++this.appServerContextReplacementGeneration };
+    this.pendingAppServerContextReplacement = replacement;
+    return replacement;
+  }
+
+  private async reconnectAfterAppServerContextChange(replacement: { activeThreadId: string | null; generation: number }): Promise<void> {
+    const attemptGeneration = ++this.appServerContextReconnectAttemptGeneration;
+    try {
+      const resumed = await this.runtime.actions.reconnectAfterAppServerContextChange(
+        replacement.activeThreadId,
+        () =>
+          this.pendingAppServerContextReplacement?.generation === replacement.generation &&
+          this.appServerContextReconnectAttemptGeneration === attemptGeneration,
+      );
+      if (
+        resumed &&
+        this.pendingAppServerContextReplacement?.generation === replacement.generation &&
+        this.appServerContextReconnectAttemptGeneration === attemptGeneration
+      ) {
+        this.pendingAppServerContextReplacement = null;
+      }
+    } catch {
+      // Keep the captured thread for a later context correction or retry.
+    }
+  }
+
+  private async reconnect(): Promise<void> {
+    const replacement = this.pendingAppServerContextReplacement;
+    if (replacement) {
+      await this.reconnectAfterAppServerContextChange(replacement);
+      return;
+    }
+    await this.runtime.actions.reconnect();
   }
 
   refreshSharedThreads(): Promise<void> {
@@ -267,6 +316,7 @@ export class ChatPanelSession implements ChatPanelHandle {
       resumeWork: this.resumeWork,
       threadStreamScrollBinding: this.threadStreamScrollBinding,
       getClosing: () => this.closing,
+      reconnect: () => this.reconnect(),
       viewWindow: () => this.viewWindow(),
     });
   }

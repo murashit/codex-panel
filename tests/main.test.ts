@@ -12,7 +12,7 @@ import type CodexPanelPlugin from "../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../src/settings/model";
 import { WorkspacePanelCoordinator } from "../src/workspace/panel-coordinator";
 import { chatPanelSettingsAccess } from "./features/chat/support/settings";
-import { waitForAsyncWork } from "./support/async";
+import { deferred, waitForAsyncWork } from "./support/async";
 import { installObsidianDomShims } from "./support/dom";
 
 installObsidianDomShims();
@@ -664,7 +664,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     await expect(first).rejects.toThrow("Codex app-server query context changed while loading shared queries.");
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("second")]);
     plugin.settings.codexPath = "codex-a";
-    expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("first")]);
+    expect(threadCatalog(plugin).activeSnapshot()).toBeNull();
   });
 
   it("does not reuse a connected panel whose app-server context does not match the shared query", async () => {
@@ -734,6 +734,71 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
       serverRequests: { kind: "reject", message: "Settings refresh does not handle server requests." },
     });
     expect(shortLivedClient.request).toHaveBeenCalledWith("config/read", { cwd: "/vault", includeLayers: true });
+  });
+
+  it("rejects a connected-panel result when the app-server context changes during the operation", async () => {
+    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
+    const connectedLeaf = leaf();
+    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
+    const connectedView = connectedLeaf.view as CodexChatView;
+    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ connected: true }));
+    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(true);
+    const result = deferred<string>();
+    vi.spyOn(connectedView.surface, "runWithAppServerClient").mockReturnValue(result.promise);
+    const plugin = await pluginWithLeaves([connectedLeaf]);
+    plugin.settings.codexPath = "codex-a";
+
+    const operation = plugin.runtime.withClient(() => Promise.resolve("unused"));
+    plugin.settings.codexPath = "codex-b";
+    result.resolve("stale-result");
+
+    await expect(operation).rejects.toThrow("Codex app-server query context changed while loading shared queries.");
+  });
+
+  it("rejects a short-lived result when the app-server context changes during the operation", async () => {
+    const result = deferred<string>();
+    withShortLivedAppServerClientMock.mockReturnValue(result.promise);
+    const plugin = await pluginWithLeaves([]);
+    plugin.settings.codexPath = "codex-a";
+
+    const operation = plugin.runtime.withClient(() => Promise.resolve("unused"), {
+      serverRequests: { kind: "reject", message: "test" },
+    });
+    plugin.settings.codexPath = "codex-b";
+    result.resolve("stale-result");
+
+    await expect(operation).rejects.toThrow("Codex app-server query context changed while loading shared queries.");
+  });
+
+  it("coordinates context replacement with every open Threads view", async () => {
+    const { CodexThreadsView } = await import("../src/features/threads-view/view.obsidian");
+    const prepareAppServerContextChange = vi.fn();
+    const refreshSettings = vi.fn();
+    const threadsView = Object.assign(Object.create(CodexThreadsView.prototype), {
+      prepareAppServerContextChange,
+      refreshSettings,
+    }) as InstanceType<typeof CodexThreadsView>;
+    const threadsLeaf = leaf();
+    threadsLeaf.view = threadsView;
+    const plugin = await pluginWithLeaves([], { threadsLeaves: [threadsLeaf] });
+    const settingsHost = plugin.runtime.settingTabHost();
+
+    settingsHost.prepareAppServerContextChange();
+    expect(prepareAppServerContextChange).toHaveBeenCalledOnce();
+
+    plugin.settings.codexPath = "codex-next";
+    settingsHost.refreshOpenViews();
+    expect(refreshSettings).toHaveBeenCalledOnce();
+  });
+
+  it("cancels selection rewrites before publishing a new app-server context", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const closeAll = vi.fn();
+    plugin.runtime.setSelectionRewriteController({ closeAll });
+
+    plugin.runtime.settingTabHost().prepareAppServerContextChange();
+
+    expect(closeAll).toHaveBeenCalledOnce();
   });
 
   it("refreshes shared thread lists from a remaining connected panel after the archived panel is detached", async () => {
@@ -884,6 +949,7 @@ function chatHostFixture(): CodexChatHost {
     },
     threadCatalog: {
       apply: vi.fn(),
+      applyConnectionEvent: vi.fn(),
       loadActive: vi.fn(() => Promise.resolve([])),
       refreshActive: vi.fn(() => Promise.resolve([])),
       activeSnapshot: vi.fn(() => null),

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
@@ -11,6 +12,28 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 describe("chatReducer", () => {
+  it("clears connection metadata only when the app-server context is replaced", () => {
+    const state = chatStateWith(chatStateFixture(), {
+      connection: {
+        runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-old" },
+        initializeResponse: {
+          codexHome: "/old/codex-home",
+          platformFamily: "unix",
+          platformOs: "macos",
+          userAgent: "codex-old",
+        },
+      },
+    });
+
+    const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
+    expect(disconnected.connection.runtimeConfig).toEqual(state.connection.runtimeConfig);
+    expect(disconnected.connection.initializeResponse).toEqual(state.connection.initializeResponse);
+
+    const replaced = chatReducer(state, { type: "connection/context-replaced" });
+    expect(replaced.connection.runtimeConfig).toBeNull();
+    expect(replaced.connection.initializeResponse).toBeNull();
+  });
+
   it("applies restored thread identity as an atomic thread-scoped transition", () => {
     const state = threadScopedResidue({ threadId: "old-thread", draft: "stale draft", itemId: "stale-item" });
 

@@ -8,13 +8,21 @@ export interface SelectionRewriteCommandHost extends Plugin {
   settings: { sendShortcut: SendShortcut } & SelectionRewriteRuntimeSettings;
 }
 
-export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandHost, transport: SelectionRewriteTransport): void {
-  const activePopovers = new Set<SelectionRewritePopover>();
+export interface SelectionRewriteCommandController {
+  closeAll(): void;
+}
 
-  plugin.register(() => {
+export function registerSelectionRewriteCommand(
+  plugin: SelectionRewriteCommandHost,
+  transport: SelectionRewriteTransport,
+): SelectionRewriteCommandController {
+  const activePopovers = new Set<SelectionRewritePopover>();
+  const closeAll = (): void => {
     for (const popover of activePopovers) popover.close();
     activePopovers.clear();
-  });
+  };
+
+  plugin.register(closeAll);
 
   plugin.addCommand({
     id: "rewrite-selection",
@@ -69,6 +77,8 @@ export function registerSelectionRewriteCommand(plugin: SelectionRewriteCommandH
       activePopovers.add(popover);
     },
   });
+
+  return { closeAll };
 }
 
 function clonePosition(position: ReturnType<Editor["getCursor"]>): ReturnType<Editor["getCursor"]> {

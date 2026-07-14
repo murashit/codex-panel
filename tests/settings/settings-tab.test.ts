@@ -413,6 +413,49 @@ describe("settings tab", () => {
     expect(tab.containerEl.textContent).toContain("New archived");
   });
 
+  it("publishes a Codex executable change only after persistence and old-context invalidation", async () => {
+    const save = deferred<void>();
+    const saveSettings = vi.fn(() => save.promise);
+    let host!: CodexPanelSettingTabHost;
+    const prepareAppServerContextChange = vi.fn(() => {
+      expect(host.settings.codexPath).toBe("codex");
+    });
+    host = settingsTabHost({ saveSettings, prepareAppServerContextChange });
+    const tab = new CodexPanelSettingTab({} as never, {} as never, host);
+
+    tab.display();
+    const codexInput = inputForSetting(tab, "Codex executable");
+    if (!codexInput) throw new Error("Missing Codex executable input");
+    codexInput.value = "/opt/codex-next";
+    codexInput.dispatchEvent(new FocusEvent("blur"));
+    await Promise.resolve();
+
+    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ codexPath: "/opt/codex-next" }));
+    expect(host.settings.codexPath).toBe("codex");
+    expect(prepareAppServerContextChange).not.toHaveBeenCalled();
+
+    save.resolve(undefined);
+    await flushPromises();
+
+    expect(prepareAppServerContextChange).toHaveBeenCalledOnce();
+    expect(host.settings.codexPath).toBe("/opt/codex-next");
+  });
+
+  it("does not publish a Codex executable candidate when persistence fails", async () => {
+    const host = settingsTabHost({ saveSettings: vi.fn().mockRejectedValue(new Error("disk full")) });
+    const tab = new CodexPanelSettingTab({} as never, {} as never, host);
+
+    tab.display();
+    const codexInput = inputForSetting(tab, "Codex executable");
+    if (!codexInput) throw new Error("Missing Codex executable input");
+    codexInput.value = "/opt/codex-next";
+    codexInput.dispatchEvent(new FocusEvent("blur"));
+    await flushPromises();
+
+    expect(host.settings.codexPath).toBe("codex");
+    expect(inputForSetting(tab, "Codex executable")?.value).toBe("codex");
+  });
+
   it("subscribes model updates only while the settings tab is displayed", () => {
     useShortLivedClients(settingsClient());
     const unsubscribe = vi.fn();
@@ -1106,7 +1149,8 @@ function expectRequestTimes(client: SettingsRequestClient, method: string, times
 
 function newSettingsTab(
   options: {
-    saveSettings?: () => Promise<void>;
+    saveSettings?: CodexPanelSettingTabHost["saveSettings"];
+    prepareAppServerContextChange?: () => void;
     sendShortcut?: "enter" | "mod-enter";
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
@@ -1133,7 +1177,8 @@ function newSettingsTab(
 
 function settingsTabHost(
   options: {
-    saveSettings?: () => Promise<void>;
+    saveSettings?: CodexPanelSettingTabHost["saveSettings"];
+    prepareAppServerContextChange?: () => void;
     sendShortcut?: "enter" | "mod-enter";
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
@@ -1191,6 +1236,7 @@ function settingsTabHost(
         threadCatalog,
       }),
     saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
+    prepareAppServerContextChange: options.prepareAppServerContextChange ?? vi.fn(),
     refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
   };
 }

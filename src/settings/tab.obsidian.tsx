@@ -189,121 +189,132 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private setCodexPath(value: string): Promise<void> {
     const codexPath = value.trim() || DEFAULT_CODEX_PATH;
     return this.queueSettingsMutation(
-      () => {
-        if (codexPath === this.plugin.settings.codexPath) return false;
-        this.plugin.settings.codexPath = codexPath;
+      (settings) => {
+        if (codexPath === settings.codexPath) return false;
+        settings.codexPath = codexPath;
         return true;
       },
-      () => {
-        this.dynamicSections.resetDynamicSectionContext();
-        this.plugin.dynamicData.notifyContextChanged();
-        this.plugin.refreshOpenViews();
+      {
+        beforePublish: () => {
+          this.plugin.prepareAppServerContextChange();
+        },
+        onPublished: () => {
+          this.dynamicSections.resetDynamicSectionContext();
+          this.plugin.dynamicData.notifyContextChanged();
+          this.plugin.refreshOpenViews();
+        },
       },
     );
   }
 
   private setShowToolbar(value: boolean): Promise<void> {
     return this.queueSettingsMutation(
-      () => {
-        this.plugin.settings.showToolbar = value;
+      (settings) => {
+        settings.showToolbar = value;
       },
-      () => {
-        this.plugin.refreshOpenViews();
+      {
+        onPublished: () => {
+          this.plugin.refreshOpenViews();
+        },
       },
     );
   }
 
   private setSendShortcut(value: "enter" | "mod-enter"): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.sendShortcut = value;
+    return this.queueSettingsMutation((settings) => {
+      settings.sendShortcut = value;
     });
   }
 
   private setScrollThreadFromComposerEdges(value: boolean): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.scrollThreadFromComposerEdges = value;
+    return this.queueSettingsMutation((settings) => {
+      settings.scrollThreadFromComposerEdges = value;
     });
   }
 
   private setReferenceActiveNoteOnSend(value: boolean): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.referenceActiveNoteOnSend = value;
+    return this.queueSettingsMutation((settings) => {
+      settings.referenceActiveNoteOnSend = value;
     });
   }
 
   private setAttachmentFolder(value: string): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.attachmentFolder = value.trim() || DEFAULT_ATTACHMENT_FOLDER;
+    return this.queueSettingsMutation((settings) => {
+      settings.attachmentFolder = value.trim() || DEFAULT_ATTACHMENT_FOLDER;
     });
   }
 
   private setArchiveExportEnabled(enabled: boolean): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.archiveExportEnabled = enabled;
+    return this.queueSettingsMutation((settings) => {
+      settings.archiveExportEnabled = enabled;
     });
   }
 
   private setArchiveExportFolderTemplate(value: string): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.archiveExportFolderTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE;
+    return this.queueSettingsMutation((settings) => {
+      settings.archiveExportFolderTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE;
     });
   }
 
   private setArchiveExportFilenameTemplate(value: string): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.archiveExportFilenameTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE;
+    return this.queueSettingsMutation((settings) => {
+      settings.archiveExportFilenameTemplate = value.trim() || DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE;
     });
   }
 
   private setArchiveExportTags(value: string): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.archiveExportTags = value.trim();
+    return this.queueSettingsMutation((settings) => {
+      settings.archiveExportTags = value.trim();
     });
   }
 
   private setThreadNamingModel(value: string | null): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.threadNamingModel = value;
-      if (!this.dynamicSections.namingEffortSupported(this.plugin.settings.threadNamingEffort)) {
-        this.plugin.settings.threadNamingEffort = null;
+    return this.queueSettingsMutation((settings) => {
+      settings.threadNamingModel = value;
+      if (!this.dynamicSections.namingEffortSupported(settings.threadNamingEffort)) {
+        settings.threadNamingEffort = null;
       }
     });
   }
 
   private setThreadNamingEffort(value: ReasoningEffort | null): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.threadNamingEffort = value;
+    return this.queueSettingsMutation((settings) => {
+      settings.threadNamingEffort = value;
     });
   }
 
   private setRewriteSelectionModel(value: string | null): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.rewriteSelectionModel = value;
-      if (!this.dynamicSections.rewriteSelectionEffortSupported(this.plugin.settings.rewriteSelectionEffort)) {
-        this.plugin.settings.rewriteSelectionEffort = null;
+    return this.queueSettingsMutation((settings) => {
+      settings.rewriteSelectionModel = value;
+      if (!this.dynamicSections.rewriteSelectionEffortSupported(settings.rewriteSelectionEffort)) {
+        settings.rewriteSelectionEffort = null;
       }
     });
   }
 
   private setRewriteSelectionEffort(value: ReasoningEffort | null): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.rewriteSelectionEffort = value;
+    return this.queueSettingsMutation((settings) => {
+      settings.rewriteSelectionEffort = value;
     });
   }
 
-  private queueSettingsMutation(mutate: () => boolean | undefined, onSaved?: () => void): Promise<void> {
+  private queueSettingsMutation(
+    mutate: (settings: CodexPanelSettings) => boolean | undefined,
+    publication: { beforePublish?: () => void; onPublished?: () => void } = {},
+  ): Promise<void> {
     const operation = this.settingsMutationQueue.then(async () => {
-      const previousSettings: CodexPanelSettings = { ...this.plugin.settings };
-      if (mutate() === false) return;
+      const candidateSettings: CodexPanelSettings = { ...this.plugin.settings };
+      if (mutate(candidateSettings) === false) return;
       try {
-        await this.plugin.saveSettings();
+        await this.plugin.saveSettings(candidateSettings);
       } catch (error) {
-        Object.assign(this.plugin.settings, previousSettings);
         this.settingsShellRevision += 1;
         new Notice(`Failed to save Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);
         return;
       }
-      onSaved?.();
+      publication.beforePublish?.();
+      Object.assign(this.plugin.settings, candidateSettings);
+      publication.onPublished?.();
     });
     const settledOperation = operation.catch(() => undefined);
     this.settingsMutationQueue = settledOperation;

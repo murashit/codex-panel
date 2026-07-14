@@ -54,28 +54,32 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
   class StaleConnectionError extends Error {}
 
   class ConnectionManager {
+    private readonly codexPath: () => string;
+    private readonly cwd: string;
     private handlers: {
-      onNotification: (notification: ServerNotification) => void;
+      onNotification: (notification: ServerNotification, context: { codexPath: string; cwd: string }) => void;
       onServerRequest: (
         request: unknown,
         responder: { respond(result: unknown): void; reject(code: number, message: string): void },
       ) => void;
       onLog: (message: string) => void;
-      onExit: () => void;
+      onExit: (context: { codexPath: string; cwd: string }) => void;
     } | null;
 
-    constructor(_codexPath: () => string, _cwd: string) {
+    constructor(codexPath: () => string, cwd: string) {
+      this.codexPath = codexPath;
+      this.cwd = cwd;
       this.handlers = null;
     }
 
     connect(handlers: {
-      onNotification: (notification: ServerNotification) => void;
+      onNotification: (notification: ServerNotification, context: { codexPath: string; cwd: string }) => void;
       onServerRequest: (
         request: unknown,
         responder: { respond(result: unknown): void; reject(code: number, message: string): void },
       ) => void;
       onLog: (message: string) => void;
-      onExit: () => void;
+      onExit: (context: { codexPath: string; cwd: string }) => void;
     }): Promise<unknown> {
       this.handlers = handlers;
       this.publishHandlers(handlers);
@@ -107,12 +111,13 @@ vi.mock("../../../../src/app-server/connection/connection-manager", () => {
 
     exit(): void {
       connectionMock.state.connected = false;
-      this.handlers?.onExit();
+      this.handlers?.onExit({ codexPath: this.codexPath(), cwd: this.cwd });
     }
 
     private publishHandlers(handlers: NonNullable<ConnectionManager["handlers"]>): void {
-      connectionMock.state.onNotification = handlers.onNotification;
-      connectionMock.state.onExit = handlers.onExit;
+      const context = { codexPath: this.codexPath(), cwd: this.cwd };
+      connectionMock.state.onNotification = (notification) => handlers.onNotification(notification, context);
+      connectionMock.state.onExit = () => handlers.onExit(context);
     }
   }
 
@@ -225,6 +230,207 @@ describe("CodexChatView connection lifecycle", () => {
       expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
       expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
     });
+  });
+
+  it("invalidates the old connection before publishing a new app-server context", async () => {
+    connectionMock.state.client = connectedClient();
+    const host = chatHost();
+    const view = await chatView({ host });
+
+    await view.surface.connect();
+    expect(view.surface.openPanelSnapshot().connected).toBe(true);
+
+    view.surface.prepareAppServerContextChange();
+
+    expect(view.surface.openPanelSnapshot().connected).toBe(false);
+    expect(host.settingsSource.codexPath).toBe("codex");
+    expect(connectionMock.state.connectCalls).toBe(1);
+
+    connectionMock.state.client = connectedClient();
+    host.settingsSource.codexPath = "codex-next";
+    view.surface.refreshSettings();
+    await waitForAsyncWork(() => {
+      expect(connectionMock.state.connectCalls).toBe(2);
+      expect(view.surface.openPanelSnapshot().connected).toBe(true);
+    });
+  });
+
+  it("resumes each panel's captured thread after a shared app-server context replacement", async () => {
+    const host = chatHost();
+    const resumeRequestedThread = vi.fn((params: unknown) => {
+      const threadId = (params as { threadId: string }).threadId;
+      return resumedThread(threadId);
+    });
+    const oldClient = connectedClient({ "thread/resume": resumeRequestedThread });
+    connectionMock.state.client = oldClient;
+    const first = await chatView({ host });
+    const second = await chatView({ host });
+
+    await first.onOpen();
+    await second.onOpen();
+    await first.surface.connect();
+    await second.surface.connect();
+    await first.surface.openThread("thread-1");
+    await second.surface.openThread("thread-2");
+
+    first.surface.prepareAppServerContextChange();
+    second.surface.prepareAppServerContextChange();
+    const nextClient = connectedClient({ "thread/resume": resumeRequestedThread });
+    connectionMock.state.client = nextClient;
+    host.settingsSource.codexPath = "codex-next";
+    first.surface.refreshSettings();
+    await waitForAsyncWork(() => {
+      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+    });
+
+    connectionMock.state.connected = false;
+    second.surface.refreshSettings();
+    await waitForAsyncWork(() => {
+      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-2", cwd: "/vault" }));
+      expect(first.surface.openPanelSnapshot().threadId).toBe("thread-1");
+      expect(second.surface.openPanelSnapshot().threadId).toBe("thread-2");
+    });
+  });
+
+  it("keeps the captured thread across consecutive app-server context replacements", async () => {
+    const host = chatHost();
+    const firstClient = connectedClient();
+    connectionMock.state.client = firstClient;
+    const view = await chatView({ host });
+
+    await view.onOpen();
+    await view.surface.connect();
+    await view.surface.openThread("thread-1");
+
+    const stalledConfig = deferred<unknown>();
+    const stalledClient = connectedClient({ "config/read": vi.fn(() => stalledConfig.promise) });
+    view.surface.prepareAppServerContextChange();
+    connectionMock.state.client = stalledClient;
+    host.settingsSource.codexPath = "codex-broken";
+    view.surface.refreshSettings();
+    await waitForAsyncWork(() => {
+      expectRequestTimes(stalledClient, "config/read", 1);
+    });
+
+    const recoveredClient = connectedClient();
+    view.surface.prepareAppServerContextChange();
+    connectionMock.state.client = recoveredClient;
+    host.settingsSource.codexPath = "codex-recovered";
+    view.surface.refreshSettings();
+
+    await waitForAsyncWork(() => {
+      expect(recoveredClient.request).toHaveBeenCalledWith(
+        "thread/resume",
+        expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }),
+      );
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    });
+
+    stalledConfig.resolve({});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expectRequestTimes(recoveredClient, "thread/resume", 1);
+  });
+
+  it("keeps the captured thread after a context reconnect cannot resume it", async () => {
+    const host = chatHost();
+    connectionMock.state.client = connectedClient();
+    const view = await chatView({ host });
+
+    await view.onOpen();
+    await view.surface.connect();
+    await view.surface.openThread("thread-1");
+
+    const failedClient = connectedClient({ "thread/resume": vi.fn().mockResolvedValue(null) });
+    view.surface.prepareAppServerContextChange();
+    connectionMock.state.client = failedClient;
+    host.settingsSource.codexPath = "codex-broken";
+    view.surface.refreshSettings();
+    await waitForAsyncWork(() => {
+      expectRequestTimes(failedClient, "thread/resume", 1);
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: null });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const recoveredClient = connectedClient();
+    view.surface.prepareAppServerContextChange();
+    connectionMock.state.client = recoveredClient;
+    host.settingsSource.codexPath = "codex-recovered";
+    view.surface.refreshSettings();
+
+    await waitForAsyncWork(() => {
+      expect(recoveredClient.request).toHaveBeenCalledWith(
+        "thread/resume",
+        expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }),
+      );
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    });
+  });
+
+  it("retries the captured thread when reconnecting after a context resume failure", async () => {
+    const host = chatHost();
+    connectionMock.state.client = connectedClient();
+    const view = await chatView({ host });
+
+    await view.onOpen();
+    await view.surface.connect();
+    await view.surface.openThread("thread-1");
+
+    const failedClient = connectedClient({ "thread/resume": vi.fn().mockResolvedValue(null) });
+    view.surface.prepareAppServerContextChange();
+    connectionMock.state.client = failedClient;
+    host.settingsSource.codexPath = "codex-next";
+    view.surface.refreshSettings();
+    await waitForAsyncWork(() => {
+      expectRequestTimes(failedClient, "thread/resume", 1);
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: null });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const recoveredClient = connectedClient();
+    connectionMock.state.client = recoveredClient;
+    view.surface.setComposerText("/reconnect");
+    await submitComposerByEnter(view);
+
+    await waitForAsyncWork(() => {
+      expect(recoveredClient.request).toHaveBeenCalledWith(
+        "thread/resume",
+        expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }),
+      );
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    });
+  });
+
+  it("does not let a stale automatic reconnect resume again after a manual retry", async () => {
+    const host = chatHost();
+    connectionMock.state.client = connectedClient();
+    const view = await chatView({ host });
+
+    await view.onOpen();
+    await view.surface.connect();
+    await view.surface.openThread("thread-1");
+
+    const stalledConfig = deferred<unknown>();
+    const stalledClient = connectedClient({ "config/read": vi.fn(() => stalledConfig.promise) });
+    view.surface.prepareAppServerContextChange();
+    connectionMock.state.client = stalledClient;
+    host.settingsSource.codexPath = "codex-next";
+    view.surface.refreshSettings();
+    await waitForAsyncWork(() => {
+      expectRequestTimes(stalledClient, "config/read", 1);
+    });
+
+    const recoveredClient = connectedClient();
+    connectionMock.state.client = recoveredClient;
+    view.surface.setComposerText("/reconnect");
+    await submitComposerByEnter(view);
+    await waitForAsyncWork(() => {
+      expectRequestTimes(recoveredClient, "thread/resume", 1);
+    });
+
+    stalledConfig.resolve({});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expectRequestTimes(recoveredClient, "thread/resume", 1);
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
   });
 
   it("starts an empty thread when saving a toolbar goal from a blank panel", async () => {
@@ -1237,6 +1443,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
     },
     threadCatalog: {
       apply: overrides.applyThreadCatalogEvent ?? applyThreadCatalogEvent,
+      applyConnectionEvent: (_context, event) => (overrides.applyThreadCatalogEvent ?? applyThreadCatalogEvent)(event),
       refreshActive:
         overrides.refreshActive ??
         (vi.fn(async () => {

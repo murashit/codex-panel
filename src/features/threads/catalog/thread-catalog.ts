@@ -1,3 +1,4 @@
+import type { AppServerQueryContext } from "../../../app-server/query/keys";
 import type { ObservedResult, ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { Thread } from "../../../domain/threads/model";
 
@@ -5,16 +6,26 @@ type ThreadListObserver = ObservedResultListener<readonly Thread[]>;
 
 interface ThreadCatalogStore {
   contextKey(): string;
+  contextKeyFor(context: AppServerQueryContext): string;
   activeThreadsSnapshot(): readonly Thread[] | null;
+  activeThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null;
   archivedThreadsSnapshot(): readonly Thread[] | null;
+  archivedThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null;
   fetchAllActiveThreads(): Promise<readonly Thread[]>;
   hasMoreActiveThreads(): boolean;
   loadMoreActiveThreads(): Promise<readonly Thread[]>;
   refreshActiveThreads(): Promise<readonly Thread[]>;
+  refreshActiveThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]>;
   refreshArchivedThreads(): Promise<readonly Thread[]>;
+  refreshArchivedThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]>;
   observeActiveThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
   observeArchivedThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
+
+type ThreadCatalogEventStore = Pick<
+  ThreadCatalogStore,
+  "activeThreadsSnapshot" | "archivedThreadsSnapshot" | "refreshActiveThreads" | "refreshArchivedThreads"
+>;
 
 interface PendingThreadUpsert {
   readonly thread: Thread;
@@ -80,7 +91,15 @@ export interface ThreadCatalogEventSink {
   apply(event: ThreadCatalogEvent): void;
 }
 
-export interface ThreadCatalog extends ThreadCatalogPaginatedActiveReader, ThreadCatalogArchivedReader, ThreadCatalogEventSink {
+export interface ThreadCatalogConnectionEventSink {
+  applyConnectionEvent(context: AppServerQueryContext, event: ThreadCatalogEvent): void;
+}
+
+export interface ThreadCatalog
+  extends ThreadCatalogPaginatedActiveReader,
+    ThreadCatalogArchivedReader,
+    ThreadCatalogEventSink,
+    ThreadCatalogConnectionEventSink {
   clear(): void;
 }
 
@@ -103,16 +122,34 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
     };
     for (const observer of kind === "active" ? activeObservers : archivedObservers) observer(result);
   };
+  const applyToFacts = (
+    eventStore: ThreadCatalogEventStore,
+    facts: ThreadCatalogFacts,
+    event: ThreadCatalogEvent,
+    publishChanges: boolean,
+  ): void => {
+    const changed = applyThreadCatalogEvent(eventStore, facts, event);
+    if (publishChanges) {
+      if (changed.active) publish("active");
+      if (changed.archived) publish("archived");
+      options.onEventApplied?.(event);
+    }
+  };
   const apply = (event: ThreadCatalogEvent): void => {
-    const facts = currentFacts();
-    const changed = applyThreadCatalogEvent(store, facts, event);
-    if (changed.active) publish("active");
-    if (changed.archived) publish("archived");
-    options.onEventApplied?.(event);
+    applyToFacts(store, currentFacts(), event, true);
   };
 
   return {
     apply,
+    applyConnectionEvent: (context, event) => {
+      const capturedContextKey = store.contextKeyFor(context);
+      applyToFacts(
+        threadCatalogEventStoreForContext(store, context),
+        threadCatalogFactsForContext(factsByContext, capturedContextKey),
+        event,
+        capturedContextKey === store.contextKey(),
+      );
+    },
     clear: () => {
       factsByContext.clear();
     },
@@ -168,6 +205,15 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
   };
 }
 
+function threadCatalogEventStoreForContext(store: ThreadCatalogStore, context: AppServerQueryContext): ThreadCatalogEventStore {
+  return {
+    activeThreadsSnapshot: () => store.activeThreadsSnapshotFor(context),
+    archivedThreadsSnapshot: () => store.archivedThreadsSnapshotFor(context),
+    refreshActiveThreads: () => store.refreshActiveThreadsFor(context),
+    refreshArchivedThreads: () => store.refreshArchivedThreadsFor(context),
+  };
+}
+
 type ThreadListKind = "active" | "archived";
 
 function threadCatalogFactsForContext(factsByContext: Map<string, ThreadCatalogFacts>, contextKey: string): ThreadCatalogFacts {
@@ -203,7 +249,7 @@ function threadListFactsPending(facts: PendingThreadListFacts): boolean {
 }
 
 function applyThreadCatalogEvent(
-  store: ThreadCatalogStore,
+  store: ThreadCatalogEventStore,
   facts: ThreadCatalogFacts,
   event: ThreadCatalogEvent,
 ): { active: boolean; archived: boolean } {
@@ -260,7 +306,7 @@ function upsertActiveThread(activeFacts: PendingThreadListFacts, thread: Thread,
 }
 
 function applyThreadTouchedEvent(
-  store: ThreadCatalogStore,
+  store: ThreadCatalogEventStore,
   facts: ThreadCatalogFacts,
   threadId: string,
   recencyAt: number | null | undefined,
@@ -282,7 +328,7 @@ function applyThreadTouchedEvent(
   );
 }
 
-function applyThreadRenamedEvent(store: ThreadCatalogStore, facts: ThreadCatalogFacts, threadId: string, name: string | null): void {
+function applyThreadRenamedEvent(store: ThreadCatalogEventStore, facts: ThreadCatalogFacts, threadId: string, name: string | null): void {
   const { active: activeFacts, archived: archivedFacts } = facts;
   const activeThread =
     threadListProjection(facts.activeTestSnapshot ?? store.activeThreadsSnapshot(), activeFacts)?.find(
@@ -296,7 +342,7 @@ function applyThreadRenamedEvent(store: ThreadCatalogStore, facts: ThreadCatalog
   if (archivedThread) rememberPendingThreadUpsert(archivedFacts, { ...archivedThread, name }, acknowledgedByName(name));
 }
 
-function applyThreadArchivedEvent(store: ThreadCatalogStore, facts: ThreadCatalogFacts, threadId: string): void {
+function applyThreadArchivedEvent(store: ThreadCatalogEventStore, facts: ThreadCatalogFacts, threadId: string): void {
   const { active: activeFacts, archived: archivedFacts } = facts;
   const archivedThread = threadListProjection(facts.activeTestSnapshot ?? store.activeThreadsSnapshot(), activeFacts)?.find(
     (thread) => thread.id === threadId,
@@ -320,7 +366,7 @@ function applyThreadRestoredEvent(activeFacts: PendingThreadListFacts, archivedF
   rememberPendingThreadRemoval(archivedFacts, thread.id);
 }
 
-function applyThreadUnarchivedEvent(store: ThreadCatalogStore, facts: ThreadCatalogFacts, threadId: string): void {
+function applyThreadUnarchivedEvent(store: ThreadCatalogEventStore, facts: ThreadCatalogFacts, threadId: string): void {
   const { active: activeFacts, archived: archivedFacts } = facts;
   const restoredThread =
     threadListProjection(facts.archivedTestSnapshot ?? store.archivedThreadsSnapshot(), archivedFacts)?.find(
@@ -400,13 +446,13 @@ function acknowledgedByRecency(recencyAt: number | null): (thread: Thread) => bo
   return (thread) => thread.recencyAt === recencyAt;
 }
 
-function refreshArchivedThreadsAfterUnknownArchive(store: ThreadCatalogStore, archivedFacts: PendingThreadListFacts): void {
+function refreshArchivedThreadsAfterUnknownArchive(store: ThreadCatalogEventStore, archivedFacts: PendingThreadListFacts): void {
   // A force refresh can join an older in-flight archived request. Run one more
   // refresh afterward so an archive recorded during that request is not lost.
   void refreshArchivedThreadsTwice(store, archivedFacts);
 }
 
-async function refreshArchivedThreadsTwice(store: ThreadCatalogStore, archivedFacts: PendingThreadListFacts): Promise<void> {
+async function refreshArchivedThreadsTwice(store: ThreadCatalogEventStore, archivedFacts: PendingThreadListFacts): Promise<void> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       acknowledgeThreadListSnapshot(archivedFacts, await store.refreshArchivedThreads());
@@ -417,7 +463,7 @@ async function refreshArchivedThreadsTwice(store: ThreadCatalogStore, archivedFa
 }
 
 function refreshThreadListsAfterUnknownUnarchive(
-  store: ThreadCatalogStore,
+  store: ThreadCatalogEventStore,
   activeFacts: PendingThreadListFacts,
   archivedFacts: PendingThreadListFacts,
 ): void {

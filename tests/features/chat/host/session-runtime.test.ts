@@ -221,6 +221,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     const clearDiagnostics = vi.spyOn(deferredTasks, "clearDiagnostics");
     const resetConnection = vi.spyOn(runtime.connection.manager, "resetConnection");
     const ensureConnected = vi.spyOn(runtime.connection.actions, "ensureConnected").mockResolvedValue(undefined);
+    vi.spyOn(runtime.connection.manager, "isConnected").mockReturnValue(true);
     const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue(undefined);
 
     runtime.shell.parts.toolbar.actions.status.connect();
@@ -356,6 +357,7 @@ describe("ChatPanelSessionRuntime actions", () => {
       activeSnapshot: vi.fn(() => null),
       observeActive: vi.fn(() => () => undefined),
       apply: vi.fn(),
+      applyConnectionEvent: vi.fn(),
       ...overrides,
     };
   }

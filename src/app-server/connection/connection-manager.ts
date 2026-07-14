@@ -5,17 +5,17 @@ import type { ServerRequest } from "../../generated/app-server/ServerRequest";
 import { AppServerClient, type AppServerClientHandlers, type AppServerServerRequestResponder } from "./client";
 
 export interface ConnectionManagerHandlers {
-  onNotification: (notification: ServerNotification) => void;
-  onServerRequest: (request: ServerRequest, responder: AppServerServerRequestResponder) => void;
-  onLog: (message: string) => void;
-  onExit: () => void;
+  onNotification: (notification: ServerNotification, context: AppServerConnectionContext) => void;
+  onServerRequest: (request: ServerRequest, responder: AppServerServerRequestResponder, context: AppServerConnectionContext) => void;
+  onLog: (message: string, context: AppServerConnectionContext) => void;
+  onExit: (context: AppServerConnectionContext) => void;
 }
 
 export type AppServerClientFactory = (codexPath: string, cwd: string, handlers: AppServerClientHandlers) => AppServerClient;
 
 export interface AppServerConnectionContext {
-  codexPath: string;
-  cwd: string;
+  readonly codexPath: string;
+  readonly cwd: string;
 }
 
 type ConnectionLifecycleState =
@@ -77,23 +77,24 @@ export class ConnectionManager {
     const generation = this.state.generation + 1;
     const codexPath = this.codexPath();
     const cwd = this.cwd;
+    const context = { codexPath, cwd };
     const client = this.clientFactory(codexPath, cwd, {
       onNotification: (notification) => {
         if (this.isStale(generation)) return;
-        handlers.onNotification(notification);
+        handlers.onNotification(notification, context);
       },
       onServerRequest: (request, responder) => {
         if (this.isStale(generation)) return;
-        handlers.onServerRequest(request, responder);
+        handlers.onServerRequest(request, responder, context);
       },
       onLog: (message) => {
         if (this.isStale(generation)) return;
-        handlers.onLog(message);
+        handlers.onLog(message, context);
       },
       onExit: () => {
         if (this.isStale(generation)) return;
         this.state = { kind: "disconnected", generation };
-        handlers.onExit();
+        handlers.onExit(context);
       },
     });
     const promise = client

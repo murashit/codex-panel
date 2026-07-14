@@ -8,7 +8,11 @@ import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { PendingRequestCounts } from "../../../domain/pending-requests/aggregate";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
-import type { ThreadCatalogActiveReader, ThreadCatalogEventSink } from "../../threads/catalog/thread-catalog";
+import type {
+  ThreadCatalogActiveReader,
+  ThreadCatalogConnectionEventSink,
+  ThreadCatalogEventSink,
+} from "../../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../../threads/workflows/archive-export";
 import type { ThreadNameMutationCoordinator } from "../../threads/workflows/thread-name-mutation-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
@@ -47,7 +51,7 @@ interface WorkspacePanels {
   openSideChat(sourceThreadId: string, sourceThreadTitle: string | null): Promise<void>;
 }
 
-type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink;
+type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink & ThreadCatalogConnectionEventSink;
 
 interface ChatAppServerQueries {
   beginAppServerMetadataResourceRefresh(resource: "skills" | "rateLimits"): () => boolean;
@@ -88,6 +92,7 @@ export interface ChatViewLifecycleSurface {
   applyViewState(state: unknown): void;
   open(): void;
   close(): Promise<void>;
+  prepareAppServerContextChange(): void;
   refreshSettings(): void;
 }
 

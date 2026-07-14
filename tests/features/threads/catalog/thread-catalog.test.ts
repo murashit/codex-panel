@@ -194,6 +194,36 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
   });
 
+  it("applies a connection event to its captured context after the current context changes", () => {
+    const context = { codexPath: "codex-a", vaultPath: "/vault" };
+    const { catalog } = catalogFixture({ context: () => context });
+    const connectionContext = { ...context };
+
+    context.codexPath = "codex-b";
+    catalog.applyConnectionEvent(connectionContext, { type: "thread-started", thread: thread("started-a") });
+
+    expect(catalog.activeSnapshot()).toBeNull();
+    context.codexPath = "codex-a";
+    expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
+  });
+
+  it("reads captured-context snapshots when applying connection events", async () => {
+    const context = { codexPath: "codex-a", vaultPath: "/vault" };
+    const connectionContext = { ...context };
+    const { catalog } = catalogFixture({
+      context: () => context,
+      fetchThreads: (source) => Promise.resolve(source.codexPath === "codex-a" ? [thread("thread-a")] : []),
+    });
+    await catalog.refreshActive();
+
+    context.codexPath = "codex-b";
+    catalog.applyConnectionEvent(connectionContext, { type: "thread-renamed", threadId: "thread-a", name: "Renamed A" });
+
+    expect(catalog.activeSnapshot()).toBeNull();
+    context.codexPath = "codex-a";
+    expect(catalog.activeSnapshot()).toEqual([thread("thread-a", false, { name: "Renamed A" })]);
+  });
+
   it("clears pending lifecycle facts across every app-server query context", () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
     const { catalog, cache } = catalogFixture({ context: () => context });

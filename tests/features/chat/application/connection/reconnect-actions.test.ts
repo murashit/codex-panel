@@ -43,6 +43,7 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
     resetConnection: vi.fn(),
     setStatus: vi.fn(),
     ensureConnected: vi.fn().mockResolvedValue(undefined),
+    isConnected: vi.fn(() => true),
     resumeThread: vi.fn().mockResolvedValue(undefined),
     addSystemMessage: vi.fn(),
     ...overrides,

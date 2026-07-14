@@ -25,6 +25,10 @@ export function appServerQueryContextMatches(left: AppServerQueryContext, right:
   return appServerQueryContextIsComplete(left) && appServerQueryContextIsComplete(right) && appServerQueryContextRawEquals(left, right);
 }
 
+export function appServerQueryContextKey(context: AppServerQueryContext): string {
+  return `${context.codexPath}\u0000${context.vaultPath}`;
+}
+
 function appServerQueryScope(context: AppServerQueryContext): AppServerQueryScope {
   return ["app-server", context.codexPath, context.vaultPath];
 }

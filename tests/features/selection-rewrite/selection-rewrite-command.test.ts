@@ -62,7 +62,7 @@ describe("selection rewrite command", () => {
     view.file = Object.assign(new TFile(), { path: "Draft.md", basename: "Draft" });
 
     const transport: SelectionRewriteTransport = { generate: vi.fn() };
-    registerSelectionRewriteCommand(plugin as never, transport);
+    const controller = registerSelectionRewriteCommand(plugin as never, transport);
     expect(addedCommand.current).not.toBeNull();
     addedCommand.current?.editorCallback(editor, view);
     from.line = 99;
@@ -80,6 +80,9 @@ describe("selection rewrite command", () => {
     });
     expect(popoverMock.instances[0]?.open).toHaveBeenCalledOnce();
     expect(popoverMock.instances[0]?.options.transport).toBe(transport);
+
+    controller.closeAll();
+    expect(popoverMock.instances[0]?.close).toHaveBeenCalledOnce();
 
     cleanup.current?.();
     expect(popoverMock.instances[0]?.close).toHaveBeenCalledOnce();

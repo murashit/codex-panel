@@ -4,6 +4,7 @@ import type { Thread } from "../../domain/threads/model";
 import type { AppServerQueryCache, MetadataResourceKind } from "./cache";
 import {
   type AppServerQueryContext,
+  appServerQueryContextKey,
   appServerQueryContextMatches,
   appServerQueryContextRawEquals,
   cloneAppServerQueryContext,
@@ -32,16 +33,27 @@ export class AppServerSharedQueries {
   constructor(private readonly options: AppServerSharedQueriesOptions) {}
 
   contextKey(): string {
-    const context = this.context();
-    return `${context.codexPath}\u0000${context.vaultPath}`;
+    return appServerQueryContextKey(this.context());
+  }
+
+  contextKeyFor(context: AppServerQueryContext): string {
+    return appServerQueryContextKey(context);
   }
 
   activeThreadsSnapshot(): readonly Thread[] | null {
     return this.options.cache.activeThreadsSnapshot(this.context());
   }
 
+  activeThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null {
+    return this.options.cache.activeThreadsSnapshot(context);
+  }
+
   archivedThreadsSnapshot(): readonly Thread[] | null {
     return this.options.cache.archivedThreadsSnapshot(this.context());
+  }
+
+  archivedThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null {
+    return this.options.cache.archivedThreadsSnapshot(context);
   }
 
   fetchAllActiveThreads(): Promise<readonly Thread[]> {
@@ -60,8 +72,16 @@ export class AppServerSharedQueries {
     return this.runForCurrentContext((context) => this.options.cache.refreshActiveThreads(context));
   }
 
+  refreshActiveThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]> {
+    return this.options.cache.refreshActiveThreads(context);
+  }
+
   refreshArchivedThreads(): Promise<readonly Thread[]> {
     return this.runForCurrentContext((context) => this.options.cache.refreshArchivedThreads(context));
+  }
+
+  refreshArchivedThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]> {
+    return this.options.cache.refreshArchivedThreads(context);
   }
 
   observeActiveThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {

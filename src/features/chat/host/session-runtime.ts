@@ -44,7 +44,9 @@ interface ChatPanelSessionRuntimeParts {
   shell: ChatPanelShellBundle;
   actions: {
     invalidateThreadWork(): void;
+    prepareAppServerContextChange(): void;
     reconnect(): Promise<void>;
+    reconnectAfterAppServerContextChange(threadId: string | null, isCurrent: () => boolean): Promise<boolean>;
     refreshSharedThreads(): Promise<void>;
     startNewThread(): Promise<void>;
   };
@@ -69,6 +71,7 @@ interface ChatPanelSessionRuntimeHost {
   resumeWork: ChatResumeWorkTracker;
   threadStreamScrollBinding: ChatThreadStreamScrollBinding;
   getClosing: () => boolean;
+  reconnect?: () => Promise<void>;
   viewWindow: () => Window;
 }
 
@@ -219,31 +222,46 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     notifyActiveThreadIdentityChanged,
     prepareForPersistentNavigation: () => ephemeral.prepareForPersistentNavigation(),
   });
-  const reconnect = () =>
-    reconnectPanel({
-      stateStore,
-      invalidateConnectionWork: () => {
-        connectionActions.invalidate();
-      },
-      invalidateThreadWork: () => {
-        threadFoundation.invalidateThreadWork();
-      },
-      clearDeferredDiagnostics: () => {
-        host.deferredTasks.clearDiagnostics();
-      },
-      resetConnection: () => {
-        connectionBundle.invalidateConnectionScope();
-        connection.resetConnection();
-      },
-      setStatus: (statusText, phase) => {
-        status.set(statusText, phase);
-      },
-      ensureConnected,
-      resumeThread: (threadId) => threadLifecycle.resume.resumeThread(threadId),
-      addSystemMessage: (text) => {
-        status.addSystemMessage(text);
-      },
-    });
+  const reconnectHost = {
+    stateStore,
+    invalidateConnectionWork: () => {
+      connectionActions.invalidate();
+    },
+    invalidateThreadWork: () => {
+      threadFoundation.invalidateThreadWork();
+    },
+    clearDeferredDiagnostics: () => {
+      host.deferredTasks.clearDiagnostics();
+    },
+    resetConnection: () => {
+      connectionBundle.invalidateConnectionScope();
+      connection.resetConnection();
+    },
+    setStatus: (statusText: string, phase?: ChatConnectionPhase) => {
+      status.set(statusText, phase);
+    },
+    ensureConnected,
+    isConnected: () => connection.isConnected(),
+    resumeThread: (threadId: string) => threadLifecycle.resume.resumeThread(threadId),
+    addSystemMessage: (text: string) => {
+      status.addSystemMessage(text);
+    },
+  };
+  const reconnect = async () => {
+    await reconnectPanel(reconnectHost);
+  };
+  const reconnectAfterAppServerContextChange = (threadId: string | null, isCurrent: () => boolean) =>
+    reconnectPanel(reconnectHost, { resumeThreadId: threadId, isCurrent });
+  const reconnectForUser = host.reconnect ?? reconnect;
+  const prepareAppServerContextChange = (): void => {
+    connectionActions.invalidate();
+    threadFoundation.invalidateThreadWork();
+    threadLifecycle.restoration.invalidate();
+    host.deferredTasks.clearDiagnostics();
+    connectionBundle.invalidateConnectionScope();
+    connection.resetConnection();
+    stateStore.dispatch({ type: "connection/context-replaced" });
+  };
   const turn = createTurnBundle(host, {
     localItemIds,
     appServer,
@@ -257,7 +275,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     threadStart,
     goals: threadLifecycle.goals,
     autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
-    reconnect,
+    reconnect: reconnectForUser,
     runtimeProjection: runtime.projection,
     refreshDiagnostics: () => connectionActions.refreshDiagnostics(),
     refreshLiveState,
@@ -271,7 +289,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     threadActions: threadActions.actions,
     toolbarPanelActions: threadActions.toolbarPanelActions,
     navigation: threadActions.navigation,
-    reconnect,
+    reconnect: reconnectForUser,
     history: threadFoundation.history,
     pendingRequests: turn.pendingRequests,
     turn,
@@ -313,7 +331,9 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
         threadFoundation.invalidateThreadWork();
         threadLifecycle.restoration.invalidate();
       },
+      prepareAppServerContextChange,
       reconnect,
+      reconnectAfterAppServerContextChange,
       refreshSharedThreads,
       startNewThread: () => threadActions.navigation.startNewThread(),
     },

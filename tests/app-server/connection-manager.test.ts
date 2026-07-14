@@ -7,7 +7,7 @@ import {
   type ConnectionManagerHandlers,
   StaleConnectionError,
 } from "../../src/app-server/connection/connection-manager";
-import type { RpcOutboundMessage } from "../../src/app-server/connection/rpc-messages";
+import type { RpcOutboundMessage, ServerNotification } from "../../src/app-server/connection/rpc-messages";
 import type { AppServerTransport, AppServerTransportHandlers } from "../../src/app-server/connection/transport";
 import type { InitializeParams } from "../../src/generated/app-server/InitializeParams";
 
@@ -125,6 +125,31 @@ describe("ConnectionManager", () => {
     expect(transports[0]?.running).toBe(false);
     expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
     expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-b", cwd: "/vault" });
+  });
+
+  it("labels inbound events with the context captured when the connection was created", async () => {
+    let codexPath = "/bin/codex-a";
+    let transport!: SilentTransport;
+    const onNotification = vi.fn();
+    const manager = new ConnectionManager(
+      () => codexPath,
+      "/vault",
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ onTransport: (next) => (transport = next) }),
+    );
+
+    const connecting = manager.connect({ ...silentConnectionHandlers(), onNotification });
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex-a" } });
+    await connecting;
+    codexPath = "/bin/codex-b";
+    const notification = {
+      method: "thread/name/updated",
+      params: { threadId: "thread-a", threadName: "A" },
+    } satisfies Extract<ServerNotification, { method: "thread/name/updated" }>;
+
+    transport.emitLine(notification);
+
+    expect(onNotification).toHaveBeenCalledWith(notification, { codexPath: "/bin/codex-a", cwd: "/vault" });
   });
 
   it("rejects app-server exit during initialization without reporting a connected-client exit", async () => {

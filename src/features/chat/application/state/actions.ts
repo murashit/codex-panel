@@ -90,6 +90,10 @@ export interface ClearDisconnectedConnectionStateAction {
   type: "connection/scoped-cleared";
 }
 
+export interface ReplaceConnectionContextAction {
+  type: "connection/context-replaced";
+}
+
 export interface ClearLocalTurnAction {
   type: "turn/scoped-cleared";
 }

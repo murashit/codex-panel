@@ -1,5 +1,6 @@
 import { Notice } from "obsidian";
 
+import { type AppServerQueryContext, appServerQueryContextRawEquals } from "../../app-server/query/keys";
 import type { ObservedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
 import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
@@ -82,8 +83,11 @@ export class ThreadsViewSession {
   private nextRenameGenerationToken = 1;
   private unsubscribeThreads: (() => void) | null = null;
   private archiveConfirmThreadId: string | null = null;
+  private observedAppServerContext: AppServerQueryContext;
+  private operationGeneration = 0;
 
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
+    this.observedAppServerContext = this.currentAppServerContext();
     this.deferredTasks = createThreadsViewDeferredTasks(() => this.viewWindow());
     this.operations = createThreadOperations({
       transport: this.host.threadOperationsTransport,
@@ -177,6 +181,33 @@ export class ThreadsViewSession {
 
   refreshLiveState(): void {
     this.scheduleRender();
+  }
+
+  prepareAppServerContextChange(): void {
+    this.operationGeneration += 1;
+    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
+    this.deferredTasks.clearAll();
+    this.threads = [];
+    this.threadsLoaded = false;
+    this.renameStates.clear();
+    this.archiveConfirmThreadId = null;
+    this.status = { kind: "idle" };
+    this.render();
+  }
+
+  refreshSettings(): void {
+    const nextContext = this.currentAppServerContext();
+    if (appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
+      this.render();
+      return;
+    }
+    this.observedAppServerContext = nextContext;
+    const snapshot = this.host.threadCatalog.activeSnapshot();
+    this.threads = snapshot ?? [];
+    this.threadsLoaded = snapshot !== null;
+    this.status = snapshot?.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
+    this.render();
+    void this.refresh();
   }
 
   private receiveObservedThreads(threads: readonly Thread[]): void {
@@ -302,11 +333,17 @@ export class ThreadsViewSession {
 
   private async saveRename(threadId: string, value: string): Promise<void> {
     const lifetime = this.lifetime.signal();
+    const operationGeneration = this.operationGeneration;
     const editingState = this.renameStates.get(threadId);
     if (!editingState || editingState.kind === "generating") return;
     try {
       if (this.renameStates.get(threadId) !== editingState) return;
-      const result = await this.operations.renameThread(threadId, value);
+      const operationIsCurrent = () => operationGeneration === this.operationGeneration;
+      const result = await this.operations.renameThread(threadId, value, {
+        shouldStart: operationIsCurrent,
+        shouldPublish: operationIsCurrent,
+      });
+      if (!operationIsCurrent()) return;
       if (!this.lifetime.isCurrent(lifetime) || this.renameStates.get(threadId) !== editingState) return;
       if (!result) {
         this.cancelRename(threadId);
@@ -323,6 +360,7 @@ export class ThreadsViewSession {
 
   private async autoNameThread(threadId: string): Promise<void> {
     const lifetime = this.lifetime.signal();
+    const operationGeneration = this.operationGeneration;
     const previousState = this.renameStates.get(threadId);
     const generatingState = this.transitionRenameState(threadId, {
       type: "auto-name-started",
@@ -335,15 +373,17 @@ export class ThreadsViewSession {
     try {
       if (this.renameStates.get(threadId) !== generatingState) return;
       const title = await this.titleService.generateTitle(threadId);
-      if (!this.lifetime.isCurrent(lifetime)) return;
+      if (!this.lifetime.isCurrent(lifetime) || operationGeneration !== this.operationGeneration) return;
       this.transitionRenameState(threadId, { type: "auto-name-generated", generatingState, title });
     } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime)) return;
+      if (!this.lifetime.isCurrent(lifetime) || operationGeneration !== this.operationGeneration) return;
       if (this.renameStates.get(threadId) === generatingState) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       }
     } finally {
-      if (this.lifetime.isCurrent(lifetime)) this.finishAutoNameThread(threadId, generatingState);
+      if (this.lifetime.isCurrent(lifetime) && operationGeneration === this.operationGeneration) {
+        this.finishAutoNameThread(threadId, generatingState);
+      }
     }
   }
 
@@ -361,11 +401,13 @@ export class ThreadsViewSession {
 
   private async archiveThread(threadId: string, saveMarkdown: boolean): Promise<void> {
     const lifetime = this.lifetime.signal();
+    const operationGeneration = this.operationGeneration;
     try {
       await this.operations.archiveThread(threadId, {
         saveMarkdown,
+        shouldPublish: () => operationGeneration === this.operationGeneration,
       });
-      if (!this.lifetime.isCurrent(lifetime)) return;
+      if (!this.lifetime.isCurrent(lifetime) || operationGeneration !== this.operationGeneration) return;
       this.host.closeOpenPanelsForThread(threadId);
       if (this.archiveConfirmThreadId === threadId) this.archiveConfirmThreadId = null;
       this.renameStates.delete(threadId);
@@ -394,5 +436,9 @@ export class ThreadsViewSession {
 
   private viewWindow(): Window {
     return this.environment.viewWindow() ?? window;
+  }
+
+  private currentAppServerContext(): AppServerQueryContext {
+    return { codexPath: this.host.settings.codexPath(), vaultPath: this.host.vaultPath };
   }
 }

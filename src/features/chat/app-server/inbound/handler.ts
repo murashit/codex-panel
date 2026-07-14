@@ -1,4 +1,5 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
+import type { AppServerQueryContext } from "../../../../app-server/query/keys";
 import {
   routeServerRequest,
   serverRequestApprovalResponse,
@@ -35,13 +36,13 @@ export interface ChatInboundHandlerActions {
   refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
   applyAppServerResourceEvent: (event: AppServerResourceEvent) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
-  applyThreadCatalogEvent: (event: ThreadCatalogEvent) => void;
+  applyThreadCatalogEvent: (event: ThreadCatalogEvent, sourceContext: AppServerQueryContext) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
 }
 
 export interface ChatInboundHandler {
-  handleNotification(notification: ServerNotification): void;
+  handleNotification(notification: ServerNotification, sourceContext: AppServerQueryContext): void;
   handleServerRequest(request: ServerRequest): void;
   handleAppServerLog(message: string): void;
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void;
@@ -66,8 +67,8 @@ export function createChatInboundHandler(
 ): ChatInboundHandler {
   const context: ChatInboundHandlerContext = { store, actions, localItemIds };
   return {
-    handleNotification: (notification) => {
-      handleNotification(context, notification);
+    handleNotification: (notification, sourceContext) => {
+      handleNotification(context, notification, sourceContext);
     },
     handleServerRequest: (request) => {
       handleServerRequest(context, request);
@@ -107,10 +108,14 @@ function dispatch(context: ChatInboundHandlerContext, action: ChatAction): void 
   context.store.dispatch(action);
 }
 
-function handleNotification(context: ChatInboundHandlerContext, notification: ServerNotification): void {
+function handleNotification(
+  context: ChatInboundHandlerContext,
+  notification: ServerNotification,
+  sourceContext: AppServerQueryContext,
+): void {
   const plan = planChatNotification(state(context), notification, (prefix) => localItemId(context, prefix));
   for (const action of plan.actions) dispatch(context, action);
-  for (const effect of plan.effects) runNotificationEffect(context, effect);
+  for (const effect of plan.effects) runNotificationEffect(context, effect, sourceContext);
 }
 
 function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
@@ -238,7 +243,11 @@ function localItemId(context: ChatInboundHandlerContext, prefix: string): string
   return context.localItemIds.next(prefix);
 }
 
-function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatNotificationEffect): void {
+function runNotificationEffect(
+  context: ChatInboundHandlerContext,
+  effect: ChatNotificationEffect,
+  sourceContext: AppServerQueryContext,
+): void {
   switch (effect.type) {
     case "refresh-threads":
       context.actions.refreshActiveThreads();
@@ -253,7 +262,7 @@ function runNotificationEffect(context: ChatInboundHandlerContext, effect: ChatN
       context.actions.maybeNameThread(effect.threadId, effect.turnId, effect.completedTurnTranscriptSummary);
       return;
     case "apply-thread-catalog-event":
-      context.actions.applyThreadCatalogEvent(effect.event);
+      context.actions.applyThreadCatalogEvent(effect.event, sourceContext);
       return;
   }
 }
