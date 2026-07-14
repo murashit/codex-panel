@@ -14,6 +14,21 @@ Use Node.js 26, matching `.node-version`, CI, and the installed Node type defini
 
 Use this as the normal edit loop: make the change, run `npm run fix`, then run `npm run check`. Treat `npm run fix` as trusted mechanical cleanup for formatting, import ordering, and Knip safe fixes; review the resulting diff at normal change-boundary checkpoints rather than after each tool adjustment.
 
+## Commit Messages
+
+Commits after the `5.0.0` tag follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
+
+```text
+feat(composer): add daily note context suggestions
+fix(threads): prevent manual titles from being overwritten
+refactor(chat): move session wiring into the runtime
+chore(release): 5.0.1
+```
+
+Use one of `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, or `test`. Scopes are optional and are not restricted to a fixed list. Keep the description concise and omit a trailing period. Both lowercase and uppercase starts are accepted so Dependabot's generated `Bump ...` descriptions follow the same validation path. Use `!` before the colon or a `BREAKING CHANGE:` footer for a disruptive change.
+
+CI checks every commit introduced by a pull request or direct push. GitHub-generated `Merge pull request ...` commits are the only format exemption; write manual reverts as `revert: ...`, and rewrite `fixup!` or `squash!` commits before publication. Run `npm run commitlint -- --from <base> --to <head> --verbose` for the same local check; local Git hooks are optional and are not a substitute for CI in the Jujutsu-first workflow.
+
 Use focused scripts such as `npm run typecheck`, `npm run test`, or `npm run build` only when diagnosing a specific failure or when a full check would obscure the signal while iterating. Do not treat focused scripts as a substitute for the final `npm run check`. CI and release preflight run the same `npm run check` command as local development.
 
 Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.

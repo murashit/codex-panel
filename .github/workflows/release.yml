@@ -19,6 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node.js
@@ -34,6 +35,14 @@ jobs:
         run: npm run release:check
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
+
+      - name: Check release commit messages
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          PREVIOUS_TAG="$(node -p 'Object.keys(require("./versions.json")).at(-2)')"
+          git rev-parse --verify "refs/tags/$PREVIOUS_TAG"
+          npm run commitlint -- --from "$PREVIOUS_TAG" --to "$TAG" --verbose
 
       - name: Run checks and build
         run: npm run check

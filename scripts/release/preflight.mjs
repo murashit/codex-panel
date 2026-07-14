@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 function fail(message) {
   console.error(`release preflight failed: ${message}`);
@@ -81,6 +82,11 @@ if (maybeRun("jj", ["root"])) {
   assertGitReleaseState(packageVersion);
 }
 
+const versionKeys = Object.keys(JSON.parse(readFileSync("versions.json", "utf8")));
+const previousTag = versionKeys.at(-2);
+if (!previousTag) fail("versions.json must contain a release before the prepared version");
+run("git", ["rev-parse", "--verify", `refs/tags/${previousTag}`], { capture: true });
+run("npm", ["run", "commitlint", "--", "--from", previousTag, "--to", "main", "--verbose"]);
 run("npm", ["run", "release:check"]);
 run("npm", ["run", "api:baseline"]);
 run("npm", ["ci", "--dry-run"]);

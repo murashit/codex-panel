@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { generateReleaseNotes } from "./notes.mjs";
 import { compareVersions, isExpectedNextVersion, parseVersion } from "./versioning.mjs";
 
 function fail(message) {
@@ -38,6 +39,13 @@ try {
   if (error.code !== "ENOENT") throw error;
 }
 
+let releaseNotes;
+try {
+  releaseNotes = generateReleaseNotes(previousVersionKey);
+} catch (error) {
+  fail(error instanceof Error ? error.message : String(error));
+}
+
 packageJson.version = releaseVersion;
 packageLockJson.version = releaseVersion;
 if (!packageLockJson.packages?.[""]) fail('package-lock.json is missing packages[""]');
@@ -51,7 +59,7 @@ await writeFile("manifest.json", `${JSON.stringify(manifestJson, null, 2)}\n`);
 await writeFile("versions.json", `${JSON.stringify(versionsJson, null, 2)}\n`);
 
 await mkdir(notesDir, { recursive: true });
-await writeFile(notesPath, "## Changes\n\n- \n");
+await writeFile(notesPath, releaseNotes);
 
 console.log(`prepared release ${releaseVersion}`);
-console.log(`edit ${notesPath}, then run npm run release:preflight after committing`);
+console.log(`review and edit ${notesPath}, then run npm run release:preflight after committing`);

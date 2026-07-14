@@ -6,13 +6,13 @@ Release work is Jujutsu-first in a colocated Git repository; Git is still used t
 
 Plugin versions use SemVer-shaped numbers for Obsidian distribution, but they are not a library API compatibility contract. Prefer patch releases for fixes, dependency updates, internal changes, and compatibility refreshes that preserve existing workflows, including routine Codex CLI app-server compatibility updates. Prefer minor releases for user-visible capabilities, settings, workflow additions, or supported-runtime baseline changes such as raising the minimum supported Obsidian app/API version. Reserve major releases for disruptive workflow, settings, storage, or support-policy changes.
 
-Create a release by preparing the next version, editing the generated release notes, committing the release changes, then running the preflight before pushing the matching tag:
+Create a release by preparing the next version, reviewing and editing the generated release notes, committing the release changes, then running the preflight before pushing the matching tag:
 
 ```sh
 npm run release:prepare -- X.Y.Z
-# Edit .github/release-notes/X.Y.Z.md.
+# Review and edit .github/release-notes/X.Y.Z.md.
 jj status
-jj commit -m "Bump version to X.Y.Z"
+jj commit -m "chore(release): X.Y.Z"
 jj bookmark move main --to @-
 npm run release:preflight
 jj tag set X.Y.Z -r main
@@ -20,7 +20,9 @@ jj git push --remote origin --bookmark main
 git push origin X.Y.Z
 ```
 
-`release:prepare` updates the version files and creates a `## Changes` release notes template. `release:preflight` verifies the local Jujutsu/Git state, release metadata, API baselines, lockfile, and the same `npm run check` validation used by CI after the release commit is on `main`.
+`release:prepare` updates the version files and generates a `## Changes` release notes draft from Conventional Commits after the previous version tag. It includes `feat`, `fix`, `perf`, and commits marked as breaking changes; other commit types are omitted. Review the generated bullets for user-facing wording, combine related implementation commits, and reorder them by importance before committing. If there are no included commits, preparation leaves an empty bullet to replace manually.
+
+`release:preflight` verifies all commit messages since the previous tag, the local Jujutsu/Git state, release metadata, API baselines, lockfile, and the same `npm run check` validation used by CI after the release commit is on `main`.
 
 Release notes should normally include only user-facing changes. Internal implementation changes, validation details, and release procedure notes should be omitted when minor; when they are important enough to mention, group them into at most one concise bullet.
 

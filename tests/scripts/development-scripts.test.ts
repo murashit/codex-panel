@@ -14,6 +14,16 @@ afterEach(async () => {
 });
 
 describe("development scripts", () => {
+  it("enforces Conventional Commits except for GitHub merge commits", () => {
+    for (const message of ["feat: add side chats", "Merge pull request #123 from owner/feature"]) {
+      expect(runCommitlint(message), message).toBe(0);
+    }
+
+    for (const message of ['Revert "feat: add side chats"', "v5.1.0", "fixup! feat: add side chats", "squash! feat: add side chats"]) {
+      expect(runCommitlint(message), message).toBe(1);
+    }
+  });
+
   it("fails style builds when CSS files are missing from the style order file", async () => {
     const cwd = await styleOrderFixture();
 
@@ -172,6 +182,34 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("codex-panel__unused");
   });
 
+  it("prepares release notes from conventional commits since the previous tag", async () => {
+    const cwd = await tempWorkspace();
+    await writeJson(path.join(cwd, "package.json"), { version: "2.3.2" });
+    await writeJson(path.join(cwd, "package-lock.json"), {
+      version: "2.3.2",
+      packages: { "": { version: "2.3.2" } },
+    });
+    await writeJson(path.join(cwd, "manifest.json"), { version: "2.3.2", minAppVersion: "1.12.0" });
+    await writeJson(path.join(cwd, "versions.json"), { "2.3.2": "1.12.0" });
+    runGit(["init"], cwd);
+    runGit(["config", "user.name", "Codex Panel Tests"], cwd);
+    runGit(["config", "user.email", "tests@example.com"], cwd);
+    runGit(["add", "."], cwd);
+    runGit(["commit", "-m", "chore: establish release baseline"], cwd);
+    runGit(["tag", "2.3.2"], cwd);
+    await writeFile(path.join(cwd, "change.txt"), "side chats\n");
+    runGit(["add", "change.txt"], cwd);
+    runGit(["commit", "-m", "feat(chat): add side chat support"], cwd);
+
+    const result = runNodeScript("scripts/release/prepare.mjs", ["2.4.0"], cwd);
+
+    expect(result.status).toBe(0);
+    await expect(readFile(path.join(cwd, ".github", "release-notes", "2.4.0.md"), "utf8")).resolves.toBe(
+      "## Changes\n\n- Add side chat support.\n",
+    );
+    await expect(readJson(path.join(cwd, "package.json"))).resolves.toMatchObject({ version: "2.4.0" });
+  });
+
   it("fails release prepare before changing version files when release notes already exist", async () => {
     const cwd = await tempWorkspace();
     await mkdir(path.join(cwd, ".github", "release-notes"), { recursive: true });
@@ -234,6 +272,20 @@ function runNodeScript(script: string, args: string[] = [], cwd = repoRoot, env:
     env: { ...process.env, ...env },
     shell: false,
   });
+}
+
+function runCommitlint(message: string): number | null {
+  return spawnSync(process.execPath, [path.join(repoRoot, "node_modules", "@commitlint", "cli", "cli.js")], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    input: `${message}\n`,
+    shell: false,
+  }).status;
+}
+
+function runGit(args: string[], cwd: string): void {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", shell: false });
+  if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
 }
 
 async function writeJson(file: string, value: unknown): Promise<void> {

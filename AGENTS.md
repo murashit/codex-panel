@@ -2,6 +2,8 @@ This repository contains the Codex Panel Obsidian plugin.
 
 Jujutsu is the recommended local change-management workflow when available.
 
+Commits after the `5.0.0` tag must follow Conventional Commits. Use the repository's allowed types and examples in `docs/development.md`, and validate the relevant commit range explicitly because Jujutsu does not rely on local Git hooks.
+
 ## What To Read
 
 - Read `README.md` for user-facing behavior, requirements, commands, privacy, and compatibility.
