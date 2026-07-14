@@ -8,7 +8,9 @@ This document records durable design direction. User-facing behavior belongs in 
 
 Keep the panel thin. Codex Panel owns the Obsidian experience around Codex: panels, composing, vault-aware link handoff, approvals and user input, file-change review, archive export, panel preferences, diagnostics, and selection rewrite.
 
-Codex owns runtime behavior and thread state: models, credentials, sandboxing, approval policy, MCP servers, hooks, providers, network access, thread history, archived state, goals, and runtime settings. The panel should read and update that state through `codex app-server`, not redefine it.
+Codex owns runtime behavior and thread state: models, credentials, sandboxing, approval policy, MCP servers, hooks, providers, agent-initiated network access, thread history, archived state, goals, and runtime settings. The panel should read and update that state through `codex app-server`, not redefine it.
+
+The panel may acquire prompt context through an explicit user action. `/web` fetches the requested page through Obsidian and attaches the extracted content as untrusted turn context; it is not a search surface or agent network policy.
 
 Panel settings should store only panel-specific preferences. Do not mirror Codex configuration in Obsidian settings just to display or inspect it.
 
@@ -19,6 +21,8 @@ Panel settings should store only panel-specific preferences. Do not mirror Codex
 The app-server API is experimental. The project tracks the supported Codex CLI minor and favors a clean current flow over broad old-protocol compatibility.
 
 Runtime controls should express visible user intent for the active thread rather than copy Codex configuration. Diagnostics should expose only actionable troubleshooting facts.
+
+An app-server context is the pair of Codex executable and Vault root. Replacing it must invalidate context-bound connections and work before publishing the new context, keep events attributed to their source context, and discard old runtime metadata. Preserve last-known-good state only across transient failures within the same context.
 
 ## Code Boundaries
 

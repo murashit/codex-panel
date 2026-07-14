@@ -41,10 +41,11 @@ The app-server TypeScript bindings in `src/generated/app-server/` are generated 
 
 ```sh
 npm run generate:app-server-types
+npm run generate:app-server-types:check
 npm run check
 ```
 
-The bindings include experimental app-server fields. Do not hand-edit them.
+Do not hand-edit the bindings. `src/app-server/connection/compatibility.json` records their CLI patch and generation arguments; the check command regenerates and compares them without replacing tracked files.
 
 ## Placement Rules
 
@@ -79,6 +80,6 @@ npm run api:baseline
 
 Obsidian runtime compatibility is declared through `manifest.json` and `versions.json`. The `obsidian` npm package provides compile-time TypeScript API definitions; it is not runtime validation for an Obsidian app-version matrix. Because the project does not run app-version smoke tests, keep the API type package in the same minor as `manifest.minAppVersion` and use the latest patch in that minor for local type checking. `npm run api:baseline` exits non-zero when the local environment or recorded baselines drift. Raise `manifest.minAppVersion` only when intentionally adopting a newer Obsidian app/API minor.
 
-Codex app-server compatibility is managed by Codex CLI minor version. README records the tested Codex CLI patch version, `src/app-server/connection/compatibility.json` records the machine-readable app-server capability baseline used by the panel client profile, and the baseline check verifies that the local `codex --version` is in the same minor before app-server binding or compatibility work.
+Codex app-server compatibility is managed by CLI minor version. `src/app-server/connection/compatibility.json` is the source of truth for the exact generation patch and app-server capabilities; README displays that patch.
 
-Pull-request CI validates recorded compatibility declarations without requiring a Codex CLI installation. Local compatibility work should run `npm run api:baseline` so the installed CLI is checked too.
+Local compatibility work should run `npm run api:baseline` and `npm run generate:app-server-types:check`; CI runs the same verification with the recorded CLI.
