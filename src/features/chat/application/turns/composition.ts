@@ -9,7 +9,7 @@ import type { GoalActions } from "../threads/goal-actions";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
 import { type ComposerSubmitActions, type ComposerSubmitActionsHost, submitComposer } from "./composer-submit-actions";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
-import type { ClipUrlInput, ThreadReferenceInput } from "./slash-command-execution";
+import type { ThreadReferenceInput, WebUrlInput } from "./slash-command-execution";
 import { executeSlashCommandWithState, type SlashCommandExecutorHost } from "./slash-command-executor";
 import { createTurnSubmissionActions } from "./turn-submission-actions";
 import type { ChatTurnTransport } from "./turn-transport";
@@ -20,7 +20,7 @@ export interface TurnWorkflowContext {
   connectionAvailable: () => boolean;
   turnTransport: ChatTurnTransport;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  clipUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ClipUrlInput | null>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<WebUrlInput>;
   status: {
     set: (status: string) => void;
     addSystemMessage: (text: string) => void;
@@ -75,8 +75,19 @@ export interface TurnWorkflowActions {
 }
 
 export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: TurnWorkflowRefs): TurnWorkflowActions {
-  const { stateStore, localItemIds, connectionAvailable, turnTransport, referThread, clipUrl, status, runtime, thread, composer, scroll } =
-    context;
+  const {
+    stateStore,
+    localItemIds,
+    connectionAvailable,
+    turnTransport,
+    referThread,
+    readWebUrl,
+    status,
+    runtime,
+    thread,
+    composer,
+    scroll,
+  } = context;
   const turnSubmission = createTurnSubmissionActions({
     stateStore,
     localItemIds,
@@ -95,7 +106,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     stateStore,
     connectionAvailable,
     referThread,
-    clipUrl,
+    readWebUrl,
     startNewThread: thread.startNewThread,
     startThreadForGoal: (objective) => startThreadForGoal(refs.threadStarter, objective),
     resumeThread: thread.selectThread,

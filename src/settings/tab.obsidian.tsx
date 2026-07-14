@@ -7,13 +7,7 @@ import { renderUiRoot, unmountUiRoot } from "../shared/dom/preact-root.dom";
 import { SettingsDynamicSectionsController } from "./dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "./host";
 import type { CodexPanelSettings } from "./model";
-import {
-  DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
-  DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
-  DEFAULT_ATTACHMENT_FOLDER,
-  DEFAULT_CLIP_FILENAME_TEMPLATE,
-  DEFAULT_CLIP_FOLDER,
-} from "./model";
+import { DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE, DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE, DEFAULT_ATTACHMENT_FOLDER } from "./model";
 import type { SettingsSectionsState } from "./section-state";
 import { SettingsTabShell } from "./tab-shell";
 
@@ -95,9 +89,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           scrollThreadFromComposerEdges: this.plugin.settings.scrollThreadFromComposerEdges,
           referenceActiveNoteOnSend: this.plugin.settings.referenceActiveNoteOnSend,
           attachmentFolder: this.plugin.settings.attachmentFolder,
-          clipFolder: this.plugin.settings.clipFolder,
-          clipFilenameTemplate: this.plugin.settings.clipFilenameTemplate,
-          clipTags: this.plugin.settings.clipTags,
         }}
         sections={this.settingsSectionsState()}
         actions={{
@@ -121,15 +112,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
           },
           setAttachmentFolder: (value) => {
             void this.setAttachmentFolder(value);
-          },
-          setClipFolder: (value) => {
-            void this.setClipFolder(value);
-          },
-          setClipFilenameTemplate: (value) => {
-            void this.setClipFilenameTemplate(value);
-          },
-          setClipTags: (value) => {
-            void this.setClipTags(value);
           },
         }}
       />,
@@ -252,24 +234,6 @@ export class CodexPanelSettingTab extends PluginSettingTab {
   private setAttachmentFolder(value: string): Promise<void> {
     return this.queueSettingsMutation(() => {
       this.plugin.settings.attachmentFolder = value.trim() || DEFAULT_ATTACHMENT_FOLDER;
-    });
-  }
-
-  private setClipFolder(value: string): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.clipFolder = value.trim() || DEFAULT_CLIP_FOLDER;
-    });
-  }
-
-  private setClipFilenameTemplate(value: string): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.clipFilenameTemplate = value.trim() || DEFAULT_CLIP_FILENAME_TEMPLATE;
-    });
-  }
-
-  private setClipTags(value: string): Promise<void> {
-    return this.queueSettingsMutation(() => {
-      this.plugin.settings.clipTags = value.trim();
     });
   }
 

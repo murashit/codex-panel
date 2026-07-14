@@ -148,12 +148,12 @@ describe("submitComposer", () => {
   });
 
   it("restores slash command text when command send results are not submitted", async () => {
-    const { host, execute, inputSnapshot, sendTurnText, setDraft } = createHost("/clip https://example.com [[Note]]");
+    const { host, execute, inputSnapshot, sendTurnText, setDraft } = createHost("/web https://example.com [[Note]]");
     execute.mockResolvedValue({
-      sendText: "[[Codex Clippings/Example.md]] [[Note]]",
+      sendText: "https://example.com/ [[Note]]",
       sendInput: [
-        { type: "text", text: "[[Codex Clippings/Example.md]] [[Note]]" },
-        { type: "mention", name: "Example", path: "Codex Clippings/Example.md" },
+        { type: "text", text: "https://example.com/ [[Note]]" },
+        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
         { type: "mention", name: "Note", path: "Note.md" },
       ],
     });
@@ -162,16 +162,16 @@ describe("submitComposer", () => {
     await submitComposer(host);
 
     expect(sendTurnText).toHaveBeenCalledWith({
-      text: "[[Codex Clippings/Example.md]] [[Note]]",
+      text: "https://example.com/ [[Note]]",
       inputSnapshot,
       codexInputOverride: [
-        { type: "text", text: "[[Codex Clippings/Example.md]] [[Note]]" },
-        { type: "mention", name: "Example", path: "Codex Clippings/Example.md" },
+        { type: "text", text: "https://example.com/ [[Note]]" },
+        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
         { type: "mention", name: "Note", path: "Note.md" },
       ],
       preserveComposerContextOnFailure: true,
     });
-    expect(setDraft).toHaveBeenCalledWith("/clip https://example.com [[Note]]", { focus: true, clearSuggestions: true });
+    expect(setDraft).toHaveBeenCalledWith("/web https://example.com [[Note]]", { focus: true, clearSuggestions: true });
   });
 
   it("does not execute connection-dependent slash commands when connection fails", async () => {
@@ -219,17 +219,17 @@ describe("submitComposer", () => {
   });
 
   it("restores slash command text and reports executor errors", async () => {
-    const { host, execute, sendTurnText, setDraft, showLatest } = createHost("/clip https://obsidian.md/help/plugins/web-viewer 読める？");
+    const { host, execute, sendTurnText, setDraft, showLatest } = createHost("/web https://obsidian.md/help/plugins/web-viewer 読める？");
     execute.mockRejectedValue(new Error("No readable content found for https://obsidian.md/help/plugins/web-viewer"));
 
     await submitComposer(host);
 
-    expect(setDraft).toHaveBeenCalledWith("/clip https://obsidian.md/help/plugins/web-viewer 読める？", {
+    expect(setDraft).toHaveBeenCalledWith("/web https://obsidian.md/help/plugins/web-viewer 読める？", {
       focus: true,
       clearSuggestions: true,
     });
     expect(setDraft.mock.calls.at(-1)).toEqual([
-      "/clip https://obsidian.md/help/plugins/web-viewer 読める？",
+      "/web https://obsidian.md/help/plugins/web-viewer 読める？",
       { focus: true, clearSuggestions: true },
     ]);
     expect(host.status.addSystemMessage).toHaveBeenCalledWith("No readable content found for https://obsidian.md/help/plugins/web-viewer");

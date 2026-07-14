@@ -10,7 +10,7 @@ import type { ThreadStreamNoticeSection } from "../../domain/thread-stream/items
 import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatPanelRuntimeProjection } from "../../panel/runtime-status-projection";
 import type { ChatPanelEnvironment } from "../contracts";
-import { createVaultWebClipper } from "../obsidian/web-clipper.obsidian";
+import { createWebContextReader } from "../obsidian/web-context.obsidian";
 import type { ChatPanelRuntimeSettingsActions } from "./runtime-bundle";
 import type {
   ChatPanelGoalActions,
@@ -99,17 +99,11 @@ export function createTurnBundle(host: ChatPanelTurnHost, input: ChatPanelTurnIn
       connectionAvailable: () => appServer.connectionAvailable(),
       turnTransport: appServer.turn,
       referThread: (thread, message, snapshot) => threadReferenceResolver.referThread(thread, message, snapshot),
-      clipUrl: (url, message, snapshot) =>
-        createVaultWebClipper({
-          vault: host.environment.obsidian.app.vault,
-          settings: () => ({
-            clipFolder: host.environment.plugin.settingsRef.settings.clipFolder(),
-            clipFilenameTemplate: host.environment.plugin.settingsRef.settings.clipFilenameTemplate(),
-            clipTags: host.environment.plugin.settingsRef.settings.clipTags(),
-          }),
+      readWebUrl: (url, message, snapshot) =>
+        createWebContextReader({
           prepareInput: (text, inputSnapshot) => composerController.preparedInput(text, inputSnapshot),
           viewWindow: host.environment.view.viewWindow,
-        }).clipUrl(url, message, snapshot),
+        }).readUrl(url, message, snapshot),
       status,
       runtime: {
         connectionDiagnosticDetails: runtimeProjection.connectionDiagnosticDetails,

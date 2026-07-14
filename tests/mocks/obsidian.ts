@@ -54,8 +54,12 @@ export class Notice {
   }
 }
 
-export async function requestUrl(_request: unknown): Promise<{ text: string }> {
-  return { text: "" };
+export function htmlToMarkdown(html: string | HTMLElement | Document | DocumentFragment): string {
+  return typeof html === "string" ? html : "";
+}
+
+export async function requestUrl(_request: unknown): Promise<{ status: number; text: string }> {
+  return { status: 200, text: "" };
 }
 
 export function prepareFuzzySearch(query: string): (text: string) => { score: number; matches: unknown[] } | null {

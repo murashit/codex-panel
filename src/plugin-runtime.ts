@@ -140,9 +140,6 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     return {
       referenceActiveNoteOnSend: () => this.options.settingsRef.settings.referenceActiveNoteOnSend,
       attachmentFolder: () => this.options.settingsRef.settings.attachmentFolder,
-      clipFolder: () => this.options.settingsRef.settings.clipFolder,
-      clipFilenameTemplate: () => this.options.settingsRef.settings.clipFilenameTemplate,
-      clipTags: () => this.options.settingsRef.settings.clipTags,
       archiveExportEnabled: () => this.options.settingsRef.settings.archiveExportEnabled,
       archiveExportSettings: () => ({
         archiveExportFolderTemplate: this.options.settingsRef.settings.archiveExportFolderTemplate,

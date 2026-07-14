@@ -46,7 +46,7 @@ Each panel can keep a separate conversation, so related work can stay open side 
 
 The composer treats Obsidian content as prompt context. It suggests vault files and recent notes for wikilinks, keeps links readable while attaching resolved files, and opens file links from Codex replies back in Obsidian. Use `@active` or `@selection` to include the active file or current Markdown selection without pasting it manually, or enable **Reference active file on send** to reference the current active file with each composer send. When Obsidian Daily Notes or the daily section of Periodic Notes is enabled, `@today`, `@tomorrow`, and `@yesterday` insert wikilinks using that daily-note folder and date format. Paste or drop files to save them in the attachment folder and reference them from the same prompt.
 
-For context outside the current composer, use `/refer <thread> <message>` to send a message with recent turns from another Codex thread, or `/clip <url> [message]` to save a readable Markdown clipping from a web page and send a wikilink to the saved note.
+For context outside the current composer, use `/refer <thread> <message>` to send a message with recent turns from another Codex thread, or `/web <url> [message]` to fetch readable web content and attach it to the next turn without saving a note.
 
 Completions cover slash commands, `$skill-name` skills, Obsidian tags, recent threads, models, reasoning levels, and permission profiles. Use `/help` for the current command list.
 

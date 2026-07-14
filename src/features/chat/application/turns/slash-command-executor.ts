@@ -8,11 +8,11 @@ import type { SlashCommandName } from "../composer/slash-commands";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import type { ChatStateStore } from "../state/store";
 import {
-  type ClipUrlInput,
   executeSlashCommand as runSlashCommand,
   type SlashCommandExecutionPorts,
   type SlashCommandExecutionResult,
   type ThreadReferenceInput,
+  type WebUrlInput,
 } from "./slash-command-execution";
 import { submissionStateSnapshot } from "./submission-state";
 
@@ -20,7 +20,7 @@ export interface SlashCommandExecutorHost extends SlashCommandExecutionPorts {
   stateStore: ChatStateStore;
   connectionAvailable: () => boolean;
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  clipUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ClipUrlInput | null>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<WebUrlInput>;
   setStatus: (status: string) => void;
 }
 
@@ -41,7 +41,7 @@ export async function executeSlashCommandWithState(
     activeThreadEphemeral: state.activeThreadEphemeral,
     listedThreads: state.listedThreads,
     referThread: host.referThread,
-    clipUrl: host.clipUrl,
+    readWebUrl: host.readWebUrl,
     ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),
     supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
   });

@@ -69,7 +69,7 @@ export interface SlashCommandExecutionContext extends SlashCommandExecutionPorts
   activeThreadEphemeral: boolean;
   listedThreads: readonly Thread[];
   referThread: (thread: Thread, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ThreadReferenceInput | null>;
-  clipUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<ClipUrlInput | null>;
+  readWebUrl: (url: string, message: string, inputSnapshot: ComposerInputSnapshot) => Promise<WebUrlInput>;
   supportedReasoningEfforts: () => readonly ReasoningEffort[];
   inputSnapshot?: ComposerInputSnapshot;
 }
@@ -87,7 +87,7 @@ export interface ThreadReferenceInput {
   referencedThread: ReferencedThreadMetadata;
 }
 
-export interface ClipUrlInput {
+export interface WebUrlInput {
   text: string;
   input: CodexInput;
 }
@@ -145,19 +145,18 @@ export async function executeSlashCommand(
       if (!reference) return;
       return { sendText: reference.text, sendInput: reference.input, referencedThread: reference.referencedThread };
     }
-    case "clip": {
+    case "web": {
       const parsed = parseUrlAndMessageArgs(args);
       if (!parsed) {
         context.addSystemMessage(usageError(command, "requires a URL"));
         return;
       }
       if (!context.inputSnapshot) {
-        context.addSystemMessage("Cannot clip a URL without composer input context.");
+        context.addSystemMessage("Cannot read a web URL without composer input context.");
         return;
       }
-      const clipped = await context.clipUrl(parsed.url, parsed.message, context.inputSnapshot);
-      if (!clipped) return;
-      return { sendText: clipped.text, sendInput: clipped.input };
+      const web = await context.readWebUrl(parsed.url, parsed.message, context.inputSnapshot);
+      return { sendText: web.text, sendInput: web.input };
     }
     case "fork":
       if (!context.activeThreadId) {

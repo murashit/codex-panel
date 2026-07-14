@@ -6,7 +6,7 @@ import { IconButton, ObsidianCommitTextInput, ObsidianDropdown, ObsidianToggle }
 import { ArchivedThreadSection } from "./archived-section";
 import { HelperSettingsSection } from "./helper-section";
 import { HookSection } from "./hook-section";
-import { DEFAULT_ATTACHMENT_FOLDER, DEFAULT_CLIP_FILENAME_TEMPLATE, DEFAULT_CLIP_FOLDER } from "./model";
+import { DEFAULT_ATTACHMENT_FOLDER } from "./model";
 import type { SettingsSectionsState } from "./section-state";
 import { SettingRow, SettingsGroup, SettingsHeading, SettingsItems } from "./setting-components";
 
@@ -26,9 +26,6 @@ interface SettingsTabPanelState {
   scrollThreadFromComposerEdges: boolean;
   referenceActiveNoteOnSend: boolean;
   attachmentFolder: string;
-  clipFolder: string;
-  clipFilenameTemplate: string;
-  clipTags: string;
 }
 
 interface SettingsTabShellActions {
@@ -39,9 +36,6 @@ interface SettingsTabShellActions {
   setScrollThreadFromComposerEdges: (value: boolean) => void;
   setReferenceActiveNoteOnSend: (value: boolean) => void;
   setAttachmentFolder: (value: string) => void;
-  setClipFolder: (value: string) => void;
-  setClipFilenameTemplate: (value: string) => void;
-  setClipTags: (value: string) => void;
 }
 
 interface SettingsTabShellProps {
@@ -109,76 +103,42 @@ function GeneralSettingsSection({ panel, actions }: { panel: SettingsTabPanelSta
 
 function ComposerSettingsSection({ panel, actions }: { panel: SettingsTabPanelState; actions: SettingsTabShellActions }): UiNode {
   return (
-    <>
-      <SettingsGroup className="codex-panel-settings__section codex-panel-settings__composer-section">
-        <SettingsHeading name="Composer" />
-        <SettingsItems>
-          <SettingRow
-            name="Send shortcut"
-            desc="Controls whether Enter or Cmd/Ctrl+Enter sends composer-style inputs. Shift+Enter adds a newline."
-          >
-            <ObsidianDropdown
-              value={panel.sendShortcut}
-              onChange={(value) => {
-                actions.setSendShortcut(value === "mod-enter" ? "mod-enter" : "enter");
-              }}
-              options={SEND_SHORTCUT_OPTIONS}
-            />
-          </SettingRow>
-          <SettingRow
-            name="Scroll conversation from composer line edges"
-            desc="Lets Up/Ctrl+P and Down/Ctrl+N scroll the conversation from composer line edges."
-          >
-            <ObsidianToggle checked={panel.scrollThreadFromComposerEdges} onChange={actions.setScrollThreadFromComposerEdges} />
-          </SettingRow>
-          <SettingRow
-            name="Reference active file on send"
-            desc="Adds the active file as context on each send without changing the prompt text."
-          >
-            <ObsidianToggle checked={panel.referenceActiveNoteOnSend} onChange={actions.setReferenceActiveNoteOnSend} />
-          </SettingRow>
-          <SettingRow name="Attachment folder" desc="Vault-relative folder for files pasted or dropped into composer inputs.">
-            <ObsidianCommitTextInput
-              value={panel.attachmentFolder}
-              placeholder={DEFAULT_ATTACHMENT_FOLDER}
-              normalizeValue={(value) => value.trim() || DEFAULT_ATTACHMENT_FOLDER}
-              onCommit={actions.setAttachmentFolder}
-            />
-          </SettingRow>
-        </SettingsItems>
-      </SettingsGroup>
-      <SettingsGroup className="codex-panel-settings__section codex-panel-settings__web-clipping-section">
-        <SettingsHeading name="Web clipping" />
-        <SettingsItems>
-          <SettingRow name="Clipped note folder" desc="Vault-relative folder for notes created by /clip.">
-            <ObsidianCommitTextInput
-              value={panel.clipFolder}
-              placeholder={DEFAULT_CLIP_FOLDER}
-              normalizeValue={(value) => value.trim() || DEFAULT_CLIP_FOLDER}
-              onCommit={actions.setClipFolder}
-            />
-          </SettingRow>
-          <SettingRow
-            name="Clipped note filename"
-            desc="Filename template. Supports {{date}}, {{time}}, {{title}}, {{site}}, and {{domain}}."
-          >
-            <ObsidianCommitTextInput
-              value={panel.clipFilenameTemplate}
-              placeholder={DEFAULT_CLIP_FILENAME_TEMPLATE}
-              normalizeValue={(value) => value.trim() || DEFAULT_CLIP_FILENAME_TEMPLATE}
-              onCommit={actions.setClipFilenameTemplate}
-            />
-          </SettingRow>
-          <SettingRow name="Clipped note tags" desc="Comma-separated tags added to clipped notes.">
-            <ObsidianCommitTextInput
-              value={panel.clipTags}
-              placeholder="web, clipping"
-              normalizeValue={(value) => value.trim()}
-              onCommit={actions.setClipTags}
-            />
-          </SettingRow>
-        </SettingsItems>
-      </SettingsGroup>
-    </>
+    <SettingsGroup className="codex-panel-settings__section codex-panel-settings__composer-section">
+      <SettingsHeading name="Composer" />
+      <SettingsItems>
+        <SettingRow
+          name="Send shortcut"
+          desc="Controls whether Enter or Cmd/Ctrl+Enter sends composer-style inputs. Shift+Enter adds a newline."
+        >
+          <ObsidianDropdown
+            value={panel.sendShortcut}
+            onChange={(value) => {
+              actions.setSendShortcut(value === "mod-enter" ? "mod-enter" : "enter");
+            }}
+            options={SEND_SHORTCUT_OPTIONS}
+          />
+        </SettingRow>
+        <SettingRow
+          name="Scroll conversation from composer line edges"
+          desc="Lets Up/Ctrl+P and Down/Ctrl+N scroll the conversation from composer line edges."
+        >
+          <ObsidianToggle checked={panel.scrollThreadFromComposerEdges} onChange={actions.setScrollThreadFromComposerEdges} />
+        </SettingRow>
+        <SettingRow
+          name="Reference active file on send"
+          desc="Adds the active file as context on each send without changing the prompt text."
+        >
+          <ObsidianToggle checked={panel.referenceActiveNoteOnSend} onChange={actions.setReferenceActiveNoteOnSend} />
+        </SettingRow>
+        <SettingRow name="Attachment folder" desc="Vault-relative folder for files pasted or dropped into composer inputs.">
+          <ObsidianCommitTextInput
+            value={panel.attachmentFolder}
+            placeholder={DEFAULT_ATTACHMENT_FOLDER}
+            normalizeValue={(value) => value.trim() || DEFAULT_ATTACHMENT_FOLDER}
+            onCommit={actions.setAttachmentFolder}
+          />
+        </SettingRow>
+      </SettingsItems>
+    </SettingsGroup>
   );
 }

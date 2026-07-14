@@ -89,7 +89,7 @@ describe("createTurnWorkflowActions", () => {
           interruptTurn: vi.fn().mockResolvedValue(true),
         },
         referThread: vi.fn(),
-        clipUrl: vi.fn(),
+        readWebUrl: vi.fn(),
         status: {
           set: vi.fn(),
           addSystemMessage: vi.fn(),

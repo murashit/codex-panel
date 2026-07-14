@@ -29,12 +29,12 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
   const stateStore = createChatStateStore(createChatState());
   const compactThread = vi.fn().mockResolvedValue(undefined);
   const referThread = vi.fn().mockResolvedValue(null);
-  const clipUrl = vi.fn().mockResolvedValue(null);
+  const readWebUrl = vi.fn();
   const host: SlashCommandExecutorHost = {
     stateStore,
     connectionAvailable: () => true,
     referThread,
-    clipUrl,
+    readWebUrl,
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
     resumeThread: vi.fn().mockResolvedValue(undefined),
@@ -74,7 +74,7 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
     effortStatusDetails: () => [],
     ...overrides,
   };
-  return { clipUrl, compactThread, host, referThread, stateStore };
+  return { compactThread, host, readWebUrl, referThread, stateStore };
 }
 
 describe("executeSlashCommandWithState", () => {

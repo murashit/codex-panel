@@ -29,9 +29,6 @@ interface ChatPanelSettingsRef {
 export interface ChatPanelSettingsAccess {
   referenceActiveNoteOnSend(): boolean;
   attachmentFolder(): string;
-  clipFolder(): string;
-  clipFilenameTemplate(): string;
-  clipTags(): string;
   archiveExportEnabled(): boolean;
   archiveExportSettings(): ArchiveExportSettings;
   codexPath(): string;

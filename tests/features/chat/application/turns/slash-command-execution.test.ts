@@ -21,11 +21,11 @@ function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCo
       input: [{ type: "text", text: "referenced" }],
       referencedThread: { threadId: "thread-2", title: "Referenced", includedTurns: 1, turnLimit: 20 },
     }),
-    clipUrl: vi.fn().mockResolvedValue({
-      text: "[[Codex Clippings/Example.md]] 要約して",
+    readWebUrl: vi.fn().mockResolvedValue({
+      text: "https://example.com/article 要約して",
       input: [
-        { type: "text", text: "[[Codex Clippings/Example.md]] 要約して" },
-        { type: "mention", name: "Example", path: "Codex Clippings/Example.md" },
+        { type: "text", text: "https://example.com/article 要約して" },
+        { type: "additionalContext", key: "codex_panel_web_context", kind: "untrusted", value: "Readable article" },
       ],
     }),
     threadActions: {
@@ -231,56 +231,56 @@ describe("slash commands", () => {
     expect(result).toEqual({ sendText: "質問です", sendInput: input, referencedThread });
   });
 
-  it("returns clipped wikilink input for /clip", async () => {
+  it("returns fetched web context input for /web", async () => {
     const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     const input = [
-      { type: "text" as const, text: "[[Codex Clippings/Example.md]] 要約して" },
-      { type: "mention" as const, name: "Example", path: "Codex Clippings/Example.md" },
+      { type: "text" as const, text: "https://example.com/article 要約して" },
+      { type: "additionalContext" as const, key: "codex_panel_web_context", kind: "untrusted" as const, value: "Readable article" },
     ];
     const ctx = context({
       inputSnapshot,
-      clipUrl: vi.fn().mockResolvedValue({ text: "[[Codex Clippings/Example.md]] 要約して", input }),
+      readWebUrl: vi.fn().mockResolvedValue({ text: "https://example.com/article 要約して", input }),
     });
 
-    const result = await executeSlashCommand("clip", "https://example.com/article 要約して", ctx);
+    const result = await executeSlashCommand("web", "https://example.com/article 要約して", ctx);
 
-    expect(ctx.clipUrl).toHaveBeenCalledWith("https://example.com/article", "要約して", inputSnapshot);
-    expect(result).toEqual({ sendText: "[[Codex Clippings/Example.md]] 要約して", sendInput: input });
+    expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "要約して", inputSnapshot);
+    expect(result).toEqual({ sendText: "https://example.com/article 要約して", sendInput: input });
   });
 
-  it("returns clipped wikilink input for /clip without a message", async () => {
+  it("returns fetched web context input for /web without a message", async () => {
     const inputSnapshot = { sourcePath: "snapshot.md" } as never;
     const input = [
-      { type: "text" as const, text: "[[Codex Clippings/Example.md]]" },
-      { type: "mention" as const, name: "Example", path: "Codex Clippings/Example.md" },
+      { type: "text" as const, text: "https://example.com/article" },
+      { type: "additionalContext" as const, key: "codex_panel_web_context", kind: "untrusted" as const, value: "Readable article" },
     ];
     const ctx = context({
       inputSnapshot,
-      clipUrl: vi.fn().mockResolvedValue({ text: "[[Codex Clippings/Example.md]]", input }),
+      readWebUrl: vi.fn().mockResolvedValue({ text: "https://example.com/article", input }),
     });
 
-    const result = await executeSlashCommand("clip", "https://example.com/article", ctx);
+    const result = await executeSlashCommand("web", "https://example.com/article", ctx);
 
-    expect(ctx.clipUrl).toHaveBeenCalledWith("https://example.com/article", "", inputSnapshot);
-    expect(result).toEqual({ sendText: "[[Codex Clippings/Example.md]]", sendInput: input });
+    expect(ctx.readWebUrl).toHaveBeenCalledWith("https://example.com/article", "", inputSnapshot);
+    expect(result).toEqual({ sendText: "https://example.com/article", sendInput: input });
   });
 
-  it("rejects /clip without a URL", async () => {
+  it("rejects /web without a URL", async () => {
     const ctx = context();
 
-    await executeSlashCommand("clip", "", ctx);
+    await executeSlashCommand("web", "", ctx);
 
-    expect(ctx.clipUrl).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/clip requires a URL. Usage: /clip <url> [message]");
+    expect(ctx.readWebUrl).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/web requires a URL. Usage: /web <url> [message]");
   });
 
-  it("rejects /clip when no composer input snapshot is available", async () => {
+  it("rejects /web when no composer input snapshot is available", async () => {
     const ctx = context();
 
-    await executeSlashCommand("clip", "https://example.com/article 要約して", ctx);
+    await executeSlashCommand("web", "https://example.com/article 要約して", ctx);
 
-    expect(ctx.clipUrl).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Cannot clip a URL without composer input context.");
+    expect(ctx.readWebUrl).not.toHaveBeenCalled();
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Cannot read a web URL without composer input context.");
   });
 
   it("forks the active thread for /fork", async () => {
@@ -647,7 +647,7 @@ describe("slash commands", () => {
       expect.arrayContaining(["/plan [message]", "/goal", "/permissions [profile|default]", "/model [model|default]"]),
     );
     expect(slashCommandHelpKeys("Diagnostics")).toEqual(expect.arrayContaining(["/status", "/doctor", "/tools", "/help"]));
-    expect(slashCommandHelpKeys("Composition")).toEqual(["/refer <thread> <message>", "/clip <url> [message]"]);
+    expect(slashCommandHelpKeys("Composition")).toEqual(["/refer <thread> <message>", "/web <url> [message]"]);
   });
 
   it("rejects /help arguments", async () => {

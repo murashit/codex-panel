@@ -16,9 +16,6 @@ export interface CodexPanelSettings {
   scrollThreadFromComposerEdges: boolean;
   referenceActiveNoteOnSend: boolean;
   attachmentFolder: string;
-  clipFolder: string;
-  clipFilenameTemplate: string;
-  clipTags: string;
   archiveExportEnabled: boolean;
   archiveExportFolderTemplate: string;
   archiveExportFilenameTemplate: string;
@@ -26,8 +23,6 @@ export interface CodexPanelSettings {
 }
 
 export const DEFAULT_ATTACHMENT_FOLDER = "Codex Attachments";
-export const DEFAULT_CLIP_FOLDER = "Codex Clippings";
-export const DEFAULT_CLIP_FILENAME_TEMPLATE = "{{title}}.md";
 export const DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE = "Codex Archives";
 export const DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE = "{{date}} {{time}} {{title}} {{shortId}}.md";
 
@@ -42,9 +37,6 @@ export const DEFAULT_SETTINGS: CodexPanelSettings = {
   scrollThreadFromComposerEdges: false,
   referenceActiveNoteOnSend: false,
   attachmentFolder: DEFAULT_ATTACHMENT_FOLDER,
-  clipFolder: DEFAULT_CLIP_FOLDER,
-  clipFilenameTemplate: DEFAULT_CLIP_FILENAME_TEMPLATE,
-  clipTags: "",
   archiveExportEnabled: false,
   archiveExportFolderTemplate: DEFAULT_ARCHIVE_EXPORT_FOLDER_TEMPLATE,
   archiveExportFilenameTemplate: DEFAULT_ARCHIVE_EXPORT_FILENAME_TEMPLATE,
@@ -70,11 +62,6 @@ export function normalizeSettings(storedSettings: unknown): CodexPanelSettings {
     referenceActiveNoteOnSend: booleanOrDefault(record["referenceActiveNoteOnSend"], DEFAULT_SETTINGS.referenceActiveNoteOnSend),
     attachmentFolder:
       stringOrDefault(record["attachmentFolder"], DEFAULT_SETTINGS.attachmentFolder).trim() || DEFAULT_SETTINGS.attachmentFolder,
-    clipFolder: stringOrDefault(record["clipFolder"], DEFAULT_SETTINGS.clipFolder).trim() || DEFAULT_SETTINGS.clipFolder,
-    clipFilenameTemplate:
-      stringOrDefault(record["clipFilenameTemplate"], DEFAULT_SETTINGS.clipFilenameTemplate).trim() ||
-      DEFAULT_SETTINGS.clipFilenameTemplate,
-    clipTags: stringOrDefault(record["clipTags"], DEFAULT_SETTINGS.clipTags).trim(),
     archiveExportEnabled: booleanOrDefault(record["archiveExportEnabled"], DEFAULT_SETTINGS.archiveExportEnabled),
     archiveExportFolderTemplate:
       stringOrDefault(record["archiveExportFolderTemplate"], DEFAULT_SETTINGS.archiveExportFolderTemplate).trim() ||
