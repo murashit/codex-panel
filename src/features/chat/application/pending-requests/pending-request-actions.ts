@@ -8,7 +8,7 @@ import {
 import { approvalDetailsDisclosureId } from "../../domain/pending-requests/disclosure-ids";
 import { pendingRequestFocusSignature } from "../../domain/pending-requests/signatures";
 import type { ChatStateStore } from "../state/store";
-import { type PendingRequestBlockActions, type PendingRequestBlockState, pendingRequestBlockStateFromChatState } from "./block";
+import { type PendingRequestBlockActions, pendingRequestBlockStateFromChatState } from "./block";
 
 interface PendingRequestResponder {
   resolveApproval: (requestId: PendingRequestId, action: ApprovalAction) => void;
@@ -26,12 +26,7 @@ export interface PendingRequestActionsHost {
 }
 
 export interface PendingRequestActions {
-  snapshot(): PendingRequestBlockState;
   actions(): PendingRequestBlockActions;
-  resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void;
-  resolveUserInput(requestId: PendingRequestId): void;
-  cancelUserInput(requestId: PendingRequestId): void;
-  resolveMcpElicitation(requestId: PendingRequestId, action: McpElicitationAction): void;
   consumeAutoFocus(): boolean;
 }
 
@@ -99,18 +94,9 @@ export function createPendingRequestActions(host: PendingRequestActionsHost): Pe
   };
 
   return {
-    snapshot() {
-      return pendingRequestBlockStateFromChatState(host.stateStore.getState());
-    },
-
     actions(): PendingRequestBlockActions {
       return blockActions;
     },
-
-    resolveApproval,
-    resolveUserInput,
-    cancelUserInput,
-    resolveMcpElicitation,
 
     consumeAutoFocus(): boolean {
       const state = host.stateStore.getState();

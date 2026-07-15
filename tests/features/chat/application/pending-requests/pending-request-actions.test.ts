@@ -32,7 +32,7 @@ describe("PendingRequestActions", () => {
     stateStore.dispatch({ type: "request/user-input-queued", input });
     stateStore.dispatch({ type: "request/user-input-draft-set", key: "7:direction", value: "Left" });
 
-    pendingRequests.resolveUserInput(input.requestId);
+    pendingRequests.actions().resolveUserInput(input.requestId);
 
     expect(resolveUserInput).toHaveBeenCalledWith(input.requestId, { direction: "Left" });
     expect(refreshLiveState).toHaveBeenCalledOnce();

@@ -1,4 +1,4 @@
-import type { AgentRunSummary, TaskProgressThreadStreamItem, ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
 import { threadStreamItemsEmpty } from "../../domain/thread-stream/selectors";
 import { activeTurnLiveItems, threadStreamItemsWithoutActiveTaskProgress } from "../../domain/thread-stream/semantics/active-turn";
 import type { ThreadStreamSemanticClassification } from "../../domain/thread-stream/semantics/types";
@@ -27,44 +27,6 @@ export interface ThreadStreamPresentationBlockInput {
   pendingRequests?: PendingRequestThreadStreamBlockInput | null | undefined;
 }
 
-type ThreadStreamPresentationBlock =
-  | {
-      kind: "historyBar";
-      key: "history-bar";
-      loadingHistory: boolean;
-    }
-  | {
-      kind: "empty";
-      key: "empty";
-    }
-  | {
-      kind: "item";
-      key: string;
-      block: Extract<ThreadStreamLayoutBlock, { type: "item" }>;
-    }
-  | {
-      kind: "activityGroup";
-      key: string;
-      block: Extract<ThreadStreamLayoutBlock, { type: "activityGroup" }>;
-    }
-  | {
-      kind: "liveTask";
-      key: string;
-      item: TaskProgressThreadStreamItem;
-    }
-  | {
-      kind: "liveAgentSummary";
-      key: string;
-      summary: AgentRunSummary;
-    }
-  | {
-      kind: "pendingRequests";
-      key: "pending-requests";
-      signature: string;
-      snapshot: PendingRequestBlockSnapshot;
-    };
-
-type ThreadStreamPresentationBlockSource = (input: ThreadStreamPresentationBlockInput) => readonly ThreadStreamPresentationBlock[];
 type ThreadStreamRenderFamily = "text" | "detail" | "status";
 
 export type ThreadStreamRenderedItemView =
@@ -128,48 +90,63 @@ export type ThreadStreamViewBlock =
     };
 
 export function threadStreamViewBlocks(input: ThreadStreamPresentationBlockInput): ThreadStreamViewBlock[] {
-  return threadStreamPresentationBlocks(input).map((block) => threadStreamViewBlockFromPresentationBlock(block, input));
-}
-
-function threadStreamPresentationBlocks(input: ThreadStreamPresentationBlockInput): ThreadStreamPresentationBlock[] {
-  const headerBlocks = historyPresentationBlocks(input);
+  const headerBlocks = historyViewBlocks(input);
   if (threadStreamItemsEmpty(input)) {
     return [...headerBlocks, { kind: "empty", key: "empty" }];
   }
 
-  return [
-    ...headerBlocks,
-    ...collectPresentationBlocks(input, [layoutPresentationBlocks, activeTurnPresentationBlocks, pendingRequestPresentationBlocks]),
-  ];
+  return [...headerBlocks, ...layoutViewBlocks(input), ...activeTurnViewBlocks(input), ...pendingRequestViewBlocks(input)];
 }
 
-function collectPresentationBlocks(
-  input: ThreadStreamPresentationBlockInput,
-  sources: readonly ThreadStreamPresentationBlockSource[],
-): ThreadStreamPresentationBlock[] {
-  return sources.flatMap((source) => source(input));
-}
-
-function historyPresentationBlocks(input: ThreadStreamPresentationBlockInput): readonly ThreadStreamPresentationBlock[] {
+function historyViewBlocks(input: ThreadStreamPresentationBlockInput): readonly ThreadStreamViewBlock[] {
   if (!input.activeThreadId || !input.historyCursor) return [];
   return [{ kind: "historyBar", key: "history-bar", loadingHistory: input.loadingHistory }];
 }
 
-function layoutPresentationBlocks(input: ThreadStreamPresentationBlockInput): readonly ThreadStreamPresentationBlock[] {
-  return layoutBlocksForInput(input).map(presentationBlockFromLayoutBlock);
+function layoutViewBlocks(input: ThreadStreamPresentationBlockInput): readonly ThreadStreamViewBlock[] {
+  return layoutBlocksForInput(input).map((block) => threadStreamViewBlockFromLayoutBlock(block, input));
 }
 
-function presentationBlockFromLayoutBlock(block: ThreadStreamLayoutBlock): ThreadStreamPresentationBlock {
-  if (block.type === "item") return { kind: "item", key: `item:${block.item.id}`, block };
-  return { kind: "activityGroup", key: `activity:${block.id}`, block };
+function threadStreamViewBlockFromLayoutBlock(
+  block: ThreadStreamLayoutBlock,
+  input: ThreadStreamPresentationBlockInput,
+): ThreadStreamViewBlock {
+  if (block.type === "item") {
+    return {
+      key: `item:${block.item.id}`,
+      ...threadStreamRenderedItemView(block.classification, input, block.annotations),
+    };
+  }
+  return {
+    kind: "activityGroup",
+    key: `activity:${block.id}`,
+    id: block.id,
+    turnId: block.turnId,
+    summary: block.summary,
+    items: block.items.map((activity) => threadStreamActivityItemView(activity, input)),
+  };
 }
 
-function activeTurnPresentationBlocks(input: ThreadStreamPresentationBlockInput): readonly ThreadStreamPresentationBlock[] {
-  if (!input.activeTurnId) return [];
-  return activeTurnLiveBlocks(input, input.activeTurnId);
+function activeTurnViewBlocks(input: ThreadStreamPresentationBlockInput): readonly ThreadStreamViewBlock[] {
+  const { activeTurnId } = input;
+  if (!activeTurnId) return [];
+  return activeTurnLiveItems(input, activeTurnId).map((item): ThreadStreamViewBlock => {
+    if (item.kind === "taskProgress") {
+      return {
+        kind: "status",
+        key: `live-task:${item.item.id}`,
+        view: threadStreamStatusView(item.item, statusViewContext(input)),
+      };
+    }
+    return {
+      kind: "liveAgentSummary",
+      key: `live-agents:${activeTurnId}`,
+      view: agentRunSummaryView(item.summary),
+    };
+  });
 }
 
-function pendingRequestPresentationBlocks(input: ThreadStreamPresentationBlockInput): readonly ThreadStreamPresentationBlock[] {
+function pendingRequestViewBlocks(input: ThreadStreamPresentationBlockInput): readonly ThreadStreamViewBlock[] {
   if (!input.pendingRequests?.signature) return [];
   return [
     {
@@ -195,45 +172,6 @@ function layoutBlocksForInput(input: ThreadStreamPresentationBlockInput): Thread
     input.turnDiffs,
   );
   return [...stableBlocks, ...activeBlocks];
-}
-
-function activeTurnLiveBlocks(
-  input: Pick<ThreadStreamPresentationBlockInput, "items" | "activeItems">,
-  activeTurnId: string,
-): ThreadStreamPresentationBlock[] {
-  return activeTurnLiveItems(input, activeTurnId).map((item): ThreadStreamPresentationBlock => {
-    if (item.kind === "taskProgress") {
-      return {
-        kind: "liveTask",
-        key: `live-task:${item.item.id}`,
-        item: item.item,
-      };
-    }
-    return { kind: "liveAgentSummary", key: `live-agents:${activeTurnId}`, summary: item.summary };
-  });
-}
-
-function threadStreamViewBlockFromPresentationBlock(
-  block: ThreadStreamPresentationBlock,
-  input: ThreadStreamPresentationBlockInput,
-): ThreadStreamViewBlock {
-  if (block.kind === "historyBar" || block.kind === "empty") return block;
-  if (block.kind === "pendingRequests") return block;
-  if (block.kind === "liveAgentSummary") return { kind: "liveAgentSummary", key: block.key, view: agentRunSummaryView(block.summary) };
-  if (block.kind === "liveTask") {
-    return { kind: "status", key: block.key, view: threadStreamStatusView(block.item, statusViewContext(input)) };
-  }
-  if (block.kind === "activityGroup") {
-    return {
-      kind: "activityGroup",
-      key: block.key,
-      id: block.block.id,
-      turnId: block.block.turnId,
-      summary: block.block.summary,
-      items: block.block.items.map((activity) => threadStreamActivityItemView(activity, input)),
-    };
-  }
-  return { key: block.key, ...threadStreamRenderedItemView(block.block.classification, input, block.block.annotations) };
 }
 
 function threadStreamActivityItemView(
