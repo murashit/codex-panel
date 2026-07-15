@@ -7,10 +7,6 @@
   --codex-panel-radius-pill: 999px;
   --codex-panel-size-icon-s: var(--icon-s, 16px);
   --codex-panel-size-icon-xs: var(--icon-xs, 14px);
-  --codex-panel-size-clickable-icon: var(
-    --clickable-icon-size,
-    var(--icon-container-size, calc(var(--codex-panel-control-icon-size) + var(--codex-panel-control-gap) * 2))
-  );
   --codex-panel-size-nav-item: var(--nav-item-size, 28px);
   --codex-panel-size-settings-archived-list-max-height: 360px;
   --codex-panel-size-settings-hook-list-max-height: 420px;
@@ -19,6 +15,7 @@
   --codex-panel-size-stream-item-collapse-max-height: 360px;
   --codex-panel-size-stream-item-collapse-fade-height: 72px;
   --codex-panel-size-goal-objective-collapse-max-height: 4.5lh;
+  --codex-panel-size-goal-objective-input-max-height: 180px;
   --codex-panel-size-output-max-height: 420px;
   --codex-panel-size-selection-rewrite-width: 520px;
   --codex-panel-size-selection-rewrite-max-height: 560px;
@@ -29,13 +26,11 @@
   --codex-panel-size-user-input-text-min-height: 26px;
   --codex-panel-size-composer-input-max-height: 208px;
   --codex-panel-size-composer-suggestions-max-height: 168px;
-  --codex-panel-icon-button-inline-size: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-item-gap) * 2);
   --codex-panel-icon-button-block-size: calc(var(--codex-panel-control-icon-size) + var(--codex-panel-control-gap) * 2);
   --codex-panel-composer-control-size: var(--codex-panel-icon-button-block-size);
   --codex-panel-composer-min-height: calc((var(--codex-panel-composer-control-size) * 2) + var(--codex-panel-control-gap));
   --codex-panel-status-bar-clearance: 0px;
   --codex-panel-bottom-safe-area: max(env(safe-area-inset-bottom, 0px), var(--codex-panel-status-bar-clearance));
-  --codex-panel-toolbar-text-color: var(--text-muted);
   --codex-panel-toolbar-text-size: var(--font-ui-small);
   --codex-panel-toolbar-meta-size: var(--font-ui-smaller);
   --codex-panel-toolbar-line-height: var(--line-height-tight);
@@ -58,7 +53,6 @@
   --codex-panel-item-gap: var(--size-2-3, 6px);
   --codex-panel-control-gap: var(--size-2-2, 4px);
   --codex-panel-panel-gap: var(--size-2-1, 2px);
-  --codex-panel-toolbar-panel-row-gap: var(--codex-panel-control-gap);
   --codex-panel-rail-indent: calc(var(--codex-panel-section-gap) + var(--codex-panel-panel-gap));
   --codex-panel-section-label-color: var(--codex-panel-text-faint);
   --codex-panel-section-label-size: var(--font-ui-smaller);
@@ -81,6 +75,4 @@
   --codex-panel-rail: var(--codex-panel-rail-width) solid var(--codex-panel-border-color);
   --codex-panel-rail-transparent: var(--codex-panel-rail-width) solid transparent;
   --codex-panel-border: var(--border-width, 1px) solid var(--codex-panel-border-color);
-  --codex-panel-divider: 1px solid var(--codex-panel-border-color);
-  --codex-panel-divider-muted: 1px solid var(--codex-panel-border-muted-color);
 }

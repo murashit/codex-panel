@@ -270,6 +270,44 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("codex-panel__unused");
   });
 
+  it("reports unused panel custom properties", async () => {
+    const cwd = await cssUsageFixture({
+      "src/styles/10-component.css": [
+        ".codex-panel__used {",
+        "  --codex-panel-used-size: 1px;",
+        "  --codex-panel-unused-size: 2px;",
+        "  width: var(--codex-panel-used-size);",
+        "  /*",
+        "  --codex-panel-commented-size: 3px;",
+        "  width: var(--codex-panel-unused-size);",
+        "  */",
+        "}",
+      ].join("\n"),
+      "src/component.ts": 'export const className = "codex-panel__used";\n',
+    });
+
+    const result = runNodeScript("scripts/check-css-usage.mjs", [], cwd);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Unused CSS custom property candidates:");
+    expect(result.stderr).toContain("--codex-panel-unused-size");
+    expect(result.stderr).not.toContain("--codex-panel-used-size\n");
+    expect(result.stderr).not.toContain("--codex-panel-commented-size");
+  });
+
+  it("does not count a longer source class name as usage", async () => {
+    const cwd = await cssUsageFixture({
+      "src/styles/10-component.css": [".codex-panel__item { display: block; }", ".codex-panel__item-detail { display: block; }"].join("\n"),
+      "src/component.ts": 'export const className = "codex-panel__item-detail";\n',
+    });
+
+    const result = runNodeScript("scripts/check-css-usage.mjs", [], cwd);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Unused CSS class candidates:");
+    expect(result.stderr).toContain("  codex-panel__item\n");
+  });
+
   it("prepares release notes from conventional commits since the previous tag", async () => {
     const cwd = await tempWorkspace();
     await writeJson(path.join(cwd, "package.json"), { version: "2.3.2" });

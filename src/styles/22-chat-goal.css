@@ -114,40 +114,15 @@
 }
 
 .codex-panel__goal-editor-frame {
-  display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--codex-panel-control-gap);
-  min-width: 0;
   align-items: end;
-  border: var(--input-border-width, var(--border-width, 1px)) solid var(--background-modifier-border);
-  border-radius: var(--input-radius, var(--radius-s));
-  background: var(--background-modifier-form-field);
-}
-
-.codex-panel__goal-editor-frame:focus-within {
-  border-color: var(--background-modifier-border-focus);
-  box-shadow: 0 0 0 var(--input-border-width, var(--border-width, 1px)) var(--background-modifier-border-focus);
 }
 
 .codex-panel__goal-objective-input {
   min-height: var(--codex-panel-composer-min-height);
-  max-height: min(var(--codex-panel-size-selection-rewrite-preview-max-height), 30vh);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  max-height: min(var(--codex-panel-size-goal-objective-input-max-height), 30vh);
   overflow-y: hidden;
   resize: none;
-}
-
-.codex-panel__goal-objective-input.codex-panel__goal-objective-input:hover,
-.codex-panel__goal-objective-input.codex-panel__goal-objective-input:focus,
-.codex-panel__goal-objective-input.codex-panel__goal-objective-input:focus-visible,
-.codex-panel__goal-objective-input.codex-panel__goal-objective-input:active {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  outline: none;
 }
 
 .codex-panel__goal-save {

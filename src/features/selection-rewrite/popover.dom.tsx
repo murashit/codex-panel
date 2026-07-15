@@ -341,7 +341,7 @@ function SelectionRewritePopoverView({
   return (
     <>
       <div className="codex-panel-selection-rewrite__prompt-row">
-        <div className="codex-panel-selection-rewrite__composer-frame">
+        <div className="codex-panel-ui__text-input-frame codex-panel-selection-rewrite__composer-frame">
           <textarea
             ref={instructionRef}
             className="codex-panel-ui__text-input codex-panel-selection-rewrite__instruction"
@@ -397,7 +397,7 @@ function SelectionRewriteStatus({ status }: { status: SelectionRewriteSessionSta
     <div className={`codex-panel-selection-rewrite__status${active ? " is-active" : ""}`}>
       <span>{text}</span>
       {active ? (
-        <span className="codex-panel-selection-rewrite__status-dots">
+        <span className="codex-panel-ui__activity-dots">
           <span>.</span>
           <span>.</span>
           <span>.</span>

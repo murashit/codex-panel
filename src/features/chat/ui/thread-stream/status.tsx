@@ -96,7 +96,7 @@ function Reasoning({ view }: { view: Extract<ThreadStreamStatusView, { kind: "re
       <div className="codex-panel__reasoning-content">
         <span>{view.text}</span>
         {view.active ? (
-          <span className="codex-panel__reasoning-dots">
+          <span className="codex-panel-ui__activity-dots">
             <span>.</span>
             <span>.</span>
             <span>.</span>

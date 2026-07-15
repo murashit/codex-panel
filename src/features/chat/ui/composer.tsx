@@ -158,7 +158,7 @@ export function ComposerShell({
 
   return (
     <div className="codex-panel__composer">
-      <div className="codex-panel__composer-frame">
+      <div className="codex-panel-ui__text-input-frame codex-panel__composer-frame">
         <textarea
           ref={composerRef}
           className="codex-panel-ui__text-input codex-panel__composer-input"

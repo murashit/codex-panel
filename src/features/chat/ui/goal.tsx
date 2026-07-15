@@ -150,7 +150,7 @@ export function GoalPanel({
         </div>
         {editing ? (
           <div className="codex-panel__goal-editor">
-            <div className="codex-panel__goal-editor-frame">
+            <div className="codex-panel-ui__text-input-frame codex-panel__goal-editor-frame">
               <textarea
                 ref={objectiveRef}
                 className="codex-panel-ui__text-input codex-panel__goal-objective-input"

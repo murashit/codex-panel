@@ -231,7 +231,48 @@
 .codex-panel-ui__text-input {
   width: 100%;
   overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   font-family: var(--codex-panel-content-font);
   font-size: var(--codex-panel-content-font-size);
   resize: none;
+}
+
+.codex-panel-ui__text-input.codex-panel-ui__text-input:hover,
+.codex-panel-ui__text-input.codex-panel-ui__text-input:focus,
+.codex-panel-ui__text-input.codex-panel-ui__text-input:focus-visible,
+.codex-panel-ui__text-input.codex-panel-ui__text-input:active {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.codex-panel-ui__text-input-frame {
+  display: grid;
+  gap: var(--codex-panel-control-gap);
+  min-width: 0;
+  border: var(--input-border-width, var(--border-width, 1px)) solid var(--background-modifier-border);
+  border-radius: var(--input-radius, var(--radius-s));
+  background: var(--background-modifier-form-field);
+}
+
+.codex-panel-ui__text-input-frame:focus-within {
+  border-color: var(--background-modifier-border-focus);
+  box-shadow: 0 0 0 var(--input-border-width, var(--border-width, 1px)) var(--background-modifier-border-focus);
+}
+
+.codex-panel-ui__activity-dots span {
+  opacity: 0.35;
+  animation: codex-panel-activity-dot 1.2s infinite ease-in-out;
+}
+
+.codex-panel-ui__activity-dots span:where(:nth-child(2)) {
+  animation-delay: 0.18s;
+}
+
+.codex-panel-ui__activity-dots span:where(:nth-child(3)) {
+  animation-delay: 0.36s;
 }

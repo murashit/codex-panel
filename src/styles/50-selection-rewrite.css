@@ -24,38 +24,13 @@
 }
 
 .codex-panel-selection-rewrite__composer-frame {
-  display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--codex-panel-control-gap);
-  min-width: 0;
   align-items: end;
-  border: var(--input-border-width, var(--border-width, 1px)) solid var(--background-modifier-border);
-  border-radius: var(--input-radius, var(--radius-s));
-  background: var(--background-modifier-form-field);
-}
-
-.codex-panel-selection-rewrite__composer-frame:focus-within {
-  border-color: var(--background-modifier-border-focus);
-  box-shadow: 0 0 0 var(--input-border-width, var(--border-width, 1px)) var(--background-modifier-border-focus);
 }
 
 .codex-panel-selection-rewrite__instruction {
   min-height: var(--codex-panel-size-user-input-text-min-height);
   max-height: min(var(--codex-panel-size-selection-rewrite-preview-max-height), 30vh);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.codex-panel-selection-rewrite__instruction.codex-panel-selection-rewrite__instruction:hover,
-.codex-panel-selection-rewrite__instruction.codex-panel-selection-rewrite__instruction:focus,
-.codex-panel-selection-rewrite__instruction.codex-panel-selection-rewrite__instruction:focus-visible,
-.codex-panel-selection-rewrite__instruction.codex-panel-selection-rewrite__instruction:active {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  outline: none;
 }
 
 .codex-panel-selection-rewrite__result {
@@ -102,22 +77,6 @@
 
 .codex-panel-selection-rewrite__status.is-active {
   color: var(--codex-panel-text-faint);
-}
-
-.codex-panel-selection-rewrite__status-dots span {
-  opacity: 0.35;
-}
-
-.codex-panel-selection-rewrite__status.is-active .codex-panel-selection-rewrite__status-dots span {
-  animation: codex-panel-reasoning-dot 1.2s infinite ease-in-out;
-}
-
-.codex-panel-selection-rewrite__status.is-active .codex-panel-selection-rewrite__status-dots span:where(:nth-child(2)) {
-  animation-delay: 0.18s;
-}
-
-.codex-panel-selection-rewrite__status.is-active .codex-panel-selection-rewrite__status-dots span:where(:nth-child(3)) {
-  animation-delay: 0.36s;
 }
 
 .codex-panel-selection-rewrite__stream-preview {

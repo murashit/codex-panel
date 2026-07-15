@@ -15,6 +15,8 @@ const sourceFiles = await filesInTree(path.join(root, "src"), new Set([".ts", ".
 const testFiles = await filesInTree(path.join(root, "tests"), new Set([".ts", ".tsx"]));
 
 const cssClasses = await collectCssClasses(cssFiles);
+const cssCustomProperties = await collectCssCustomProperties(cssFiles);
+const referencedCssCustomProperties = await collectReferencedCssCustomProperties(cssFiles);
 const sourceTexts = await readTexts(sourceFiles);
 const testTexts = await readTexts(testFiles);
 const sourceText = sourceTexts.map((item) => item.text).join("\n");
@@ -22,6 +24,7 @@ const dynamicPrefixes = collectDynamicClassPrefixes(sourceText);
 
 const testOnlyCandidates = [];
 const candidates = [];
+const unusedCustomProperties = [];
 
 for (const [className, locations] of cssClasses) {
   const sourceMatches = locationsInTexts(sourceTexts, className);
@@ -36,8 +39,13 @@ for (const [className, locations] of cssClasses) {
   candidates.push({ className, locations });
 }
 
-if (candidates.length + testOnlyCandidates.length + dynamicPrefixes.length > 0) {
-  printCandidates({ testOnlyCandidates, candidates, dynamicPrefixes });
+for (const [propertyName, locations] of cssCustomProperties) {
+  if (referencedCssCustomProperties.has(propertyName) || locationsInTexts(sourceTexts, propertyName).length > 0) continue;
+  unusedCustomProperties.push({ propertyName, locations });
+}
+
+if (candidates.length + testOnlyCandidates.length + unusedCustomProperties.length + dynamicPrefixes.length > 0) {
+  printCandidates({ testOnlyCandidates, candidates, unusedCustomProperties, dynamicPrefixes });
   process.exit(1);
 }
 
@@ -53,12 +61,11 @@ async function orderedCssFiles() {
 async function collectCssClasses(files) {
   const result = new Map();
   for (const file of files) {
-    const text = await readFile(file, "utf8");
+    const text = stripCssComments(await readFile(file, "utf8"));
     const lines = text.split("\n");
     for (const [index, line] of lines.entries()) {
-      const withoutComment = line.replace(/\/\*.*?\*\//g, "");
       const classPattern = /(^|[^\\])\.([_a-zA-Z][\w-]*)/g;
-      for (const match of withoutComment.matchAll(classPattern)) {
+      for (const match of line.matchAll(classPattern)) {
         const className = match[2];
         if (!className.startsWith("codex-panel")) continue;
         const locations = result.get(className) ?? [];
@@ -68,6 +75,38 @@ async function collectCssClasses(files) {
     }
   }
   return new Map([...result.entries()].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+async function collectCssCustomProperties(files) {
+  const result = new Map();
+  for (const file of files) {
+    const text = stripCssComments(await readFile(file, "utf8"));
+    const lines = text.split("\n");
+    for (const [index, line] of lines.entries()) {
+      for (const match of line.matchAll(/(--codex-panel-[\w-]+)\s*:/g)) {
+        const propertyName = match[1];
+        const locations = result.get(propertyName) ?? [];
+        locations.push(`${relative(file)}:${index + 1}`);
+        result.set(propertyName, locations);
+      }
+    }
+  }
+  return new Map([...result.entries()].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+async function collectReferencedCssCustomProperties(files) {
+  const result = new Set();
+  for (const file of files) {
+    const text = stripCssComments(await readFile(file, "utf8"));
+    for (const match of text.matchAll(/var\(\s*(--codex-panel-[\w-]+)/g)) {
+      result.add(match[1]);
+    }
+  }
+  return result;
+}
+
+function stripCssComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ""));
 }
 
 function collectDynamicClassPrefixes(text) {
@@ -89,9 +128,12 @@ async function readTexts(files) {
 
 function locationsInTexts(texts, needle) {
   const locations = [];
+  const escapedNeedle = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(^|[^\\w-])${escapedNeedle}(?![\\w-])`);
   for (const { file, text } of texts) {
-    const offset = text.indexOf(needle);
-    if (offset === -1) continue;
+    const match = pattern.exec(text);
+    if (!match) continue;
+    const offset = match.index + match[1].length;
     const line = text.slice(0, offset).split("\n").length;
     locations.push(`${relative(file)}:${line}`);
   }
@@ -119,7 +161,7 @@ async function collectFiles(directory, extensions, excludedPrefixes, result) {
   }
 }
 
-function printCandidates({ testOnlyCandidates, candidates, dynamicPrefixes }) {
+function printCandidates({ testOnlyCandidates, candidates, unusedCustomProperties, dynamicPrefixes }) {
   console.error("CSS usage check failed.");
   if (dynamicPrefixes.length > 0) {
     console.error("");
@@ -144,6 +186,15 @@ function printCandidates({ testOnlyCandidates, candidates, dynamicPrefixes }) {
     console.error("Unused CSS class candidates:");
     for (const item of candidates) {
       console.error(`  ${item.className}`);
+      console.error(`    css: ${item.locations.join(", ")}`);
+    }
+  }
+
+  if (unusedCustomProperties.length > 0) {
+    console.error("");
+    console.error("Unused CSS custom property candidates:");
+    for (const item of unusedCustomProperties) {
+      console.error(`  ${item.propertyName}`);
       console.error(`    css: ${item.locations.join(", ")}`);
     }
   }

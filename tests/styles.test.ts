@@ -101,6 +101,36 @@ describe("panel CSS layout invariants", () => {
     expect(navInlineInputFocus).toContain("background: transparent");
   });
 
+  it("keeps framed text inputs native across panel surfaces", () => {
+    const frame = ruleBody(".codex-panel-ui__text-input-frame");
+    const frameFocus = ruleBody(".codex-panel-ui__text-input-frame:focus-within");
+    const input = ruleBody(".codex-panel-ui__text-input");
+    const inputInteraction = ruleBody(
+      [
+        ".codex-panel-ui__text-input.codex-panel-ui__text-input:hover,",
+        ".codex-panel-ui__text-input.codex-panel-ui__text-input:focus,",
+        ".codex-panel-ui__text-input.codex-panel-ui__text-input:focus-visible,",
+        ".codex-panel-ui__text-input.codex-panel-ui__text-input:active",
+      ].join("\n"),
+    );
+
+    expect(frame).toContain("background: var(--background-modifier-form-field)");
+    expect(frameFocus).toContain("border-color: var(--background-modifier-border-focus)");
+    expect(input).toContain("border: 0");
+    expect(inputInteraction).toContain("background: transparent");
+    expect(inputInteraction).toContain("outline: none");
+  });
+
+  it("shares activity dot timing across active surfaces", () => {
+    const activityDots = ruleBody(".codex-panel-ui__activity-dots span");
+    const secondDot = ruleBody(".codex-panel-ui__activity-dots span:where(:nth-child(2))");
+    const thirdDot = ruleBody(".codex-panel-ui__activity-dots span:where(:nth-child(3))");
+
+    expect(activityDots).toContain("animation: codex-panel-activity-dot 1.2s infinite ease-in-out");
+    expect(secondDot).toContain("animation-delay: 0.18s");
+    expect(thirdDot).toContain("animation-delay: 0.36s");
+  });
+
   it("keeps compact status rows from wrapping or stealing pointer interaction", () => {
     const contextMeter = ruleBody(".codex-panel__composer-meta-context");
     const summary = ruleBody(".codex-panel__composer-meta-summary");
@@ -156,10 +186,11 @@ describe("panel CSS layout invariants", () => {
 
   it("keeps selection rewrite controls framed as a compact edit-and-review surface", () => {
     const composerFrame = ruleBody(".codex-panel-selection-rewrite__composer-frame");
+    const sharedFrame = ruleBody(".codex-panel-ui__text-input-frame");
     const result = ruleBody(".codex-panel-selection-rewrite__result");
 
     expect(composerFrame).toContain("grid-template-columns:");
-    expect(composerFrame).toContain("background: var(--background-modifier-form-field)");
+    expect(sharedFrame).toContain("background: var(--background-modifier-form-field)");
     expect(result).toContain("grid-template-columns:");
     expect(result).toContain("border: var(--codex-panel-border)");
   });
