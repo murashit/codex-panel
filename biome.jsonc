@@ -195,7 +195,6 @@
       "scripts/**/*.mjs",
       "src/**/*.{css,ts,tsx}",
       "tests/**/*.{mjs,ts,tsx}",
-      "!tests/fixtures/grit-policy",
       "!src/generated"
     ]
   },

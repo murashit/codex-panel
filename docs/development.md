@@ -31,7 +31,7 @@ Use focused scripts while iterating, but run `npm run check` before handoff. CI 
 
 Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
 
-Grit policy fixtures protect matcher semantics rather than diagnostic wording, source locations, or the exact shape of Biome configuration. Change the checked-in valid and invalid fixtures only when a policy's accepted or rejected source shape intentionally changes.
+Grit policy cases protect matcher semantics rather than diagnostic wording, source locations, or the exact shape of Biome configuration. Keep one valid and invalid source case for each policy, and change a case only when that policy's accepted or rejected source shape intentionally changes.
 
 ## Generated and Loaded Files
 
