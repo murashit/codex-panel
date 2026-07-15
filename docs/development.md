@@ -31,6 +31,8 @@ Use focused scripts while iterating, but run `npm run check` before handoff. CI 
 
 Keep rule suppressions local and include the Obsidian-specific reason when a native Obsidian UI pattern intentionally diverges from a generic browser rule.
 
+Grit policy fixtures protect matcher semantics rather than diagnostic wording, source locations, or the exact shape of Biome configuration. Change the checked-in valid and invalid fixtures only when a policy's accepted or rejected source shape intentionally changes.
+
 ## Generated and Loaded Files
 
 `main.js`, `styles.css`, `data.json`, and `node_modules/` are ignored by Git. `main.js` and `styles.css` are still the files Obsidian loads, so run `npm run build` before live Obsidian validation if you have not already run `npm run check` after the source change.
