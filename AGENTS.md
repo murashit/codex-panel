@@ -4,7 +4,7 @@ This repository contains the Codex Panel Obsidian plugin.
 
 - Start from evidence. Reproduce defects before fixing them; for product changes, reconstruct the current workflow, user need, alternatives, and losses before deciding what should change.
 - Use design documents as context, not as a substitute for current behavior and user expectations. Prefer coherent user-facing behavior and clear ownership, and remove needless abstraction or obsolete compatibility instead of preserving it by default.
-- Treat implementation, tests, documentation, lint policy, and final history as one deliverable. Update any drift in the same change and report it.
+- Treat implementation, tests, documentation, lint policy, and final history as one deliverable: inspect each for drift, but update only the durable contracts that changed. Documentation should record user-facing behavior, long-term design, or reusable workflow; do not add it merely to narrate an implementation change or duplicate tests and tooling.
 - Parallelize only substantial concerns that can be implemented and tested independently with little shared-file contention. Keep small, tightly coupled, sequential, or coordination-heavy work together.
 
 ## What To Read
