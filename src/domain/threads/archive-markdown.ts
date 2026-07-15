@@ -181,7 +181,7 @@ function normalizedExportedMarkdownLink(link: ParsedMarkdownLink, vaultPath: str
     return `[${link.label}](${markdownHref(`${vaultRelative}${parsed.subpath}`)})`;
   }
 
-  return isFilesystemAbsolutePath(normalizeFilePath(parsed.path)) ? `${link.label} (\`${href.replace(/`/g, "\\`")}\`)` : link.raw;
+  return isFilesystemAbsolutePath(normalizeFilePath(parsed.path)) ? `${link.label} (${markdownCodeSpan(href)})` : link.raw;
 }
 
 function archiveExportShouldKeepAbsolute(vaultRelativePath: string, vaultConfigDir: string | null | undefined): boolean {
@@ -190,6 +190,13 @@ function archiveExportShouldKeepAbsolute(vaultRelativePath: string, vaultConfigD
 
 function markdownHref(value: string): string {
   return /[\s()]/.test(value) ? `<${value}>` : value;
+}
+
+function markdownCodeSpan(value: string): string {
+  let fenceLength = 1;
+  for (const match of value.matchAll(/`+/g)) fenceLength = Math.max(fenceLength, match[0].length + 1);
+  const fence = "`".repeat(fenceLength);
+  return fenceLength === 1 ? `${fence}${value}${fence}` : `${fence} ${value} ${fence}`;
 }
 
 function isInsideInlineCode(line: string, offset: number): boolean {

@@ -19,7 +19,9 @@ function standaloneRuleBody(selector: string): string {
 
 describe("panel CSS boundaries", () => {
   it("defines design tokens on every standalone UI root", () => {
-    const tokenScope = /^(?<selectors>(?:\.[^{]+,\n)*\.[^{]+) \{/m.exec(styles)?.groups?.["selectors"] ?? "";
+    const tokenScopeEnd = styles.indexOf(" {");
+    expect(tokenScopeEnd).toBeGreaterThan(0);
+    const tokenScope = styles.slice(0, tokenScopeEnd);
 
     expect(tokenScope).toContain(".codex-panel");
     expect(tokenScope).toContain(".codex-panel-turn-diff");
