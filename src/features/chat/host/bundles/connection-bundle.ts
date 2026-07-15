@@ -124,12 +124,10 @@ export function createConnectionBundle(
   const serverRequestResponders = createServerRequestResponderRegistry();
   const serverMetadata = createServerMetadataActions({
     stateStore,
-    metadataResourceTransport: appServer.metadataResource,
-    beginAppServerMetadataResourceRefresh: (resource) =>
-      environment.plugin.appServerQueries.beginAppServerMetadataResourceRefresh(resource),
-    updateAppServerMetadata: (updater, resource) => environment.plugin.appServerQueries.updateAppServerMetadata(updater, resource),
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
-    refreshAppServerMetadata: (options) => environment.plugin.appServerQueries.refreshAppServerMetadata(options),
+    refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
+    refreshSkills: () => environment.plugin.appServerQueries.refreshSkills(),
+    refreshRateLimits: () => environment.plugin.appServerQueries.refreshRateLimits(),
     isStaleSharedQueryError: isStaleAppServerSharedQueryContextError,
   });
   const serverDiagnostics = createServerDiagnosticsActions({

@@ -343,21 +343,6 @@ describe("chat app-server transports", () => {
     expect(request).toHaveBeenCalledWith("thread/settings/update", { threadId: "thread", model: "gpt-5.5" });
   });
 
-  it("reads sparse skill metadata through the current app-server client", async () => {
-    const request = vi.fn().mockResolvedValue({ data: [{ cwd: "/vault", skills: [] }] });
-    const client = { request } as unknown as AppServerClient;
-    const transport = createTestGateway({
-      currentClient: () => client,
-    }).metadataResource;
-
-    await expect(transport.readSkillMetadata(true)).resolves.toMatchObject({
-      value: [],
-      probe: { status: "ok" },
-    });
-
-    expect(request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: true });
-  });
-
   it("reads diagnostics probes and tool inventory at the app-server boundary", async () => {
     const request = vi.fn((method: string) => {
       switch (method) {

@@ -66,10 +66,6 @@ export function diagnosticsWithToolInventory(diagnostics: Diagnostics, toolInven
   };
 }
 
-export function metadataResourceDiagnostics(diagnostics: Diagnostics): Diagnostics {
-  return diagnosticsWithMetadataResourceProbes(createServerDiagnostics(), diagnostics);
-}
-
 export function diagnosticsWithMetadataResourceProbes(diagnostics: Diagnostics, metadataDiagnostics: Diagnostics): Diagnostics {
   return METADATA_RESOURCE_PROBE_IDS.reduce((current, id) => diagnosticsWithProbe(current, metadataDiagnostics.probes[id]), diagnostics);
 }

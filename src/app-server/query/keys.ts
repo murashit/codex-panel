@@ -6,8 +6,11 @@ export interface AppServerQueryContext {
 type AppServerQueryScope = readonly ["app-server", string, string];
 export type AppServerActiveThreadsQueryKey = readonly [...AppServerQueryScope, "threads", "active"];
 export type AppServerArchivedThreadsQueryKey = readonly [...AppServerQueryScope, "threads", "archived"];
-export type AppServerMetadataQueryKey = readonly [...AppServerQueryScope, "metadata"];
 export type AppServerModelsQueryKey = readonly [...AppServerQueryScope, "models"];
+export type AppServerRuntimeConfigQueryKey = readonly [...AppServerQueryScope, "runtime-config"];
+export type AppServerSkillsQueryKey = readonly [...AppServerQueryScope, "skills"];
+export type AppServerPermissionProfilesQueryKey = readonly [...AppServerQueryScope, "permission-profiles"];
+export type AppServerRateLimitsQueryKey = readonly [...AppServerQueryScope, "rate-limits"];
 
 export function appServerQueryContextIsComplete(context: AppServerQueryContext): boolean {
   return nonEmptyString(context.codexPath) && nonEmptyString(context.vaultPath);
@@ -41,12 +44,24 @@ export function archivedThreadsQueryKey(context: AppServerQueryContext): AppServ
   return [...appServerQueryScope(context), "threads", "archived"];
 }
 
-export function appServerMetadataQueryKey(context: AppServerQueryContext): AppServerMetadataQueryKey {
-  return [...appServerQueryScope(context), "metadata"];
-}
-
 export function appServerModelsQueryKey(context: AppServerQueryContext): AppServerModelsQueryKey {
   return [...appServerQueryScope(context), "models"];
+}
+
+export function appServerRuntimeConfigQueryKey(context: AppServerQueryContext): AppServerRuntimeConfigQueryKey {
+  return [...appServerQueryScope(context), "runtime-config"];
+}
+
+export function appServerSkillsQueryKey(context: AppServerQueryContext): AppServerSkillsQueryKey {
+  return [...appServerQueryScope(context), "skills"];
+}
+
+export function appServerPermissionProfilesQueryKey(context: AppServerQueryContext): AppServerPermissionProfilesQueryKey {
+  return [...appServerQueryScope(context), "permission-profiles"];
+}
+
+export function appServerRateLimitsQueryKey(context: AppServerQueryContext): AppServerRateLimitsQueryKey {
+  return [...appServerQueryScope(context), "rate-limits"];
 }
 
 function nonEmptyString(value: string): boolean {

@@ -937,10 +937,10 @@ function chatHostFixture(): CodexChatHost {
       openSideChat: vi.fn(),
     },
     appServerQueries: {
-      beginAppServerMetadataResourceRefresh: vi.fn(() => () => true),
-      updateAppServerMetadata: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
+      refreshSkills: vi.fn(() => Promise.resolve(null)),
+      refreshRateLimits: vi.fn(() => Promise.resolve(null)),
       modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn(() => Promise.resolve([])),
       refreshModels: vi.fn(() => Promise.resolve([])),

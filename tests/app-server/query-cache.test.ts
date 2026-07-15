@@ -2,19 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { AppServerQueryContext } from "../../src/app-server/query/keys";
-import type { SkillMetadata } from "../../src/domain/catalog/metadata";
-import { emptyRuntimeConfigSnapshot, type RuntimeConfigSnapshot } from "../../src/domain/runtime/config";
 import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
-import {
-  createServerDiagnostics,
-  diagnosticProbeError,
-  diagnosticProbeOk,
-  diagnosticsWithProbe,
-  diagnosticsWithToolInventory,
-  upsertMcpServerDiagnostic,
-} from "../../src/domain/server/diagnostics";
-import type { SharedServerMetadata } from "../../src/domain/server/metadata";
 
 describe("AppServerQueryCache", () => {
   it("garbage-collects inactive query contexts", async () => {
@@ -32,179 +21,14 @@ describe("AppServerQueryCache", () => {
     }
   });
 
-  it("preserves successful metadata resource values when probes fail", () => {
-    const cache = new AppServerQueryCache();
-    const context = cacheContext();
-    const goodMetadata = metadata({
-      availableSkills: [skillMetadata("writer")],
-      availablePermissionProfiles: [permissionProfile(":workspace")],
-      rateLimit: rateLimit(42),
-    });
-
-    cache.writeAppServerMetadata(context, goodMetadata);
-    cache.writeAppServerMetadata(
-      context,
-      metadata({
-        availableSkills: [skillMetadata("failed-skill")],
-        availablePermissionProfiles: [permissionProfile(":failed")],
-        rateLimit: rateLimit(90),
-        skillsProbeStatus: "failed",
-        permissionProfilesProbeStatus: "failed",
-        rateLimitProbeStatus: "failed",
-      }),
-    );
-
-    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
-    expect(cache.appServerMetadataSnapshot(context)?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":workspace"]);
-    expect(cache.appServerMetadataSnapshot(context)?.rateLimit?.primary?.usedPercent).toBe(42);
-    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.skills.status).toBe("failed");
-    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.rateLimits.status).toBe("failed");
-
-    cache.writeAppServerMetadata(context, metadata({ modelProbeStatus: "failed" }));
-    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics.probes.models.status).toBe("failed");
-  });
-
-  it("model-checks last-known-good metadata fallback for all probe status combinations", () => {
-    for (const statuses of metadataProbeStatusCombinations()) {
-      const cache = new AppServerQueryCache();
-      const context = cacheContext();
-      cache.writeAppServerMetadata(
-        context,
-        metadata({
-          availableSkills: [skillMetadata("previous-skill")],
-          availablePermissionProfiles: [permissionProfile(":previous")],
-          rateLimit: rateLimit(11),
-        }),
-      );
-
-      cache.writeAppServerMetadata(
-        context,
-        metadata({
-          availableSkills: [skillMetadata("next-skill")],
-          availablePermissionProfiles: [permissionProfile(":next")],
-          rateLimit: rateLimit(22),
-          modelProbeStatus: statuses.models,
-          skillsProbeStatus: statuses.skills,
-          permissionProfilesProbeStatus: statuses.permissionProfiles,
-          rateLimitProbeStatus: statuses.rateLimits,
-        }),
-      );
-
-      const snapshot = cache.appServerMetadataSnapshot(context);
-      const statusCase = metadataProbeStatusCase(statuses);
-      expect(
-        snapshot?.availableSkills.map((skill) => skill.name),
-        statusCase,
-      ).toEqual([statuses.skills === "ok" ? "next-skill" : "previous-skill"]);
-      expect(
-        snapshot?.availablePermissionProfiles.map((profile) => profile.id),
-        statusCase,
-      ).toEqual([statuses.permissionProfiles === "ok" ? ":next" : ":previous"]);
-      expect(snapshot?.rateLimit?.primary?.usedPercent, statusCase).toBe(statuses.rateLimits === "ok" ? 22 : 11);
-    }
-  });
-
-  it("does not accept failed metadata resource payloads as cache truth", () => {
-    const cache = new AppServerQueryCache();
-    const context = cacheContext();
-
-    cache.writeAppServerMetadata(
-      context,
-      metadata({
-        availableSkills: [skillMetadata("writer")],
-        availablePermissionProfiles: [permissionProfile(":workspace")],
-        rateLimit: rateLimit(90),
-        modelProbeStatus: "failed",
-        skillsProbeStatus: "failed",
-        permissionProfilesProbeStatus: "failed",
-        rateLimitProbeStatus: "failed",
-      }),
-    );
-
-    const cached = cache.appServerMetadataSnapshot(context);
-    expect(cached?.runtimeConfig).not.toBeNull();
-    expect(cached?.serverDiagnostics.probes.models.status).toBe("failed");
-    expect(cached?.availableSkills).toEqual([]);
-    expect(cached?.availablePermissionProfiles).toEqual([]);
-    expect(cached?.rateLimit).toBeNull();
-    expect(cache.modelsSnapshot(context)).toBeNull();
-  });
-
-  it("keeps connection and thread diagnostics out of shared metadata snapshots", () => {
-    const cache = new AppServerQueryCache();
-    const context = cacheContext();
-    const polluted = metadata();
-    polluted.serverDiagnostics = diagnosticsWithToolInventory(
-      upsertMcpServerDiagnostic(polluted.serverDiagnostics, {
-        name: "github",
-        startupStatus: "ready",
-        authStatus: null,
-        toolCount: 1,
-        message: null,
-      }),
-      {
-        checkedAt: 1,
-        plugins: [],
-        pluginMarketplaceErrors: [],
-        pluginsError: null,
-        mcpServers: [],
-        mcpDiagnostics: [],
-        mcpError: null,
-        skills: [],
-        skillsError: null,
-      },
-    );
-
-    cache.writeAppServerMetadata(context, polluted);
-
-    expect(cache.appServerMetadataSnapshot(context)?.serverDiagnostics).toMatchObject({
-      mcpServers: [],
-      toolInventory: null,
-      probes: {
-        models: { status: "ok" },
-        skills: { status: "ok" },
-        permissionProfiles: { status: "ok" },
-        rateLimits: { status: "ok" },
-        plugins: { status: "unknown" },
-        mcpServers: { status: "unknown" },
-      },
-    });
-  });
-
   it("does not share or store snapshots before the cache context is complete", async () => {
     const cache = new AppServerQueryCache();
     const context = cacheContext({ codexPath: "" });
 
     await expect(cache.fetchActiveThreads(context)).resolves.toEqual([]);
-    cache.writeAppServerMetadata(context, metadata());
-
     expect(cache.activeThreadsSnapshot(context)).toBeNull();
     expect(cache.appServerMetadataSnapshot(context)).toBeNull();
     expect(cache.modelsSnapshot(context)).toBeNull();
-  });
-
-  it("does not let metadata writes overwrite the model query", async () => {
-    const cache = cacheWithRequestHandlers({
-      "model/list": vi.fn().mockResolvedValue({ data: [catalogModel("gpt-model-query")] }),
-    });
-    const context = cacheContext();
-
-    await cache.fetchModels(context);
-    cache.writeAppServerMetadata(context, metadata({ modelProbeStatus: "failed" }));
-
-    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-model-query"]);
-  });
-
-  it("does not reuse metadata or model snapshots across app-server cache contexts", () => {
-    const cache = new AppServerQueryCache();
-    const context = cacheContext();
-
-    cache.writeAppServerMetadata(context, metadata());
-
-    expect(cache.appServerMetadataSnapshot(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
-    expect(cache.appServerMetadataSnapshot(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
-    expect(cache.modelsSnapshot(cacheContext({ vaultPath: "/other-vault" }))).toBeNull();
-    expect(cache.modelsSnapshot(cacheContext({ codexPath: "/opt/codex" }))).toBeNull();
   });
 
   it("stores successful empty thread list snapshots as shared cache truth", async () => {
@@ -355,6 +179,259 @@ describe("AppServerQueryCache", () => {
     expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-meta"]);
   });
 
+  it("publishes one derived metadata projection after a coordinated refresh", async () => {
+    const context = cacheContext();
+    const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockResolvedValue({ data: [] }),
+      "skills/list": vi.fn(() => skills.promise),
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+    const listener = vi.fn();
+    const unsubscribe = cache.observeAppServerMetadataResult(context, listener, { emitCurrent: false });
+
+    const refresh = cache.refreshAppServerMetadata(context);
+    await flushMicrotasks();
+    expect(listener).not.toHaveBeenCalled();
+
+    skills.resolve({ data: [{ skills: [catalogSkill("writer")] }] });
+    await refresh;
+    await flushMicrotasks();
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({ value: expect.objectContaining({ availableSkills: [expect.objectContaining({ name: "writer" })] }) }),
+    );
+    unsubscribe();
+  });
+
+  it("coalesces a burst of skills notifications into one forced trailing refresh", async () => {
+    const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const second = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const listSkills = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
+    const context = cacheContext();
+
+    const refreshes = Array.from({ length: 10 }, () => cache.refreshSkills(context));
+    await flushMicrotasks();
+    expect(listSkills).toHaveBeenCalledOnce();
+    expect(listSkills).toHaveBeenNthCalledWith(1, { cwds: ["/vault"], forceReload: true });
+
+    first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
+    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
+    expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: true });
+    second.resolve({ data: [{ skills: [catalogSkill("new")] }] });
+    await Promise.all(refreshes);
+    expect(listSkills).toHaveBeenCalledTimes(2);
+  });
+
+  it("coalesces a burst of rate-limit notifications into one trailing refresh", async () => {
+    const first = deferred<{ rateLimits: ReturnType<typeof appServerRateLimit>; rateLimitsByLimitId: null }>();
+    const second = deferred<{ rateLimits: ReturnType<typeof appServerRateLimit>; rateLimitsByLimitId: null }>();
+    const readRateLimits = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const cache = cacheWithRequestHandlers({ "account/rateLimits/read": readRateLimits });
+    const context = cacheContext();
+
+    const refreshes = Array.from({ length: 10 }, () => cache.refreshRateLimits(context));
+    await flushMicrotasks();
+    expect(readRateLimits).toHaveBeenCalledOnce();
+
+    first.resolve({ rateLimits: appServerRateLimit(10), rateLimitsByLimitId: null });
+    await vi.waitFor(() => expect(readRateLimits).toHaveBeenCalledTimes(2));
+    second.resolve({ rateLimits: appServerRateLimit(20), rateLimitsByLimitId: null });
+    await Promise.all(refreshes);
+  });
+
+  it("deduplicates metadata resource RPCs across concurrent full refreshes", async () => {
+    const config = deferred<Record<string, never>>();
+    const models = deferred<{ data: CatalogModel[] }>();
+    const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const profiles = deferred<{ data: RuntimePermissionProfileSummary[]; nextCursor: null }>();
+    const limits = deferred<{ rateLimits: ReturnType<typeof appServerRateLimit>; rateLimitsByLimitId: null }>();
+    const handlers = {
+      "config/read": vi.fn(() => config.promise),
+      "model/list": vi.fn(() => models.promise),
+      "skills/list": vi.fn(() => skills.promise),
+      "permissionProfile/list": vi.fn(() => profiles.promise),
+      "account/rateLimits/read": vi.fn(() => limits.promise),
+    };
+    const cache = cacheWithRequestHandlers(handlers);
+    const context = cacheContext();
+
+    const first = cache.refreshAppServerMetadata(context);
+    const second = cache.refreshAppServerMetadata(context);
+    await flushMicrotasks();
+
+    for (const handler of Object.values(handlers)) expect(handler).toHaveBeenCalledOnce();
+    config.resolve({});
+    models.resolve({ data: [] });
+    skills.resolve({ data: [{ skills: [] }] });
+    profiles.resolve({ data: [], nextCursor: null });
+    limits.resolve({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null });
+    await Promise.all([first, second]);
+  });
+
+  it("runs a forced skills request after a notification overlaps a full refresh", async () => {
+    const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const second = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const listSkills = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockResolvedValue({}),
+      "model/list": vi.fn().mockResolvedValue({ data: [] }),
+      "skills/list": listSkills,
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+    const context = cacheContext();
+
+    const fullRefresh = cache.refreshAppServerMetadata(context);
+    await flushMicrotasks();
+    const notificationRefresh = cache.refreshSkills(context);
+    first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
+    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
+    expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: true });
+    second.resolve({ data: [{ skills: [catalogSkill("new")] }] });
+    await Promise.all([fullRefresh, notificationRefresh]);
+    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
+  });
+
+  it("schedules one more skills read when a notification arrives during the trailing refresh", async () => {
+    const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const second = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const third = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const listSkills = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+      .mockImplementationOnce(() => third.promise);
+    const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
+    const context = cacheContext();
+
+    const leading = cache.refreshSkills(context);
+    const trailing = cache.refreshSkills(context);
+    first.resolve({ data: [{ skills: [catalogSkill("first")] }] });
+    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
+    const afterTrailing = cache.refreshSkills(context);
+    second.resolve({ data: [{ skills: [catalogSkill("second")] }] });
+    await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(3));
+    third.resolve({ data: [{ skills: [catalogSkill("third")] }] });
+
+    await Promise.all([leading, trailing, afterTrailing]);
+    expect(listSkills).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not start trailing notification work after the cache is cleared", async () => {
+    const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const listSkills = vi.fn(() => first.promise);
+    const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
+    const context = cacheContext();
+
+    const leading = cache.refreshSkills(context);
+    const trailing = cache.refreshSkills(context);
+    await flushMicrotasks();
+    cache.clear();
+    first.resolve({ data: [{ skills: [catalogSkill("stale")] }] });
+    await Promise.all([leading, trailing]);
+    await flushMicrotasks();
+
+    expect(listSkills).toHaveBeenCalledOnce();
+    expect(cache.appServerMetadataSnapshot(context)).toBeNull();
+  });
+
+  it("rejects an initial metadata refresh when runtime config fails after optional resources settle", async () => {
+    const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const cache = cacheWithRequestHandlers({
+      "config/read": vi.fn().mockRejectedValue(new Error("config offline")),
+      "model/list": vi.fn().mockResolvedValue({ data: [] }),
+      "skills/list": vi.fn(() => skills.promise),
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+    const context = cacheContext();
+    let settled = false;
+    const refresh = cache.refreshAppServerMetadata(context).finally(() => {
+      settled = true;
+    });
+    await flushMicrotasks();
+    expect(settled).toBe(false);
+
+    skills.resolve({ data: [{ skills: [] }] });
+    await expect(refresh).rejects.toThrow("config offline");
+    expect(cache.appServerMetadataSnapshot(context)).toBeNull();
+  });
+
+  it("rejects runtime config refresh failures while preserving prior config and refreshed optional resources", async () => {
+    const readConfig = vi.fn().mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("config offline"));
+    const listSkills = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [{ skills: [catalogSkill("old")] }] })
+      .mockResolvedValueOnce({ data: [{ skills: [catalogSkill("new")] }] });
+    const cache = cacheWithRequestHandlers({
+      "config/read": readConfig,
+      "model/list": vi.fn().mockResolvedValue({ data: [] }),
+      "skills/list": listSkills,
+      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+    });
+    const context = cacheContext();
+    await cache.refreshAppServerMetadata(context);
+
+    await expect(cache.refreshAppServerMetadata(context)).rejects.toThrow("config offline");
+
+    const snapshot = cache.appServerMetadataSnapshot(context);
+    expect(snapshot?.runtimeConfig).not.toBeNull();
+    expect(snapshot?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
+  });
+
+  it("does not emit a queued metadata projection after unsubscribe", async () => {
+    vi.useFakeTimers({ toFake: ["queueMicrotask"] });
+    try {
+      const cache = metadataCacheWithSuccessfulHandlers();
+      const context = cacheContext();
+      await cache.refreshAppServerMetadata(context);
+      const listener = vi.fn();
+      const unsubscribe = cache.observeAppServerMetadataResult(context, listener, { emitCurrent: false });
+
+      await cache.refreshSkills(context);
+      unsubscribe();
+      vi.runAllTicks();
+
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not emit a queued metadata projection after the cache is cleared", async () => {
+    vi.useFakeTimers({ toFake: ["queueMicrotask"] });
+    try {
+      const cache = metadataCacheWithSuccessfulHandlers();
+      const context = cacheContext();
+      await cache.refreshAppServerMetadata(context);
+      const listener = vi.fn();
+      cache.observeAppServerMetadataResult(context, listener, { emitCurrent: false });
+
+      await cache.refreshSkills(context);
+      cache.clear();
+      vi.runAllTicks();
+
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shares in-flight model fetches between metadata and models queries", async () => {
     const context = cacheContext();
     const modelRefresh = deferred<{ data: CatalogModel[] }>();
@@ -409,22 +486,26 @@ describe("AppServerQueryCache", () => {
       .fn()
       .mockResolvedValueOnce({ data: [catalogModel("gpt-cached")] })
       .mockRejectedValueOnce(new Error("models offline"));
+    const listSkills = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [{ skills: [catalogSkill("cached-skill")] }] })
+      .mockRejectedValueOnce(new Error("skills offline"));
+    const listProfiles = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [permissionProfile(":cached")], nextCursor: null })
+      .mockRejectedValueOnce(new Error("profiles offline"));
+    const readRateLimits = vi
+      .fn()
+      .mockResolvedValueOnce({ rateLimits: appServerRateLimit(17), rateLimitsByLimitId: null })
+      .mockRejectedValueOnce(new Error("limits offline"));
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
       "model/list": listModels,
-      "skills/list": vi.fn().mockRejectedValue(new Error("skills offline")),
-      "permissionProfile/list": vi.fn().mockRejectedValue(new Error("profiles offline")),
-      "account/rateLimits/read": vi.fn().mockRejectedValue(new Error("limits offline")),
+      "skills/list": listSkills,
+      "permissionProfile/list": listProfiles,
+      "account/rateLimits/read": readRateLimits,
     });
-    cache.writeAppServerMetadata(
-      context,
-      metadata({
-        availableSkills: [skillMetadata("cached-skill")],
-        availablePermissionProfiles: [permissionProfile(":cached")],
-        rateLimit: rateLimit(17),
-      }),
-    );
-    await cache.fetchModels(context);
+    await cache.refreshAppServerMetadata(context);
 
     const refreshed = await cache.refreshAppServerMetadata(context);
 
@@ -439,32 +520,6 @@ describe("AppServerQueryCache", () => {
       rateLimits: { status: "failed" },
     });
     expect(cache.appServerMetadataSnapshot(context)).toEqual(refreshed);
-  });
-
-  it("does not overwrite a newer sparse metadata write with an in-flight full refresh", async () => {
-    const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
-    const cache = cacheWithRequestHandlers({
-      "config/read": vi.fn().mockResolvedValue({}),
-      "model/list": vi.fn().mockResolvedValue({ data: [] }),
-      "skills/list": vi.fn(() => skills.promise),
-      "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-      "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
-    });
-    const context = cacheContext();
-    cache.writeAppServerMetadata(context, metadata({ availableSkills: [skillMetadata("initial")] }));
-    for (let index = 0; index < 5; index += 1) cache.beginMetadataResourceRefresh(context, "skills");
-    const refresh = cache.refreshAppServerMetadata(context);
-    await flushMicrotasks();
-
-    cache.updateAppServerMetadata(
-      context,
-      () => metadata({ availableSkills: [skillMetadata("event")], rateLimit: rateLimit(42) }),
-      "rateLimits",
-    );
-    skills.resolve({ data: [{ skills: [catalogSkill("old-full")] }] });
-
-    await expect(refresh).resolves.toMatchObject({ availableSkills: [{ name: "event" }] });
-    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["event"]);
   });
 
   it("stores an in-flight app-server snapshot as raw thread-list truth", async () => {
@@ -525,91 +580,18 @@ function cacheWithRequestHandlers(handlers: Record<string, (params: unknown) => 
   });
 }
 
-function metadata(
-  overrides: {
-    availableSkills?: readonly SkillMetadata[];
-    availablePermissionProfiles?: readonly RuntimePermissionProfileSummary[];
-    rateLimit?: RateLimitSnapshot | null;
-    runtimeConfig?: RuntimeConfigSnapshot | null;
-    modelProbeStatus?: "ok" | "failed";
-    skillsProbeStatus?: "ok" | "failed";
-    permissionProfilesProbeStatus?: "ok" | "failed";
-    rateLimitProbeStatus?: "ok" | "failed";
-  } = {},
-): SharedServerMetadata {
-  let diagnostics = createServerDiagnostics();
-  diagnostics = diagnosticsWithProbe(
-    diagnostics,
-    overrides.modelProbeStatus === "failed"
-      ? diagnosticProbeError("models", new Error("offline"), 1)
-      : diagnosticProbeOk("models", "1 models", 1),
-  );
-  diagnostics = diagnosticsWithProbe(
-    diagnostics,
-    overrides.skillsProbeStatus === "failed"
-      ? diagnosticProbeError("skills", new Error("offline"), 1)
-      : diagnosticProbeOk("skills", "0 skills", 1),
-  );
-  diagnostics = diagnosticsWithProbe(
-    diagnostics,
-    overrides.rateLimitProbeStatus === "failed"
-      ? diagnosticProbeError("rateLimits", new Error("offline"), 1)
-      : diagnosticProbeOk("rateLimits", "available", 1),
-  );
-  diagnostics = diagnosticsWithProbe(
-    diagnostics,
-    overrides.permissionProfilesProbeStatus === "failed"
-      ? diagnosticProbeError("permissionProfiles", new Error("offline"), 1)
-      : diagnosticProbeOk("permissionProfiles", "0 profiles", 1),
-  );
-  return {
-    runtimeConfig: overrides.runtimeConfig ?? emptyRuntimeConfigSnapshot(),
-    availableSkills: overrides.availableSkills ?? [],
-    availablePermissionProfiles: overrides.availablePermissionProfiles ?? [],
-    rateLimit: overrides.rateLimit ?? null,
-    serverDiagnostics: diagnostics,
-  };
-}
-
-type MetadataProbeStatus = "ok" | "failed";
-
-interface MetadataProbeStatuses {
-  readonly models: MetadataProbeStatus;
-  readonly skills: MetadataProbeStatus;
-  readonly permissionProfiles: MetadataProbeStatus;
-  readonly rateLimits: MetadataProbeStatus;
-}
-
-function metadataProbeStatusCombinations(): MetadataProbeStatuses[] {
-  const statuses: readonly MetadataProbeStatus[] = ["ok", "failed"];
-  return statuses.flatMap((models) =>
-    statuses.flatMap((skills) =>
-      statuses.flatMap((permissionProfiles) => statuses.map((rateLimits) => ({ models, skills, permissionProfiles, rateLimits }))),
-    ),
-  );
-}
-
-function metadataProbeStatusCase(statuses: MetadataProbeStatuses): string {
-  return `models=${statuses.models} skills=${statuses.skills} permissionProfiles=${statuses.permissionProfiles} rateLimits=${statuses.rateLimits}`;
-}
-
-function skillMetadata(name: string): SkillMetadata {
-  return { name, description: "", path: `/tmp/${name}`, enabled: true };
+function metadataCacheWithSuccessfulHandlers(): AppServerQueryCache {
+  return cacheWithRequestHandlers({
+    "config/read": vi.fn().mockResolvedValue({}),
+    "model/list": vi.fn().mockResolvedValue({ data: [] }),
+    "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
+    "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
+    "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
+  });
 }
 
 function permissionProfile(id: string): RuntimePermissionProfileSummary {
   return { id, description: null, allowed: true };
-}
-
-function rateLimit(usedPercent: number): RateLimitSnapshot {
-  return {
-    limitId: "codex",
-    limitName: "Codex",
-    primary: { usedPercent, windowDurationMins: 300, resetsAt: 1 },
-    secondary: null,
-    individualLimit: null,
-    rateLimitReachedType: null,
-  };
 }
 
 function catalogModel(model: string): CatalogModel {

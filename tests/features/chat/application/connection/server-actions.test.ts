@@ -6,7 +6,6 @@ import type { RateLimitSnapshot } from "../../../../../src/domain/runtime/metric
 import {
   createServerDiagnostics,
   type DiagnosticProbeResult,
-  diagnosticProbeError,
   diagnosticProbeOk,
   diagnosticsWithProbe,
   diagnosticsWithToolInventory,
@@ -15,7 +14,6 @@ import {
 import type { McpServerStatusSummary } from "../../../../../src/domain/server/mcp-status";
 import type { SharedServerMetadata } from "../../../../../src/domain/server/metadata";
 import type { ToolInventorySnapshot } from "../../../../../src/domain/server/tool-inventory";
-import type { MetadataResourceTransport } from "../../../../../src/features/chat/application/connection/metadata-transport";
 import { createServerDiagnosticsActions } from "../../../../../src/features/chat/application/connection/server-diagnostics-actions";
 import { createServerMetadataActions } from "../../../../../src/features/chat/application/connection/server-metadata-actions";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
@@ -29,7 +27,6 @@ describe("server metadata actions", () => {
     const metadata = serverMetadataFixture({ availableSkills: [skillFixture("writer")] });
     const actions = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport(),
       ...metadataCacheHost(),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(metadata),
       isStaleSharedQueryError: () => false,
@@ -57,7 +54,6 @@ describe("server metadata actions", () => {
     });
     const actions = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport(),
       ...metadataCacheHost(),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(metadata),
       isStaleSharedQueryError: () => false,
@@ -77,7 +73,6 @@ describe("server metadata actions", () => {
     const cache = { current: serverMetadataFixture() as SharedServerMetadata | null };
     const actions = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport(),
       ...metadataCacheHost(cache),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
       isStaleSharedQueryError: () => false,
@@ -99,7 +94,6 @@ describe("server metadata actions", () => {
     const stale = new Error("stale");
     const actions = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport(),
       ...metadataCacheHost(),
       refreshAppServerMetadata: vi.fn().mockRejectedValue(stale),
       isStaleSharedQueryError: (error) => error === stale,
@@ -111,149 +105,55 @@ describe("server metadata actions", () => {
     expect(stateStore.getState().connection.runtimeConfig).toBeNull();
   });
 
-  it("does not apply stale sparse skill refreshes", async () => {
+  it("does not apply stale skill refreshes", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const updateAppServerMetadata = vi.fn(() => null);
+    const stale = new Error("stale");
     const actions = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport({ readSkillMetadata: vi.fn().mockResolvedValue(null) }),
-      beginAppServerMetadataResourceRefresh: () => () => true,
-      appServerMetadataSnapshot: () => null,
-      updateAppServerMetadata,
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-      isStaleSharedQueryError: () => false,
+      ...metadataCacheHost(),
+      refreshSkills: vi.fn().mockRejectedValue(stale),
+      isStaleSharedQueryError: (error) => error === stale,
     });
 
-    await actions.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+    await actions.applyAppServerResourceEvent({ type: "skills-changed" });
 
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
-    expect(updateAppServerMetadata).not.toHaveBeenCalled();
   });
 
-  it("keeps previous skills when sparse skill refresh fails", async () => {
+  it("applies authoritative skills refreshed after a change event", async () => {
     let state = chatStateFixture();
     const previousSkills = [skillFixture("writer")];
     state = chatStateWith(state, { connection: { availableSkills: previousSkills } });
     const stateStore = createChatStateStore(state);
+    const refreshed = serverMetadataFixture({
+      availableSkills: [skillFixture("editor")],
+      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("skills", "1 skill", 1)),
+    });
+    const refreshSkills = vi.fn().mockResolvedValue(refreshed);
     const actions = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport({
-        readSkillMetadata: vi.fn().mockResolvedValue({
-          value: [],
-          probe: diagnosticProbeError("skills", new Error("offline"), 1),
-        }),
-      }),
       ...metadataCacheHost(),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-      isStaleSharedQueryError: () => false,
+      refreshSkills,
     });
 
-    await actions.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
+    await actions.applyAppServerResourceEvent({ type: "skills-changed" });
 
-    expect(stateStore.getState().connection.availableSkills).toEqual(previousSkills);
-    expect(stateStore.getState().connection.serverDiagnostics.probes.skills).toMatchObject({ status: "failed" });
+    expect(refreshSkills).toHaveBeenCalledOnce();
+    expect(stateStore.getState().connection.availableSkills.map((skill) => skill.name)).toEqual(["editor"]);
   });
 
-  it("ignores an older skill refresh that completes after a newer refresh", async () => {
-    const older = deferred<Awaited<ReturnType<MetadataResourceTransport["readSkillMetadata"]>>>();
-    const newer = deferred<Awaited<ReturnType<MetadataResourceTransport["readSkillMetadata"]>>>();
-    const stateStore = createChatStateStore(chatStateFixture());
-    const actions = createServerMetadataActions({
-      stateStore,
-      metadataResourceTransport: metadataResourceTransport({
-        readSkillMetadata: vi
-          .fn()
-          .mockImplementationOnce(() => older.promise)
-          .mockImplementationOnce(() => newer.promise),
-      }),
-      ...metadataCacheHost(),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-      isStaleSharedQueryError: () => false,
-    });
-
-    const first = actions.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
-    const second = actions.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
-    newer.resolve({ value: [skillFixture("new")], probe: diagnosticProbeOk("skills", "new", 2) });
-    await second;
-    older.resolve({ value: [skillFixture("old")], probe: diagnosticProbeOk("skills", "old", 1) });
-    await first;
-
-    expect(stateStore.getState().connection.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
-  });
-
-  it("shares skill refresh ordering across panel action instances", async () => {
-    const older = deferred<Awaited<ReturnType<MetadataResourceTransport["readSkillMetadata"]>>>();
-    const cache = { current: serverMetadataFixture() as SharedServerMetadata | null };
-    const sharedCache = metadataCacheHost(cache);
-    const createActions = (readSkillMetadata: MetadataResourceTransport["readSkillMetadata"]) =>
-      createServerMetadataActions({
-        stateStore: createChatStateStore(chatStateFixture()),
-        metadataResourceTransport: metadataResourceTransport({ readSkillMetadata }),
-        ...sharedCache,
-        refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-        isStaleSharedQueryError: () => false,
-      });
-    const firstPanel = createActions(vi.fn(() => older.promise));
-    const secondPanel = createActions(
-      vi.fn().mockResolvedValue({ value: [skillFixture("new")], probe: diagnosticProbeOk("skills", "new", 2) }),
-    );
-
-    const first = firstPanel.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
-    await secondPanel.applyAppServerResourceEvent({ type: "skills-changed", forceReload: true });
-    older.resolve({ value: [skillFixture("old")], probe: diagnosticProbeOk("skills", "old", 1) });
-    await first;
-
-    expect(cache.current?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
-  });
-
-  it("publishes refreshed rate limits from sparse update notifications", async () => {
+  it("publishes refreshed rate limits from update notifications", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const rateLimit = rateLimitFixture({ primary: { usedPercent: 64, windowDurationMins: 300, resetsAt: null } });
-    const cachedMetadata = { current: serverMetadataFixture() as SharedServerMetadata | null };
     const actions = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport({
-        readRateLimitMetadata: vi.fn().mockResolvedValue({
-          value: rateLimit,
-          probe: diagnosticProbeOk("rateLimits", "available", 1),
-        }),
-      }),
-      ...metadataCacheHost(cachedMetadata),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-      isStaleSharedQueryError: () => false,
+      ...metadataCacheHost(),
+      refreshRateLimits: vi.fn().mockResolvedValue(serverMetadataFixture({ rateLimit })),
     });
 
-    await actions.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
+    await actions.applyAppServerResourceEvent({ type: "rate-limits-updated" });
 
     expect(stateStore.getState().connection.rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
-    expect(cachedMetadata.current?.rateLimit).toStrictEqual(rateLimit);
-  });
-
-  it("keeps the previous rate limit snapshot when sparse update refresh fails", async () => {
-    let state = chatStateFixture();
-    const previousRateLimit = rateLimitFixture({
-      limitName: "Codex",
-      primary: { usedPercent: 42, windowDurationMins: 300, resetsAt: null },
-    });
-    state = chatStateWith(state, { connection: { rateLimit: previousRateLimit } });
-    const stateStore = createChatStateStore(state);
-    const actions = createServerMetadataActions({
-      stateStore,
-      metadataResourceTransport: metadataResourceTransport({
-        readRateLimitMetadata: vi.fn().mockResolvedValue({
-          value: null,
-          probe: diagnosticProbeError("rateLimits", new Error("offline"), 1),
-        }),
-      }),
-      ...metadataCacheHost(),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-      isStaleSharedQueryError: () => false,
-    });
-
-    await actions.applyAppServerResourceEvent({ type: "rate-limits-updated", preserveExistingOnFailure: true });
-
-    expect(stateStore.getState().connection.rateLimit).toBe(previousRateLimit);
-    expect(stateStore.getState().connection.serverDiagnostics.probes.rateLimits).toMatchObject({ status: "failed" });
   });
 });
 
@@ -267,13 +167,13 @@ describe("server diagnostics actions", () => {
         diagnosticProbeOk("skills", "1 skills", 1),
       ),
     });
-    const metadataCache = metadataCacheHost({ current: null });
+    const cache = { current: null as SharedServerMetadata | null };
+    const metadataCache = metadataCacheHost(cache);
     const metadata = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport(),
       ...metadataCache,
       refreshAppServerMetadata: vi.fn().mockImplementation(async () => {
-        metadataCache.updateAppServerMetadata(() => refreshedMetadata);
+        cache.current = refreshedMetadata;
         return refreshedMetadata;
       }),
       isStaleSharedQueryError: () => false,
@@ -371,7 +271,6 @@ describe("server diagnostics actions", () => {
     const metadataCache = metadataCacheHost({ current: serverMetadataFixture() });
     const metadata = createServerMetadataActions({
       stateStore,
-      metadataResourceTransport: metadataResourceTransport(),
       ...metadataCache,
       refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
       isStaleSharedQueryError: () => false,
@@ -471,14 +370,6 @@ describe("server diagnostics actions", () => {
   });
 });
 
-function metadataResourceTransport(overrides: Partial<MetadataResourceTransport> = {}): MetadataResourceTransport {
-  return {
-    readSkillMetadata: vi.fn().mockResolvedValue({ value: [], probe: diagnosticProbeOk("skills", "0 skills", 1) }),
-    readRateLimitMetadata: vi.fn().mockResolvedValue({ value: null, probe: diagnosticProbeOk("rateLimits", "unavailable", 1) }),
-    ...overrides,
-  };
-}
-
 function serverDiagnosticsSnapshot(
   overrides: { resourceProbes?: DiagnosticProbeResult[]; mcpServerStatuses?: McpServerStatusSummary[] | null } = {},
 ) {
@@ -543,26 +434,18 @@ function serverMetadataFixture(overrides: Partial<SharedServerMetadata> = {}): S
 }
 
 function metadataCacheHost(cache: { current: SharedServerMetadata | null } = { current: null }): {
-  beginAppServerMetadataResourceRefresh: (resource: "skills" | "rateLimits") => () => boolean;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
-  updateAppServerMetadata: (
-    updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
-    resource?: "skills" | "rateLimits",
-  ) => SharedServerMetadata | null;
+  refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
+  refreshSkills: () => Promise<SharedServerMetadata | null>;
+  refreshRateLimits: () => Promise<SharedServerMetadata | null>;
+  isStaleSharedQueryError: (error: unknown) => boolean;
 } {
-  const generations = { skills: 0, rateLimits: 0 };
   return {
-    beginAppServerMetadataResourceRefresh: (resource) => {
-      const generation = ++generations[resource];
-      return () => generation === generations[resource];
-    },
     appServerMetadataSnapshot: () => cache.current,
-    updateAppServerMetadata: (updater, resource) => {
-      const next = updater(cache.current);
-      cache.current = next;
-      if (resource) generations[resource] += 1;
-      return next;
-    },
+    refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
+    refreshSkills: vi.fn().mockResolvedValue(null),
+    refreshRateLimits: vi.fn().mockResolvedValue(null),
+    isStaleSharedQueryError: () => false,
   };
 }
 

@@ -105,10 +105,10 @@ function planDiagnosticStatus(notification: DiagnosticStatusNotification): ChatN
     case "account/rateLimits/updated":
       return effectPlan({
         type: "apply-app-server-resource-event",
-        event: { type: "rate-limits-updated", preserveExistingOnFailure: true },
+        event: { type: "rate-limits-updated" },
       });
     case "skills/changed":
-      return effectPlan({ type: "apply-app-server-resource-event", event: { type: "skills-changed", forceReload: true } });
+      return effectPlan({ type: "apply-app-server-resource-event", event: { type: "skills-changed" } });
     case "app/list/updated":
       return effectPlan({ type: "refresh-server-diagnostics" });
     case "mcpServer/oauthLogin/completed":

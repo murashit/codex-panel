@@ -366,10 +366,10 @@ describe("ChatPanelSessionRuntime actions", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]> = {},
   ): ChatPanelEnvironment["plugin"]["appServerQueries"] {
     return {
-      beginAppServerMetadataResourceRefresh: vi.fn(() => () => true),
-      updateAppServerMetadata: vi.fn(() => null),
       appServerMetadataSnapshot: vi.fn(() => null),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
+      refreshSkills: vi.fn().mockResolvedValue(null),
+      refreshRateLimits: vi.fn().mockResolvedValue(null),
       modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn().mockResolvedValue([]),
       refreshModels: vi.fn().mockResolvedValue([]),

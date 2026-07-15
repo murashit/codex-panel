@@ -1,7 +1,7 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import type { SharedServerMetadata } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
-import type { AppServerQueryCache, MetadataResourceKind } from "./cache";
+import type { AppServerQueryCache } from "./cache";
 import {
   type AppServerQueryContext,
   appServerQueryContextKey,
@@ -105,23 +105,16 @@ export class AppServerSharedQueries {
     return this.options.cache.appServerMetadataSnapshot(this.context());
   }
 
-  updateAppServerMetadata(
-    updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
-    resource?: MetadataResourceKind,
-  ): SharedServerMetadata | null {
-    return this.options.cache.updateAppServerMetadata(this.context(), updater, resource);
+  refreshAppServerMetadata(): Promise<SharedServerMetadata | null> {
+    return this.runForCurrentContext((context) => this.options.cache.refreshAppServerMetadata(context));
   }
 
-  beginAppServerMetadataResourceRefresh(resource: MetadataResourceKind): () => boolean {
-    const context = this.context();
-    const revision = this.options.cache.beginMetadataResourceRefresh(context, resource);
-    return () =>
-      appServerQueryContextMatches(this.context(), context) &&
-      this.options.cache.metadataResourceRefreshIsCurrent(context, resource, revision);
+  refreshSkills(): Promise<SharedServerMetadata | null> {
+    return this.runForCurrentContext((context) => this.options.cache.refreshSkills(context));
   }
 
-  refreshAppServerMetadata(options: { forceSkills?: boolean } = {}): Promise<SharedServerMetadata | null> {
-    return this.runForCurrentContext((context) => this.options.cache.refreshAppServerMetadata(context, options));
+  refreshRateLimits(): Promise<SharedServerMetadata | null> {
+    return this.runForCurrentContext((context) => this.options.cache.refreshRateLimits(context));
   }
 
   observeAppServerMetadataResult(listener: ObservedResultListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void {

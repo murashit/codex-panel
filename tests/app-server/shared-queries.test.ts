@@ -113,7 +113,6 @@ describe("AppServerSharedQueries", () => {
     const queries = new AppServerSharedQueries({
       cache: cacheWith({
         appServerMetadataSnapshot: () => metadata,
-        updateAppServerMetadata: () => metadata,
         modelsSnapshot: () => models,
         observeAppServerMetadataResult: (_context, listener) => {
           metadataObserver = listener;
@@ -131,7 +130,6 @@ describe("AppServerSharedQueries", () => {
 
     queries.observeAppServerMetadataResult(metadataListener);
     queries.observeModelsResult(modelListener);
-    queries.updateAppServerMetadata(() => metadata);
     metadataObserver(observedResult(metadata));
     modelObserver(observedResult(models));
 
@@ -149,8 +147,9 @@ function cacheWith(overrides: Partial<AppServerQueryCache>): AppServerQueryCache
     refreshActiveThreads: vi.fn(() => Promise.resolve([])),
     observeActiveThreadsResult: vi.fn(() => () => undefined),
     appServerMetadataSnapshot: vi.fn(() => null),
-    updateAppServerMetadata: vi.fn(() => null),
     refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
+    refreshSkills: vi.fn(() => Promise.resolve(null)),
+    refreshRateLimits: vi.fn(() => Promise.resolve(null)),
     observeAppServerMetadataResult: vi.fn(() => () => undefined),
     modelsSnapshot: vi.fn(() => null),
     fetchModels: vi.fn(() => Promise.resolve([])),

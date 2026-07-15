@@ -54,13 +54,10 @@ interface WorkspacePanels {
 type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink & ThreadCatalogConnectionEventSink;
 
 interface ChatAppServerQueries {
-  beginAppServerMetadataResourceRefresh(resource: "skills" | "rateLimits"): () => boolean;
-  updateAppServerMetadata(
-    updater: (metadata: SharedServerMetadata | null) => SharedServerMetadata | null,
-    resource?: "skills" | "rateLimits",
-  ): SharedServerMetadata | null;
   appServerMetadataSnapshot(): SharedServerMetadata | null;
-  refreshAppServerMetadata(options?: { forceSkills?: boolean }): Promise<SharedServerMetadata | null>;
+  refreshAppServerMetadata(): Promise<SharedServerMetadata | null>;
+  refreshSkills(): Promise<SharedServerMetadata | null>;
+  refreshRateLimits(): Promise<SharedServerMetadata | null>;
   observeAppServerMetadataResult(listener: ObservedResultListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void;
   modelsSnapshot(): readonly ModelMetadata[] | null;
   fetchModels(): Promise<readonly ModelMetadata[]>;

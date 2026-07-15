@@ -1279,7 +1279,6 @@ interface ChatHostFixtureOverrides {
   refreshThreadsViewLiveState?: CodexChatHost["workspace"]["refreshThreadsViewLiveState"];
   openSideChat?: CodexChatHost["workspace"]["openSideChat"];
   applyThreadCatalogEvent?: CodexChatHost["threadCatalog"]["apply"];
-  updateAppServerMetadata?: CodexChatHost["appServerQueries"]["updateAppServerMetadata"];
   refreshActive?: CodexChatHost["threadCatalog"]["refreshActive"];
   activeSnapshot?: CodexChatHost["threadCatalog"]["activeSnapshot"];
   appServerMetadataSnapshot?: CodexChatHost["appServerQueries"]["appServerMetadataSnapshot"];
@@ -1287,6 +1286,8 @@ interface ChatHostFixtureOverrides {
   fetchModels?: CodexChatHost["appServerQueries"]["fetchModels"];
   refreshModels?: CodexChatHost["appServerQueries"]["refreshModels"];
   refreshAppServerMetadata?: CodexChatHost["appServerQueries"]["refreshAppServerMetadata"];
+  refreshSkills?: CodexChatHost["appServerQueries"]["refreshSkills"];
+  refreshRateLimits?: CodexChatHost["appServerQueries"]["refreshRateLimits"];
 }
 
 function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
@@ -1308,7 +1309,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
     for (const listener of metadataResultListeners) listener(queryResult(nextMetadata));
     return nextMetadata;
   };
-  const loadAppServerMetadata = async (): Promise<SharedServerMetadata | null> => {
+  const loadAppServerMetadata = async (reloadSkills = false): Promise<SharedServerMetadata | null> => {
     const client = connectionMock.state.client as TestAppServerClient | null;
     if (!client || !connectionMock.state.connected) return null;
     const connectionStillCurrent = () => connectionMock.state.client === client && connectionMock.state.connected;
@@ -1326,7 +1327,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
     if (!connectionStillCurrent()) return null;
     models = fetchedModels;
     for (const listener of modelResultListeners) listener(queryResult(fetchedModels));
-    const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: false })) as {
+    const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: reloadSkills })) as {
       data: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }[];
     };
     if (!connectionStillCurrent()) return null;
@@ -1408,17 +1409,21 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       openSideChat: overrides.openSideChat ?? vi.fn().mockResolvedValue(undefined),
     },
     appServerQueries: {
-      beginAppServerMetadataResourceRefresh: () => () => true,
-      updateAppServerMetadata:
-        overrides.updateAppServerMetadata ??
-        ((updater) => {
-          const nextMetadata = updater(metadata);
-          if (!nextMetadata) return null;
-          return applyMetadataToCache(nextMetadata);
-        }),
       appServerMetadataSnapshot: overrides.appServerMetadataSnapshot ?? vi.fn(() => metadata),
       refreshAppServerMetadata:
         overrides.refreshAppServerMetadata ??
+        vi.fn(async () => {
+          const nextMetadata = await loadAppServerMetadata();
+          return nextMetadata ? applyMetadataToCache(nextMetadata) : null;
+        }),
+      refreshSkills:
+        overrides.refreshSkills ??
+        vi.fn(async () => {
+          const nextMetadata = await loadAppServerMetadata(true);
+          return nextMetadata ? applyMetadataToCache(nextMetadata) : null;
+        }),
+      refreshRateLimits:
+        overrides.refreshRateLimits ??
         vi.fn(async () => {
           const nextMetadata = await loadAppServerMetadata();
           return nextMetadata ? applyMetadataToCache(nextMetadata) : null;

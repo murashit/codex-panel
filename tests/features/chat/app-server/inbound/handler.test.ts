@@ -208,7 +208,7 @@ describe("ChatInboundHandler", () => {
         params: {},
       } satisfies Extract<ServerNotification, { method: "skills/changed" }>);
 
-      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({ type: "skills-changed", forceReload: true });
+      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({ type: "skills-changed" });
     });
 
     it("stores the latest aggregated turn diff for the active turn", () => {
@@ -701,10 +701,7 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "account/rateLimits/updated" }>);
 
       expect(state.connection.rateLimit).toBeNull();
-      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({
-        type: "rate-limits-updated",
-        preserveExistingOnFailure: true,
-      });
+      expect(applyAppServerResourceEvent).toHaveBeenCalledWith({ type: "rate-limits-updated" });
     });
 
     it("routes MCP startup status through the app-server resource event boundary", () => {

@@ -1,15 +1,11 @@
 import type { AppServerClient } from "../../../../app-server/connection/client";
-import { readRateLimitMetadataProbe, readSkillMetadataProbe } from "../../../../app-server/query/metadata-probes";
+import { readRateLimitMetadataProbe } from "../../../../app-server/query/metadata-probes";
 import { listModelMetadata } from "../../../../app-server/services/catalog";
 import type { AppServerRequestClient } from "../../../../app-server/services/request-client";
 import { readToolInventory } from "../../../../app-server/services/tool-inventory";
 import type { DiagnosticProbeId, DiagnosticProbeResult } from "../../../../domain/server/diagnostics";
 import { diagnosticProbeError, diagnosticProbeOk } from "../../../../domain/server/diagnostics";
-import type {
-  MetadataResourceTransport,
-  ServerDiagnosticsSnapshot,
-  ServerDiagnosticsTransport,
-} from "../../application/connection/metadata-transport";
+import type { ServerDiagnosticsSnapshot, ServerDiagnosticsTransport } from "../../application/connection/metadata-transport";
 
 interface CurrentChatAppServerClientHost {
   currentClient(): AppServerClient | null;
@@ -20,7 +16,6 @@ interface ChatAppServerMetadataTransportHost extends CurrentChatAppServerClientH
 }
 
 export interface ChatMetadataTransports {
-  readonly metadataResource: MetadataResourceTransport;
   readonly serverDiagnostics: ServerDiagnosticsTransport;
 }
 
@@ -30,16 +25,7 @@ interface DiagnosticProbeSnapshot {
 
 export function createChatMetadataTransports(host: ChatAppServerMetadataTransportHost): ChatMetadataTransports {
   return {
-    metadataResource: createChatMetadataResourceTransport(host),
     serverDiagnostics: createChatServerDiagnosticsTransport(host),
-  };
-}
-
-function createChatMetadataResourceTransport(host: ChatAppServerMetadataTransportHost): MetadataResourceTransport {
-  return {
-    readSkillMetadata: (forceReload) =>
-      withCapturedChatAppServerClient(host, (client) => readSkillMetadataProbe(client, host.vaultPath, forceReload)),
-    readRateLimitMetadata: () => withCapturedChatAppServerClient(host, (client) => readRateLimitMetadataProbe(client)),
   };
 }
 
@@ -74,15 +60,6 @@ function createChatServerDiagnosticsTransport(host: ChatAppServerMetadataTranspo
       };
     },
   };
-}
-
-async function withCapturedChatAppServerClient<T>(
-  host: CurrentChatAppServerClientHost,
-  operation: (client: AppServerClient | null) => Promise<T>,
-): Promise<T | null> {
-  const client = host.currentClient();
-  const result = await operation(client);
-  return client !== null && host.currentClient() !== client ? null : result;
 }
 
 async function readRateLimitDiagnosticProbe(client: AppServerRequestClient): Promise<DiagnosticProbeSnapshot> {
