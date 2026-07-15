@@ -43,8 +43,6 @@ interface PendingThreadListFacts {
 interface ThreadCatalogFacts {
   readonly active: PendingThreadListFacts;
   readonly archived: PendingThreadListFacts;
-  activeTestSnapshot: readonly Thread[] | null;
-  archivedTestSnapshot: readonly Thread[] | null;
   activeObservedResult: ObservedResult<readonly Thread[]> | null;
   archivedObservedResult: ObservedResult<readonly Thread[]> | null;
 }
@@ -57,9 +55,6 @@ export interface ThreadCatalogOptions {
 }
 
 export type ThreadCatalogEvent =
-  // Snapshot inputs are retained as an explicit ingestion seam for deterministic ordering tests.
-  | { type: "active-list-snapshot-received"; threads: readonly Thread[] }
-  | { type: "archived-list-snapshot-received"; threads: readonly Thread[] }
   | { type: "thread-started"; thread: Thread }
   | { type: "thread-forked"; thread: Thread }
   | { type: "thread-touched"; threadId: string; recencyAt?: number | null }
@@ -109,8 +104,8 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
   const archivedObservers = new Set<ThreadListObserver>();
   const { store } = options;
   const currentFacts = (): ThreadCatalogFacts => threadCatalogFactsForContext(factsByContext, store.contextKey());
-  const activeRawSnapshot = (): readonly Thread[] | null => currentFacts().activeTestSnapshot ?? store.activeThreadsSnapshot();
-  const archivedRawSnapshot = (): readonly Thread[] | null => currentFacts().archivedTestSnapshot ?? store.archivedThreadsSnapshot();
+  const activeRawSnapshot = (): readonly Thread[] | null => store.activeThreadsSnapshot();
+  const archivedRawSnapshot = (): readonly Thread[] | null => store.archivedThreadsSnapshot();
   const publish = (kind: ThreadListKind): void => {
     const facts = currentFacts();
     const raw = kind === "active" ? activeRawSnapshot() : archivedRawSnapshot();
@@ -154,22 +149,16 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
       factsByContext.clear();
     },
     activeSnapshot: () => threadListProjection(activeRawSnapshot(), currentFacts().active),
-    loadActive: () =>
-      loadThreadList(store.fetchAllActiveThreads(), currentFacts().active, () => (currentFacts().activeTestSnapshot = null)),
-    refreshActive: () =>
-      loadThreadList(store.refreshActiveThreads(), currentFacts().active, () => (currentFacts().activeTestSnapshot = null)),
+    loadActive: () => loadThreadList(store.fetchAllActiveThreads(), currentFacts().active),
+    refreshActive: () => loadThreadList(store.refreshActiveThreads(), currentFacts().active),
     hasMoreActive: () => store.hasMoreActiveThreads(),
-    loadMoreActive: () =>
-      loadThreadList(store.loadMoreActiveThreads(), currentFacts().active, () => (currentFacts().activeTestSnapshot = null)),
+    loadMoreActive: () => loadThreadList(store.loadMoreActiveThreads(), currentFacts().active),
     observeActive: (observer, observeOptions) => {
       activeObservers.add(observer);
       const unsubscribe = store.observeActiveThreadsResult((result) => {
         const facts = currentFacts();
         facts.activeObservedResult = result;
-        if (result.value) {
-          facts.activeTestSnapshot = null;
-          acknowledgeThreadListSnapshot(facts.active, result.value);
-        }
+        if (result.value) acknowledgeThreadListSnapshot(facts.active, result.value);
         observer({
           ...result,
           value: threadListProjection(result.value, facts.active),
@@ -181,17 +170,13 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
       };
     },
     archivedSnapshot: () => threadListProjection(archivedRawSnapshot(), currentFacts().archived),
-    refreshArchived: () =>
-      loadThreadList(store.refreshArchivedThreads(), currentFacts().archived, () => (currentFacts().archivedTestSnapshot = null)),
+    refreshArchived: () => loadThreadList(store.refreshArchivedThreads(), currentFacts().archived),
     observeArchived: (observer, observeOptions) => {
       archivedObservers.add(observer);
       const unsubscribe = store.observeArchivedThreadsResult((result) => {
         const facts = currentFacts();
         facts.archivedObservedResult = result;
-        if (result.value) {
-          facts.archivedTestSnapshot = null;
-          acknowledgeThreadListSnapshot(facts.archived, result.value);
-        }
+        if (result.value) acknowledgeThreadListSnapshot(facts.archived, result.value);
         observer({
           ...result,
           value: threadListProjection(result.value, facts.archived),
@@ -227,8 +212,6 @@ function threadCatalogFactsForContext(factsByContext: Map<string, ThreadCatalogF
   const facts = {
     active: pendingThreadListFacts(),
     archived: pendingThreadListFacts(),
-    activeTestSnapshot: null,
-    archivedTestSnapshot: null,
     activeObservedResult: null,
     archivedObservedResult: null,
   };
@@ -255,14 +238,6 @@ function applyThreadCatalogEvent(
 ): { active: boolean; archived: boolean } {
   const { active: activeFacts, archived: archivedFacts } = facts;
   switch (event.type) {
-    case "active-list-snapshot-received":
-      acknowledgeThreadListSnapshot(activeFacts, event.threads);
-      facts.activeTestSnapshot = event.threads;
-      return { active: true, archived: false };
-    case "archived-list-snapshot-received":
-      acknowledgeThreadListSnapshot(archivedFacts, event.threads);
-      facts.archivedTestSnapshot = event.threads;
-      return { active: false, archived: true };
     case "thread-started":
       upsertActiveThread(activeFacts, event.thread, acknowledgeByThreadId);
       return { active: true, archived: false };
@@ -290,13 +265,8 @@ function applyThreadCatalogEvent(
   }
 }
 
-async function loadThreadList(
-  threadsPromise: Promise<readonly Thread[]>,
-  facts: PendingThreadListFacts,
-  receiveServerSnapshot: () => void,
-): Promise<readonly Thread[]> {
+async function loadThreadList(threadsPromise: Promise<readonly Thread[]>, facts: PendingThreadListFacts): Promise<readonly Thread[]> {
   const threads = await threadsPromise;
-  receiveServerSnapshot();
   acknowledgeThreadListSnapshot(facts, threads);
   return threadListProjection(threads, facts) ?? [];
 }
@@ -315,9 +285,7 @@ function applyThreadTouchedEvent(
   const existingFact = activeFacts.upserts.get(threadId)?.thread ?? null;
   let touchedThread = existingFact ? touchedActiveThread(existingFact, recencyAt) : null;
   const currentThread =
-    threadListProjection(facts.activeTestSnapshot ?? store.activeThreadsSnapshot(), activeFacts)?.find(
-      (thread) => thread.id === threadId,
-    ) ?? touchedThread;
+    threadListProjection(store.activeThreadsSnapshot(), activeFacts)?.find((thread) => thread.id === threadId) ?? touchedThread;
   if (currentThread) touchedThread = touchedActiveThread(currentThread, recencyAt);
   if (!touchedThread) return;
   const promotedThread = touchedThread;
@@ -330,23 +298,16 @@ function applyThreadTouchedEvent(
 
 function applyThreadRenamedEvent(store: ThreadCatalogEventStore, facts: ThreadCatalogFacts, threadId: string, name: string | null): void {
   const { active: activeFacts, archived: archivedFacts } = facts;
-  const activeThread =
-    threadListProjection(facts.activeTestSnapshot ?? store.activeThreadsSnapshot(), activeFacts)?.find(
-      (thread) => thread.id === threadId,
-    ) ?? null;
+  const activeThread = threadListProjection(store.activeThreadsSnapshot(), activeFacts)?.find((thread) => thread.id === threadId) ?? null;
   if (activeThread) rememberPendingThreadUpsert(activeFacts, { ...activeThread, name }, acknowledgedByName(name));
   const archivedThread =
-    threadListProjection(facts.archivedTestSnapshot ?? store.archivedThreadsSnapshot(), archivedFacts)?.find(
-      (thread) => thread.id === threadId,
-    ) ?? null;
+    threadListProjection(store.archivedThreadsSnapshot(), archivedFacts)?.find((thread) => thread.id === threadId) ?? null;
   if (archivedThread) rememberPendingThreadUpsert(archivedFacts, { ...archivedThread, name }, acknowledgedByName(name));
 }
 
 function applyThreadArchivedEvent(store: ThreadCatalogEventStore, facts: ThreadCatalogFacts, threadId: string): void {
   const { active: activeFacts, archived: archivedFacts } = facts;
-  const archivedThread = threadListProjection(facts.activeTestSnapshot ?? store.activeThreadsSnapshot(), activeFacts)?.find(
-    (thread) => thread.id === threadId,
-  );
+  const archivedThread = threadListProjection(store.activeThreadsSnapshot(), activeFacts)?.find((thread) => thread.id === threadId);
   rememberPendingThreadRemoval(activeFacts, threadId);
   if (archivedThread) {
     const pendingArchivedThread = { ...archivedThread, archived: true };
@@ -369,9 +330,7 @@ function applyThreadRestoredEvent(activeFacts: PendingThreadListFacts, archivedF
 function applyThreadUnarchivedEvent(store: ThreadCatalogEventStore, facts: ThreadCatalogFacts, threadId: string): void {
   const { active: activeFacts, archived: archivedFacts } = facts;
   const restoredThread =
-    threadListProjection(facts.archivedTestSnapshot ?? store.archivedThreadsSnapshot(), archivedFacts)?.find(
-      (thread) => thread.id === threadId,
-    ) ?? null;
+    threadListProjection(store.archivedThreadsSnapshot(), archivedFacts)?.find((thread) => thread.id === threadId) ?? null;
   rememberPendingThreadRemoval(archivedFacts, threadId);
   if (restoredThread) {
     upsertActiveThread(activeFacts, { ...restoredThread, archived: false }, acknowledgeByThreadId);

@@ -21,6 +21,7 @@ import { chatPanelSettingsAccess } from "../support/settings";
 
 interface TestCodexChatHost extends CodexChatHost {
   readonly settingsSource: CodexPanelSettings;
+  receiveActiveThreads(threads: readonly Thread[]): void;
 }
 let CodexChatView: typeof import("../../../../src/features/chat/host/view.obsidian")["CodexChatView"];
 interface TrackedView {
@@ -577,17 +578,14 @@ describe("CodexChatView connection lifecycle", () => {
 
     await view.setState({ threadId: "thread-named" }, {} as never);
     await view.onOpen();
-    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-named", name: "作業メモ" })] });
+    host.receiveActiveThreads([panelThread({ id: "thread-named", name: "作業メモ" })]);
     expect(view.getDisplayText()).toBe("Codex: 作業メモ");
 
-    host.threadCatalog.apply({
-      type: "active-list-snapshot-received",
-      threads: [panelThread({ id: "thread-named", name: null, preview: "初回依頼" })],
-    });
+    host.receiveActiveThreads([panelThread({ id: "thread-named", name: null, preview: "初回依頼" })]);
     expect(view.getDisplayText()).toBe("Codex: 初回依頼");
 
     await view.setState({ threadId: "019e061e-0000-7000-8000-000000000001" }, {} as never);
-    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [] });
+    host.receiveActiveThreads([]);
     expect(view.getDisplayText()).toBe("Codex: 019e061e");
   });
 
@@ -875,7 +873,7 @@ describe("CodexChatView connection lifecycle", () => {
 
     expect(composerPlaceholder(view)).toBe("Ask Codex...");
 
-    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: "Explicit name" })] });
+    host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Explicit name" })]);
     await waitForAsyncWork(() => {
       expect(composerPlaceholder(view)).toBe("Ask Codex...");
     });
@@ -902,7 +900,7 @@ describe("CodexChatView connection lifecycle", () => {
     });
     composer.setSelectionRange(5, 9);
 
-    host.threadCatalog.apply({ type: "active-list-snapshot-received", threads: [panelThread({ id: "thread-1", name: "Renamed thread" })] });
+    host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Renamed thread" })]);
     view.surface.applyThreadRenamed("thread-1", "Renamed thread");
 
     await waitForAsyncWork(() => {
@@ -1364,10 +1362,6 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   };
   const applyThreadCatalogEvent = (event: ThreadCatalogEvent): void => {
     switch (event.type) {
-      case "active-list-snapshot-received":
-        activeThreads = event.threads;
-        emitActiveThreads();
-        return;
       case "thread-archived":
       case "thread-deleted":
         activeThreads = activeThreads?.filter((thread) => thread.id !== event.threadId) ?? null;
@@ -1389,13 +1383,16 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
           ) ?? activeThreads;
         emitActiveThreads();
         return;
-      case "archived-list-snapshot-received":
       case "thread-unarchived":
         return;
     }
   };
   return {
     settingsSource: settings,
+    receiveActiveThreads: (threads) => {
+      activeThreads = threads;
+      emitActiveThreads();
+    },
     threadNameMutations: createThreadNameMutationCoordinator(),
     settingsRef: {
       settings: chatPanelSettingsAccess(settings),

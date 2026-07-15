@@ -54,7 +54,7 @@ export function registerSelectionRewriteCommand(
         originalText,
         noteText: editor.getValue(),
         instruction: "",
-        status: "editing-prompt",
+        status: "editing",
         streamText: "",
         replacementText: null,
         debugText: null,

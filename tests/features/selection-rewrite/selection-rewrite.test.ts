@@ -13,13 +13,8 @@ import {
   createAppServerSelectionRewriteTransport,
 } from "../../../src/features/selection-rewrite/app-server-transport";
 import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
-import {
-  canApplySelectionRewrite,
-  type SelectionRewriteLifecycleEvent,
-  type SelectionRewriteState,
-  transitionSelectionRewriteState,
-} from "../../../src/features/selection-rewrite/model";
-import { selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
+import { canApplySelectionRewrite, type SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
+import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
 import { SelectionRewritePopover } from "../../../src/features/selection-rewrite/popover.dom";
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
@@ -211,94 +206,6 @@ describe("selection rewrite positioning", () => {
     };
 
     expect(positionSelectionRewritePopover(root, editor as never, viewWindow, 8)).toBe(false);
-  });
-});
-
-describe("selection rewrite lifecycle", () => {
-  it("transitions through generation and preview states", () => {
-    const generating = transitionSelectionRewriteState(rewriteState({ replacementText: "old", debugText: "old debug" }), {
-      type: "generation-started",
-      instruction: "Shorten it.",
-    });
-
-    expect(generating).toMatchObject({
-      instruction: "Shorten it.",
-      status: "generating",
-      streamText: "",
-      replacementText: null,
-      debugText: null,
-    });
-
-    const streaming = transitionSelectionRewriteState(generating, { type: "preview-updated", text: "New" });
-    expect(streaming.streamText).toBe("New");
-
-    const preview = transitionSelectionRewriteState(streaming, { type: "generation-succeeded", replacementText: "New text." });
-    expect(preview).toMatchObject({
-      status: "preview",
-      streamText: "",
-      replacementText: "New text.",
-    });
-  });
-
-  it("ignores stale generation callbacks after generation is no longer active", () => {
-    const state = rewriteState({ status: "cancelled", streamText: "" });
-
-    expect(transitionSelectionRewriteState(state, { type: "generation-started", instruction: "late" })).toBe(state);
-    expect(transitionSelectionRewriteState(state, { type: "preview-updated", text: "late" })).toBe(state);
-    expect(transitionSelectionRewriteState(state, { type: "generation-succeeded", replacementText: "late" })).toBe(state);
-    expect(transitionSelectionRewriteState(state, { type: "generation-failed", debugText: "late" })).toBe(state);
-  });
-
-  it("marks terminal user actions explicitly", () => {
-    expect(transitionSelectionRewriteState(rewriteState(), { type: "cancelled" }).status).toBe("cancelled");
-    expect(transitionSelectionRewriteState(rewriteState({ replacementText: "New text." }), { type: "applied" }).status).toBe("applied");
-  });
-
-  it.each([{ status: "editing-prompt" }, { status: "preview" }, { status: "failed" }] satisfies {
-    status: SelectionRewriteState["status"];
-  }[])("allows regeneration from $status state", ({ status }) => {
-    const next = transitionSelectionRewriteState(selectionRewriteStateWithStatus(status), {
-      type: "generation-started",
-      instruction: "Try again.",
-    });
-
-    expect(next).toMatchObject({
-      status: "generating",
-      instruction: "Try again.",
-      streamText: "",
-      replacementText: null,
-      debugText: null,
-    });
-  });
-
-  it("preserves state identity for ignored transitions", () => {
-    const ignoredTransitions = [
-      { status: "editing-prompt", event: previewUpdatedEvent() },
-      { status: "editing-prompt", event: generationSucceededEvent() },
-      { status: "editing-prompt", event: generationFailedEvent() },
-      { status: "preview", event: previewUpdatedEvent() },
-      { status: "preview", event: generationSucceededEvent() },
-      { status: "preview", event: generationFailedEvent() },
-      { status: "failed", event: previewUpdatedEvent() },
-      { status: "failed", event: generationSucceededEvent() },
-      { status: "failed", event: generationFailedEvent() },
-      { status: "cancelled", event: { type: "generation-started", instruction: "late" } },
-      { status: "cancelled", event: previewUpdatedEvent() },
-      { status: "cancelled", event: generationSucceededEvent() },
-      { status: "cancelled", event: generationFailedEvent() },
-      { status: "applied", event: { type: "generation-started", instruction: "late" } },
-      { status: "applied", event: previewUpdatedEvent() },
-      { status: "applied", event: generationSucceededEvent() },
-      { status: "applied", event: generationFailedEvent() },
-    ] satisfies {
-      status: SelectionRewriteState["status"];
-      event: SelectionRewriteLifecycleEvent;
-    }[];
-
-    for (const { status, event } of ignoredTransitions) {
-      const state = selectionRewriteStateWithStatus(status);
-      expect(transitionSelectionRewriteState(state, event), `${status} via ${event.type}`).toBe(state);
-    }
   });
 });
 
@@ -556,6 +463,64 @@ describe("selection rewrite popover", () => {
     expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Rewritten once.");
   });
 
+  it("regenerates from a preview with a new instruction", async () => {
+    selectionRewriteGenerate
+      .mockResolvedValueOnce({ replacementText: "First rewrite." })
+      .mockResolvedValueOnce({ replacementText: "Second rewrite." });
+    const popover = new SelectionRewritePopover(popoverOptions());
+
+    openPopover(popover);
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+      await flushPromises();
+    });
+    const instruction = expectPresent(document.querySelector<HTMLTextAreaElement>(".codex-panel-selection-rewrite__instruction"));
+    void act(() => {
+      setTextareaValue(instruction, "Try another version.");
+      instruction.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Regenerate"]')).click();
+      await flushPromises();
+    });
+
+    expect(selectionRewriteGenerate).toHaveBeenCalledTimes(2);
+    expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Second rewrite.");
+    closePopover(popover);
+  });
+
+  it("retries after a failed generation and applies only the successful replacement", async () => {
+    const editor = editorFixture();
+    selectionRewriteGenerate
+      .mockRejectedValueOnce(new SelectionRewriteOutputError("Invalid rewrite response.", "raw invalid output"))
+      .mockResolvedValueOnce({ replacementText: "Recovered rewrite." });
+    const popover = new SelectionRewritePopover(popoverOptions({ editor: editor.editor }));
+
+    openPopover(popover);
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+      await flushPromises();
+    });
+
+    expect(document.body.textContent).toContain("Invalid rewrite response.");
+    expect(document.body.textContent).toContain("raw invalid output");
+
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]')).click();
+      await flushPromises();
+    });
+
+    expect(selectionRewriteGenerate).toHaveBeenCalledTimes(2);
+    expect(document.querySelector(".codex-panel-selection-rewrite__diff")?.textContent).toContain("Recovered rewrite.");
+
+    await act(async () => {
+      expectPresent(document.querySelector<HTMLButtonElement>('button[aria-label="Apply"]')).click();
+      await Promise.resolve();
+    });
+
+    expect(editor.replaceRange).toHaveBeenCalledWith("Recovered rewrite.", { line: 1, ch: 0 }, { line: 1, ch: 22 }, "codex-panel-rewrite");
+  });
+
   it("restores the current draft after accidental instruction history navigation", async () => {
     selectionRewriteGenerate.mockResolvedValue({ replacementText: "Rewritten." });
 
@@ -675,41 +640,12 @@ function rewriteState(overrides: Partial<SelectionRewriteState> = {}): Selection
     originalText: "Revise this sentence.",
     noteText: "# Heading\n\nRevise this sentence.\n\nNext paragraph.",
     instruction: "Make it clearer.",
-    status: "editing-prompt",
+    status: "editing",
     streamText: "",
     replacementText: null,
     debugText: null,
     ...overrides,
   } as SelectionRewriteState;
-}
-
-function selectionRewriteStateWithStatus(status: SelectionRewriteState["status"]): SelectionRewriteState {
-  switch (status) {
-    case "editing-prompt":
-      return rewriteState({ status: "editing-prompt", streamText: "", replacementText: null, debugText: null });
-    case "generating":
-      return rewriteState({ status: "generating", streamText: "draft", replacementText: null, debugText: null });
-    case "preview":
-      return rewriteState({ status: "preview", streamText: "", replacementText: "Preview text.", debugText: null });
-    case "failed":
-      return rewriteState({ status: "failed", streamText: "", replacementText: null, debugText: "debug" });
-    case "cancelled":
-      return rewriteState({ status: "cancelled", streamText: "partial", replacementText: null, debugText: "debug" });
-    case "applied":
-      return rewriteState({ status: "applied", streamText: "", replacementText: "Applied text.", debugText: null });
-  }
-}
-
-function previewUpdatedEvent(): SelectionRewriteLifecycleEvent {
-  return { type: "preview-updated", text: "late preview" };
-}
-
-function generationSucceededEvent(): SelectionRewriteLifecycleEvent {
-  return { type: "generation-succeeded", replacementText: "late replacement" };
-}
-
-function generationFailedEvent(): SelectionRewriteLifecycleEvent {
-  return { type: "generation-failed", debugText: "late debug" };
 }
 
 function openPopover(popover: SelectionRewritePopover): void {

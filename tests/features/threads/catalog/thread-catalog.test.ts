@@ -1,6 +1,8 @@
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { AppServerQueryCache } from "../../../../src/app-server/query/cache";
+import { type AppServerQueryContext, appServerQueryContextKey } from "../../../../src/app-server/query/keys";
+import type { ObservedResult, ObservedResultListener } from "../../../../src/app-server/query/observed-result";
 import { AppServerSharedQueries } from "../../../../src/app-server/query/shared-queries";
 import type { Thread } from "../../../../src/domain/threads/model";
 import {
@@ -10,25 +12,25 @@ import {
 } from "../../../../src/features/threads/catalog/thread-catalog";
 
 describe("ThreadCatalog", () => {
-  it("applies active thread snapshot replacement events through the catalog boundary", () => {
+  it("projects active snapshots received from the store observer", () => {
     const { catalog } = catalogFixture();
     const threads = [thread("thread")];
     const listener = vi.fn();
     catalog.observeActive(listener);
 
-    catalog.apply({ type: "active-list-snapshot-received", threads });
+    receiveActive(catalog, threads);
 
     expect(catalog.activeSnapshot()).toEqual(threads);
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ value: threads }));
   });
 
-  it("applies archived thread snapshot events through the catalog boundary", () => {
+  it("projects archived snapshots received from the store observer", () => {
     const { catalog } = catalogFixture();
     const threads = [thread("thread", true)];
     const listener = vi.fn();
     catalog.observeArchived(listener);
 
-    catalog.apply({ type: "archived-list-snapshot-received", threads });
+    receiveArchived(catalog, threads);
 
     expect(catalog.archivedSnapshot()).toEqual(threads);
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ value: threads }));
@@ -64,7 +66,7 @@ describe("ThreadCatalog", () => {
     const { catalog } = catalogFixture();
     const listener = vi.fn();
     catalog.observeActive(listener);
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
+    receiveActive(catalog, [thread("thread"), thread("other")]);
 
     catalog.apply({ type: "thread-renamed", threadId: "thread", name: "Renamed" });
 
@@ -80,8 +82,8 @@ describe("ThreadCatalog", () => {
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
-    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
+    receiveActive(catalog, [thread("thread"), thread("other")]);
+    receiveArchived(catalog, [thread("archived", true)]);
 
     catalog.apply({ type: "thread-archived", threadId: "thread" });
 
@@ -125,8 +127,8 @@ describe("ThreadCatalog", () => {
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
-    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("thread", true), thread("archived", true)] });
+    receiveActive(catalog, [thread("thread"), thread("other")]);
+    receiveArchived(catalog, [thread("thread", true), thread("archived", true)]);
 
     catalog.apply({ type: "thread-deleted", threadId: "thread" });
 
@@ -142,8 +144,8 @@ describe("ThreadCatalog", () => {
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("existing")] });
-    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("restored", true), thread("archived", true)] });
+    receiveActive(catalog, [thread("existing")]);
+    receiveArchived(catalog, [thread("restored", true), thread("archived", true)]);
 
     catalog.apply({ type: "thread-started", thread: thread("started") });
     catalog.apply({ type: "thread-forked", thread: thread("forked") });
@@ -187,7 +189,7 @@ describe("ThreadCatalog", () => {
 
     context.codexPath = "codex-b";
     expect(catalog.activeSnapshot()).toBeNull();
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread-b")] });
+    receiveActive(catalog, [thread("thread-b")]);
     expect(catalog.activeSnapshot()).toEqual([thread("thread-b")]);
 
     context.codexPath = "codex-a";
@@ -250,21 +252,21 @@ describe("ThreadCatalog", () => {
     }
 
     context.codexPath = "codex-a";
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("server-a")] });
+    receiveActive(catalog, [thread("server-a")]);
 
     expect(catalog.activeSnapshot()).toEqual([thread("started-a"), thread("server-a")]);
   });
 
-  it("prunes inactive contexts after their lifecycle facts settle", () => {
+  it("prunes inactive lifecycle facts without discarding store snapshots", () => {
     const context = { codexPath: "codex-a", vaultPath: "/vault" };
     const { catalog } = catalogFixture({ context: () => context });
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("server-a")] });
+    receiveActive(catalog, [thread("server-a")]);
 
     context.codexPath = "codex-b";
     expect(catalog.activeSnapshot()).toBeNull();
     context.codexPath = "codex-a";
 
-    expect(catalog.activeSnapshot()).toBeNull();
+    expect(catalog.activeSnapshot()).toEqual([thread("server-a")]);
   });
 
   it("prunes revisited contexts after pending lifecycle facts settle", () => {
@@ -275,12 +277,12 @@ describe("ThreadCatalog", () => {
     catalog.apply({ type: "thread-started", thread: thread("started-b") });
 
     context.codexPath = "codex-a";
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("started-a")] });
+    receiveActive(catalog, [thread("started-a")]);
     context.codexPath = "codex-b";
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("started-b")] });
+    receiveActive(catalog, [thread("started-b")]);
     context.codexPath = "codex-a";
 
-    expect(catalog.activeSnapshot()).toBeNull();
+    expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
   });
 
   it("preserves raw query status when lifecycle overlays publish", async () => {
@@ -303,14 +305,14 @@ describe("ThreadCatalog", () => {
     const forkBeforeRollback = thread("forked", false, { name: "Before", preview: "Before rollback", updatedAt: 20 });
     const forkAfterRollback = thread("forked", false, { name: "After", preview: "After rollback", updatedAt: 20 });
     const forkAfterFutureUpdate = thread("forked", false, { name: "Future", preview: "Future update", updatedAt: 21 });
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("existing")] });
+    receiveActive(catalog, [thread("existing")]);
 
     catalog.apply({ type: "thread-forked", thread: forkAfterRollback });
-    catalog.apply({ type: "active-list-snapshot-received", threads: [forkBeforeRollback, thread("existing")] });
+    receiveActive(catalog, [forkBeforeRollback, thread("existing")]);
 
     expect(catalog.activeSnapshot()).toEqual([forkAfterRollback, thread("existing")]);
 
-    catalog.apply({ type: "active-list-snapshot-received", threads: [forkAfterFutureUpdate, thread("existing")] });
+    receiveActive(catalog, [forkAfterFutureUpdate, thread("existing")]);
 
     expect(catalog.activeSnapshot()).toEqual([forkAfterFutureUpdate, thread("existing")]);
   });
@@ -322,7 +324,7 @@ describe("ThreadCatalog", () => {
       .mockReturnValueOnce(staleRefresh.promise)
       .mockResolvedValueOnce([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
     const { catalog } = catalogFixture({ fetchThreads });
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("thread"), thread("other")] });
+    receiveActive(catalog, [thread("thread"), thread("other")]);
 
     const refresh = catalog.refreshActive();
     await flushMicrotasks();
@@ -343,8 +345,8 @@ describe("ThreadCatalog", () => {
       archived ? staleArchivedRefresh.promise : staleActiveRefresh.promise,
     );
     const { catalog } = catalogFixture({ fetchThreads });
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("active"), thread("other")] });
-    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true), thread("kept", true)] });
+    receiveActive(catalog, [thread("active"), thread("other")]);
+    receiveArchived(catalog, [thread("archived", true), thread("kept", true)]);
 
     const activeRefresh = catalog.refreshActive();
     const archivedRefresh = catalog.refreshArchived();
@@ -398,10 +400,10 @@ describe("ThreadCatalog", () => {
     const { catalog } = catalogFixture();
     const listener = vi.fn();
     catalog.observeActive(listener);
-    catalog.apply({
-      type: "active-list-snapshot-received",
-      threads: [thread("active", false, { updatedAt: 1, recencyAt: 1 }), thread("other", false, { updatedAt: 10, recencyAt: 10 })],
-    });
+    receiveActive(catalog, [
+      thread("active", false, { updatedAt: 1, recencyAt: 1 }),
+      thread("other", false, { updatedAt: 10, recencyAt: 10 }),
+    ]);
 
     catalog.apply({ type: "thread-touched", threadId: "active", recencyAt: 20 });
 
@@ -422,8 +424,8 @@ describe("ThreadCatalog", () => {
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("existing")] });
-    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
+    receiveActive(catalog, [thread("existing")]);
+    receiveArchived(catalog, [thread("archived", true)]);
 
     catalog.apply({ type: "thread-started", thread: thread("started") });
     catalog.apply({ type: "thread-touched", threadId: "existing", recencyAt: 20 });
@@ -443,8 +445,8 @@ describe("ThreadCatalog", () => {
 
     for (const sequence of eventSequences(renameOrderingEvents(), maxEventDepth)) {
       const { catalog } = catalogFixture();
-      catalog.apply({ type: "active-list-snapshot-received", threads: [thread("target"), thread("other")] });
-      catalog.apply({ type: "archived-list-snapshot-received", threads: [] });
+      receiveActive(catalog, [thread("target"), thread("other")]);
+      receiveArchived(catalog, []);
       catalog.apply({ type: "thread-renamed", threadId: "target", name: "Renamed" });
 
       let renameAcknowledged = false;
@@ -461,8 +463,8 @@ describe("ThreadCatalog", () => {
 
     for (const sequence of eventSequences(archiveOrderingEvents(), maxEventDepth)) {
       const { catalog } = catalogFixture();
-      catalog.apply({ type: "active-list-snapshot-received", threads: [thread("target"), thread("other")] });
-      catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
+      receiveActive(catalog, [thread("target"), thread("other")]);
+      receiveArchived(catalog, [thread("archived", true)]);
       catalog.apply({ type: "thread-archived", threadId: "target" });
 
       let activeRemovalAcknowledged = false;
@@ -495,8 +497,8 @@ describe("ThreadCatalog", () => {
     const archivedListener = vi.fn();
     catalog.observeActive(listener);
     catalog.observeArchived(archivedListener);
-    catalog.apply({ type: "active-list-snapshot-received", threads: [thread("active")] });
-    catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("known", true)] });
+    receiveActive(catalog, [thread("active")]);
+    receiveArchived(catalog, [thread("known", true)]);
 
     catalog.apply({ type: "thread-unarchived", threadId: "known" });
 
@@ -527,20 +529,17 @@ interface ModeledCatalogEvent {
 function renameOrderingEvents(): readonly ModeledCatalogEvent[] {
   return [
     modeledCatalogEvent("stale active snapshot", (catalog) => {
-      catalog.apply({ type: "active-list-snapshot-received", threads: [thread("target"), thread("other")] });
+      receiveActive(catalog, [thread("target"), thread("other")]);
     }),
     modeledCatalogEvent(
       "rename-ack active snapshot",
       (catalog) => {
-        catalog.apply({
-          type: "active-list-snapshot-received",
-          threads: [{ ...thread("target"), name: "Renamed" }, thread("other")],
-        });
+        receiveActive(catalog, [{ ...thread("target"), name: "Renamed" }, thread("other")]);
       },
       { acknowledgesRename: true },
     ),
     modeledCatalogEvent("empty archived snapshot", (catalog) => {
-      catalog.apply({ type: "archived-list-snapshot-received", threads: [] });
+      receiveArchived(catalog, []);
     }),
   ];
 }
@@ -548,22 +547,22 @@ function renameOrderingEvents(): readonly ModeledCatalogEvent[] {
 function archiveOrderingEvents(): readonly ModeledCatalogEvent[] {
   return [
     modeledCatalogEvent("stale active snapshot", (catalog) => {
-      catalog.apply({ type: "active-list-snapshot-received", threads: [thread("target"), thread("other")] });
+      receiveActive(catalog, [thread("target"), thread("other")]);
     }),
     modeledCatalogEvent(
       "archive-ack active snapshot",
       (catalog) => {
-        catalog.apply({ type: "active-list-snapshot-received", threads: [thread("other")] });
+        receiveActive(catalog, [thread("other")]);
       },
       { acknowledgesActiveRemoval: true },
     ),
     modeledCatalogEvent("stale archived snapshot", (catalog) => {
-      catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("archived", true)] });
+      receiveArchived(catalog, [thread("archived", true)]);
     }),
     modeledCatalogEvent(
       "archive-ack archived snapshot",
       (catalog) => {
-        catalog.apply({ type: "archived-list-snapshot-received", threads: [thread("target", true), thread("archived", true)] });
+        receiveArchived(catalog, [thread("target", true), thread("archived", true)]);
       },
       { acknowledgesArchivedUpsert: true },
     ),
@@ -616,6 +615,16 @@ function sequenceDescription(sequence: readonly ModeledCatalogEvent[]): string {
   return sequence.length === 0 ? "no additional snapshots" : sequence.map((event) => event.name).join(" -> ");
 }
 
+const catalogStores = new WeakMap<ThreadCatalog, TestThreadCatalogStore>();
+
+function receiveActive(catalog: ThreadCatalog, threads: readonly Thread[]): void {
+  catalogStores.get(catalog)?.receiveActive(threads);
+}
+
+function receiveArchived(catalog: ThreadCatalog, threads: readonly Thread[]): void {
+  catalogStores.get(catalog)?.receiveArchived(threads);
+}
+
 function catalogFixture(
   options: {
     fetchThreads?: (context: { codexPath: string; vaultPath: string }, archived: boolean) => Promise<readonly Thread[]>;
@@ -624,10 +633,12 @@ function catalogFixture(
   } = {},
 ) {
   const cache = cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([])));
-  const store = new AppServerSharedQueries({
+  const context = options.context ?? (() => ({ codexPath: "codex", vaultPath: "/vault" }));
+  const queries = new AppServerSharedQueries({
     cache,
-    context: options.context ?? (() => ({ codexPath: "codex", vaultPath: "/vault" })),
+    context,
   });
+  const store = new TestThreadCatalogStore(cache, queries, context);
   const catalog = createThreadCatalog(
     options.onEventApplied
       ? {
@@ -636,7 +647,129 @@ function catalogFixture(
         }
       : { store },
   );
+  catalogStores.set(catalog, store);
+  catalog.observeActive(() => undefined);
+  catalog.observeArchived(() => undefined);
   return { cache, catalog };
+}
+
+class TestThreadCatalogStore {
+  private readonly activeSnapshots = new Map<string, readonly Thread[]>();
+  private readonly archivedSnapshots = new Map<string, readonly Thread[]>();
+  private readonly activeObservers = new Set<ObservedResultListener<readonly Thread[]>>();
+  private readonly archivedObservers = new Set<ObservedResultListener<readonly Thread[]>>();
+
+  constructor(
+    private readonly cache: AppServerQueryCache,
+    private readonly queries: AppServerSharedQueries,
+    private readonly currentContext: () => AppServerQueryContext,
+  ) {}
+
+  contextKey(): string {
+    return appServerQueryContextKey(this.currentContext());
+  }
+
+  contextKeyFor(context: AppServerQueryContext): string {
+    return appServerQueryContextKey(context);
+  }
+
+  activeThreadsSnapshot(): readonly Thread[] | null {
+    return this.activeSnapshots.get(this.contextKey()) ?? this.queries.activeThreadsSnapshot();
+  }
+
+  activeThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null {
+    return this.activeSnapshots.get(this.contextKeyFor(context)) ?? this.cache.activeThreadsSnapshot(context);
+  }
+
+  archivedThreadsSnapshot(): readonly Thread[] | null {
+    return this.archivedSnapshots.get(this.contextKey()) ?? this.queries.archivedThreadsSnapshot();
+  }
+
+  archivedThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null {
+    return this.archivedSnapshots.get(this.contextKeyFor(context)) ?? this.cache.archivedThreadsSnapshot(context);
+  }
+
+  async fetchAllActiveThreads(): Promise<readonly Thread[]> {
+    return this.receiveLoadedActive(await this.queries.fetchAllActiveThreads());
+  }
+
+  hasMoreActiveThreads(): boolean {
+    return this.queries.hasMoreActiveThreads();
+  }
+
+  async loadMoreActiveThreads(): Promise<readonly Thread[]> {
+    return this.receiveLoadedActive(await this.queries.loadMoreActiveThreads());
+  }
+
+  async refreshActiveThreads(): Promise<readonly Thread[]> {
+    return this.receiveLoadedActive(await this.queries.refreshActiveThreads());
+  }
+
+  async refreshActiveThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]> {
+    const threads = await this.cache.refreshActiveThreads(context);
+    this.activeSnapshots.delete(this.contextKeyFor(context));
+    return threads;
+  }
+
+  async refreshArchivedThreads(): Promise<readonly Thread[]> {
+    return this.receiveLoadedArchived(await this.queries.refreshArchivedThreads());
+  }
+
+  async refreshArchivedThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]> {
+    const threads = await this.cache.refreshArchivedThreads(context);
+    this.archivedSnapshots.delete(this.contextKeyFor(context));
+    return threads;
+  }
+
+  observeActiveThreadsResult(observer: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
+    this.activeObservers.add(observer);
+    const unsubscribe = this.queries.observeActiveThreadsResult((result) => {
+      if (result.value && !result.isFetching) this.activeSnapshots.delete(this.contextKey());
+      observer(result);
+    }, options);
+    return () => {
+      this.activeObservers.delete(observer);
+      unsubscribe();
+    };
+  }
+
+  observeArchivedThreadsResult(observer: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
+    this.archivedObservers.add(observer);
+    const unsubscribe = this.queries.observeArchivedThreadsResult((result) => {
+      if (result.value && !result.isFetching) this.archivedSnapshots.delete(this.contextKey());
+      observer(result);
+    }, options);
+    return () => {
+      this.archivedObservers.delete(observer);
+      unsubscribe();
+    };
+  }
+
+  receiveActive(threads: readonly Thread[]): void {
+    this.activeSnapshots.set(this.contextKey(), threads);
+    const result = observedSnapshot(threads);
+    for (const observer of this.activeObservers) observer(result);
+  }
+
+  receiveArchived(threads: readonly Thread[]): void {
+    this.archivedSnapshots.set(this.contextKey(), threads);
+    const result = observedSnapshot(threads);
+    for (const observer of this.archivedObservers) observer(result);
+  }
+
+  private receiveLoadedActive(threads: readonly Thread[]): readonly Thread[] {
+    this.activeSnapshots.delete(this.contextKey());
+    return threads;
+  }
+
+  private receiveLoadedArchived(threads: readonly Thread[]): readonly Thread[] {
+    this.archivedSnapshots.delete(this.contextKey());
+    return threads;
+  }
+}
+
+function observedSnapshot(threads: readonly Thread[]): ObservedResult<readonly Thread[]> {
+  return { value: threads, error: null, isFetching: false };
 }
 
 function cacheWithThreads(

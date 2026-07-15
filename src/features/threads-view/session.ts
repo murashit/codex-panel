@@ -7,6 +7,7 @@ import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
+import { DeferredTask } from "../../shared/runtime/deferred-task";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
 import type { ArchiveExportDestination } from "../threads/workflows/archive-export";
@@ -23,14 +24,6 @@ import {
   threadRows,
   transitionThreadsRenameState,
 } from "./state";
-import {
-  type ActiveThreadsViewRefresh,
-  createThreadsViewDeferredTasks,
-  type ThreadsViewDeferredTasks,
-  type ThreadsViewRefreshLifecycleState,
-  transitionThreadsViewRefreshLifecycle,
-} from "./view-lifecycle";
-
 export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
@@ -74,8 +67,8 @@ export class ThreadsViewSession {
   private readonly lifetime = new OwnerLifetime();
   private readonly operations: ThreadOperations;
   private readonly titleService: ThreadTitleService;
-  private readonly deferredTasks: ThreadsViewDeferredTasks;
-  private refreshLifecycle: ThreadsViewRefreshLifecycleState = { kind: "idle" };
+  private readonly renderTask: DeferredTask;
+  private activeRefresh: object | null = null;
   private status: ThreadsViewStatus = { kind: "idle" };
   private threads: readonly Thread[] = [];
   private threadsLoaded = false;
@@ -88,7 +81,7 @@ export class ThreadsViewSession {
 
   constructor(private readonly environment: ThreadsViewSessionEnvironment) {
     this.observedAppServerContext = this.currentAppServerContext();
-    this.deferredTasks = createThreadsViewDeferredTasks(() => this.viewWindow());
+    this.renderTask = new DeferredTask(() => this.viewWindow(), 0);
     this.operations = createThreadOperations({
       transport: this.host.threadOperationsTransport,
       nameMutations: this.host.threadNameMutations,
@@ -128,8 +121,8 @@ export class ThreadsViewSession {
 
   close(): void {
     this.lifetime.dispose();
-    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
-    this.deferredTasks.clearAll();
+    this.activeRefresh = null;
+    this.renderTask.clear();
     this.unsubscribeThreads?.();
     this.unsubscribeThreads = null;
     unmountThreadsViewShell(this.environment.root);
@@ -162,7 +155,7 @@ export class ThreadsViewSession {
 
   async loadMore(): Promise<void> {
     const lifetime = this.lifetime.signal();
-    if (!this.lifetime.isCurrent(lifetime) || !this.host.threadCatalog.hasMoreActive() || this.refreshLifecycle.kind === "loading") return;
+    if (!this.lifetime.isCurrent(lifetime) || !this.host.threadCatalog.hasMoreActive() || this.activeRefresh) return;
     const refresh = this.startRefresh();
     this.render();
     try {
@@ -185,8 +178,8 @@ export class ThreadsViewSession {
 
   prepareAppServerContextChange(): void {
     this.operationGeneration += 1;
-    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "invalidated" });
-    this.deferredTasks.clearAll();
+    this.activeRefresh = null;
+    this.renderTask.clear();
     this.threads = [];
     this.threadsLoaded = false;
     this.renameStates.clear();
@@ -244,20 +237,20 @@ export class ThreadsViewSession {
     return this.environment.host;
   }
 
-  private startRefresh(): ActiveThreadsViewRefresh {
-    const refresh: ActiveThreadsViewRefresh = { kind: "loading" };
-    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "started", refresh });
+  private startRefresh(): object {
+    const refresh = {};
+    this.activeRefresh = refresh;
     return refresh;
   }
 
-  private finishRefresh(refresh: ActiveThreadsViewRefresh): void {
+  private finishRefresh(refresh: object): void {
     if (this.isStaleRefresh(refresh)) return;
-    this.refreshLifecycle = transitionThreadsViewRefreshLifecycle(this.refreshLifecycle, { type: "finished", refresh });
+    this.activeRefresh = null;
     this.render();
   }
 
-  private isStaleRefresh(refresh: ActiveThreadsViewRefresh): boolean {
-    return this.refreshLifecycle !== refresh;
+  private isStaleRefresh(refresh: object): boolean {
+    return this.activeRefresh !== refresh;
   }
 
   private render(): void {
@@ -266,7 +259,7 @@ export class ThreadsViewSession {
       this.environment.root,
       {
         status: this.status.kind === "idle" ? null : this.status.message,
-        loading: this.refreshLifecycle.kind === "loading",
+        loading: this.activeRefresh !== null,
         hasMore: this.host.threadCatalog.hasMoreActive(),
         rows: threadRows(
           this.threads,
@@ -301,7 +294,7 @@ export class ThreadsViewSession {
   }
 
   private scheduleRender(): void {
-    this.deferredTasks.scheduleRender(() => {
+    this.renderTask.schedule(() => {
       this.render();
     });
   }

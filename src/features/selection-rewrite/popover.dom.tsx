@@ -165,7 +165,6 @@ export class SelectionRewritePopover {
     }
 
     editor.replaceRange(replacement, state.targetRange.from, state.targetRange.to, "codex-panel-rewrite");
-    this.session.apply();
     this.close();
   }
 

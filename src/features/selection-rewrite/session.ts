@@ -1,10 +1,4 @@
-import {
-  type SelectionRewriteInstructionHistoryDirection,
-  type SelectionRewriteLifecycleEvent,
-  type SelectionRewriteRuntimeSettings,
-  type SelectionRewriteState,
-  transitionSelectionRewriteState,
-} from "./model";
+import type { SelectionRewriteInstructionHistoryDirection, SelectionRewriteRuntimeSettings, SelectionRewriteState } from "./model";
 import { SelectionRewriteOutputError } from "./output";
 import { buildSelectionRewritePrompt } from "./prompt";
 import type { SelectionRewriteActivity, SelectionRewriteTransport } from "./transport";
@@ -59,7 +53,7 @@ export class SelectionRewriteSession {
   }
 
   get isGenerating(): boolean {
-    return this.generationRun.kind === "running" || this.state.status === "generating";
+    return this.generationRun.kind === "running";
   }
 
   get hasInstruction(): boolean {
@@ -110,7 +104,6 @@ export class SelectionRewriteSession {
       hooks.render();
     } catch (error) {
       if (generationRun.abortController.signal.aborted) {
-        this.transitionState({ type: "cancelled" });
         return "started";
       }
       this.showGenerationFailure(error);
@@ -126,12 +119,7 @@ export class SelectionRewriteSession {
   }
 
   cancel(): void {
-    this.transitionState({ type: "cancelled" });
     this.abortGeneration();
-  }
-
-  apply(): void {
-    this.transitionState({ type: "applied" });
   }
 
   abortGeneration(): void {
@@ -175,12 +163,25 @@ export class SelectionRewriteSession {
     rememberSelectionRewriteInstruction(instruction);
     this.historyCursor = null;
     this.historyDraft = "";
-    this.transitionState({ type: "generation-started", instruction });
+    this.options.state = {
+      ...this.state,
+      instruction,
+      status: "generating",
+      streamText: "",
+      replacementText: null,
+      debugText: null,
+    };
     return generationRun;
   }
 
   private updatePreview(text: string): void {
-    this.transitionState({ type: "preview-updated", text });
+    this.options.state = {
+      ...this.state,
+      status: "generating",
+      streamText: text,
+      replacementText: null,
+      debugText: null,
+    };
     this.setStatus("Writing replacement", { active: true });
   }
 
@@ -189,20 +190,25 @@ export class SelectionRewriteSession {
   }
 
   private showPreview(replacementText: string): void {
-    this.transitionState({ type: "generation-succeeded", replacementText });
+    this.options.state = {
+      ...this.state,
+      status: "preview",
+      streamText: "",
+      replacementText,
+      debugText: null,
+    };
     this.setStatus("");
   }
 
   private showGenerationFailure(error: unknown): void {
-    this.transitionState({
-      type: "generation-failed",
+    this.options.state = {
+      ...this.state,
+      status: "failed",
+      streamText: "",
+      replacementText: null,
       debugText: error instanceof SelectionRewriteOutputError ? error.rawText : null,
-    });
+    };
     this.setStatus(error instanceof Error ? error.message : String(error));
-  }
-
-  private transitionState(event: SelectionRewriteLifecycleEvent): void {
-    this.options.state = transitionSelectionRewriteState(this.options.state, event);
   }
 
   private isActiveGenerationRun(generationRun: ActiveSelectionRewriteGenerationRun): boolean {
