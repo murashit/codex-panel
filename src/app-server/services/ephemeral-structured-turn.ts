@@ -6,6 +6,7 @@ import type { ServerNotification } from "../connection/rpc-messages";
 import { lastAgentMessageTextFromTurnRecord, type TurnItem, type TurnRecord } from "../protocol/turn";
 import type { ModelMetadataClient } from "./catalog";
 import type { AppServerRequestClient } from "./request-client";
+import { type RuntimeOverrideSettings, resolvedRuntimeOverrideForClient } from "./runtime-overrides";
 import { deleteThread, startEphemeralThread } from "./threads";
 import { type AppServerStartStructuredTurnOptions, startStructuredTurn } from "./turns";
 
@@ -56,17 +57,25 @@ export interface RunEphemeralStructuredTurnOptions {
   timedOutMessage: string;
   abortMessage?: string;
   runtime?: StructuredTurnRuntimeOverride | undefined;
-  resolveRuntime?: ((client: ModelMetadataClient) => Promise<StructuredTurnRuntimeOverride>) | undefined;
+  runtimeSettings?: RuntimeOverrideSettings | undefined;
   signal?: AbortSignal | undefined;
   onProgress?: (event: StructuredTurnProgressEvent) => void;
+}
+
+export type EphemeralStructuredTurnRunner = (options: RunEphemeralStructuredTurnOptions) => Promise<TurnRecord>;
+
+export interface EphemeralStructuredTurnDependencies {
   clientFactory?: EphemeralStructuredTurnClientFactory | undefined;
   timers?: EphemeralStructuredTurnTimers | undefined;
 }
 
-export async function runEphemeralStructuredTurn(options: RunEphemeralStructuredTurnOptions): Promise<TurnRecord> {
+export async function runEphemeralStructuredTurn(
+  options: RunEphemeralStructuredTurnOptions,
+  dependencies: EphemeralStructuredTurnDependencies = {},
+): Promise<TurnRecord> {
   throwIfAborted(options.signal, options.abortMessage);
   let state = createEphemeralStructuredTurnState();
-  const timers = options.timers ?? DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS;
+  const timers = dependencies.timers ?? DEFAULT_EPHEMERAL_STRUCTURED_TURN_TIMERS;
   let handleNotification: (notification: ServerNotification) => void = () => undefined;
   let operationAbortError: Error | null = null;
   const operationAbort = new AbortController();
@@ -98,7 +107,7 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   });
 
   const clientFactory =
-    options.clientFactory ??
+    dependencies.clientFactory ??
     ((codexPath, cwd, handlers) =>
       new AppServerClient({
         codexPath,
@@ -125,7 +134,9 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
 
   try {
     await runAbortable(client.connect());
-    const runtime = options.resolveRuntime ? await runAbortable(options.resolveRuntime(client)) : (options.runtime ?? {});
+    const runtime = options.runtimeSettings
+      ? await runAbortable(resolvedRuntimeOverrideForClient(client, options.runtimeSettings))
+      : (options.runtime ?? {});
     const threadResponse = await runAbortable(
       startEphemeralThread(client, {
         cwd: options.cwd,
@@ -169,8 +180,11 @@ export async function runEphemeralStructuredTurn(options: RunEphemeralStructured
   }
 }
 
-export async function runEphemeralStructuredTurnForLastAgentText(options: RunEphemeralStructuredTurnOptions): Promise<string | null> {
-  const turn = await runEphemeralStructuredTurn(options);
+export async function runEphemeralStructuredTurnForLastAgentText(
+  options: RunEphemeralStructuredTurnOptions,
+  runner: EphemeralStructuredTurnRunner = runEphemeralStructuredTurn,
+): Promise<string | null> {
+  const turn = await runner(options);
   return lastAgentMessageTextFromTurnRecord(turn);
 }
 

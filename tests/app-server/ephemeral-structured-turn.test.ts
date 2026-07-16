@@ -32,7 +32,7 @@ describe("runEphemeralStructuredTurn", () => {
       };
     });
 
-    const result = await runEphemeralStructuredTurn(runOptions(clientFactory));
+    const result = await runEphemeralStructuredTurn(runOptions(), { clientFactory });
 
     expect(result.items).toEqual([agentMessage("answer", '{"ok":true}')]);
     expect(result.itemsView).toBe("full");
@@ -41,12 +41,15 @@ describe("runEphemeralStructuredTurn", () => {
   it("reports matched structured turn progress without exposing raw notifications", async () => {
     const progress: unknown[] = [];
     const { clientFactory, client } = fakeStructuredTurnClientFactory();
-    const running = runEphemeralStructuredTurn({
-      ...runOptions(clientFactory),
-      onProgress: (event) => {
-        progress.push(event);
+    const running = runEphemeralStructuredTurn(
+      {
+        ...runOptions(),
+        onProgress: (event) => {
+          progress.push(event);
+        },
       },
-    });
+      { clientFactory },
+    );
 
     await expectPresent(client.current).structuredTurnStarted;
     const fake = expectPresent(client.current);
@@ -69,7 +72,7 @@ describe("runEphemeralStructuredTurn", () => {
       };
     });
 
-    const result = await runEphemeralStructuredTurn(runOptions(clientFactory));
+    const result = await runEphemeralStructuredTurn(runOptions(), { clientFactory });
 
     expect(result.items).toEqual([agentMessage("answer", '{"ok":true}')]);
   });
@@ -82,10 +85,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn({
-      ...runOptions(clientFactory),
-      signal: controller.signal,
-    });
+    await runEphemeralStructuredTurn({ ...runOptions(), signal: controller.signal }, { clientFactory });
 
     expect(add).toHaveBeenCalledWith("abort", expect.any(Function), { once: true });
     expect(remove).toHaveBeenCalledTimes(add.mock.calls.length);
@@ -100,10 +100,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn({
-      ...runOptions(clientFactory),
-      timers,
-    });
+    await runEphemeralStructuredTurn(runOptions(), { clientFactory, timers });
 
     expect(timers.setTimeout).toHaveBeenCalledWith(expect.any(Function), 10_000);
     expect(timers.clearTimeout).toHaveBeenCalledWith(123);
@@ -114,7 +111,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn(runOptions(clientFactory));
+    await runEphemeralStructuredTurn(runOptions(), { clientFactory });
 
     const fake = expectPresent(client.current);
     expect(fake.deleteThreadRequest).toHaveBeenCalledWith({ threadId: "thread" }, { timeoutMs: 5_000 });
@@ -129,10 +126,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.connectImpl = () => new Promise<InitializeResponse>(() => undefined);
     });
 
-    const running = runEphemeralStructuredTurn({
-      ...runOptions(clientFactory),
-      timers,
-    });
+    const running = runEphemeralStructuredTurn(runOptions(), { clientFactory, timers });
     await Promise.resolve();
 
     timers.fireTimeout();
@@ -147,7 +141,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await expect(runEphemeralStructuredTurn(runOptions(clientFactory))).resolves.toMatchObject({
+    await expect(runEphemeralStructuredTurn(runOptions(), { clientFactory })).resolves.toMatchObject({
       items: [agentMessage("answer", '{"ok":true}')],
     });
     expect(expectPresent(client.current).disconnect).toHaveBeenCalledOnce();
@@ -162,7 +156,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn(runOptions(clientFactory));
+    await runEphemeralStructuredTurn(runOptions(), { clientFactory });
 
     expect(expectPresent(client.current).rejectServerRequest).toHaveBeenCalledWith(
       123,
@@ -174,6 +168,10 @@ describe("runEphemeralStructuredTurn", () => {
   it("resolves runtime on the same client before starting the ephemeral thread", async () => {
     const callOrder: string[] = [];
     const { clientFactory, client } = fakeStructuredTurnClientFactory((fake) => {
+      fake.modelListImpl = async () => {
+        callOrder.push("model-list");
+        return { data: [], nextCursor: null };
+      };
       fake.startEphemeralThreadImpl = async () => {
         callOrder.push("start-thread");
         return threadStartResponse("thread");
@@ -181,18 +179,16 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn({
-      ...runOptions(clientFactory),
-      resolveRuntime: async (runtimeClient) => {
-        callOrder.push("resolve-runtime");
-        expect(runtimeClient).toBe(expectPresent(client.current));
-        await runtimeClient.request("model/list", { includeHidden: false, limit: 100 });
-        return { model: "gpt-5.1", effort: "low" };
+    await runEphemeralStructuredTurn(
+      {
+        ...runOptions(),
+        runtimeSettings: { model: "gpt-5.1", effort: "low" },
       },
-    });
+      { clientFactory },
+    );
 
-    expect(callOrder).toEqual(["resolve-runtime", "start-thread"]);
-    expect(expectPresent(client.current).modelListRequests).toEqual([{ includeHidden: false, limit: 100 }]);
+    expect(callOrder).toEqual(["model-list", "start-thread"]);
+    expect(expectPresent(client.current).modelListRequests).toEqual([{ includeHidden: false, cursor: null, limit: 100 }]);
     expect(expectPresent(client.current).startStructuredTurnOptions).toEqual({
       threadId: "thread",
       cwd: "/vault",
@@ -207,7 +203,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = async () => ({ turn: turn([agentMessage("answer", '{"ok":true}')]) });
     });
 
-    await runEphemeralStructuredTurn(runOptions(clientFactory));
+    await runEphemeralStructuredTurn(runOptions(), { clientFactory });
 
     expect(expectPresent(client.current).startEphemeralThreadOptions).toEqual({
       cwd: "/vault",
@@ -225,9 +221,10 @@ describe("runEphemeralStructuredTurn", () => {
     },
     {
       stage: "runtime resolution",
-      configure: (_fake: FakeStructuredTurnClient): void => undefined,
-      resolveRuntime: (): Promise<NonNullable<AppServerStartStructuredTurnOptions["runtime"]>> =>
-        new Promise<NonNullable<AppServerStartStructuredTurnOptions["runtime"]>>(() => undefined),
+      configure: (fake: FakeStructuredTurnClient): void => {
+        fake.modelListImpl = () => new Promise<ClientResponseByMethod["model/list"]>(() => undefined);
+      },
+      runtimeSettings: { model: "gpt-5.1", effort: "low" } as const,
     },
     {
       stage: "ephemeral thread start",
@@ -242,15 +239,17 @@ describe("runEphemeralStructuredTurn", () => {
       },
     },
     { stage: "completion wait", configure: (_fake: FakeStructuredTurnClient): void => undefined },
-  ])("times out during $stage and disconnects the client", async ({ configure, resolveRuntime }) => {
+  ])("times out during $stage and disconnects the client", async ({ configure, runtimeSettings }) => {
     const timers = timerHarness();
     const { clientFactory, client } = fakeStructuredTurnClientFactory(configure);
 
-    const running = runEphemeralStructuredTurn({
-      ...runOptions(clientFactory),
-      ...(resolveRuntime ? { resolveRuntime } : {}),
-      timers,
-    });
+    const running = runEphemeralStructuredTurn(
+      {
+        ...runOptions(),
+        ...(runtimeSettings ? { runtimeSettings } : {}),
+      },
+      { clientFactory, timers },
+    );
     await Promise.resolve();
 
     timers.fireTimeout();
@@ -266,10 +265,7 @@ describe("runEphemeralStructuredTurn", () => {
       fake.startStructuredTurnImpl = () => new Promise<TurnStartResponse>(() => undefined);
     });
 
-    const running = runEphemeralStructuredTurn({
-      ...runOptions(clientFactory),
-      timers,
-    });
+    const running = runEphemeralStructuredTurn(runOptions(), { clientFactory, timers });
     await expectPresent(client.current).structuredTurnStarted;
 
     timers.fireTimeout();
@@ -279,7 +275,7 @@ describe("runEphemeralStructuredTurn", () => {
   });
 });
 
-function runOptions(clientFactory: EphemeralStructuredTurnClientFactory): Parameters<typeof runEphemeralStructuredTurn>[0] {
+function runOptions(): Parameters<typeof runEphemeralStructuredTurn>[0] {
   return {
     codexPath: "/bin/codex",
     cwd: "/vault",
@@ -291,7 +287,6 @@ function runOptions(clientFactory: EphemeralStructuredTurnClientFactory): Parame
     serverRequests: { kind: "reject", message: "Structured test does not handle server requests." },
     exitedMessage: "Structured test app-server exited.",
     timedOutMessage: "Structured test timed out.",
-    clientFactory,
   };
 }
 
@@ -312,6 +307,7 @@ function fakeStructuredTurnClientFactory(configure?: (client: FakeStructuredTurn
 
 class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
   connectImpl: (() => Promise<InitializeResponse>) | null = null;
+  modelListImpl: (() => Promise<ClientResponseByMethod["model/list"]>) | null = null;
   startEphemeralThreadImpl: (() => Promise<ThreadStartResponse>) | null = null;
   startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
   startEphemeralThreadOptions: AppServerStartEphemeralThreadOptions | null = null;
@@ -343,7 +339,7 @@ class FakeStructuredTurnClient implements EphemeralStructuredTurnClient {
     switch (method) {
       case "model/list":
         this.modelListRequests.push(params as ClientRequestParams<"model/list">);
-        return { data: [], nextCursor: null } as unknown as ClientResponseByMethod[M];
+        return (this.modelListImpl ? await this.modelListImpl() : { data: [], nextCursor: null }) as ClientResponseByMethod[M];
       case "thread/start":
         this.startEphemeralThreadOptions = ephemeralThreadOptionsFromParams(params as ClientRequestParams<"thread/start">);
         return (this.startEphemeralThreadImpl

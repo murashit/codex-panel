@@ -2,16 +2,9 @@
 
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../../src/app-server/connection/client";
-import type { ClientRequestParams, RequestId, ServerNotification } from "../../../src/app-server/connection/rpc-messages";
-import type { TurnItem, TurnRecord } from "../../../src/app-server/protocol/turn";
-import type { AppServerStartStructuredTurnOptions } from "../../../src/app-server/services/turns";
-import type { ModelMetadata, ReasoningEffort } from "../../../src/domain/catalog/metadata";
-import type { ServerInitialization } from "../../../src/domain/server/initialization";
-import {
-  type AppServerSelectionRewriteTransportOptions,
-  createAppServerSelectionRewriteTransport,
-} from "../../../src/features/selection-rewrite/app-server-transport";
+import type { TurnRecord } from "../../../src/app-server/protocol/turn";
+import type { EphemeralStructuredTurnRunner } from "../../../src/app-server/services/ephemeral-structured-turn";
+import { createAppServerSelectionRewriteTransport } from "../../../src/features/selection-rewrite/app-server-transport";
 import { buildSelectionUnifiedDiff } from "../../../src/features/selection-rewrite/diff";
 import { canApplySelectionRewrite, type SelectionRewriteState } from "../../../src/features/selection-rewrite/model";
 import { SelectionRewriteOutputError, selectionRewriteOutputParseResultFromText } from "../../../src/features/selection-rewrite/output";
@@ -19,19 +12,10 @@ import { SelectionRewritePopover } from "../../../src/features/selection-rewrite
 import { positionSelectionRewritePopover } from "../../../src/features/selection-rewrite/position.dom";
 import { buildSelectionRewritePrompt } from "../../../src/features/selection-rewrite/prompt";
 import type { SelectionRewriteTransportRequest } from "../../../src/features/selection-rewrite/transport";
-import type { ModelListResponse } from "../../../src/generated/app-server/v2/ModelListResponse";
-import type { ThreadStartResponse } from "../../../src/generated/app-server/v2/ThreadStartResponse";
 import { deferred } from "../../support/async";
 import { installObsidianDomShims } from "../../support/dom";
 
-type InitializeResponse = ServerInitialization;
-type Turn = TurnRecord;
-interface TurnStartResponse {
-  turn: TurnRecord;
-}
-type SelectionRewriteClientFactory = NonNullable<AppServerSelectionRewriteTransportOptions["clientFactory"]>;
-type SelectionRewriteClient = ReturnType<SelectionRewriteClientFactory>;
-type SelectionRewriteTestRunOptions = SelectionRewriteTransportRequest & { clientFactory: SelectionRewriteClientFactory };
+type SelectionRewriteTestRunOptions = SelectionRewriteTransportRequest & { runner: EphemeralStructuredTurnRunner };
 
 const selectionRewriteGenerate = vi.fn();
 
@@ -209,61 +193,56 @@ describe("selection rewrite positioning", () => {
   });
 });
 
-describe("selection rewrite runner lifecycle", () => {
-  it("keeps pre-acknowledgement completion when turn notifications arrive before turn/start resolves", async () => {
-    const { clientFactory, client } = fakeSelectionRewriteClientFactory((fake) => {
-      fake.startStructuredTurnImpl = async () => {
-        fake.emit(completedItemNotification("thread", "turn", agentMessage("answer", '{"replacementText":"early"}')));
-        fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
-        return { turn: turn([], { id: "turn", status: "inProgress" }) };
-      };
-    });
-
-    await expect(runSelectionRewrite(runOptions(clientFactory))).resolves.toEqual({ replacementText: "early" });
-    expect(client.current?.disconnected).toBe(true);
-  });
-
-  it("ignores notifications outside the active selection rewrite turn", async () => {
+describe("selection rewrite app-server transport", () => {
+  it("maps the rewrite request, progress, and structured output through the runner", async () => {
+    const activities: string[] = [];
     const previews: string[] = [];
-    const { clientFactory, client } = fakeSelectionRewriteClientFactory();
-    const rewriting = runSelectionRewrite({
-      ...runOptions(clientFactory),
-      onPreview: (text) => previews.push(text),
-    });
-
-    await expectPresent(client.current).structuredTurnStarted;
-    await Promise.resolve();
-
-    const fake = expectPresent(client.current);
-    fake.emit(agentDeltaNotification("other-thread", "turn", "ignored"));
-    fake.emit(completedItemNotification("thread", "other-turn", agentMessage("wrong", '{"replacementText":"wrong"}')));
-    fake.emit(agentDeltaNotification("thread", "turn", '{"replacementText":"stream'));
-    fake.emit(agentDeltaNotification("thread", "turn", 'ed"}'));
-    fake.emit(completedItemNotification("thread", "turn", agentMessage("answer", '{"replacementText":"final"}')));
-    fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
-
-    await expect(rewriting).resolves.toEqual({ replacementText: "final" });
-    expect(previews).toEqual(['{"replacementText":"stream', '{"replacementText":"streamed"}']);
-  });
-
-  it("passes validated runtime overrides to the structured rewrite turn", async () => {
-    const { clientFactory, client } = fakeSelectionRewriteClientFactory((fake) => {
-      fake.modelList = { data: [modelMetadata("gpt-5.4-mini", ["low", "medium", "high"]) as never], nextCursor: null };
-      fake.startStructuredTurnImpl = async () => {
-        fake.emit(completedItemNotification("thread", "turn", agentMessage("answer", '{"replacementText":"final"}')));
-        fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
-        return { turn: turn([], { id: "turn", status: "inProgress" }) };
-      };
+    const signal = new AbortController().signal;
+    const runner = vi.fn<EphemeralStructuredTurnRunner>(async (options) => {
+      options.onProgress?.({ type: "reasoning-activity" });
+      options.onProgress?.({ type: "agent-message-delta", delta: '{"replacementText":"stream' });
+      options.onProgress?.({ type: "agent-message-delta", delta: 'ed"}' });
+      return turn([agentMessage("answer", '{"replacementText":"final"}')]);
     });
 
     await expect(
       runSelectionRewrite({
-        ...runOptions(clientFactory),
+        ...runOptions(runner),
+        signal,
         runtimeSettings: { rewriteSelectionModel: "gpt-5.4-mini", rewriteSelectionEffort: "minimal" },
+        onActivity: (activity) => activities.push(activity),
+        onPreview: (text) => previews.push(text),
       }),
     ).resolves.toEqual({ replacementText: "final" });
 
-    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({ model: "gpt-5.4-mini" });
+    expect(activities).toEqual(["reasoning", "writing", "writing"]);
+    expect(previews).toEqual(['{"replacementText":"stream', '{"replacementText":"streamed"}']);
+    expect(runner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        codexPath: "/bin/codex",
+        cwd: "/vault",
+        serviceName: "codex-panel-rewrite-selection",
+        developerInstructions: expect.stringContaining("The only editable target is the selected text"),
+        prompt: "Rewrite this.",
+        outputSchema: {
+          type: "object",
+          properties: { replacementText: { type: "string" } },
+          required: ["replacementText"],
+          additionalProperties: false,
+        },
+        timeoutMs: 120_000,
+        serverRequests: { kind: "reject", message: "Selection rewrite does not handle server requests." },
+        abortMessage: "Selection rewrite cancelled.",
+        signal,
+        runtimeSettings: { model: "gpt-5.4-mini", effort: "minimal" },
+      }),
+    );
+  });
+
+  it("reports invalid structured output with the raw assistant text", async () => {
+    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([agentMessage("answer", "invalid raw output")]));
+
+    await expect(runSelectionRewrite(runOptions(runner))).rejects.toMatchObject({ rawText: "invalid raw output" });
   });
 });
 
@@ -736,160 +715,26 @@ async function flushPromises(): Promise<void> {
 }
 
 function runSelectionRewrite(options: SelectionRewriteTestRunOptions) {
-  const { clientFactory, ...request } = options;
+  const { runner, ...request } = options;
   return createAppServerSelectionRewriteTransport({
     codexPath: () => "/bin/codex",
     cwd: "/vault",
-    clientFactory,
+    runner,
   }).generate(request);
 }
 
-function runOptions(clientFactory: SelectionRewriteClientFactory): SelectionRewriteTestRunOptions {
+function runOptions(runner: EphemeralStructuredTurnRunner): SelectionRewriteTestRunOptions {
   return {
     prompt: "Rewrite this.",
     runtimeSettings: { rewriteSelectionModel: null, rewriteSelectionEffort: null },
     onActivity: () => undefined,
     onPreview: () => undefined,
     signal: new AbortController().signal,
-    clientFactory,
+    runner,
   };
 }
 
-function fakeSelectionRewriteClientFactory(configure?: (client: FakeSelectionRewriteClient) => void): {
-  clientFactory: SelectionRewriteClientFactory;
-  client: { current: FakeSelectionRewriteClient | null };
-} {
-  const client: { current: FakeSelectionRewriteClient | null } = { current: null };
-  return {
-    client,
-    clientFactory: (_codexPath, _cwd, handlers) => {
-      client.current = new FakeSelectionRewriteClient(handlers);
-      configure?.(client.current);
-      return client.current;
-    },
-  };
-}
-
-class FakeSelectionRewriteClient implements SelectionRewriteClient {
-  disconnected = false;
-  modelList: ModelListResponse = { data: [], nextCursor: null };
-  startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
-  startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
-  readonly structuredTurnStarted: Promise<void>;
-  private resolveStructuredTurnStarted!: () => void;
-
-  constructor(private readonly handlers: AppServerClientHandlers) {
-    this.structuredTurnStarted = new Promise((resolve) => {
-      this.resolveStructuredTurnStarted = resolve;
-    });
-  }
-
-  async connect(): Promise<InitializeResponse> {
-    return { codexHome: "/tmp/codex" } as InitializeResponse;
-  }
-
-  disconnect(): void {
-    this.disconnected = true;
-  }
-
-  rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {}
-
-  async request<M extends TypedClientRequestMethod>(
-    method: M,
-    params: ClientRequestParams<M>,
-    options: { timeoutMs?: number } = {},
-  ): Promise<ClientResponseByMethod[M]> {
-    void options;
-    switch (method) {
-      case "model/list":
-        return this.modelList as unknown as ClientResponseByMethod[M];
-      case "thread/start":
-        return threadStartResponse("thread") as unknown as ClientResponseByMethod[M];
-      case "turn/start":
-        this.startStructuredTurnOptions = structuredTurnOptionsFromParams(params as ClientRequestParams<"turn/start">);
-        this.resolveStructuredTurnStarted();
-        return (this.startStructuredTurnImpl
-          ? await this.startStructuredTurnImpl()
-          : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
-      case "thread/delete":
-        return {} as unknown as ClientResponseByMethod[M];
-      default:
-        throw new Error(`Unexpected app-server request: ${method}`);
-    }
-  }
-
-  emit(notification: ServerNotification): void {
-    this.handlers.onNotification(notification);
-  }
-}
-
-function structuredTurnOptionsFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions {
-  const textItem = params.input[0];
-  if (!params.cwd || !textItem || textItem.type !== "text" || !params.outputSchema) throw new Error("Expected structured turn params.");
-  return {
-    threadId: params.threadId,
-    cwd: params.cwd,
-    text: textItem.text,
-    outputSchema: params.outputSchema,
-    runtime: {
-      ...(params.serviceTier !== undefined ? { serviceTier: params.serviceTier } : {}),
-      ...(params.collaborationMode !== undefined && params.collaborationMode !== null
-        ? { collaborationMode: params.collaborationMode }
-        : {}),
-      ...(params.model !== undefined ? { model: params.model } : {}),
-      ...(params.effort !== undefined ? { effort: params.effort } : {}),
-      ...(params.approvalsReviewer !== undefined ? { approvalsReviewer: params.approvalsReviewer } : {}),
-    },
-  };
-}
-
-function threadStartResponse(threadId: string): ThreadStartResponse {
-  return {
-    thread: thread(threadId),
-    model: "gpt-5.1",
-    modelProvider: "openai",
-    serviceTier: null,
-    approvalPolicy: "never",
-    cwd: "/vault",
-    runtimeWorkspaceRoots: [],
-    instructionSources: [],
-    approvalsReviewer: "auto_review",
-    activePermissionProfile: null,
-    sandbox: { type: "readOnly", networkAccess: false },
-    reasoningEffort: null,
-    multiAgentMode: "explicitRequestOnly",
-  };
-}
-
-function thread(id: string): ThreadStartResponse["thread"] {
-  return {
-    id,
-    extra: null,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
-    preview: "",
-    ephemeral: true,
-    historyMode: "paginated",
-    modelProvider: "openai",
-    createdAt: 1,
-    updatedAt: 1,
-    recencyAt: null,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "unknown",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
-    turns: [],
-  };
-}
-
-function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
+function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
   return {
     id: "turn",
     items,
@@ -903,45 +748,6 @@ function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
   };
 }
 
-function agentMessage(id: string, text: string): TurnItem {
+function agentMessage(id: string, text: string): Extract<TurnRecord["items"][number], { type: "agentMessage" }> {
   return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
-}
-
-function agentDeltaNotification(threadId: string, turnId: string, delta: string): ServerNotification {
-  return {
-    method: "item/agentMessage/delta",
-    params: { threadId, turnId, itemId: "agent", delta },
-  };
-}
-
-function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {
-  type ItemCompletedNotification = Extract<ServerNotification, { method: "item/completed" }>;
-  return {
-    method: "item/completed",
-    params: { threadId, turnId, item, completedAtMs: 1 } as unknown as ItemCompletedNotification["params"],
-  };
-}
-
-function turnCompletedNotification(threadId: string, completedTurn: Turn): ServerNotification {
-  type TurnCompletedNotification = Extract<ServerNotification, { method: "turn/completed" }>;
-  return {
-    method: "turn/completed",
-    params: { threadId, turn: completedTurn } as unknown as TurnCompletedNotification["params"],
-  };
-}
-
-function modelMetadata(name: string, efforts: ReasoningEffort[]): ModelMetadata {
-  return {
-    id: name,
-    model: name,
-    displayName: name,
-    description: "",
-    hidden: false,
-    supportedReasoningEfforts: efforts,
-    defaultReasoningEffort: efforts[0] ?? "low",
-    inputModalities: ["text"],
-    serviceTiers: [],
-    defaultServiceTier: null,
-    isDefault: false,
-  };
 }

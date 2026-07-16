@@ -1,17 +1,10 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import type { AppServerClientHandlers, ClientResponseByMethod, TypedClientRequestMethod } from "../../src/app-server/connection/client";
-import type { ClientRequestParams, RequestId, ServerNotification } from "../../src/app-server/connection/rpc-messages";
-import type { TurnItem, TurnRecord } from "../../src/app-server/protocol/turn";
-import type {
-  EphemeralStructuredTurnClient,
-  EphemeralStructuredTurnClientFactory,
-} from "../../src/app-server/services/ephemeral-structured-turn";
+import type { TurnRecord } from "../../src/app-server/protocol/turn";
+import type { EphemeralStructuredTurnRunner } from "../../src/app-server/services/ephemeral-structured-turn";
 import { generateThreadTitleWithCodex } from "../../src/app-server/services/thread-title-generation";
-import type { AppServerStartStructuredTurnOptions } from "../../src/app-server/services/turns";
-import type { ServerInitialization } from "../../src/domain/server/initialization";
 import {
   findThreadTitleContext,
   THREAD_TITLE_MAX_CHARS,
@@ -19,14 +12,6 @@ import {
   threadTitleFromGeneratedText,
   threadTitlePrompt,
 } from "../../src/domain/threads/title-generation-model";
-import type { ModelListResponse } from "../../src/generated/app-server/v2/ModelListResponse";
-import type { ThreadStartResponse } from "../../src/generated/app-server/v2/ThreadStartResponse";
-
-type InitializeResponse = ServerInitialization;
-type Turn = TurnRecord;
-interface TurnStartResponse {
-  turn: TurnRecord;
-}
 
 describe("thread title", () => {
   it("builds title context from a turn transcript summary", () => {
@@ -76,26 +61,37 @@ describe("thread title", () => {
     ]);
   });
 
-  it("parses structured title responses", async () => {
-    const { clientFactory } = fakeThreadTitleClientFactory((fake) => {
-      fake.startStructuredTurnImpl = async () => ({
-        turn: turn(
-          [
-            {
-              type: "agentMessage",
-              id: "a1",
-              text: '```json\n{"title":"Codex Panelの自動命名"}\n```',
-              phase: "final_answer",
-              memoryCitation: null,
-            },
-          ],
-          { status: "completed" },
-        ),
-      });
-    });
+  it("runs a structured title request and parses its assistant transcript", async () => {
+    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () =>
+      turn([
+        {
+          type: "agentMessage",
+          id: "a1",
+          text: '```json\n{"title":"Codex Panelの自動命名"}\n```',
+          phase: "final_answer",
+          memoryCitation: null,
+        },
+      ]),
+    );
 
-    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), clientFactory)).resolves.toBe(
+    const signal = new AbortController().signal;
+    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner, signal })).resolves.toBe(
       "Codex Panelの自動命名",
+    );
+    expect(runner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        codexPath: "/bin/codex",
+        cwd: "/vault",
+        serviceName: "codex-panel-naming",
+        developerInstructions: expect.stringContaining("Return only a JSON object"),
+        prompt: threadTitlePrompt(titleContext()),
+        outputSchema: expect.objectContaining({ required: ["title"], additionalProperties: false }),
+        timeoutMs: 60_000,
+        serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
+        abortMessage: "Thread title generation cancelled.",
+        runtimeSettings: { model: null, effort: null },
+        signal,
+      }),
     );
   });
 
@@ -126,80 +122,32 @@ describe("thread title", () => {
   });
 
   it("uses explicit title runtime overrides", async () => {
-    const { clientFactory, client } = fakeThreadTitleClientFactory((fake) => {
-      fake.startStructuredTurnImpl = async () => ({ turn: turn([], { status: "completed" }) });
-    });
+    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([]));
 
     await generateThreadTitleWithCodex(
       "/bin/codex",
       "/vault",
       titleContext(),
       { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
-      clientFactory,
+      { runner },
     );
 
-    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({
-      model: "gpt-5.4-mini",
-      effort: "minimal",
-    });
+    expect(runner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeSettings: {
+          model: "gpt-5.4-mini",
+          effort: "minimal",
+        },
+      }),
+    );
   });
 
   it("omits title runtime overrides that are set to Codex default", async () => {
-    const { clientFactory, client } = fakeThreadTitleClientFactory((fake) => {
-      fake.startStructuredTurnImpl = async () => ({ turn: turn([], { status: "completed" }) });
-    });
+    const runner = vi.fn<EphemeralStructuredTurnRunner>(async () => turn([]));
 
-    await generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), clientFactory);
+    await generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), { runner });
 
-    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({});
-  });
-
-  it("omits an explicit title effort when the selected model does not support it", async () => {
-    const { clientFactory, client } = fakeThreadTitleClientFactory((fake) => {
-      fake.modelList = [appServerModel("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])];
-      fake.startStructuredTurnImpl = async () => ({ turn: turn([], { status: "completed" }) });
-    });
-
-    await generateThreadTitleWithCodex(
-      "/bin/codex",
-      "/vault",
-      titleContext(),
-      { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "minimal" },
-      clientFactory,
-    );
-
-    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({ model: "gpt-5.4-mini" });
-  });
-
-  it("keeps an explicit title effort when the selected model supports it", async () => {
-    const { clientFactory, client } = fakeThreadTitleClientFactory((fake) => {
-      fake.modelList = [appServerModel("gpt-5.4-mini", ["low", "medium", "high", "xhigh"])];
-      fake.startStructuredTurnImpl = async () => ({ turn: turn([], { status: "completed" }) });
-    });
-
-    await generateThreadTitleWithCodex(
-      "/bin/codex",
-      "/vault",
-      titleContext(),
-      { threadNamingModel: "gpt-5.4-mini", threadNamingEffort: "low" },
-      clientFactory,
-    );
-
-    expect(client.current?.startStructuredTurnOptions?.runtime).toEqual({ model: "gpt-5.4-mini", effort: "low" });
-  });
-
-  it("keeps pre-acknowledgement completion when title notifications arrive before turn/start resolves", async () => {
-    const { clientFactory } = fakeThreadTitleClientFactory((fake) => {
-      fake.startStructuredTurnImpl = async () => {
-        fake.emit(completedItemNotification("thread", "turn", assistantMessage("answer", '{"title":"Early title"}')));
-        fake.emit(turnCompletedNotification("thread", turn([], { id: "turn", status: "completed" })));
-        return { turn: turn([], { id: "turn", status: "inProgress" }) };
-      };
-    });
-
-    await expect(generateThreadTitleWithCodex("/bin/codex", "/vault", titleContext(), runtimeSettings(), clientFactory)).resolves.toBe(
-      "Early title",
-    );
+    expect(runner).toHaveBeenCalledWith(expect.objectContaining({ runtimeSettings: { model: null, effort: null } }));
   });
 });
 
@@ -217,131 +165,7 @@ function runtimeSettings() {
   };
 }
 
-function fakeThreadTitleClientFactory(configure?: (client: FakeThreadTitleClient) => void): {
-  clientFactory: EphemeralStructuredTurnClientFactory;
-  client: { current: FakeThreadTitleClient | null };
-} {
-  const client: { current: FakeThreadTitleClient | null } = { current: null };
-  return {
-    client,
-    clientFactory: (_codexPath, _cwd, handlers) => {
-      client.current = new FakeThreadTitleClient(handlers);
-      configure?.(client.current);
-      return client.current;
-    },
-  };
-}
-
-class FakeThreadTitleClient implements EphemeralStructuredTurnClient {
-  startStructuredTurnImpl: (() => Promise<TurnStartResponse>) | null = null;
-  startStructuredTurnOptions: AppServerStartStructuredTurnOptions | null = null;
-  modelList: ModelListResponse["data"] = [];
-
-  constructor(private readonly handlers: AppServerClientHandlers) {}
-
-  async connect(): Promise<InitializeResponse> {
-    return { codexHome: "/tmp/codex" } as InitializeResponse;
-  }
-
-  disconnect(): void {}
-
-  rejectServerRequest(_requestId: RequestId, _code: number, _message: string): void {}
-
-  async request<M extends TypedClientRequestMethod>(
-    method: M,
-    params: ClientRequestParams<M>,
-    options: { timeoutMs?: number } = {},
-  ): Promise<ClientResponseByMethod[M]> {
-    void options;
-    switch (method) {
-      case "model/list":
-        return { data: this.modelList, nextCursor: null } as unknown as ClientResponseByMethod[M];
-      case "thread/start":
-        return threadStartResponse("thread") as unknown as ClientResponseByMethod[M];
-      case "turn/start":
-        this.startStructuredTurnOptions = structuredTurnOptionsFromParams(params as ClientRequestParams<"turn/start">);
-        return (this.startStructuredTurnImpl
-          ? await this.startStructuredTurnImpl()
-          : { turn: turn([], { id: "turn", status: "inProgress" }) }) as unknown as ClientResponseByMethod[M];
-      case "thread/delete":
-        return {} as unknown as ClientResponseByMethod[M];
-      default:
-        throw new Error(`Unexpected app-server request: ${method}`);
-    }
-  }
-
-  emit(notification: ServerNotification): void {
-    this.handlers.onNotification(notification);
-  }
-}
-
-function structuredTurnOptionsFromParams(params: ClientRequestParams<"turn/start">): AppServerStartStructuredTurnOptions {
-  const textItem = params.input[0];
-  if (!params.cwd || !textItem || textItem.type !== "text" || !params.outputSchema) throw new Error("Expected structured turn params.");
-  return {
-    threadId: params.threadId,
-    cwd: params.cwd,
-    text: textItem.text,
-    outputSchema: params.outputSchema,
-    runtime: {
-      ...(params.serviceTier !== undefined ? { serviceTier: params.serviceTier } : {}),
-      ...(params.collaborationMode !== undefined && params.collaborationMode !== null
-        ? { collaborationMode: params.collaborationMode }
-        : {}),
-      ...(params.model !== undefined ? { model: params.model } : {}),
-      ...(params.effort !== undefined ? { effort: params.effort } : {}),
-      ...(params.approvalsReviewer !== undefined ? { approvalsReviewer: params.approvalsReviewer } : {}),
-    },
-  };
-}
-
-function threadStartResponse(threadId: string): ThreadStartResponse {
-  return {
-    thread: threadFixture(threadId),
-    model: "gpt-5.1",
-    modelProvider: "openai",
-    serviceTier: null,
-    approvalPolicy: "never",
-    cwd: "/vault",
-    runtimeWorkspaceRoots: [],
-    instructionSources: [],
-    approvalsReviewer: "auto_review",
-    activePermissionProfile: null,
-    sandbox: { type: "readOnly", networkAccess: false },
-    reasoningEffort: null,
-    multiAgentMode: "explicitRequestOnly",
-  };
-}
-
-function threadFixture(id: string): ThreadStartResponse["thread"] {
-  return {
-    id,
-    extra: null,
-    sessionId: "session",
-    forkedFromId: null,
-    parentThreadId: null,
-    preview: "",
-    ephemeral: true,
-    historyMode: "paginated",
-    modelProvider: "openai",
-    createdAt: 1,
-    updatedAt: 1,
-    recencyAt: null,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/vault",
-    cliVersion: "0.0.0",
-    source: "unknown",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
-    turns: [],
-  };
-}
-
-function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
+function turn(items: TurnRecord["items"], overrides: Partial<TurnRecord> = {}): TurnRecord {
   return {
     id: "turn",
     items,
@@ -352,50 +176,5 @@ function turn(items: Turn["items"], overrides: Partial<Turn> = {}): Turn {
     completedAt: 2,
     durationMs: 1,
     ...overrides,
-  };
-}
-
-function assistantMessage(id: string, text: string): TurnItem {
-  return { type: "agentMessage", id, text, phase: "final_answer", memoryCitation: null };
-}
-
-function completedItemNotification(threadId: string, turnId: string, item: TurnItem): ServerNotification {
-  type ItemCompletedNotification = Extract<ServerNotification, { method: "item/completed" }>;
-  return {
-    method: "item/completed",
-    params: { threadId, turnId, item, completedAtMs: 1 } as unknown as ItemCompletedNotification["params"],
-  };
-}
-
-function turnCompletedNotification(threadId: string, completedTurn: Turn): ServerNotification {
-  type TurnCompletedNotification = Extract<ServerNotification, { method: "turn/completed" }>;
-  return {
-    method: "turn/completed",
-    params: { threadId, turn: completedTurn } as unknown as TurnCompletedNotification["params"],
-  };
-}
-
-function appServerModel(name: string, efforts: string[]): ModelListResponse["data"][number] {
-  return {
-    id: name,
-    model: name,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
-    displayName: name,
-    description: "",
-    hidden: false,
-    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({
-      reasoningEffort: reasoningEffort as never,
-      label: reasoningEffort,
-      description: "",
-    })),
-    defaultReasoningEffort: (efforts[0] ?? "low") as never,
-    inputModalities: ["text"],
-    supportsPersonality: false,
-    additionalSpeedTiers: [],
-    serviceTiers: [],
-    defaultServiceTier: null,
-    isDefault: false,
   };
 }

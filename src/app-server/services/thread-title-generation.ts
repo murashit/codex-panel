@@ -7,11 +7,10 @@ import {
 } from "../../domain/threads/title-generation-model";
 import { turnTranscriptAssistantTextFromTurnRecord } from "../protocol/turn";
 import {
-  type EphemeralStructuredTurnClientFactory,
+  type EphemeralStructuredTurnRunner,
   runEphemeralStructuredTurn,
   type StructuredTurnOutputSchema,
 } from "./ephemeral-structured-turn";
-import { resolvedRuntimeOverrideForClient } from "./runtime-overrides";
 
 const THREAD_TITLE_SERVICE_NAME = "codex-panel-naming";
 const THREAD_TITLE_TIMEOUT_MS = 60_000;
@@ -41,14 +40,20 @@ export interface ThreadTitleRuntimeSettings {
   threadNamingEffort: ReasoningEffort | null;
 }
 
+export interface GenerateThreadTitleWithCodexOptions {
+  runner?: EphemeralStructuredTurnRunner;
+  signal?: AbortSignal;
+}
+
 export async function generateThreadTitleWithCodex(
   codexPath: string,
   cwd: string,
   context: ThreadTitleContext,
   runtimeSettings: ThreadTitleRuntimeSettings,
-  clientFactory?: EphemeralStructuredTurnClientFactory,
+  options: GenerateThreadTitleWithCodexOptions = {},
 ): Promise<string | null> {
-  const turn = await runEphemeralStructuredTurn({
+  const runner = options.runner ?? runEphemeralStructuredTurn;
+  const turn = await runner({
     codexPath,
     cwd,
     serviceName: THREAD_TITLE_SERVICE_NAME,
@@ -59,9 +64,9 @@ export async function generateThreadTitleWithCodex(
     serverRequests: { kind: "reject", message: "Thread title generation does not handle server requests." },
     exitedMessage: "Codex title generation app-server exited.",
     timedOutMessage: "Timed out while generating a Codex thread title.",
-    resolveRuntime: (client) =>
-      resolvedRuntimeOverrideForClient(client, { model: runtimeSettings.threadNamingModel, effort: runtimeSettings.threadNamingEffort }),
-    clientFactory,
+    abortMessage: "Thread title generation cancelled.",
+    runtimeSettings: { model: runtimeSettings.threadNamingModel, effort: runtimeSettings.threadNamingEffort },
+    signal: options.signal,
   });
   const response = turnTranscriptAssistantTextFromTurnRecord(turn);
   return response ? threadTitleFromGeneratedText(response) : null;
