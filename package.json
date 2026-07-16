@@ -62,6 +62,6 @@
     "defuddle": "^0.19.1",
     "micromark": "^4.0.2",
     "obsidian-daily-notes-interface": "^0.9.5",
-    "preact": "^10.29.4"
+    "preact": "^10.29.7"
   }
 }
