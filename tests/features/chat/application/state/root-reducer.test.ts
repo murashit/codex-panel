@@ -611,7 +611,8 @@ describe("chatReducer", () => {
 
     const staleSucceeded = chatReducer(state, {
       type: "ui/rename-generation-succeeded",
-      generatingState: { ...generatingState, generationToken: 2 },
+      threadId: "thread",
+      generationToken: 2,
       draft: "Late title",
     });
     expect(staleSucceeded).toBe(state);
@@ -619,7 +620,8 @@ describe("chatReducer", () => {
     const manuallyEdited = chatReducer(state, { type: "ui/rename-draft-updated", threadId: "thread", draft: "Manual draft" });
     const generatedAfterManualEdit = chatReducer(manuallyEdited, {
       type: "ui/rename-generation-succeeded",
-      generatingState,
+      threadId: "thread",
+      generationToken: generatingState.generationToken,
       draft: "Generated title",
     });
     expect(generatedAfterManualEdit).toBe(manuallyEdited);
@@ -627,7 +629,7 @@ describe("chatReducer", () => {
     const finished = chatReducer(manuallyEdited, {
       type: "ui/rename-generation-finished",
       threadId: "thread",
-      generatingState,
+      generationToken: generatingState.generationToken,
     });
     expect(finished.ui.rename).toEqual({ kind: "editing", threadId: "thread", draft: "Manual draft" });
   });

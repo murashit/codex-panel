@@ -3,7 +3,7 @@ import type { ThreadTitleContext } from "../../../../domain/threads/title-genera
 import type { ChatAction, ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
-import { type ChatRenameGeneratingUiState, type ChatRenameUiState, renameGenerationStillActive } from "../state/ui-state";
+import { type ChatRenameUiState, renameGenerationStillActive } from "../state/ui-state";
 import { firstThreadTitleContextFromThreadStreamItems } from "./title-context";
 
 interface RenameEditState {
@@ -92,19 +92,19 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
         threadId,
         generationToken: nextRenameGenerationToken,
       });
-      const generatingState: ChatRenameUiState = host.stateStore.getState().ui.rename;
-      if (generatingState.kind !== "generating") return;
+      const generationToken = nextRenameGenerationToken;
+      if (!renameGenerationStillActive(renameState(host), threadId, generationToken)) return;
       nextRenameGenerationToken += 1;
 
       try {
         const title = await host.generateThreadTitle(threadId);
-        dispatch(host, { type: "ui/rename-generation-succeeded", generatingState, draft: title });
+        dispatch(host, { type: "ui/rename-generation-succeeded", threadId, generationToken, draft: title });
       } catch (error) {
-        if (renameGenerationStillActive(renameState(host), generatingState)) {
+        if (renameGenerationStillActive(renameState(host), threadId, generationToken)) {
           host.addSystemMessage(error instanceof Error ? error.message : String(error));
         }
       } finally {
-        finishAutoNameDraftGeneration(host, threadId, generatingState);
+        finishAutoNameDraftGeneration(host, threadId, generationToken);
       }
     },
   };
@@ -124,10 +124,6 @@ function dispatch(host: ThreadRenameEditorActionsHost, action: ChatAction): void
   host.stateStore.dispatch(action);
 }
 
-function finishAutoNameDraftGeneration(
-  host: ThreadRenameEditorActionsHost,
-  threadId: string,
-  generatingState: ChatRenameGeneratingUiState,
-): void {
-  dispatch(host, { type: "ui/rename-generation-finished", threadId, generatingState });
+function finishAutoNameDraftGeneration(host: ThreadRenameEditorActionsHost, threadId: string, generationToken: number): void {
+  dispatch(host, { type: "ui/rename-generation-finished", threadId, generationToken });
 }

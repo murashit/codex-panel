@@ -4,15 +4,15 @@ import type { Thread } from "../../../src/domain/threads/model";
 import { type ThreadsViewPanelActivity, threadRows, transitionThreadsRenameState } from "../../../src/features/threads-view/state";
 
 describe("threads view rename state", () => {
-  it("maps threads view auto-name events through the shared rename lifecycle", () => {
+  it("keeps auto-name results scoped to the active unchanged generation", () => {
     const editing = transitionThreadsRenameState(undefined, { type: "started", draft: "Original draft" });
-    const generating = transitionThreadsRenameState(editing, { type: "auto-name-started", generationToken: 1 });
+    const generating = transitionThreadsRenameState(editing, { type: "generation-started", generationToken: 1 });
     if (generating?.kind !== "generating") throw new Error("Expected generating state");
 
     const generated = transitionThreadsRenameState(generating, {
-      type: "auto-name-generated",
-      generatingState: generating,
-      title: "Generated title",
+      type: "generation-succeeded",
+      generationToken: generating.generationToken,
+      draft: "Generated title",
     });
 
     expect(generated).toEqual({
@@ -21,7 +21,7 @@ describe("threads view rename state", () => {
       originalDraft: "Original draft",
       generationToken: 1,
     });
-    expect(transitionThreadsRenameState(generated, { type: "auto-name-finished", generatingState: generating })).toEqual({
+    expect(transitionThreadsRenameState(generated, { type: "generation-finished", generationToken: generating.generationToken })).toEqual({
       kind: "editing",
       draft: "Generated title",
     });

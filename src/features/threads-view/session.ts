@@ -7,6 +7,7 @@ import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
+import type { ThreadRenameLifecycleEvent } from "../../domain/threads/rename-lifecycle";
 import { DeferredTask } from "../../shared/runtime/deferred-task";
 import { OwnerLifetime } from "../../shared/runtime/owner-lifetime";
 import type { ThreadCatalogEventSink, ThreadCatalogPaginatedActiveReader } from "../threads/catalog/thread-catalog";
@@ -16,14 +17,7 @@ import type { ThreadNameMutationCoordinator } from "../threads/workflows/thread-
 import { createThreadOperations, type ThreadOperations } from "../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../threads/workflows/thread-title-service";
 import { isThreadsArchiveConfirmPointer, renderThreadsViewShell, unmountThreadsViewShell } from "./shell.dom";
-import {
-  type ThreadsGeneratingRenameState,
-  type ThreadsRenameLifecycleEvent,
-  type ThreadsRenameState,
-  type ThreadsViewPanelActivity,
-  threadRows,
-  transitionThreadsRenameState,
-} from "./state";
+import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows, transitionThreadsRenameState } from "./state";
 export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
@@ -355,9 +349,10 @@ export class ThreadsViewSession {
     const lifetime = this.lifetime.signal();
     const operationGeneration = this.operationGeneration;
     const previousState = this.renameStates.get(threadId);
+    const generationToken = this.nextRenameGenerationToken;
     const generatingState = this.transitionRenameState(threadId, {
-      type: "auto-name-started",
-      generationToken: this.nextRenameGenerationToken,
+      type: "generation-started",
+      generationToken,
     });
     if (generatingState === previousState || generatingState?.kind !== "generating") return;
     this.nextRenameGenerationToken += 1;
@@ -367,7 +362,7 @@ export class ThreadsViewSession {
       if (this.renameStates.get(threadId) !== generatingState) return;
       const title = await this.titleService.generateTitle(threadId);
       if (!this.lifetime.isCurrent(lifetime) || operationGeneration !== this.operationGeneration) return;
-      this.transitionRenameState(threadId, { type: "auto-name-generated", generatingState, title });
+      this.transitionRenameState(threadId, { type: "generation-succeeded", generationToken, draft: title });
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime) || operationGeneration !== this.operationGeneration) return;
       if (this.renameStates.get(threadId) === generatingState) {
@@ -375,7 +370,7 @@ export class ThreadsViewSession {
       }
     } finally {
       if (this.lifetime.isCurrent(lifetime) && operationGeneration === this.operationGeneration) {
-        this.finishAutoNameThread(threadId, generatingState);
+        this.finishAutoNameThread(threadId, generationToken);
       }
     }
   }
@@ -411,13 +406,13 @@ export class ThreadsViewSession {
     }
   }
 
-  private finishAutoNameThread(threadId: string, generatingState: ThreadsGeneratingRenameState): void {
+  private finishAutoNameThread(threadId: string, generationToken: number): void {
     const previousState = this.renameStates.get(threadId);
-    const nextState = this.transitionRenameState(threadId, { type: "auto-name-finished", generatingState });
+    const nextState = this.transitionRenameState(threadId, { type: "generation-finished", generationToken });
     if (nextState !== previousState) this.render();
   }
 
-  private transitionRenameState(threadId: string, event: ThreadsRenameLifecycleEvent): ThreadsRenameState | undefined {
+  private transitionRenameState(threadId: string, event: ThreadRenameLifecycleEvent): ThreadsRenameState | undefined {
     const nextState = transitionThreadsRenameState(this.renameStates.get(threadId), event);
     if (nextState) {
       this.renameStates.set(threadId, nextState);
