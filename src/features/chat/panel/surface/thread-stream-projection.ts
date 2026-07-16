@@ -1,14 +1,28 @@
 import type { TurnDiffViewState } from "../../../turn-diff/model";
 import { type PendingRequestBlockActions, pendingRequestBlockStateFromRequestState } from "../../application/pending-requests/block";
 import type { ChatRequestState } from "../../application/pending-requests/state";
-import type { ThreadStreamRollbackCandidate } from "../../application/state/thread-stream";
+import {
+  type ThreadStreamRollbackCandidate,
+  threadStreamActiveItems,
+  threadStreamItems,
+  threadStreamRollbackCandidateFromItems,
+  threadStreamStableItems,
+} from "../../application/state/thread-stream";
+import { implementPlanTarget } from "../../application/turns/plan-implementation";
+import { activeTurnId, chatTurnBusy } from "../../application/turns/turn-state";
 import { pendingRequestsSignature } from "../../domain/pending-requests/signatures";
-import { type ForkCandidate, type PlanImplementationTarget, threadStreamSegmentsEmpty } from "../../domain/thread-stream/selectors";
+import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import {
+  type ForkCandidate,
+  forkCandidatesFromItems,
+  type PlanImplementationTarget,
+  threadStreamSegmentsEmpty,
+} from "../../domain/thread-stream/selectors";
 import { type PendingRequestBlockSnapshot, pendingRequestBlockSnapshotFromState } from "../../presentation/pending-requests/view-model";
 import type { ThreadStreamTextActionTargets } from "../../presentation/thread-stream/text-view";
 import { type ThreadStreamViewBlock, threadStreamViewBlocks } from "../../presentation/thread-stream/view-model";
 import type { ThreadStreamContext, ThreadStreamDisclosureBucket, ThreadStreamDisclosureState } from "../../ui/thread-stream/context";
-import type { ChatPanelThreadStreamReadModel } from "../shell-read-model";
+import type { ChatPanelThreadStreamModel } from "../shell-selectors";
 
 interface ChatThreadStreamActions {
   rollbackThread: (threadId: string) => void;
@@ -56,7 +70,7 @@ export interface ThreadStreamSurfaceProjection {
 }
 
 export function threadStreamSurfaceProjectionFromModel(
-  model: ChatPanelThreadStreamReadModel,
+  model: ChatPanelThreadStreamModel,
   context: ChatThreadStreamSurfaceContext,
 ): ThreadStreamSurfaceProjection {
   const projection = threadStreamStateProjection(model, context);
@@ -114,42 +128,68 @@ function threadStreamContextFromProjection(
 }
 
 function threadStreamStateProjection(
-  model: ChatPanelThreadStreamReadModel,
+  model: ChatPanelThreadStreamModel,
   context: ChatThreadStreamSurfaceContext,
 ): ThreadStreamStateProjection {
-  const stableItems = model.stableItems.value;
-  const activeItems = model.activeItems.value;
-  const disclosures = model.disclosures.value;
-  const workspaceRoot = model.activeThreadCwd.value ?? context.vaultPath;
-  const textActionTargetsByItemId = textActionTargetsForThreadStreamItems(
-    model.rollbackCandidate.value,
-    model.forkCandidates.value,
-    model.implementPlanTarget.value,
-  );
+  const canonicalItems = threadStreamItems(model.threadStream);
+  const stableItems = model.threadStream.activeSegment
+    ? threadStreamStableItems(model.threadStream)
+    : appendPendingSubmission(threadStreamStableItems(model.threadStream), model.pendingSubmission);
+  const activeItems = model.threadStream.activeSegment
+    ? appendPendingSubmission(threadStreamActiveItems(model.threadStream), model.pendingSubmission)
+    : threadStreamActiveItems(model.threadStream);
+  const items = appendPendingSubmission(canonicalItems, model.pendingSubmission);
+  const disclosures = {
+    details: model.disclosureDetails,
+    activityGroups: model.disclosureActivityGroups,
+    textDetails: model.disclosureTextDetails,
+    userDialogueExpanded: model.disclosureUserDialogueExpanded,
+    approvalDetails: model.disclosureApprovalDetails,
+  };
+  const workspaceRoot = model.activeThreadCwd ?? context.vaultPath;
+  const turnBusy = chatTurnBusy(model.turn);
+  const actionCandidatesAllowed =
+    !turnBusy && model.activeThreadLifetime?.kind !== "ephemeral" && model.activeThreadProvenance?.kind !== "subagent";
+  const rollbackCandidate = actionCandidatesAllowed ? threadStreamRollbackCandidateFromItems(canonicalItems) : null;
+  const forkCandidates = actionCandidatesAllowed ? forkCandidatesFromItems(canonicalItems) : [];
+  const planTarget = implementPlanTarget({
+    activeThread: model.activeThreadId ? { id: model.activeThreadId, provenance: model.activeThreadProvenance } : null,
+    turn: model.turn,
+    runtime: { pending: { collaborationMode: model.runtimeCollaborationMode } },
+    threadStream: model.threadStream,
+  });
+  const textActionTargetsByItemId = textActionTargetsForThreadStreamItems(rollbackCandidate, forkCandidates, planTarget);
   const pendingRequests = threadStreamSegmentsEmpty(stableItems, activeItems)
     ? null
-    : pendingRequestSurfaceProjectionFromState(model.requests.value, disclosures.approvalDetails);
+    : pendingRequestSurfaceProjectionFromState(model.requests, disclosures.approvalDetails);
 
   return {
-    activeThreadId: model.activeThreadId.value,
+    activeThreadId: model.activeThreadId,
     workspaceRoot,
     disclosures,
-    forkMenuItemId: model.forkMenuItemId.value,
+    forkMenuItemId: model.forkMenuItemId,
     pendingRequests,
     viewBlocks: threadStreamViewBlocks({
-      activeThreadId: model.activeThreadId.value,
-      activeTurnId: model.activeTurnId.value,
-      historyCursor: model.historyCursor.value,
-      loadingHistory: model.loadingHistory.value,
-      items: model.items.value,
+      activeThreadId: model.activeThreadId,
+      activeTurnId: activeTurnId(model.turn),
+      historyCursor: model.threadStream.historyCursor,
+      loadingHistory: model.threadStream.loadingHistory,
+      items,
       stableItems,
       activeItems,
       workspaceRoot,
-      turnDiffs: model.turnDiffs.value,
+      turnDiffs: model.threadStream.turnDiffs,
       textActionTargetsByItemId,
       pendingRequests,
     }),
   };
+}
+
+function appendPendingSubmission(
+  items: readonly ThreadStreamItem[],
+  pendingSubmission: ChatPanelThreadStreamModel["pendingSubmission"],
+): readonly ThreadStreamItem[] {
+  return pendingSubmission ? [...items, pendingSubmission.item] : items;
 }
 
 function textActionTargetsForThreadStreamItems(

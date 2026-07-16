@@ -132,32 +132,6 @@
 
     // Chat state and runtime ownership.
     {
-      "path": "./scripts/grit/import-boundaries/no-preact-signal-imports.grit",
-      "includes": [
-        "**/src/**/*.{ts,tsx}",
-        "!**/src/features/chat/panel/shell-read-model.ts",
-        "!**/src/features/chat/panel/surface/**/*.{ts,tsx}"
-      ]
-    },
-    {
-      "path": "./scripts/grit/import-boundaries/no-chat-shell-read-model-imports.grit",
-      "includes": [
-        "**/src/features/chat/**/*.{ts,tsx}",
-        "!**/src/features/chat/panel/shell-read-model.ts",
-        "!**/src/features/chat/panel/shell.dom.tsx",
-        "!**/src/features/chat/panel/composer-controller.ts",
-        "!**/src/features/chat/panel/surface/**/*.{ts,tsx}"
-      ]
-    },
-    {
-      "path": "./scripts/grit/import-boundaries/no-chat-signal-type-references.grit",
-      "includes": [
-        "**/src/features/chat/**/*.{ts,tsx}",
-        "!**/src/features/chat/panel/shell-read-model.ts",
-        "!**/src/features/chat/panel/surface/**/*.{ts,tsx}"
-      ]
-    },
-    {
       "path": "./scripts/grit/runtime/no-state-module-side-effects.grit",
       "includes": ["**/src/features/chat/application/state/**/*.ts"]
     },

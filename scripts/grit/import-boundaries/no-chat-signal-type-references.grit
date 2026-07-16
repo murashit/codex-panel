@@ -1,8 +1,0 @@
-language js
-
-or {
-  `ReadonlySignal<$type>` as $stmt,
-  `Signal<$type>` as $stmt
-} where {
-  register_diagnostic(span=$stmt, message="Keep Preact signal types inside the chat panel read-model and surface rendering adapter layer.", severity="error")
-}

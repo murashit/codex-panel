@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { ThreadStreamPresenter } from "../../../../../src/features/chat/panel/surface/thread-stream-presenter";
 import {
   type ChatThreadStreamSurfaceContext,
@@ -20,7 +21,7 @@ import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread
 import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
-import { threadStreamReadModelFromChatState } from "../../support/shell-read-model";
+import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 import { installThreadStreamViewportMetrics, pendingApproval } from "../../ui/thread-stream/test-helpers";
@@ -30,7 +31,7 @@ const ESTIMATED_THREAD_STREAM_BLOCK_HEIGHT = 96;
 installObsidianDomShims();
 
 function renderThreadStreamPresenter(parent: HTMLElement, presenter: ThreadStreamPresenter, state: ChatState): void {
-  renderUiRoot(parent, h(ThreadStreamViewport, { state: presenter.renderState(threadStreamReadModelFromChatState(state)) }));
+  renderUiRoot(parent, h(ThreadStreamViewport, { state: presenter.renderState(threadStreamModelFromChatState(state)) }));
 }
 
 describe("ThreadStreamPresenter scroll pinning", () => {
@@ -65,7 +66,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     });
 
     const projection = threadStreamSurfaceProjectionFromModel(
-      threadStreamReadModelFromChatState(store.getState()),
+      threadStreamModelFromChatState(store.getState()),
       testThreadStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: (action) => {
@@ -90,7 +91,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
       },
     });
 
-    const context = threadStreamSurfaceProjectionFromModel(threadStreamReadModelFromChatState(store.getState()), surfaceContext).context;
+    const context = threadStreamSurfaceProjectionFromModel(threadStreamModelFromChatState(store.getState()), surfaceContext).context;
     if (!context.onDisclosureToggle) throw new Error("Expected thread stream disclosure action");
     context.onDisclosureToggle("textDetails", "message:details", true);
 
@@ -102,7 +103,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     state = withChatStateThreadStreamItems(state, [{ id: "system", kind: "system", role: "system", text: "Waiting for approval." }]);
     state = chatStateWith(state, { requests: { approvals: [pendingApproval()] } });
     const projection = threadStreamSurfaceProjectionFromModel(
-      threadStreamReadModelFromChatState(state),
+      threadStreamModelFromChatState(state),
       testThreadStreamSurfaceContext({
         vaultPath: "/vault",
         dispatch: () => undefined,
@@ -112,6 +113,41 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     const pendingBlock = projection.blocks.find((block) => block.kind === "pendingRequests");
     expect(pendingBlock).toMatchObject({ kind: "pendingRequests", key: "pending-requests" });
     expect(projection.context.pendingRequests?.snapshot().approvals).toHaveLength(1);
+  });
+
+  it("keeps a pending web submission visible after the canonical turn completes", () => {
+    const pending = pendingWebSubmissionItem("pending-web", "https://example.com", "Summarize");
+    if (!pending) throw new Error("Expected pending web submission item");
+    const store = createChatStateStore(
+      withChatStateThreadStreamItems(chatStateFixture(), [
+        {
+          id: "assistant",
+          kind: "dialogue",
+          dialogueKind: "assistantResponse",
+          dialogueState: "completed",
+          role: "assistant",
+          text: "Previous answer",
+          turnId: "turn",
+        },
+      ]),
+    );
+    store.dispatch({
+      type: "web-submission/pending",
+      submission: {
+        id: pending.id,
+        item: pending,
+        targetThreadId: "thread",
+        originalDraft: "/web https://example.com Summarize",
+        phase: "cancellable",
+      },
+    });
+
+    const projection = threadStreamSurfaceProjectionFromModel(
+      threadStreamModelFromChatState(store.getState()),
+      testThreadStreamSurfaceContext({ vaultPath: "/vault", dispatch: () => undefined }),
+    );
+
+    expect(JSON.stringify(projection.blocks)).toContain(pending.id);
   });
 
   it("normalizes rendered internal links that point at absolute vault paths", async () => {

@@ -9,18 +9,18 @@ import type { ChatStateStore } from "../../application/state/store";
 import type { ThreadStreamScrollPortBinding } from "../../ui/thread-stream/flow-scroll.measure";
 import { renderStreamMarkdown, ThreadStreamMarkdownRenderer } from "../../ui/thread-stream/markdown-renderer.obsidian";
 import { ThreadStreamViewport, type ThreadStreamViewportState } from "../../ui/thread-stream/stream-blocks";
-import type { ChatPanelThreadStreamReadModel } from "../shell-read-model";
+import type { ChatPanelThreadStreamModel } from "../shell-selectors";
 import { type ChatThreadStreamSurfaceContext, threadStreamSurfaceProjectionFromModel } from "./thread-stream-projection";
 
 export interface ChatPanelThreadStreamPresenter {
-  renderState(model: ChatPanelThreadStreamReadModel): ThreadStreamViewportState;
+  renderState(model: ChatPanelThreadStreamModel): ThreadStreamViewportState;
 }
 
 export function ChatPanelThreadStream({
   model,
   presenter,
 }: {
-  model: ChatPanelThreadStreamReadModel;
+  model: ChatPanelThreadStreamModel;
   presenter: ChatPanelThreadStreamPresenter;
 }): UiNode {
   return h(ThreadStreamViewport, {
@@ -112,7 +112,7 @@ export class ThreadStreamPresenter {
     };
   }
 
-  renderState(model: ChatPanelThreadStreamReadModel): ThreadStreamViewportState {
+  renderState(model: ChatPanelThreadStreamModel): ThreadStreamViewportState {
     const projection = threadStreamSurfaceProjectionFromModel(model, this.surfaceContext);
 
     return {

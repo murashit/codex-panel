@@ -40,7 +40,7 @@ export function createChatComposerController(
     sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
     scrollThreadFromComposerEdges: () => environment.plugin.settingsRef.settings.scrollThreadFromComposerEdges(),
     canInterrupt: (model) => {
-      return model.turnBusy.value && Boolean(model.activeThreadId.value && model.activeTurnId.value);
+      return model.turnBusy && Boolean(model.activeThreadId && model.activeTurnId);
     },
     composerProjection: (model) =>
       chatPanelComposerProjection(model, {

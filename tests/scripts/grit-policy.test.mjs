@@ -150,24 +150,6 @@ const policyCases = [
     'import type { View } from "../presentation/thread-stream/view-model";',
   ),
   policyCase(
-    "no-preact-signal-imports.grit",
-    "src/settings/escape.ts",
-    'import { signal } from "@preact/signals";',
-    "export const value = 1;",
-  ),
-  policyCase(
-    "no-chat-shell-read-model-imports.grit",
-    "src/features/chat/presentation/escape.ts",
-    'import type { ReadModel } from "../panel/shell-read-model";',
-    "export type Value = string;",
-  ),
-  policyCase(
-    "no-chat-signal-type-references.grit",
-    "src/features/chat/presentation/escape.ts",
-    "export type Value = Signal<string>;",
-    "export type Value = string;",
-  ),
-  policyCase(
     "no-state-module-side-effects.grit",
     "src/features/chat/application/state/escape.ts",
     "export const now = Date.now();",

@@ -4,13 +4,16 @@ import { h } from "preact";
 import { CLIENT_VERSION } from "../../../../constants";
 import type { Thread } from "../../../../domain/threads/model";
 import { threadRowCoreProjection } from "../../../threads/list/row-projection";
+import { runtimeSnapshotForChatSlices } from "../../application/runtime/snapshot";
+import { activeThreadState } from "../../application/state/root-reducer";
+import type { ChatStateStore } from "../../application/state/store";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { appServerDiagnosticSections } from "../../presentation/runtime/diagnostic-sections";
 import { runtimePermissionSections } from "../../presentation/runtime/permission-sections";
 import { rateLimitSummary } from "../../presentation/runtime/status";
 import { toolInventoryDiagnosticSections } from "../../presentation/runtime/tool-inventory-diagnostic-sections";
 import { Toolbar, type ToolbarActions, type ToolbarThreadRow, type ToolbarViewModel } from "../../ui/toolbar";
-import type { ChatPanelToolbarReadModel } from "../shell-read-model";
+import type { ChatPanelToolbarModel } from "../shell-selectors";
 
 export interface ChatPanelToolbarSurface {
   connection: {
@@ -27,7 +30,8 @@ export interface ChatPanelToolbarSurface {
 }
 
 interface ToolbarViewModelInput {
-  model: ChatPanelToolbarReadModel;
+  model: ChatPanelToolbarModel;
+  stateStore: ChatStateStore;
   snapshot: RuntimeSnapshot;
   connected: boolean;
   nowMs: number;
@@ -47,13 +51,21 @@ interface ToolbarStateProjection {
   threads: ToolbarThreadRow[];
 }
 
-function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, model: ChatPanelToolbarReadModel) {
+function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, model: ChatPanelToolbarModel, stateStore: ChatStateStore) {
   return chatPanelToolbarProjection({
     model,
-    snapshot: model.runtimeSnapshot.value,
+    stateStore,
+    snapshot: runtimeSnapshotForChatSlices({
+      runtimeConfig: model.connection.runtimeConfig,
+      activeThread: { id: model.activeThreadId, tokenUsage: model.activeThreadTokenUsage },
+      runtime: model.runtime,
+      rateLimit: model.connection.rateLimit,
+      hasThreadTurns: false,
+      availableModels: model.connection.availableModels,
+    }),
     connected: surface.connection.connected(),
     nowMs: surface.clock.nowMs(),
-    turnBusy: model.turnBusy.value,
+    turnBusy: model.turnBusy,
     vaultPath: surface.settings.vaultPath(),
     configuredCommand: surface.settings.configuredCommand(),
     archiveExportEnabled: surface.settings.archiveExportEnabled(),
@@ -62,21 +74,23 @@ function chatPanelToolbarViewModel(surface: ChatPanelToolbarSurface, model: Chat
 
 export function ChatPanelToolbar({
   model,
+  stateStore,
   surface,
   actions,
 }: {
-  model: ChatPanelToolbarReadModel;
+  model: ChatPanelToolbarModel;
+  stateStore: ChatStateStore;
   surface: ChatPanelToolbarSurface;
   actions: ToolbarActions;
 }): UiNode {
-  return h(Toolbar, { model: chatPanelToolbarViewModel(surface, model), actions });
+  return h(Toolbar, { model: chatPanelToolbarViewModel(surface, model, stateStore), actions });
 }
 
 function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewModel {
   const { model, snapshot } = input;
   const projection = toolbarStateProjection(input);
   const limit = rateLimitSummary(snapshot, input.nowMs);
-  const diagnostics = model.diagnostics.value;
+  const diagnostics = model.connection;
   const permissions = runtimePermissionSections({
     snapshot,
     vaultPath: input.vaultPath,
@@ -104,14 +118,15 @@ function chatPanelToolbarProjection(input: ToolbarViewModelInput): ToolbarViewMo
 }
 
 function runtimeDebugDetails(input: ToolbarViewModelInput): string {
-  const debug = input.model.debug.value;
-  const connection = debug.connection;
+  const state = input.stateStore.getState();
+  const activeThread = activeThreadState(state);
+  const connection = state.connection;
   return JSON.stringify(
     {
       clientVersion: CLIENT_VERSION,
       vaultPath: input.vaultPath,
       configuredCommand: input.configuredCommand,
-      activeThreadId: debug.activeThreadId,
+      activeThreadId: activeThread?.id ?? null,
       connection: {
         connected: input.connected,
         phase: connection.phase,
@@ -123,9 +138,9 @@ function runtimeDebugDetails(input: ToolbarViewModelInput): string {
           mcpServers: connection.serverDiagnostics.mcpServers,
         },
       },
-      runtimeConfig: debug.runtimeConfig,
-      runtime: debug.runtime,
-      availableModels: debug.availableModels,
+      runtimeConfig: connection.runtimeConfig,
+      runtime: state.runtime,
+      availableModels: connection.availableModels,
     },
     null,
     2,
@@ -133,28 +148,28 @@ function runtimeDebugDetails(input: ToolbarViewModelInput): string {
 }
 
 function toolbarStateProjection(input: {
-  model: ChatPanelToolbarReadModel;
+  model: ChatPanelToolbarModel;
   turnBusy: boolean;
   archiveExportEnabled: boolean;
 }): ToolbarStateProjection {
-  const toolbarPanel = input.model.toolbarPanel.value;
+  const toolbarPanel = input.model.toolbarPanel;
   const historyOpen = toolbarPanel === "history";
   const chatActionsOpen = toolbarPanel === "chat-actions";
   const statusPanelOpen = toolbarPanel === "status-panel";
   return {
-    newChatDisabled: input.turnBusy && !input.model.activeThreadSubagent.value,
-    activeThreadChatActionsDisabled: input.model.activeThreadSubagent.value,
+    newChatDisabled: input.turnBusy && !input.model.activeThreadSubagent,
+    activeThreadChatActionsDisabled: input.model.activeThreadSubagent,
     chatActionsOpen,
     historyOpen,
     statusPanelOpen,
     openPanel: historyOpen ? "history" : chatActionsOpen ? "chat-actions" : statusPanelOpen ? "status" : null,
     threads: toolbarThreadRows({
-      threads: input.model.threads.value,
-      activeThreadId: input.model.activeThreadId.value,
+      threads: input.model.threads,
+      activeThreadId: input.model.activeThreadId,
       turnBusy: input.turnBusy,
-      archiveConfirmThreadId: input.model.archiveConfirmThreadId.value,
+      archiveConfirmThreadId: input.model.archiveConfirmThreadId,
       archiveExportEnabled: input.archiveExportEnabled,
-      renameState: input.model.rename.value,
+      renameState: input.model.rename,
     }),
   };
 }
@@ -165,7 +180,7 @@ function toolbarThreadRows(input: {
   turnBusy: boolean;
   archiveConfirmThreadId: string | null;
   archiveExportEnabled: boolean;
-  renameState: ChatPanelToolbarReadModel["rename"]["value"];
+  renameState: ChatPanelToolbarModel["rename"];
 }): ToolbarThreadRow[] {
   return input.threads.map((thread) => {
     const threadId = thread.id;
@@ -188,7 +203,7 @@ function toolbarThreadRows(input: {
   });
 }
 
-function toolbarActiveRenameState(renameState: ChatPanelToolbarReadModel["rename"]["value"], threadId: string) {
+function toolbarActiveRenameState(renameState: ChatPanelToolbarModel["rename"], threadId: string) {
   if (renameState.kind === "idle" || renameState.threadId !== threadId) return undefined;
   return renameState;
 }

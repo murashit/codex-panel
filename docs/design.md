@@ -44,11 +44,11 @@ Runtime UI composition is Preact-owned. Preact components should render the pane
 
 Obsidian and app-server boundaries stay outside Preact components. External lifecycles, app-server connections, editor/workspace APIs, and rendering bridges belong in boundary modules.
 
-Chat-visible state belongs in the chat state store and named reducer actions. Signals and components may project that state, but they should not become parallel sources of truth.
+Chat-visible state belongs in the chat state store and named reducer actions. Components should project that state through narrow selector-backed snapshots rather than mirror it into another reactive store.
 
 Each shared app-server resource should have one authoritative query record. Derived metadata may report status but must not duplicate its snapshot.
 
-Preact Signals are a chat panel rendering adapter, not a second state system. Panel surfaces may read narrow signal-backed read models, but application workflows, domain code, presentation helpers, and pure UI components must not depend on broad reducer slices or reactive state primitives.
+Each top-level panel region should subscribe to a narrow selector-backed store projection. Region selectors should retain stable snapshots across unrelated state changes so streaming updates do not rerender the toolbar, goal, or composer unnecessarily.
 
 Imperative DOM bridges are allowed when an external API, host lifecycle, hit-test, focus/selection operation, or measurement problem requires an `HTMLElement`. They should remain narrow boundary adapters, not a second UI composition system inside Preact-owned surfaces.
 

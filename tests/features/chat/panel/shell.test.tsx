@@ -7,7 +7,7 @@ import type { NoteCandidateProvider } from "../../../../src/features/chat/applic
 import { createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
 import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell.dom";
-import type { ChatPanelComposerReadModel } from "../../../../src/features/chat/panel/shell-read-model";
+import type { ChatPanelComposerModel } from "../../../../src/features/chat/panel/shell-selectors";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import { threadStreamViewBlocks } from "../../../../src/features/chat/presentation/thread-stream/view-model";
@@ -69,7 +69,7 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("keeps Tab wikilink insertion before closing brackets through shell signal updates", async () => {
+  it("keeps Tab wikilink insertion before closing brackets through shell selector updates", async () => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -293,14 +293,14 @@ function shellParts(
     goal: surface.goal,
     threadStream: {
       renderState: (model) => {
-        void model.activeThreadCwd.value;
+        void model.activeThreadCwd;
         return {
           blocks: threadStreamViewBlocks({
-            activeThreadId: model.activeThreadId.value,
+            activeThreadId: model.activeThreadId,
             activeTurnId: null,
-            historyCursor: model.historyCursor.value,
-            loadingHistory: model.loadingHistory.value,
-            items: model.items.value,
+            historyCursor: model.threadStream.historyCursor,
+            loadingHistory: model.threadStream.loadingHistory,
+            items: model.threadStream.stableItems,
           }),
           context: testThreadStreamContext,
           scrollPortBinding: noOpThreadStreamScrollPortBinding,
@@ -310,10 +310,10 @@ function shellParts(
     composer: {
       presenter: {
         renderState: (model) => {
-          void model.runtimeSnapshot.value;
+          void model.runtime;
           return {
             viewId: "view",
-            draft: model.draft.value,
+            draft: model.draft,
             busy: false,
             canInterrupt: false,
             submissionDisabled: false,
@@ -393,7 +393,7 @@ function contextProvider(
   };
 }
 
-function composerProjectionFixture(_model: ChatPanelComposerReadModel) {
+function composerProjectionFixture(_model: ChatPanelComposerModel) {
   return {
     placeholder: "Ask Codex...",
     meta: {

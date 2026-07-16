@@ -43,7 +43,7 @@ import {
   composerTransferHasFiles,
   focusComposer,
 } from "./composer-element.dom";
-import type { ChatPanelComposerReadModel } from "./shell-read-model";
+import type { ChatPanelComposerModel } from "./shell-selectors";
 import type { ChatPanelComposerProjection } from "./surface/composer-projection";
 
 export interface ChatComposerControllerOptions {
@@ -56,8 +56,8 @@ export interface ChatComposerControllerOptions {
   referenceActiveNoteOnSend: () => boolean;
   sendShortcut: () => SendShortcut;
   scrollThreadFromComposerEdges: () => boolean;
-  canInterrupt: (model: ChatPanelComposerReadModel) => boolean;
-  composerProjection: (model: ChatPanelComposerReadModel) => ChatPanelComposerProjection;
+  canInterrupt: (model: ChatPanelComposerModel) => boolean;
+  composerProjection: (model: ChatPanelComposerModel) => ChatPanelComposerProjection;
   currentModelForSuggestions: () => string | null;
   threadScrollFromComposer: (action: ComposerBoundaryScrollAction) => void;
   togglePlan: () => void;
@@ -100,18 +100,18 @@ export class ChatComposerController {
     return this.draft.trim();
   }
 
-  renderState(model: ChatPanelComposerReadModel, actions: ChatComposerRenderActions): ComposerShellProps {
+  renderState(model: ChatPanelComposerModel, actions: ChatComposerRenderActions): ComposerShellProps {
     const projection = this.options.composerProjection(model);
     return {
       viewId: this.options.viewId,
-      draft: model.draft.value,
-      busy: model.turnBusy.value,
+      draft: model.draft,
+      busy: model.turnBusy,
       canInterrupt: this.options.canInterrupt(model),
-      submissionDisabled: model.activeThreadSubagent.value || model.webSubmissionPending.value,
-      webSubmissionCancellable: model.webSubmissionCancellable.value,
+      submissionDisabled: model.activeThreadSubagent || model.webSubmissionPending,
+      webSubmissionCancellable: model.webSubmissionCancellable,
       normalPlaceholder: projection.placeholder,
-      suggestions: model.suggestions.value,
-      selectedSuggestionIndex: model.selectedSuggestionIndex.value,
+      suggestions: model.suggestions,
+      selectedSuggestionIndex: model.selectedSuggestionIndex,
       pendingSelection: this.pendingSelection,
       onPendingSelectionApplied: this.clearPendingSelection,
       callbacks: this.composerCallbacks(actions),

@@ -1,9 +1,11 @@
 import type { ComponentChild as UiNode } from "preact";
+import { useMemo } from "preact/hooks";
 import { listenDomEvent } from "../../../shared/dom/events.dom";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/dom/preact-root.dom";
 import type { ChatStateStore } from "../application/state/store";
 import type { ToolbarActions } from "../ui/toolbar";
-import { type ChatPanelShellReadModelBinding, createChatPanelShellReadModelBinding } from "./shell-read-model";
+import { useChatSelector } from "./chat-state-selector";
+import { selectChatPanelComposer, selectChatPanelGoal, selectChatPanelThreadStream, selectChatPanelToolbar } from "./shell-selectors";
 import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerPresenter } from "./surface/composer-projection";
 import { ChatPanelGoal, type ChatPanelGoalSurface } from "./surface/goal-projection";
 import { ChatPanelThreadStream, type ChatPanelThreadStreamPresenter } from "./surface/thread-stream-presenter";
@@ -30,10 +32,7 @@ export interface ChatPanelShellProps {
 
 interface ChatPanelShellMount {
   props: ChatPanelShellProps;
-  stateStore: ChatStateStore;
-  unsubscribe: () => void;
   stopStatusBarClearanceSync: () => void;
-  shellReadModelBinding: ChatPanelShellReadModelBinding;
 }
 
 const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
@@ -41,14 +40,13 @@ const shellMounts = new WeakMap<HTMLElement, ChatPanelShellMount>();
 export function renderChatPanelShell(container: HTMLElement, props: ChatPanelShellProps): void {
   container.addClass("codex-panel");
   const existing = shellMounts.get(container);
-  const mount = existing?.stateStore === props.stateStore ? existing : createShellMount(container, props);
+  const mount = existing ?? createShellMount(container, props);
   renderMountedShell(container, mount, props);
 }
 
 export function unmountChatPanelShell(container: HTMLElement | null): void {
   if (!container) return;
   const mount = shellMounts.get(container);
-  mount?.unsubscribe();
   mount?.stopStatusBarClearanceSync();
   shellMounts.delete(container);
   unmountUiRoot(container);
@@ -57,17 +55,9 @@ export function unmountChatPanelShell(container: HTMLElement | null): void {
 
 function createShellMount(container: HTMLElement, props: ChatPanelShellProps): ChatPanelShellMount {
   const existing = shellMounts.get(container);
-  existing?.unsubscribe();
   existing?.stopStatusBarClearanceSync();
   const mount: ChatPanelShellMount = {
     props,
-    stateStore: props.stateStore,
-    shellReadModelBinding: createChatPanelShellReadModelBinding(props.stateStore.getState()),
-    unsubscribe: props.stateStore.subscribe(() => {
-      const current = shellMounts.get(container);
-      if (!current) return;
-      current.shellReadModelBinding.sync(props.stateStore.getState());
-    }),
     stopStatusBarClearanceSync: startStatusBarClearanceSync(container),
   };
   shellMounts.set(container, mount);
@@ -80,7 +70,7 @@ function renderMountedShell(container: HTMLElement, mount: ChatPanelShellMount, 
     container.replaceChildren();
   }
   syncStatusBarClearance(container);
-  renderUiRoot(container, <ChatPanelShell {...props} shellReadModelBinding={mount.shellReadModelBinding} />);
+  renderUiRoot(container, <ChatPanelShell {...props} />);
   mount.props = props;
 }
 
@@ -104,30 +94,70 @@ function shellRegion(container: HTMLElement, region: string): HTMLElement | null
   return container.querySelector<HTMLElement>(`:scope > [data-codex-panel-shell-region="${region}"]`);
 }
 
-function ChatPanelShell({
-  showToolbar,
-  parts,
-  shellReadModelBinding,
-}: ChatPanelShellProps & { shellReadModelBinding: ChatPanelShellReadModelBinding }): UiNode {
-  const readModel = shellReadModelBinding.readModel;
+function ChatPanelShell({ stateStore, showToolbar, parts }: ChatPanelShellProps): UiNode {
   return (
     <>
       {showToolbar ? (
-        <div className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
-          <ChatPanelToolbar model={readModel.toolbar} surface={parts.toolbar.surface} actions={parts.toolbar.actions} />
+        <div key="toolbar" className="codex-panel__toolbar" data-codex-panel-shell-region="toolbar">
+          <ChatPanelToolbarRegion stateStore={stateStore} surface={parts.toolbar.surface} actions={parts.toolbar.actions} />
         </div>
       ) : null}
-      <div className="codex-panel__body" data-codex-panel-shell-region="body">
+      <div key="body" className="codex-panel__body" data-codex-panel-shell-region="body">
         <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
-          <ChatPanelGoal model={readModel.goal} surface={parts.goal} />
+          <ChatPanelGoalRegion stateStore={stateStore} surface={parts.goal} />
         </div>
-        <ChatPanelThreadStream model={readModel.threadStream} presenter={parts.threadStream} />
+        <ChatPanelThreadStreamRegion stateStore={stateStore} presenter={parts.threadStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
-          <ChatPanelComposer model={readModel.composer} presenter={parts.composer.presenter} actions={parts.composer.actions} />
+          <ChatPanelComposerRegion stateStore={stateStore} presenter={parts.composer.presenter} actions={parts.composer.actions} />
         </div>
       </div>
     </>
   );
+}
+
+function ChatPanelToolbarRegion({
+  stateStore,
+  surface,
+  actions,
+}: {
+  stateStore: ChatStateStore;
+  surface: ChatPanelToolbarSurface;
+  actions: ToolbarActions;
+}): UiNode {
+  const model = useChatSelector(stateStore, selectChatPanelToolbar);
+  return useMemo(
+    () => <ChatPanelToolbar model={model} stateStore={stateStore} surface={surface} actions={actions} />,
+    [model, stateStore, surface, actions],
+  );
+}
+
+function ChatPanelGoalRegion({ stateStore, surface }: { stateStore: ChatStateStore; surface: ChatPanelGoalSurface }): UiNode {
+  const model = useChatSelector(stateStore, selectChatPanelGoal);
+  return useMemo(() => <ChatPanelGoal model={model} surface={surface} />, [model, surface]);
+}
+
+function ChatPanelThreadStreamRegion({
+  stateStore,
+  presenter,
+}: {
+  stateStore: ChatStateStore;
+  presenter: ChatPanelThreadStreamPresenter;
+}): UiNode {
+  const model = useChatSelector(stateStore, selectChatPanelThreadStream);
+  return useMemo(() => <ChatPanelThreadStream model={model} presenter={presenter} />, [model, presenter]);
+}
+
+function ChatPanelComposerRegion({
+  stateStore,
+  presenter,
+  actions,
+}: {
+  stateStore: ChatStateStore;
+  presenter: ChatPanelComposerPresenter;
+  actions: ChatPanelComposerActions;
+}): UiNode {
+  const model = useChatSelector(stateStore, selectChatPanelComposer);
+  return useMemo(() => <ChatPanelComposer model={model} presenter={presenter} actions={actions} />, [model, presenter, actions]);
 }
 
 function startStatusBarClearanceSync(container: HTMLElement): () => void {
