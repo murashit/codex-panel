@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
+import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../../../../src/domain/server/diagnostics";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { activeThreadState, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
@@ -56,7 +57,38 @@ describe("chatReducer", () => {
     expect(cleared.composer.draft).toBe("");
   });
 
-  it("clears connection metadata only when the app-server context is replaced", () => {
+  it("preserves last-known-good shared resources and their probes across a same-context disconnect", () => {
+    let serverDiagnostics = createServerDiagnostics();
+    serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("models", "1 model", 1));
+    serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("skills", "1 skill", 2));
+    serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("apps", "1 app", 3));
+    serverDiagnostics = {
+      ...serverDiagnostics,
+      mcpServers: [{ name: "local", startupStatus: "ready", authStatus: null, toolCount: 1, message: null }],
+      toolInventory: {
+        checkedAt: 3,
+        plugins: [],
+        pluginMarketplaceErrors: [],
+        pluginsError: null,
+        mcpServers: [],
+        mcpDiagnostics: [],
+        mcpError: null,
+        skills: [],
+        skillsError: null,
+      },
+    };
+    const listedThreads = [thread("listed-thread")];
+    const availableModels = [{ id: "model-1" } as never];
+    const availableSkills = [{ name: "skill-1" } as never];
+    const availablePermissionProfiles = [{ id: ":workspace", description: null, allowed: true }];
+    const rateLimit = {
+      limitId: "codex",
+      limitName: "Codex",
+      primary: { usedPercent: 10, windowDurationMins: 300, resetsAt: 4 },
+      secondary: null,
+      individualLimit: null,
+      rateLimitReachedType: null,
+    };
     const state = chatStateWith(chatStateFixture(), {
       connection: {
         runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-old" },
@@ -66,16 +98,127 @@ describe("chatReducer", () => {
           platformOs: "macos",
           userAgent: "codex-old",
         },
+        serverDiagnostics,
+        availableModels,
+        availableSkills,
+        availablePermissionProfiles,
+        rateLimit,
       },
+      threadList: { listedThreads },
     });
 
     const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
-    expect(disconnected.connection.runtimeConfig).toEqual(state.connection.runtimeConfig);
-    expect(disconnected.connection.initializeResponse).toEqual(state.connection.initializeResponse);
+    expect(disconnected.connection).toMatchObject({
+      runtimeConfig: state.connection.runtimeConfig,
+      initializeResponse: state.connection.initializeResponse,
+      availableModels,
+      availableSkills,
+      availablePermissionProfiles,
+      rateLimit,
+    });
+    expect(disconnected.threadList.listedThreads).toEqual(listedThreads);
+    expect(disconnected.connection.serverDiagnostics.probes.models).toEqual(serverDiagnostics.probes.models);
+    expect(disconnected.connection.serverDiagnostics.probes.skills).toEqual(serverDiagnostics.probes.skills);
+    expect(disconnected.connection.serverDiagnostics.probes.apps.status).toBe("unknown");
+    expect(disconnected.connection.serverDiagnostics.mcpServers).toEqual([]);
+    expect(disconnected.connection.serverDiagnostics.toolInventory).toBeNull();
+  });
+
+  it("clears context-bound metadata and thread projections when the app-server context is replaced", () => {
+    const serverDiagnostics = diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "1 model", 1));
+    let state = chatStateWith(chatStateFixture(), {
+      connection: {
+        runtimeConfig: { ...emptyRuntimeConfigSnapshot(), model: "gpt-old" },
+        initializeResponse: {
+          codexHome: "/old/codex-home",
+          platformFamily: "unix",
+          platformOs: "macos",
+          userAgent: "codex-old",
+        },
+        serverDiagnostics,
+        availableModels: [{ id: "model-1" } as never],
+        availableSkills: [{ name: "skill-1" } as never],
+        availablePermissionProfiles: [{ id: ":workspace", description: null, allowed: true }],
+        rateLimit: {
+          limitId: "codex",
+          limitName: "Codex",
+          primary: null,
+          secondary: null,
+          individualLimit: null,
+          rateLimitReachedType: null,
+        },
+      },
+      threadList: { listedThreads: [thread("listed-thread")] },
+      activeThread: {
+        id: "active-thread",
+        title: "Active thread",
+        lifetime: { kind: "persistent" },
+      },
+    });
+    state = withChatStateThreadStreamItems(state, [dialogueItem("old-context-item")]);
 
     const replaced = chatReducer(state, { type: "connection/context-replaced" });
     expect(replaced.connection.runtimeConfig).toBeNull();
     expect(replaced.connection.initializeResponse).toBeNull();
+    expect(replaced.connection.availableModels).toEqual([]);
+    expect(replaced.connection.availableSkills).toEqual([]);
+    expect(replaced.connection.availablePermissionProfiles).toEqual([]);
+    expect(replaced.connection.rateLimit).toBeNull();
+    expect(replaced.connection.serverDiagnostics).toEqual(createServerDiagnostics());
+    expect(replaced.threadList.listedThreads).toEqual([]);
+    expect(replaced.panelThread).toEqual({ kind: "empty" });
+    expect(threadStreamItems(replaced.threadStream)).toEqual([]);
+  });
+
+  it.each([
+    { label: "interactive", provenance: { kind: "interactive" } as const },
+    {
+      label: "subagent",
+      provenance: {
+        kind: "subagent",
+        subagentKind: "review",
+        parentThreadId: "parent",
+        sessionId: "session",
+        depth: 1,
+        agentNickname: "reviewer",
+        agentRole: "review",
+      } as const,
+    },
+  ])("keeps an active $label thread reconnectable across a same-context disconnect", ({ provenance }) => {
+    let state = chatStateFixture({
+      activeThread: {
+        id: "active-thread",
+        title: "Reconnect me",
+        lifetime: { kind: "persistent" },
+        provenance,
+      },
+    });
+    state = withChatStateThreadStreamItems(state, [dialogueItem("retained-item")]);
+
+    const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
+
+    expect(disconnected.panelThread).toEqual({
+      kind: "awaiting-resume",
+      threadId: "active-thread",
+      fallbackTitle: "Reconnect me",
+    });
+    expect(threadStreamItems(disconnected.threadStream)).toEqual([dialogueItem("retained-item")]);
+  });
+
+  it("expires an active ephemeral thread instead of making it reconnectable", () => {
+    let state = chatStateFixture({
+      activeThread: {
+        id: "side-thread",
+        title: "Side chat",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+    });
+    state = withChatStateThreadStreamItems(state, [dialogueItem("side-item")]);
+
+    const disconnected = chatReducer(state, { type: "connection/scoped-cleared" });
+
+    expect(disconnected.panelThread).toEqual({ kind: "empty" });
+    expect(threadStreamItems(disconnected.threadStream)).toEqual([]);
   });
 
   it("applies restored thread identity as an atomic thread-scoped transition", () => {

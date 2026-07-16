@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { type ChatReconnectActionsHost, reconnectPanel } from "../../../../../src/features/chat/application/connection/reconnect-actions";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 
 function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
@@ -44,7 +44,23 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
     setStatus: vi.fn(),
     ensureConnected: vi.fn().mockResolvedValue(undefined),
     isConnected: vi.fn(() => true),
-    resumeThread: vi.fn().mockResolvedValue(undefined),
+    resumeThread: vi.fn(async (threadId: string) => {
+      stateStore.dispatch({
+        type: "active-thread/resumed",
+        approvalPolicyKnown: true,
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
+        approvalPolicy: null,
+        sandboxPolicy: null,
+        activePermissionProfile: null,
+        thread: { id: threadId } as never,
+        cwd: "/vault",
+        model: null,
+        reasoningEffort: null,
+        serviceTier: null,
+        approvalsReviewer: null,
+      });
+    }),
     addSystemMessage: vi.fn(),
     ...overrides,
   };
@@ -52,10 +68,10 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
 }
 
 describe("reconnectPanel", () => {
-  it("resets local connection state before reconnecting and resumes the active thread", async () => {
+  it("resets local connection work before reconnecting and retains shared thread projections", async () => {
     const { host, stateStore } = createHost();
 
-    await reconnectPanel(host);
+    await expect(reconnectPanel(host)).resolves.toBe(true);
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.invalidateConnectionWork).toHaveBeenCalledOnce();
@@ -64,9 +80,99 @@ describe("reconnectPanel", () => {
     expect(host.resetConnection).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
-    expect(stateStore.getState().threadList).toEqual({ listedThreads: [] });
+    expect(stateStore.getState().threadList).toEqual({ listedThreads: [{ id: "thread" }] });
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
+  });
+
+  it.each([
+    {
+      label: "persistent",
+      thread: {
+        id: "persistent-thread",
+        preview: "Persistent preview",
+        name: "Persistent title",
+        archived: false,
+        createdAt: 1,
+        updatedAt: 1,
+        provenance: { kind: "interactive" },
+      },
+    },
+    {
+      label: "subagent",
+      thread: {
+        id: "subagent-thread",
+        preview: "Subagent preview",
+        name: "Subagent title",
+        archived: false,
+        createdAt: 1,
+        updatedAt: 1,
+        provenance: {
+          kind: "subagent",
+          subagentKind: "review",
+          parentThreadId: "parent-thread",
+          sessionId: "session",
+          depth: 1,
+          agentNickname: "reviewer",
+          agentRole: "review",
+        },
+      },
+    },
+  ] as const)("resumes the same $label thread after an unexpected exit", async ({ thread }) => {
+    const { host, stateStore } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread,
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+      lifetime: { kind: "persistent" },
+    });
+    stateStore.dispatch({ type: "connection/scoped-cleared" });
+    expect(stateStore.getState().panelThread).toEqual({
+      kind: "awaiting-resume",
+      threadId: thread.id,
+      fallbackTitle: thread.name,
+    });
+
+    await expect(reconnectPanel(host)).resolves.toBe(true);
+
+    expect(host.resumeThread).toHaveBeenCalledWith(thread.id);
+    expect(activeThreadId(stateStore.getState())).toBe(thread.id);
+  });
+
+  it("does not resume an ephemeral thread after an unexpected exit", async () => {
+    const { host, stateStore } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: { id: "side-thread", preview: "Side chat", name: null } as never,
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+      lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+    });
+    stateStore.dispatch({ type: "connection/scoped-cleared" });
+    expect(stateStore.getState().panelThread).toEqual({ kind: "empty" });
+
+    await reconnectPanel(host);
+
+    expect(host.resumeThread).not.toHaveBeenCalled();
   });
 
   it("reports resume failures after reconnecting", async () => {

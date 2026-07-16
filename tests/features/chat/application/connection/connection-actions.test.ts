@@ -187,6 +187,29 @@ describe("ChatConnectionActions", () => {
       availableSkills: [{ name: "skill-1" } as never],
       runtimeConfig,
     });
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: {
+        id: "thread-1",
+        preview: "Thread 1",
+        name: "Thread 1",
+        archived: false,
+        createdAt: 1,
+        updatedAt: 1,
+        provenance: { kind: "interactive" },
+      },
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
 
     actions.handleExit();
 
@@ -199,11 +222,12 @@ describe("ChatConnectionActions", () => {
     expect(host.refreshLiveState).toHaveBeenCalledOnce();
     expect(stateStore.getState()).toMatchObject({
       threadList: {
-        listedThreads: [],
+        listedThreads: [{ id: "thread-1", title: "Thread 1" }],
       },
+      panelThread: { kind: "awaiting-resume", threadId: "thread-1", fallbackTitle: "Thread 1" },
       connection: {
-        availableModels: [],
-        availableSkills: [],
+        availableModels: [{ id: "model-1" }],
+        availableSkills: [{ name: "skill-1" }],
         runtimeConfig,
         initializeResponse,
       },

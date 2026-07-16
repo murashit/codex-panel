@@ -6,7 +6,7 @@ import type { RuntimePermissionProfileSummary } from "../../../../domain/runtime
 import type { ApprovalsReviewer } from "../../../../domain/runtime/policy";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { Diagnostics } from "../../../../domain/server/diagnostics";
-import { createServerDiagnostics } from "../../../../domain/server/diagnostics";
+import { createServerDiagnostics, diagnosticsWithMetadataResourceProbes } from "../../../../domain/server/diagnostics";
 import type { ServerInitialization } from "../../../../domain/server/initialization";
 import type { ThreadGoal } from "../../../../domain/threads/goal";
 import type { Thread } from "../../../../domain/threads/model";
@@ -627,18 +627,16 @@ function clearThreadScopedState(state: ChatState): ChatState {
 }
 
 function clearConnectionScopedState(state: ChatState): ChatState {
-  return patchChatState(clearTurnScopedState(state), {
-    panelThread: state.panelThread.kind === "awaiting-resume" ? state.panelThread : initialPanelThreadState(),
+  const cleared = clearTurnScopedState(state);
+  const ephemeralExpired = state.panelThread.kind === "active" && state.panelThread.thread.lifetime?.kind === "ephemeral";
+  return patchChatState(cleared, {
+    panelThread: panelThreadAfterConnectionExit(state.panelThread),
     runtime: initialChatRuntimeState(),
     connection: {
       ...state.connection,
-      serverDiagnostics: createServerDiagnostics(),
-      rateLimit: null,
-      availableModels: [],
-      availableSkills: [],
-      availablePermissionProfiles: [],
+      serverDiagnostics: diagnosticsWithMetadataResourceProbes(createServerDiagnostics(), state.connection.serverDiagnostics),
     },
-    threadList: initialThreadListState(),
+    threadStream: ephemeralExpired ? initialThreadStreamState() : cleared.threadStream,
     pendingSubmission: null,
     composer:
       state.pendingSubmission?.phase === "cancellable"
@@ -650,12 +648,26 @@ function clearConnectionScopedState(state: ChatState): ChatState {
 function clearConnectionContextState(state: ChatState): ChatState {
   const cleared = clearConnectionScopedState(state);
   return patchChatState(cleared, {
+    panelThread: initialPanelThreadState(),
     connection: {
       ...cleared.connection,
       runtimeConfig: null,
       initializeResponse: null,
+      serverDiagnostics: createServerDiagnostics(),
+      rateLimit: null,
+      availableModels: [],
+      availableSkills: [],
+      availablePermissionProfiles: [],
     },
+    threadList: initialThreadListState(),
+    threadStream: initialThreadStreamState(),
   });
+}
+
+function panelThreadAfterConnectionExit(panelThread: ChatPanelThreadState): ChatPanelThreadState {
+  if (panelThread.kind === "awaiting-resume") return panelThread;
+  if (panelThread.kind !== "active" || panelThread.thread.lifetime?.kind === "ephemeral") return initialPanelThreadState();
+  return createAwaitingResumeThreadState(panelThread.thread.id, panelThread.thread.title ?? null);
 }
 
 function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState {
