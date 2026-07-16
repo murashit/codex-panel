@@ -173,7 +173,15 @@ const policyCases = [
     'import { renderPreactRoot } from "../../../shared/dom/preact-root.dom";',
     "export const value = 1;",
   ),
-  policyCase("no-restricted-css-policy.grit", "src/styles/escape.css", ".escape { color: #fff; }", ".safe { color: var(--text-normal); }"),
+  policyCase("no-restricted-css-policy.grit", "src/styles/escape.css", ".escape { color: #fff; }", ".safe { color: var(--text-normal); }", {
+    invalid: [
+      { path: "src/styles/has.css", source: ".panel:has(.child) { color: var(--text-normal); }" },
+      { path: "src/styles/where.css", source: ".panel:where(.child) { color: var(--text-normal); }" },
+      { path: "src/styles/id.css", source: "#panel { color: var(--text-normal); }" },
+      { path: "src/styles/universal.css", source: ".panel * { color: var(--text-normal); }" },
+    ],
+    valid: [{ path: "src/styles/shallow.css", source: ".panel .child:hover { color: var(--text-normal); }" }],
+  }),
 ];
 
 afterEach(async () => {
@@ -191,70 +199,46 @@ describe("Biome Grit policies", () => {
     expect(covered).toEqual(configured);
   });
 
-  it.each(policyCases)("$plugin rejects its invalid source", async (testCase) => {
-    const result = await lintPolicyCase(testCase, "invalid");
+  it.each(policyCases)("$plugin rejects invalid sources and accepts valid sources", async (testCase) => {
+    const result = await lintPolicyCase(testCase);
 
     expect(result.status, result.output).toBe(1);
-    expect(result.pluginErrors, result.output).toBeGreaterThan(0);
-  });
-
-  it.each(policyCases)("$plugin accepts its valid source", async (testCase) => {
-    const result = await lintPolicyCase(testCase, "valid");
-
-    expect(result.status, result.output).toBe(0);
-    expect(result.pluginErrors, result.output).toBe(0);
-  });
-
-  it.each([
-    ["the relational :has pseudo-class", ".panel:has(.child) { color: var(--text-normal); }"],
-    ["class selectors hidden inside :where", ".panel:where(.child) { color: var(--text-normal); }"],
-    ["ID selectors", "#panel { color: var(--text-normal); }"],
-    ["universal selectors", ".panel * { color: var(--text-normal); }"],
-  ])("no-restricted-css-policy.grit rejects %s", async (_name, invalidSource) => {
-    const result = await lintPolicyCase(
-      {
-        plugin: "no-restricted-css-policy.grit",
-        invalid: { path: "src/styles/invalid.css", source: invalidSource },
-      },
-      "invalid",
-    );
-
-    expect(result.status, result.output).toBe(1);
-    expect(result.pluginErrors, result.output).toBeGreaterThan(0);
-  });
-
-  it("no-restricted-css-policy.grit accepts shallow panel selectors", async () => {
-    const result = await lintPolicyCase(
-      {
-        plugin: "no-restricted-css-policy.grit",
-        valid: { path: "src/styles/valid.css", source: ".panel .child:hover { color: var(--text-normal); }" },
-      },
-      "valid",
-    );
-
-    expect(result.status, result.output).toBe(0);
-    expect(result.pluginErrors, result.output).toBe(0);
+    for (const target of result.invalidTargets) expect(result.pluginErrorFiles, result.output).toContain(target);
+    for (const target of result.validTargets) expect(result.errorFiles, result.output).not.toContain(target);
   });
 });
 
 function policyCase(plugin, invalidPath, invalidSource, validSource, options = {}) {
   return {
     plugin,
-    invalid: { path: invalidPath, source: invalidSource },
-    valid: { path: options.validPath ?? invalidPath, source: validSource },
+    invalid: [{ path: invalidPath, source: invalidSource }, ...(options.invalid ?? [])],
+    valid: [{ path: options.validPath ?? invalidPath, source: validSource }, ...(options.valid ?? [])],
   };
 }
 
-async function lintPolicyCase(testCase, variant) {
+async function lintPolicyCase(testCase) {
   const plugin = (await projectPlugins()).find((candidate) => path.basename(pluginPath(candidate)) === testCase.plugin);
   if (!plugin) throw new Error(`Missing configured Grit policy: ${testCase.plugin}`);
   const workspace = await mkdtemp(path.join(tmpdir(), "codex-panel-grit-policy-"));
   workspaces.add(workspace);
-  const fixture = testCase[variant];
-  const fixturePath = path.join(workspace, fixture.path);
-  await mkdir(path.dirname(fixturePath), { recursive: true });
-  await Promise.all([writeFile(fixturePath, fixture.source), writePluginConfig(workspace, plugin)]);
-  return biomeLint(workspace, fixture.path);
+  const [invalidTargets, validTargets] = await Promise.all([
+    writeFixtures(workspace, "invalid", testCase.invalid),
+    writeFixtures(workspace, "valid", testCase.valid),
+    writePluginConfig(workspace, plugin),
+  ]);
+  return { ...biomeLint(workspace, [...invalidTargets, ...validTargets]), invalidTargets, validTargets };
+}
+
+async function writeFixtures(workspace, variant, fixtures) {
+  return Promise.all(
+    fixtures.map(async (fixture) => {
+      const target = path.join(variant, fixture.path).replaceAll(path.sep, "/");
+      const fixturePath = path.join(workspace, target);
+      await mkdir(path.dirname(fixturePath), { recursive: true });
+      await writeFile(fixturePath, fixture.source);
+      return target;
+    }),
+  );
 }
 
 async function projectPlugins() {
@@ -271,14 +255,21 @@ async function writePluginConfig(workspace, plugin) {
   await writeFile(path.join(workspace, "biome.json"), JSON.stringify(config));
 }
 
-function biomeLint(workspace, target) {
-  const result = spawnSync(biomeBin, ["lint", target, "--config-path", workspace, "--reporter=json", "--max-diagnostics=none"], {
+function biomeLint(workspace, targets) {
+  const result = spawnSync(biomeBin, ["lint", ...targets, "--config-path", workspace, "--reporter=json", "--max-diagnostics=none"], {
     cwd: workspace,
     encoding: "utf8",
   });
   const report = JSON.parse(result.stdout.slice(result.stdout.indexOf("{")));
+  const errorDiagnostics = report.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  const diagnosticFiles = (diagnostics) =>
+    diagnostics
+      .map((diagnostic) => (typeof diagnostic.location?.path === "string" ? diagnostic.location.path : diagnostic.location?.path?.file))
+      .filter(Boolean)
+      .map((file) => path.relative(workspace, path.resolve(workspace, file)).replaceAll(path.sep, "/"));
   return {
-    pluginErrors: report.diagnostics.filter((diagnostic) => diagnostic.category === "plugin" && diagnostic.severity === "error").length,
+    errorFiles: diagnosticFiles(errorDiagnostics),
+    pluginErrorFiles: diagnosticFiles(errorDiagnostics.filter((diagnostic) => diagnostic.category === "plugin")),
     status: result.status,
     output: `${result.stdout}\n${result.stderr}`,
   };

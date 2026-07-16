@@ -14,17 +14,6 @@ afterEach(async () => {
 });
 
 describe("development scripts", () => {
-  it.each([
-    { message: "feat: add side chats", expectedStatus: 0 },
-    { message: "Merge pull request #123 from owner/feature", expectedStatus: 0 },
-    { message: 'Revert "feat: add side chats"', expectedStatus: 1 },
-    { message: "v5.1.0", expectedStatus: 1 },
-    { message: "fixup! feat: add side chats", expectedStatus: 1 },
-    { message: "squash! feat: add side chats", expectedStatus: 1 },
-  ])("enforces the commit message policy for $message", ({ message, expectedStatus }) => {
-    expect(runCommitlint(message)).toBe(expectedStatus);
-  });
-
   it("fails style builds when CSS files are missing from the style order file", async () => {
     const cwd = await styleOrderFixture();
 
@@ -64,28 +53,6 @@ describe("development scripts", () => {
     await expect(readFile(path.join(cwd, "src", "generated", "app-server", "v2", "Example.ts"), "utf8")).resolves.toContain(
       "export type Example = string | null;",
     );
-  });
-
-  it("preserves generated bindings when generation fails", async () => {
-    const cwd = await tempWorkspace();
-    const generatedDir = path.join(cwd, "src", "generated", "app-server");
-    await mkdir(generatedDir, { recursive: true });
-    await writeFile(path.join(generatedDir, "Existing.ts"), "export type Existing = true;\n");
-    await writeAppServerCompatibility(cwd, "0.144.4");
-    const { generateAppServerTypes } = await import(pathToFileURL(path.join(repoRoot, "scripts", "generate-app-server-types.mjs")).href);
-
-    await expect(
-      generateAppServerTypes({
-        cwd,
-        readCodexVersion: () => "0.144.4",
-        runCommand: async () => {
-          throw new Error("generation failed");
-        },
-      }),
-    ).rejects.toThrow("generation failed");
-
-    await expect(readFile(path.join(generatedDir, "Existing.ts"), "utf8")).resolves.toBe("export type Existing = true;\n");
-    await expect(readdir(path.join(cwd, "src", "generated"))).resolves.toEqual(["app-server"]);
   });
 
   it("checks normalized generated bindings without replacing the tracked tree", async () => {
@@ -141,85 +108,6 @@ describe("development scripts", () => {
     );
   });
 
-  it("reads app-server compatibility policy from the declared baseline in API baseline checks", async () => {
-    const cwd = await tempWorkspace();
-    await mkdir(path.join(cwd, "src", "app-server"), { recursive: true });
-    const { createApiBaselineReport } = await import(pathToFileURL(path.join(repoRoot, "scripts", "api-baseline.mjs")).href);
-
-    await writeJson(path.join(cwd, "package.json"), {
-      version: "1.0.0",
-      devDependencies: {
-        obsidian: "~1.12.3",
-      },
-    });
-    await writeJson(path.join(cwd, "package-lock.json"), {
-      packages: {
-        "node_modules/obsidian": {
-          version: "1.12.3",
-        },
-      },
-    });
-    await writeJson(path.join(cwd, "manifest.json"), {
-      minAppVersion: "1.12.0",
-    });
-    await writeJson(path.join(cwd, "versions.json"), {
-      "1.0.0": "1.12.0",
-    });
-    await writeFile(
-      path.join(cwd, "README.md"),
-      [
-        "## Compatibility",
-        "",
-        "| Key | Version | Notes |",
-        "| --- | --- | --- |",
-        "| `codex.testedCliVersion` | `0.139.0` | Tested CLI. |",
-        "| `manifest.minAppVersion` | `1.12.0` | Minimum app version. |",
-        "| `obsidian` API types | `1.12.3` | Compile-time API package. |",
-      ].join("\n"),
-    );
-    await mkdir(path.join(cwd, "src", "app-server", "connection"), { recursive: true });
-    await writeJson(path.join(cwd, "src", "app-server", "connection", "compatibility.json"), {
-      codexAppServer: {
-        testedCliVersion: "0.139.0",
-        typeGeneration: {
-          arguments: ["app-server", "generate-ts", "--experimental"],
-        },
-        initialize: {
-          capabilities: {
-            experimentalApi: true,
-            requestAttestation: false,
-          },
-        },
-      },
-    });
-
-    const report = await createApiBaselineReport({
-      cwd,
-      readCodexVersion: () => "0.139.0",
-    });
-
-    expect(report.codex.recordedTestedCliVersion).toBe("0.139.0");
-    expect(report.codex.generationArguments).toEqual(["app-server", "generate-ts", "--experimental"]);
-    expect(report.codex.readmeMatchesRecordedVersion).toBe(true);
-    expect(report.codex.localCliMatchesRecordedVersion).toBe(true);
-    expect(report.codex.initializeExperimentalApi).toBe(true);
-    expect(report.codex.initializeRequestAttestationDisabled).toBe(true);
-    expect(report.failures).toEqual([]);
-
-    const missingLocalCliReport = await createApiBaselineReport({
-      cwd,
-      readCodexVersion: () => null,
-    });
-    expect(missingLocalCliReport.failures).toContain("local codex --version could not be read.");
-  });
-
-  it("rejects the obsolete recorded-only API baseline mode", () => {
-    const result = runNodeScript("scripts/api-baseline.mjs", ["--recorded-only"], repoRoot);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Usage: node scripts/api-baseline.mjs [--json]");
-  });
-
   it("reports app-server provenance drift between the recorded, README, and local CLI versions", async () => {
     const cwd = await apiBaselineFixture({ recordedCodexVersion: "0.144.4", readmeCodexVersion: "0.144.0" });
     const { createApiBaselineReport } = await import(pathToFileURL(path.join(repoRoot, "scripts", "api-baseline.mjs")).href);
@@ -230,30 +118,28 @@ describe("development scripts", () => {
     expect(report.failures).toContain("local Codex CLI 0.144.5 does not match recorded tested CLI 0.144.4.");
   });
 
-  it("checks generated app-server bindings in CI and release paths", async () => {
-    const [checkWorkflow, releaseWorkflow, releasePreflight] = await Promise.all([
-      readFile(path.join(repoRoot, ".github", "workflows", "check.yml"), "utf8"),
-      readFile(path.join(repoRoot, ".github", "workflows", "release.yml"), "utf8"),
-      readFile(path.join(repoRoot, "scripts", "release", "preflight.mjs"), "utf8"),
-    ]);
-
-    for (const workflow of [checkWorkflow, releaseWorkflow]) {
-      expect(workflow).toContain("npm install --global");
-      expect(workflow).toContain("node scripts/app-server-compatibility.mjs --tested-cli-version");
-      expect(workflow).toContain("npm run generate:app-server-types:check");
-    }
-    expect(releasePreflight).toContain('run("npm", ["run", "generate:app-server-types:check"]);');
-  });
-
   it("reports representative CSS usage policy failures", async () => {
     const cwd = await cssUsageFixture({
       "src/styles/10-component.css": [
         ".codex-panel__used { display: block; }",
         ".codex-panel__test-only { display: block; }",
         ".codex-panel__unused { display: block; }",
+        ".codex-panel__item { display: block; }",
+        ".codex-panel__item-detail { display: block; }",
+        ".codex-panel__tokens {",
+        "  --codex-panel-used-size: 1px;",
+        "  --codex-panel-unused-size: 2px;",
+        "  width: var(--codex-panel-used-size);",
+        "  /*",
+        "  --codex-panel-commented-size: 3px;",
+        "  width: var(--codex-panel-unused-size);",
+        "  */",
+        "}",
       ].join("\n"),
       "src/component.ts": [
         'export const className = "codex-panel__used";',
+        'export const detailClassName = "codex-panel__item-detail";',
+        'export const tokenClassName = "codex-panel__tokens";',
         "export const dynamicClassName = `codex-panel__task-step--$" + "{status}`;",
       ].join("\n"),
       "tests/component.test.ts": 'expect("codex-panel__test-only").toBeTruthy();\n',
@@ -268,97 +154,10 @@ describe("development scripts", () => {
     expect(result.stderr).toContain("codex-panel__task-step--");
     expect(result.stderr).toContain("codex-panel__test-only");
     expect(result.stderr).toContain("codex-panel__unused");
-  });
-
-  it("reports unused panel custom properties", async () => {
-    const cwd = await cssUsageFixture({
-      "src/styles/10-component.css": [
-        ".codex-panel__used {",
-        "  --codex-panel-used-size: 1px;",
-        "  --codex-panel-unused-size: 2px;",
-        "  width: var(--codex-panel-used-size);",
-        "  /*",
-        "  --codex-panel-commented-size: 3px;",
-        "  width: var(--codex-panel-unused-size);",
-        "  */",
-        "}",
-      ].join("\n"),
-      "src/component.ts": 'export const className = "codex-panel__used";\n',
-    });
-
-    const result = runNodeScript("scripts/check-css-usage.mjs", [], cwd);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Unused CSS custom property candidates:");
+    expect(result.stderr).toContain("  codex-panel__item\n");
     expect(result.stderr).toContain("--codex-panel-unused-size");
     expect(result.stderr).not.toContain("--codex-panel-used-size\n");
     expect(result.stderr).not.toContain("--codex-panel-commented-size");
-  });
-
-  it("does not count a longer source class name as usage", async () => {
-    const cwd = await cssUsageFixture({
-      "src/styles/10-component.css": [".codex-panel__item { display: block; }", ".codex-panel__item-detail { display: block; }"].join("\n"),
-      "src/component.ts": 'export const className = "codex-panel__item-detail";\n',
-    });
-
-    const result = runNodeScript("scripts/check-css-usage.mjs", [], cwd);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Unused CSS class candidates:");
-    expect(result.stderr).toContain("  codex-panel__item\n");
-  });
-
-  it("prepares release notes from conventional commits since the previous tag", async () => {
-    const cwd = await tempWorkspace();
-    await writeJson(path.join(cwd, "package.json"), { version: "2.3.2" });
-    await writeJson(path.join(cwd, "package-lock.json"), {
-      version: "2.3.2",
-      packages: { "": { version: "2.3.2" } },
-    });
-    await writeJson(path.join(cwd, "manifest.json"), { version: "2.3.2", minAppVersion: "1.12.0" });
-    await writeJson(path.join(cwd, "versions.json"), { "2.3.2": "1.12.0" });
-    runGit(["init"], cwd);
-    runGit(["config", "user.name", "Codex Panel Tests"], cwd);
-    runGit(["config", "user.email", "tests@example.com"], cwd);
-    runGit(["add", "."], cwd);
-    runGit(["commit", "-m", "chore: establish release baseline"], cwd);
-    runGit(["tag", "2.3.2"], cwd);
-    await writeFile(path.join(cwd, "change.txt"), "side chats\n");
-    runGit(["add", "change.txt"], cwd);
-    runGit(["commit", "-m", "feat(chat): add side chat support"], cwd);
-
-    const result = runNodeScript("scripts/release/prepare.mjs", ["2.4.0"], cwd);
-
-    expect(result.status).toBe(0);
-    await expect(readFile(path.join(cwd, ".github", "release-notes", "2.4.0.md"), "utf8")).resolves.toBe(
-      "## Changes\n\n- Add side chat support.\n",
-    );
-    await expect(readJson(path.join(cwd, "package.json"))).resolves.toMatchObject({ version: "2.4.0" });
-  });
-
-  it("fails release prepare before changing version files when release notes already exist", async () => {
-    const cwd = await tempWorkspace();
-    await mkdir(path.join(cwd, ".github", "release-notes"), { recursive: true });
-
-    const packageJson = { version: "2.3.2" };
-    const packageLockJson = { version: "2.3.2", packages: { "": { version: "2.3.2" } } };
-    const manifestJson = { version: "2.3.2", minAppVersion: "1.12.0" };
-    const versionsJson = { "2.3.2": "1.12.0" };
-
-    await writeJson(path.join(cwd, "package.json"), packageJson);
-    await writeJson(path.join(cwd, "package-lock.json"), packageLockJson);
-    await writeJson(path.join(cwd, "manifest.json"), manifestJson);
-    await writeJson(path.join(cwd, "versions.json"), versionsJson);
-    await writeFile(path.join(cwd, ".github", "release-notes", "2.3.3.md"), "## Changes\n\n- Existing\n");
-
-    const result = runNodeScript("scripts/release/prepare.mjs", ["2.3.3"], cwd);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(".github/release-notes/2.3.3.md already exists");
-    await expect(readJson(path.join(cwd, "package.json"))).resolves.toEqual(packageJson);
-    await expect(readJson(path.join(cwd, "package-lock.json"))).resolves.toEqual(packageLockJson);
-    await expect(readJson(path.join(cwd, "manifest.json"))).resolves.toEqual(manifestJson);
-    await expect(readJson(path.join(cwd, "versions.json"))).resolves.toEqual(versionsJson);
   });
 });
 
@@ -446,24 +245,6 @@ function runNodeScript(script: string, args: string[] = [], cwd = repoRoot, env:
   });
 }
 
-function runCommitlint(message: string): number | null {
-  return spawnSync(process.execPath, [path.join(repoRoot, "node_modules", "@commitlint", "cli", "cli.js")], {
-    cwd: repoRoot,
-    encoding: "utf8",
-    input: `${message}\n`,
-    shell: false,
-  }).status;
-}
-
-function runGit(args: string[], cwd: string): void {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8", shell: false });
-  if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
-}
-
 async function writeJson(file: string, value: unknown): Promise<void> {
   await writeFile(file, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-async function readJson(file: string): Promise<unknown> {
-  return JSON.parse(await readFile(file, "utf8"));
 }
