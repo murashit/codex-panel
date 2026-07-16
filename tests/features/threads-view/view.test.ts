@@ -758,6 +758,7 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       }),
     },
     vaultPath: "/vault",
+    appServerContextLease: () => ({ context: { codexPath: "codex", vaultPath: "/vault" }, generation: 1 }),
     threadNameMutations: createThreadNameMutationCoordinator(),
     threadOperationsTransport: createThreadOperationsTransport(clientAccess),
     threadTitleTransport: createThreadTitleTransport({

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AppServerClient } from "../../../../src/app-server/connection/client";
 import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
+import type { AppServerQueryContextIdentity } from "../../../../src/app-server/query/keys";
 import { createThreadOperationsTransport } from "../../../../src/features/threads/app-server/workflow-transports";
 import type { ArchiveExportDestination } from "../../../../src/features/threads/workflows/archive-export";
 import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
@@ -53,6 +54,28 @@ describe("ThreadOperations", () => {
     expect(client.request).toHaveBeenNthCalledWith(1, "thread/name/set", { threadId: "thread", name: "Generated title" });
     expect(client.request).toHaveBeenNthCalledWith(2, "thread/name/set", { threadId: "thread", name: "First manual title" });
     expect(client.request).toHaveBeenNthCalledWith(3, "thread/name/set", { threadId: "thread", name: "Latest manual title" });
+  });
+
+  it("does not start a queued rename after its resource context is replaced", async () => {
+    const firstSave = deferred<object>();
+    const client = clientMock();
+    client.request.mockImplementationOnce(async (method: string) => {
+      if (method !== "thread/name/set") throw new Error(`Unexpected app-server request: ${method}`);
+      return firstSave.promise;
+    });
+    let context: AppServerQueryContextIdentity = { codexPath: "codex-a", vaultPath: "/vault", generation: 1 };
+    const { operations, catalog } = operationsFixture({ client, currentContext: () => context });
+
+    const started = operations.renameThread("thread", "Started in A");
+    await Promise.resolve();
+    const queued = operations.renameThread("thread", "Queued in A");
+    context = { codexPath: "codex-b", vaultPath: "/vault", generation: 2 };
+    firstSave.resolve({});
+
+    await expect(started).resolves.toBe(true);
+    await expect(queued).resolves.toBe(false);
+    expect(client.request).toHaveBeenCalledOnce();
+    expect(catalog.apply).not.toHaveBeenCalled();
   });
 
   it("archives a thread, reports exported markdown, and notifies shared surfaces", async () => {
@@ -129,7 +152,9 @@ describe("ThreadOperations", () => {
   });
 });
 
-function operationsFixture(options: { client?: MockClient | null | (() => MockClient | null) } = {}) {
+function operationsFixture(
+  options: { client?: MockClient | null | (() => MockClient | null); currentContext?: () => AppServerQueryContextIdentity } = {},
+) {
   const configuredClient = options.client === undefined ? clientMock() : options.client;
   const currentClient = typeof configuredClient === "function" ? configuredClient : () => configuredClient;
   const archiveDestination = archiveDestinationMock();
@@ -142,6 +167,7 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
   const catalog = {
     apply: vi.fn(),
   };
+  const currentContext = options.currentContext ?? (() => ({ codexPath: "codex", vaultPath: "/vault", generation: 1 }));
   const notice = vi.fn();
   const host: ThreadOperationsHost = {
     transport: createThreadOperationsTransport({
@@ -154,6 +180,15 @@ function operationsFixture(options: { client?: MockClient | null | (() => MockCl
       },
     }),
     nameMutations: createThreadNameMutationCoordinator(),
+    resourceContext: {
+      capture: currentContext,
+      isCurrent: (context) => {
+        const current = currentContext();
+        return (
+          context.codexPath === current.codexPath && context.vaultPath === current.vaultPath && context.generation === current.generation
+        );
+      },
+    },
     archiveExport: {
       settings: archiveExportSettings,
       enabled: () => false,

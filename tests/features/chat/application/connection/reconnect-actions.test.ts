@@ -141,6 +141,7 @@ describe("reconnectPanel", () => {
       kind: "awaiting-resume",
       threadId: thread.id,
       fallbackTitle: thread.name,
+      provenance: thread.provenance,
     });
 
     await expect(reconnectPanel(host)).resolves.toBe(true);

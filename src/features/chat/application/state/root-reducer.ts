@@ -117,7 +117,12 @@ export interface ChatActiveThreadState {
 
 type ChatPanelThreadState =
   | { readonly kind: "empty" }
-  | { readonly kind: "awaiting-resume"; readonly threadId: string; readonly fallbackTitle: string | null }
+  | {
+      readonly kind: "awaiting-resume";
+      readonly threadId: string;
+      readonly fallbackTitle: string | null;
+      readonly provenance: Thread["provenance"] | null;
+    }
   | { readonly kind: "active"; readonly thread: ChatActiveThreadState };
 
 type ActiveThreadLifetime =
@@ -290,6 +295,11 @@ export function activeThreadState(state: ChatState): DeepReadonly<ChatActiveThre
 
 export function awaitingResumeThreadState(state: ChatState): Extract<ChatState["panelThread"], { kind: "awaiting-resume" }> | null {
   return state.panelThread.kind === "awaiting-resume" ? state.panelThread : null;
+}
+
+export function panelThreadProvenance(state: ChatState): ChatActiveThreadState["provenance"] {
+  if (state.panelThread.kind === "active") return state.panelThread.thread.provenance;
+  return state.panelThread.kind === "awaiting-resume" ? state.panelThread.provenance : null;
 }
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -667,7 +677,7 @@ function clearConnectionContextState(state: ChatState): ChatState {
 function panelThreadAfterConnectionExit(panelThread: ChatPanelThreadState): ChatPanelThreadState {
   if (panelThread.kind === "awaiting-resume") return panelThread;
   if (panelThread.kind !== "active" || panelThread.thread.lifetime?.kind === "ephemeral") return initialPanelThreadState();
-  return createAwaitingResumeThreadState(panelThread.thread.id, panelThread.thread.title ?? null);
+  return createAwaitingResumeThreadState(panelThread.thread.id, panelThread.thread.title ?? null, panelThread.thread.provenance);
 }
 
 function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState {
@@ -805,11 +815,16 @@ function initialPanelThreadState(): ChatPanelThreadState {
   return { kind: "empty" };
 }
 
-function createAwaitingResumeThreadState(threadId: string, fallbackTitle: string | null): ChatPanelThreadState {
+function createAwaitingResumeThreadState(
+  threadId: string,
+  fallbackTitle: string | null,
+  provenance: Thread["provenance"] | null = null,
+): ChatPanelThreadState {
   return {
     kind: "awaiting-resume",
     threadId,
     fallbackTitle,
+    provenance,
   };
 }
 

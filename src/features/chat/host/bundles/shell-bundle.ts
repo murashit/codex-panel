@@ -1,6 +1,6 @@
 import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
 import type { PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
-import { activeThreadId, activeThreadState } from "../../application/state/root-reducer";
+import { activeThreadId, panelThreadProvenance } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { HistoryController } from "../../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
@@ -74,7 +74,7 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       const thread = stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
       void environment.plugin.workspace.openSideChat(threadId, thread?.name ?? thread?.preview ?? null);
     },
-    activeThreadChatActionsDisabled: () => activeThreadState(stateStore.getState())?.provenance?.kind === "subagent",
+    activeThreadChatActionsDisabled: () => panelThreadProvenance(stateStore.getState())?.kind === "subagent",
   });
   const toolbarSurface: ChatPanelToolbarSurface = {
     connection: {

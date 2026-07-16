@@ -194,6 +194,10 @@ function coordinatorFixture(
       withClient: async (operation) => operation(currentClient()),
     }),
     nameMutations: createThreadNameMutationCoordinator(),
+    resourceContext: {
+      capture: () => ({ codexPath: "codex", vaultPath: "/vault", generation: 1 }),
+      isCurrent: (context) => context.codexPath === "codex" && context.vaultPath === "/vault" && context.generation === 1,
+    },
     archiveExport: {
       settings: () => DEFAULT_SETTINGS,
       enabled: () => false,

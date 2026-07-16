@@ -201,6 +201,7 @@ describe("chatReducer", () => {
       kind: "awaiting-resume",
       threadId: "active-thread",
       fallbackTitle: "Reconnect me",
+      provenance,
     });
     expect(threadStreamItems(disconnected.threadStream)).toEqual([dialogueItem("retained-item")]);
   });
@@ -234,6 +235,7 @@ describe("chatReducer", () => {
       kind: "awaiting-resume",
       threadId: "restored-thread",
       fallbackTitle: "Restored title",
+      provenance: null,
     });
     expect(restored.connection.statusText).toBe("Thread ready to resume.");
     expectThreadScopeReset(restored, { items: [] });

@@ -6,13 +6,7 @@ import {
 } from "../../../app-server/query/keys";
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
-import {
-  activeThreadId,
-  activeThreadState,
-  awaitingResumeThreadState,
-  type ChatState,
-  panelThreadId,
-} from "../application/state/root-reducer";
+import { activeThreadState, awaitingResumeThreadState, type ChatState, panelThreadId } from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
 import { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
@@ -32,7 +26,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   private observedAppServerContext: AppServerQueryContextIdentity;
   private appServerContextReconnectAttemptGeneration = 0;
   private appServerContextReplacementGeneration = 0;
-  private pendingAppServerContextReplacement: { activeThreadId: string | null; generation: number } | null = null;
+  private pendingAppServerContextReplacement: { panelThreadId: string | null; generation: number } | null = null;
   private opened = false;
   private closing = false;
 
@@ -90,7 +84,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     const nextContext = this.currentAppServerContext();
     if (!appServerQueryContextIdentityMatches(this.observedAppServerContext, nextContext)) {
       this.observedAppServerContext = nextContext;
-      const replacement = this.pendingAppServerContextReplacement ?? this.captureAppServerContextReplacement(activeThreadId(this.state));
+      const replacement = this.pendingAppServerContextReplacement ?? this.captureAppServerContextReplacement(panelThreadId(this.state));
       void this.reconnectAfterAppServerContextChange(replacement);
       this.runtime.runtime.sharedState.applyCached();
     }
@@ -98,25 +92,25 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   prepareAppServerContextChange(): void {
-    const threadId = this.pendingAppServerContextReplacement?.activeThreadId ?? activeThreadId(this.state);
+    const threadId = this.pendingAppServerContextReplacement?.panelThreadId ?? panelThreadId(this.state);
     this.captureAppServerContextReplacement(threadId);
     this.runtime.actions.prepareAppServerContextChange();
   }
 
-  private captureAppServerContextReplacement(activeThreadId: string | null): {
-    activeThreadId: string | null;
+  private captureAppServerContextReplacement(panelThreadId: string | null): {
+    panelThreadId: string | null;
     generation: number;
   } {
-    const replacement = { activeThreadId, generation: ++this.appServerContextReplacementGeneration };
+    const replacement = { panelThreadId, generation: ++this.appServerContextReplacementGeneration };
     this.pendingAppServerContextReplacement = replacement;
     return replacement;
   }
 
-  private async reconnectAfterAppServerContextChange(replacement: { activeThreadId: string | null; generation: number }): Promise<void> {
+  private async reconnectAfterAppServerContextChange(replacement: { panelThreadId: string | null; generation: number }): Promise<void> {
     const attemptGeneration = ++this.appServerContextReconnectAttemptGeneration;
     try {
       const resumed = await this.runtime.actions.reconnectAfterAppServerContextChange(
-        replacement.activeThreadId,
+        replacement.panelThreadId,
         () =>
           this.pendingAppServerContextReplacement?.generation === replacement.generation &&
           this.appServerContextReconnectAttemptGeneration === attemptGeneration,

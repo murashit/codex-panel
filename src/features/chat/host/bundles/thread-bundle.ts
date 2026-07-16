@@ -1,5 +1,6 @@
 import { Notice } from "obsidian";
 
+import { appServerQueryContextIdentity, appServerQueryContextIdentityMatches } from "../../../../app-server/query/keys";
 import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollout-token-usage";
 import { createThreadOperationsTransport, createThreadTitleTransport } from "../../../threads/app-server/workflow-transports";
 import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
@@ -128,6 +129,19 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   const threadOperations = createThreadOperations({
     transport: threadOperationsTransport,
     nameMutations: environment.plugin.threadNameMutations,
+    resourceContext: {
+      capture: () => appServerQueryContextIdentity(environment.plugin.appServerQueries.contextLease()),
+      isCurrent: (context) => {
+        try {
+          return appServerQueryContextIdentityMatches(
+            context,
+            appServerQueryContextIdentity(environment.plugin.appServerQueries.contextLease()),
+          );
+        } catch {
+          return false;
+        }
+      },
+    },
     archiveExport: {
       settings: () => environment.plugin.settingsRef.settings.archiveExportSettings(),
       enabled: () => environment.plugin.settingsRef.settings.archiveExportEnabled(),

@@ -1,3 +1,4 @@
+import type { AppServerQueryContextIdentity } from "../../../app-server/query/keys";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import { normalizeExplicitThreadName } from "../../../domain/threads/model";
 import type { ThreadCatalogEventSink } from "../catalog/thread-catalog";
@@ -8,6 +9,10 @@ import type { ThreadNameMutationCoordinator } from "./thread-name-mutation-coord
 export interface ThreadOperationsHost {
   transport: ThreadOperationsTransport;
   nameMutations: ThreadNameMutationCoordinator;
+  resourceContext: {
+    capture(): AppServerQueryContextIdentity;
+    isCurrent(context: AppServerQueryContextIdentity): boolean;
+  };
   archiveExport: {
     settings(): ArchiveExportSettings;
     enabled(): boolean;
@@ -53,11 +58,12 @@ async function renameThread(
 ): Promise<boolean> {
   const name = normalizeExplicitThreadName(value);
   if (!name) return false;
+  const context = Object.freeze({ ...host.resourceContext.capture() });
 
   return host.nameMutations.run(threadId, async () => {
-    if (!(options.shouldStart?.() ?? true)) return false;
+    if (!host.resourceContext.isCurrent(context) || !(options.shouldStart?.() ?? true)) return false;
     await host.transport.renameThread(threadId, name);
-    if (options.shouldPublish?.() ?? true) {
+    if (host.resourceContext.isCurrent(context) && (options.shouldPublish?.() ?? true)) {
       host.catalog.apply({ type: "thread-renamed", threadId, name });
     }
     return true;

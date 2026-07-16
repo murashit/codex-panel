@@ -1,6 +1,12 @@
 import { Notice } from "obsidian";
 
-import { type AppServerQueryContext, appServerQueryContextRawEquals } from "../../app-server/query/keys";
+import {
+  type AppServerContextLease,
+  type AppServerQueryContext,
+  appServerQueryContextIdentity,
+  appServerQueryContextIdentityMatches,
+  appServerQueryContextRawEquals,
+} from "../../app-server/query/keys";
 import type { ObservedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
 import { isStaleAppServerResourceContextError } from "../../app-server/query/resource-store";
@@ -21,6 +27,7 @@ import { type ThreadsRenameState, type ThreadsViewPanelActivity, threadRows, tra
 export interface ThreadsViewHost {
   readonly settings: ThreadsViewSettingsAccess;
   readonly vaultPath: string;
+  appServerContextLease(): AppServerContextLease;
   readonly threadCatalog: ThreadsViewThreadCatalog;
   readonly threadNameMutations: ThreadNameMutationCoordinator;
   readonly threadOperationsTransport: ThreadOperationsTransport;
@@ -84,6 +91,16 @@ export class ThreadsViewSession {
     this.operations = createThreadOperations({
       transport: this.host.threadOperationsTransport,
       nameMutations: this.host.threadNameMutations,
+      resourceContext: {
+        capture: () => appServerQueryContextIdentity(this.host.appServerContextLease()),
+        isCurrent: (context) => {
+          try {
+            return appServerQueryContextIdentityMatches(context, appServerQueryContextIdentity(this.host.appServerContextLease()));
+          } catch {
+            return false;
+          }
+        },
+      },
       archiveExport: {
         settings: () => this.host.settings.archiveExportSettings(),
         enabled: () => this.host.settings.archiveExportEnabled(),

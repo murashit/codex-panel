@@ -176,6 +176,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     return {
       settings: this.threadsSettings(),
       vaultPath: this.options.settingsRef.vaultPath,
+      appServerContextLease: () => this.appServerResourceStore.contextLease(),
       threadCatalog: this.threadCatalog,
       threadNameMutations: this.threadNameMutations,
       threadOperationsTransport: createThreadOperationsTransport(this),

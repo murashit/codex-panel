@@ -1,6 +1,6 @@
 import { explicitThreadName } from "../../../domain/threads/model";
 import { threadStreamItemsHaveThreadTurns } from "../application/runtime/snapshot";
-import { activeThreadState, type ChatActiveThreadState, type ChatState } from "../application/state/root-reducer";
+import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThreadProvenance } from "../application/state/root-reducer";
 import { threadStreamItems } from "../application/state/thread-stream";
 import { activeTurnId, chatTurnBusy } from "../application/turns/turn-state";
 
@@ -70,7 +70,7 @@ export function selectChatPanelToolbar(state: ChatState): ChatPanelToolbarModel 
   return {
     threads: state.threadList.listedThreads,
     activeThreadId: activeThread?.id ?? null,
-    activeThreadSubagent: activeThread?.provenance?.kind === "subagent",
+    activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
     turnBusy: chatTurnBusy(state),
     connection: state.connection,
@@ -95,7 +95,7 @@ export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadSt
     activeThreadId: activeThread?.id ?? null,
     activeThreadCwd: activeThread?.cwd ?? null,
     activeThreadLifetime: activeThread?.lifetime ?? null,
-    activeThreadProvenance: activeThread?.provenance ?? null,
+    activeThreadProvenance: panelThreadProvenance(state),
     turn: state.turn,
     runtimeCollaborationMode: state.runtime.pending.collaborationMode,
     threadStream: state.threadStream,
@@ -127,7 +127,7 @@ export function selectChatPanelComposer(state: ChatState): ChatPanelComposerMode
     selectedSuggestionIndex: state.composer.suggestSelected,
     activeThreadId,
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
-    activeThreadSubagent: activeThread?.provenance?.kind === "subagent",
+    activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
     webSubmissionPending: state.pendingSubmission !== null,
     webSubmissionCancellable: state.pendingSubmission?.phase === "cancellable",
     turnBusy: chatTurnBusy(state),

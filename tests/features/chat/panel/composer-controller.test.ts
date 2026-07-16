@@ -233,7 +233,7 @@ describe("ChatComposerController", () => {
     expect(stateStore.getState().composer.suggestions.map((suggestion) => suggestion.replacement)).toContain("/fast");
   });
 
-  it("omits subagent slash suggestions on input without waiting for keyup", () => {
+  it("keeps a disconnected subagent composer read-only without slash suggestions", () => {
     const stateStore = createChatStateStore(
       chatStateFixture({
         activeThread: {
@@ -250,13 +250,16 @@ describe("ChatComposerController", () => {
         },
       }),
     );
+    stateStore.dispatch({ type: "connection/scoped-cleared" });
     const { controller, parent } = composerControllerFixture({ stateStore });
 
     renderComposerController(parent, controller, stateStore);
+    const props = controller.renderState(composerModelFromChatState(stateStore.getState()), { submit: vi.fn() });
     setTextAreaValue(composer(parent), "/");
     composer(parent).setSelectionRange(1, 1);
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
 
+    expect(props.submissionDisabled).toBe(true);
     expect(stateStore.getState().composer.suggestions).toEqual([]);
   });
 

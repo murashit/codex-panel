@@ -256,6 +256,103 @@ describe("CodexChatView connection lifecycle", () => {
     });
   });
 
+  it("keeps a disconnected panel's awaiting thread across an app-server context replacement", async () => {
+    connectionMock.state.client = connectedClient();
+    const host = chatHost();
+    const view = await chatView({ host });
+
+    await view.onOpen();
+    await view.surface.connect();
+    await view.surface.openThread("thread-1");
+
+    connectionMock.state.connected = false;
+    connectionMock.state.onExit?.();
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: false, threadId: "thread-1" });
+
+    view.surface.prepareAppServerContextChange();
+    const nextClient = connectedClient();
+    connectionMock.state.client = nextClient;
+    host.settingsSource.codexPath = "codex-next";
+    view.surface.refreshSettings();
+
+    await waitForAsyncWork(() => {
+      expect(nextClient.request).toHaveBeenCalledWith("thread/resume", expect.objectContaining({ threadId: "thread-1", cwd: "/vault" }));
+      expect(view.surface.openPanelSnapshot()).toMatchObject({ connected: true, threadId: "thread-1" });
+    });
+  });
+
+  it("does not run an inline rename queued before an app-server context replacement", async () => {
+    const oldClient = connectedClient();
+    connectionMock.state.client = oldClient;
+    const nameMutations = createThreadNameMutationCoordinator();
+    const mutationRun = vi.spyOn(nameMutations, "run");
+    const host = chatHost({ threadNameMutations: nameMutations });
+    const view = await chatView({ host });
+
+    await view.onOpen();
+    await view.surface.connect();
+    host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Original" })]);
+    await view.surface.openThread("thread-1");
+
+    const blocker = deferred<void>();
+    const blockerWork = nameMutations.run("thread-1", () => blocker.promise);
+    requiredButton(view.containerEl, '[aria-label="Show thread list"]').click();
+    await flushAsyncTicks();
+    requiredButton(view.containerEl, '[aria-label="Rename thread"]').click();
+    await flushAsyncTicks();
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
+    if (!input) throw new Error("Missing inline rename input");
+    input.value = "Queued in A";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    await flushAsyncTicks();
+    expect(mutationRun).toHaveBeenCalledTimes(2);
+
+    view.surface.prepareAppServerContextChange();
+    const nextClient = connectedClient();
+    connectionMock.state.client = nextClient;
+    host.settingsSource.codexPath = "codex-next";
+    view.surface.refreshSettings();
+    await waitForAsyncWork(() => expect(connectionMock.state.connectCalls).toBe(2));
+    blocker.resolve(undefined);
+    await blockerWork;
+    await flushAsyncTicks();
+
+    expectRequestTimes(oldClient, "thread/name/set", 0);
+    expectRequestTimes(nextClient, "thread/name/set", 0);
+  });
+
+  it("does not run a slash rename queued before an app-server context replacement", async () => {
+    const oldClient = connectedClient();
+    connectionMock.state.client = oldClient;
+    const nameMutations = createThreadNameMutationCoordinator();
+    const mutationRun = vi.spyOn(nameMutations, "run");
+    const host = chatHost({ threadNameMutations: nameMutations });
+    const view = await chatView({ host });
+
+    await view.onOpen();
+    await view.surface.connect();
+    host.receiveActiveThreads([panelThread({ id: "thread-1", name: "Original" })]);
+    const blocker = deferred<void>();
+    const blockerWork = nameMutations.run("thread-1", () => blocker.promise);
+    view.surface.setComposerText("/rename thread-1 Queued in A");
+    await submitComposerByEnter(view);
+    expect(mutationRun).toHaveBeenCalledTimes(2);
+
+    view.surface.prepareAppServerContextChange();
+    const nextClient = connectedClient();
+    connectionMock.state.client = nextClient;
+    host.settingsSource.codexPath = "codex-next";
+    view.surface.refreshSettings();
+    await waitForAsyncWork(() => expect(connectionMock.state.connectCalls).toBe(2));
+    blocker.resolve(undefined);
+    await blockerWork;
+    await flushAsyncTicks();
+
+    expectRequestTimes(oldClient, "thread/name/set", 0);
+    expectRequestTimes(nextClient, "thread/name/set", 0);
+  });
+
   it("resumes each panel's captured thread after a shared app-server context replacement", async () => {
     const host = chatHost();
     const resumeRequestedThread = vi.fn((params: unknown) => {
@@ -1286,6 +1383,7 @@ interface ChatHostFixtureOverrides {
   refreshAppServerMetadata?: CodexChatHost["appServerQueries"]["refreshAppServerMetadata"];
   refreshSkills?: CodexChatHost["appServerQueries"]["refreshSkills"];
   refreshRateLimits?: CodexChatHost["appServerQueries"]["refreshRateLimits"];
+  threadNameMutations?: CodexChatHost["threadNameMutations"];
 }
 
 function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
@@ -1393,7 +1491,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       activeThreads = threads;
       emitActiveThreads();
     },
-    threadNameMutations: createThreadNameMutationCoordinator(),
+    threadNameMutations: overrides.threadNameMutations ?? createThreadNameMutationCoordinator(),
     settingsRef: {
       settings: chatPanelSettingsAccess(settings),
       vaultPath,

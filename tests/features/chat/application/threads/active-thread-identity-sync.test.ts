@@ -122,7 +122,12 @@ describe("createActiveThreadIdentitySync", () => {
 
     sync.applyThreadRenameToActiveIdentity("thread", "New");
 
-    expect(stateStore.getState().panelThread).toEqual({ kind: "awaiting-resume", threadId: "thread", fallbackTitle: "New" });
+    expect(stateStore.getState().panelThread).toEqual({
+      kind: "awaiting-resume",
+      threadId: "thread",
+      fallbackTitle: "New",
+      provenance: null,
+    });
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
   });
 

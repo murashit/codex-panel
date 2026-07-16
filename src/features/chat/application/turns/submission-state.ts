@@ -1,6 +1,6 @@
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import { activeThreadState, type ChatState } from "../state/root-reducer";
+import { activeThreadState, type ChatState, panelThreadProvenance } from "../state/root-reducer";
 import { threadStreamItems } from "../state/thread-stream";
 import { activeTurnId, chatTurnBusy, type PendingTurnStart, pendingTurnStart } from "./turn-state";
 
@@ -20,7 +20,7 @@ export function submissionStateSnapshot(state: ChatState): SubmissionStateSnapsh
   return {
     activeThreadId: activeThread?.id ?? null,
     activeThreadEphemeral: activeThread?.lifetime?.kind === "ephemeral",
-    activeThreadSubagent: activeThread?.provenance?.kind === "subagent",
+    activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
     activeTurnId: activeTurnId(state),
     busy: chatTurnBusy(state),
     listedThreads: state.threadList.listedThreads,
