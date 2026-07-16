@@ -70,16 +70,21 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
       if (current.kind === "idle" || current.threadId !== threadId || current.kind === "generating") return;
       const editingState = current;
 
-      await host.ensureConnected();
-      if (renameState(host) !== editingState) return;
+      try {
+        await host.ensureConnected();
+        if (renameState(host) !== editingState) return;
 
-      const result = await host.renameThread(threadId, value);
-      if (!result) {
-        if (renameState(host) === editingState) action.cancel(threadId);
-        return;
-      }
-      if (renameState(host) === editingState) {
-        dispatch(host, { type: "ui/rename-cleared" });
+        const result = await host.renameThread(threadId, value);
+        if (!result) {
+          if (renameState(host) === editingState) action.cancel(threadId);
+          return;
+        }
+        if (renameState(host) === editingState) {
+          dispatch(host, { type: "ui/rename-cleared" });
+        }
+      } catch (error) {
+        if (renameState(host) !== editingState) return;
+        host.addSystemMessage(error instanceof Error ? error.message : String(error));
       }
     },
 

@@ -87,6 +87,59 @@ describe("ThreadRenameEditorActions", () => {
     expect(actions.editState("thread")).toBeNull();
   });
 
+  it("keeps the draft and reports a connection failure while saving", async () => {
+    const addSystemMessage = vi.fn();
+    const { actions } = actionsFixture({
+      ensureConnected: vi.fn().mockRejectedValue(new Error("Could not connect.")),
+      addSystemMessage,
+    });
+
+    actions.start("thread");
+    actions.updateDraft("thread", "Unsaved draft");
+    await actions.save("thread", "Unsaved draft");
+
+    expect(actions.editState("thread")).toEqual({ draft: "Unsaved draft", generating: false });
+    expect(addSystemMessage).toHaveBeenCalledWith("Could not connect.");
+  });
+
+  it("keeps the draft and reports an app-server rename failure", async () => {
+    const addSystemMessage = vi.fn();
+    const renameThreadRequest = vi.fn().mockRejectedValue(new Error("Rename failed."));
+    const { actions } = actionsFixture({
+      currentClient: () => fakeClient({ renameThreadRequest }),
+      addSystemMessage,
+    });
+
+    actions.start("thread");
+    actions.updateDraft("thread", "Unsaved draft");
+    await actions.save("thread", "Unsaved draft");
+
+    expect(actions.editState("thread")).toEqual({ draft: "Unsaved draft", generating: false });
+    expect(addSystemMessage).toHaveBeenCalledWith("Rename failed.");
+  });
+
+  it("does not report a delayed save failure after the edit is invalidated", async () => {
+    const saved = deferred<object>();
+    const addSystemMessage = vi.fn();
+    const { actions } = actionsFixture({
+      currentClient: () => fakeClient({ renameThreadRequest: vi.fn(() => saved.promise) }),
+      addSystemMessage,
+    });
+
+    actions.start("thread");
+    const save = actions.save("thread", "Old draft");
+    await flushPromises();
+
+    actions.invalidate();
+    actions.start("thread");
+    actions.updateDraft("thread", "New draft");
+    saved.reject(new Error("Stale rename failed."));
+    await save;
+
+    expect(actions.editState("thread")).toEqual({ draft: "New draft", generating: false });
+    expect(addSystemMessage).not.toHaveBeenCalled();
+  });
+
   it("does not clear a newer inline rename when an older save finishes", async () => {
     const saved = deferred<object>();
     const renameThreadRequest = vi.fn(() => saved.promise);

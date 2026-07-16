@@ -422,6 +422,36 @@ describe("CodexThreadsView", () => {
     });
   });
 
+  it("does not report an older save failure over a newer rename edit", async () => {
+    const saved = deferred<object>();
+    const renameThreadRequest = vi.fn(() => saved.promise);
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread", preview: "Thread preview" })] }),
+      "thread/name/set": renameThreadRequest,
+    });
+    const view = await threadsView(threadsHost());
+
+    await view.refresh();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const firstInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    if (!firstInput) throw new Error("Missing rename input");
+    changeInputValue(firstInput, "Saved title");
+    firstInput.dispatchEvent(new FocusEvent("blur"));
+    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
+
+    firstInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const secondInput = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    if (!secondInput) throw new Error("Missing newer rename input");
+    changeInputValue(secondInput, "New draft");
+
+    saved.reject(new Error("Older save failed."));
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+
+    expect(view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")?.value).toBe("New draft");
+    expect(view.containerEl.textContent).not.toContain("Older save failed.");
+  });
+
   it("clears old rows and suppresses a delayed rename across an app-server context replacement", async () => {
     let codexPath = "codex-a";
     const saved = deferred<object>();
@@ -466,6 +496,70 @@ describe("CodexThreadsView", () => {
     await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("No threads"));
     expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
     expect(view.containerEl.textContent).not.toContain("Old thread");
+  });
+
+  it("does not report a delayed rename rejection after an app-server context replacement", async () => {
+    let codexPath = "codex-a";
+    const saved = deferred<object>();
+    const renameThreadRequest = vi.fn(() => saved.promise);
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread-a", preview: "Old thread" })] }),
+      "thread/name/set": renameThreadRequest,
+    });
+    const host = threadsHost({ settings: contextSettings(() => codexPath) });
+    const view = await threadsView(host);
+    await view.onOpen();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Old thread"));
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')?.click();
+    const input = view.containerEl.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input");
+    if (!input) throw new Error("Missing rename input");
+    changeInputValue(input, "Renamed old thread");
+    input.dispatchEvent(new FocusEvent("blur"));
+    await waitForAsyncWork(() => expect(renameThreadRequest).toHaveBeenCalledOnce());
+
+    view.prepareAppServerContextChange();
+    codexPath = "codex-b";
+    connectionMock.state.client = clientFixture({ "thread/list": vi.fn().mockResolvedValue({ data: [] }) });
+    view.refreshSettings();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("No threads"));
+    saved.reject(new Error("Old rename failed."));
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+
+    expect(view.containerEl.textContent).toContain("No threads");
+    expect(view.containerEl.textContent).not.toContain("Old rename failed.");
+  });
+
+  it("does not report a delayed archive rejection after an app-server context replacement", async () => {
+    let codexPath = "codex-a";
+    const archived = deferred<object>();
+    const archiveThreadRequest = vi.fn(() => archived.promise);
+    connectionMock.state.client = clientFixture({
+      "thread/list": vi.fn().mockResolvedValue({ data: [threadFixture({ id: "thread-a", preview: "Old thread" })] }),
+      "thread/archive": archiveThreadRequest,
+    });
+    const closeOpenPanelsForThread = vi.fn();
+    const host = threadsHost({
+      settings: contextSettings(() => codexPath),
+      closeOpenPanelsForThread,
+    });
+    const view = await threadsView(host);
+    await view.onOpen();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("Old thread"));
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread"]')?.click();
+    view.containerEl.querySelector<HTMLButtonElement>('[aria-label="Archive thread without saving"]')?.click();
+    await waitForAsyncWork(() => expect(archiveThreadRequest).toHaveBeenCalledOnce());
+
+    view.prepareAppServerContextChange();
+    codexPath = "codex-b";
+    connectionMock.state.client = clientFixture({ "thread/list": vi.fn().mockResolvedValue({ data: [] }) });
+    view.refreshSettings();
+    await waitForAsyncWork(() => expect(view.containerEl.textContent).toContain("No threads"));
+    archived.reject(new Error("Old archive failed."));
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+
+    expect(view.containerEl.textContent).toContain("No threads");
+    expect(view.containerEl.textContent).not.toContain("Old archive failed.");
+    expect(closeOpenPanelsForThread).not.toHaveBeenCalled();
   });
 
   it("auto-names a thread rename draft from completed history", async () => {
@@ -699,6 +793,20 @@ function threadsHost(overrides: Record<string, unknown> = {}) {
       ...threadCatalogOverrides,
     },
     ...hostOverrides,
+  };
+}
+
+function contextSettings(codexPath: () => string) {
+  return {
+    archiveExportEnabled: () => DEFAULT_SETTINGS.archiveExportEnabled,
+    codexPath,
+    threadNamingModel: () => DEFAULT_SETTINGS.threadNamingModel,
+    threadNamingEffort: () => DEFAULT_SETTINGS.threadNamingEffort,
+    archiveExportSettings: () => ({
+      archiveExportFolderTemplate: DEFAULT_SETTINGS.archiveExportFolderTemplate,
+      archiveExportFilenameTemplate: DEFAULT_SETTINGS.archiveExportFilenameTemplate,
+      archiveExportTags: DEFAULT_SETTINGS.archiveExportTags,
+    }),
   };
 }
 
