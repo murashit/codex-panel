@@ -39,7 +39,7 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
   const { stateStore, threadCatalog, appServerQueries, applyAppServerMetadata, refreshTabHeader } = options;
 
   const receiveThreads = (threads: readonly Thread[]): void => {
-    stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
+    stateStore.dispatch({ type: "thread-list/applied", threads });
     refreshTabHeader();
   };
   const receiveThreadResult = (result: ObservedResult<readonly Thread[]>): void => {
@@ -67,7 +67,7 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
   };
   const applyCached = (): void => {
     const threads = threadCatalog.activeSnapshot();
-    if (threads) stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
+    if (threads) stateStore.dispatch({ type: "thread-list/applied", threads });
     const metadata = appServerQueries.appServerMetadataSnapshot();
     if (metadata) applyAppServerMetadata(metadata);
     const models = appServerQueries.modelsSnapshot();

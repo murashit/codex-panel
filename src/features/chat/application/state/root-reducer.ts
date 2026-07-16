@@ -103,7 +103,6 @@ interface ChatConnectionState {
 
 interface ChatThreadListState {
   readonly listedThreads: readonly Thread[];
-  readonly threadsLoaded: boolean;
 }
 
 export interface ChatActiveThreadState {
@@ -677,10 +676,7 @@ function reduceConnectionSlice(state: ChatConnectionState, action: ChatSliceActi
 
 function reduceThreadListSlice(state: ChatThreadListState, action: ChatSliceAction): ChatThreadListState {
   if (action.type !== "thread-list/applied") return state;
-  return patchObject(state, {
-    ...definedPatch("listedThreads", action.threads),
-    ...definedPatch("threadsLoaded", action.threadsLoaded),
-  });
+  return patchObject(state, { listedThreads: action.threads });
 }
 
 function reduceActiveThreadSlice(state: ChatActiveThreadState, action: ChatSliceAction): ChatActiveThreadState {
@@ -770,10 +766,7 @@ function initialConnectionState(): ChatConnectionState {
 }
 
 function initialThreadListState(): ChatThreadListState {
-  return {
-    listedThreads: [],
-    threadsLoaded: false,
-  };
+  return { listedThreads: [] };
 }
 
 function initialActiveThreadState(): ChatActiveThreadState {

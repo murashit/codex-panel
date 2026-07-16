@@ -39,7 +39,6 @@ function cloneChatState(state: ChatState): ChatState {
     },
     threadList: {
       listedThreads: [...state.threadList.listedThreads],
-      threadsLoaded: state.threadList.threadsLoaded,
     },
     activeThread: { ...state.activeThread },
     restoration: { ...state.restoration },

@@ -180,7 +180,6 @@ describe("ChatConnectionActions", () => {
     stateStore.dispatch({
       type: "thread-list/applied",
       threads: [{ id: "thread-1", title: "Thread 1" } as never],
-      threadsLoaded: true,
     });
     stateStore.dispatch({
       type: "connection/metadata-applied",
@@ -201,7 +200,6 @@ describe("ChatConnectionActions", () => {
     expect(stateStore.getState()).toMatchObject({
       threadList: {
         listedThreads: [],
-        threadsLoaded: false,
       },
       connection: {
         availableModels: [],

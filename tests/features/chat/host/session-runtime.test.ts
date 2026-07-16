@@ -62,7 +62,6 @@ describe("ChatPanelSessionRuntime actions", () => {
 
     expect(refresh).toHaveBeenCalledOnce();
     expect(stateStore.getState().threadList.listedThreads).toEqual([thread]);
-    expect(stateStore.getState().threadList.threadsLoaded).toBe(true);
   });
 
   it("treats stale shared thread refreshes as runtime-local no-ops", async () => {
@@ -80,7 +79,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     await expect(runtime.actions.refreshSharedThreads()).resolves.toBeUndefined();
 
     expect(refresh).toHaveBeenCalledOnce();
-    expect(stateStore.getState().threadList.threadsLoaded).toBe(false);
+    expect(stateStore.getState().threadList.listedThreads).toEqual([]);
   });
 
   it("applies cached shared state from the runtime binding", () => {

@@ -105,7 +105,6 @@ export interface ClearActiveThreadAction {
 export interface ThreadListAppliedAction {
   type: "thread-list/applied";
   threads: readonly Thread[];
-  threadsLoaded?: boolean;
 }
 
 export interface DisclosureSetAction {

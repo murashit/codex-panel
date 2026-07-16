@@ -137,7 +137,7 @@ export function createConnectionBundle(
   });
   const refreshSharedThreads = async (): Promise<void> => {
     const threads = await environment.plugin.threadCatalog.refreshActive();
-    stateStore.dispatch({ type: "thread-list/applied", threads, threadsLoaded: true });
+    stateStore.dispatch({ type: "thread-list/applied", threads });
   };
   const refreshSharedThreadsQuietly = (): void => {
     void refreshSharedThreads().catch((error: unknown) => {

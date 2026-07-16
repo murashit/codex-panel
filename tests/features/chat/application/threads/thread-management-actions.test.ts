@@ -273,7 +273,6 @@ describe("thread management actions", () => {
     host.stateStore.dispatch({
       type: "thread-list/applied",
       threads: [{ ...panelThread("source"), name: "Source name" }],
-      threadsLoaded: true,
     });
     const controller = threadManagementActions(host);
 

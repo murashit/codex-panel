@@ -34,7 +34,7 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
       },
     },
   });
-  stateStore.dispatch({ type: "thread-list/applied", threads: [{ id: "thread" } as never], threadsLoaded: true });
+  stateStore.dispatch({ type: "thread-list/applied", threads: [{ id: "thread" } as never] });
   const host: ChatReconnectActionsHost = {
     stateStore,
     invalidateConnectionWork: vi.fn(),
@@ -64,7 +64,7 @@ describe("reconnectPanel", () => {
     expect(host.resetConnection).toHaveBeenCalledOnce();
     expect(host.setStatus).toHaveBeenCalledWith("Reconnecting...", { kind: "connecting" });
     expect(stateStore.getState().requests.pendingUserInputs).toEqual([]);
-    expect(stateStore.getState().threadList).toEqual({ listedThreads: [], threadsLoaded: false });
+    expect(stateStore.getState().threadList).toEqual({ listedThreads: [] });
     expect(host.ensureConnected).toHaveBeenCalledOnce();
     expect(host.resumeThread).toHaveBeenCalledWith("thread");
   });
