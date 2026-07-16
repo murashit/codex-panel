@@ -8,5 +8,5 @@ export interface ThreadOperationsTransport {
 
 export interface ThreadTitleTransport {
   persistedContext(threadId: string): Promise<ThreadTitleContext | null>;
-  generateTitle(context: ThreadTitleContext): Promise<string | null>;
+  generateTitle(context: ThreadTitleContext, signal: AbortSignal): Promise<string | null>;
 }

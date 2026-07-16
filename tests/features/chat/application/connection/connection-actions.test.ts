@@ -47,7 +47,7 @@ function createActionsHarness({ connected = false } = {}) {
     configuredCommand: () => "codex",
     refreshLiveState: vi.fn(),
     isStaleConnectionError: () => false,
-    isStaleSharedQueryError: () => false,
+    isStaleResourceContextError: () => false,
     notifyConnectionFailed: vi.fn(),
   };
   return {
@@ -160,15 +160,15 @@ describe("ChatConnectionActions", () => {
     expect(refreshAppServerMetadata).not.toHaveBeenCalled();
   });
 
-  it("ignores stale shared query failures while refreshing active threads", async () => {
+  it("ignores stale resource context failures while refreshing active threads", async () => {
     const { actions, host } = createActionsHarness({ connected: true });
     const error = new Error("stale");
     vi.mocked(host.refreshSharedThreads).mockRejectedValueOnce(error);
-    host.isStaleSharedQueryError = vi.fn((candidate) => candidate === error);
+    host.isStaleResourceContextError = vi.fn((candidate) => candidate === error);
 
     await actions.refreshActiveThreads();
 
-    expect(host.isStaleSharedQueryError).toHaveBeenCalledWith(error);
+    expect(host.isStaleResourceContextError).toHaveBeenCalledWith(error);
     expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 

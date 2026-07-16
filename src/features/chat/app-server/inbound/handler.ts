@@ -1,5 +1,5 @@
 import type { RequestId, ServerNotification, ServerRequest } from "../../../../app-server/connection/rpc-messages";
-import type { AppServerQueryContext } from "../../../../app-server/query/keys";
+import type { AppServerQueryContextIdentity } from "../../../../app-server/query/keys";
 import {
   routeServerRequest,
   serverRequestApprovalResponse,
@@ -36,13 +36,13 @@ export interface ChatInboundHandlerActions {
   refreshServerDiagnostics: (options?: { forceResourceProbes?: boolean }) => void;
   applyAppServerResourceEvent: (event: AppServerResourceEvent) => void;
   maybeNameThread: (threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null) => void;
-  applyThreadCatalogEvent: (event: ThreadCatalogEvent, sourceContext: AppServerQueryContext) => void;
+  applyThreadCatalogEvent: (event: ThreadCatalogEvent, sourceContext: AppServerQueryContextIdentity) => void;
   respondToServerRequest: (requestId: RequestId, result: unknown) => boolean;
   rejectServerRequest: (requestId: RequestId, code: number, message: string) => boolean;
 }
 
 export interface ChatInboundHandler {
-  handleNotification(notification: ServerNotification, sourceContext: AppServerQueryContext): void;
+  handleNotification(notification: ServerNotification, sourceContext: AppServerQueryContextIdentity): void;
   handleServerRequest(request: ServerRequest): void;
   handleAppServerLog(message: string): void;
   resolveApproval(requestId: PendingRequestId, action: ApprovalAction): void;
@@ -111,7 +111,7 @@ function dispatch(context: ChatInboundHandlerContext, action: ChatAction): void 
 function handleNotification(
   context: ChatInboundHandlerContext,
   notification: ServerNotification,
-  sourceContext: AppServerQueryContext,
+  sourceContext: AppServerQueryContextIdentity,
 ): void {
   const plan = planChatNotification(state(context), notification, (prefix) => localItemId(context, prefix));
   for (const action of plan.actions) dispatch(context, action);
@@ -246,7 +246,7 @@ function localItemId(context: ChatInboundHandlerContext, prefix: string): string
 function runNotificationEffect(
   context: ChatInboundHandlerContext,
   effect: ChatNotificationEffect,
-  sourceContext: AppServerQueryContext,
+  sourceContext: AppServerQueryContextIdentity,
 ): void {
   switch (effect.type) {
     case "refresh-threads":

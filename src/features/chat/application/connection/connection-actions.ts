@@ -36,7 +36,7 @@ export interface ChatConnectionActionsHost {
   configuredCommand: () => string;
   refreshLiveState: () => void;
   isStaleConnectionError: (error: unknown) => boolean;
-  isStaleSharedQueryError: (error: unknown) => boolean;
+  isStaleResourceContextError: (error: unknown) => boolean;
   notifyConnectionFailed: () => void;
 }
 
@@ -105,7 +105,7 @@ async function refreshActiveThreads(host: ChatConnectionActionsHost): Promise<vo
     await host.refreshSharedThreads();
     host.refreshTabHeader();
   } catch (error) {
-    if (host.isStaleSharedQueryError(error)) return;
+    if (host.isStaleResourceContextError(error)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
 }
@@ -143,7 +143,7 @@ async function initializeConnection(host: ChatConnectionActionsHost, isStale: ()
   } catch (error) {
     if (isStale()) return;
     if (host.isStaleConnectionError(error)) return;
-    if (host.isStaleSharedQueryError(error)) return;
+    if (host.isStaleResourceContextError(error)) return;
     const message = connectionErrorMessage(error, host.configuredCommand());
     host.setStatus(STATUS_CONNECTION_FAILED, { kind: "failed", message });
     host.addSystemMessage(message);
@@ -158,7 +158,7 @@ async function hydrateConnectedResources(host: ChatConnectionActionsHost, isStal
   try {
     await host.metadata.refreshAppServerMetadata();
   } catch (error) {
-    if (isStale() || host.isStaleSharedQueryError(error)) return;
+    if (isStale() || host.isStaleResourceContextError(error)) return;
     host.addSystemMessage(`Could not refresh Codex metadata: ${errorMessage(error)}`);
   }
   if (isStale()) return;
@@ -166,7 +166,7 @@ async function hydrateConnectedResources(host: ChatConnectionActionsHost, isStal
   try {
     await host.refreshSharedThreads();
   } catch (error) {
-    if (isStale() || host.isStaleSharedQueryError(error)) return;
+    if (isStale() || host.isStaleResourceContextError(error)) return;
     host.addSystemMessage(`Could not refresh Codex threads: ${errorMessage(error)}`);
   }
   if (isStale()) return;

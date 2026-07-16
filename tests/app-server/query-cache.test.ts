@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CatalogModel, CatalogSkillMetadata } from "../../src/app-server/protocol/catalog";
 import { AppServerQueryCache } from "../../src/app-server/query/cache";
-import type { AppServerQueryContext } from "../../src/app-server/query/keys";
+import type { AppServerQueryContext, AppServerQueryContextIdentity } from "../../src/app-server/query/keys";
 import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
 
@@ -142,6 +142,26 @@ describe("AppServerQueryCache", () => {
     await expect(newPromise).resolves.toEqual([thread("new-thread")]);
     expect(cache.activeThreadsSnapshot(newContext)?.map((item) => item.id)).toEqual(["new-thread"]);
     expect(cache.activeThreadsSnapshot(oldContext)?.map((item) => item.id)).toEqual(["old-thread"]);
+  });
+
+  it("does not join or publish thread refreshes across generations of the same raw context", async () => {
+    const firstRefresh = deferred<readonly ReturnType<typeof thread>[]>();
+    const fetchThreads = vi.fn((context: AppServerQueryContextIdentity) =>
+      context.generation === 1 ? firstRefresh.promise : Promise.resolve([thread("current-a")]),
+    );
+    const cache = cacheWithThreads(fetchThreads);
+    const firstA = cacheContext({ generation: 1 });
+    const secondA = cacheContext({ generation: 3 });
+
+    const stale = cache.refreshActiveThreads(firstA);
+    await flushMicrotasks();
+    await expect(cache.refreshActiveThreads(secondA)).resolves.toEqual([thread("current-a")]);
+    firstRefresh.resolve([thread("stale-a")]);
+    await stale;
+
+    expect(fetchThreads).toHaveBeenCalledTimes(2);
+    expect(cache.activeThreadsSnapshot(secondA)).toEqual([thread("current-a")]);
+    expect(cache.activeThreadsSnapshot(firstA)).toEqual([thread("stale-a")]);
   });
 
   it("stores in-flight thread list refreshes under the captured app-server cache context", async () => {
@@ -537,16 +557,17 @@ describe("AppServerQueryCache", () => {
   });
 });
 
-function cacheContext(overrides: Partial<AppServerQueryContext> = {}): AppServerQueryContext {
+function cacheContext(overrides: Partial<AppServerQueryContextIdentity> = {}): AppServerQueryContextIdentity {
   return {
     codexPath: "codex",
     vaultPath: "/vault",
+    generation: 1,
     ...overrides,
   };
 }
 
 function cacheWithThreads(
-  fetchThreads: (context: AppServerQueryContext, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
+  fetchThreads: (context: AppServerQueryContextIdentity, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
 ): AppServerQueryCache {
   return new AppServerQueryCache({
     clientRunner: {

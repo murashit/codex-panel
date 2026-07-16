@@ -569,7 +569,9 @@ describe("CodexThreadsView", () => {
     await waitForAsyncWork(() => {
       expect(namingMock.generateThreadTitleWithCodex).toHaveBeenCalledOnce();
     });
+    const generationSignal = namingMock.generateThreadTitleWithCodex.mock.calls[0]?.[4]?.signal as AbortSignal | undefined;
     await view.onClose();
+    expect(generationSignal?.aborted).toBe(true);
     generatedTitle.resolve("Late title");
     for (let index = 0; index < 10; index += 1) await Promise.resolve();
 

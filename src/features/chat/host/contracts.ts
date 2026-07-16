@@ -1,7 +1,7 @@
 import type { App, Component, EventRef } from "obsidian";
 
 import type { AppServerClient } from "../../../app-server/connection/client";
-import type { AppServerQueryContext } from "../../../app-server/query/keys";
+import type { AppServerContextLease, AppServerQueryContextIdentity } from "../../../app-server/query/keys";
 import type { ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
@@ -54,6 +54,7 @@ interface WorkspacePanels {
 type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink & ThreadCatalogConnectionEventSink;
 
 interface ChatAppServerQueries {
+  contextLease(): AppServerContextLease;
   appServerMetadataSnapshot(): SharedServerMetadata | null;
   refreshAppServerMetadata(): Promise<SharedServerMetadata | null>;
   refreshSkills(): Promise<SharedServerMetadata | null>;
@@ -122,7 +123,7 @@ export interface ChatSharedThreadSurface {
 }
 
 export interface ChatPanelClientSurface {
-  canServeAppServerContext(context: AppServerQueryContext): boolean;
+  canServeAppServerContext(context: AppServerQueryContextIdentity): boolean;
   runWithAppServerClient<T>(operation: (client: AppServerClient) => Promise<T>): Promise<T>;
 }
 

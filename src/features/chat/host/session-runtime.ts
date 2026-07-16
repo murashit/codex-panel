@@ -1,6 +1,6 @@
 import { codexPanelAppServerInitializeParams } from "../../../app-server/connection/client-profile";
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
-import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
+import { isStaleAppServerResourceContextError } from "../../../app-server/query/resource-store";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../app-server/session-gateway";
 import { reconnectPanel } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
@@ -114,9 +114,10 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   const localItemIds = createLocalIdSource();
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
+  const resourceContext = () => environment.plugin.appServerQueries.contextLease().context;
   const currentAppServer = createChatCurrentAppServerGateway({
-    codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
-    vaultPath: environment.plugin.settingsRef.vaultPath,
+    codexPath: () => resourceContext().codexPath,
+    vaultPath: resourceContext().vaultPath,
     currentClient,
   });
   const status = createSessionStatus(stateStore, localItemIds);
@@ -167,7 +168,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   } = connectionBundle;
   const ensureConnected = () => connectionActions.ensureConnected();
   const appServer = createChatAppServerGateway(currentAppServer, {
-    vaultPath: environment.plugin.settingsRef.vaultPath,
+    vaultPath: resourceContext().vaultPath,
     currentClient,
     connectedClient: async () => {
       await connectionActions.ensureConnected();
@@ -259,6 +260,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   const prepareAppServerContextChange = (): void => {
     connectionActions.invalidate();
     threadFoundation.invalidateThreadWork();
+    threadLifecycle.rename.invalidate();
     threadLifecycle.restoration.invalidate();
     host.deferredTasks.clearDiagnostics();
     connectionBundle.invalidateConnectionScope();
@@ -302,7 +304,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     try {
       await connectionBundle.refreshSharedThreads();
     } catch (error) {
-      if (isStaleAppServerSharedQueryContextError(error)) return;
+      if (isStaleAppServerResourceContextError(error)) return;
       throw error;
     }
   };
@@ -355,9 +357,11 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
 
 function createConnectionManager(environment: ChatPanelEnvironment): ConnectionManager {
   return new ConnectionManager(
-    () => environment.plugin.settingsRef.settings.codexPath(),
-    environment.plugin.settingsRef.vaultPath,
+    () => environment.plugin.appServerQueries.contextLease().context.codexPath,
+    environment.plugin.appServerQueries.contextLease().context.vaultPath,
     codexPanelAppServerInitializeParams(),
+    undefined,
+    () => environment.plugin.appServerQueries.contextLease().generation,
   );
 }
 

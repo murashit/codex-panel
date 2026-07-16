@@ -1,9 +1,9 @@
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { AppServerQueryCache } from "../../../../src/app-server/query/cache";
-import { type AppServerQueryContext, appServerQueryContextKey } from "../../../../src/app-server/query/keys";
+import type { AppServerQueryContext, AppServerQueryContextIdentity } from "../../../../src/app-server/query/keys";
 import type { ObservedResult, ObservedResultListener } from "../../../../src/app-server/query/observed-result";
-import { AppServerSharedQueries } from "../../../../src/app-server/query/shared-queries";
+import { AppServerResourceStore } from "../../../../src/app-server/query/resource-store";
 import type { Thread } from "../../../../src/domain/threads/model";
 import {
   createThreadCatalog,
@@ -180,109 +180,29 @@ describe("ThreadCatalog", () => {
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
   });
 
-  it("scopes pending lifecycle facts by app-server query context", () => {
-    const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const { catalog } = catalogFixture({ context: () => context });
+  it("starts a fresh lifecycle overlay for every resource lease", () => {
+    const { catalog, replaceContext } = catalogFixture({ context: () => ({ codexPath: "codex-a", vaultPath: "/vault" }) });
+    catalog.apply({ type: "thread-started", thread: thread("started-a1") });
+    expect(catalog.activeSnapshot()).toEqual([thread("started-a1")]);
 
-    catalog.apply({ type: "thread-started", thread: thread("started-a") });
-    expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
-
-    context.codexPath = "codex-b";
+    replaceContext({ codexPath: "codex-b", vaultPath: "/vault" });
     expect(catalog.activeSnapshot()).toBeNull();
-    receiveActive(catalog, [thread("thread-b")]);
-    expect(catalog.activeSnapshot()).toEqual([thread("thread-b")]);
-
-    context.codexPath = "codex-a";
-    expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
-  });
-
-  it("applies a connection event to its captured context after the current context changes", () => {
-    const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const { catalog } = catalogFixture({ context: () => context });
-    const connectionContext = { ...context };
-
-    context.codexPath = "codex-b";
-    catalog.applyConnectionEvent(connectionContext, { type: "thread-started", thread: thread("started-a") });
+    replaceContext({ codexPath: "codex-a", vaultPath: "/vault" });
 
     expect(catalog.activeSnapshot()).toBeNull();
-    context.codexPath = "codex-a";
-    expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
   });
 
-  it("reads captured-context snapshots when applying connection events", async () => {
-    const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const connectionContext = { ...context };
-    const { catalog } = catalogFixture({
-      context: () => context,
-      fetchThreads: (source) => Promise.resolve(source.codexPath === "codex-a" ? [thread("thread-a")] : []),
+  it("does not publish connection events captured by an earlier lease", () => {
+    const { catalog, contextIdentity, replaceContext } = catalogFixture({
+      context: () => ({ codexPath: "codex-a", vaultPath: "/vault" }),
     });
-    await catalog.refreshActive();
+    const sourceA1 = contextIdentity();
 
-    context.codexPath = "codex-b";
-    catalog.applyConnectionEvent(connectionContext, { type: "thread-renamed", threadId: "thread-a", name: "Renamed A" });
-
-    expect(catalog.activeSnapshot()).toBeNull();
-    context.codexPath = "codex-a";
-    expect(catalog.activeSnapshot()).toEqual([thread("thread-a", false, { name: "Renamed A" })]);
-  });
-
-  it("clears pending lifecycle facts across every app-server query context", () => {
-    const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const { catalog, cache } = catalogFixture({ context: () => context });
-    catalog.apply({ type: "thread-started", thread: thread("started-a") });
-    context.codexPath = "codex-b";
-    catalog.apply({ type: "thread-started", thread: thread("started-b") });
-
-    cache.clear();
-    catalog.clear();
+    replaceContext({ codexPath: "codex-b", vaultPath: "/vault" });
+    catalog.applyConnectionEvent(sourceA1, { type: "thread-started", thread: thread("stale-a1") });
+    replaceContext({ codexPath: "codex-a", vaultPath: "/vault" });
 
     expect(catalog.activeSnapshot()).toBeNull();
-    context.codexPath = "codex-a";
-    expect(catalog.activeSnapshot()).toBeNull();
-  });
-
-  it("retains unacknowledged lifecycle facts across connection contexts", () => {
-    const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const { catalog } = catalogFixture({ context: () => context });
-    catalog.apply({ type: "thread-started", thread: thread("started-a") });
-
-    for (const suffix of ["b", "c", "d", "e"]) {
-      context.codexPath = `codex-${suffix}`;
-      catalog.activeSnapshot();
-    }
-
-    context.codexPath = "codex-a";
-    receiveActive(catalog, [thread("server-a")]);
-
-    expect(catalog.activeSnapshot()).toEqual([thread("started-a"), thread("server-a")]);
-  });
-
-  it("prunes inactive lifecycle facts without discarding store snapshots", () => {
-    const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const { catalog } = catalogFixture({ context: () => context });
-    receiveActive(catalog, [thread("server-a")]);
-
-    context.codexPath = "codex-b";
-    expect(catalog.activeSnapshot()).toBeNull();
-    context.codexPath = "codex-a";
-
-    expect(catalog.activeSnapshot()).toEqual([thread("server-a")]);
-  });
-
-  it("prunes revisited contexts after pending lifecycle facts settle", () => {
-    const context = { codexPath: "codex-a", vaultPath: "/vault" };
-    const { catalog } = catalogFixture({ context: () => context });
-    catalog.apply({ type: "thread-started", thread: thread("started-a") });
-    context.codexPath = "codex-b";
-    catalog.apply({ type: "thread-started", thread: thread("started-b") });
-
-    context.codexPath = "codex-a";
-    receiveActive(catalog, [thread("started-a")]);
-    context.codexPath = "codex-b";
-    receiveActive(catalog, [thread("started-b")]);
-    context.codexPath = "codex-a";
-
-    expect(catalog.activeSnapshot()).toEqual([thread("started-a")]);
   });
 
   it("preserves raw query status when lifecycle overlays publish", async () => {
@@ -634,11 +554,9 @@ function catalogFixture(
 ) {
   const cache = cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([])));
   const context = options.context ?? (() => ({ codexPath: "codex", vaultPath: "/vault" }));
-  const queries = new AppServerSharedQueries({
-    cache,
-    context,
-  });
-  const store = new TestThreadCatalogStore(cache, queries, context);
+  const queries = new AppServerResourceStore({ cache });
+  queries.initialize(context());
+  const store = new TestThreadCatalogStore(queries);
   const catalog = createThreadCatalog(
     options.onEventApplied
       ? {
@@ -650,7 +568,12 @@ function catalogFixture(
   catalogStores.set(catalog, store);
   catalog.observeActive(() => undefined);
   catalog.observeArchived(() => undefined);
-  return { cache, catalog };
+  return {
+    cache,
+    catalog,
+    contextIdentity: () => queries.contextIdentity(),
+    replaceContext: (nextContext: AppServerQueryContext) => queries.replaceContext(nextContext),
+  };
 }
 
 class TestThreadCatalogStore {
@@ -659,34 +582,22 @@ class TestThreadCatalogStore {
   private readonly activeObservers = new Set<ObservedResultListener<readonly Thread[]>>();
   private readonly archivedObservers = new Set<ObservedResultListener<readonly Thread[]>>();
 
-  constructor(
-    private readonly cache: AppServerQueryCache,
-    private readonly queries: AppServerSharedQueries,
-    private readonly currentContext: () => AppServerQueryContext,
-  ) {}
+  constructor(private readonly queries: AppServerResourceStore) {}
 
   contextKey(): string {
-    return appServerQueryContextKey(this.currentContext());
+    return this.queries.contextKey();
   }
 
-  contextKeyFor(context: AppServerQueryContext): string {
-    return appServerQueryContextKey(context);
+  contextKeyFor(context: AppServerQueryContextIdentity): string {
+    return this.queries.contextKeyFor(context);
   }
 
   activeThreadsSnapshot(): readonly Thread[] | null {
     return this.activeSnapshots.get(this.contextKey()) ?? this.queries.activeThreadsSnapshot();
   }
 
-  activeThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null {
-    return this.activeSnapshots.get(this.contextKeyFor(context)) ?? this.cache.activeThreadsSnapshot(context);
-  }
-
   archivedThreadsSnapshot(): readonly Thread[] | null {
     return this.archivedSnapshots.get(this.contextKey()) ?? this.queries.archivedThreadsSnapshot();
-  }
-
-  archivedThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null {
-    return this.archivedSnapshots.get(this.contextKeyFor(context)) ?? this.cache.archivedThreadsSnapshot(context);
   }
 
   async fetchAllActiveThreads(): Promise<readonly Thread[]> {
@@ -705,20 +616,8 @@ class TestThreadCatalogStore {
     return this.receiveLoadedActive(await this.queries.refreshActiveThreads());
   }
 
-  async refreshActiveThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]> {
-    const threads = await this.cache.refreshActiveThreads(context);
-    this.activeSnapshots.delete(this.contextKeyFor(context));
-    return threads;
-  }
-
   async refreshArchivedThreads(): Promise<readonly Thread[]> {
     return this.receiveLoadedArchived(await this.queries.refreshArchivedThreads());
-  }
-
-  async refreshArchivedThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]> {
-    const threads = await this.cache.refreshArchivedThreads(context);
-    this.archivedSnapshots.delete(this.contextKeyFor(context));
-    return threads;
   }
 
   observeActiveThreadsResult(observer: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {

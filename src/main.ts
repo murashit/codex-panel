@@ -25,6 +25,7 @@ export default class CodexPanelPlugin extends Plugin {
     this.runtime.reset();
     this.vaultPath = getVaultPath(this.app);
     await this.loadSettings();
+    this.runtime.initialize();
 
     this.registerView(VIEW_TYPE_CODEX_PANEL, (leaf) => new CodexChatView(leaf, this.runtime.chatHost()));
     this.registerView(VIEW_TYPE_CODEX_TURN_DIFF, (leaf) => new CodexTurnDiffView(leaf));
@@ -75,8 +76,8 @@ export default class CodexPanelPlugin extends Plugin {
       registerSelectionRewriteCommand(
         this,
         createAppServerSelectionRewriteTransport({
-          codexPath: () => this.settings.codexPath,
-          cwd: this.vaultPath,
+          codexPath: () => this.runtime.appServerContextLease().context.codexPath,
+          cwd: this.runtime.appServerContextLease().context.vaultPath,
         }),
       ),
     );

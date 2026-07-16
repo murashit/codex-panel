@@ -1,7 +1,7 @@
 import type { AppServerClient } from "../app-server/connection/client";
 import type { AppServerClientAccess } from "../app-server/connection/client-access";
 import type { ObservedResultListener } from "../app-server/query/observed-result";
-import { isStaleAppServerSharedQueryContextError } from "../app-server/query/shared-queries";
+import { isStaleAppServerResourceContextError } from "../app-server/query/resource-store";
 import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
 import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { ModelMetadata } from "../domain/catalog/metadata";
@@ -13,7 +13,6 @@ interface SettingsAppServerQueries {
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;
-  notifyContextChanged(): void;
 }
 
 type SettingsArchivedThreadCatalog = ThreadCatalogArchivedReader & ThreadCatalogEventSink;
@@ -55,9 +54,6 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
         options.threadCatalog.apply({ type: "thread-deleted", threadId });
       }
     },
-    notifyContextChanged: () => {
-      options.appServerQueries.notifyContextChanged();
-    },
   };
 }
 
@@ -74,7 +70,7 @@ async function mapStaleContextError<T>(operation: () => Promise<T>): Promise<T> 
   try {
     return await operation();
   } catch (error) {
-    if (isStaleAppServerSharedQueryContextError(error)) throw new StaleSettingsDynamicDataContextError();
+    if (isStaleAppServerResourceContextError(error)) throw new StaleSettingsDynamicDataContextError();
     throw error;
   }
 }

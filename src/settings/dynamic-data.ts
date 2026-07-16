@@ -26,7 +26,6 @@ export interface SettingsDynamicDataAccess {
   setHookEnabled(hook: HookItem, enabled: boolean): Promise<void>;
   restoreArchivedThread(threadId: string, options?: SettingsDynamicDataMutationOptions): Promise<Thread>;
   deleteArchivedThread(threadId: string, options?: SettingsDynamicDataMutationOptions): Promise<void>;
-  notifyContextChanged(): void;
 }
 
 export class StaleSettingsDynamicDataContextError extends Error {

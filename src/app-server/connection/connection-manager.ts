@@ -16,6 +16,7 @@ export type AppServerClientFactory = (codexPath: string, cwd: string, handlers: 
 export interface AppServerConnectionContext {
   readonly codexPath: string;
   readonly cwd: string;
+  readonly generation: number;
 }
 
 type ConnectionLifecycleState =
@@ -23,12 +24,13 @@ type ConnectionLifecycleState =
   | {
       kind: "connecting";
       generation: number;
+      contextGeneration: number;
       codexPath: string;
       cwd: string;
       client: AppServerClient;
       promise: Promise<ServerInitialization>;
     }
-  | { kind: "connected"; generation: number; codexPath: string; cwd: string; client: AppServerClient }
+  | { kind: "connected"; generation: number; contextGeneration: number; codexPath: string; cwd: string; client: AppServerClient }
   | { kind: "disconnected"; generation: number };
 
 export class StaleConnectionError extends Error {
@@ -47,6 +49,7 @@ export class ConnectionManager {
     initializeParams: InitializeParams,
     private readonly clientFactory: AppServerClientFactory = (codexPath, cwd, handlers) =>
       new AppServerClient({ codexPath, cwd, handlers, initializeParams }),
+    private readonly contextGeneration: () => number = () => 0,
   ) {}
 
   currentClient(): AppServerClient | null {
@@ -59,7 +62,7 @@ export class ConnectionManager {
     if (this.state.kind !== "connected" || !this.state.client.isConnected() || !this.stateMatchesCurrentContext(this.state)) {
       return null;
     }
-    return { codexPath: this.state.codexPath, cwd: this.state.cwd };
+    return { codexPath: this.state.codexPath, cwd: this.state.cwd, generation: this.state.contextGeneration };
   }
 
   isConnected(): boolean {
@@ -75,9 +78,10 @@ export class ConnectionManager {
     if (this.state.kind === "connecting" || this.state.kind === "connected") this.disconnect();
 
     const generation = this.state.generation + 1;
+    const contextGeneration = this.contextGeneration();
     const codexPath = this.codexPath();
     const cwd = this.cwd;
-    const context = { codexPath, cwd };
+    const context = { codexPath, cwd, generation: contextGeneration };
     const client = this.clientFactory(codexPath, cwd, {
       onNotification: (notification) => {
         if (this.isStale(generation)) return;
@@ -104,7 +108,7 @@ export class ConnectionManager {
           client.disconnect();
           throw new StaleConnectionError();
         }
-        this.state = { kind: "connected", generation, codexPath, cwd, client };
+        this.state = { kind: "connected", generation, contextGeneration, codexPath, cwd, client };
         return serverInitializationFromResponse(response);
       })
       .catch((error: unknown) => {
@@ -118,7 +122,7 @@ export class ConnectionManager {
         throw error;
       });
 
-    this.state = { kind: "connecting", generation, codexPath, cwd, client, promise };
+    this.state = { kind: "connecting", generation, contextGeneration, codexPath, cwd, client, promise };
     return promise;
   }
 
@@ -139,7 +143,7 @@ export class ConnectionManager {
   }
 
   private stateMatchesCurrentContext(state: Extract<ConnectionLifecycleState, { kind: "connecting" | "connected" }>): boolean {
-    return state.codexPath === this.codexPath() && state.cwd === this.cwd;
+    return state.codexPath === this.codexPath() && state.cwd === this.cwd && state.contextGeneration === this.contextGeneration();
   }
 }
 

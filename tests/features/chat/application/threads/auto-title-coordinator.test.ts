@@ -48,10 +48,13 @@ describe("AutoTitleCoordinator", () => {
     });
     await flushPromises();
 
-    expect(generateThreadTitle).toHaveBeenCalledWith({
-      userRequest: "Visible streamed request.",
-      assistantResponse: "Visible streamed response.",
-    });
+    expect(generateThreadTitle).toHaveBeenCalledWith(
+      {
+        userRequest: "Visible streamed request.",
+        assistantResponse: "Visible streamed response.",
+      },
+      expect.any(AbortSignal),
+    );
     expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Visible context title" });
   });
 
@@ -81,10 +84,13 @@ describe("AutoTitleCoordinator", () => {
     coordinator.maybeAutoTitleThread("thread", "turn", null);
     await flushPromises();
 
-    expect(generateThreadTitle).toHaveBeenCalledWith({
-      userRequest: "Please diagnose auto naming.",
-      assistantResponse: "I found the regression.",
-    });
+    expect(generateThreadTitle).toHaveBeenCalledWith(
+      {
+        userRequest: "Please diagnose auto naming.",
+        assistantResponse: "I found the regression.",
+      },
+      expect.any(AbortSignal),
+    );
     expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Visible context title" });
   });
 
@@ -142,10 +148,38 @@ describe("AutoTitleCoordinator", () => {
     expect(persistedName).toBe("Manual title");
     expect(stateStore.getState().threadList.listedThreads[0]?.name).toBe("Manual title");
   });
+
+  it("retries after A→B→A invalidation without publishing the old title", async () => {
+    const oldTitle = deferred<string | null>();
+    const renameThreadRequest = vi.fn().mockResolvedValue({});
+    const generateThreadTitle = vi.fn().mockReturnValueOnce(oldTitle.promise).mockResolvedValueOnce("Fresh title");
+    const { coordinator } = coordinatorFixture({
+      currentClient: () => fakeClient({ renameThreadRequest }),
+      generateThreadTitle,
+    });
+
+    coordinator.maybeAutoTitleThread("thread", "turn-a", { userText: "Old request", assistantText: "Old response" });
+    await flushPromises();
+    coordinator.invalidate();
+    coordinator.invalidate();
+    coordinator.maybeAutoTitleThread("thread", "turn-a2", { userText: "Fresh request", assistantText: "Fresh response" });
+    await flushPromises();
+
+    expect(renameThreadRequest).toHaveBeenCalledOnce();
+    expect(renameThreadRequest).toHaveBeenCalledWith({ threadId: "thread", name: "Fresh title" });
+
+    oldTitle.resolve("Stale title");
+    await flushPromises();
+
+    expect(renameThreadRequest).toHaveBeenCalledOnce();
+  });
 });
 
 function coordinatorFixture(
-  overrides: { currentClient?: () => AppServerClient; generateThreadTitle?: (context: ThreadTitleContext) => Promise<string | null> } = {},
+  overrides: {
+    currentClient?: () => AppServerClient;
+    generateThreadTitle?: (context: ThreadTitleContext, signal: AbortSignal) => Promise<string | null>;
+  } = {},
 ): AutoTitleCoordinatorHost & {
   coordinator: AutoTitleCoordinator;
   notifyThreadRenamed: ReturnType<typeof vi.fn>;

@@ -10,10 +10,11 @@ export interface ThreadTitleServiceHost {
   transport: ThreadTitleTransport;
   visibleContext?(threadId: string): ThreadTitleContext | null;
   visibleCompletedTurnContext?(turnId: string): ThreadTitleContext | null;
-  generateThreadTitle?(context: ThreadTitleContext): Promise<string | null>;
+  generateThreadTitle?(context: ThreadTitleContext, signal: AbortSignal): Promise<string | null>;
 }
 
 export interface ThreadTitleService {
+  invalidate(): void;
   generateTitle(threadId: string): Promise<string>;
   resolveContext(threadId: string): Promise<ThreadTitleContext | null>;
   completedTurnContext(turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null): ThreadTitleContext | null;
@@ -21,19 +22,26 @@ export interface ThreadTitleService {
 }
 
 export function createThreadTitleService(host: ThreadTitleServiceHost): ThreadTitleService {
+  let controller = new AbortController();
+
   return {
-    generateTitle: (threadId) => generateTitle(host, threadId),
+    invalidate() {
+      controller.abort();
+      controller = new AbortController();
+    },
+    generateTitle: (threadId) => generateTitle(host, threadId, controller.signal),
     resolveContext: (threadId) => resolveThreadTitleContext(host, threadId),
     completedTurnContext: (turnId, completedTurnTranscriptSummary) => completedTurnContext(host, turnId, completedTurnTranscriptSummary),
-    generate: (context) => generateTitleFromContext(host, context),
+    generate: (context) => generateTitleFromContext(host, context, controller.signal),
   };
 }
 
-async function generateTitle(host: ThreadTitleServiceHost, threadId: string): Promise<string> {
+async function generateTitle(host: ThreadTitleServiceHost, threadId: string, signal: AbortSignal): Promise<string> {
   const context = await resolveThreadTitleContext(host, threadId);
+  throwIfTitleGenerationCancelled(signal);
   if (!context) throw new Error(THREAD_TITLE_CONTEXT_UNAVAILABLE_MESSAGE);
 
-  const title = await generateTitleFromContext(host, context);
+  const title = await generateTitleFromContext(host, context, signal);
   if (!title) throw new Error("Codex did not return a usable thread title.");
   return title;
 }
@@ -59,6 +67,19 @@ function completedTurnContext(
   );
 }
 
-async function generateTitleFromContext(host: ThreadTitleServiceHost, context: ThreadTitleContext): Promise<string | null> {
-  return host.generateThreadTitle ? host.generateThreadTitle(context) : host.transport.generateTitle(context);
+async function generateTitleFromContext(
+  host: ThreadTitleServiceHost,
+  context: ThreadTitleContext,
+  signal: AbortSignal,
+): Promise<string | null> {
+  throwIfTitleGenerationCancelled(signal);
+  const title = await (host.generateThreadTitle
+    ? host.generateThreadTitle(context, signal)
+    : host.transport.generateTitle(context, signal));
+  throwIfTitleGenerationCancelled(signal);
+  return title;
+}
+
+function throwIfTitleGenerationCancelled(signal: AbortSignal): void {
+  if (signal.aborted) throw new Error("Thread title generation cancelled.");
 }

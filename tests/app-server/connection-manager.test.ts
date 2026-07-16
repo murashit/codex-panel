@@ -111,7 +111,7 @@ describe("ConnectionManager", () => {
     transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex-a" } });
     await expect(first).resolves.toMatchObject({ codexHome: "/tmp/codex-a" });
     expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
-    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-a", cwd: "/vault" });
+    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-a", cwd: "/vault", generation: 0 });
 
     codexPath = "/bin/codex-b";
 
@@ -124,7 +124,7 @@ describe("ConnectionManager", () => {
     expect(transports).toHaveLength(2);
     expect(transports[0]?.running).toBe(false);
     expect(manager.currentClient()).toBeInstanceOf(AppServerClient);
-    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-b", cwd: "/vault" });
+    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex-b", cwd: "/vault", generation: 0 });
   });
 
   it("labels inbound events with the context captured when the connection was created", async () => {
@@ -149,7 +149,31 @@ describe("ConnectionManager", () => {
 
     transport.emitLine(notification);
 
-    expect(onNotification).toHaveBeenCalledWith(notification, { codexPath: "/bin/codex-a", cwd: "/vault" });
+    expect(onNotification).toHaveBeenCalledWith(notification, { codexPath: "/bin/codex-a", cwd: "/vault", generation: 0 });
+  });
+
+  it("does not reuse a connected client across generations of the same raw context", async () => {
+    let contextGeneration = 1;
+    const transports: SilentTransport[] = [];
+    const manager = new ConnectionManager(
+      () => "/bin/codex",
+      "/vault",
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ onTransport: (transport) => transports.push(transport) }),
+      () => contextGeneration,
+    );
+    const first = manager.connect(silentConnectionHandlers());
+    transports[0]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
+    await first;
+
+    contextGeneration = 3;
+
+    expect(manager.currentClient()).toBeNull();
+    const second = manager.connect(silentConnectionHandlers());
+    transports[1]?.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
+    await second;
+    expect(manager.currentConnectionContext()).toEqual({ codexPath: "/bin/codex", cwd: "/vault", generation: 3 });
+    expect(transports[0]?.running).toBe(false);
   });
 
   it("rejects app-server exit during initialization without reporting a connected-client exit", async () => {

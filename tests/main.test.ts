@@ -637,7 +637,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     let resolveFirst!: (threads: Thread[]) => void;
     const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient");
     const plugin = await pluginWithLeaves([connectedLeaf]);
-    plugin.settings.codexPath = "codex-a";
+    await publishCodexPath(plugin, "codex-a");
     runWithAppServerClient.mockImplementation((operation) =>
       operation(
         threadListClient(() =>
@@ -651,8 +651,9 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     );
 
     const first = threadCatalog(plugin).refreshActive();
+    const staleFirst = expect(first).rejects.toThrow("Codex app-server resource context changed while loading.");
     await flushMicrotasks();
-    plugin.settings.codexPath = "codex-b";
+    await publishCodexPath(plugin, "codex-b");
     const second = threadCatalog(plugin).refreshActive();
     await flushMicrotasks();
 
@@ -661,9 +662,9 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("second")]);
 
     resolveFirst([thread("first")]);
-    await expect(first).rejects.toThrow("Codex app-server query context changed while loading shared queries.");
+    await staleFirst;
     expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("second")]);
-    plugin.settings.codexPath = "codex-a";
+    await publishCodexPath(plugin, "codex-a");
     expect(threadCatalog(plugin).activeSnapshot()).toBeNull();
   });
 
@@ -680,7 +681,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
         operation(threadListClient(() => Promise.resolve([thread("matching-context")]))),
     );
     const plugin = await pluginWithLeaves([connectedLeaf]);
-    plugin.settings.codexPath = "codex-b";
+    await publishCodexPath(plugin, "codex-b");
 
     await expect(threadCatalog(plugin).refreshActive()).resolves.toEqual([thread("matching-context")]);
 
@@ -746,28 +747,51 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const result = deferred<string>();
     vi.spyOn(connectedView.surface, "runWithAppServerClient").mockReturnValue(result.promise);
     const plugin = await pluginWithLeaves([connectedLeaf]);
-    plugin.settings.codexPath = "codex-a";
+    await publishCodexPath(plugin, "codex-a");
 
     const operation = plugin.runtime.withClient(() => Promise.resolve("unused"));
-    plugin.settings.codexPath = "codex-b";
+    await publishCodexPath(plugin, "codex-b");
     result.resolve("stale-result");
 
-    await expect(operation).rejects.toThrow("Codex app-server query context changed while loading shared queries.");
+    await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
   });
 
   it("rejects a short-lived result when the app-server context changes during the operation", async () => {
     const result = deferred<string>();
     withShortLivedAppServerClientMock.mockReturnValue(result.promise);
     const plugin = await pluginWithLeaves([]);
-    plugin.settings.codexPath = "codex-a";
+    await publishCodexPath(plugin, "codex-a");
 
     const operation = plugin.runtime.withClient(() => Promise.resolve("unused"), {
       serverRequests: { kind: "reject", message: "test" },
     });
-    plugin.settings.codexPath = "codex-b";
+    await publishCodexPath(plugin, "codex-b");
     result.resolve("stale-result");
 
-    await expect(operation).rejects.toThrow("Codex app-server query context changed while loading shared queries.");
+    await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
+  });
+
+  it("publishes a persisted context and its new resource lease atomically", async () => {
+    const plugin = await pluginWithLeaves([]);
+    const firstLease = plugin.runtime.appServerContextLease();
+    const save = deferred<void>();
+    const saveSettings = vi.spyOn(plugin, "saveSettings").mockReturnValue(save.promise);
+
+    const publication = plugin.runtime.settingTabHost().publishSettings({ ...plugin.settings, codexPath: "codex-next" });
+    await Promise.resolve();
+
+    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ codexPath: "codex-next" }));
+    expect(plugin.settings.codexPath).toBe(firstLease.context.codexPath);
+    expect(plugin.runtime.appServerContextLease()).toBe(firstLease);
+
+    save.resolve(undefined);
+    await publication;
+
+    expect(plugin.settings.codexPath).toBe("codex-next");
+    expect(plugin.runtime.appServerContextLease()).toEqual({
+      context: { codexPath: "codex-next", vaultPath: "/vault" },
+      generation: firstLease.generation + 1,
+    });
   });
 
   it("coordinates context replacement with every open Threads view", async () => {
@@ -781,13 +805,8 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const threadsLeaf = leaf();
     threadsLeaf.view = threadsView;
     const plugin = await pluginWithLeaves([], { threadsLeaves: [threadsLeaf] });
-    const settingsHost = plugin.runtime.settingTabHost();
-
-    settingsHost.prepareAppServerContextChange();
+    await publishCodexPath(plugin, "codex-next");
     expect(prepareAppServerContextChange).toHaveBeenCalledOnce();
-
-    plugin.settings.codexPath = "codex-next";
-    settingsHost.refreshOpenViews();
     expect(refreshSettings).toHaveBeenCalledOnce();
   });
 
@@ -796,7 +815,7 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     const closeAll = vi.fn();
     plugin.runtime.setSelectionRewriteController({ closeAll });
 
-    plugin.runtime.settingTabHost().prepareAppServerContextChange();
+    await publishCodexPath(plugin, "codex-next");
 
     expect(closeAll).toHaveBeenCalledOnce();
   });
@@ -860,8 +879,14 @@ async function pluginWithLeaves(leaves: ReturnType<typeof leaf>[], options: { th
     } as never,
     {} as never,
   );
+  plugin.settings = { ...DEFAULT_SETTINGS };
   plugin.vaultPath = "/vault";
+  plugin.runtime.initialize();
   return plugin;
+}
+
+async function publishCodexPath(plugin: CodexPanelPlugin, codexPath: string): Promise<void> {
+  await plugin.runtime.settingTabHost().publishSettings({ ...plugin.settings, codexPath });
 }
 
 type TestLeaf = ReturnType<typeof leaf>;
@@ -937,6 +962,7 @@ function chatHostFixture(): CodexChatHost {
       openSideChat: vi.fn(),
     },
     appServerQueries: {
+      contextLease: () => ({ context: { codexPath: settings.codexPath, vaultPath: "/vault" }, generation: 1 }),
       appServerMetadataSnapshot: vi.fn(() => null),
       refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
       refreshSkills: vi.fn(() => Promise.resolve(null)),

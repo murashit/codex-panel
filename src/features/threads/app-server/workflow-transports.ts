@@ -38,10 +38,16 @@ export function createThreadTitleTransport(options: {
             readCompletedTurnTranscriptSummariesPage(client, id, cursor, limit, sortDirection),
         }),
       ),
-    generateTitle: (context) =>
-      generateThreadTitleWithCodex(options.codexPath(), options.vaultPath, context, {
-        threadNamingModel: options.threadNamingModel(),
-        threadNamingEffort: options.threadNamingEffort(),
-      }),
+    generateTitle: (context, signal) =>
+      generateThreadTitleWithCodex(
+        options.codexPath(),
+        options.vaultPath,
+        context,
+        {
+          threadNamingModel: options.threadNamingModel(),
+          threadNamingEffort: options.threadNamingEffort(),
+        },
+        { signal },
+      ),
   };
 }

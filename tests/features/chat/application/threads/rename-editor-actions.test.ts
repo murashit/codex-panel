@@ -153,6 +153,26 @@ describe("ThreadRenameEditorActions", () => {
 
     expect(actions.editState("thread")).toEqual({ draft: "New generated title", generating: false });
   });
+
+  it("does not publish or report title work invalidated by a context replacement", async () => {
+    const oldTitle = deferred<string>();
+    const generateThreadTitle = vi.fn().mockReturnValueOnce(oldTitle.promise).mockResolvedValueOnce("Fresh title");
+    const addSystemMessage = vi.fn();
+    const { actions } = actionsFixture({ generateThreadTitle, addSystemMessage });
+
+    actions.start("thread");
+    const staleAutoName = actions.autoNameDraft("thread");
+    await flushPromises();
+    actions.invalidate();
+
+    actions.start("thread");
+    await actions.autoNameDraft("thread");
+    oldTitle.resolve("Stale title");
+    await staleAutoName;
+
+    expect(actions.editState("thread")).toEqual({ draft: "Fresh title", generating: false });
+    expect(addSystemMessage).not.toHaveBeenCalled();
+  });
 });
 
 function actionsFixture(

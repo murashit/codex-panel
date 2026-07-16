@@ -18,7 +18,7 @@ export interface ServerMetadataActionsHost {
   refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
   refreshSkills: () => Promise<SharedServerMetadata | null>;
   refreshRateLimits: () => Promise<SharedServerMetadata | null>;
-  isStaleSharedQueryError: (error: unknown) => boolean;
+  isStaleResourceContextError: (error: unknown) => boolean;
 }
 
 export interface ServerMetadataActions {
@@ -81,7 +81,7 @@ async function refreshAppServerMetadata(host: ServerMetadataActionsHost): Promis
   try {
     metadata = await host.refreshAppServerMetadata();
   } catch (error) {
-    if (host.isStaleSharedQueryError(error)) return null;
+    if (host.isStaleResourceContextError(error)) return null;
     throw error;
   }
   if (!metadata) return null;
@@ -102,7 +102,7 @@ async function refreshMetadataResource(
     const metadata = await refresh();
     if (metadata) applyAppServerMetadata(host, metadata);
   } catch (error) {
-    if (!host.isStaleSharedQueryError(error)) throw error;
+    if (!host.isStaleResourceContextError(error)) throw error;
   }
 }
 

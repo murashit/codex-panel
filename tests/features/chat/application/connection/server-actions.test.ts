@@ -29,7 +29,7 @@ describe("server metadata actions", () => {
       stateStore,
       ...metadataCacheHost(),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(metadata),
-      isStaleSharedQueryError: () => false,
+      isStaleResourceContextError: () => false,
     });
 
     await actions.refreshAppServerMetadata();
@@ -56,7 +56,7 @@ describe("server metadata actions", () => {
       stateStore,
       ...metadataCacheHost(),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(metadata),
-      isStaleSharedQueryError: () => false,
+      isStaleResourceContextError: () => false,
     });
 
     await actions.refreshAppServerMetadata();
@@ -75,7 +75,7 @@ describe("server metadata actions", () => {
       stateStore,
       ...metadataCacheHost(cache),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-      isStaleSharedQueryError: () => false,
+      isStaleResourceContextError: () => false,
     });
 
     await actions.applyAppServerResourceEvent({
@@ -96,7 +96,7 @@ describe("server metadata actions", () => {
       stateStore,
       ...metadataCacheHost(),
       refreshAppServerMetadata: vi.fn().mockRejectedValue(stale),
-      isStaleSharedQueryError: (error) => error === stale,
+      isStaleResourceContextError: (error) => error === stale,
     });
 
     await expect(actions.refreshAppServerMetadata()).resolves.toBeNull();
@@ -112,7 +112,7 @@ describe("server metadata actions", () => {
       stateStore,
       ...metadataCacheHost(),
       refreshSkills: vi.fn().mockRejectedValue(stale),
-      isStaleSharedQueryError: (error) => error === stale,
+      isStaleResourceContextError: (error) => error === stale,
     });
 
     await actions.applyAppServerResourceEvent({ type: "skills-changed" });
@@ -176,7 +176,7 @@ describe("server diagnostics actions", () => {
         cache.current = refreshedMetadata;
         return refreshedMetadata;
       }),
-      isStaleSharedQueryError: () => false,
+      isStaleResourceContextError: () => false,
     });
     const readServerDiagnostics = vi.fn().mockResolvedValue(serverDiagnosticsSnapshot());
     const diagnostics = createServerDiagnosticsActions({
@@ -273,7 +273,7 @@ describe("server diagnostics actions", () => {
       stateStore,
       ...metadataCache,
       refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-      isStaleSharedQueryError: () => false,
+      isStaleResourceContextError: () => false,
     });
     const diagnostics = createServerDiagnosticsActions({
       stateStore,
@@ -438,14 +438,14 @@ function metadataCacheHost(cache: { current: SharedServerMetadata | null } = { c
   refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
   refreshSkills: () => Promise<SharedServerMetadata | null>;
   refreshRateLimits: () => Promise<SharedServerMetadata | null>;
-  isStaleSharedQueryError: (error: unknown) => boolean;
+  isStaleResourceContextError: (error: unknown) => boolean;
 } {
   return {
     appServerMetadataSnapshot: () => cache.current,
     refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
     refreshSkills: vi.fn().mockResolvedValue(null),
     refreshRateLimits: vi.fn().mockResolvedValue(null),
-    isStaleSharedQueryError: () => false,
+    isStaleResourceContextError: () => false,
   };
 }
 

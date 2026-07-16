@@ -19,17 +19,17 @@ import { listModelMetadata } from "../services/catalog";
 import { readEffectiveConfig } from "../services/runtime-metadata";
 import { listThreads, readThreadPage } from "../services/threads";
 import {
-  type AppServerQueryContext,
+  type AppServerQueryContextIdentity as AppServerQueryContext,
   activeThreadsQueryKey,
   appServerModelsQueryKey,
   appServerPermissionProfilesQueryKey,
+  appServerQueryContextIdentityKey,
   appServerQueryContextIsComplete,
-  appServerQueryContextKey,
   appServerRateLimitsQueryKey,
   appServerRuntimeConfigQueryKey,
   appServerSkillsQueryKey,
   archivedThreadsQueryKey,
-  cloneAppServerQueryContext,
+  cloneAppServerQueryContextIdentity,
 } from "./keys";
 import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
 import type { ObservedResult, ObservedResultListener } from "./observed-result";
@@ -98,6 +98,22 @@ export class AppServerQueryCache {
     this.client.clear();
   }
 
+  release(context: AppServerQueryContext): void {
+    this.generation += 1;
+    const identityKey = appServerQueryContextIdentityKey(context);
+    const activeThreadsKey = JSON.stringify(activeThreadsQueryKey(context));
+    this.activeThreadCursors.delete(activeThreadsKey);
+    this.activeThreadRevisions.delete(activeThreadsKey);
+    this.metadataRefreshes.delete(identityKey);
+    this.metadataProjectionListeners.delete(identityKey);
+    for (const resource of ["skills", "permissionProfiles", "rateLimits"] as const) {
+      const resourceKey = this.metadataResourceKey(context, resource);
+      this.metadataResourceFetches.delete(resourceKey);
+      this.metadataNotificationRefreshes.delete(resourceKey);
+    }
+    this.client.removeQueries({ queryKey: ["app-server", context.generation, context.codexPath, context.vaultPath] });
+  }
+
   activeThreadsSnapshot(context: AppServerQueryContext): readonly Thread[] | null {
     return this.threadListSnapshot(context, "active");
   }
@@ -135,7 +151,7 @@ export class AppServerQueryCache {
   }
 
   async fetchAllActiveThreads(context: AppServerQueryContext): Promise<readonly Thread[]> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     if (!appServerQueryContextIsComplete(refreshContext)) return [];
     const cursorKey = this.activeThreadCursorKey(refreshContext);
     const snapshot = this.activeThreadsSnapshot(refreshContext);
@@ -157,7 +173,7 @@ export class AppServerQueryCache {
   }
 
   async loadMoreActiveThreads(context: AppServerQueryContext): Promise<readonly Thread[]> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     if (!appServerQueryContextIsComplete(refreshContext)) return [];
     const current = this.activeThreadsSnapshot(refreshContext) ?? (await this.fetchActiveThreads(refreshContext));
     const cursor = this.activeThreadCursors.get(this.activeThreadCursorKey(refreshContext)) ?? null;
@@ -191,7 +207,7 @@ export class AppServerQueryCache {
     kind: ThreadListKind,
     options: { force?: boolean } = {},
   ): Promise<readonly Thread[]> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     if (!appServerQueryContextIsComplete(refreshContext)) {
       return [];
     }
@@ -232,7 +248,7 @@ export class AppServerQueryCache {
     listener: ObservedResultListener<SharedServerMetadata>,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     const generation = this.generation;
     const observers = [
       new QueryObserver(this.client, { ...this.runtimeConfigQueryOptions(refreshContext), enabled: false }),
@@ -256,11 +272,11 @@ export class AppServerQueryCache {
     };
     const schedule = (): void => {
       if (disposed || generation !== this.generation) return;
-      if ((this.metadataRefreshes.get(appServerQueryContextKey(refreshContext)) ?? 0) > 0 || queued) return;
+      if ((this.metadataRefreshes.get(appServerQueryContextIdentityKey(refreshContext)) ?? 0) > 0 || queued) return;
       queued = true;
       queueMicrotask(emit);
     };
-    const contextKey = appServerQueryContextKey(refreshContext);
+    const contextKey = appServerQueryContextIdentityKey(refreshContext);
     const projectionListeners = this.metadataProjectionListeners.get(contextKey) ?? new Set<() => void>();
     projectionListeners.add(schedule);
     this.metadataProjectionListeners.set(contextKey, projectionListeners);
@@ -275,7 +291,7 @@ export class AppServerQueryCache {
   }
 
   async refreshAppServerMetadata(context: AppServerQueryContext): Promise<SharedServerMetadata | null> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     if (!appServerQueryContextIsComplete(refreshContext)) return null;
     return this.runMetadataRefresh(refreshContext, async () => {
       const runtimeResult = this.fetchRuntimeConfig(refreshContext, true).then(
@@ -297,7 +313,7 @@ export class AppServerQueryCache {
   }
 
   async refreshSkills(context: AppServerQueryContext): Promise<SharedServerMetadata | null> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     if (!appServerQueryContextIsComplete(refreshContext)) return null;
     return this.runMetadataRefresh(refreshContext, async () => {
       const current = await this.refreshMetadataResourceNotification(refreshContext, "skills");
@@ -306,7 +322,7 @@ export class AppServerQueryCache {
   }
 
   async refreshRateLimits(context: AppServerQueryContext): Promise<SharedServerMetadata | null> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     if (!appServerQueryContextIsComplete(refreshContext)) return null;
     return this.runMetadataRefresh(refreshContext, async () => {
       const current = await this.refreshMetadataResourceNotification(refreshContext, "rateLimits");
@@ -329,7 +345,7 @@ export class AppServerQueryCache {
   }
 
   async fetchModels(context: AppServerQueryContext, options: { force?: boolean } = {}): Promise<readonly ModelMetadata[]> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     if (!appServerQueryContextIsComplete(refreshContext)) {
       return [];
     }
@@ -344,7 +360,7 @@ export class AppServerQueryCache {
   }
 
   private threadListQueryOptions(context: AppServerQueryContext, kind: ThreadListKind): AppServerQueryOptions<readonly Thread[]> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     return {
       queryKey: this.threadListQueryKey(refreshContext, kind),
       queryFn: async (): Promise<readonly Thread[]> => {
@@ -373,7 +389,7 @@ export class AppServerQueryCache {
   }
 
   private runtimeConfigQueryOptions(context: AppServerQueryContext): AppServerQueryOptions<RuntimeConfigSnapshot> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     return {
       queryKey: appServerRuntimeConfigQueryKey(refreshContext),
       queryFn: async (): Promise<RuntimeConfigSnapshot> =>
@@ -388,7 +404,7 @@ export class AppServerQueryCache {
     context: AppServerQueryContext,
     forceReload = false,
   ): AppServerQueryOptions<MetadataResourceSnapshot<readonly SkillMetadata[]>> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     return {
       queryKey: appServerSkillsQueryKey(refreshContext),
       queryFn: async () =>
@@ -402,7 +418,7 @@ export class AppServerQueryCache {
   private permissionProfilesQueryOptions(
     context: AppServerQueryContext,
   ): AppServerQueryOptions<MetadataResourceSnapshot<readonly RuntimePermissionProfileSummary[]>> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     return {
       queryKey: appServerPermissionProfilesQueryKey(refreshContext),
       queryFn: async () =>
@@ -416,7 +432,7 @@ export class AppServerQueryCache {
   private rateLimitsQueryOptions(
     context: AppServerQueryContext,
   ): AppServerQueryOptions<MetadataResourceSnapshot<RateLimitSnapshot | null>> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     return {
       queryKey: appServerRateLimitsQueryKey(refreshContext),
       queryFn: async () =>
@@ -503,7 +519,7 @@ export class AppServerQueryCache {
   }
 
   private metadataResourceKey(context: AppServerQueryContext, resource: MetadataResourceKind): string {
-    return `${appServerQueryContextKey(context)}\u0000${resource}`;
+    return `${appServerQueryContextIdentityKey(context)}\u0000${resource}`;
   }
 
   private metadataResourceState(
@@ -547,7 +563,7 @@ export class AppServerQueryCache {
   }
 
   private async runMetadataRefresh<T>(context: AppServerQueryContext, operation: () => Promise<T>): Promise<T> {
-    const key = appServerQueryContextKey(context);
+    const key = appServerQueryContextIdentityKey(context);
     this.metadataRefreshes.set(key, (this.metadataRefreshes.get(key) ?? 0) + 1);
     try {
       return await operation();
@@ -563,7 +579,7 @@ export class AppServerQueryCache {
   }
 
   private modelsQueryOptions(context: AppServerQueryContext): AppServerQueryOptions<readonly ModelMetadata[]> {
-    const refreshContext = cloneAppServerQueryContext(context);
+    const refreshContext = cloneAppServerQueryContextIdentity(context);
     return {
       queryKey: appServerModelsQueryKey(refreshContext),
       queryFn: async (): Promise<readonly ModelMetadata[]> => {

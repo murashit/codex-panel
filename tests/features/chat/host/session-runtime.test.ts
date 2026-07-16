@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { StaleAppServerSharedQueryContextError } from "../../../../src/app-server/query/shared-queries";
+import { StaleAppServerResourceContextError } from "../../../../src/app-server/query/resource-store";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { activeThreadId } from "../../../../src/features/chat/application/state/root-reducer";
@@ -46,6 +46,16 @@ describe("ChatPanelSessionRuntime actions", () => {
     expect(invalidateHistory).toHaveBeenCalledOnce();
   });
 
+  it("clears rename work before replacing the app-server context", () => {
+    const { runtime, stateStore } = sessionRuntimeFixture();
+    stateStore.dispatch({ type: "thread-list/applied", threads: [threadFixture({ id: "thread-1" })] });
+    stateStore.dispatch({ type: "ui/rename-started", threadId: "thread-1", draft: "Draft" });
+
+    runtime.actions.prepareAppServerContextChange();
+
+    expect(stateStore.getState().ui.rename).toEqual({ kind: "idle" });
+  });
+
   it("refreshes shared threads inside the runtime connection bundle", async () => {
     const thread = threadFixture({ id: "thread-1", preview: "From catalog" });
     const refresh = vi.fn().mockResolvedValue([thread]);
@@ -66,7 +76,7 @@ describe("ChatPanelSessionRuntime actions", () => {
   });
 
   it("treats stale shared thread refreshes as runtime-local no-ops", async () => {
-    const refresh = vi.fn().mockRejectedValue(new StaleAppServerSharedQueryContextError());
+    const refresh = vi.fn().mockRejectedValue(new StaleAppServerResourceContextError());
     const { runtime, stateStore } = sessionRuntimeFixture({
       environment: {
         plugin: {
@@ -377,6 +387,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     overrides: Partial<ChatPanelEnvironment["plugin"]["appServerQueries"]> = {},
   ): ChatPanelEnvironment["plugin"]["appServerQueries"] {
     return {
+      contextLease: vi.fn(() => ({ context: { codexPath: "codex", vaultPath: "/vault" }, generation: 1 })),
       appServerMetadataSnapshot: vi.fn(() => null),
       refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
       refreshSkills: vi.fn().mockResolvedValue(null),

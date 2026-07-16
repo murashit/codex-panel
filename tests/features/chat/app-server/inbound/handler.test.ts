@@ -23,7 +23,7 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 type ThreadStartedNotification = Extract<ServerNotification, { method: "thread/started" }>;
-const TEST_APP_SERVER_CONTEXT = { codexPath: "codex", vaultPath: "/vault" } as const;
+const TEST_APP_SERVER_CONTEXT = { codexPath: "codex", vaultPath: "/vault", generation: 1 } as const;
 
 type TestChatInboundHandler = Omit<ChatInboundHandler, "handleNotification"> & {
   handleNotification(notification: ServerNotification): void;

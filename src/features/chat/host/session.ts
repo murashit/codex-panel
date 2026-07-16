@@ -1,5 +1,9 @@
 import type { AppServerClient } from "../../../app-server/connection/client";
-import { type AppServerQueryContext, appServerQueryContextMatches, appServerQueryContextRawEquals } from "../../../app-server/query/keys";
+import {
+  type AppServerQueryContextIdentity,
+  appServerQueryContextIdentity,
+  appServerQueryContextIdentityMatches,
+} from "../../../app-server/query/keys";
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
 import {
@@ -25,7 +29,7 @@ export class ChatPanelSession implements ChatPanelHandle {
   private readonly deferredTasks: ChatViewDeferredTasks;
   private readonly resumeWork = new ChatResumeWorkTracker();
   private readonly threadStreamScrollBinding: ChatThreadStreamScrollBinding = createChatThreadStreamScrollBinding();
-  private observedAppServerContext: AppServerQueryContext;
+  private observedAppServerContext: AppServerQueryContextIdentity;
   private appServerContextReconnectAttemptGeneration = 0;
   private appServerContextReplacementGeneration = 0;
   private pendingAppServerContextReplacement: { activeThreadId: string | null; generation: number } | null = null;
@@ -84,7 +88,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   refreshSettings(): void {
     const nextContext = this.currentAppServerContext();
-    if (!appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
+    if (!appServerQueryContextIdentityMatches(this.observedAppServerContext, nextContext)) {
       this.observedAppServerContext = nextContext;
       const replacement = this.pendingAppServerContextReplacement ?? this.captureAppServerContextReplacement(activeThreadId(this.state));
       void this.reconnectAfterAppServerContextChange(replacement);
@@ -142,14 +146,15 @@ export class ChatPanelSession implements ChatPanelHandle {
     return this.runtime.actions.refreshSharedThreads();
   }
 
-  canServeAppServerContext(context: AppServerQueryContext): boolean {
+  canServeAppServerContext(context: AppServerQueryContextIdentity): boolean {
     const connectionContext = this.runtime.connection.manager.currentConnectionContext();
     return Boolean(
       connectionContext &&
-        appServerQueryContextMatches(
+        appServerQueryContextIdentityMatches(
           {
             codexPath: connectionContext.codexPath,
             vaultPath: connectionContext.cwd,
+            generation: connectionContext.generation,
           },
           context,
         ),
@@ -276,11 +281,8 @@ export class ChatPanelSession implements ChatPanelHandle {
     return this.environment.view.viewWindow() ?? window;
   }
 
-  private currentAppServerContext(): AppServerQueryContext {
-    return {
-      codexPath: this.environment.plugin.settingsRef.settings.codexPath(),
-      vaultPath: this.environment.plugin.settingsRef.vaultPath,
-    };
+  private currentAppServerContext(): AppServerQueryContextIdentity {
+    return appServerQueryContextIdentity(this.environment.plugin.appServerQueries.contextLease());
   }
 
   private closeToolbarPanelOnOutsidePointer(event: PointerEvent): void {

@@ -2,7 +2,7 @@ import { Notice } from "obsidian";
 
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
-import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
+import { isStaleAppServerResourceContextError } from "../../../../app-server/query/resource-store";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionActions, createChatConnectionActions } from "../../application/connection/connection-actions";
@@ -128,7 +128,7 @@ export function createConnectionBundle(
     refreshAppServerMetadata: () => environment.plugin.appServerQueries.refreshAppServerMetadata(),
     refreshSkills: () => environment.plugin.appServerQueries.refreshSkills(),
     refreshRateLimits: () => environment.plugin.appServerQueries.refreshRateLimits(),
-    isStaleSharedQueryError: isStaleAppServerSharedQueryContextError,
+    isStaleResourceContextError: isStaleAppServerResourceContextError,
   });
   const serverDiagnostics = createServerDiagnosticsActions({
     stateStore,
@@ -141,7 +141,7 @@ export function createConnectionBundle(
   };
   const refreshSharedThreadsQuietly = (): void => {
     void refreshSharedThreads().catch((error: unknown) => {
-      if (isStaleAppServerSharedQueryContextError(error)) return;
+      if (isStaleAppServerResourceContextError(error)) return;
       status.addSystemMessage(error instanceof Error ? error.message : String(error));
     });
   };
@@ -194,6 +194,7 @@ export function createConnectionBundle(
             inboundHandler.handleNotification(notification, {
               codexPath: sourceContext.codexPath,
               vaultPath: sourceContext.cwd,
+              generation: sourceContext.generation,
             });
             host.deferLiveStateRefresh();
           },
@@ -245,7 +246,7 @@ export function createConnectionBundle(
       host.refreshLiveState();
     },
     isStaleConnectionError: (error) => error instanceof StaleConnectionError,
-    isStaleSharedQueryError: isStaleAppServerSharedQueryContextError,
+    isStaleResourceContextError: isStaleAppServerResourceContextError,
     notifyConnectionFailed: () => {
       new Notice("Codex app-server connection failed.");
     },

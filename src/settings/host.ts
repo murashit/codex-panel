@@ -7,7 +7,5 @@ export interface SettingsDynamicSectionsHost {
 }
 
 export interface CodexPanelSettingTabHost extends SettingsDynamicSectionsHost {
-  saveSettings(settings: CodexPanelSettings): Promise<void>;
-  prepareAppServerContextChange(): void;
-  refreshOpenViews(): void;
+  publishSettings(settings: CodexPanelSettings): Promise<{ appServerContextReplaced: boolean }>;
 }

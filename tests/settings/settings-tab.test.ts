@@ -14,7 +14,7 @@ import { createSettingsAppServerDynamicData } from "../../src/settings/app-serve
 import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
 import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
-import { DEFAULT_SETTINGS } from "../../src/settings/model";
+import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
 import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
 import { notices } from "../mocks/obsidian";
 import { deferred } from "../support/async";
@@ -359,7 +359,6 @@ describe("settings tab", () => {
 
   it("clears dynamic sections when the Codex executable changes", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const notifyContextChanged = vi.fn();
     const refreshOpenViews = vi.fn();
     const oldClient = settingsClient({
       models: [model("gpt-old")],
@@ -376,7 +375,7 @@ describe("settings tab", () => {
       .fn()
       .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
       .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const tab = newSettingsTab({ saveSettings, notifyContextChanged, refreshOpenViews, fetchModels, refreshModels, refreshArchived });
+    const tab = newSettingsTab({ saveSettings, refreshOpenViews, fetchModels, refreshModels, refreshArchived });
 
     tab.display();
     await flushPromises();
@@ -391,14 +390,12 @@ describe("settings tab", () => {
     await flushPromises();
 
     expect(saveSettings).not.toHaveBeenCalled();
-    expect(notifyContextChanged).not.toHaveBeenCalled();
     expect(refreshOpenViews).not.toHaveBeenCalled();
 
     codexInput.dispatchEvent(new FocusEvent("blur"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(notifyContextChanged).toHaveBeenCalledOnce();
     expect(refreshOpenViews).toHaveBeenCalledOnce();
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(1);
     expect(tab.containerEl.textContent).not.toContain("gpt-old");
@@ -1149,14 +1146,13 @@ function expectRequestTimes(client: SettingsRequestClient, method: string, times
 
 function newSettingsTab(
   options: {
-    saveSettings?: CodexPanelSettingTabHost["saveSettings"];
+    saveSettings?: (settings: CodexPanelSettings) => Promise<void>;
     prepareAppServerContextChange?: () => void;
     sendShortcut?: "enter" | "mod-enter";
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
     observeModels?: SettingsDynamicDataAccess["observeModelsResult"];
-    notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
     archivedThreads?: Thread[];
     archivedSnapshot?: Thread[] | null;
@@ -1177,14 +1173,13 @@ function newSettingsTab(
 
 function settingsTabHost(
   options: {
-    saveSettings?: CodexPanelSettingTabHost["saveSettings"];
+    saveSettings?: (settings: CodexPanelSettings) => Promise<void>;
     prepareAppServerContextChange?: () => void;
     sendShortcut?: "enter" | "mod-enter";
     modelsSnapshot?: ModelMetadata[];
     fetchModels?: () => Promise<readonly ModelMetadata[]>;
     refreshModels?: () => Promise<readonly ModelMetadata[]>;
     observeModels?: SettingsDynamicDataAccess["observeModelsResult"];
-    notifyContextChanged?: () => void;
     refreshOpenViews?: () => void;
     archivedThreads?: Thread[];
     archivedSnapshot?: Thread[] | null;
@@ -1214,7 +1209,6 @@ function settingsTabHost(
     fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
     refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
     observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),
-    notifyContextChanged: options.notifyContextChanged ?? vi.fn(),
   };
   const threadCatalog = {
     archivedSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
@@ -1235,9 +1229,15 @@ function settingsTabHost(
         appServerQueries,
         threadCatalog,
       }),
-    saveSettings: options.saveSettings ?? vi.fn().mockResolvedValue(undefined),
-    prepareAppServerContextChange: options.prepareAppServerContextChange ?? vi.fn(),
-    refreshOpenViews: options.refreshOpenViews ?? vi.fn(),
+    publishSettings: async (nextSettings) => {
+      const previousSettings = { ...settings };
+      await (options.saveSettings ?? vi.fn().mockResolvedValue(undefined))(nextSettings);
+      const appServerContextReplaced = previousSettings.codexPath !== nextSettings.codexPath;
+      if (appServerContextReplaced) options.prepareAppServerContextChange?.();
+      Object.assign(settings, nextSettings);
+      if (appServerContextReplaced || previousSettings.showToolbar !== nextSettings.showToolbar) options.refreshOpenViews?.();
+      return { appServerContextReplaced };
+    },
   };
 }
 

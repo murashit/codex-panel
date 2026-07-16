@@ -15,12 +15,14 @@ export interface AutoTitleCoordinatorHost {
 }
 
 export interface AutoTitleCoordinator {
+  invalidate(): void;
   resetThreadTurnPresence(hadTurns: boolean): void;
   maybeAutoTitleThread(threadId: string, turnId: string, completedTurnTranscriptSummary: TurnTranscriptSummary | null): void;
 }
 
 export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): AutoTitleCoordinator {
   let activeThreadHadTurns = false;
+  let generation = 0;
   const attemptedThreadIds = new Set<string>();
   const inFlightThreadIds = new Set<string>();
 
@@ -31,23 +33,30 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
     const candidate = thread(threadId);
     return Boolean(candidate && !candidate.name?.trim());
   };
-  const generateAndSetTitle = async (threadId: string, context: ThreadTitleContext): Promise<void> => {
+  const generateAndSetTitle = async (threadId: string, context: ThreadTitleContext, operationGeneration: number): Promise<void> => {
     try {
       const title = await host.generateTitleFromContext(context);
-      if (!title || !threadCanReceiveGeneratedTitle(threadId)) return;
+      if (operationGeneration !== generation || !title || !threadCanReceiveGeneratedTitle(threadId)) return;
 
       await host.renameGeneratedTitle(threadId, title, {
-        shouldStart: () => threadCanReceiveGeneratedTitle(threadId),
-        shouldPublish: () => threadCanReceiveGeneratedTitle(threadId),
+        shouldStart: () => operationGeneration === generation && threadCanReceiveGeneratedTitle(threadId),
+        shouldPublish: () => operationGeneration === generation && threadCanReceiveGeneratedTitle(threadId),
       });
     } catch {
       // Auto-title is best-effort metadata. Leave the thread preview untouched on failure.
     } finally {
-      inFlightThreadIds.delete(threadId);
+      if (operationGeneration === generation) inFlightThreadIds.delete(threadId);
     }
   };
 
   return {
+    invalidate() {
+      generation += 1;
+      activeThreadHadTurns = false;
+      attemptedThreadIds.clear();
+      inFlightThreadIds.clear();
+    },
+
     resetThreadTurnPresence(hadTurns) {
       activeThreadHadTurns = hadTurns;
     },
@@ -64,7 +73,7 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
 
       attemptedThreadIds.add(threadId);
       inFlightThreadIds.add(threadId);
-      void generateAndSetTitle(threadId, context);
+      void generateAndSetTitle(threadId, context, generation);
     },
   };
 }

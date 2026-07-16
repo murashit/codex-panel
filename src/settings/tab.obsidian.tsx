@@ -195,29 +195,17 @@ export class CodexPanelSettingTab extends PluginSettingTab {
         return true;
       },
       {
-        beforePublish: () => {
-          this.plugin.prepareAppServerContextChange();
-        },
-        onPublished: () => {
-          this.dynamicSections.resetDynamicSectionContext();
-          this.plugin.dynamicData.notifyContextChanged();
-          this.plugin.refreshOpenViews();
+        onPublished: ({ appServerContextReplaced }) => {
+          if (appServerContextReplaced) this.dynamicSections.resetDynamicSectionContext();
         },
       },
     );
   }
 
   private setShowToolbar(value: boolean): Promise<void> {
-    return this.queueSettingsMutation(
-      (settings) => {
-        settings.showToolbar = value;
-      },
-      {
-        onPublished: () => {
-          this.plugin.refreshOpenViews();
-        },
-      },
-    );
+    return this.queueSettingsMutation((settings) => {
+      settings.showToolbar = value;
+    });
   }
 
   private setSendShortcut(value: "enter" | "mod-enter"): Promise<void> {
@@ -300,21 +288,19 @@ export class CodexPanelSettingTab extends PluginSettingTab {
 
   private queueSettingsMutation(
     mutate: (settings: CodexPanelSettings) => boolean | undefined,
-    publication: { beforePublish?: () => void; onPublished?: () => void } = {},
+    publication: { onPublished?: (result: { appServerContextReplaced: boolean }) => void } = {},
   ): Promise<void> {
     const operation = this.settingsMutationQueue.then(async () => {
       const candidateSettings: CodexPanelSettings = { ...this.plugin.settings };
       if (mutate(candidateSettings) === false) return;
       try {
-        await this.plugin.saveSettings(candidateSettings);
+        const result = await this.plugin.publishSettings(candidateSettings);
+        publication.onPublished?.(result);
       } catch (error) {
         this.settingsShellRevision += 1;
         new Notice(`Failed to save Codex Panel settings: ${error instanceof Error ? error.message : String(error)}`);
         return;
       }
-      publication.beforePublish?.();
-      Object.assign(this.plugin.settings, candidateSettings);
-      publication.onPublished?.();
     });
     const settledOperation = operation.catch(() => undefined);
     this.settingsMutationQueue = settledOperation;

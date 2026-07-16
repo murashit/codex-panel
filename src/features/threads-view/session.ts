@@ -3,7 +3,7 @@ import { Notice } from "obsidian";
 import { type AppServerQueryContext, appServerQueryContextRawEquals } from "../../app-server/query/keys";
 import type { ObservedResult } from "../../app-server/query/observed-result";
 import { observedInitialError, observedInitialLoading } from "../../app-server/query/observed-result";
-import { isStaleAppServerSharedQueryContextError } from "../../app-server/query/shared-queries";
+import { isStaleAppServerResourceContextError } from "../../app-server/query/resource-store";
 import type { ReasoningEffort } from "../../domain/catalog/metadata";
 import type { ArchiveExportSettings } from "../../domain/threads/archive-markdown";
 import type { Thread } from "../../domain/threads/model";
@@ -115,6 +115,7 @@ export class ThreadsViewSession {
 
   close(): void {
     this.lifetime.dispose();
+    this.titleService.invalidate();
     this.activeRefresh = null;
     this.renderTask.clear();
     this.unsubscribeThreads?.();
@@ -138,7 +139,7 @@ export class ThreadsViewSession {
       this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime)) return;
-      if (isStaleAppServerSharedQueryContextError(error)) return;
+      if (isStaleAppServerResourceContextError(error)) return;
       if (!this.currentThreadsSnapshot()) {
         this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
       }
@@ -159,7 +160,7 @@ export class ThreadsViewSession {
       this.threadsLoaded = true;
       this.status = threads.length === 0 ? { kind: "empty", message: "No threads" } : { kind: "idle" };
     } catch (error) {
-      if (!this.lifetime.isCurrent(lifetime) || isStaleAppServerSharedQueryContextError(error)) return;
+      if (!this.lifetime.isCurrent(lifetime) || isStaleAppServerResourceContextError(error)) return;
       this.status = { kind: "error", message: error instanceof Error ? error.message : String(error) };
     } finally {
       this.finishRefresh(refresh);
@@ -172,6 +173,7 @@ export class ThreadsViewSession {
 
   prepareAppServerContextChange(): void {
     this.operationGeneration += 1;
+    this.titleService.invalidate();
     this.activeRefresh = null;
     this.renderTask.clear();
     this.threads = [];

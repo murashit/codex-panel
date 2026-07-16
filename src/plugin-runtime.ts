@@ -2,9 +2,14 @@ import type { App } from "obsidian";
 import type { AppServerClient } from "./app-server/connection/client";
 import type { AppServerClientAccess, AppServerClientAccessOptions } from "./app-server/connection/client-access";
 import { withShortLivedAppServerClient } from "./app-server/connection/short-lived-client";
-import { AppServerQueryCache } from "./app-server/query/cache";
-import { type AppServerQueryContext, appServerQueryContextIsComplete, appServerQueryContextRawEquals } from "./app-server/query/keys";
-import { AppServerSharedQueries, StaleAppServerSharedQueryContextError } from "./app-server/query/shared-queries";
+import {
+  type AppServerContextLease,
+  type AppServerQueryContext,
+  type AppServerQueryContextIdentity,
+  appServerQueryContextIdentityMatches,
+  appServerQueryContextIsComplete,
+} from "./app-server/query/keys";
+import { AppServerResourceStore, StaleAppServerResourceContextError } from "./app-server/query/resource-store";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { hasPendingRequests } from "./domain/pending-requests/aggregate";
 import type {
@@ -42,14 +47,10 @@ export interface CodexPanelRuntimeOptions {
 }
 
 export class CodexPanelRuntime implements AppServerClientAccess {
-  private readonly appServerQueries = new AppServerQueryCache({
+  private readonly appServerResourceStore = new AppServerResourceStore({
     clientRunner: {
       runWithClient: (context, operation, options) => this.runWithAppServerClient(context, operation, options),
     },
-  });
-  private readonly appServerSharedQueries = new AppServerSharedQueries({
-    cache: this.appServerQueries,
-    context: () => this.appServerQueryContext(),
   });
   private readonly panels: WorkspacePanelCoordinator;
   private readonly threadCatalog: ThreadCatalog;
@@ -64,18 +65,26 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       },
     });
     this.threadCatalog = createThreadCatalog({
-      store: this.appServerSharedQueries,
+      store: this.appServerResourceStore,
       onEventApplied: (event) => {
         this.applyThreadCatalogSurfaceEvent(event);
       },
     });
   }
 
+  initialize(): void {
+    this.appServerResourceStore.initialize(this.configuredAppServerContext());
+  }
+
+  appServerContextLease(): AppServerContextLease {
+    return this.appServerResourceStore.contextLease();
+  }
+
   reset(): void {
     this.selectionRewriteController?.closeAll();
     this.selectionRewriteController = null;
     this.panels.reset();
-    this.appServerQueries.clear();
+    this.appServerResourceStore.reset();
     this.threadCatalog.clear();
   }
 
@@ -138,7 +147,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
           this.refreshThreadsViewLiveState();
         },
       },
-      appServerQueries: this.appServerSharedQueries,
+      appServerQueries: this.appServerResourceStore,
       threadCatalog: this.threadCatalog,
       threadNameMutations: this.threadNameMutations,
     };
@@ -172,8 +181,8 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       threadOperationsTransport: createThreadOperationsTransport(this),
       threadTitleTransport: createThreadTitleTransport({
         clientAccess: this,
-        codexPath: () => this.options.settingsRef.settings.codexPath,
-        vaultPath: this.options.settingsRef.vaultPath,
+        codexPath: () => this.appServerResourceStore.contextLease().context.codexPath,
+        vaultPath: this.appServerResourceStore.contextLease().context.vaultPath,
         threadNamingModel: () => this.options.settingsRef.settings.threadNamingModel,
         threadNamingEffort: () => this.options.settingsRef.settings.threadNamingEffort,
       }),
@@ -206,18 +215,10 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       dynamicData: createSettingsAppServerDynamicData({
         vaultPath: this.options.settingsRef.vaultPath,
         clientAccess: this,
-        appServerQueries: this.appServerSharedQueries,
+        appServerQueries: this.appServerResourceStore,
         threadCatalog: this.threadCatalog,
       }),
-      saveSettings: (settings) => this.options.saveSettings(settings),
-      prepareAppServerContextChange: () => {
-        this.selectionRewriteController?.closeAll();
-        for (const view of this.panels.panelViews()) view.surface.prepareAppServerContextChange();
-        for (const view of this.threadsViews()) view.prepareAppServerContextChange();
-      },
-      refreshOpenViews: () => {
-        this.refreshOpenViews();
-      },
+      publishSettings: (settings) => this.publishSettings(settings),
     };
   }
 
@@ -231,7 +232,24 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   }
 
   withClient<T>(operation: (client: AppServerClient) => Promise<T>, options: AppServerClientAccessOptions = {}): Promise<T> {
-    return this.runWithAppServerClient(this.appServerQueryContext(), operation, options);
+    return this.runWithAppServerClient(this.appServerResourceStore.contextIdentity(), operation, options);
+  }
+
+  private async publishSettings(settings: CodexPanelSettings): Promise<{ appServerContextReplaced: boolean }> {
+    const previousSettings = { ...this.options.settingsRef.settings };
+    await this.options.saveSettings(settings);
+    const appServerContextReplaced = previousSettings.codexPath !== settings.codexPath;
+    if (appServerContextReplaced) this.prepareAppServerContextChange();
+    Object.assign(this.options.settingsRef.settings, settings);
+    if (appServerContextReplaced) this.appServerResourceStore.replaceContext(this.configuredAppServerContext());
+    if (appServerContextReplaced || previousSettings.showToolbar !== settings.showToolbar) this.refreshOpenViews();
+    return { appServerContextReplaced };
+  }
+
+  private prepareAppServerContextChange(): void {
+    this.selectionRewriteController?.closeAll();
+    for (const view of this.panels.panelViews()) view.surface.prepareAppServerContextChange();
+    for (const view of this.threadsViews()) view.prepareAppServerContextChange();
   }
 
   private async openTurnDiff(state: TurnDiffViewState): Promise<void> {
@@ -309,7 +327,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   }
 
   private async runWithAppServerClient<T>(
-    context: AppServerQueryContext,
+    context: AppServerQueryContextIdentity,
     operation: (client: AppServerClient) => Promise<T>,
     options: AppServerClientAccessOptions = {},
   ): Promise<T> {
@@ -317,14 +335,14 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       throw new Error("Codex app-server query context is incomplete.");
     }
     const result = await this.runWithContextClient(context, operation, options);
-    if (!appServerQueryContextRawEquals(this.appServerQueryContext(), context)) {
-      throw new StaleAppServerSharedQueryContextError();
+    if (!appServerQueryContextIdentityMatches(this.appServerResourceStore.contextIdentity(), context)) {
+      throw new StaleAppServerResourceContextError();
     }
     return result;
   }
 
   private runWithContextClient<T>(
-    context: AppServerQueryContext,
+    context: AppServerQueryContextIdentity,
     operation: (client: AppServerClient) => Promise<T>,
     options: AppServerClientAccessOptions,
   ): Promise<T> {
@@ -337,7 +355,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       : withShortLivedAppServerClient(context.codexPath, context.vaultPath, operation, options);
   }
 
-  private connectedClientSurface(context: AppServerQueryContext): ChatPanelClientSurface | null {
+  private connectedClientSurface(context: AppServerQueryContextIdentity): ChatPanelClientSurface | null {
     for (const view of this.panels.panelViews()) {
       const workspaceSurface: ChatWorkspacePanelSurface = view.surface;
       if (!workspaceSurface.openPanelSnapshot().connected) continue;
@@ -348,7 +366,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     return null;
   }
 
-  private appServerQueryContext(): AppServerQueryContext {
+  private configuredAppServerContext(): AppServerQueryContext {
     return {
       codexPath: this.options.settingsRef.settings.codexPath,
       vaultPath: this.options.settingsRef.vaultPath,

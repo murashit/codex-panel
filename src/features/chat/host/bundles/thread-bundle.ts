@@ -114,8 +114,8 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   const threadOperationsTransport = createThreadOperationsTransport(appServer.clientAccess);
   const threadTitleTransport = createThreadTitleTransport({
     clientAccess: appServer.clientAccess,
-    codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
-    vaultPath: environment.plugin.settingsRef.vaultPath,
+    codexPath: () => environment.plugin.appServerQueries.contextLease().context.codexPath,
+    vaultPath: environment.plugin.appServerQueries.contextLease().context.vaultPath,
     threadNamingModel: () => environment.plugin.settingsRef.settings.threadNamingModel(),
     threadNamingEffort: () => environment.plugin.settingsRef.settings.threadNamingEffort(),
   });
@@ -165,6 +165,8 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
   const invalidateThreadWork = () => {
     host.resumeWork.invalidate();
     history.invalidate();
+    titleService.invalidate();
+    autoTitleCoordinator.invalidate();
   };
   const goalSync = createThreadGoalSyncActions({
     stateStore,

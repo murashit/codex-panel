@@ -1,4 +1,4 @@
-import type { AppServerQueryContext } from "../../../app-server/query/keys";
+import type { AppServerQueryContextIdentity } from "../../../app-server/query/keys";
 import type { ObservedResult, ObservedResultListener } from "../../../app-server/query/observed-result";
 import type { Thread } from "../../../domain/threads/model";
 
@@ -6,18 +6,14 @@ type ThreadListObserver = ObservedResultListener<readonly Thread[]>;
 
 interface ThreadCatalogStore {
   contextKey(): string;
-  contextKeyFor(context: AppServerQueryContext): string;
+  contextKeyFor(context: AppServerQueryContextIdentity): string;
   activeThreadsSnapshot(): readonly Thread[] | null;
-  activeThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null;
   archivedThreadsSnapshot(): readonly Thread[] | null;
-  archivedThreadsSnapshotFor(context: AppServerQueryContext): readonly Thread[] | null;
   fetchAllActiveThreads(): Promise<readonly Thread[]>;
   hasMoreActiveThreads(): boolean;
   loadMoreActiveThreads(): Promise<readonly Thread[]>;
   refreshActiveThreads(): Promise<readonly Thread[]>;
-  refreshActiveThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]>;
   refreshArchivedThreads(): Promise<readonly Thread[]>;
-  refreshArchivedThreadsFor(context: AppServerQueryContext): Promise<readonly Thread[]>;
   observeActiveThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
   observeArchivedThreadsResult(observer: ThreadListObserver, options?: { emitCurrent?: boolean }): () => void;
 }
@@ -87,7 +83,7 @@ export interface ThreadCatalogEventSink {
 }
 
 export interface ThreadCatalogConnectionEventSink {
-  applyConnectionEvent(context: AppServerQueryContext, event: ThreadCatalogEvent): void;
+  applyConnectionEvent(context: AppServerQueryContextIdentity, event: ThreadCatalogEvent): void;
 }
 
 export interface ThreadCatalog
@@ -138,12 +134,8 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
     apply,
     applyConnectionEvent: (context, event) => {
       const capturedContextKey = store.contextKeyFor(context);
-      applyToFacts(
-        threadCatalogEventStoreForContext(store, context),
-        threadCatalogFactsForContext(factsByContext, capturedContextKey),
-        event,
-        capturedContextKey === store.contextKey(),
-      );
+      if (capturedContextKey !== store.contextKey()) return;
+      applyToFacts(store, currentFacts(), event, true);
     },
     clear: () => {
       factsByContext.clear();
@@ -190,19 +182,10 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
   };
 }
 
-function threadCatalogEventStoreForContext(store: ThreadCatalogStore, context: AppServerQueryContext): ThreadCatalogEventStore {
-  return {
-    activeThreadsSnapshot: () => store.activeThreadsSnapshotFor(context),
-    archivedThreadsSnapshot: () => store.archivedThreadsSnapshotFor(context),
-    refreshActiveThreads: () => store.refreshActiveThreadsFor(context),
-    refreshArchivedThreads: () => store.refreshArchivedThreadsFor(context),
-  };
-}
-
 type ThreadListKind = "active" | "archived";
 
 function threadCatalogFactsForContext(factsByContext: Map<string, ThreadCatalogFacts>, contextKey: string): ThreadCatalogFacts {
-  pruneInactiveSettledContexts(factsByContext, contextKey);
+  pruneInactiveContexts(factsByContext, contextKey);
   const existing = factsByContext.get(contextKey);
   if (existing) {
     factsByContext.delete(contextKey);
@@ -219,16 +202,11 @@ function threadCatalogFactsForContext(factsByContext: Map<string, ThreadCatalogF
   return facts;
 }
 
-function pruneInactiveSettledContexts(factsByContext: Map<string, ThreadCatalogFacts>, activeContextKey: string): void {
-  for (const [contextKey, facts] of factsByContext) {
+function pruneInactiveContexts(factsByContext: Map<string, ThreadCatalogFacts>, activeContextKey: string): void {
+  for (const contextKey of factsByContext.keys()) {
     if (contextKey === activeContextKey) continue;
-    if (threadListFactsPending(facts.active) || threadListFactsPending(facts.archived)) continue;
     factsByContext.delete(contextKey);
   }
-}
-
-function threadListFactsPending(facts: PendingThreadListFacts): boolean {
-  return facts.upserts.size > 0 || facts.removals.size > 0;
 }
 
 function applyThreadCatalogEvent(

@@ -20,6 +20,7 @@ export interface ThreadRenameEditorActionsHost {
 }
 
 export interface ThreadRenameEditorActions {
+  invalidate(): void;
   editState(threadId: string): RenameEditState | null;
   isEditing(): boolean;
   start(threadId: string): void;
@@ -33,6 +34,10 @@ export function createThreadRenameEditorActions(host: ThreadRenameEditorActionsH
   let nextRenameGenerationToken = 1;
 
   const action = {
+    invalidate(): void {
+      dispatch(host, { type: "ui/rename-cleared" });
+    },
+
     editState(threadId: string): RenameEditState | null {
       const current = renameState(host);
       if (current.kind === "idle" || current.threadId !== threadId) return null;

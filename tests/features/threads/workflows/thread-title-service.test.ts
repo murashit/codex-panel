@@ -23,7 +23,7 @@ describe("ThreadTitleService", () => {
     await expect(service.generateTitle("thread")).resolves.toBe("Generated title");
 
     expect(withClient).not.toHaveBeenCalled();
-    expect(generateThreadTitle).toHaveBeenCalledWith(titleContext("visible request", "visible response"));
+    expect(generateThreadTitle).toHaveBeenCalledWith(titleContext("visible request", "visible response"), expect.any(AbortSignal));
   });
 
   it("throws the existing unavailable-context error when no context can be resolved", async () => {
@@ -50,6 +50,36 @@ describe("ThreadTitleService", () => {
     expect(service.completedTurnContext("turn", { userText: "summary turn", assistantText: "summary answer" })).toEqual(
       titleContext("summary turn", "summary answer"),
     );
+  });
+
+  it("cancels stale title work and starts later work with a fresh signal", async () => {
+    let resolveOldTitle!: (title: string | null) => void;
+    const generateTitle = vi
+      .fn()
+      .mockImplementationOnce(
+        (_context: ThreadTitleContext, _signal: AbortSignal) =>
+          new Promise<string | null>((resolve) => {
+            resolveOldTitle = resolve;
+          }),
+      )
+      .mockResolvedValueOnce("Fresh title");
+    const service = titleService({
+      visibleContext: () => titleContext("request", "response"),
+      transport: {
+        persistedContext: vi.fn().mockResolvedValue(null),
+        generateTitle,
+      },
+    });
+
+    const staleTitle = service.generateTitle("thread");
+    await Promise.resolve();
+    const staleSignal = generateTitle.mock.calls[0]?.[1];
+    service.invalidate();
+
+    expect(staleSignal?.aborted).toBe(true);
+    await expect(service.generateTitle("thread")).resolves.toBe("Fresh title");
+    resolveOldTitle("Stale title");
+    await expect(staleTitle).rejects.toThrow("Thread title generation cancelled.");
   });
 });
 
