@@ -5,8 +5,8 @@ import { type ConnectionManager, StaleConnectionError } from "../../../../app-se
 import { isStaleAppServerSharedQueryContextError } from "../../../../app-server/query/shared-queries";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
-import type { ChatAppServerGateway } from "../../app-server/session-gateway";
 import { type ChatConnectionActions, createChatConnectionActions } from "../../application/connection/connection-actions";
+import type { ServerDiagnosticsTransport } from "../../application/connection/metadata-transport";
 import { createServerDiagnosticsActions } from "../../application/connection/server-diagnostics-actions";
 import { createServerMetadataActions } from "../../application/connection/server-metadata-actions";
 import type { LocalIdSource } from "../../application/local-id-source";
@@ -26,7 +26,7 @@ interface ChatPanelConnectionStatus {
 
 interface ChatPanelConnectionBundleInput {
   connection: ConnectionManager;
-  appServer: ChatAppServerGateway;
+  diagnosticsTransport: ServerDiagnosticsTransport;
   localItemIds: LocalIdSource;
   status: ChatPanelConnectionStatus;
   autoTitleCoordinator: AutoTitleCoordinator;
@@ -120,7 +120,7 @@ export function createConnectionBundle(
   input: ChatPanelConnectionBundleInput,
 ): ChatPanelConnectionBundle {
   const { environment, stateStore } = host;
-  const { connection, appServer, localItemIds, status, autoTitleCoordinator } = input;
+  const { connection, diagnosticsTransport, localItemIds, status, autoTitleCoordinator } = input;
   const serverRequestResponders = createServerRequestResponderRegistry();
   const serverMetadata = createServerMetadataActions({
     stateStore,
@@ -132,7 +132,7 @@ export function createConnectionBundle(
   });
   const serverDiagnostics = createServerDiagnosticsActions({
     stateStore,
-    diagnosticsTransport: appServer.serverDiagnostics,
+    diagnosticsTransport,
     appServerMetadataSnapshot: () => environment.plugin.appServerQueries.appServerMetadataSnapshot(),
   });
   const refreshSharedThreads = async (): Promise<void> => {

@@ -6,7 +6,7 @@ import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/turn";
 import type { CodexInput } from "../../../../src/domain/chat/input";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
-import { createChatAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
+import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
 import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/thread-reference-resolver";
 import { preparedUserInputWithWikiLinkMentionsSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
 import { deferred } from "../../../support/async";
@@ -14,6 +14,28 @@ import { deferred } from "../../../support/async";
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
 describe("chat app-server transports", () => {
+  it("adds connection-requiring capabilities only after the connected client host exists", async () => {
+    const client = { request: vi.fn() } as unknown as AppServerClient;
+    const currentGateway = createChatCurrentAppServerGateway({
+      codexPath: () => "codex",
+      vaultPath: "/vault",
+      currentClient: () => client,
+    });
+    const connectedClient = vi.fn().mockResolvedValue(client);
+
+    expect(currentGateway.connectionAvailable()).toBe(true);
+    expect(currentGateway).not.toHaveProperty("turn");
+
+    const gateway = createChatAppServerGateway(currentGateway, {
+      vaultPath: "/vault",
+      currentClient: () => client,
+      connectedClient,
+    });
+
+    await expect(gateway.turn.ensureConnected()).resolves.toBe(true);
+    expect(connectedClient).toHaveBeenCalledOnce();
+  });
+
   it("starts threads with the session vault path and projects activation snapshots", async () => {
     const request = vi.fn().mockResolvedValue(threadStartResponse("thread"));
     const client = { request } as unknown as AppServerClient;
@@ -521,8 +543,12 @@ function createTestGateway(options: {
   connectedClient?: () => Promise<AppServerClient | null>;
 }) {
   const codexPath = options.codexPath;
-  return createChatAppServerGateway({
+  const currentGateway = createChatCurrentAppServerGateway({
     codexPath: typeof codexPath === "function" ? codexPath : () => codexPath ?? "codex",
+    vaultPath: options.vaultPath ?? "/vault",
+    currentClient: options.currentClient,
+  });
+  return createChatAppServerGateway(currentGateway, {
     vaultPath: options.vaultPath ?? "/vault",
     currentClient: options.currentClient,
     connectedClient: options.connectedClient ?? (async () => options.currentClient()),

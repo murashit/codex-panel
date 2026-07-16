@@ -5,10 +5,20 @@ import type { CodexInput } from "../../../domain/chat/input";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import { createThreadReferenceResolver, type ThreadReferenceResolver } from "./thread-reference-resolver";
 import { type ChatMetadataTransports, createChatMetadataTransports } from "./transports/metadata-transports";
-import { type ChatSessionTransports, createChatSessionTransports } from "./transports/session-transports";
+import {
+  type ChatConnectedSessionTransports,
+  type ChatCurrentSessionTransports,
+  createChatConnectedSessionTransports,
+  createChatCurrentSessionTransports,
+} from "./transports/session-transports";
 
-export interface ChatAppServerGatewayHost {
+export interface ChatCurrentAppServerGatewayHost {
   codexPath(): string;
+  vaultPath: string;
+  currentClient(): AppServerClient | null;
+}
+
+export interface ChatConnectedAppServerGatewayHost {
   vaultPath: string;
   currentClient(): AppServerClient | null;
   connectedClient(): Promise<AppServerClient | null>;
@@ -20,17 +30,19 @@ interface ChatThreadReferenceResolverOptions {
   setStatus(status: string): void;
 }
 
-export interface ChatAppServerGateway extends ChatSessionTransports, ChatMetadataTransports {
+export interface ChatCurrentAppServerGateway extends ChatCurrentSessionTransports, ChatMetadataTransports {
   clientAccess: AppServerClientAccess;
   connectionAvailable(): boolean;
   readFileBase64(path: string, options?: { timeoutMs?: number }): Promise<string | null>;
   threadReferences(options: ChatThreadReferenceResolverOptions): ThreadReferenceResolver;
 }
 
-export function createChatAppServerGateway(host: ChatAppServerGatewayHost): ChatAppServerGateway {
+export interface ChatAppServerGateway extends ChatCurrentAppServerGateway, ChatConnectedSessionTransports {}
+
+export function createChatCurrentAppServerGateway(host: ChatCurrentAppServerGatewayHost): ChatCurrentAppServerGateway {
   return {
     clientAccess: createCurrentClientAccess(host),
-    ...createChatSessionTransports(host),
+    ...createChatCurrentSessionTransports(host),
     ...createChatMetadataTransports(host),
     connectionAvailable: () => host.currentClient() !== null,
     readFileBase64: (path, options) => readCurrentClientFileBase64(host, path, options),
@@ -48,7 +60,17 @@ export function createChatAppServerGateway(host: ChatAppServerGatewayHost): Chat
   };
 }
 
-function createCurrentClientAccess(host: ChatAppServerGatewayHost): AppServerClientAccess {
+export function createChatAppServerGateway(
+  currentGateway: ChatCurrentAppServerGateway,
+  host: ChatConnectedAppServerGatewayHost,
+): ChatAppServerGateway {
+  return {
+    ...currentGateway,
+    ...createChatConnectedSessionTransports(host),
+  };
+}
+
+function createCurrentClientAccess(host: ChatCurrentAppServerGatewayHost): AppServerClientAccess {
   return {
     withClient: async (operation, options: AppServerClientAccessOptions = {}) => {
       if (options.serverRequests?.kind === "reject") {
@@ -67,7 +89,7 @@ function createCurrentClientAccess(host: ChatAppServerGatewayHost): AppServerCli
 }
 
 async function readCurrentClientFileBase64(
-  host: ChatAppServerGatewayHost,
+  host: ChatCurrentAppServerGatewayHost,
   path: string,
   options: { timeoutMs?: number } = {},
 ): Promise<string | null> {

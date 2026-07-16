@@ -1,7 +1,7 @@
 import { codexPanelAppServerInitializeParams } from "../../../app-server/connection/client-profile";
 import { ConnectionManager } from "../../../app-server/connection/connection-manager";
 import { isStaleAppServerSharedQueryContextError } from "../../../app-server/query/shared-queries";
-import { createChatAppServerGateway } from "../app-server/session-gateway";
+import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../app-server/session-gateway";
 import { reconnectPanel } from "../application/connection/reconnect-actions";
 import { createLocalIdSource, type LocalIdSource } from "../application/local-id-source";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
@@ -114,15 +114,10 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   const localItemIds = createLocalIdSource();
   const connection = createConnectionManager(environment);
   const currentClient = () => connection.currentClient();
-  let ensureConnected = (): Promise<void> => Promise.reject(new Error("Codex app-server connection actions are not initialized."));
-  const appServer = createChatAppServerGateway({
+  const currentAppServer = createChatCurrentAppServerGateway({
     codexPath: () => environment.plugin.settingsRef.settings.codexPath(),
     vaultPath: environment.plugin.settingsRef.vaultPath,
     currentClient,
-    connectedClient: async () => {
-      await ensureConnected();
-      return currentClient();
-    },
   });
   const status = createSessionStatus(stateStore, localItemIds);
   const refreshTabHeader = () => {
@@ -141,7 +136,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   };
 
   const threadFoundation = createThreadFoundation(host, {
-    appServer,
+    appServer: currentAppServer,
     localItemIds,
     status,
     refreshLiveState,
@@ -160,7 +155,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     },
     {
       connection,
-      appServer,
+      diagnosticsTransport: currentAppServer.serverDiagnostics,
       localItemIds,
       autoTitleCoordinator: threadFoundation.autoTitleCoordinator,
       status,
@@ -170,7 +165,15 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     connection: { actions: connectionActions },
     inboundHandler,
   } = connectionBundle;
-  ensureConnected = () => connectionActions.ensureConnected();
+  const ensureConnected = () => connectionActions.ensureConnected();
+  const appServer = createChatAppServerGateway(currentAppServer, {
+    vaultPath: environment.plugin.settingsRef.vaultPath,
+    currentClient,
+    connectedClient: async () => {
+      await connectionActions.ensureConnected();
+      return currentClient();
+    },
+  });
   const refreshActiveThreads = () => connectionActions.refreshActiveThreads();
   const runtime = createRuntimeBundle(host, {
     connection,

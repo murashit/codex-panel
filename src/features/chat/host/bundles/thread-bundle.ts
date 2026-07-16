@@ -4,7 +4,7 @@ import { recoverRolloutTokenUsage } from "../../../../app-server/services/rollou
 import { createThreadOperationsTransport, createThreadTitleTransport } from "../../../threads/app-server/workflow-transports";
 import { createThreadOperations, type ThreadOperations } from "../../../threads/workflows/thread-operations";
 import { createThreadTitleService, type ThreadTitleService } from "../../../threads/workflows/thread-title-service";
-import type { ChatAppServerGateway } from "../../app-server/session-gateway";
+import type { ChatAppServerGateway, ChatCurrentAppServerGateway } from "../../app-server/session-gateway";
 import type { LocalIdSource } from "../../application/local-id-source";
 import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
@@ -56,7 +56,7 @@ interface ChatPanelThreadHost {
 }
 
 interface ChatPanelThreadFoundationInput {
-  appServer: ChatAppServerGateway;
+  appServer: ChatCurrentAppServerGateway;
   localItemIds: LocalIdSource;
   status: ChatPanelThreadStatus;
   refreshLiveState: () => void;
