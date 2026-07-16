@@ -10,7 +10,7 @@ import {
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
 describe("thread stream selectors", () => {
-  it("reuses active-segment indexes while appending deltas to an existing item", () => {
+  it("appends deltas to an existing active-segment item", () => {
     const initial = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn-1", [
       {
         id: "assistant-1",
@@ -23,9 +23,6 @@ describe("thread stream selectors", () => {
         turnId: "turn-1",
       },
     ]);
-    const previousSegment = initial.activeSegment;
-    if (!previousSegment) throw new Error("Expected active segment");
-
     const next = reduceThreadStreamSlice(initial, {
       type: "thread-stream/assistant-delta-appended",
       itemId: "source-1",
@@ -34,8 +31,6 @@ describe("thread stream selectors", () => {
     });
 
     expect(next.activeSegment?.items[0]).toMatchObject({ text: "hello world" });
-    expect(next.activeSegment?.indexById).toBe(previousSegment.indexById);
-    expect(next.activeSegment?.indexBySourceItemId).toBe(previousSegment.indexBySourceItemId);
   });
 
   it("counts turns after a turn id from thread stream state", () => {

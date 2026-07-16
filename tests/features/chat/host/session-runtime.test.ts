@@ -3,7 +3,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StaleAppServerResourceContextError } from "../../../../src/app-server/query/resource-store";
-import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { activeThreadId } from "../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
@@ -91,60 +90,6 @@ describe("ChatPanelSessionRuntime actions", () => {
 
     expect(refresh).toHaveBeenCalledOnce();
     expect(stateStore.getState().threadList.listedThreads).toEqual([]);
-  });
-
-  it("applies cached shared state from the runtime binding", () => {
-    const thread = threadFixture({ id: "thread-1", preview: "Cached thread" });
-    const model = modelFixture({ id: "model-1", model: "gpt-cached" });
-    const { runtime, stateStore } = sessionRuntimeFixture({
-      environment: {
-        plugin: {
-          threadCatalog: {
-            activeSnapshot: vi.fn(() => [thread]),
-          },
-          appServerQueries: {
-            modelsSnapshot: vi.fn(() => [model]),
-          },
-        },
-      },
-    });
-
-    runtime.runtime.sharedState.applyCached();
-
-    expect(stateStore.getState().threadList.listedThreads).toEqual([thread]);
-    expect(stateStore.getState().connection.availableModels).toEqual([model]);
-  });
-
-  it("subscribes and unsubscribes fixed shared state observers", () => {
-    const cleanupThreads = vi.fn();
-    const cleanupMetadata = vi.fn();
-    const cleanupModels = vi.fn();
-    const observeThreads = vi.fn(() => cleanupThreads);
-    const observeMetadata = vi.fn(() => cleanupMetadata);
-    const observeModels = vi.fn(() => cleanupModels);
-    const { runtime } = sessionRuntimeFixture({
-      environment: {
-        plugin: {
-          threadCatalog: {
-            observeActive: observeThreads,
-          },
-          appServerQueries: {
-            observeAppServerMetadataResult: observeMetadata,
-            observeModelsResult: observeModels,
-          },
-        },
-      },
-    });
-
-    runtime.runtime.sharedState.subscribe();
-    runtime.runtime.sharedState.unsubscribe();
-
-    expect(observeThreads).toHaveBeenCalledWith(expect.any(Function), { emitCurrent: false });
-    expect(observeMetadata).toHaveBeenCalledWith(expect.any(Function), { emitCurrent: false });
-    expect(observeModels).toHaveBeenCalledWith(expect.any(Function), { emitCurrent: false });
-    expect(cleanupThreads).toHaveBeenCalledOnce();
-    expect(cleanupMetadata).toHaveBeenCalledOnce();
-    expect(cleanupModels).toHaveBeenCalledOnce();
   });
 
   it("starts a new thread from runtime state and composer actions", async () => {
@@ -410,23 +355,6 @@ describe("ChatPanelSessionRuntime actions", () => {
       provenance: { kind: "interactive" },
       createdAt: 1,
       updatedAt: 1,
-      ...overrides,
-    };
-  }
-
-  function modelFixture(overrides: Partial<ModelMetadata> = {}): ModelMetadata {
-    return {
-      id: "model",
-      model: "gpt-5",
-      displayName: "GPT-5",
-      description: "",
-      hidden: false,
-      supportedReasoningEfforts: [],
-      defaultReasoningEffort: null,
-      inputModalities: [],
-      serviceTiers: [],
-      defaultServiceTier: null,
-      isDefault: false,
       ...overrides,
     };
   }

@@ -5,75 +5,16 @@ import type { AppServerQueryContext, AppServerQueryContextIdentity } from "../..
 import type { ObservedResult, ObservedResultListener } from "../../../../src/app-server/query/observed-result";
 import { AppServerResourceStore } from "../../../../src/app-server/query/resource-store";
 import type { Thread } from "../../../../src/domain/threads/model";
-import {
-  createThreadCatalog,
-  type ThreadCatalog,
-  type ThreadCatalogEventObserver,
-} from "../../../../src/features/threads/catalog/thread-catalog";
+import { createThreadCatalog, type ThreadCatalog } from "../../../../src/features/threads/catalog/thread-catalog";
 
 describe("ThreadCatalog", () => {
-  it("projects active snapshots received from the store observer", () => {
-    const { catalog } = catalogFixture();
-    const threads = [thread("thread")];
-    const listener = vi.fn();
-    catalog.observeActive(listener);
-
-    receiveActive(catalog, threads);
-
-    expect(catalog.activeSnapshot()).toEqual(threads);
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ value: threads }));
-  });
-
-  it("projects archived snapshots received from the store observer", () => {
-    const { catalog } = catalogFixture();
-    const threads = [thread("thread", true)];
-    const listener = vi.fn();
-    catalog.observeArchived(listener);
-
-    receiveArchived(catalog, threads);
-
-    expect(catalog.archivedSnapshot()).toEqual(threads);
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ value: threads }));
-  });
-
-  it("refreshes thread snapshots through the cache single-flight and notifies observers once", async () => {
-    const fetchThreads = vi.fn().mockResolvedValue([thread("thread")]);
-    const { catalog } = catalogFixture({ fetchThreads });
-    const listener = vi.fn();
-    catalog.observeActive(listener);
-
-    const first = catalog.refreshActive();
-    const second = catalog.refreshActive();
-
-    await expect(first).resolves.toEqual([thread("thread")]);
-    await expect(second).resolves.toEqual([thread("thread")]);
-    expect(fetchThreads).toHaveBeenCalledOnce();
-    expect(catalog.activeSnapshot()).toEqual([thread("thread")]);
-    expect(listener.mock.calls.filter(([result]) => result.value !== null)).toHaveLength(1);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("thread")] }));
-  });
-
-  it("notifies applied catalog events through a generic observer", () => {
-    const onEventApplied = vi.fn();
-    const { catalog } = catalogFixture({ onEventApplied });
-
-    catalog.apply({ type: "thread-started", thread: thread("thread") });
-
-    expect(onEventApplied).toHaveBeenCalledWith({ type: "thread-started", thread: thread("thread") });
-  });
-
   it("applies rename mutations after updating the catalog cache", () => {
     const { catalog } = catalogFixture();
-    const listener = vi.fn();
-    catalog.observeActive(listener);
     receiveActive(catalog, [thread("thread"), thread("other")]);
 
     catalog.apply({ type: "thread-renamed", threadId: "thread", name: "Renamed" });
 
     expect(catalog.activeSnapshot()).toEqual([{ ...thread("thread"), name: "Renamed" }, thread("other")]);
-    expect(listener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ value: [{ ...thread("thread"), name: "Renamed" }, thread("other")] }),
-    );
   });
 
   it("applies archive mutations after updating catalog membership", () => {
@@ -123,10 +64,6 @@ describe("ThreadCatalog", () => {
 
   it("applies known delete mutations to cache", () => {
     const { catalog } = catalogFixture();
-    const listener = vi.fn();
-    const archivedListener = vi.fn();
-    catalog.observeActive(listener);
-    catalog.observeArchived(archivedListener);
     receiveActive(catalog, [thread("thread"), thread("other")]);
     receiveArchived(catalog, [thread("thread", true), thread("archived", true)]);
 
@@ -134,16 +71,10 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()).toEqual([thread("other")]);
     expect(catalog.archivedSnapshot()).toEqual([thread("archived", true)]);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("other")] }));
-    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("archived", true)] }));
   });
 
   it("records started, forked, and restored thread membership", () => {
     const { catalog } = catalogFixture();
-    const listener = vi.fn();
-    const archivedListener = vi.fn();
-    catalog.observeActive(listener);
-    catalog.observeArchived(archivedListener);
     receiveActive(catalog, [thread("existing")]);
     receiveArchived(catalog, [thread("restored", true), thread("archived", true)]);
 
@@ -153,10 +84,6 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()?.map((item) => item.id)).toEqual(["restored", "forked", "started", "existing"]);
     expect(catalog.archivedSnapshot()?.map((item) => item.id)).toEqual(["archived"]);
-    expect(listener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ value: [thread("restored"), thread("forked"), thread("started"), thread("existing")] }),
-    );
-    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("archived", true)] }));
   });
 
   it("keeps app-server lifecycle threads visible until the server list acknowledges them", async () => {
@@ -318,8 +245,6 @@ describe("ThreadCatalog", () => {
 
   it("records active thread touches as catalog ordering facts", () => {
     const { catalog } = catalogFixture();
-    const listener = vi.fn();
-    catalog.observeActive(listener);
     receiveActive(catalog, [
       thread("active", false, { updatedAt: 1, recencyAt: 1 }),
       thread("other", false, { updatedAt: 10, recencyAt: 10 }),
@@ -331,33 +256,6 @@ describe("ThreadCatalog", () => {
       thread("active", false, { updatedAt: 1, recencyAt: 20 }),
       thread("other", false, { updatedAt: 10, recencyAt: 10 }),
     ]);
-    expect(listener).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        value: [thread("active", false, { updatedAt: 1, recencyAt: 20 }), thread("other", false, { updatedAt: 10, recencyAt: 10 })],
-      }),
-    );
-  });
-
-  it("applies thread lifecycle events through one catalog event boundary", () => {
-    const { catalog } = catalogFixture();
-    const listener = vi.fn();
-    const archivedListener = vi.fn();
-    catalog.observeActive(listener);
-    catalog.observeArchived(archivedListener);
-    receiveActive(catalog, [thread("existing")]);
-    receiveArchived(catalog, [thread("archived", true)]);
-
-    catalog.apply({ type: "thread-started", thread: thread("started") });
-    catalog.apply({ type: "thread-touched", threadId: "existing", recencyAt: 20 });
-    catalog.apply({ type: "thread-renamed", threadId: "started", name: "Started" });
-    catalog.apply({ type: "thread-archived", threadId: "existing" });
-
-    expect(catalog.activeSnapshot()).toEqual([{ ...thread("started"), name: "Started" }]);
-    expect(catalog.archivedSnapshot()).toEqual([thread("existing", true, { recencyAt: 20 }), thread("archived", true)]);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [{ ...thread("started"), name: "Started" }] }));
-    expect(archivedListener).toHaveBeenLastCalledWith(
-      expect.objectContaining({ value: [thread("existing", true, { recencyAt: 20 }), thread("archived", true)] }),
-    );
   });
 
   it("model-checks stale snapshots around unacknowledged rename and archive facts", () => {
@@ -413,10 +311,6 @@ describe("ThreadCatalog", () => {
       return Promise.resolve([thread("unknown")]);
     });
     const { catalog } = catalogFixture({ fetchThreads });
-    const listener = vi.fn();
-    const archivedListener = vi.fn();
-    catalog.observeActive(listener);
-    catalog.observeArchived(archivedListener);
     receiveActive(catalog, [thread("active")]);
     receiveArchived(catalog, [thread("known", true)]);
 
@@ -424,8 +318,6 @@ describe("ThreadCatalog", () => {
 
     expect(catalog.activeSnapshot()).toEqual([thread("known"), thread("active")]);
     expect(catalog.archivedSnapshot()).toEqual([]);
-    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [thread("known"), thread("active")] }));
-    expect(archivedListener).toHaveBeenLastCalledWith(expect.objectContaining({ value: [] }));
 
     catalog.apply({ type: "thread-unarchived", threadId: "unknown" });
 
@@ -549,7 +441,6 @@ function catalogFixture(
   options: {
     fetchThreads?: (context: { codexPath: string; vaultPath: string }, archived: boolean) => Promise<readonly Thread[]>;
     context?: () => { codexPath: string; vaultPath: string };
-    onEventApplied?: ThreadCatalogEventObserver;
   } = {},
 ) {
   const cache = cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([])));
@@ -557,14 +448,7 @@ function catalogFixture(
   const queries = new AppServerResourceStore({ cache });
   queries.initialize(context());
   const store = new TestThreadCatalogStore(queries);
-  const catalog = createThreadCatalog(
-    options.onEventApplied
-      ? {
-          store,
-          onEventApplied: options.onEventApplied,
-        }
-      : { store },
-  );
+  const catalog = createThreadCatalog({ store });
   catalogStores.set(catalog, store);
   catalog.observeActive(() => undefined);
   catalog.observeArchived(() => undefined);

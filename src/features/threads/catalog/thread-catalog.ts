@@ -43,7 +43,7 @@ interface ThreadCatalogFacts {
   archivedObservedResult: ObservedResult<readonly Thread[]> | null;
 }
 
-export type ThreadCatalogEventObserver = (event: ThreadCatalogEvent) => void;
+type ThreadCatalogEventObserver = (event: ThreadCatalogEvent) => void;
 
 export interface ThreadCatalogOptions {
   store: ThreadCatalogStore;

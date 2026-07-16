@@ -41,6 +41,21 @@ describe("AppServerQueryCache", () => {
     expect(fetchThreads).toHaveBeenCalledOnce();
   });
 
+  it("shares concurrent active thread refreshes within one resource identity", async () => {
+    const pending = deferred<readonly ReturnType<typeof thread>[]>();
+    const fetchThreads = vi.fn(() => pending.promise);
+    const cache = cacheWithThreads(fetchThreads);
+    const context = cacheContext();
+
+    const first = cache.refreshActiveThreads(context);
+    const second = cache.refreshActiveThreads(context);
+    await flushMicrotasks();
+
+    expect(fetchThreads).toHaveBeenCalledOnce();
+    pending.resolve([thread("shared")]);
+    await expect(Promise.all([first, second])).resolves.toEqual([[thread("shared")], [thread("shared")]]);
+  });
+
   it("keeps active and archived thread list snapshots separate", async () => {
     const fetchThreads = vi.fn((_context: AppServerQueryContext, archived: boolean) =>
       Promise.resolve(archived ? [thread("archived", true)] : [thread("active")]),

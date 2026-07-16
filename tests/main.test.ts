@@ -594,39 +594,6 @@ describe("CodexPanelPlugin workspace panel reconciliation", () => {
     expect(secondRenamed).toHaveBeenCalledWith("thread-1", "Renamed thread");
   });
 
-  it("single-flights shared thread list refreshes and caches successful results", async () => {
-    const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
-    const connectedLeaf = leaf();
-    connectedLeaf.view = chatView(CodexChatView, connectedLeaf);
-    const connectedView = connectedLeaf.view as CodexChatView;
-    vi.spyOn(connectedView.surface, "openPanelSnapshot").mockReturnValue(panelSnapshot({ viewId: "connected", connected: true }));
-    vi.spyOn(connectedView.surface, "canServeAppServerContext").mockReturnValue(true);
-    let resolveThreads!: (threads: Thread[]) => void;
-    const runWithAppServerClient = vi.spyOn(connectedView.surface, "runWithAppServerClient").mockImplementation((operation) =>
-      operation(
-        threadListClient(
-          () =>
-            new Promise<Thread[]>((resolve) => {
-              resolveThreads = resolve;
-            }),
-        ),
-      ),
-    );
-    const plugin = await pluginWithLeaves([connectedLeaf]);
-    plugin.settings.codexPath = "codex";
-
-    const first = threadCatalog(plugin).refreshActive();
-    const second = threadCatalog(plugin).refreshActive();
-    await flushMicrotasks();
-
-    expect(runWithAppServerClient).toHaveBeenCalledOnce();
-    resolveThreads([thread("first")]);
-
-    await expect(first).resolves.toEqual([thread("first")]);
-    await expect(second).resolves.toEqual([thread("first")]);
-    expect(threadCatalog(plugin).activeSnapshot()).toEqual([thread("first")]);
-  });
-
   it("keeps shared thread list refreshes separate across app-server cache contexts", async () => {
     const { CodexChatView } = await import("../src/features/chat/host/view.obsidian");
     const connectedLeaf = leaf();

@@ -204,6 +204,37 @@ describe("Biome Grit policies", () => {
     expect(result.status, result.output).toBe(0);
     expect(result.pluginErrors, result.output).toBe(0);
   });
+
+  it.each([
+    ["the relational :has pseudo-class", ".panel:has(.child) { color: var(--text-normal); }"],
+    ["class selectors hidden inside :where", ".panel:where(.child) { color: var(--text-normal); }"],
+    ["ID selectors", "#panel { color: var(--text-normal); }"],
+    ["universal selectors", ".panel * { color: var(--text-normal); }"],
+  ])("no-restricted-css-policy.grit rejects %s", async (_name, invalidSource) => {
+    const result = await lintPolicyCase(
+      {
+        plugin: "no-restricted-css-policy.grit",
+        invalid: { path: "src/styles/invalid.css", source: invalidSource },
+      },
+      "invalid",
+    );
+
+    expect(result.status, result.output).toBe(1);
+    expect(result.pluginErrors, result.output).toBeGreaterThan(0);
+  });
+
+  it("no-restricted-css-policy.grit accepts shallow panel selectors", async () => {
+    const result = await lintPolicyCase(
+      {
+        plugin: "no-restricted-css-policy.grit",
+        valid: { path: "src/styles/valid.css", source: ".panel .child:hover { color: var(--text-normal); }" },
+      },
+      "valid",
+    );
+
+    expect(result.status, result.output).toBe(0);
+    expect(result.pluginErrors, result.output).toBe(0);
+  });
 });
 
 function policyCase(plugin, invalidPath, invalidSource, validSource, options = {}) {
