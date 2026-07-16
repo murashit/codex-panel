@@ -1,6 +1,4 @@
 import { type ChatAction, type ChatState, chatReducer, createChatState } from "./root-reducer";
-import type { ChatThreadStreamActiveSegment, ChatThreadStreamState } from "./thread-stream";
-import { cloneDisclosureUiState } from "./ui-state";
 
 export interface ChatStateStore {
   getState(): ChatState;
@@ -9,7 +7,7 @@ export interface ChatStateStore {
 }
 
 export function createChatStateStore(initialState: ChatState = createChatState()): ChatStateStore {
-  let current = cloneChatState(initialState);
+  let current = initialState;
   const listeners = new Set<() => void>();
   return {
     getState: () => current,
@@ -26,65 +24,5 @@ export function createChatStateStore(initialState: ChatState = createChatState()
         listeners.delete(listener);
       };
     },
-  };
-}
-
-function cloneChatState(state: ChatState): ChatState {
-  return {
-    connection: {
-      ...state.connection,
-      availableModels: [...state.connection.availableModels],
-      availableSkills: [...state.connection.availableSkills],
-      availablePermissionProfiles: state.connection.availablePermissionProfiles.map((profile) => ({ ...profile })),
-    },
-    threadList: {
-      listedThreads: [...state.threadList.listedThreads],
-    },
-    panelThread:
-      state.panelThread.kind === "active" ? { kind: "active", thread: { ...state.panelThread.thread } } : { ...state.panelThread },
-    runtime: { ...state.runtime },
-    turn: { lifecycle: state.turn.lifecycle },
-    threadStream: cloneThreadStreamState(state.threadStream),
-    pendingSubmission: state.pendingSubmission ? { ...state.pendingSubmission, item: { ...state.pendingSubmission.item } } : null,
-    requests: {
-      approvals: [...state.requests.approvals],
-      pendingUserInputs: [...state.requests.pendingUserInputs],
-      pendingMcpElicitations: [...state.requests.pendingMcpElicitations],
-      userInputDrafts: new Map(state.requests.userInputDrafts),
-      mcpElicitationDrafts: new Map(state.requests.mcpElicitationDrafts),
-    },
-    composer: {
-      ...state.composer,
-      suggestions: [...state.composer.suggestions],
-    },
-    ui: {
-      toolbarPanel: state.ui.toolbarPanel,
-      archiveConfirmThreadId: state.ui.archiveConfirmThreadId,
-      rename: { ...state.ui.rename },
-      goalEditor: { ...state.ui.goalEditor },
-      threadStreamActionMenu: { ...state.ui.threadStreamActionMenu },
-      disclosures: cloneDisclosureUiState(state.ui.disclosures),
-    },
-  };
-}
-
-function cloneThreadStreamState(state: ChatThreadStreamState): ChatThreadStreamState {
-  return {
-    stableItems: [...state.stableItems],
-    activeSegment: cloneActiveSegment(state.activeSegment),
-    turnDiffs: new Map(state.turnDiffs),
-    historyCursor: state.historyCursor,
-    loadingHistory: state.loadingHistory,
-    reportedLogs: new Set(state.reportedLogs),
-  };
-}
-
-function cloneActiveSegment(segment: ChatThreadStreamActiveSegment | null): ChatThreadStreamActiveSegment | null {
-  if (!segment) return null;
-  return {
-    turnId: segment.turnId,
-    items: [...segment.items],
-    indexById: new Map(segment.indexById),
-    indexBySourceItemId: new Map(segment.indexBySourceItemId),
   };
 }

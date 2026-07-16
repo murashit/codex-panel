@@ -51,7 +51,7 @@ const CHAT_DISCLOSURE_BUCKETS = [
 
 type ChatDisclosureBucket = (typeof CHAT_DISCLOSURE_BUCKETS)[number];
 
-export type ChatDisclosureUiState = Readonly<Record<ChatDisclosureBucket, ReadonlySet<string>>>;
+type ChatDisclosureUiState = Readonly<Record<ChatDisclosureBucket, ReadonlySet<string>>>;
 
 export interface ChatUiState {
   readonly toolbarPanel: "history" | "chat-actions" | "status-panel" | null;
@@ -147,10 +147,6 @@ export function reduceUiSlice(state: ChatUiState, action: UiAction): ChatUiState
     case "ui/disclosure-set":
       return setDisclosureSlice(state, action.bucket, action.id, action.open);
   }
-}
-
-export function cloneDisclosureUiState(state: ChatDisclosureUiState): ChatDisclosureUiState {
-  return disclosureUiStateFrom((bucket) => new Set(state[bucket]));
 }
 
 export function maybeClearGoalObjectiveExpansion(

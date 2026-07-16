@@ -10,7 +10,7 @@ import { threadStreamIsTurnInitiator } from "../../domain/thread-stream/semantic
 import { completeReasoningItems, upsertThreadStreamItemById } from "../../domain/thread-stream/updates";
 import { definedPatch, patchObject } from "./patch";
 
-export interface ChatThreadStreamActiveSegment {
+interface ChatThreadStreamActiveSegment {
   readonly turnId: string | null;
   readonly items: readonly ThreadStreamItem[];
   readonly indexById: ReadonlyMap<string, number>;
