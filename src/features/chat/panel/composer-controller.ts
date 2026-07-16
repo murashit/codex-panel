@@ -159,10 +159,6 @@ export class ChatComposerController {
     this.options.contextReferenceProvider.dispose();
   }
 
-  refreshSuggestions(): void {
-    this.updateSuggestions();
-  }
-
   captureInputSnapshot(): ComposerInputSnapshot {
     const sourcePath = this.options.sourcePath();
     return {
@@ -245,23 +241,7 @@ export class ChatComposerController {
       this.dispatchSuggestions({ type: "composer/suggestions-set", suggestions: [] });
       return;
     }
-    const suggestions = activeComposerSuggestions(
-      beforeCursor,
-      this.noteCandidates(),
-      state.connection.availableSkills,
-      state.threadList.listedThreads,
-      state.connection.availableModels,
-      this.options.currentModelForSuggestions(),
-      {
-        activeThreadId: activeThreadState(state)?.id ?? null,
-        activeThreadEphemeral: activeThreadState(state)?.lifetime?.kind === "ephemeral",
-        activeThreadSubagent: activeThreadState(state)?.provenance?.kind === "subagent",
-        contextReferences: this.contextReferences(),
-        dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
-        permissionProfiles: state.connection.availablePermissionProfiles,
-        tagCandidates: () => this.options.noteCandidateProvider.tags(),
-      },
-    );
+    const suggestions = this.activeSuggestions(beforeCursor, state);
 
     this.dispatchSuggestions({
       type: "composer/suggestions-set",
@@ -298,7 +278,17 @@ export class ChatComposerController {
     }
     const beforeCursor = composerTextBeforeCursor(this.composer);
     if (beforeCursor === null) return { suggestions: [], selected: 0, dismissedSignature: null };
-    const suggestions = activeComposerSuggestions(
+    const suggestions = this.activeSuggestions(beforeCursor, state);
+    return {
+      suggestions,
+      selected: state.composer.suggestSelected >= suggestions.length ? 0 : state.composer.suggestSelected,
+      dismissedSignature: null,
+    };
+  }
+
+  private activeSuggestions(beforeCursor: string, state: ChatState): readonly ComposerSuggestion[] {
+    const activeThread = activeThreadState(state);
+    return activeComposerSuggestions(
       beforeCursor,
       this.noteCandidates(),
       state.connection.availableSkills,
@@ -306,18 +296,15 @@ export class ChatComposerController {
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
       {
-        activeThreadId: activeThreadState(state)?.id ?? null,
+        activeThreadId: activeThread?.id ?? null,
+        activeThreadEphemeral: activeThread?.lifetime?.kind === "ephemeral",
+        activeThreadSubagent: activeThread?.provenance?.kind === "subagent",
         contextReferences: this.contextReferences(),
         dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: state.connection.availablePermissionProfiles,
         tagCandidates: () => this.options.noteCandidateProvider.tags(),
       },
     );
-    return {
-      suggestions,
-      selected: state.composer.suggestSelected >= suggestions.length ? 0 : state.composer.suggestSelected,
-      dismissedSignature: null,
-    };
   }
 
   private selectSuggestion(index: number): void {

@@ -213,6 +213,53 @@ describe("ChatComposerController", () => {
     expect(parent.querySelector(".codex-panel__composer-suggestion")?.textContent).toContain("/");
   });
 
+  it("applies ephemeral-thread suggestion restrictions on input without waiting for keyup", () => {
+    const stateStore = createChatStateStore(
+      chatStateFixture({
+        activeThread: {
+          id: "side-thread",
+          lifetime: { kind: "ephemeral", sourceThreadId: "source-thread", sourceThreadTitle: "Source" },
+        },
+      }),
+    );
+    const { controller, parent } = composerControllerFixture({ stateStore });
+
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "/f");
+    composer(parent).setSelectionRange(2, 2);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(stateStore.getState().composer.suggestions.map((suggestion) => suggestion.replacement)).not.toContain("/fork");
+    expect(stateStore.getState().composer.suggestions.map((suggestion) => suggestion.replacement)).toContain("/fast");
+  });
+
+  it("omits subagent slash suggestions on input without waiting for keyup", () => {
+    const stateStore = createChatStateStore(
+      chatStateFixture({
+        activeThread: {
+          id: "child-thread",
+          provenance: {
+            kind: "subagent",
+            subagentKind: "thread-spawn",
+            parentThreadId: "parent-thread",
+            sessionId: "session",
+            depth: 1,
+            agentNickname: "Scout",
+            agentRole: "explorer",
+          },
+        },
+      }),
+    );
+    const { controller, parent } = composerControllerFixture({ stateStore });
+
+    renderComposerController(parent, controller, stateStore);
+    setTextAreaValue(composer(parent), "/");
+    composer(parent).setSelectionRange(1, 1);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(stateStore.getState().composer.suggestions).toEqual([]);
+  });
+
   it("updates Obsidian tag suggestions when the input changes", () => {
     const { controller, parent, stateStore } = composerControllerFixture({
       controller: {
