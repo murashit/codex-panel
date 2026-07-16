@@ -113,6 +113,7 @@ describe("chat inbound routing", () => {
     { name: "dynamic tool call", request: dynamicToolCallRequest(), kind: "unsupported" },
   ] as const)("classifies $name server requests and extracts scope", ({ request, kind }) => {
     expectRequestRouteKind(request, kind);
+    expectRequestRouteKind(request, kind, { activeThreadId: null, activeTurnId: null });
     if ("turnId" in request.params) {
       expectRequestRouteKind({ ...request, params: { ...request.params, turnId: "turn-other" } } as ServerRequest, "inactive");
     }
@@ -195,15 +196,6 @@ describe("chat inbound routing", () => {
       },
       "inactive",
     );
-  });
-
-  it.each([
-    { name: "command approval", request: commandApprovalRequest(), kind: "approval" },
-    { name: "user input", request: userInputRequest(), kind: "userInput" },
-    { name: "MCP elicitation", request: mcpElicitationRequest(), kind: "mcpElicitation" },
-    { name: "current time", request: currentTimeRequest("thread-active"), kind: "currentTime" },
-  ] as const)("classifies $name before unsupported requests", ({ request, kind }) => {
-    expectRequestRouteKind(request, kind, { activeThreadId: null, activeTurnId: null });
   });
 
   it("classifies inactive requests before request-family handling", () => {

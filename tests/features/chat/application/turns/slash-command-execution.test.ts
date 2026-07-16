@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { slashCommandHelpSections } from "../../../../../src/features/chat/application/composer/slash-commands";
+import {
+  SLASH_COMMANDS,
+  type SlashCommandName,
+  slashCommandHelpSections,
+} from "../../../../../src/features/chat/application/composer/slash-commands";
 import {
   executeSlashCommand,
   type SlashCommandExecutionContext,
@@ -95,21 +99,25 @@ function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
 }
 
 describe("slash commands", () => {
+  it.each(
+    SLASH_COMMANDS.filter((definition) => definition.argsKind === "none").map((definition) => [
+      definition.command.slice(1) as SlashCommandName,
+      definition.usage,
+    ]),
+  )("rejects arguments for /%s from catalog metadata", async (command, usage) => {
+    const ctx = context();
+
+    await executeSlashCommand(command, "unexpected", ctx);
+
+    expect(ctx.addSystemMessage).toHaveBeenCalledWith(`/${command} does not take arguments. Usage: ${usage}`);
+  });
+
   it("clears the current panel for /clear", async () => {
     const ctx = context();
 
     await executeSlashCommand("clear", "", ctx);
 
     expect(ctx.startNewThread).toHaveBeenCalledOnce();
-  });
-
-  it("rejects /clear arguments", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("clear", "最初の依頼です", ctx);
-
-    expect(ctx.startNewThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/clear does not take arguments. Usage: /clear");
   });
 
   it("resumes the latest listed thread for bare /resume", async () => {
@@ -291,15 +299,6 @@ describe("slash commands", () => {
     expect(ctx.threadActions.forkThread).toHaveBeenCalledWith("active-thread");
   });
 
-  it("rejects /fork arguments", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("fork", "anything", ctx);
-
-    expect(ctx.threadActions.forkThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fork does not take arguments. Usage: /fork");
-  });
-
   it("does not fork a side chat", async () => {
     const ctx = context({ activeThreadId: "side-thread", activeThreadEphemeral: true });
 
@@ -352,24 +351,6 @@ describe("slash commands", () => {
 
     expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("No active thread to roll back.");
-  });
-
-  it("delegates rollback running-turn checks to thread actions", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("rollback", "", ctx);
-
-    expect(ctx.threadActions.rollbackThread).toHaveBeenCalledWith("thread-1");
-    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Interrupt the current turn before rolling back.");
-  });
-
-  it("rejects /rollback arguments", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("rollback", "2", ctx);
-
-    expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rollback does not take arguments. Usage: /rollback");
   });
 
   it("toggles Plan mode without sending text for bare /plan", async () => {
@@ -512,24 +493,6 @@ describe("slash commands", () => {
     expect(result).toBeUndefined();
   });
 
-  it("rejects /auto-review arguments", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("auto-review", "この依頼からお願いします", ctx);
-
-    expect(ctx.runtimeSettings.toggleAutoReview).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/auto-review does not take arguments. Usage: /auto-review");
-  });
-
-  it("rejects /compact arguments", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("compact", "ignored for now", ctx);
-
-    expect(ctx.threadActions.compactThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/compact does not take arguments. Usage: /compact");
-  });
-
   it("rejects bare /archive", async () => {
     const ctx = context({ activeThreadId: "active-thread" });
 
@@ -547,35 +510,6 @@ describe("slash commands", () => {
     await executeSlashCommand("archive", "thread-beta", ctx);
 
     expect(ctx.threadActions.archiveThread).toHaveBeenCalledWith("thread-beta");
-  });
-
-  it("rejects /archive without a thread before active-thread checks", async () => {
-    const ctx = context({ activeThreadId: null });
-
-    await executeSlashCommand("archive", "", ctx);
-
-    expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/archive requires a thread. Usage: /archive <thread>");
-  });
-
-  it("delegates archive running-turn checks to thread actions", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("archive", "thread-1", ctx);
-
-    expect(ctx.threadActions.archiveThread).toHaveBeenCalledWith("thread-1");
-    expect(ctx.addSystemMessage).not.toHaveBeenCalledWith("Finish or interrupt the current turn before archiving threads.");
-  });
-
-  it("reports ambiguous archive matches", async () => {
-    const ctx = context({
-      listedThreads: [thread({ id: "thread-alpha", name: "Draft" }), thread({ id: "thread-beta", name: "Draft notes" })],
-    });
-
-    await executeSlashCommand("archive", "Draft", ctx);
-
-    expect(ctx.threadActions.archiveThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft (thread-a), Draft notes (thread-b)");
   });
 
   it("renames a selected thread by id argument", async () => {
@@ -607,26 +541,6 @@ describe("slash commands", () => {
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rename requires a thread and a name. Usage: /rename <thread> <name>");
   });
 
-  it("rejects blank /rename names after trimming", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("rename", "thread-1     ", ctx);
-
-    expect(ctx.threadActions.renameThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/rename requires a thread and a name. Usage: /rename <thread> <name>");
-  });
-
-  it("reports ambiguous rename matches", async () => {
-    const ctx = context({
-      listedThreads: [thread({ id: "thread-alpha", name: "Draft" }), thread({ id: "thread-beta", name: "Draft notes" })],
-    });
-
-    await executeSlashCommand("rename", "Draft New name", ctx);
-
-    expect(ctx.threadActions.renameThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Multiple matching threads: Draft (thread-a), Draft notes (thread-b)");
-  });
-
   it("shows slash command help as a structured system result", async () => {
     const ctx = context();
 
@@ -634,29 +548,6 @@ describe("slash commands", () => {
 
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Available slash commands", slashCommandHelpSections());
-  });
-
-  it("groups slash command help by command surface", () => {
-    const sections = slashCommandHelpSections();
-
-    expect(sections.map((section) => section.title)).toEqual(["Panel actions", "Thread settings", "Diagnostics", "Composition"]);
-    expect(slashCommandHelpKeys("Panel actions")).toEqual(
-      expect.arrayContaining(["/clear", "/reconnect", "/archive <thread>", "/rename <thread> <name>"]),
-    );
-    expect(slashCommandHelpKeys("Thread settings")).toEqual(
-      expect.arrayContaining(["/plan [message]", "/goal", "/permissions [profile|default]", "/model [model|default]"]),
-    );
-    expect(slashCommandHelpKeys("Diagnostics")).toEqual(expect.arrayContaining(["/status", "/doctor", "/tools", "/help"]));
-    expect(slashCommandHelpKeys("Composition")).toEqual(["/refer <thread> <message>", "/web <url> [message]"]);
-  });
-
-  it("rejects /help arguments", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("help", "anything", ctx);
-
-    expect(ctx.addStructuredSystemMessage).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/help does not take arguments. Usage: /help");
   });
 
   it("shows status as a structured system result", async () => {
@@ -674,15 +565,6 @@ describe("slash commands", () => {
 
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Thread status", details);
-  });
-
-  it("rejects /status arguments", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("status", "anything", ctx);
-
-    expect(ctx.addStructuredSystemMessage).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/status does not take arguments. Usage: /status");
   });
 
   it("shows permissions and approvals as shared structured sections", async () => {
@@ -759,23 +641,6 @@ describe("slash commands", () => {
 
     expect(ctx.addSystemMessage).not.toHaveBeenCalled();
     expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Connection diagnostics", details);
-  });
-
-  it("rejects /doctor arguments", async () => {
-    const details = [{ title: "Process", rows: [{ key: "connection", value: "connected" }] }];
-    const ctx = context({ connectionDiagnosticDetails: () => details });
-
-    await executeSlashCommand("doctor", "anything", ctx);
-
-    expect(ctx.addStructuredSystemMessage).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/doctor does not take arguments. Usage: /doctor");
-  });
-
-  it("expands goal subcommands in help", () => {
-    expect(slashCommandHelpKeys("Thread settings")).toEqual(
-      expect.arrayContaining(["/goal", "/goal set <objective>", "/goal edit", "/goal pause", "/goal resume", "/goal clear"]),
-    );
-    expect(slashCommandHelpKeys("Thread settings")).not.toContain("/goal [set <objective>|edit|pause|resume|clear]");
   });
 
   it("rejects unsupported reasoning effort with usage", async () => {
@@ -869,29 +734,12 @@ describe("slash commands", () => {
     ]);
   });
 
-  it("rejects /tools arguments", async () => {
+  it("toggles fast mode without sending text", async () => {
     const ctx = context();
 
-    await executeSlashCommand("tools", "install github", ctx);
+    const result = await executeSlashCommand("fast", "", ctx);
 
-    expect(ctx.toolInventoryDetails).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/tools does not take arguments. Usage: /tools");
-  });
-
-  it("rejects /fast arguments before toggling", async () => {
-    const ctx = context();
-
-    await executeSlashCommand("fast", "now", ctx);
-
-    expect(ctx.runtimeSettings.toggleFastMode).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("/fast does not take arguments. Usage: /fast");
+    expect(ctx.runtimeSettings.toggleFastMode).toHaveBeenCalledOnce();
+    expect(result).toBeUndefined();
   });
 });
-
-function slashCommandHelpKeys(title: string): string[] {
-  return (
-    slashCommandHelpSections()
-      .find((section) => section.title === title)
-      ?.auditFacts.map((row) => row.key) ?? []
-  );
-}

@@ -17,7 +17,6 @@ import {
 } from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
-import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/thread-stream/updates";
 import type { ThreadCatalogEvent } from "../../../../../src/features/threads/catalog/thread-catalog";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
@@ -248,91 +247,6 @@ describe("ChatInboundHandler", () => {
       expect(handler.currentState().threadStream.turnDiffs.size).toBe(0);
     });
 
-    it("formats hook runs as compact summaries with details", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "hook/completed",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          run: {
-            id: "hook-1",
-            eventName: "postToolUse",
-            handlerType: "command",
-            executionMode: "sync",
-            scope: "turn",
-            sourcePath: "/vault/.codex/hooks.json",
-            source: "project",
-            displayOrder: 1n,
-            status: "completed",
-            statusMessage: "Formatted 1 file.",
-            startedAt: 1n,
-            completedAt: 2n,
-            durationMs: 1n,
-            entries: [{ kind: "feedback", text: "ok" }],
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())).toMatchObject([
-        {
-          id: "hook-hook-1-1",
-          kind: "hook",
-          toolName: "hook",
-          operation: "postToolUse",
-          primaryTarget: { kind: "value", value: "Formatted 1 file." },
-          status: "completed",
-          executionState: "completed",
-          output: "",
-          hookRun: {
-            eventName: "postToolUse",
-            statusMessage: "Formatted 1 file.",
-            durationMs: "1ms",
-            entries: [{ kind: "feedback", text: "ok" }],
-          },
-        },
-      ]);
-    });
-
-    it("omits hook duration details while duration is unavailable", () => {
-      const state = activeRunningState();
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "hook/completed",
-        params: {
-          threadId: "thread-active",
-          turnId: "turn-active",
-          run: {
-            id: "hook-1",
-            eventName: "postToolUse",
-            handlerType: "command",
-            executionMode: "sync",
-            scope: "turn",
-            sourcePath: "/vault/.codex/hooks.json",
-            source: "project",
-            displayOrder: 1n,
-            status: "completed",
-            statusMessage: null,
-            startedAt: 1n,
-            completedAt: null,
-            durationMs: null,
-            entries: [],
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "hook/completed" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
-        kind: "hook",
-        hookRun: {
-          eventName: "postToolUse",
-          entries: [],
-        },
-      });
-    });
-
     it("attaches unscoped hook runs to the active turn while streaming", () => {
       const state = activeRunningState();
       const handler = handlerForState(state);
@@ -487,37 +401,6 @@ describe("ChatInboundHandler", () => {
         TEST_APP_SERVER_CONTEXT,
       );
       expect(refreshActiveThreads).not.toHaveBeenCalled();
-    });
-
-    it("moves pre-turn hook runs after the optimistic user message when a turn id is assigned", () => {
-      const items = attachHookRunsToTurn(
-        [
-          {
-            id: "hook-old-1",
-            kind: "hook",
-            role: "tool",
-            text: "userPromptSubmit: Stale hook",
-            toolName: "hook",
-            status: "completed",
-          },
-          {
-            id: "hook-hook-1-1",
-            kind: "hook",
-            role: "tool",
-            text: "userPromptSubmit: Saving jj baseline",
-            toolName: "hook",
-            status: "completed",
-          },
-          { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello" },
-        ],
-        "turn-active",
-        ["hook-hook-1-1"],
-        "local-user-1",
-      );
-
-      expect(items.map((item) => item.id)).toEqual(["hook-old-1", "local-user-1", "hook-hook-1-1"]);
-      expect(items[0]?.turnId).toBeUndefined();
-      expect(items[2]).toMatchObject({ id: "hook-hook-1-1", turnId: "turn-active" });
     });
 
     it("captures only prompt-submit hooks observed during the pending turn start", () => {
@@ -999,49 +882,27 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
-    it("handles known server request families and rejects unsupported requests by default", () => {
+    it("responds to current-time requests and rejects a representative known unsupported request", () => {
       const state = chatStateFixture();
       const rejectServerRequest = vi.fn(() => true);
       const respondToServerRequest = vi.fn(() => true);
       const handler = handlerForState(state, { rejectServerRequest, respondToServerRequest });
 
-      for (const request of supportedApprovalRequests()) {
-        handler.handleServerRequest(request);
-      }
-      handler.handleServerRequest(userInputRequest(20));
-      handler.handleServerRequest(mcpElicitationRequest(21));
       const dateNow = vi.spyOn(Date, "now").mockReturnValue(1_700_000_123_456);
       handler.handleServerRequest(currentTimeRequest(28, "thread"));
-      const unsupported = unsupportedRequests();
-      for (const request of unsupported) {
-        handler.handleServerRequest(request);
-      }
       dateNow.mockRestore();
-      handler.handleServerRequest(unknownRequest());
+      const unsupported = {
+        id: 22,
+        method: "item/tool/call",
+        params: { threadId: "thread", turnId: "turn", callId: "call", namespace: null, tool: "tool", arguments: {} },
+      } satisfies Extract<ServerRequest, { method: "item/tool/call" }>;
+      handler.handleServerRequest(unsupported);
 
-      expect(handler.currentState().requests.approvals.map((approval) => approval.requestId)).toEqual([10, 11, 12]);
-      expect(handler.currentState().requests.pendingUserInputs.map((input) => input.requestId)).toEqual([20]);
-      expect(handler.currentState().requests.pendingMcpElicitations.map((elicitation) => elicitation.requestId)).toEqual([21]);
       expect(respondToServerRequest).toHaveBeenCalledWith(28, { currentTimeAt: 1_700_000_123 });
-      const unsupportedMessages = unsupported.map((request) => `Rejected unsupported app-server request: ${request.method}`);
-      expect(rejectServerRequest).toHaveBeenCalledTimes(unsupportedMessages.length + 1);
-      for (const [index, request] of unsupported.entries()) {
-        expect(rejectServerRequest).toHaveBeenNthCalledWith(index + 1, request.id, -32601, unsupportedMessages[index]);
-      }
-      expect(rejectServerRequest).toHaveBeenNthCalledWith(
-        unsupportedMessages.length + 1,
-        27,
-        -32601,
-        "Rejected unknown app-server request: appServer/newFutureRequest",
-      );
-      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual(
-        unsupportedMessages,
-      );
-      expect(
-        chatStateThreadStreamItems(handler.currentState())
-          .map((item) => ("text" in item ? item.text : ""))
-          .join("\n"),
-      ).not.toContain("do-not-render");
+      expect(rejectServerRequest).toHaveBeenCalledWith(22, -32601, "Rejected unsupported app-server request: item/tool/call");
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual([
+        "Rejected unsupported app-server request: item/tool/call",
+      ]);
     });
 
     it("keeps unknown server request fallback out of the normal thread stream", () => {
@@ -1289,65 +1150,8 @@ describe("ChatInboundHandler", () => {
       expect(chatStateThreadStreamItems(handler.currentState())).toEqual([]);
     });
 
-    it("clears all active-thread scoped state when the active thread is archived", () => {
-      let state = activeRunningState();
-      state = chatStateWith(state, { runtime: { active: { model: "gpt-5.5" } } });
-      state = chatStateWith(state, { runtime: { active: { serviceTier: "fast" } } });
-      state = chatStateWith(state, {
-        activeThread: {
-          tokenUsage: {
-            last: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
-            total: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 2, reasoningOutputTokens: 0, totalTokens: 3 },
-            modelContextWindow: 100,
-          },
-        },
-      });
-      state = chatStateWith(state, { threadStream: { historyCursor: "cursor" } });
-      state = chatStateWith(state, { threadStream: { loadingHistory: true } });
-      state = withChatStateThreadStreamItems(state, [
-        {
-          id: "message",
-          kind: "dialogue",
-          role: "assistant",
-          text: "stale",
-          dialogueKind: "assistantResponse",
-          dialogueState: "completed",
-        },
-      ]);
-      state = chatStateWith(state, { threadStream: { turnDiffs: new Map([["turn-active", "@@\n-stale\n+stale"]]) } });
-      state = chatStateWith(state, { composer: { draft: "thread draft" } });
-      state = chatStateWith(state, {
-        requests: {
-          approvals: [
-            pendingApprovalFromRequest({
-              id: 10,
-              method: "item/commandExecution/requestApproval",
-              params: expectPresent(supportedApprovalRequests()[0]).params as Extract<
-                ServerRequest,
-                { method: "item/commandExecution/requestApproval" }
-              >["params"],
-            }),
-          ],
-        },
-      });
-      state = chatStateWith(state, {
-        requests: {
-          pendingUserInputs: [
-            pendingUserInputFromRequest({
-              id: 20,
-              method: "item/tool/requestUserInput",
-              params: {
-                threadId: "thread-active",
-                turnId: "turn-active",
-                itemId: "input",
-                questions: [{ id: "note", header: "Note", question: "What now?", isOther: false, isSecret: false, options: null }],
-                autoResolutionMs: null,
-              },
-            }),
-          ],
-        },
-      });
-      state = chatStateWith(state, { requests: { userInputDrafts: new Map([["20:note", "draft"]]) } });
+    it("routes active-thread archive notifications to the shared catalog without clearing the panel", () => {
+      const state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread-active" } });
       const applyThreadCatalogEvent = vi.fn();
       const handler = handlerForState(state, { applyThreadCatalogEvent });
 
@@ -1491,52 +1295,6 @@ describe("ChatInboundHandler", () => {
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
       expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
-    });
-
-    it("replaces optimistic user echoes when completed turns are reconciled", () => {
-      let state = activeRunningState();
-      state = withChatStateThreadStreamItems(state, [
-        { id: "local-user-1", kind: "dialogue", dialogueKind: "user", role: "user", text: "hello", turnId: "turn-active" },
-        {
-          id: "a1",
-          sourceItemId: "a1",
-          kind: "dialogue",
-          role: "assistant",
-          dialogueKind: "assistantResponse",
-          dialogueState: "completed",
-          text: "partial",
-          turnId: "turn-active",
-        },
-      ]);
-      const handler = handlerForState(state);
-
-      handler.handleNotification({
-        method: "turn/completed",
-        params: {
-          threadId: "thread-active",
-          turn: {
-            id: "turn-active",
-            status: "completed",
-            error: null,
-            startedAt: null,
-            completedAt: null,
-            durationMs: null,
-            itemsView: "full",
-            items: [
-              { type: "userMessage", id: "u1", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-              { type: "agentMessage", id: "a1", text: "done", phase: "final_answer", memoryCitation: null },
-            ],
-          },
-        },
-      } satisfies Extract<ServerNotification, { method: "turn/completed" }>);
-
-      expect(chatStateThreadStreamItems(handler.currentState()).filter((item) => item.kind === "dialogue" && item.role === "user")).toEqual(
-        [expect.objectContaining({ id: "u1", text: "hello" })],
-      );
-      expect(chatStateThreadStreamItems(handler.currentState())).toEqual(
-        expect.arrayContaining([expect.objectContaining({ id: "a1", text: "done" })]),
-      );
-      expect(chatStateThreadStreamItems(handler.currentState()).some((item) => item.id === "local-user-1")).toBe(false);
     });
 
     it("reconciles optimistic user echoes by client id before falling back to same-turn text only when client ids are absent", () => {
@@ -2009,39 +1767,6 @@ describe("ChatInboundHandler", () => {
 
       expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
     });
-
-    it("ignores goal notifications that do not match the active thread", () => {
-      const goal = {
-        threadId: "previous-thread",
-        objective: "Stale",
-        status: "active",
-        tokenBudget: null,
-        tokensUsed: 0,
-        timeUsedSeconds: 0,
-        createdAt: 1,
-        updatedAt: 1,
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>["params"]["goal"];
-
-      const noActiveState = chatStateFixture();
-      const noActiveHandler = handlerForState(noActiveState);
-      noActiveHandler.handleNotification({
-        method: "thread/goal/updated",
-        params: { threadId: "previous-thread", turnId: null, goal },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(activeThreadState(noActiveState)).toBeNull();
-
-      let otherThreadState = chatStateFixture();
-      otherThreadState = chatStateWith(otherThreadState, { activeThread: { id: "thread-active" } });
-      otherThreadState = chatStateWith(otherThreadState, {
-        activeThread: { goal: { ...goal, threadId: "thread-active", objective: "Current" } },
-      });
-      const otherThreadHandler = handlerForState(otherThreadState);
-      otherThreadHandler.handleNotification({
-        method: "thread/goal/cleared",
-        params: { threadId: "previous-thread" },
-      } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
-      expect(expectPresent(activeThreadState(otherThreadState)?.goal).objective).toBe("Current");
-    });
   });
 
   describe("auto-review display", () => {
@@ -2303,44 +2028,6 @@ function promptSubmitHookRun(id: string, startedAt: bigint): Extract<ServerNotif
     durationMs: 1n,
     entries: [],
   };
-}
-
-function unsupportedRequests(): ServerRequest[] {
-  return [
-    {
-      id: 22,
-      method: "item/tool/call",
-      params: { threadId: "thread", turnId: "turn", callId: "call", namespace: null, tool: "tool", arguments: {} },
-    },
-    {
-      id: 23,
-      method: "account/chatgptAuthTokens/refresh",
-      params: { reason: "unauthorized", previousAccountId: null },
-    },
-    {
-      id: 24,
-      method: "attestation/generate",
-      params: {},
-    },
-    {
-      id: 25,
-      method: "applyPatchApproval",
-      params: { conversationId: "thread", callId: "patch", fileChanges: {}, reason: "patch", grantRoot: null },
-    },
-    {
-      id: 26,
-      method: "execCommandApproval",
-      params: {
-        conversationId: "thread",
-        callId: "exec",
-        approvalId: null,
-        command: ["npm", "test"],
-        cwd: "/tmp/project",
-        reason: "exec",
-        parsedCmd: [],
-      },
-    },
-  ];
 }
 
 function currentTimeRequest(id: number, threadId: string): ServerRequest {

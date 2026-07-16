@@ -19,7 +19,13 @@ import {
   selectionContextReferenceMarker,
 } from "./context-references";
 import type { DailyNoteReferenceCandidate } from "./daily-note-references";
-import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
+import {
+  isSlashCommandName,
+  SLASH_COMMANDS,
+  type SlashCommandName,
+  slashCommandAvailableInSideChat,
+  slashCommandSubcommands,
+} from "./slash-commands";
 
 export interface ComposerSuggestion {
   display: string;
@@ -397,8 +403,6 @@ function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCand
   return b.mtime - a.mtime || a.basename.localeCompare(b.basename) || a.path.localeCompare(b.path);
 }
 
-const SIDE_CHAT_UNAVAILABLE_SLASH_COMMANDS = new Set(["/btw", "/fork", "/rollback"]);
-
 function activeSlashCommandSuggestions(
   beforeCursor: string,
   activeThreadEphemeral: boolean,
@@ -415,7 +419,8 @@ function activeSlashCommandSuggestions(
   const start = match.index + match[0].lastIndexOf("/");
   return SLASH_COMMANDS.filter(
     (item) =>
-      item.command.toLowerCase().startsWith(query) && (!activeThreadEphemeral || !SIDE_CHAT_UNAVAILABLE_SLASH_COMMANDS.has(item.command)),
+      item.command.toLowerCase().startsWith(query) &&
+      (!activeThreadEphemeral || slashCommandAvailableInSideChat(item.command.slice(1) as SlashCommandName)),
   )
     .slice(0, 8)
     .map((item) => ({

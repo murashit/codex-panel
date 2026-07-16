@@ -87,33 +87,6 @@ describe("executeSlashCommandWithState", () => {
     expect(result).toBeUndefined();
   });
 
-  it("routes compact through the shared thread action port", async () => {
-    const { compactThread, host, stateStore } = createHost();
-    stateStore.dispatch({
-      type: "thread-list/applied",
-      threads: [thread("thread", "Thread")],
-    });
-    stateStore.dispatch({
-      type: "active-thread/resumed",
-      approvalPolicyKnown: true,
-      sandboxPolicyKnown: true,
-      permissionProfileKnown: true,
-      approvalPolicy: null,
-      sandboxPolicy: null,
-      activePermissionProfile: null,
-      thread: thread("thread", "Thread"),
-      cwd: "/vault",
-      model: null,
-      reasoningEffort: null,
-      serviceTier: null,
-      approvalsReviewer: null,
-    });
-
-    await executeSlashCommandWithState(host, "compact", "");
-
-    expect(compactThread).toHaveBeenCalledWith("thread");
-  });
-
   it("routes compact through the shared thread action port before a client is connected", async () => {
     const { compactThread, host, stateStore } = createHost({ connectionAvailable: () => false });
     stateStore.dispatch({

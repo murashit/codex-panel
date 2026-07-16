@@ -7,7 +7,6 @@ import type { TurnItem, TurnRecord } from "../../../../src/app-server/protocol/t
 import type { CodexInput } from "../../../../src/domain/chat/input";
 import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
 import { createChatAppServerGateway, createChatCurrentAppServerGateway } from "../../../../src/features/chat/app-server/session-gateway";
-import { createThreadReferenceResolver } from "../../../../src/features/chat/app-server/thread-reference-resolver";
 import { preparedUserInputWithWikiLinkMentionsSkillsAndContext } from "../../../../src/features/chat/application/composer/wikilink-context";
 import { deferred } from "../../../support/async";
 
@@ -434,53 +433,6 @@ describe("chat app-server transports", () => {
     });
 
     expect(request).toHaveBeenCalledWith("skills/list", { cwds: ["/vault"], forceReload: false });
-  });
-
-  it("resolves referenced thread input at the app-server boundary", async () => {
-    const request = vi.fn().mockResolvedValue({
-      data: [turn([userMessage("u1", "元の依頼"), agentMessage("a1", "回答")])],
-      nextCursor: null,
-    });
-    const client = { request } as unknown as AppServerClient;
-    const setStatus = vi.fn();
-    const inputSnapshot = { sourcePath: "snapshot.md" } as never;
-    const prepareInput = vi.fn((text: string) => ({ text, input: textInput(text) }));
-    const resolver = createThreadReferenceResolver({
-      currentClient: () => client,
-      prepareInput,
-      addSystemMessage: vi.fn(),
-      setStatus,
-    });
-
-    const result = await resolver.referThread(
-      {
-        id: "019abcde-0000-7000-8000-000000000001",
-        preview: "",
-        name: "Other",
-        createdAt: 1,
-        updatedAt: 1,
-        archived: false,
-        provenance: { kind: "interactive" },
-      },
-      "summarize",
-      inputSnapshot,
-    );
-
-    expect(request).toHaveBeenCalledWith("thread/turns/list", {
-      threadId: "019abcde-0000-7000-8000-000000000001",
-      cursor: null,
-      limit: 20,
-      sortDirection: "desc",
-      itemsView: "full",
-    });
-    expect(result?.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("Reference thread history:"),
-    });
-    expect(result?.text).toBe("summarize");
-    expect(prepareInput).toHaveBeenCalledWith("summarize", inputSnapshot);
-    expect(result?.referencedThread).toMatchObject({ title: "Other", includedTurns: 1, turnLimit: 20 });
-    expect(setStatus).toHaveBeenCalledWith("Referencing 019abcde (1/20 turns).");
   });
 
   it("uses a short-lived client for clientAccess operations that reject server requests", async () => {

@@ -33,6 +33,7 @@ export interface SlashCommandDefinitionShape {
   argsKind: SlashCommandArgsKind;
   surface: SlashCommandSurface;
   detail: string;
+  sideChatAvailable?: false;
   subcommands?: readonly SlashCommandSubcommandDefinition[];
 }
 
@@ -72,14 +73,29 @@ export const SLASH_COMMANDS = [
     surface: "composition",
     detail: "Fetch readable web content as context and send it with an optional message.",
   },
-  { command: "/fork", usage: "/fork", argsKind: "none", surface: "panelAction", detail: "Fork the active Codex thread." },
-  { command: "/btw", usage: "/btw", argsKind: "none", surface: "panelAction", detail: "Open a temporary side chat." },
+  {
+    command: "/fork",
+    usage: "/fork",
+    argsKind: "none",
+    surface: "panelAction",
+    detail: "Fork the active Codex thread.",
+    sideChatAvailable: false,
+  },
+  {
+    command: "/btw",
+    usage: "/btw",
+    argsKind: "none",
+    surface: "panelAction",
+    detail: "Open a temporary side chat.",
+    sideChatAvailable: false,
+  },
   {
     command: "/rollback",
     usage: "/rollback",
     argsKind: "none",
     surface: "panelAction",
     detail: "Roll back the latest turn and restore its prompt.",
+    sideChatAvailable: false,
   },
   { command: "/compact", usage: "/compact", argsKind: "none", surface: "panelAction", detail: "Compact the current thread context." },
   {
@@ -201,6 +217,11 @@ export interface SlashCommandHelpSection {
 
 export function slashCommandRequiresConnection(command: SlashCommandName): boolean {
   return !CONNECTION_INDEPENDENT_SLASH_COMMANDS.has(command);
+}
+
+export function slashCommandAvailableInSideChat(command: SlashCommandName): boolean {
+  const definition = slashCommandDefinition(command);
+  return !("sideChatAvailable" in definition);
 }
 
 export function slashCommandDefinition(command: SlashCommandName): SlashCommandDefinition {

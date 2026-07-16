@@ -70,6 +70,72 @@ describe("thread management actions", () => {
     expect(host.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be forked.");
   });
 
+  it.each([
+    {
+      name: "fork",
+      invoke: (actions: ThreadManagementActions) => actions.forkThread("agent-thread"),
+      transport: "forkThread" as const,
+      message: "Agent threads cannot be forked.",
+    },
+    {
+      name: "rollback",
+      invoke: (actions: ThreadManagementActions) => actions.rollbackThread("agent-thread"),
+      transport: "rollbackThread" as const,
+      message: "Agent threads cannot be rolled back.",
+    },
+  ])("rejects $name mutations for subagent threads", async ({ invoke, transport, message }) => {
+    const host = hostMock({
+      items: turnItems(),
+      activeThread: {
+        id: "agent-thread",
+        provenance: {
+          kind: "subagent",
+          subagentKind: "thread-spawn",
+          parentThreadId: "parent",
+          sessionId: "session",
+          depth: 1,
+          agentNickname: "Scout",
+          agentRole: "explorer",
+        },
+      },
+    });
+
+    await invoke(threadManagementActions(host));
+
+    expect(host.threadTransport[transport]).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith(message);
+  });
+
+  it.each([
+    {
+      name: "archive",
+      invoke: (actions: ThreadManagementActions) => actions.archiveThread("source"),
+      operation: "archiveThread" as const,
+      message: "Finish or interrupt the current turn before archiving threads.",
+    },
+    {
+      name: "fork",
+      invoke: (actions: ThreadManagementActions) => actions.forkThread("source"),
+      operation: "forkThread" as const,
+      message: "Finish or interrupt the current turn before forking threads.",
+    },
+    {
+      name: "rollback",
+      invoke: (actions: ThreadManagementActions) => actions.rollbackThread("source"),
+      operation: "rollbackThread" as const,
+      message: "Interrupt the current turn before rolling back.",
+    },
+  ])("rejects $name while a turn is busy", async ({ invoke, operation, message }) => {
+    const host = hostMock({ items: turnItems(), activeThread: { id: "source" } });
+    host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "turn-running" });
+
+    await invoke(threadManagementActions(host));
+
+    if (operation === "archiveThread") expect(host.operations.archiveThread).not.toHaveBeenCalled();
+    else expect(host.threadTransport[operation]).not.toHaveBeenCalled();
+    expect(host.addSystemMessage).toHaveBeenCalledWith(message);
+  });
+
   it("requests thread compaction and reports the shared status", async () => {
     const host = hostMock({ items: [] });
     const controller = threadManagementActions(host);

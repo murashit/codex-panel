@@ -4,7 +4,7 @@ import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
-import type { SlashCommandName } from "../composer/slash-commands";
+import { type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import type { ChatStateStore } from "../state/store";
 import {
@@ -35,7 +35,7 @@ export async function executeSlashCommandWithState(
   if (state.activeThreadSubagent) {
     throw new Error("Slash commands are unavailable in agent threads. Start a new chat to continue.");
   }
-  if (!host.connectionAvailable() && command !== "reconnect" && command !== "compact") return;
+  if (!host.connectionAvailable() && slashCommandRequiresConnection(command)) return;
   return runSlashCommand(command, args, {
     ...host,
     activeThreadId: state.activeThreadId,

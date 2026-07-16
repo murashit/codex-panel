@@ -4,25 +4,15 @@ import {
   appServerApprovalResponse as approvalResponse,
   appServerApprovalRequest as toPendingApproval,
 } from "../../../../src/app-server/protocol/server-requests";
-import { createApprovalResultItem } from "../../../../src/features/chat/domain/pending-requests/result-items";
-import { pendingRequestBlockSnapshotFromState } from "../../../../src/features/chat/presentation/pending-requests/view-model";
+import { defaultPendingApprovalOptions, type PendingApproval } from "../../../../src/domain/pending-requests/model";
 
 function expectPresent<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error("Expected value to be present");
   return value;
 }
 
-function approvalActionOptions(approval: NonNullable<ReturnType<typeof toPendingApproval>>) {
-  return expectPresent(
-    pendingRequestBlockSnapshotFromState({
-      approvals: [approval],
-      pendingUserInputs: [],
-      pendingMcpElicitations: [],
-      userInputDrafts: new Map(),
-      mcpElicitationDrafts: new Map(),
-      approvalDetails: new Set(),
-    }).approvals[0],
-  ).actions;
+function approvalActionOptions(approval: PendingApproval) {
+  return approval.actionOptions && approval.actionOptions.length > 0 ? approval.actionOptions : defaultPendingApprovalOptions();
 }
 
 function approvalActionLabels(approval: NonNullable<ReturnType<typeof toPendingApproval>>): (string | null)[] {
@@ -135,17 +125,10 @@ describe("approval model", () => {
     const options = approvalActionOptions(approval);
 
     expect(options.map((option) => option.label)).toEqual(["Allow network rule", "Allow network rule", "Deny"]);
-    expect(options.map((option) => option.className)).toEqual(["", "", "mod-warning"]);
     expect(new Set(options.map((option) => option.id)).size).toBe(options.length);
     expect(approvalResponseAt(approval, 0)).toEqual({ decision: allowRegistryDecision });
     expect(approvalResponseAt(approval, 1)).toEqual({ decision: allowApiDecision });
     expect(approvalResponseAt(approval, 2)).toEqual({ decision: "decline" });
-    expect(createApprovalResultItem(approval, expectPresent(options[0]).action)).toMatchObject({
-      approval: { status: "allowed for session" },
-    });
-    expect(createApprovalResultItem(approval, expectPresent(options[2]).action)).toMatchObject({
-      approval: { status: "denied" },
-    });
   });
 
   it("keeps future simple command decisions renderable", () => {
@@ -176,7 +159,7 @@ describe("approval model", () => {
         id: "approval-option:0:restartWithNetwork",
         label: "Choose",
         action: { kind: "approval-option", intent: "decline", response: { decision: futureDecision } },
-        className: "mod-warning",
+        intent: "decline",
       },
     ]);
     expect(approvalResponseAt(approval, 0)).toEqual({ decision: futureDecision });

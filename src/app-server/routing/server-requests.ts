@@ -33,38 +33,31 @@ export type ServerRequestRoute =
   | { kind: "inactive"; request: ServerRequest };
 
 type ServerRequestMethod = ServerRequest["method"];
-type ServerRequestRouteKindByMethod = Record<ServerRequestMethod, Exclude<ServerRequestRoute["kind"], "inactive" | "unknown">>;
-type ServerRequestScopeExtractors = {
-  [Method in ServerRequestMethod]: (request: Extract<ServerRequest, { method: Method }>) => AppServerRouteScope;
+type ServerRequestDescriptorByMethod = {
+  [Method in ServerRequestMethod]: {
+    routeKind: Exclude<ServerRequestRoute["kind"], "inactive" | "unknown">;
+    scope: (request: Extract<ServerRequest, { method: Method }>) => AppServerRouteScope;
+  };
 };
 
-const SERVER_REQUEST_SCOPE_EXTRACTORS: ServerRequestScopeExtractors = {
-  "item/commandExecution/requestApproval": threadTurnRequestScope,
-  "item/fileChange/requestApproval": threadTurnRequestScope,
-  "item/tool/requestUserInput": threadTurnRequestScope,
-  "mcpServer/elicitation/request": threadTurnRequestScope,
-  "item/permissions/requestApproval": threadTurnRequestScope,
-  "item/tool/call": threadTurnRequestScope,
-  "account/chatgptAuthTokens/refresh": unscopedRequestScope,
-  "attestation/generate": unscopedRequestScope,
-  "currentTime/read": threadOnlyRequestScope,
-  applyPatchApproval: unscopedRequestScope,
-  execCommandApproval: unscopedRequestScope,
-};
+const SERVER_REQUEST_DESCRIPTORS = {
+  "item/commandExecution/requestApproval": { routeKind: "approval", scope: threadTurnRequestScope },
+  "item/fileChange/requestApproval": { routeKind: "approval", scope: threadTurnRequestScope },
+  "item/permissions/requestApproval": { routeKind: "approval", scope: threadTurnRequestScope },
+  "item/tool/requestUserInput": { routeKind: "userInput", scope: threadTurnRequestScope },
+  "mcpServer/elicitation/request": { routeKind: "mcpElicitation", scope: threadTurnRequestScope },
+  "item/tool/call": { routeKind: "unsupported", scope: threadTurnRequestScope },
+  "account/chatgptAuthTokens/refresh": { routeKind: "unsupported", scope: unscopedRequestScope },
+  "attestation/generate": { routeKind: "unsupported", scope: unscopedRequestScope },
+  "currentTime/read": { routeKind: "currentTime", scope: threadOnlyRequestScope },
+  applyPatchApproval: { routeKind: "unsupported", scope: unscopedRequestScope },
+  execCommandApproval: { routeKind: "unsupported", scope: unscopedRequestScope },
+} satisfies ServerRequestDescriptorByMethod;
 
-const SERVER_REQUEST_ROUTE_KIND_BY_METHOD: ServerRequestRouteKindByMethod = {
-  "item/commandExecution/requestApproval": "approval",
-  "item/fileChange/requestApproval": "approval",
-  "item/permissions/requestApproval": "approval",
-  "item/tool/requestUserInput": "userInput",
-  "mcpServer/elicitation/request": "mcpElicitation",
-  "item/tool/call": "unsupported",
-  "account/chatgptAuthTokens/refresh": "unsupported",
-  "attestation/generate": "unsupported",
-  "currentTime/read": "currentTime",
-  applyPatchApproval: "unsupported",
-  execCommandApproval: "unsupported",
-};
+interface ServerRequestDescriptor {
+  readonly routeKind: Exclude<ServerRequestRoute["kind"], "inactive" | "unknown">;
+  readonly scope: (request: ServerRequest) => AppServerRouteScope;
+}
 
 export function routeServerRequest(request: ServerRequest, scope: ActiveRouteScope): ServerRequestRoute {
   const routeScope = serverRequestScope(request);
@@ -76,7 +69,7 @@ export function routeServerRequest(request: ServerRequest, scope: ActiveRouteSco
   if (!isAppServerRouteScopeInActiveRouteScope(routeScope, scope)) return { kind: "inactive", request };
   if (isTurnScopedAppServerRouteForIdleActiveThread(routeScope, scope)) return { kind: "inactive", request };
 
-  switch (SERVER_REQUEST_ROUTE_KIND_BY_METHOD[request.method]) {
+  switch (serverRequestDescriptor(request).routeKind) {
     case "approval": {
       const approval = appServerApprovalRequest(request);
       if (approval) return { kind: "approval", request, approval };
@@ -120,12 +113,15 @@ export function serverRequestCurrentTimeResponse(currentTimeMs: number): unknown
 
 function serverRequestScope(request: ServerRequest): AppServerRouteScope {
   if (!isServerRequest(request)) return fallbackAppServerRouteScope(request);
-  const extractor = SERVER_REQUEST_SCOPE_EXTRACTORS[request.method] as (request: ServerRequest) => AppServerRouteScope;
-  return extractor(request);
+  return serverRequestDescriptor(request).scope(request);
 }
 
 function isServerRequest(request: ServerRequest): boolean {
-  return Object.hasOwn(SERVER_REQUEST_SCOPE_EXTRACTORS, request.method);
+  return Object.hasOwn(SERVER_REQUEST_DESCRIPTORS, request.method);
+}
+
+function serverRequestDescriptor(request: ServerRequest): ServerRequestDescriptor {
+  return SERVER_REQUEST_DESCRIPTORS[request.method] as ServerRequestDescriptor;
 }
 
 function threadTurnRequestScope(request: { params: { threadId: string; turnId: string | null } }): AppServerRouteScope {

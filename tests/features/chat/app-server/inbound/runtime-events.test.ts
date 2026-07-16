@@ -9,9 +9,9 @@ describe("app-server turn runtime event mapping", () => {
       params: { threadId: "thread-active", turnId: "turn-active", itemId: "a1", delta: "hello" },
     } satisfies Extract<ServerNotification, { method: "item/agentMessage/delta" }>;
 
-    expect(turnRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`)).toEqual([
-      { type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true },
-    ]);
+    const events = turnRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`);
+
+    expect(events).toEqual([{ type: "assistantDelta", turnId: "turn-active", itemId: "a1", delta: "hello", completeReasoning: true }]);
   });
 
   it("maps completed turns to completed turn snapshots", () => {
@@ -52,5 +52,57 @@ describe("app-server turn runtime event mapping", () => {
         expect.objectContaining({ id: "a1", kind: "dialogue", role: "assistant", text: "done" }),
       ],
     });
+  });
+
+  it("maps hook runs to compact items while omitting unavailable duration", () => {
+    const notification = {
+      method: "hook/completed",
+      params: {
+        threadId: "thread-active",
+        turnId: "turn-active",
+        run: {
+          id: "hook-1",
+          eventName: "postToolUse",
+          handlerType: "command",
+          executionMode: "sync",
+          scope: "turn",
+          sourcePath: "/vault/.codex/hooks.json",
+          source: "project",
+          displayOrder: 1n,
+          status: "completed",
+          statusMessage: "Formatted 1 file.",
+          startedAt: 1n,
+          completedAt: null,
+          durationMs: null,
+          entries: [{ kind: "feedback", text: "ok" }],
+        },
+      },
+    } satisfies Extract<ServerNotification, { method: "hook/completed" }>;
+
+    const events = turnRuntimeEventsFromNotification(notification, (prefix) => `${prefix}-1`);
+
+    expect(events).toEqual([
+      {
+        type: "hookRunObserved",
+        turnId: "turn-active",
+        eventName: "postToolUse",
+        item: expect.objectContaining({
+          id: "hook-hook-1-1",
+          kind: "hook",
+          operation: "postToolUse",
+          primaryTarget: { kind: "value", value: "Formatted 1 file." },
+          executionState: "completed",
+          hookRun: {
+            eventName: "postToolUse",
+            statusMessage: "Formatted 1 file.",
+            entries: [{ kind: "feedback", text: "ok" }],
+          },
+        }),
+      },
+    ]);
+    const event = events[0];
+    if (event?.type !== "hookRunObserved") throw new Error("Expected a hook runtime event");
+    if (event.item.kind !== "hook") throw new Error("Expected a hook item");
+    expect(event.item.hookRun).not.toHaveProperty("durationMs");
   });
 });
