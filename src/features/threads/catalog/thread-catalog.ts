@@ -95,11 +95,17 @@ export interface ThreadCatalog
 }
 
 export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalog {
-  const factsByContext = new Map<string, ThreadCatalogFacts>();
+  let factsState: { contextKey: string; facts: ThreadCatalogFacts } | null = null;
   const activeObservers = new Set<ThreadListObserver>();
   const archivedObservers = new Set<ThreadListObserver>();
   const { store } = options;
-  const currentFacts = (): ThreadCatalogFacts => threadCatalogFactsForContext(factsByContext, store.contextKey());
+  const currentFacts = (): ThreadCatalogFacts => {
+    const contextKey = store.contextKey();
+    if (factsState?.contextKey === contextKey) return factsState.facts;
+    const facts = pendingThreadCatalogFacts();
+    factsState = { contextKey, facts };
+    return facts;
+  };
   const activeRawSnapshot = (): readonly Thread[] | null => store.activeThreadsSnapshot();
   const archivedRawSnapshot = (): readonly Thread[] | null => store.archivedThreadsSnapshot();
   const publish = (kind: ThreadListKind): void => {
@@ -138,7 +144,7 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
       applyToFacts(store, currentFacts(), event, true);
     },
     clear: () => {
-      factsByContext.clear();
+      factsState = null;
     },
     activeSnapshot: () => threadListProjection(activeRawSnapshot(), currentFacts().active),
     loadActive: () => loadThreadList(store.fetchAllActiveThreads(), currentFacts().active),
@@ -184,29 +190,13 @@ export function createThreadCatalog(options: ThreadCatalogOptions): ThreadCatalo
 
 type ThreadListKind = "active" | "archived";
 
-function threadCatalogFactsForContext(factsByContext: Map<string, ThreadCatalogFacts>, contextKey: string): ThreadCatalogFacts {
-  pruneInactiveContexts(factsByContext, contextKey);
-  const existing = factsByContext.get(contextKey);
-  if (existing) {
-    factsByContext.delete(contextKey);
-    factsByContext.set(contextKey, existing);
-    return existing;
-  }
-  const facts = {
+function pendingThreadCatalogFacts(): ThreadCatalogFacts {
+  return {
     active: pendingThreadListFacts(),
     archived: pendingThreadListFacts(),
     activeObservedResult: null,
     archivedObservedResult: null,
   };
-  factsByContext.set(contextKey, facts);
-  return facts;
-}
-
-function pruneInactiveContexts(factsByContext: Map<string, ThreadCatalogFacts>, activeContextKey: string): void {
-  for (const contextKey of factsByContext.keys()) {
-    if (contextKey === activeContextKey) continue;
-    factsByContext.delete(contextKey);
-  }
 }
 
 function applyThreadCatalogEvent(

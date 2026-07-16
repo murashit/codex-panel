@@ -1,6 +1,6 @@
 import { describe, expect, it, type Mock, vi } from "vitest";
 
-import { AppServerQueryCache } from "../../../../src/app-server/query/cache";
+import type { AppServerQueryClientRunner } from "../../../../src/app-server/query/cache";
 import type { AppServerQueryContext, AppServerQueryContextIdentity } from "../../../../src/app-server/query/keys";
 import type { ObservedResult, ObservedResultListener } from "../../../../src/app-server/query/observed-result";
 import { AppServerResourceStore } from "../../../../src/app-server/query/resource-store";
@@ -443,9 +443,10 @@ function catalogFixture(
     context?: () => { codexPath: string; vaultPath: string };
   } = {},
 ) {
-  const cache = cacheWithThreads(options.fetchThreads ?? (() => Promise.resolve([])));
   const context = options.context ?? (() => ({ codexPath: "codex", vaultPath: "/vault" }));
-  const queries = new AppServerResourceStore({ cache });
+  const queries = new AppServerResourceStore({
+    clientRunner: clientRunnerWithThreads(options.fetchThreads ?? (() => Promise.resolve([]))),
+  });
   queries.initialize(context());
   const store = new TestThreadCatalogStore(queries);
   const catalog = createThreadCatalog({ store });
@@ -453,7 +454,6 @@ function catalogFixture(
   catalog.observeActive(() => undefined);
   catalog.observeArchived(() => undefined);
   return {
-    cache,
     catalog,
     contextIdentity: () => queries.contextIdentity(),
     replaceContext: (nextContext: AppServerQueryContext) => queries.replaceContext(nextContext),
@@ -555,24 +555,22 @@ function observedSnapshot(threads: readonly Thread[]): ObservedResult<readonly T
   return { value: threads, error: null, isFetching: false };
 }
 
-function cacheWithThreads(
+function clientRunnerWithThreads(
   fetchThreads: (context: { codexPath: string; vaultPath: string }, archived: boolean) => Promise<readonly Thread[]>,
-): AppServerQueryCache {
-  return new AppServerQueryCache({
-    clientRunner: {
-      runWithClient: async (context, operation) => {
-        return operation({
-          request: async (method: string, params: { archived?: boolean } = {}) => {
-            if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
-            return {
-              data: await fetchThreads(context, params.archived ?? false),
-              nextCursor: null,
-            };
-          },
-        } as never);
-      },
+): AppServerQueryClientRunner {
+  return {
+    runWithClient: async (context, operation) => {
+      return operation({
+        request: async (method: string, params: { archived?: boolean } = {}) => {
+          if (method !== "thread/list") throw new Error(`Unexpected app-server request: ${method}`);
+          return {
+            data: await fetchThreads(context, params.archived ?? false),
+            nextCursor: null,
+          };
+        },
+      } as never);
     },
-  });
+  };
 }
 
 function observedActiveThreadIds(listener: Mock): string[][] {

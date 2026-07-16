@@ -9,7 +9,7 @@ import { deferred } from "../support/async";
 
 describe("AppServerResourceStore", () => {
   it("requires explicit initialization and freezes the active context lease", () => {
-    const store = new AppServerResourceStore({ cache: cacheWith() });
+    const store = new AppServerResourceStore({ cacheFactory: () => cacheWith() });
 
     expect(() => store.contextLease()).toThrow("not initialized");
     const lease = store.initialize({ codexPath: "codex-a", vaultPath: "/vault" });
@@ -24,7 +24,8 @@ describe("AppServerResourceStore", () => {
     const pending = deferred<readonly Thread[]>();
     const refreshActiveThreads = vi.fn(() => pending.promise);
     const cache = cacheWith({ refreshActiveThreads });
-    const store = new AppServerResourceStore({ cache });
+    const cacheFactory = vi.fn(() => cache);
+    const store = new AppServerResourceStore({ cacheFactory });
     const firstLease = store.initialize({ codexPath: "codex-a", vaultPath: "/vault" });
 
     const refresh = store.refreshActiveThreads();
@@ -33,19 +34,24 @@ describe("AppServerResourceStore", () => {
 
     expect(secondLease).toBe(firstLease);
     await expect(refresh).resolves.toEqual([thread("same-lease")]);
-    expect(cache.release).not.toHaveBeenCalled();
+    expect(cacheFactory).toHaveBeenCalledOnce();
+    expect(cache.dispose).not.toHaveBeenCalled();
   });
 
-  it("rejects an A1 result after A to B to A replacement and never reuses a generation", async () => {
+  it("rejects an A1 result after A to B to A replacement and never reuses a lease cache", async () => {
     const pending = deferred<readonly Thread[]>();
     const identities: AppServerQueryContextIdentity[] = [];
-    const cache = cacheWith({
-      refreshActiveThreads: vi.fn((identity: AppServerQueryContextIdentity) => {
+    const caches: AppServerQueryCache[] = [];
+    const store = new AppServerResourceStore({
+      cacheFactory: (identity) => {
         identities.push(identity);
-        return pending.promise;
-      }),
+        const cache = cacheWith({
+          refreshActiveThreads: vi.fn(() => (identity.generation === 1 ? pending.promise : Promise.resolve([]))),
+        });
+        caches.push(cache);
+        return cache;
+      },
     });
-    const store = new AppServerResourceStore({ cache });
     const firstA = store.initialize({ codexPath: "codex-a", vaultPath: "/vault" });
 
     const refresh = store.refreshActiveThreads();
@@ -55,21 +61,26 @@ describe("AppServerResourceStore", () => {
 
     await expect(refresh).rejects.toBeInstanceOf(StaleAppServerResourceContextError);
     expect([firstA.generation, b.generation, secondA.generation]).toEqual([1, 2, 3]);
-    expect(identities).toEqual([{ codexPath: "codex-a", vaultPath: "/vault", generation: 1 }]);
+    expect(identities.map((identity) => identity.generation)).toEqual([1, 2, 3]);
+    expect(new Set(caches).size).toBe(3);
+    expect(caches[0]?.dispose).toHaveBeenCalledOnce();
+    expect(caches[1]?.dispose).toHaveBeenCalledOnce();
+    expect(caches[2]?.dispose).not.toHaveBeenCalled();
   });
 
-  it("rebinds observers by generation and ignores events from an earlier identical raw context", () => {
+  it("rebinds observers to each lease cache and ignores events from an earlier identical raw context", () => {
     const listeners = new Map<number, (result: ObservedResult<readonly Thread[]>) => void>();
     const unsubscribers = new Map<number, ReturnType<typeof vi.fn>>();
     const store = new AppServerResourceStore({
-      cache: cacheWith({
-        observeActiveThreadsResult: (identity, listener) => {
-          listeners.set(identity.generation, listener);
-          const unsubscribe = vi.fn();
-          unsubscribers.set(identity.generation, unsubscribe);
-          return unsubscribe;
-        },
-      }),
+      cacheFactory: (identity) =>
+        cacheWith({
+          observeActiveThreadsResult: (listener) => {
+            listeners.set(identity.generation, listener);
+            const unsubscribe = vi.fn();
+            unsubscribers.set(identity.generation, unsubscribe);
+            return unsubscribe;
+          },
+        }),
     });
     store.initialize({ codexPath: "codex-a", vaultPath: "/vault" });
     const listener = vi.fn();
@@ -86,20 +97,29 @@ describe("AppServerResourceStore", () => {
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ value: [thread("current-a")] }));
   });
 
-  it("does not reuse a lease generation after reset", () => {
-    const store = new AppServerResourceStore({ cache: cacheWith() });
+  it("does not reuse a lease generation or query cache after reset", () => {
+    const caches: AppServerQueryCache[] = [];
+    const store = new AppServerResourceStore({
+      cacheFactory: () => {
+        const cache = cacheWith();
+        caches.push(cache);
+        return cache;
+      },
+    });
     expect(store.initialize({ codexPath: "codex", vaultPath: "/vault" }).generation).toBe(1);
 
     store.reset();
 
     expect(store.initialize({ codexPath: "codex", vaultPath: "/vault" }).generation).toBe(2);
+    expect(caches).toHaveLength(2);
+    expect(caches[0]?.dispose).toHaveBeenCalledOnce();
+    expect(caches[1]?.dispose).not.toHaveBeenCalled();
   });
 });
 
 function cacheWith(overrides: Partial<AppServerQueryCache> = {}): AppServerQueryCache {
   return {
-    clear: vi.fn(),
-    release: vi.fn(),
+    dispose: vi.fn(),
     activeThreadsSnapshot: vi.fn(() => null),
     archivedThreadsSnapshot: vi.fn(() => null),
     fetchAllActiveThreads: vi.fn(() => Promise.resolve([])),

@@ -6,38 +6,36 @@ import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
 
 describe("AppServerQueryCache", () => {
-  it("garbage-collects inactive query contexts", async () => {
+  it("garbage-collects inactive query records", async () => {
     vi.useFakeTimers();
     try {
       const cache = cacheWithThreads(() => Promise.resolve([thread("temporary")]));
-      const context = cacheContext();
-      await cache.fetchActiveThreads(context);
+      await cache.fetchActiveThreads();
 
       await vi.advanceTimersByTimeAsync(300_001);
 
-      expect(cache.activeThreadsSnapshot(context)).toBeNull();
+      expect(cache.activeThreadsSnapshot()).toBeNull();
     } finally {
       vi.useRealTimers();
     }
   });
 
   it("does not share or store snapshots before the cache context is complete", async () => {
-    const cache = new AppServerQueryCache();
     const context = cacheContext({ codexPath: "" });
+    const cache = new AppServerQueryCache(context);
 
-    await expect(cache.fetchActiveThreads(context)).resolves.toEqual([]);
-    expect(cache.activeThreadsSnapshot(context)).toBeNull();
-    expect(cache.appServerMetadataSnapshot(context)).toBeNull();
-    expect(cache.modelsSnapshot(context)).toBeNull();
+    await expect(cache.fetchActiveThreads()).resolves.toEqual([]);
+    expect(cache.activeThreadsSnapshot()).toBeNull();
+    expect(cache.appServerMetadataSnapshot()).toBeNull();
+    expect(cache.modelsSnapshot()).toBeNull();
   });
 
   it("stores successful empty thread list snapshots as shared cache truth", async () => {
     const fetchThreads = vi.fn().mockResolvedValue([]);
     const cache = cacheWithThreads(fetchThreads);
-    const context = cacheContext();
 
-    await expect(cache.refreshActiveThreads(context)).resolves.toEqual([]);
-    expect(cache.activeThreadsSnapshot(context)).toEqual([]);
+    await expect(cache.refreshActiveThreads()).resolves.toEqual([]);
+    expect(cache.activeThreadsSnapshot()).toEqual([]);
     expect(fetchThreads).toHaveBeenCalledOnce();
   });
 
@@ -45,10 +43,9 @@ describe("AppServerQueryCache", () => {
     const pending = deferred<readonly ReturnType<typeof thread>[]>();
     const fetchThreads = vi.fn(() => pending.promise);
     const cache = cacheWithThreads(fetchThreads);
-    const context = cacheContext();
 
-    const first = cache.refreshActiveThreads(context);
-    const second = cache.refreshActiveThreads(context);
+    const first = cache.refreshActiveThreads();
+    const second = cache.refreshActiveThreads();
     await flushMicrotasks();
 
     expect(fetchThreads).toHaveBeenCalledOnce();
@@ -61,15 +58,14 @@ describe("AppServerQueryCache", () => {
       Promise.resolve(archived ? [thread("archived", true)] : [thread("active")]),
     );
     const cache = cacheWithThreads(fetchThreads);
-    const context = cacheContext();
 
-    await expect(cache.refreshActiveThreads(context)).resolves.toEqual([thread("active")]);
-    await expect(cache.refreshArchivedThreads(context)).resolves.toEqual([thread("archived", true)]);
+    await expect(cache.refreshActiveThreads()).resolves.toEqual([thread("active")]);
+    await expect(cache.refreshArchivedThreads()).resolves.toEqual([thread("archived", true)]);
 
-    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("active")]);
-    expect(cache.archivedThreadsSnapshot(context)).toEqual([thread("archived", true)]);
-    expect(fetchThreads).toHaveBeenNthCalledWith(1, context, false);
-    expect(fetchThreads).toHaveBeenNthCalledWith(2, context, true);
+    expect(cache.activeThreadsSnapshot()).toEqual([thread("active")]);
+    expect(cache.archivedThreadsSnapshot()).toEqual([thread("archived", true)]);
+    expect(fetchThreads).toHaveBeenNthCalledWith(1, cacheContext(), false);
+    expect(fetchThreads).toHaveBeenNthCalledWith(2, cacheContext(), true);
   });
 
   it("loads active thread history one page at a time", async () => {
@@ -78,14 +74,13 @@ describe("AppServerQueryCache", () => {
       .mockResolvedValueOnce({ data: [thread("first")], nextCursor: "page-2" })
       .mockResolvedValueOnce({ data: [thread("second")], nextCursor: null });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
-    const context = cacheContext();
 
-    await expect(cache.refreshActiveThreads(context)).resolves.toEqual([thread("first")]);
-    expect(cache.hasMoreActiveThreads(context)).toBe(true);
+    await expect(cache.refreshActiveThreads()).resolves.toEqual([thread("first")]);
+    expect(cache.hasMoreActiveThreads()).toBe(true);
     expect(listThreads).toHaveBeenCalledOnce();
 
-    await expect(cache.loadMoreActiveThreads(context)).resolves.toEqual([thread("first"), thread("second")]);
-    expect(cache.hasMoreActiveThreads(context)).toBe(false);
+    await expect(cache.loadMoreActiveThreads()).resolves.toEqual([thread("first"), thread("second")]);
+    expect(cache.hasMoreActiveThreads()).toBe(false);
     expect(listThreads).toHaveBeenNthCalledWith(2, {
       cwd: "/vault",
       cursor: "page-2",
@@ -104,17 +99,16 @@ describe("AppServerQueryCache", () => {
       .mockImplementationOnce(() => oldPage.promise)
       .mockResolvedValueOnce({ data: [thread("new-first")], nextCursor: "new-page-2" });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
-    const context = cacheContext();
-    await cache.refreshActiveThreads(context);
+    await cache.refreshActiveThreads();
 
-    const loadMore = cache.loadMoreActiveThreads(context);
+    const loadMore = cache.loadMoreActiveThreads();
     await Promise.resolve();
-    await cache.refreshActiveThreads(context);
+    await cache.refreshActiveThreads();
     oldPage.resolve({ data: [thread("old-second")], nextCursor: null });
 
     await expect(loadMore).resolves.toEqual([thread("new-first")]);
-    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("new-first")]);
-    expect(cache.hasMoreActiveThreads(context)).toBe(true);
+    expect(cache.activeThreadsSnapshot()).toEqual([thread("new-first")]);
+    expect(cache.hasMoreActiveThreads()).toBe(true);
   });
 
   it("retries a full active-thread inventory when a first-page refresh wins the race", async () => {
@@ -125,78 +119,62 @@ describe("AppServerQueryCache", () => {
       .mockResolvedValueOnce({ data: [thread("new-first")], nextCursor: "new-page-2" })
       .mockResolvedValueOnce({ data: [thread("new-first"), thread("new-second")], nextCursor: null });
     const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
-    const context = cacheContext();
 
-    const inventory = cache.fetchAllActiveThreads(context);
+    const inventory = cache.fetchAllActiveThreads();
     await flushMicrotasks();
-    await cache.refreshActiveThreads(context);
+    await cache.refreshActiveThreads();
     oldInventory.resolve({ data: [thread("old")], nextCursor: null });
 
     await expect(inventory).resolves.toEqual([thread("new-first"), thread("new-second")]);
-    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("new-first"), thread("new-second")]);
+    expect(cache.activeThreadsSnapshot()).toEqual([thread("new-first"), thread("new-second")]);
   });
 
-  it("keys thread list refresh snapshots by app-server query context", async () => {
-    const oldContext = cacheContext({ codexPath: "codex-old" });
-    const newContext = cacheContext({ codexPath: "codex-new" });
-    const oldRefresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const newRefresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const fetchThreads = vi.fn((context: AppServerQueryContext) =>
-      context.codexPath === "codex-old" ? oldRefresh.promise : newRefresh.promise,
-    );
-    const cache = cacheWithThreads(fetchThreads);
+  it("does not revive a disposed cache when an active-thread inventory resolves", async () => {
+    const inventory = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
+    const listThreads = vi.fn(() => inventory.promise);
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
 
-    const oldPromise = cache.refreshActiveThreads(oldContext);
-    const newPromise = cache.refreshActiveThreads(newContext);
-
-    oldRefresh.resolve([thread("old-thread")]);
-    await expect(oldPromise).resolves.toEqual([thread("old-thread")]);
-    expect(cache.activeThreadsSnapshot(oldContext)?.map((item) => item.id)).toEqual(["old-thread"]);
-
-    newRefresh.resolve([thread("new-thread")]);
-    await expect(newPromise).resolves.toEqual([thread("new-thread")]);
-    expect(cache.activeThreadsSnapshot(newContext)?.map((item) => item.id)).toEqual(["new-thread"]);
-    expect(cache.activeThreadsSnapshot(oldContext)?.map((item) => item.id)).toEqual(["old-thread"]);
-  });
-
-  it("does not join or publish thread refreshes across generations of the same raw context", async () => {
-    const firstRefresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const fetchThreads = vi.fn((context: AppServerQueryContextIdentity) =>
-      context.generation === 1 ? firstRefresh.promise : Promise.resolve([thread("current-a")]),
-    );
-    const cache = cacheWithThreads(fetchThreads);
-    const firstA = cacheContext({ generation: 1 });
-    const secondA = cacheContext({ generation: 3 });
-
-    const stale = cache.refreshActiveThreads(firstA);
+    const fetch = cache.fetchAllActiveThreads();
     await flushMicrotasks();
-    await expect(cache.refreshActiveThreads(secondA)).resolves.toEqual([thread("current-a")]);
-    firstRefresh.resolve([thread("stale-a")]);
-    await stale;
+    cache.dispose();
+    inventory.resolve({ data: [thread("stale")], nextCursor: null });
 
-    expect(fetchThreads).toHaveBeenCalledTimes(2);
-    expect(cache.activeThreadsSnapshot(secondA)).toEqual([thread("current-a")]);
-    expect(cache.activeThreadsSnapshot(firstA)).toEqual([thread("stale-a")]);
+    await expect(fetch).rejects.toThrow("query cache was disposed");
+    expect(cache.activeThreadsSnapshot()).toBeNull();
+    expect(listThreads).toHaveBeenCalledOnce();
   });
 
-  it("stores in-flight thread list refreshes under the captured app-server cache context", async () => {
+  it("rejects a cached result when disposal wins before its continuation", async () => {
+    const listModels = vi.fn().mockResolvedValue({ data: [catalogModel("cached")] });
+    const cache = cacheWithRequestHandlers({ "model/list": listModels });
+    await cache.fetchModels();
+
+    const cached = cache.fetchModels();
+    cache.dispose();
+
+    await expect(cached).rejects.toThrow("query cache was disposed");
+    expect(cache.modelsSnapshot()).toBeNull();
+    expect(listModels).toHaveBeenCalledOnce();
+  });
+
+  it("freezes its lease context before starting requests", async () => {
     const context = cacheContext({ codexPath: "codex-captured" });
     const capturedContext = { ...context };
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
-    const cache = cacheWithThreads(() => refresh.promise);
+    const fetchThreads = vi.fn(() => refresh.promise);
+    const cache = cacheWithThreads(fetchThreads, context);
 
-    const promise = cache.refreshActiveThreads(context);
+    const promise = cache.refreshActiveThreads();
     context.codexPath = "codex-mutated";
 
     refresh.resolve([thread("captured")]);
     await expect(promise).resolves.toEqual([thread("captured")]);
 
-    expect(cache.activeThreadsSnapshot(capturedContext)?.map((item) => item.id)).toEqual(["captured"]);
-    expect(cache.activeThreadsSnapshot(context)).toBeNull();
+    expect(fetchThreads).toHaveBeenCalledWith(capturedContext, false);
+    expect(cache.activeThreadsSnapshot()?.map((item) => item.id)).toEqual(["captured"]);
   });
 
   it("fetches app-server metadata and models through their respective query records", async () => {
-    const context = cacheContext();
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
       "model/list": vi.fn().mockResolvedValue({ data: [catalogModel("gpt-meta")] }),
@@ -205,17 +183,16 @@ describe("AppServerQueryCache", () => {
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(64), rateLimitsByLimitId: null }),
     });
 
-    const metadata = await cache.refreshAppServerMetadata(context);
+    const metadata = await cache.refreshAppServerMetadata();
 
     expect(metadata?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(metadata?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":workspace"]);
     expect(metadata?.rateLimit?.primary?.usedPercent).toBe(64);
     expect(metadata?.serverDiagnostics.probes.models.status).toBe("ok");
-    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-meta"]);
+    expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-meta"]);
   });
 
   it("publishes one derived metadata projection after a coordinated refresh", async () => {
-    const context = cacheContext();
     const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
@@ -225,9 +202,9 @@ describe("AppServerQueryCache", () => {
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
     const listener = vi.fn();
-    const unsubscribe = cache.observeAppServerMetadataResult(context, listener, { emitCurrent: false });
+    const unsubscribe = cache.observeAppServerMetadataResult(listener, { emitCurrent: false });
 
-    const refresh = cache.refreshAppServerMetadata(context);
+    const refresh = cache.refreshAppServerMetadata();
     await flushMicrotasks();
     expect(listener).not.toHaveBeenCalled();
 
@@ -250,9 +227,8 @@ describe("AppServerQueryCache", () => {
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
-    const context = cacheContext();
 
-    const refreshes = Array.from({ length: 10 }, () => cache.refreshSkills(context));
+    const refreshes = Array.from({ length: 10 }, () => cache.refreshSkills());
     await flushMicrotasks();
     expect(listSkills).toHaveBeenCalledOnce();
     expect(listSkills).toHaveBeenNthCalledWith(1, { cwds: ["/vault"], forceReload: true });
@@ -273,9 +249,8 @@ describe("AppServerQueryCache", () => {
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
     const cache = cacheWithRequestHandlers({ "account/rateLimits/read": readRateLimits });
-    const context = cacheContext();
 
-    const refreshes = Array.from({ length: 10 }, () => cache.refreshRateLimits(context));
+    const refreshes = Array.from({ length: 10 }, () => cache.refreshRateLimits());
     await flushMicrotasks();
     expect(readRateLimits).toHaveBeenCalledOnce();
 
@@ -299,10 +274,9 @@ describe("AppServerQueryCache", () => {
       "account/rateLimits/read": vi.fn(() => limits.promise),
     };
     const cache = cacheWithRequestHandlers(handlers);
-    const context = cacheContext();
 
-    const first = cache.refreshAppServerMetadata(context);
-    const second = cache.refreshAppServerMetadata(context);
+    const first = cache.refreshAppServerMetadata();
+    const second = cache.refreshAppServerMetadata();
     await flushMicrotasks();
 
     for (const handler of Object.values(handlers)) expect(handler).toHaveBeenCalledOnce();
@@ -328,17 +302,16 @@ describe("AppServerQueryCache", () => {
       "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
-    const context = cacheContext();
 
-    const fullRefresh = cache.refreshAppServerMetadata(context);
+    const fullRefresh = cache.refreshAppServerMetadata();
     await flushMicrotasks();
-    const notificationRefresh = cache.refreshSkills(context);
+    const notificationRefresh = cache.refreshSkills();
     first.resolve({ data: [{ skills: [catalogSkill("old")] }] });
     await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
     expect(listSkills).toHaveBeenNthCalledWith(2, { cwds: ["/vault"], forceReload: true });
     second.resolve({ data: [{ skills: [catalogSkill("new")] }] });
     await Promise.all([fullRefresh, notificationRefresh]);
-    expect(cache.appServerMetadataSnapshot(context)?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
+    expect(cache.appServerMetadataSnapshot()?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
   });
 
   it("schedules one more skills read when a notification arrives during the trailing refresh", async () => {
@@ -351,13 +324,12 @@ describe("AppServerQueryCache", () => {
       .mockImplementationOnce(() => second.promise)
       .mockImplementationOnce(() => third.promise);
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
-    const context = cacheContext();
 
-    const leading = cache.refreshSkills(context);
-    const trailing = cache.refreshSkills(context);
+    const leading = cache.refreshSkills();
+    const trailing = cache.refreshSkills();
     first.resolve({ data: [{ skills: [catalogSkill("first")] }] });
     await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(2));
-    const afterTrailing = cache.refreshSkills(context);
+    const afterTrailing = cache.refreshSkills();
     second.resolve({ data: [{ skills: [catalogSkill("second")] }] });
     await vi.waitFor(() => expect(listSkills).toHaveBeenCalledTimes(3));
     third.resolve({ data: [{ skills: [catalogSkill("third")] }] });
@@ -366,22 +338,21 @@ describe("AppServerQueryCache", () => {
     expect(listSkills).toHaveBeenCalledTimes(3);
   });
 
-  it("does not start trailing notification work after the cache is cleared", async () => {
+  it("does not start trailing notification work after the cache is disposed", async () => {
     const first = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const listSkills = vi.fn(() => first.promise);
     const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
-    const context = cacheContext();
 
-    const leading = cache.refreshSkills(context);
-    const trailing = cache.refreshSkills(context);
+    const leading = cache.refreshSkills();
+    const trailing = cache.refreshSkills();
     await flushMicrotasks();
-    cache.clear();
+    cache.dispose();
     first.resolve({ data: [{ skills: [catalogSkill("stale")] }] });
-    await Promise.all([leading, trailing]);
+    await expect(Promise.all([leading, trailing])).rejects.toThrow("query cache was disposed");
     await flushMicrotasks();
 
     expect(listSkills).toHaveBeenCalledOnce();
-    expect(cache.appServerMetadataSnapshot(context)).toBeNull();
+    expect(cache.appServerMetadataSnapshot()).toBeNull();
   });
 
   it("rejects an initial metadata refresh when runtime config fails after optional resources settle", async () => {
@@ -393,9 +364,8 @@ describe("AppServerQueryCache", () => {
       "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
-    const context = cacheContext();
     let settled = false;
-    const refresh = cache.refreshAppServerMetadata(context).finally(() => {
+    const refresh = cache.refreshAppServerMetadata().finally(() => {
       settled = true;
     });
     await flushMicrotasks();
@@ -403,7 +373,7 @@ describe("AppServerQueryCache", () => {
 
     skills.resolve({ data: [{ skills: [] }] });
     await expect(refresh).rejects.toThrow("config offline");
-    expect(cache.appServerMetadataSnapshot(context)).toBeNull();
+    expect(cache.appServerMetadataSnapshot()).toBeNull();
   });
 
   it("rejects runtime config refresh failures while preserving prior config and refreshed optional resources", async () => {
@@ -419,12 +389,11 @@ describe("AppServerQueryCache", () => {
       "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
-    const context = cacheContext();
-    await cache.refreshAppServerMetadata(context);
+    await cache.refreshAppServerMetadata();
 
-    await expect(cache.refreshAppServerMetadata(context)).rejects.toThrow("config offline");
+    await expect(cache.refreshAppServerMetadata()).rejects.toThrow("config offline");
 
-    const snapshot = cache.appServerMetadataSnapshot(context);
+    const snapshot = cache.appServerMetadataSnapshot();
     expect(snapshot?.runtimeConfig).not.toBeNull();
     expect(snapshot?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
   });
@@ -433,12 +402,11 @@ describe("AppServerQueryCache", () => {
     vi.useFakeTimers({ toFake: ["queueMicrotask"] });
     try {
       const cache = metadataCacheWithSuccessfulHandlers();
-      const context = cacheContext();
-      await cache.refreshAppServerMetadata(context);
+      await cache.refreshAppServerMetadata();
       const listener = vi.fn();
-      const unsubscribe = cache.observeAppServerMetadataResult(context, listener, { emitCurrent: false });
+      const unsubscribe = cache.observeAppServerMetadataResult(listener, { emitCurrent: false });
 
-      await cache.refreshSkills(context);
+      await cache.refreshSkills();
       unsubscribe();
       vi.runAllTicks();
 
@@ -452,13 +420,12 @@ describe("AppServerQueryCache", () => {
     vi.useFakeTimers({ toFake: ["queueMicrotask"] });
     try {
       const cache = metadataCacheWithSuccessfulHandlers();
-      const context = cacheContext();
-      await cache.refreshAppServerMetadata(context);
+      await cache.refreshAppServerMetadata();
       const listener = vi.fn();
-      cache.observeAppServerMetadataResult(context, listener, { emitCurrent: false });
+      cache.observeAppServerMetadataResult(listener, { emitCurrent: false });
 
-      await cache.refreshSkills(context);
-      cache.clear();
+      await cache.refreshSkills();
+      cache.dispose();
       vi.runAllTicks();
 
       expect(listener).not.toHaveBeenCalled();
@@ -468,7 +435,6 @@ describe("AppServerQueryCache", () => {
   });
 
   it("shares in-flight model fetches between metadata and models queries", async () => {
-    const context = cacheContext();
     const modelRefresh = deferred<{ data: CatalogModel[] }>();
     const listModels = vi.fn(() => modelRefresh.promise);
     const cache = cacheWithRequestHandlers({
@@ -479,9 +445,9 @@ describe("AppServerQueryCache", () => {
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
 
-    const metadataPromise = cache.refreshAppServerMetadata(context);
+    const metadataPromise = cache.refreshAppServerMetadata();
     await flushMicrotasks();
-    const modelsPromise = cache.fetchModels(context);
+    const modelsPromise = cache.fetchModels();
     await flushMicrotasks();
 
     expect(listModels).toHaveBeenCalledOnce();
@@ -491,11 +457,10 @@ describe("AppServerQueryCache", () => {
     await expect(modelsPromise).resolves.toMatchObject([{ model: "gpt-shared" }]);
     await expect(metadataPromise).resolves.toMatchObject({ serverDiagnostics: { probes: { models: { status: "ok" } } } });
     expect(listModels).toHaveBeenCalledOnce();
-    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-shared"]);
+    expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-shared"]);
   });
 
   it("keeps query-cached models when app-server metadata model refresh fails", async () => {
-    const context = cacheContext();
     const listModels = vi
       .fn()
       .mockResolvedValueOnce({ data: [catalogModel("gpt-cached")] })
@@ -507,16 +472,15 @@ describe("AppServerQueryCache", () => {
       "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
-    await cache.fetchModels(context);
+    await cache.fetchModels();
 
-    const metadataSnapshot = await cache.refreshAppServerMetadata(context);
+    const metadataSnapshot = await cache.refreshAppServerMetadata();
 
     expect(metadataSnapshot?.serverDiagnostics.probes.models.status).toBe("failed");
-    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-cached"]);
+    expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-cached"]);
   });
 
   it("keeps every last-known-good resource through the full metadata refresh path", async () => {
-    const context = cacheContext();
     const listModels = vi
       .fn()
       .mockResolvedValueOnce({ data: [catalogModel("gpt-cached")] })
@@ -540,11 +504,11 @@ describe("AppServerQueryCache", () => {
       "permissionProfile/list": listProfiles,
       "account/rateLimits/read": readRateLimits,
     });
-    await cache.refreshAppServerMetadata(context);
+    await cache.refreshAppServerMetadata();
 
-    const refreshed = await cache.refreshAppServerMetadata(context);
+    const refreshed = await cache.refreshAppServerMetadata();
 
-    expect(cache.modelsSnapshot(context)?.map((model) => model.model)).toEqual(["gpt-cached"]);
+    expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-cached"]);
     expect(refreshed?.availableSkills.map((skill) => skill.name)).toEqual(["cached-skill"]);
     expect(refreshed?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":cached"]);
     expect(refreshed?.rateLimit?.primary?.usedPercent).toBe(17);
@@ -554,21 +518,20 @@ describe("AppServerQueryCache", () => {
       permissionProfiles: { status: "failed" },
       rateLimits: { status: "failed" },
     });
-    expect(cache.appServerMetadataSnapshot(context)).toEqual(refreshed);
+    expect(cache.appServerMetadataSnapshot()).toEqual(refreshed);
   });
 
   it("stores an in-flight app-server snapshot as raw thread-list truth", async () => {
-    const context = cacheContext();
     const refresh = deferred<readonly ReturnType<typeof thread>[]>();
     const cache = cacheWithThreads(() => refresh.promise);
 
-    const promise = cache.refreshActiveThreads(context);
+    const promise = cache.refreshActiveThreads();
     await flushMicrotasks();
 
     refresh.resolve([thread("thread"), thread("other")]);
 
     await expect(promise).resolves.toEqual([thread("thread"), thread("other")]);
-    expect(cache.activeThreadsSnapshot(context)).toEqual([thread("thread"), thread("other")]);
+    expect(cache.activeThreadsSnapshot()).toEqual([thread("thread"), thread("other")]);
   });
 });
 
@@ -583,8 +546,9 @@ function cacheContext(overrides: Partial<AppServerQueryContextIdentity> = {}): A
 
 function cacheWithThreads(
   fetchThreads: (context: AppServerQueryContextIdentity, archived: boolean) => Promise<readonly ReturnType<typeof thread>[]>,
+  context: AppServerQueryContextIdentity = cacheContext(),
 ): AppServerQueryCache {
-  return new AppServerQueryCache({
+  return new AppServerQueryCache(context, {
     clientRunner: {
       runWithClient: async (context, operation) => {
         return operation({
@@ -601,7 +565,10 @@ function cacheWithThreads(
   });
 }
 
-function cacheWithRequestHandlers(handlers: Record<string, (params: unknown) => Promise<unknown>>): AppServerQueryCache {
+function cacheWithRequestHandlers(
+  handlers: Record<string, (params: unknown) => Promise<unknown>>,
+  context: AppServerQueryContextIdentity = cacheContext(),
+): AppServerQueryCache {
   const requestClient = {
     request: async (method: string, params: unknown) => {
       const handler = handlers[method];
@@ -609,7 +576,7 @@ function cacheWithRequestHandlers(handlers: Record<string, (params: unknown) => 
       return handler(params);
     },
   };
-  return new AppServerQueryCache({
+  return new AppServerQueryCache(context, {
     clientRunner: {
       runWithClient: async (_context, operation) => operation(requestClient as never),
     },

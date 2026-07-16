@@ -15,7 +15,7 @@ import {
 import type { ObservedResultListener } from "./observed-result";
 
 export interface AppServerResourceStoreOptions {
-  cache?: AppServerQueryCache;
+  cacheFactory?: (context: AppServerQueryContextIdentity) => AppServerQueryCache;
   clientRunner?: AppServerQueryClientRunner;
 }
 
@@ -31,11 +31,7 @@ export function isStaleAppServerResourceContextError(error: unknown): error is S
 }
 
 interface ResourceObserver<T> {
-  readonly observe: (
-    context: AppServerQueryContextIdentity,
-    listener: (value: T) => void,
-    options: { emitCurrent?: boolean },
-  ) => () => void;
+  readonly observe: (cache: AppServerQueryCache, listener: (value: T) => void, options: { emitCurrent?: boolean }) => () => void;
   readonly listener: (value: T) => void;
   readonly options: { emitCurrent?: boolean };
   firstSubscribe: boolean;
@@ -44,17 +40,21 @@ interface ResourceObserver<T> {
 
 export class AppServerResourceStore {
   private readonly observers = new Set<ResourceObserver<unknown>>();
-  private readonly cache: AppServerQueryCache;
+  private readonly cacheFactory: (context: AppServerQueryContextIdentity) => AppServerQueryCache;
+  private cache: AppServerQueryCache | null = null;
   private lease: AppServerContextLease | null = null;
   private generation = 0;
 
   constructor(options: AppServerResourceStoreOptions = {}) {
-    this.cache = options.cache ?? new AppServerQueryCache(options.clientRunner ? { clientRunner: options.clientRunner } : {});
+    this.cacheFactory =
+      options.cacheFactory ??
+      ((context) => new AppServerQueryCache(context, options.clientRunner ? { clientRunner: options.clientRunner } : {}));
   }
 
   initialize(context: AppServerQueryContext): AppServerContextLease {
     if (this.lease) throw new Error("Codex app-server resource store is already initialized.");
     this.lease = this.nextLease(context);
+    this.cache = this.cacheFactory(this.contextIdentity());
     this.rebindObservers();
     return this.lease;
   }
@@ -63,17 +63,18 @@ export class AppServerResourceStore {
     if (!this.lease) throw new Error("Codex app-server resource store is not initialized.");
     if (appServerQueryContextRawEquals(this.lease.context, context)) return this.lease;
     this.unsubscribeObservers();
-    this.cache.release(appServerQueryContextIdentity(this.lease));
+    this.cache?.dispose();
     this.lease = this.nextLease(context);
+    this.cache = this.cacheFactory(this.contextIdentity());
     this.rebindObservers();
     return this.lease;
   }
 
   reset(): void {
     this.unsubscribeObservers();
-    if (this.lease) this.cache.release(appServerQueryContextIdentity(this.lease));
+    this.cache?.dispose();
+    this.cache = null;
     this.lease = null;
-    this.cache.clear();
   }
 
   contextLease(): AppServerContextLease {
@@ -94,36 +95,36 @@ export class AppServerResourceStore {
   }
 
   activeThreadsSnapshot(): readonly Thread[] | null {
-    return this.lease ? this.cache.activeThreadsSnapshot(this.contextIdentity()) : null;
+    return this.cache?.activeThreadsSnapshot() ?? null;
   }
 
   archivedThreadsSnapshot(): readonly Thread[] | null {
-    return this.lease ? this.cache.archivedThreadsSnapshot(this.contextIdentity()) : null;
+    return this.cache?.archivedThreadsSnapshot() ?? null;
   }
 
   fetchAllActiveThreads(): Promise<readonly Thread[]> {
-    return this.runForCurrentContext((context) => this.cache.fetchAllActiveThreads(context));
+    return this.runForCurrentContext((cache) => cache.fetchAllActiveThreads());
   }
 
   hasMoreActiveThreads(): boolean {
-    return this.lease ? this.cache.hasMoreActiveThreads(this.contextIdentity()) : false;
+    return this.cache?.hasMoreActiveThreads() ?? false;
   }
 
   loadMoreActiveThreads(): Promise<readonly Thread[]> {
-    return this.runForCurrentContext((context) => this.cache.loadMoreActiveThreads(context));
+    return this.runForCurrentContext((cache) => cache.loadMoreActiveThreads());
   }
 
   refreshActiveThreads(): Promise<readonly Thread[]> {
-    return this.runForCurrentContext((context) => this.cache.refreshActiveThreads(context));
+    return this.runForCurrentContext((cache) => cache.refreshActiveThreads());
   }
 
   refreshArchivedThreads(): Promise<readonly Thread[]> {
-    return this.runForCurrentContext((context) => this.cache.refreshArchivedThreads(context));
+    return this.runForCurrentContext((cache) => cache.refreshArchivedThreads());
   }
 
   observeActiveThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
-      (context, contextListener, observeOptions) => this.cache.observeActiveThreadsResult(context, contextListener, observeOptions),
+      (cache, contextListener, observeOptions) => cache.observeActiveThreadsResult(contextListener, observeOptions),
       listener,
       options,
     );
@@ -131,51 +132,51 @@ export class AppServerResourceStore {
 
   observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
-      (context, contextListener, observeOptions) => this.cache.observeArchivedThreadsResult(context, contextListener, observeOptions),
+      (cache, contextListener, observeOptions) => cache.observeArchivedThreadsResult(contextListener, observeOptions),
       listener,
       options,
     );
   }
 
   appServerMetadataSnapshot(): SharedServerMetadata | null {
-    return this.lease ? this.cache.appServerMetadataSnapshot(this.contextIdentity()) : null;
+    return this.cache?.appServerMetadataSnapshot() ?? null;
   }
 
   refreshAppServerMetadata(): Promise<SharedServerMetadata | null> {
-    return this.runForCurrentContext((context) => this.cache.refreshAppServerMetadata(context));
+    return this.runForCurrentContext((cache) => cache.refreshAppServerMetadata());
   }
 
   refreshSkills(): Promise<SharedServerMetadata | null> {
-    return this.runForCurrentContext((context) => this.cache.refreshSkills(context));
+    return this.runForCurrentContext((cache) => cache.refreshSkills());
   }
 
   refreshRateLimits(): Promise<SharedServerMetadata | null> {
-    return this.runForCurrentContext((context) => this.cache.refreshRateLimits(context));
+    return this.runForCurrentContext((cache) => cache.refreshRateLimits());
   }
 
   observeAppServerMetadataResult(listener: ObservedResultListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
-      (context, contextListener, observeOptions) => this.cache.observeAppServerMetadataResult(context, contextListener, observeOptions),
+      (cache, contextListener, observeOptions) => cache.observeAppServerMetadataResult(contextListener, observeOptions),
       listener,
       options,
     );
   }
 
   modelsSnapshot(): readonly ModelMetadata[] | null {
-    return this.lease ? this.cache.modelsSnapshot(this.contextIdentity()) : null;
+    return this.cache?.modelsSnapshot() ?? null;
   }
 
   fetchModels(): Promise<readonly ModelMetadata[]> {
-    return this.runForCurrentContext((context) => this.cache.fetchModels(context));
+    return this.runForCurrentContext((cache) => cache.fetchModels());
   }
 
   refreshModels(): Promise<readonly ModelMetadata[]> {
-    return this.runForCurrentContext((context) => this.cache.refreshModels(context));
+    return this.runForCurrentContext((cache) => cache.refreshModels());
   }
 
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void {
     return this.observeCurrentContext(
-      (context, contextListener, observeOptions) => this.cache.observeModelsResult(context, contextListener, observeOptions),
+      (cache, contextListener, observeOptions) => cache.observeModelsResult(contextListener, observeOptions),
       listener,
       options,
     );
@@ -189,9 +190,10 @@ export class AppServerResourceStore {
     return Boolean(this.lease && appServerQueryContextIdentityMatches(this.contextIdentity(), context));
   }
 
-  private runForCurrentContext<T>(operation: (context: AppServerQueryContextIdentity) => Promise<T>): Promise<T> {
+  private runForCurrentContext<T>(operation: (cache: AppServerQueryCache) => Promise<T>): Promise<T> {
     const context = this.contextIdentity();
-    return this.runForIdentity(context, () => operation(context));
+    const cache = this.currentCache();
+    return this.runForIdentity(context, () => operation(cache));
   }
 
   private async runForIdentity<T>(context: AppServerQueryContextIdentity, operation: () => Promise<T>): Promise<T> {
@@ -229,8 +231,9 @@ export class AppServerResourceStore {
   }
 
   private bindObserver<T>(observer: ResourceObserver<T>): void {
-    if (!this.lease) return;
+    if (!this.lease || !this.cache) return;
     const context = this.contextIdentity();
+    const cache = this.cache;
     const observeOptions: { emitCurrent?: boolean } = {};
     if (observer.firstSubscribe) {
       if (observer.options.emitCurrent !== undefined) observeOptions.emitCurrent = observer.options.emitCurrent;
@@ -238,7 +241,7 @@ export class AppServerResourceStore {
       observeOptions.emitCurrent = true;
     }
     observer.unsubscribeQuery = observer.observe(
-      context,
+      cache,
       (value) => {
         if (this.isCurrent(context)) observer.listener(value);
       },
@@ -256,5 +259,10 @@ export class AppServerResourceStore {
 
   private rebindObservers(): void {
     for (const observer of this.observers) this.bindObserver(observer);
+  }
+
+  private currentCache(): AppServerQueryCache {
+    if (!this.cache) throw new Error("Codex app-server resource store is not initialized.");
+    return this.cache;
   }
 }
