@@ -39,6 +39,19 @@ describe("AppServerQueryCache", () => {
     expect(fetchThreads).toHaveBeenCalledOnce();
   });
 
+  it("preserves the last-known-good active thread list when a refresh fails", async () => {
+    const fetchThreads = vi
+      .fn()
+      .mockResolvedValueOnce([thread("cached")])
+      .mockRejectedValueOnce(new Error("offline"));
+    const cache = cacheWithThreads(fetchThreads);
+    await cache.refreshActiveThreads();
+
+    await expect(cache.refreshActiveThreads()).rejects.toThrow("offline");
+
+    expect(cache.activeThreadsSnapshot()).toEqual([thread("cached")]);
+  });
+
   it("shares concurrent active thread refreshes within one resource identity", async () => {
     const pending = deferred<readonly ReturnType<typeof thread>[]>();
     const fetchThreads = vi.fn(() => pending.promise);

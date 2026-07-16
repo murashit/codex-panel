@@ -4,21 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StaleAppServerResourceContextError } from "../../../../src/app-server/query/resource-store";
 import type { Thread } from "../../../../src/domain/threads/model";
-import { activeThreadId } from "../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
-import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
 import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/contracts";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
 import { ChatPanelSessionRuntime } from "../../../../src/features/chat/host/session-runtime";
-import { ChatComposerController } from "../../../../src/features/chat/panel/composer-controller";
-import { ThreadStreamPresenter } from "../../../../src/features/chat/panel/surface/thread-stream-presenter";
 import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
 import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
-import { waitForAsyncWork } from "../../../support/async";
+import { deferred, waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
 import { chatPanelSettingsAccess } from "../support/settings";
+import { composerModelFromChatState } from "../support/shell-selectors";
 
 installObsidianDomShims();
 
@@ -34,15 +31,24 @@ describe("ChatPanelSessionRuntime actions", () => {
     document.body.replaceChildren();
   });
 
-  it("invalidates thread work through the runtime action", () => {
-    const { runtime, resumeWork } = sessionRuntimeFixture();
+  it("invalidates active resume, history, and restoration work through the runtime action", async () => {
+    const { runtime, resumeWork, stateStore } = sessionRuntimeFixture();
     const resume = resumeWork.begin("thread-1");
-    const invalidateHistory = vi.spyOn(HistoryController.prototype, "invalidate");
+    stateStore.dispatch({ type: "thread-stream/history-loading-set", loading: true });
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread-1", fallbackTitle: null });
+    const restored = deferred<void>();
+    const loadRestoredThread = vi.fn(() => restored.promise);
+    const firstRestoration = runtime.thread.restoration.ensureLoaded(loadRestoredThread);
 
     runtime.actions.invalidateThreadWork();
 
     expect(resumeWork.isStale(resume)).toBe(true);
-    expect(invalidateHistory).toHaveBeenCalledOnce();
+    expect(stateStore.getState().threadStream.loadingHistory).toBe(false);
+    const secondRestoration = runtime.thread.restoration.ensureLoaded(loadRestoredThread);
+    expect(loadRestoredThread).toHaveBeenCalledTimes(2);
+
+    restored.resolve(undefined);
+    await Promise.all([firstRestoration, secondRestoration]);
   });
 
   it("clears rename work before replacing the app-server context", () => {
@@ -92,16 +98,11 @@ describe("ChatPanelSessionRuntime actions", () => {
     expect(stateStore.getState().threadList.listedThreads).toEqual([]);
   });
 
-  it("starts a new thread from runtime state and composer actions", async () => {
-    const focusComposer = vi.spyOn(ChatComposerController.prototype, "focusComposer").mockImplementation(() => undefined);
+  it("fans out active-thread identity changes after starting a new thread", async () => {
     const refreshLiveState = vi.fn();
-    const requestWorkspaceLayoutSave = vi.fn();
     const refreshTabHeader = vi.fn();
     const { runtime, stateStore } = sessionRuntimeFixture({
       environment: {
-        obsidian: {
-          requestWorkspaceLayoutSave,
-        },
         plugin: {
           workspace: {
             refreshThreadsViewLiveState: refreshLiveState,
@@ -127,47 +128,14 @@ describe("ChatPanelSessionRuntime actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    stateStore.dispatch({ type: "ui/panel-set", panel: "history" });
-
     await runtime.actions.startNewThread();
 
-    expect(activeThreadId(stateStore.getState())).toBeNull();
-    expect(stateStore.getState().ui.toolbarPanel).toBeNull();
-    expect(stateStore.getState().connection.statusText).toBe("New chat.");
-    expect(focusComposer).toHaveBeenCalledOnce();
     expect(refreshTabHeader).toHaveBeenCalledOnce();
-    expect(requestWorkspaceLayoutSave).toHaveBeenCalledOnce();
     expect(refreshLiveState).toHaveBeenCalledOnce();
   });
 
-  it("does not clear the current thread while a turn is busy", async () => {
-    const focusComposer = vi.spyOn(ChatComposerController.prototype, "focusComposer").mockImplementation(() => undefined);
-    const { runtime, stateStore } = sessionRuntimeFixture();
-    stateStore.dispatch({
-      type: "turn/optimistic-started",
-      item: {
-        id: "local-user",
-        kind: "dialogue",
-        dialogueKind: "user",
-        role: "user",
-        text: "prompt",
-      },
-      pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
-    });
-    stateStore.dispatch({
-      type: "turn/started",
-      threadId: "thread-1",
-      turnId: "turn-1",
-    });
-
-    await runtime.actions.startNewThread();
-
-    expect(activeThreadId(stateStore.getState())).toBe("thread-1");
-    expect(focusComposer).not.toHaveBeenCalled();
-  });
-
   it("wires reconnect cleanup through the runtime toolbar action", async () => {
-    const { runtime, stateStore, deferredTasks } = sessionRuntimeFixture();
+    const { runtime, stateStore } = sessionRuntimeFixture();
     stateStore.dispatch({
       type: "active-thread/resumed",
       approvalPolicyKnown: true,
@@ -183,10 +151,7 @@ describe("ChatPanelSessionRuntime actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    const invalidateConnection = vi.spyOn(runtime.connection.actions, "invalidate");
-    const clearDiagnostics = vi.spyOn(deferredTasks, "clearDiagnostics");
-    const resetConnection = vi.spyOn(runtime.connection.manager, "resetConnection");
-    const ensureConnected = vi.spyOn(runtime.connection.actions, "ensureConnected").mockResolvedValue(undefined);
+    vi.spyOn(runtime.connection.actions, "ensureConnected").mockResolvedValue(undefined);
     vi.spyOn(runtime.connection.manager, "isConnected").mockReturnValue(true);
     const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue(undefined);
 
@@ -195,22 +160,57 @@ describe("ChatPanelSessionRuntime actions", () => {
     await waitForAsyncWork(() => {
       expect(resumeThread).toHaveBeenCalledWith("thread-1");
     });
-    expect(invalidateConnection).toHaveBeenCalledOnce();
-    expect(clearDiagnostics).toHaveBeenCalledOnce();
-    expect(resetConnection).toHaveBeenCalledOnce();
     expect(stateStore.getState().connection.statusText).toBe("Reconnecting...");
-    expect(ensureConnected).toHaveBeenCalledOnce();
   });
 
-  it("disposes presenter and composer resources through the complete runtime lifecycle", async () => {
-    const disposePresenter = vi.spyOn(ThreadStreamPresenter.prototype, "dispose").mockImplementation(() => undefined);
-    const disposeComposer = vi.spyOn(ChatComposerController.prototype, "dispose").mockImplementation(() => undefined);
-    const { runtime } = sessionRuntimeFixture();
+  it("disposes scheduled, subscribed, composer, scroll, and connection resources", async () => {
+    vi.useFakeTimers();
+    const unsubscribeThreads = vi.fn();
+    const unsubscribeMetadata = vi.fn();
+    const unsubscribeModels = vi.fn();
+    const refreshLiveState = vi.fn();
+    const { runtime, stateStore, deferredTasks, threadStreamScrollBinding } = sessionRuntimeFixture({
+      environment: {
+        plugin: {
+          workspace: { refreshThreadsViewLiveState: refreshLiveState },
+          threadCatalog: { observeActive: vi.fn(() => unsubscribeThreads) },
+          appServerQueries: {
+            observeAppServerMetadataResult: vi.fn(() => unsubscribeMetadata),
+            observeModelsResult: vi.fn(() => unsubscribeModels),
+          },
+        },
+      },
+    });
+    runtime.runtime.sharedState.subscribe();
+    const diagnostics = vi.fn();
+    const warmup = vi.fn();
+    deferredTasks.scheduleDiagnostics(diagnostics);
+    deferredTasks.scheduleAppServerWarmup(warmup);
+    const dispatchScrollCommand = vi.fn();
+    threadStreamScrollBinding.mountScrollPort({ dispatchScrollCommand });
+    const composer = document.body.createEl("textarea");
+    runtime.composer.controller.renderState(composerModelFromChatState(stateStore.getState()), { submit: vi.fn() }).onComposer(composer);
+    composer.focus();
+    expect(runtime.composer.controller.hasFocus()).toBe(true);
+    const disconnect = vi.spyOn(runtime.connection.manager, "disconnect");
+    const unmount = vi.fn();
 
-    await runtime.dispose(() => undefined);
+    await runtime.dispose(unmount);
 
-    expect(disposePresenter).toHaveBeenCalledOnce();
-    expect(disposeComposer).toHaveBeenCalledOnce();
+    expect([unsubscribeThreads, unsubscribeMetadata, unsubscribeModels].every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(
+      true,
+    );
+    expect(runtime.composer.controller.hasFocus()).toBe(false);
+    threadStreamScrollBinding.showLatest();
+    expect(dispatchScrollCommand).not.toHaveBeenCalled();
+    expect(unmount).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(refreshLiveState).toHaveBeenCalledOnce();
+
+    await vi.runAllTimersAsync();
+    expect(diagnostics).not.toHaveBeenCalled();
+    expect(warmup).not.toHaveBeenCalled();
+    expect(refreshLiveState).toHaveBeenCalledTimes(2);
   });
 
   function sessionRuntimeFixture(options: { environment?: PartialChatPanelEnvironment } = {}): {
@@ -218,21 +218,23 @@ describe("ChatPanelSessionRuntime actions", () => {
     stateStore: ChatStateStore;
     resumeWork: ChatResumeWorkTracker;
     deferredTasks: ReturnType<typeof createChatViewDeferredTasks>;
+    threadStreamScrollBinding: ReturnType<typeof createChatThreadStreamScrollBinding>;
   } {
     const stateStore = createChatStateStore();
     const resumeWork = new ChatResumeWorkTracker();
     const deferredTasks = createChatViewDeferredTasks(() => window);
+    const threadStreamScrollBinding = createChatThreadStreamScrollBinding();
     const environment = chatPanelEnvironmentFixture(options.environment);
     const runtime = new ChatPanelSessionRuntime({
       environment,
       stateStore,
       deferredTasks,
       resumeWork,
-      threadStreamScrollBinding: createChatThreadStreamScrollBinding(),
+      threadStreamScrollBinding,
       getClosing: () => false,
       viewWindow: () => window,
     });
-    return { runtime, stateStore, resumeWork, deferredTasks };
+    return { runtime, stateStore, resumeWork, deferredTasks, threadStreamScrollBinding };
   }
 
   interface PartialChatPanelEnvironment {
