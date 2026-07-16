@@ -1,12 +1,12 @@
 import type { Vault } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
 
-import { createObsidianArchiveExportDestination } from "../../../../src/features/threads/obsidian/archive-export-destination.obsidian";
+import { createObsidianVaultMarkdownDestination } from "../../../src/shared/obsidian/vault-write-destination.obsidian";
 
-describe("createObsidianArchiveExportDestination", () => {
+describe("createObsidianVaultMarkdownDestination", () => {
   it("uses normalized Vault paths for existence checks, folder creation, and file writes", async () => {
     const vault = vaultMock(new Set(["Codex Archives/Café"]));
-    const destination = createObsidianArchiveExportDestination(vault);
+    const destination = createObsidianVaultMarkdownDestination(vault);
 
     await expect(destination.exists("//Codex\u00a0Archives//Cafe\u0301//")).resolves.toBe(true);
     await destination.createFolder("//Codex\u00a0Archives//New//");

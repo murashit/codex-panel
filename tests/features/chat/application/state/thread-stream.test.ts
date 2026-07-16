@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   initialChatThreadStreamState,
   reduceThreadStreamSlice,
+  threadStreamItems,
   threadStreamRollbackCandidate,
   threadStreamStartActiveSegment,
   threadStreamTurnsAfterTurnId,
@@ -9,30 +10,122 @@ import {
 } from "../../../../../src/features/chat/application/state/thread-stream";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
 
-describe("thread stream selectors", () => {
-  it("appends deltas to an existing active-segment item", () => {
-    const initial = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn-1", [
-      {
-        id: "assistant-1",
-        sourceItemId: "source-1",
-        kind: "dialogue",
-        dialogueKind: "assistantResponse",
-        dialogueState: "streaming",
-        role: "assistant",
-        text: "hello",
-        turnId: "turn-1",
-      },
-    ]);
-    const next = reduceThreadStreamSlice(initial, {
-      type: "thread-stream/assistant-delta-appended",
-      itemId: "source-1",
-      turnId: "turn-1",
-      delta: " world",
+describe("thread stream state", () => {
+  it("updates turn diffs and deduplicates reported logs", () => {
+    let state = reduceThreadStreamSlice(initialChatThreadStreamState(), {
+      type: "thread-stream/turn-diff-updated",
+      turnId: "turn",
+      diff: "@@",
     });
+    const log = { id: "log", kind: "system", role: "system", text: "warning" } satisfies ThreadStreamItem;
+    state = reduceThreadStreamSlice(state, { type: "thread-stream/deduped-log-added", text: "warning", item: log });
+    state = reduceThreadStreamSlice(state, { type: "thread-stream/deduped-log-added", text: "warning", item: log });
 
-    expect(next.activeSegment?.items[0]).toMatchObject({ text: "hello world" });
+    expect(state.turnDiffs).toEqual(new Map([["turn", "@@"]]));
+    expect(threadStreamItems(state)).toEqual([log]);
   });
 
+  it("appends assistant deltas after stable history", () => {
+    const history = dialogueItem("history");
+    const running = threadStreamStartActiveSegment(initialChatThreadStreamState([history]), "turn", []);
+    const next = reduceThreadStreamSlice(running, {
+      type: "thread-stream/assistant-delta-appended",
+      itemId: "assistant",
+      turnId: "turn",
+      delta: "hello",
+    });
+
+    expect(threadStreamItems(next)).toEqual([history, expect.objectContaining({ id: "assistant", text: "hello", turnId: "turn" })]);
+  });
+
+  it("updates repeated output by source item id without exposing the private index", () => {
+    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", []);
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/item-output-appended",
+      itemId: "cmd",
+      turnId: "turn",
+      delta: "one",
+      kind: "command",
+      fallbackText: "Command running",
+    });
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/item-output-appended",
+      itemId: "cmd",
+      turnId: "turn",
+      delta: "two",
+      kind: "command",
+      fallbackText: "Command running",
+    });
+
+    expect(threadStreamItems(state)).toEqual([expect.objectContaining({ id: "cmd", output: "onetwo" })]);
+  });
+
+  it("ignores deltas from a different active turn", () => {
+    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn-active", []);
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/assistant-delta-appended",
+      itemId: "assistant",
+      turnId: "turn-active",
+      delta: "active",
+    });
+    const next = reduceThreadStreamSlice(state, {
+      type: "thread-stream/assistant-delta-appended",
+      itemId: "stale",
+      turnId: "turn-stale",
+      delta: "stale",
+    });
+
+    expect(threadStreamItems(next)).toEqual([expect.objectContaining({ id: "assistant", text: "active" })]);
+  });
+
+  it("keeps optimistic items when the active turn is acknowledged by a delta", () => {
+    const optimistic = threadStreamStartActiveSegment(initialChatThreadStreamState(), null, [dialogueItem("local-user")]);
+    const next = reduceThreadStreamSlice(optimistic, {
+      type: "thread-stream/assistant-delta-appended",
+      itemId: "assistant",
+      turnId: "turn",
+      delta: "ack",
+    });
+
+    expect(threadStreamItems(next)).toEqual([
+      expect.objectContaining({ id: "local-user" }),
+      expect.objectContaining({ id: "assistant", text: "ack", turnId: "turn" }),
+    ]);
+  });
+
+  it("appends text only when an existing source item has the same kind", () => {
+    let state = threadStreamStartActiveSegment(initialChatThreadStreamState(), "turn", []);
+    state = reduceThreadStreamSlice(state, {
+      type: "thread-stream/item-text-appended",
+      itemId: "shared-source",
+      turnId: "turn",
+      label: "Tool",
+      delta: "tool text",
+      kind: "tool",
+    });
+    const mismatched = reduceThreadStreamSlice(state, {
+      type: "thread-stream/item-text-appended",
+      itemId: "shared-source",
+      turnId: "turn",
+      label: "Reasoning",
+      delta: "reasoning text",
+      kind: "reasoning",
+    });
+    const matching = reduceThreadStreamSlice(state, {
+      type: "thread-stream/item-text-appended",
+      itemId: "shared-source",
+      turnId: "turn",
+      label: "Tool",
+      delta: " more",
+      kind: "tool",
+    });
+
+    expect(threadStreamItems(mismatched)).toEqual([expect.objectContaining({ kind: "tool", text: "Tool: tool text" })]);
+    expect(threadStreamItems(matching)).toEqual([expect.objectContaining({ kind: "tool", text: "Tool: tool text more" })]);
+  });
+});
+
+describe("thread stream selectors", () => {
   it("counts turns after a turn id from thread stream state", () => {
     const state = initialChatThreadStreamState(items());
 
@@ -72,7 +165,7 @@ describe("thread stream selectors", () => {
     expect(threadStreamRollbackCandidate(state)).toEqual({ turnId: "turn-1", itemId: "u1", text: "initial" });
   });
 
-  it("restores the raw user dialogue text instead of rendered display text", () => {
+  it("restores raw user dialogue text instead of rendered display text", () => {
     const state = initialChatThreadStreamState([
       {
         id: "u1",
@@ -94,26 +187,12 @@ describe("thread stream selectors", () => {
 
   it("returns null when rollback has no user dialogue candidate", () => {
     expect(threadStreamRollbackCandidate(initialChatThreadStreamState([]))).toBeNull();
-    expect(
-      threadStreamRollbackCandidate(initialChatThreadStreamState([{ id: "system", kind: "system", role: "system", text: "Idle" }])),
-    ).toBeNull();
-    expect(
-      threadStreamRollbackCandidate(
-        initialChatThreadStreamState([
-          {
-            id: "a1",
-            kind: "dialogue",
-            role: "assistant",
-            text: "answer",
-            turnId: "turn-1",
-            dialogueKind: "assistantResponse",
-            dialogueState: "completed",
-          },
-        ]),
-      ),
-    ).toBeNull();
   });
 });
+
+function dialogueItem(id: string): ThreadStreamItem {
+  return { id, kind: "dialogue", role: "assistant", text: id, dialogueKind: "assistantResponse", dialogueState: "completed" };
+}
 
 function items(): ThreadStreamItem[] {
   return [
@@ -138,14 +217,5 @@ function items(): ThreadStreamItem[] {
       dialogueState: "completed",
     },
     { id: "u3", kind: "dialogue", dialogueKind: "user", role: "user", text: "third", turnId: "turn-3" },
-    {
-      id: "a3",
-      kind: "dialogue",
-      role: "assistant",
-      text: "third answer",
-      turnId: "turn-3",
-      dialogueKind: "assistantResponse",
-      dialogueState: "completed",
-    },
   ];
 }

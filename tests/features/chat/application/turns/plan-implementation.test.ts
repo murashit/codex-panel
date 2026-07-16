@@ -81,6 +81,13 @@ describe("implementPlan", () => {
     stateStore.dispatch({ type: "composer/draft-set", draft: "edit first" });
 
     expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: latest.id });
+
+    stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "default" });
+    expect(implementPlanTargetFromState(stateStore.getState())).toBeNull();
+
+    stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
+    stateStore.dispatch({ type: "turn/started", threadId: "thread", turnId: "turn" });
+    expect(implementPlanTargetFromState(stateStore.getState())).toBeNull();
   });
 
   it("ignores streaming proposed plans until they are implementable turn outcomes", () => {
