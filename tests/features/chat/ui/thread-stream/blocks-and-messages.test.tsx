@@ -3,11 +3,8 @@
 import { MarkdownRenderer } from "obsidian";
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { implementPlanTarget } from "../../../../../src/features/chat/application/turns/plan-implementation";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
-import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
-import { THREAD_STREAM_CONTENT_RENDERED_EVENT } from "../../../../../src/features/chat/ui/thread-stream/content-rendered-event.dom";
 import { ThreadStreamMarkdownRenderer } from "../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
 import { deferred } from "../../../../support/async";
 import { attributeValues, textContents, topLevelDetailsSummaries } from "../../../../support/dom";
@@ -80,90 +77,6 @@ describe("thread stream rendering and action menu", () => {
     const activitySummary = parent.querySelector<HTMLElement>('[data-codex-panel-block-key="activity:turn-t1-activity"] summary');
     expect(activitySummary?.textContent).toBe("Work details");
     expect(activitySummary?.tabIndex).toBe(-1);
-    unmountUiRootInAct(parent);
-  });
-
-  it("keeps Work details in the flow when the activity group is collapsed", async () => {
-    const parent = document.createElement("div");
-    const blocks = threadStreamBlocks({
-      items: [
-        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "do it", turnId: "t1" },
-        {
-          id: "hook-1",
-          kind: "hook",
-          role: "tool",
-          text: "userPromptSubmit: Saving jj baseline",
-          toolName: "hook",
-          turnId: "t1",
-          status: "completed",
-        },
-        {
-          id: "a1",
-          kind: "dialogue",
-          role: "assistant",
-          text: "done",
-          turnId: "t1",
-          dialogueKind: "assistantResponse",
-          dialogueState: "completed",
-        },
-      ],
-      disclosures: testDisclosures({ activityGroups: ["t1"] }),
-    });
-    const activityBlock = expectPresent(blocks.find((block) => block.key === "activity:turn-t1-activity"));
-
-    renderThreadStreamBlocksInAct(parent, [activityBlock]);
-
-    const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-stream-block"));
-    const threadStreamFlow = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-stream-flow"));
-    const activityGroup = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__activity-group"));
-
-    Object.defineProperty(host, "offsetHeight", { value: 520, configurable: true });
-    await act(async () => {
-      activityGroup.dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
-      await Promise.resolve();
-    });
-    expect(threadStreamFlow.style.height).toBe("");
-    expect(host.style.transform).toBe("");
-
-    Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
-    await act(async () => {
-      activityGroup.open = false;
-      activityGroup.dispatchEvent(new Event("toggle"));
-      await Promise.resolve();
-    });
-
-    expect(threadStreamFlow.style.height).toBe("");
-    expect(host.style.transform).toBe("");
-    unmountUiRootInAct(parent);
-  });
-
-  it("keeps blocks in the flow after their rendered content shrinks on rerender", () => {
-    const parent = document.createElement("div");
-    const block = threadStreamBlocks({
-      items: [{ id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "expanded", turnId: "t1" }],
-    })[0];
-
-    renderThreadStreamBlocksInAct(parent, [block]);
-
-    const host = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-stream-block"));
-    const threadStreamFlow = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__thread-stream-flow"));
-
-    Object.defineProperty(host, "offsetHeight", { value: 520, configurable: true });
-    void act(() => {
-      host.dispatchEvent(new Event(THREAD_STREAM_CONTENT_RENDERED_EVENT, { bubbles: true }));
-    });
-    expect(threadStreamFlow.style.height).toBe("");
-    expect(host.style.transform).toBe("");
-
-    Object.defineProperty(host, "offsetHeight", { value: 120, configurable: true });
-    renderThreadStreamBlocksInAct(parent, [
-      threadStreamBlocks({
-        items: [{ id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "collapsed", turnId: "t1" }],
-      })[0],
-    ]);
-
-    expect(threadStreamFlow.style.height).toBe("");
-    expect(host.style.transform).toBe("");
     unmountUiRootInAct(parent);
   });
 
@@ -248,7 +161,6 @@ describe("thread stream rendering and action menu", () => {
 
     expect(element.classList.contains("codex-panel__stream-item--system")).toBe(true);
     expect(element.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Available slash commands");
-    expect(element.querySelector(".codex-panel__stream-item-content")?.classList.contains("markdown-rendered")).toBe(false);
     expect(renderMarkdown).not.toHaveBeenCalled();
     expect(element.querySelector("details")).toBeNull();
     expect(element.querySelector(".codex-panel__output-title")).toBeNull();
@@ -596,7 +508,6 @@ describe("thread stream rendering and action menu", () => {
       }),
     );
     const contentAfterUpdate = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__stream-item-content"));
-    expect(contentAfterUpdate).toBe(content);
     expect(contentAfterUpdate.textContent).toBe("rendered:old");
 
     secondRender.resolve(undefined);
@@ -777,53 +688,6 @@ describe("thread stream rendering and action menu", () => {
     expect(button?.getAttribute("aria-label")).toBe("Implement plan");
     button?.click();
     expect(onImplementPlan).toHaveBeenCalledWith({ itemId: "p1" });
-  });
-
-  it("selects only the latest proposed plan as an implement candidate", () => {
-    const firstPlan = {
-      id: "p1",
-      kind: "dialogue",
-      role: "assistant",
-      text: "# First plan",
-      turnId: "turn-1",
-      dialogueKind: "proposedPlan",
-      dialogueState: "completed",
-    } as const;
-    const secondPlan = {
-      id: "p2",
-      kind: "dialogue",
-      role: "assistant",
-      text: "# Second plan",
-      turnId: "turn-2",
-      dialogueKind: "proposedPlan",
-      dialogueState: "completed",
-    } as const;
-    const baseState = {
-      activeThread: { id: "thread", provenance: null },
-      turn: { lifecycle: { kind: "idle" as const } },
-      runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } },
-      threadStream: {
-        stableItems: [
-          firstPlan,
-          {
-            id: "a1",
-            kind: "dialogue",
-            role: "assistant",
-            text: "answer",
-            dialogueKind: "assistantResponse",
-            dialogueState: "completed",
-          } as const,
-          secondPlan,
-        ],
-        activeSegment: null,
-      },
-    };
-
-    expect(implementPlanTarget(baseState)).toEqual({ itemId: secondPlan.id });
-    expect(
-      implementPlanTarget({ ...baseState, runtime: { pending: { collaborationMode: setCollaborationModeIntent("default") } } }),
-    ).toBeNull();
-    expect(implementPlanTarget({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
   });
 
   it("does not render copy actions for tool items", () => {

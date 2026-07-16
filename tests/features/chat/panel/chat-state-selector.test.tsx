@@ -70,7 +70,7 @@ describe("useChatSelector", () => {
     unmountUiRoot(parent);
   });
 
-  it("rerenders only the region whose selected state changed", async () => {
+  it("isolates stream and composer updates to their subscribed regions", async () => {
     const store = createChatStateStore();
     const renders = { toolbar: vi.fn(), goal: vi.fn(), threadStream: vi.fn(), composer: vi.fn() };
     const parent = document.createElement("div");
@@ -78,27 +78,7 @@ describe("useChatSelector", () => {
     await act(async () => {
       renderUiRoot(parent, <SelectorRegions store={store} renders={renders} />);
     });
-    expect(regionRenderCounts(renders)).toEqual([1, 1, 1, 1]);
-
-    await act(async () => {
-      store.dispatch({ type: "composer/draft-set", draft: "draft" });
-    });
-    expect(regionRenderCounts(renders)).toEqual([1, 1, 1, 2]);
-
-    await act(async () => {
-      store.dispatch({ type: "ui/goal-editor-started", threadId: null, objective: "Goal", tokenBudget: null });
-    });
-    expect(regionRenderCounts(renders)).toEqual([1, 2, 1, 2]);
-
-    await act(async () => {
-      store.dispatch({ type: "ui/panel-set", panel: "history" });
-    });
-    expect(regionRenderCounts(renders)).toEqual([2, 2, 1, 2]);
-
-    await act(async () => {
-      store.dispatch({ type: "ui/disclosure-set", bucket: "details", id: "item", open: true });
-    });
-    expect(regionRenderCounts(renders)).toEqual([2, 2, 2, 2]);
+    clearRegionRenders(renders);
 
     await act(async () => {
       store.dispatch({
@@ -106,16 +86,13 @@ describe("useChatSelector", () => {
         item: { id: "status", kind: "system", role: "system", text: "Status" },
       });
     });
-    expect(regionRenderCounts(renders)).toEqual([2, 2, 3, 2]);
+    expect(renderedRegions(renders)).toEqual(["threadStream"]);
+    clearRegionRenders(renders);
 
     await act(async () => {
-      store.dispatch({
-        type: "thread-stream/items-replaced",
-        historyCursor: null,
-        items: [{ id: "user", kind: "dialogue", dialogueKind: "user", role: "user", text: "Hello", turnId: "turn" }],
-      });
+      store.dispatch({ type: "composer/draft-set", draft: "draft" });
     });
-    expect(regionRenderCounts(renders)).toEqual([2, 2, 4, 3]);
+    expect(renderedRegions(renders)).toEqual(["composer"]);
     unmountUiRoot(parent);
   });
 });
@@ -155,13 +132,19 @@ function Region<Selection extends object>({
   return null;
 }
 
-function regionRenderCounts(renders: {
+type RegionRenders = {
   toolbar: Mock<() => void>;
   goal: Mock<() => void>;
   threadStream: Mock<() => void>;
   composer: Mock<() => void>;
-}): number[] {
-  return [renders.toolbar, renders.goal, renders.threadStream, renders.composer].map((rendered) => rendered.mock.calls.length);
+};
+
+function clearRegionRenders(renders: RegionRenders): void {
+  for (const rendered of Object.values(renders)) rendered.mockClear();
+}
+
+function renderedRegions(renders: RegionRenders): string[] {
+  return Object.entries(renders).flatMap(([region, rendered]) => (rendered.mock.calls.length > 0 ? [region] : []));
 }
 
 interface ControllableStore extends ChatStateStore {

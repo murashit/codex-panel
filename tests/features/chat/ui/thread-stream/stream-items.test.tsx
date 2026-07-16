@@ -300,172 +300,6 @@ describe("thread stream item renderer decisions", () => {
     expect(element.textContent).toContain("[>]Patch UI");
   });
 
-  it("renders active task progress with the shared bottom live blocks", () => {
-    const blocks = threadStreamBlocks({
-      turnLifecycle: runningTurnLifecycle("turn"),
-      items: [
-        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "Do it", turnId: "turn" },
-        {
-          id: "plan-progress-turn",
-          kind: "taskProgress",
-          role: "tool",
-          text: "[>] Patch UI",
-          turnId: "turn",
-          explanation: null,
-          steps: [{ step: "Patch UI", status: "inProgress" }],
-          status: "inProgress",
-        },
-        {
-          id: "a1",
-          kind: "dialogue",
-          role: "assistant",
-          text: "Working",
-          turnId: "turn",
-          dialogueKind: "assistantResponse",
-          dialogueState: "completed",
-        },
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          text: "Wait for agent",
-          turnId: "turn",
-          tool: "wait",
-          status: "running",
-          senderThreadId: "parent",
-          receiverThreadIds: ["running"],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
-          agents: [{ threadId: "running", status: "running", executionState: "running", message: "Inspecting renderer" }],
-        },
-      ],
-      pendingRequests: {
-        controlNamespace: "test-panel",
-        signature: "request:1",
-        snapshot: () => ({
-          approvals: [],
-          pendingUserInputs: [],
-          pendingMcpElicitations: [],
-          userInputDrafts: new Map(),
-          mcpElicitationDrafts: new Map(),
-          approvalDetails: new Set(),
-        }),
-        actions: () => ({
-          resolveApproval: vi.fn(),
-          resolveUserInput: vi.fn(),
-          cancelUserInput: vi.fn(),
-          resolveMcpElicitation: vi.fn(),
-          setUserInputDraft: vi.fn(),
-          setMcpElicitationDraft: vi.fn(),
-        }),
-        consumeAutoFocus: () => false,
-      },
-    });
-
-    expect(blocks.map((block) => block.key)).toEqual([
-      "item:u1",
-      "item:a1",
-      "item:agent-1",
-      "live-task:plan-progress-turn",
-      "live-agents:turn",
-      "pending-requests",
-    ]);
-  });
-
-  it("orders shared bottom live blocks by insertion order", () => {
-    const blocks = threadStreamBlocks({
-      turnLifecycle: runningTurnLifecycle("turn"),
-      items: [
-        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "Do it", turnId: "turn" },
-        {
-          id: "agent-1",
-          kind: "agent",
-          role: "tool",
-          text: "Wait for agent",
-          turnId: "turn",
-          tool: "wait",
-          status: "running",
-          senderThreadId: "parent",
-          receiverThreadIds: ["running"],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
-          agents: [{ threadId: "running", status: "running", executionState: "running", message: null }],
-        },
-        {
-          id: "plan-progress-turn",
-          kind: "taskProgress",
-          role: "tool",
-          text: "[>] Patch UI",
-          turnId: "turn",
-          explanation: null,
-          steps: [{ step: "Patch UI", status: "inProgress" }],
-          status: "inProgress",
-        },
-      ],
-    });
-
-    expect(blocks.map((block) => block.key)).toEqual(["item:u1", "item:agent-1", "live-agents:turn", "live-task:plan-progress-turn"]);
-  });
-
-  it("anchors the live agent summary at the first agent activity", () => {
-    const blocks = threadStreamBlocks({
-      turnLifecycle: runningTurnLifecycle("turn"),
-      items: [
-        { id: "u1", kind: "dialogue", dialogueKind: "user", role: "user", text: "Do it", turnId: "turn" },
-        {
-          id: "agent-spawn",
-          kind: "agent",
-          role: "tool",
-          text: "Spawn agent",
-          turnId: "turn",
-          tool: "spawnAgent",
-          status: "completed",
-          senderThreadId: "parent",
-          receiverThreadIds: ["child"],
-          prompt: "Inspect the renderer.",
-          model: null,
-          reasoningEffort: null,
-          agents: [{ threadId: "child", status: "completed", executionState: "completed", message: null }],
-        },
-        {
-          id: "plan-progress-turn",
-          kind: "taskProgress",
-          role: "tool",
-          text: "[>] Patch UI",
-          turnId: "turn",
-          explanation: null,
-          steps: [{ step: "Patch UI", status: "inProgress" }],
-          status: "inProgress",
-        },
-        {
-          id: "agent-wait",
-          kind: "agent",
-          role: "tool",
-          text: "Wait for agent",
-          turnId: "turn",
-          tool: "wait",
-          status: "running",
-          senderThreadId: "parent",
-          receiverThreadIds: ["child"],
-          prompt: null,
-          model: null,
-          reasoningEffort: null,
-          agents: [{ threadId: "child", status: "running", executionState: "running", message: "Inspecting renderer" }],
-        },
-      ],
-    });
-
-    expect(blocks.map((block) => block.key)).toEqual([
-      "item:u1",
-      "item:agent-spawn",
-      "item:agent-wait",
-      "live-agents:turn",
-      "live-task:plan-progress-turn",
-    ]);
-  });
-
   it("renders agent activity as a one-line summary with consolidated details", () => {
     const block = threadStreamBlocks({
       turnLifecycle: runningTurnLifecycle("turn"),
@@ -529,8 +363,6 @@ describe("thread stream item renderer decisions", () => {
     const header = expectPresent(element.querySelector<HTMLElement>("details summary"));
     const open = expectPresent(header.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]'));
 
-    expect(open.classList.contains("codex-panel__hover-action")).toBe(true);
-    expect(open.classList.contains("codex-panel-ui__nav-row-action")).toBe(false);
     expect(textContents(element, "details summary")).toEqual(["agent"]);
     open.click();
 
@@ -704,8 +536,6 @@ describe("thread stream item renderer decisions", () => {
     expect(summary.textContent).not.toContain("donecompleted");
     expect(summary.querySelector<HTMLButtonElement>('[aria-label="Open agent thread"]')).toBeNull();
     const open = expectPresent(summary.querySelector<HTMLElement>(".codex-panel__agent-row--interactive"));
-    expect(open.classList.contains("codex-panel-ui__nav-item")).toBe(true);
-    expect(open.getAttribute("aria-label")).toBeNull();
     expect(open.textContent).toBe("runningrunning: Inspecting renderer");
     open.click();
     expect(openThreadInNewView).toHaveBeenCalledWith("running");

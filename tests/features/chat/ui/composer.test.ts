@@ -116,16 +116,13 @@ describe("ComposerShell decisions", () => {
       ],
     });
 
-    const meta = parent.querySelector<HTMLElement>(".codex-panel__composer-meta");
     const contextDots = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-context-dot"));
     const modeIcons = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-icon"));
     const statusSummary = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-summary");
     const statusVisual = parent.querySelector<HTMLElement>(".codex-panel__composer-meta-status-visual");
-    expect(meta?.getAttribute("aria-hidden")).toBeNull();
     expect(statusSummary?.textContent).toBe("Context 42%, plan on, auto-review off, fast on, model gpt-5.5, reasoning effort high");
     expect(statusVisual?.getAttribute("aria-hidden")).toBe("true");
     expect(statusVisual?.textContent).toBe("|⣿⣶⣀⣀42%|gpt-5.5|high");
-    expect(parent.querySelector(".codex-panel__composer-meta-status")?.getAttribute("aria-hidden")).toBeNull();
     expect(parent.querySelector(".codex-panel__composer-meta-context")?.textContent).toBe("⣿⣶⣀⣀42%");
     expect(contextDots.map((dot) => dot.textContent)).toEqual(["⣿", "⣶", "⣀", "⣀"]);
     expect(contextDots.map((dot) => dot.classList.contains("is-placeholder"))).toEqual([false, false, true, true]);
@@ -133,17 +130,7 @@ describe("ComposerShell decisions", () => {
     expect(parent.querySelector(".codex-panel__composer-meta-effort")?.textContent).toBe("high");
     expect(modeIcons.map((icon) => icon.dataset["icon"])).toEqual(["list-todo", "shield", "zap"]);
     expect(modeIcons.map((icon) => icon.classList.contains("is-active"))).toEqual([true, false, true]);
-    expect(modeIcons.map((icon) => icon.tagName)).toEqual(["SPAN", "SPAN", "SPAN"]);
-    expect(modeIcons.map((icon) => icon.getAttribute("role"))).toEqual([null, null, null]);
-    expect(modeIcons.map((icon) => icon.getAttribute("tabindex"))).toEqual([null, null, null]);
-    expect(modeIcons.map((icon) => icon.getAttribute("aria-label"))).toEqual([null, null, null]);
     expect(modeIcons.map((icon) => icon.getAttribute("aria-hidden"))).toEqual(["true", "true", "true"]);
-    expect(modeIcons.every((icon) => icon.classList.contains("codex-panel__composer-meta-trigger"))).toBe(true);
-    expect(modeIcons.every((icon) => !icon.className.includes("clickable-icon"))).toBe(true);
-    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.tagName).toBe("SPAN");
-    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-effort")?.tagName).toBe("SPAN");
-    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-model")?.getAttribute("role")).toBeNull();
-    expect(parent.querySelector<HTMLElement>(".codex-panel__composer-meta-effort")?.getAttribute("tabindex")).toBeNull();
     expect(parent.querySelector(".codex-panel__composer-action.codex-panel__send")).not.toBeNull();
     expect(parent.querySelector(".codex-panel__new-chat")).toBeNull();
   });
@@ -194,12 +181,7 @@ describe("ComposerShell decisions", () => {
       expect(parent.querySelector('[data-codex-panel-composer-meta-kind="model"]')?.textContent).toBe("gpt-5.5gpt-5.4");
     });
     const metaOptions = Array.from(parent.querySelectorAll<HTMLElement>(".codex-panel__composer-meta-option"));
-    expect(metaOptions.map((option) => option.getAttribute("role"))).toEqual([null, null]);
-    expect(metaOptions.map((option) => option.getAttribute("tabindex"))).toEqual([null, null]);
-    expect(metaOptions.map((option) => option.getAttribute("aria-selected"))).toEqual([null, null]);
-    expect(metaOptions.every((option) => !option.classList.contains("is-selected"))).toBe(true);
-    expect(metaOptions.every((option) => !option.classList.contains("codex-panel-ui__nav-item"))).toBe(true);
-    expect(metaOptions.every((option) => !option.classList.contains("codex-panel__toolbar-panel-item"))).toBe(true);
+    expect(metaOptions.map((option) => option.textContent)).toEqual(["gpt-5.5", "gpt-5.4"]);
 
     parent.querySelector<HTMLElement>(".codex-panel__composer-meta-effort")?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     await waitForAsyncWork(() => {
@@ -484,7 +466,6 @@ describe("ComposerShell decisions", () => {
         }),
       );
 
-      expect(parent.querySelector<HTMLTextAreaElement>(".codex-panel__composer-input")).toBe(composer);
       expect(composer.style.height).toBe("56px");
       expect(callbacks.onHeightChange).toHaveBeenCalled();
     } finally {

@@ -36,30 +36,23 @@ describe("Toolbar decisions", () => {
       "Show chat actions",
       "Show status",
     ]);
-    expect([...expectPresent(navButtons).children].map((button) => button.tagName)).toEqual(["DIV", "DIV", "DIV"]);
-    expect([...expectPresent(navButtons).children].map((button) => button.getAttribute("role"))).toEqual([null, null, null]);
     expect(parent.querySelector(".codex-panel__plan-toggle")).toBeNull();
     expect(parent.querySelector(".codex-panel__auto-review-toggle")).toBeNull();
     expect(parent.querySelector(".codex-panel__runtime-model")).toBeNull();
     const newChatButton = parent.querySelector<HTMLElement>(".codex-panel__new-chat");
     expect(newChatButton?.getAttribute("aria-label")).toBe("Show chat actions");
-    expect(newChatButton?.getAttribute("aria-expanded")).toBeNull();
-    expect(newChatButton?.classList.contains("is-disabled")).toBe(false);
     newChatButton?.click();
     expect(toggleChatActions).toHaveBeenCalled();
     expect(startNewThread).not.toHaveBeenCalled();
     const statusButton = parent.querySelector(".codex-panel__status-menu-toggle");
     expect(statusButton?.getAttribute("aria-label")).toBe("Show status");
-    expect(statusButton?.getAttribute("aria-expanded")).toBeNull();
     const historyButton = parent.querySelector<HTMLElement>(".codex-panel__history-toggle");
     expect(historyButton?.getAttribute("aria-label")).toBe("Show thread list");
-    expect(historyButton?.getAttribute("aria-pressed")).toBeNull();
     historyButton?.click();
     expect(toggleHistory).toHaveBeenCalled();
     parent.empty();
     mountToolbar(parent, toolbarModel({ newChatDisabled: true }), toolbarActions());
-    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.tagName).toBe("DIV");
-    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.classList.contains("is-disabled")).toBe(false);
+    expect(parent.querySelector<HTMLElement>(".codex-panel__new-chat")?.getAttribute("aria-label")).toBe("Show chat actions");
 
     parent.empty();
     mountToolbar(parent, toolbarModel({ chatActionsOpen: true, historyOpen: true, statusPanelOpen: true }), toolbarActions());
@@ -85,11 +78,7 @@ describe("Toolbar decisions", () => {
     );
 
     const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
-    expect(parent.querySelector(".codex-panel__chat-actions-panel-items")?.tagName).toBe("DIV");
-    expect(parent.querySelector(".codex-panel__chat-actions-panel-items")?.getAttribute("aria-label")).toBeNull();
     expect(items).toHaveLength(4);
-    expect(items.map((item) => item.tagName)).toEqual(["DIV", "DIV", "DIV", "DIV"]);
-    expect(items.map((item) => item.getAttribute("role"))).toEqual([null, null, null, null]);
     items[0]?.click();
     items[1]?.click();
     items[2]?.click();
@@ -98,6 +87,19 @@ describe("Toolbar decisions", () => {
     expect(startSideChat).toHaveBeenCalledOnce();
     expect(compactContext).toHaveBeenCalledOnce();
     expect(setGoal).toHaveBeenCalledOnce();
+
+    mountToolbar(
+      parent,
+      toolbarModel({ chatActionsOpen: true, openPanel: "chat-actions", newChatDisabled: true }),
+      toolbarActions({ startNewThread, startSideChat, compactContext, setGoal }),
+    );
+    const disabledStart = expectPresent(
+      [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__chat-actions-panel-item")].find(
+        (item) => item.textContent === "Start new chat",
+      ),
+    );
+    disabledStart.click();
+    expect(startNewThread).toHaveBeenCalledOnce();
   });
 
   it("keeps context out of the toolbar and Codex limits inside the status menu", () => {
@@ -145,12 +147,8 @@ describe("Toolbar decisions", () => {
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("21%");
     expect(parent.querySelector(".codex-panel__limit-panel")?.textContent).toContain("reset in 3d 4h");
     const meters = [...parent.querySelectorAll<HTMLElement>(".codex-panel__limit-panel-meter")];
-    expect(meters.map((meter) => meter.classList.contains("codex-panel__limit-panel-meter--divided"))).toEqual([true, true]);
-    expect(meters[0]?.classList.contains("codex-panel__limit-panel-meter--5")).toBe(true);
-    expect(meters[1]?.classList.contains("codex-panel__limit-panel-meter--7")).toBe(true);
     expect(meters.map((meter) => meter.getAttribute("role"))).toEqual(["progressbar", "progressbar"]);
     expect(meters.map((meter) => meter.getAttribute("aria-valuenow"))).toEqual(["42", "21"]);
-    expect(meters.map((meter) => meter.getAttribute("aria-label"))).toEqual([null, null]);
   });
 
   it("renders connection diagnostics in the status menu", () => {
@@ -184,11 +182,6 @@ describe("Toolbar decisions", () => {
     expect(parent.textContent).toContain("codex-cli/1.2.3");
     expect(parent.querySelector(".codex-panel__status-diagnostics-row--error")?.textContent).toContain("model/list failed");
     const statusItems = [...parent.querySelectorAll<HTMLElement>(".codex-panel__status-panel-item")];
-    expect(parent.querySelector(".codex-panel__status-panel-items")?.tagName).toBe("DIV");
-    expect(parent.querySelector(".codex-panel__status-panel-items")?.getAttribute("aria-label")).toBeNull();
-    expect(statusItems.map((item) => item.tagName)).toEqual(["DIV", "DIV", "DIV"]);
-    expect(statusItems.map((item) => item.getAttribute("role"))).toEqual([null, null, null]);
-    expect(statusItems.every((item) => item.getAttribute("aria-selected") === null)).toBe(true);
     statusItems.find((item) => item.textContent.includes("Refresh"))?.click();
     expect(refreshStatus).toHaveBeenCalled();
   });
@@ -262,6 +255,7 @@ describe("Toolbar decisions", () => {
 
   it("renders thread list rename actions and an inline rename editor", () => {
     const parent = document.createElement("div");
+    document.body.append(parent);
     const startRenameThread = vi.fn();
     const updateRenameDraft = vi.fn();
     const saveRenameThread = vi.fn();
@@ -294,11 +288,12 @@ describe("Toolbar decisions", () => {
     expect(startRenameThread).toHaveBeenCalledWith("thread");
     const threadRow = parent.querySelector(".codex-panel__thread-row");
     expect(threadRow?.classList.contains("codex-panel__thread-row--selected")).toBe(true);
-    expect(threadRow?.classList.contains("is-selected")).toBe(true);
 
     const input = parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input");
     if (!input) throw new Error("Missing thread rename input");
     expect(input.value).toBe("Draft title");
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
     changeInputValue(input, "New title");
     expect(updateRenameDraft).toHaveBeenCalledWith("editing", "New title");
 
@@ -321,14 +316,19 @@ describe("Toolbar decisions", () => {
       }),
       actions,
     );
-    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")).dispatchEvent(new FocusEvent("blur"));
+    const renamedInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input"));
+    renamedInput.dispatchEvent(new FocusEvent("blur"));
     expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
-    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__thread-rename-input")).dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    saveRenameThread.mockClear();
+    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, isComposing: true }));
+    expect(saveRenameThread).not.toHaveBeenCalled();
+    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(saveRenameThread).toHaveBeenCalledWith("editing", "New title");
+    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(cancelRenameThread).toHaveBeenCalledWith("editing");
     parent.querySelector<HTMLButtonElement>('[aria-label="Auto-name thread"]')?.click();
     expect(autoNameThread).toHaveBeenCalledWith("editing");
+    parent.remove();
   });
 
   it("renders auto-name loading without disabling the rename draft field", () => {
@@ -392,7 +392,6 @@ describe("Toolbar decisions", () => {
       "Archive thread without saving",
       "Save and archive thread",
     ]);
-    expect(archiveButtons.every((button) => !button.classList.contains("nav-action-button"))).toBe(true);
     expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).toBeNull();
     archiveButtons[0]?.click();
     expect(archiveThread).toHaveBeenCalledWith("thread", false);

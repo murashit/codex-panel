@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
+import type { PendingRequestBlockSnapshot } from "../../../../../src/features/chat/presentation/pending-requests/view-model";
 import { threadStreamViewBlocks } from "../../../../../src/features/chat/presentation/thread-stream/view-model";
 
 describe("thread stream presentation blocks", () => {
@@ -39,6 +40,19 @@ describe("thread stream presentation blocks", () => {
 
     expect(blocks.map((block) => block.kind)).toEqual(["text", "detail", "liveAgentSummary"]);
     expect(blocks.find((block) => block.kind === "liveAgentSummary")).toMatchObject({ key: "live-agents:turn" });
+  });
+
+  it("orders active live blocks by insertion and appends pending requests", () => {
+    const blocks = threadStreamViewBlocks({
+      activeThreadId: "thread",
+      activeTurnId: "turn",
+      historyCursor: null,
+      loadingHistory: false,
+      items: [userDialogue("u1", "turn"), agentItem("agent", "turn"), taskProgressItem("task", "turn")],
+      pendingRequests: { signature: "request:1", snapshot: emptyPendingRequestSnapshot() },
+    });
+
+    expect(blocks.map((block) => block.key)).toEqual(["item:u1", "item:agent", "live-agents:turn", "live-task:task", "pending-requests"]);
   });
 
   it("renders unknown item kinds as generic status updates", () => {
@@ -109,5 +123,16 @@ function agentItem(id: string, turnId: string): ThreadStreamItem {
     model: null,
     reasoningEffort: null,
     executionState: "running",
+  };
+}
+
+function emptyPendingRequestSnapshot(): PendingRequestBlockSnapshot {
+  return {
+    approvals: [],
+    pendingUserInputs: [],
+    pendingMcpElicitations: [],
+    userInputDrafts: new Map(),
+    mcpElicitationDrafts: new Map(),
+    approvalDetails: new Set(),
   };
 }

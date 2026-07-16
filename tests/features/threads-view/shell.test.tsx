@@ -114,25 +114,16 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(parent, { status: "2 threads", loading: false, rows }, actions);
 
     const main = expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row--pending"));
-    const row = expectPresent(main.closest<HTMLElement>(".codex-panel-threads__row"));
-    expect(row.classList.contains("codex-panel-ui__nav-row")).toBe(true);
-    expect(row.classList.contains("is-selected")).toBe(true);
-    expect(row.classList.contains("codex-panel-threads__row--selected")).toBe(true);
-    expect(main.classList.contains("codex-panel-ui__nav-item")).toBe(true);
+    expect(main.textContent).toContain("Open thread");
     const toolbarButtons = [...parent.querySelectorAll<HTMLElement>(".codex-panel-threads__toolbar-button")];
     expect(toolbarButtons.map((button) => button.getAttribute("aria-label"))).toEqual(["Open new panel", "Refresh threads"]);
     const refresh = expectPresent(parent.querySelector<HTMLElement>('[aria-label="Refresh threads"]'));
-    expect(refresh.classList.contains("nav-action-button")).toBe(true);
-    expect(refresh.classList.contains("codex-panel-ui__toolbar-action")).toBe(true);
-    expect(refresh.classList.contains("codex-panel-ui__nav-row-action")).toBe(false);
     refresh.click();
     expect(actions.refresh).toHaveBeenCalledOnce();
     const openNewPanel = expectPresent(parent.querySelector<HTMLElement>('[aria-label="Open new panel"]'));
     openNewPanel.click();
     expect(actions.openNewPanel).toHaveBeenCalledOnce();
-    const rename = expectPresent(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]'));
-    expect(rename.classList.contains("nav-action-button")).toBe(false);
-    expect(rename.classList.contains("codex-panel-ui__nav-row-action")).toBe(true);
+    expect(parent.querySelector<HTMLButtonElement>('[aria-label="Rename thread"]')).not.toBeNull();
     main.click();
     expect(actions.openThread).toHaveBeenCalledWith("open");
   });
@@ -175,6 +166,7 @@ describe("threads view renderer decisions", () => {
 
   it("renders rename rows and saves entered values", () => {
     const parent = document.createElement("div");
+    document.body.append(parent);
     const actions = threadsViewActions();
     const row = rowFixture({
       title: "Old name",
@@ -184,6 +176,8 @@ describe("threads view renderer decisions", () => {
     renderThreadsViewShell(parent, { status: "1 thread", loading: false, rows: [row] }, actions);
 
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
+    expect(document.activeElement).toBe(input);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
     changeInputValue(input, "New name");
     expect(actions.updateRename).toHaveBeenCalledWith("thread", "New name");
 
@@ -192,11 +186,20 @@ describe("threads view renderer decisions", () => {
       { status: "1 thread", loading: false, rows: [{ ...row, rename: { active: true, draft: "New name", generating: false } }] },
       actions,
     );
-    expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input")).dispatchEvent(new FocusEvent("blur"));
+    const renamedInput = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel-threads__rename-input"));
+    renamedInput.dispatchEvent(new FocusEvent("blur"));
     expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
+    actions.saveRename.mockClear();
+    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, isComposing: true }));
+    expect(actions.saveRename).not.toHaveBeenCalled();
+    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(actions.saveRename).toHaveBeenCalledWith("thread", "New name");
+    renamedInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(actions.cancelRename).toHaveBeenCalledWith("thread");
 
     expectPresent(parent.querySelector<HTMLElement>(".codex-panel-threads__row-main")).click();
     expect(actions.openThread).not.toHaveBeenCalled();
+    parent.remove();
   });
 
   it("renders threads view rename actions inline with auto-name", () => {

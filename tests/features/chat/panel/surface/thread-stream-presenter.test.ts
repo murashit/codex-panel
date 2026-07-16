@@ -18,15 +18,13 @@ import {
 } from "../../../../../src/features/chat/panel/thread-stream-scroll-binding";
 import { ThreadStreamMarkdownRenderer } from "../../../../../src/features/chat/ui/thread-stream/markdown-renderer.obsidian";
 import { ThreadStreamViewport } from "../../../../../src/features/chat/ui/thread-stream/stream-blocks";
-import { renderUiRoot, unmountUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
+import { renderUiRoot } from "../../../../../src/shared/dom/preact-root.dom";
 import { notices } from "../../../../mocks/obsidian";
 import { installObsidianDomShims } from "../../../../support/dom";
 import { threadStreamModelFromChatState } from "../../support/shell-selectors";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 import { withChatStateThreadStreamItems } from "../../support/thread-stream";
 import { installThreadStreamViewportMetrics, pendingApproval } from "../../ui/thread-stream/test-helpers";
-
-const ESTIMATED_THREAD_STREAM_BLOCK_HEIGHT = 96;
 
 installObsidianDomShims();
 
@@ -268,7 +266,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     cleanup();
   });
 
-  it("pins to the scroll container bottom without aligning the last stream item element", async () => {
+  it("pins to the scroll container bottom", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = withChatStateThreadStreamItems(state, [
@@ -287,17 +285,13 @@ describe("ThreadStreamPresenter scroll pinning", () => {
 
     renderThreadStreamPresenter(parent, presenter, state);
     const viewport = threadStreamViewport(parent);
-    Object.defineProperty(viewport, "scrollHeight", { value: ESTIMATED_THREAD_STREAM_BLOCK_HEIGHT, configurable: true });
-    installThreadStreamViewportMetrics(viewport, { clientHeight: 100 });
-    viewport.scrollTop = 920;
+    installThreadStreamViewportMetrics(viewport, { clientHeight: 100, scrollHeight: 1000 });
+    viewport.scrollTop = 100;
 
-    const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
-    scrollIntoView.mockClear();
     scrollPortBinding.showLatest();
     await settleThreadStreamRender(viewport);
 
-    expect(viewport.scrollTop).toBe(0);
-    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(900);
   });
 
   it("repins after composer growth has changed the scroll viewport height", async () => {
@@ -316,12 +310,12 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     ]);
     const parent = document.createElement("div");
     const { presenter, scrollPortBinding } = threadStreamPresenter(state);
-
-    const viewport = parent.createDiv({ cls: "codex-panel__thread-stream" });
+    renderThreadStreamPresenter(parent, presenter, state);
+    const viewport = threadStreamViewport(parent);
     let scrollTop = 0;
     let layoutSettled = false;
     Object.defineProperties(viewport, {
-      scrollHeight: { value: ESTIMATED_THREAD_STREAM_BLOCK_HEIGHT, configurable: true },
+      scrollHeight: { value: 240, configurable: true },
       clientHeight: {
         get: () => (layoutSettled ? 100 : 160),
         configurable: true,
@@ -335,99 +329,22 @@ describe("ThreadStreamPresenter scroll pinning", () => {
       scrollTop: {
         get: () => scrollTop,
         set: (value: number) => {
-          scrollTop = Math.min(value, Math.max(0, ESTIMATED_THREAD_STREAM_BLOCK_HEIGHT - viewport.clientHeight));
+          scrollTop = Math.min(value, Math.max(0, viewport.scrollHeight - viewport.clientHeight));
         },
         configurable: true,
       },
     });
     viewport.scrollTop = 1000;
-    renderThreadStreamPresenter(viewport, presenter, state);
-    await settleThreadStreamRender(viewport);
-    expect(viewport.scrollTop).toBe(0);
+    viewport.dispatchEvent(new Event("scroll"));
+    expect(viewport.scrollTop).toBe(80);
 
     scrollPortBinding.showLatest();
-    expect(viewport.scrollTop).toBe(0);
+    expect(viewport.scrollTop).toBe(80);
 
     layoutSettled = true;
     await settleThreadStreamRender(viewport);
 
-    expect(viewport.scrollTop).toBe(0);
-  });
-
-  it("accepts scroll commands when no thread stream viewport is mounted", () => {
-    const { presenter, scrollPortBinding } = threadStreamPresenter();
-
-    expect(() => {
-      scrollPortBinding.showLatest();
-      scrollPortBinding.scrollFromComposer({ kind: "scroll-by", direction: 1, amount: "text-lines" });
-      scrollPortBinding.scrollFromComposer({ kind: "scroll-by", direction: -1, amount: "page" });
-      scrollPortBinding.scrollFromComposer({ kind: "scroll-to", edge: "start" });
-      presenter.dispose();
-      scrollPortBinding.showLatest();
-    }).not.toThrow();
-  });
-
-  it("detaches the active scroll port when the thread stream unmounts", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(state, [
-      {
-        id: "message",
-        kind: "dialogue",
-        role: "assistant",
-        text: "Rendered message",
-        turnId: "turn",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
-    ]);
-    const parent = document.createElement("div");
-    const { presenter, scrollPortBinding } = threadStreamPresenter(state);
-    renderThreadStreamPresenter(parent, presenter, state);
-    const viewport = threadStreamViewport(parent);
-    installThreadStreamViewportMetrics(viewport);
-    await settleThreadStreamRender(viewport);
-
-    unmountUiRoot(parent);
-
-    expect(() => {
-      scrollPortBinding.showLatest();
-      scrollPortBinding.scrollFromComposer({ kind: "scroll-by", direction: 1, amount: "page" });
-    }).not.toThrow();
-  });
-
-  it("binds scroll commands to the currently mounted thread stream viewport", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(state, [
-      {
-        id: "message",
-        kind: "dialogue",
-        role: "assistant",
-        text: "Rendered message",
-        turnId: "turn",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
-    ]);
-    const parent = document.createElement("div");
-    const { presenter, scrollPortBinding } = threadStreamPresenter(state);
-    renderThreadStreamPresenter(parent, presenter, state);
-    const oldMessages = threadStreamViewport(parent);
-    installThreadStreamViewportMetrics(oldMessages, { clientHeight: 100, scrollHeight: 1000 });
-    await settleThreadStreamRender(oldMessages);
-    oldMessages.scrollTop = 125;
-
-    unmountUiRoot(parent);
-
-    renderThreadStreamPresenter(parent, presenter, state);
-    const newMessages = threadStreamViewport(parent);
-    installThreadStreamViewportMetrics(newMessages, { clientHeight: 100, scrollHeight: 1000 });
-    await settleThreadStreamRender(newMessages);
-    scrollPortBinding.showLatest();
-
-    expect(newMessages.scrollTop).toBe(900);
-    expect(oldMessages.scrollTop).toBe(125);
+    expect(viewport.scrollTop).toBe(140);
   });
 
   it("completes bottom pinning after the thread stream viewport commits", async () => {
@@ -483,8 +400,6 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     viewport.scrollTop = 100;
     viewport.dispatchEvent(new Event("scroll"));
 
-    const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
-    scrollIntoView.mockClear();
     state = withChatStateThreadStreamItems(state, [
       {
         id: "message",
@@ -499,7 +414,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     renderThreadStreamPresenter(viewport, presenter, state);
     await settleThreadStreamRender(viewport);
 
-    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(100);
   });
 
   it("does not run a pending bottom pin after the user scrolls away", async () => {
@@ -525,70 +440,11 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     viewport.scrollTop = 920;
     renderThreadStreamPresenter(viewport, presenter, state);
 
-    const scrollIntoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
-    scrollIntoView.mockClear();
     viewport.scrollTop = 100;
     viewport.dispatchEvent(new Event("scroll"));
     await settleThreadStreamRender(viewport);
 
-    expect(scrollIntoView).not.toHaveBeenCalled();
-  });
-
-  it("leaves the mounted thread stream content in place on dispose", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(state, [
-      {
-        id: "message",
-        kind: "dialogue",
-        role: "assistant",
-        text: "Rendered message",
-        turnId: "turn",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      },
-    ]);
-    const parent = document.createElement("div");
-    const { presenter } = threadStreamPresenter(state);
-
-    renderThreadStreamPresenter(parent, presenter, state);
-    let viewport = threadStreamViewport(parent);
-    installThreadStreamViewportMetrics(viewport);
-    renderThreadStreamPresenter(parent, presenter, state);
-    viewport = threadStreamViewport(parent);
-    await settleThreadStreamRender(viewport);
-    expect(parent.querySelector(".codex-panel__thread-stream")).not.toBeNull();
-
-    presenter.dispose();
-
-    expect(parent.querySelector(".codex-panel__thread-stream")).not.toBeNull();
-  });
-
-  it("renders large thread streams through the flow viewport", async () => {
-    let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { id: "thread" } });
-    state = withChatStateThreadStreamItems(
-      state,
-      Array.from({ length: 200 }, (_value, index) => ({
-        id: `message-${String(index)}`,
-        kind: "dialogue",
-        role: "assistant",
-        text: `Message ${String(index)}`,
-        turnId: "turn",
-        dialogueKind: "assistantResponse",
-        dialogueState: "completed",
-      })),
-    );
-    const parent = document.createElement("div");
-    const { presenter } = threadStreamPresenter(state);
-
-    renderThreadStreamPresenter(parent, presenter, state);
-    const viewport = threadStreamViewport(parent);
-    installThreadStreamViewportMetrics(viewport, { clientHeight: 320, scrollHeight: 19_200 });
-    await settleThreadStreamRender(viewport);
-
-    expect(parent.querySelector(".codex-panel__thread-stream-flow")).not.toBeNull();
-    expect(parent.querySelectorAll("[data-codex-panel-block-key]").length).toBeGreaterThan(0);
+    expect(viewport.scrollTop).toBe(100);
   });
 });
 

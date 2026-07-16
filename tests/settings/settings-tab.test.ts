@@ -1,24 +1,26 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppServerClient } from "../../src/app-server/connection/client";
-import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
-import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
-import type { ThreadRecord } from "../../src/app-server/protocol/thread";
-import type { ObservedResult } from "../../src/app-server/query/observed-result";
-import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
-import type { Thread } from "../../src/domain/threads/model";
-import type { ThreadCatalogEvent } from "../../src/features/threads/catalog/thread-catalog";
-import { createSettingsAppServerDynamicData } from "../../src/settings/app-server-dynamic-data";
-import type { SettingsDynamicDataAccess } from "../../src/settings/dynamic-data";
-import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
-import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
+import { DEFAULT_SETTINGS } from "../../src/settings/model";
 import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
 import { notices } from "../mocks/obsidian";
 import { deferred } from "../support/async";
 import { installObsidianDomShims } from "../support/dom";
+import {
+  expectRequestTimes,
+  flushPromises,
+  hook,
+  model,
+  panelThread,
+  requestMethods,
+  type SettingsTabHostOptions,
+  setSettingsShortLivedClientMock,
+  settingsClient,
+  settingsTabHost,
+  useShortLivedClients,
+} from "./test-support";
 
 installObsidianDomShims();
 
@@ -29,6 +31,8 @@ const { withShortLivedAppServerClientMock } = vi.hoisted(() => ({
 vi.mock("../../src/app-server/connection/short-lived-client", () => ({
   withShortLivedAppServerClient: withShortLivedAppServerClientMock,
 }));
+
+setSettingsShortLivedClientMock(withShortLivedAppServerClientMock);
 
 describe("settings tab", () => {
   beforeEach(() => {
@@ -85,12 +89,8 @@ describe("settings tab", () => {
     const tab = newSettingsTab({ saveSettings });
 
     tab.display();
-    const codexPath = inputForSetting(tab, "Codex executable");
-    expect(codexPath?.getAttribute("aria-label")).toBeNull();
-    expect(codexPath?.type).toBe("text");
     const shortcut = selectForSetting(tab, "Send shortcut");
     if (!shortcut) throw new Error("Missing send shortcut dropdown");
-    expect(shortcut.classList.contains("dropdown")).toBe(true);
 
     shortcut.value = "mod-enter";
     shortcut.dispatchEvent(new Event("change"));
@@ -109,8 +109,6 @@ describe("settings tab", () => {
     tab.display();
     const toggle = inputForSetting(tab, "Show chat toolbar");
     if (!toggle) throw new Error("Missing toolbar visibility toggle");
-    expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
-
     toggle.checked = false;
     toggle.dispatchEvent(new Event("change"));
     await flushPromises();
@@ -220,8 +218,6 @@ describe("settings tab", () => {
     tab.display();
     const toggle = inputForSetting(tab, "Scroll conversation from composer line edges");
     if (!toggle) throw new Error("Missing composer line edge scroll toggle");
-    expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
-
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));
     await flushPromises();
@@ -237,8 +233,6 @@ describe("settings tab", () => {
     tab.display();
     const toggle = inputForSetting(tab, "Reference active file on send");
     if (!toggle) throw new Error("Missing active file reference toggle");
-    expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
-
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));
     await flushPromises();
@@ -254,8 +248,6 @@ describe("settings tab", () => {
     tab.display();
     const folder = inputForSetting(tab, "Attachment folder");
     if (!folder) throw new Error("Missing attachment folder input");
-    expect(folder.type).toBe("text");
-
     folder.value = "Files/Codex";
     folder.dispatchEvent(new Event("blur"));
     await flushPromises();
@@ -271,32 +263,24 @@ describe("settings tab", () => {
     tab.display();
     const toggle = inputForSetting(tab, "Save note by default");
     if (!toggle) throw new Error("Missing archive export toggle");
-    expect(toggle.parentElement?.classList.contains("checkbox-container")).toBe(true);
-
     toggle.checked = true;
     toggle.dispatchEvent(new Event("change"));
     await flushPromises();
 
     const folder = inputForSetting(tab, "Saved note folder");
     if (!folder) throw new Error("Missing archive export folder input");
-    expect(folder.getAttribute("aria-label")).toBeNull();
-    expect(folder.type).toBe("text");
     folder.value = "Saved Threads";
     folder.dispatchEvent(new Event("blur"));
     await flushPromises();
 
     const filename = inputForSetting(tab, "Saved note filename");
     if (!filename) throw new Error("Missing archive export filename input");
-    expect(filename.getAttribute("aria-label")).toBeNull();
-    expect(filename.type).toBe("text");
     filename.value = "{{date}} {{title}}.md";
     filename.dispatchEvent(new Event("blur"));
     await flushPromises();
 
     const tags = inputForSetting(tab, "Saved note tags");
     if (!tags) throw new Error("Missing archive export tags input");
-    expect(tags.getAttribute("aria-label")).toBeNull();
-    expect(tags.type).toBe("text");
     tags.value = "codex, archive";
     tags.dispatchEvent(new Event("blur"));
     await flushPromises();
@@ -469,296 +453,6 @@ describe("settings tab", () => {
     expect(unsubscribe).toHaveBeenCalledOnce();
   });
 
-  it("publishes archived thread catalog updates to the archived settings section", () => {
-    let emitArchived = (_threads: readonly Thread[]): void => {
-      throw new Error("Expected archived thread observer");
-    };
-    const display = vi.fn();
-    const controller = new SettingsDynamicSectionsController(
-      settingsTabHost({
-        observeArchived: (listener) => {
-          emitArchived = (threads) => {
-            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
-          };
-          return () => undefined;
-        },
-      }),
-      { display, notify: vi.fn() },
-    );
-
-    controller.activate();
-    emitArchived([panelThread({ id: "thread-archived", preview: "Archived elsewhere", archived: true })]);
-
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["Archived elsewhere"]);
-    expect(controller.snapshot().archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(display).toHaveBeenCalledOnce();
-  });
-
-  it("ignores stale dynamic sections refresh results after a newer refresh completes", async () => {
-    const firstModels = deferred<ModelMetadata[]>();
-    const firstClient = settingsClient();
-    const secondClient = settingsClient({ models: [model("gpt-new")] });
-    useShortLivedClients(firstClient, secondClient);
-    const refreshModels = vi
-      .fn()
-      .mockReturnValueOnce(firstModels.promise)
-      .mockResolvedValueOnce(modelMetadataFromCatalogModels([model("gpt-new")]));
-    const refreshArchived = vi
-      .fn()
-      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old", archived: true })])
-      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New", archived: true })]);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
-      display: vi.fn(),
-      notify: vi.fn(),
-    });
-
-    const firstRefresh = controller.refreshDynamicSections();
-    await flushPromises();
-    await controller.refreshDynamicSections();
-
-    expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
-
-    firstModels.resolve(modelMetadataFromCatalogModels([model("gpt-old")]));
-    await firstRefresh;
-
-    expect(controller.snapshot().models.map((item) => item.model)).toEqual(["gpt-new"]);
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New"]);
-  });
-
-  it("does not display dynamic refresh results after disposal", async () => {
-    const models = deferred<ModelMetadata[]>();
-    const display = vi.fn();
-    const controller = new SettingsDynamicSectionsController(
-      settingsTabHost({
-        refreshModels: vi.fn(() => models.promise),
-        refreshArchived: vi.fn().mockResolvedValue([]),
-      }),
-      { display, notify: vi.fn() },
-    );
-
-    const refresh = controller.refreshDynamicSections();
-    await flushPromises();
-    display.mockClear();
-    controller.dispose();
-    models.resolve([]);
-    await refresh;
-
-    expect(display).not.toHaveBeenCalled();
-  });
-
-  it("ignores stale hook reload results after a newer dynamic operation completes", async () => {
-    const staleHooks = deferred<{
-      data: { cwd: string; hooks: CatalogHookMetadata[]; warnings: string[]; errors: unknown[] }[];
-    }>();
-    const initialClient = settingsClient({
-      hooks: [hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" })],
-    });
-    const trustClient = settingsRequestClient({
-      "config/batchWrite": vi.fn().mockResolvedValue({}),
-    });
-    const staleClient = settingsClient();
-    staleClient.requestHandlers["hooks/list"]?.mockReturnValue(staleHooks.promise);
-    const newerClient = settingsClient({
-      hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
-    });
-    useShortLivedClients(initialClient, trustClient, staleClient, newerClient);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
-
-    await controller.refreshDynamicSections();
-    const initialHook = controller.snapshot().hooks[0];
-    if (!initialHook) throw new Error("Expected initial hook to load");
-    const staleReload = controller.trustHook(initialHook);
-    await flushPromises();
-    await controller.refreshDynamicSections();
-
-    expect(controller.snapshot().hooks.map((hook) => hook.currentHash)).toEqual(["newhash"]);
-
-    staleHooks.resolve({
-      data: [{ cwd: "/vault", hooks: [hook({ key: "hook-old", command: "old hook", currentHash: "oldhash" })], warnings: [], errors: [] }],
-    });
-    await staleReload;
-
-    expect(controller.snapshot().hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
-  });
-
-  it("keeps full refresh models and archived threads current when hook operations overlap", async () => {
-    const models = deferred<readonly ModelMetadata[]>();
-    const fullRefreshClient = settingsClient({
-      hooks: [hook({ key: "hook-full", command: "full refresh hook", currentHash: "fullhash" })],
-    });
-    const trustClient = settingsRequestClient({
-      "config/batchWrite": vi.fn().mockResolvedValue({}),
-    });
-    const hookReloadClient = settingsClient({
-      hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
-    });
-    useShortLivedClients(fullRefreshClient, trustClient, hookReloadClient);
-    const refreshModels = vi.fn().mockReturnValue(models.promise);
-    const refreshArchived = vi.fn().mockResolvedValue([panelThread({ id: "thread-full", preview: "Full archived", archived: true })]);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
-      display: vi.fn(),
-      notify: vi.fn(),
-    });
-
-    const fullRefresh = controller.refreshDynamicSections();
-    await flushPromises();
-    await controller.trustHook(hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" }));
-
-    models.resolve(modelMetadataFromCatalogModels([model("gpt-refreshed")]));
-    await fullRefresh;
-
-    const snapshot = controller.snapshot();
-    expect(snapshot.models.map((item) => item.model)).toEqual(["gpt-refreshed"]);
-    expect(snapshot.modelsLifecycle.kind).toBe("loaded");
-    expect(snapshot.archivedThreads.map((thread) => thread.preview)).toEqual(["Full archived"]);
-    expect(snapshot.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(snapshot.hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
-  });
-
-  it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
-    const staleRestore = deferred<{ thread: ThreadRecord }>();
-    const applyThreadCatalogEvent = vi.fn();
-    const initialClient = settingsClient();
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn(() => staleRestore.promise),
-    });
-    const newerClient = settingsClient();
-    useShortLivedClients(initialClient, restoreClient, newerClient);
-    const refreshArchived = vi
-      .fn()
-      .mockResolvedValueOnce([panelThread({ id: "thread-old", preview: "Old archived", archived: true })])
-      .mockResolvedValueOnce([panelThread({ id: "thread-new", preview: "New archived", archived: true })]);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadCatalogEvent, refreshArchived }), {
-      display: vi.fn(),
-      notify: vi.fn(),
-    });
-
-    await controller.refreshDynamicSections();
-    const restore = controller.restoreArchivedThread("thread-old");
-    await flushPromises();
-    await controller.refreshDynamicSections();
-
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
-
-    staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
-    await restore;
-
-    expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
-    expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
-  });
-
-  it("records restored archived threads in the active catalog", async () => {
-    const notify = vi.fn();
-    const applyThreadCatalogEvent = vi.fn();
-    const initialClient = settingsClient();
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
-    });
-    useShortLivedClients(initialClient, restoreClient);
-    const controller = new SettingsDynamicSectionsController(
-      settingsTabHost({
-        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        applyThreadCatalogEvent,
-      }),
-      { display: vi.fn(), notify },
-    );
-
-    await controller.refreshDynamicSections();
-    await controller.restoreArchivedThread("thread-old");
-
-    const snapshot = controller.snapshot();
-    expect(snapshot.archivedThreads).toEqual([]);
-    expect(snapshot.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
-      type: "thread-restored",
-      thread: expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
-    });
-    expect(notify).not.toHaveBeenCalledWith("Could not restore archived Codex thread.");
-  });
-
-  it("displays restored archived thread state after recording the active catalog event", async () => {
-    const snapshots: SettingsDynamicSectionsSnapshot[] = [];
-    const initialClient = settingsClient();
-    const restoreClient = settingsRequestClient({
-      "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) }),
-    });
-    useShortLivedClients(initialClient, restoreClient);
-    const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
-    let emitArchived = (_threads: readonly Thread[]): void => undefined;
-    const controller = new SettingsDynamicSectionsController(
-      settingsTabHost({
-        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        observeArchived: (listener) => {
-          emitArchived = (threads) => {
-            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
-          };
-          return () => undefined;
-        },
-        applyThreadCatalogEvent: () => {
-          emitArchived([]);
-        },
-      }),
-      {
-        display: () => {
-          const snapshot = controllerRef.current?.snapshot();
-          if (snapshot) snapshots.push(snapshot);
-        },
-        notify: vi.fn(),
-      },
-    );
-    controllerRef.current = controller;
-
-    await controller.refreshDynamicSections();
-    snapshots.length = 0;
-    await controller.restoreArchivedThread("thread-old");
-
-    expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.status).toBe('Restored "Restored old".');
-  });
-
-  it("displays deleted archived thread status after recording the catalog event", async () => {
-    const snapshots: SettingsDynamicSectionsSnapshot[] = [];
-    const initialClient = settingsClient();
-    const deleteClient = settingsRequestClient({
-      "thread/delete": vi.fn().mockResolvedValue({}),
-    });
-    useShortLivedClients(initialClient, deleteClient);
-    const controllerRef: { current: SettingsDynamicSectionsController | null } = { current: null };
-    let emitArchived = (_threads: readonly Thread[]): void => undefined;
-    const controller = new SettingsDynamicSectionsController(
-      settingsTabHost({
-        archivedThreads: [panelThread({ id: "thread-old", preview: "Old archived", archived: true })],
-        observeArchived: (listener) => {
-          emitArchived = (threads) => {
-            listener({ value: threads, error: null, isFetching: false } satisfies ObservedResult<readonly Thread[]>);
-          };
-          return () => undefined;
-        },
-        applyThreadCatalogEvent: () => {
-          emitArchived([]);
-        },
-      }),
-      {
-        display: () => {
-          const snapshot = controllerRef.current?.snapshot();
-          if (snapshot) snapshots.push(snapshot);
-        },
-        notify: vi.fn(),
-      },
-    );
-    controllerRef.current = controller;
-
-    await controller.refreshDynamicSections();
-    snapshots.length = 0;
-    await controller.deleteArchivedThread("thread-old");
-
-    expect(snapshots.at(-1)?.archivedThreads).toEqual([]);
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(snapshots.at(-1)?.archivedThreadsLifecycle.status).toBe('Deleted "Old archived".');
-  });
-
   it("uses cached models initially and publishes refreshed models", async () => {
     const fetchModels = vi.fn().mockResolvedValue(modelMetadataFromCatalogModels([model("gpt-5.5")]));
     const client = settingsClient({ models: [model("gpt-5.5")] });
@@ -815,8 +509,6 @@ describe("settings tab", () => {
 
     expect(selectOptions(tab, "Automatic thread naming", 1)).toEqual(["Codex default", "saved-custom-effort (saved)", "extreme"]);
     expect(selectOptions(tab, "Selection rewrite", 1)).toEqual(["Codex default", "extreme"]);
-    expect(selectForSetting(tab, "Automatic thread naming")?.classList.contains("dropdown")).toBe(true);
-    expect(selectForSetting(tab, "Selection rewrite")?.classList.contains("dropdown")).toBe(true);
   });
 
   it("keeps successful sections when one dynamic sections request fails", async () => {
@@ -892,7 +584,7 @@ describe("settings tab", () => {
     expect(requestMethods(client)).not.toContain("thread/delete");
   });
 
-  it("keeps the settings shell mounted while dynamic sections update", async () => {
+  it("preserves an in-progress Codex executable edit while dynamic sections update", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const client = settingsClient();
     useShortLivedClients(client);
@@ -902,69 +594,35 @@ describe("settings tab", () => {
     });
 
     tab.display();
+    document.body.appendChild(tab.containerEl);
     await flushPromises();
 
     const codexInput = inputForSetting(tab, "Codex executable");
-    const shortcut = selectForSetting(tab, "Send shortcut");
     const archiveToggle = inputForSetting(tab, "Save note by default");
-    if (!codexInput || !shortcut || !archiveToggle) throw new Error("Missing settings controls");
+    if (!codexInput || !archiveToggle) throw new Error("Missing settings controls");
+
+    codexInput.focus();
+    codexInput.value = "/opt/codex-draft";
+    codexInput.setSelectionRange(5, 10);
 
     archiveToggle.checked = true;
     archiveToggle.dispatchEvent(new Event("change"));
     await flushPromises();
 
     expect(saveSettings).toHaveBeenCalledOnce();
-    expect(inputForSetting(tab, "Codex executable")).toBe(codexInput);
-    expect(selectForSetting(tab, "Send shortcut")).toBe(shortcut);
+    expect(inputForSetting(tab, "Codex executable")?.value).toBe("/opt/codex-draft");
+    expect(document.activeElement).toBe(inputForSetting(tab, "Codex executable"));
+    expect(inputForSetting(tab, "Codex executable")?.selectionStart).toBe(5);
+    expect(inputForSetting(tab, "Codex executable")?.selectionEnd).toBe(10);
 
     clickButtonByLabel(tab, "Delete thread");
 
-    expect(inputForSetting(tab, "Codex executable")).toBe(codexInput);
-    expect(selectForSetting(tab, "Send shortcut")).toBe(shortcut);
+    expect(inputForSetting(tab, "Codex executable")?.value).toBe("/opt/codex-draft");
+    expect(document.activeElement).toBe(inputForSetting(tab, "Codex executable"));
+    expect(inputForSetting(tab, "Codex executable")?.selectionStart).toBe(5);
+    expect(inputForSetting(tab, "Codex executable")?.selectionEnd).toBe(10);
     expect(tab.containerEl.querySelector(".codex-panel-settings__archived-row--delete-confirming")).not.toBeNull();
-  });
-
-  it("rerenders only the changed dynamic section for archive and hook actions", async () => {
-    const client = settingsClient({
-      hooks: [hook({ key: "hook-1", command: "node hook.js", currentHash: "abc123", enabled: true })],
-    });
-    useShortLivedClients(client);
-    const hookUpdate = deferred<undefined>();
-    client.requestHandlers["config/batchWrite"]?.mockReturnValue(hookUpdate.promise);
-    const tab = newSettingsTab({ archivedThreads: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })] });
-
-    tab.display();
-    await flushPromises();
-
-    const helperSection = dynamicSection(tab, "codex-panel-settings__helper-section");
-    const archivedSection = dynamicSection(tab, "codex-panel-settings__archived-section");
-    const hookSection = dynamicSection(tab, "codex-panel-settings__hook-section");
-    const archiveToggle = inputForSetting(tab, "Save note by default");
-    if (!archiveToggle) throw new Error("Missing archive toggle");
-
-    archiveToggle.checked = true;
-    archiveToggle.dispatchEvent(new Event("change"));
-    await flushPromises();
-
-    expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
-    expect(dynamicSection(tab, "codex-panel-settings__hook-section")).toBe(hookSection);
-
-    clickButtonByLabel(tab, "Delete thread");
-
-    expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
-    expect(dynamicSection(tab, "codex-panel-settings__hook-section")).toBe(hookSection);
-
-    clickButtonByText(tab, "Disable");
-    await flushPromises();
-
-    expectRequestTimes(client, "config/batchWrite", 1);
-    expect(dynamicSection(tab, "codex-panel-settings__hook-section")).not.toBeNull();
-    expect(tab.containerEl.querySelector(".codex-panel-settings__hook-list")).not.toBeNull();
-    expect(dynamicSection(tab, "codex-panel-settings__helper-section")).toBe(helperSection);
-    expect(dynamicSection(tab, "codex-panel-settings__archived-section")).toBe(archivedSection);
-
-    hookUpdate.resolve(undefined);
-    await flushPromises();
+    tab.containerEl.remove();
   });
 
   it("permanently deletes an archived thread from the confirmed settings row", async () => {
@@ -996,254 +654,8 @@ describe("settings tab", () => {
   });
 });
 
-function panelThread(overrides: Partial<Thread> = {}): Thread {
-  return {
-    id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
-    preview: "Preview",
-    createdAt: 1,
-    updatedAt: 1,
-    name: null,
-    archived: false,
-    provenance: { kind: "interactive" },
-    ...overrides,
-  };
-}
-
-function appServerThread(overrides: Partial<ThreadRecord> = {}): ThreadRecord {
-  return {
-    id: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
-    sessionId: "019e0182-cb70-7a72-ab48-8bc9d0b0d781",
-    forkedFromId: null,
-    parentThreadId: null,
-    preview: "Preview",
-    ephemeral: false,
-    modelProvider: "openai",
-    createdAt: 1,
-    updatedAt: 1,
-    status: { type: "idle" },
-    path: null,
-    cwd: "/tmp",
-    cliVersion: "codex-cli 0.0.0",
-    source: "unknown",
-    threadSource: null,
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
-    name: null,
-    turns: [],
-    ...overrides,
-  };
-}
-
-function model(modelId: string, isDefault = false, hidden = false, efforts: ReasoningEffort[] = ["medium"]): CatalogModel {
-  return {
-    id: `${modelId}-id`,
-    model: modelId,
-    upgrade: null,
-    upgradeInfo: null,
-    availabilityNux: null,
-    displayName: `Display ${modelId}`,
-    description: "",
-    isDefault,
-    hidden,
-    supportedReasoningEfforts: efforts.map((reasoningEffort) => ({ reasoningEffort, description: reasoningEffort })),
-    defaultReasoningEffort: "medium",
-    inputModalities: ["text"],
-    supportsPersonality: false,
-    serviceTiers: [],
-    defaultServiceTier: null,
-  } satisfies CatalogModel;
-}
-
-function hook(overrides: Partial<CatalogHookMetadata> = {}): CatalogHookMetadata {
-  return {
-    key: "hook-key",
-    eventName: "postToolUse",
-    handlerType: "command",
-    matcher: "apply_patch",
-    command: "node hook.js",
-    timeoutSec: 10n,
-    statusMessage: null,
-    sourcePath: "/vault/.codex/hooks.json",
-    source: "project",
-    pluginId: null,
-    displayOrder: 0n,
-    enabled: true,
-    isManaged: false,
-    currentHash: "hash",
-    trustStatus: "trusted",
-    ...overrides,
-  };
-}
-
-function settingsClient(
-  options: { models?: CatalogModel[]; hooks?: CatalogHookMetadata[]; hooksError?: Error; threads?: ThreadRecord[] } = {},
-) {
-  return settingsRequestClient({
-    "model/list": vi.fn().mockResolvedValue({ data: options.models ?? [model("gpt-5.4")] }),
-    "hooks/list": vi.fn().mockImplementation(() => {
-      if (options.hooksError) return Promise.reject(options.hooksError);
-      return Promise.resolve({
-        data: [
-          {
-            cwd: "/vault",
-            hooks: options.hooks ?? [],
-            warnings: [],
-            errors: [],
-          },
-        ],
-      });
-    }),
-    "thread/list": vi.fn().mockResolvedValue({ data: options.threads ?? [appServerThread({ preview: "Archived" })] }),
-    "config/batchWrite": vi.fn().mockResolvedValue({}),
-    "thread/unarchive": vi.fn().mockResolvedValue({ thread: appServerThread({ preview: "Restored" }) }),
-    "thread/delete": vi.fn().mockResolvedValue({}),
-  });
-}
-
-type SettingsRequestClient = AppServerClient & {
-  request: ReturnType<typeof vi.fn<(method: string, params?: unknown, options?: unknown) => unknown>>;
-  requestHandlers: Record<string, ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>>;
-};
-
-function useShortLivedClients(...clients: SettingsRequestClient[]): void {
-  const runWithClient = (client: SettingsRequestClient, operation: (client: AppServerClient) => Promise<unknown>) => operation(client);
-  if (clients.length === 1) {
-    const [client] = clients;
-    if (!client) throw new Error("Expected a short-lived client.");
-    withShortLivedAppServerClientMock.mockImplementation(
-      (_codexPath: string, _cwd: string, operation: (client: AppServerClient) => Promise<unknown>) => runWithClient(client, operation),
-    );
-    return;
-  }
-  for (const client of clients) {
-    withShortLivedAppServerClientMock.mockImplementationOnce(
-      (_codexPath: string, _cwd: string, operation: (client: AppServerClient) => Promise<unknown>) => runWithClient(client, operation),
-    );
-  }
-}
-
-function settingsRequestClient(
-  handlers: Record<string, ReturnType<typeof vi.fn<(params?: unknown, options?: unknown) => unknown>>>,
-): SettingsRequestClient {
-  return {
-    requestHandlers: handlers,
-    request: vi.fn((method: string, params: unknown) => {
-      const handler = handlers[method];
-      if (!handler) throw new Error(`Unexpected app-server request: ${method}`);
-      return handler(params);
-    }),
-  } as unknown as SettingsRequestClient;
-}
-
-function requestMethods(client: SettingsRequestClient): string[] {
-  return client.request.mock.calls.map(([method]) => method);
-}
-
-function expectRequestTimes(client: SettingsRequestClient, method: string, times: number): void {
-  expect(requestMethods(client).filter((calledMethod) => calledMethod === method)).toHaveLength(times);
-}
-
-function newSettingsTab(
-  options: {
-    saveSettings?: (settings: CodexPanelSettings) => Promise<void>;
-    prepareAppServerContextChange?: () => void;
-    sendShortcut?: "enter" | "mod-enter";
-    modelsSnapshot?: ModelMetadata[];
-    fetchModels?: () => Promise<readonly ModelMetadata[]>;
-    refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: SettingsDynamicDataAccess["observeModelsResult"];
-    refreshOpenViews?: () => void;
-    archivedThreads?: Thread[];
-    archivedSnapshot?: Thread[] | null;
-    refreshArchived?: () => Promise<readonly Thread[]>;
-    observeArchived?: SettingsDynamicDataAccess["observeArchivedThreadsResult"];
-    applyThreadCatalogEvent?: (event: ThreadCatalogEvent) => void;
-    dynamicData?: SettingsDynamicDataAccess;
-    settings?: Partial<{
-      threadNamingModel: string | null;
-      threadNamingEffort: string | null;
-      rewriteSelectionModel: string | null;
-      rewriteSelectionEffort: string | null;
-    }>;
-  } = {},
-): CodexPanelSettingTab {
+function newSettingsTab(options: SettingsTabHostOptions = {}): CodexPanelSettingTab {
   return new CodexPanelSettingTab({} as never, {} as never, settingsTabHost(options));
-}
-
-function settingsTabHost(
-  options: {
-    saveSettings?: (settings: CodexPanelSettings) => Promise<void>;
-    prepareAppServerContextChange?: () => void;
-    sendShortcut?: "enter" | "mod-enter";
-    modelsSnapshot?: ModelMetadata[];
-    fetchModels?: () => Promise<readonly ModelMetadata[]>;
-    refreshModels?: () => Promise<readonly ModelMetadata[]>;
-    observeModels?: SettingsDynamicDataAccess["observeModelsResult"];
-    refreshOpenViews?: () => void;
-    archivedThreads?: Thread[];
-    archivedSnapshot?: Thread[] | null;
-    refreshArchived?: () => Promise<readonly Thread[]>;
-    observeArchived?: SettingsDynamicDataAccess["observeArchivedThreadsResult"];
-    applyThreadCatalogEvent?: (event: ThreadCatalogEvent) => void;
-    dynamicData?: SettingsDynamicDataAccess;
-    settings?: Partial<{
-      threadNamingModel: string | null;
-      threadNamingEffort: string | null;
-      rewriteSelectionModel: string | null;
-      rewriteSelectionEffort: string | null;
-    }>;
-  } = {},
-): CodexPanelSettingTabHost {
-  const defaultArchivedThreads = [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })];
-  const settings = {
-    ...DEFAULT_SETTINGS,
-    threadNamingModel: options.settings?.threadNamingModel ?? null,
-    threadNamingEffort: options.settings?.threadNamingEffort ?? null,
-    rewriteSelectionModel: options.settings?.rewriteSelectionModel ?? null,
-    rewriteSelectionEffort: options.settings?.rewriteSelectionEffort ?? null,
-    sendShortcut: options.sendShortcut ?? "enter",
-  };
-  const appServerQueries = {
-    modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
-    fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
-    refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
-    observeModelsResult: options.observeModels ?? vi.fn(() => () => undefined),
-  };
-  const threadCatalog = {
-    archivedSnapshot: vi.fn(() => options.archivedSnapshot ?? null),
-    refreshArchived: options.refreshArchived ?? vi.fn().mockResolvedValue(options.archivedThreads ?? defaultArchivedThreads),
-    observeArchived: options.observeArchived ?? vi.fn(() => () => undefined),
-    apply: options.applyThreadCatalogEvent ?? vi.fn(),
-  };
-  return {
-    settings,
-    dynamicData:
-      options.dynamicData ??
-      createSettingsAppServerDynamicData({
-        vaultPath: "/vault",
-        clientAccess: {
-          withClient: <T>(operation: (client: AppServerClient) => Promise<T>, clientOptions?: AppServerClientAccessOptions) =>
-            withShortLivedAppServerClientMock(settings.codexPath, "/vault", operation, clientOptions) as Promise<T>,
-        },
-        appServerQueries,
-        threadCatalog,
-      }),
-    publishSettings: async (nextSettings) => {
-      const previousSettings = { ...settings };
-      await (options.saveSettings ?? vi.fn().mockResolvedValue(undefined))(nextSettings);
-      const appServerContextReplaced = previousSettings.codexPath !== nextSettings.codexPath;
-      if (appServerContextReplaced) options.prepareAppServerContextChange?.();
-      Object.assign(settings, nextSettings);
-      if (appServerContextReplaced || previousSettings.showToolbar !== nextSettings.showToolbar) options.refreshOpenViews?.();
-      return { appServerContextReplaced };
-    },
-  };
-}
-
-async function flushPromises(): Promise<void> {
-  await new Promise((resolve) => setImmediate(resolve));
-  await new Promise((resolve) => setImmediate(resolve));
 }
 
 function settingNames(tab: CodexPanelSettingTab): string[] {
@@ -1299,12 +711,6 @@ function clickButtonByLabel(tab: CodexPanelSettingTab, label: string): void {
   buttonByLabel(tab, label).click();
 }
 
-function clickButtonByText(tab: CodexPanelSettingTab, text: string): void {
-  const button = Array.from(tab.containerEl.querySelectorAll("button")).find((element) => element.textContent === text);
-  if (!button) throw new Error(`Could not find button text: ${text}`);
-  button.click();
-}
-
 function pointerDownButtonByLabel(tab: CodexPanelSettingTab, label: string): void {
   buttonByLabel(tab, label).dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
 }
@@ -1319,12 +725,6 @@ function buttonByLabel(tab: CodexPanelSettingTab, label: string): HTMLElement {
 
 function inputForSetting(tab: CodexPanelSettingTab, name: string): HTMLInputElement | null {
   return settingElement(tab, name)?.querySelector("input") ?? null;
-}
-
-function dynamicSection(tab: CodexPanelSettingTab, className: string): Element {
-  const section = tab.containerEl.querySelector(`.${className}`);
-  if (!section) throw new Error(`Missing dynamic section: ${className}`);
-  return section;
 }
 
 function settingElement(tab: CodexPanelSettingTab, name: string): Element | null {

@@ -31,9 +31,7 @@ describe("ChatPanelShell", () => {
 
     expect(container.classList.contains("codex-panel")).toBe(true);
     expect(container.querySelector(".codex-panel__toolbar .codex-panel__toolbar-primary")).not.toBeNull();
-    expect(container.querySelector(".codex-panel__body > .codex-panel__region--thread-stream")).toBe(
-      container.querySelector(".codex-panel__body > .codex-panel__thread-stream"),
-    );
+    expect(container.querySelector(".codex-panel__region--thread-stream")).not.toBeNull();
     expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("");
     expect(container.querySelector(".codex-panel__thread-stream-block")?.textContent).toContain("Send a message");
 
@@ -183,7 +181,10 @@ describe("ChatPanelShell", () => {
     });
   });
 
-  it("repairs a missing toolbar through an explicit shell render", async () => {
+  it.each([
+    ["a missing toolbar", (container: HTMLElement) => container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar")?.remove()],
+    ["an unexpected root child", (container: HTMLElement) => container.appendChild(document.createElement("section"))],
+  ])("repairs %s through an explicit shell render", async (_description, damageRoot) => {
     const store = createChatStateStore();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -194,34 +195,7 @@ describe("ChatPanelShell", () => {
       await settleShellEffects();
     });
 
-    container.querySelector<HTMLElement>(":scope > .codex-panel__toolbar")?.remove();
-
-    await act(async () => {
-      store.dispatch({ type: "composer/draft-set", draft: "repair toolbar" });
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
-      await settleShellEffects();
-    });
-
-    expect(container.querySelector(".codex-panel__toolbar .codex-panel__toolbar-primary")).not.toBeNull();
-    expect(container.querySelector<HTMLTextAreaElement>(".codex-panel__region--composer textarea")?.value).toBe("repair toolbar");
-
-    await act(async () => {
-      unmountChatPanelShell(container);
-    });
-  });
-
-  it("repairs unexpected root-level DOM through an explicit shell render", async () => {
-    const store = createChatStateStore();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const parts = shellParts();
-
-    await act(async () => {
-      renderChatPanelShell(container, { stateStore: store, showToolbar: true, parts });
-      await settleShellEffects();
-    });
-
-    container.appendChild(document.createElement("section"));
+    damageRoot(container);
 
     await act(async () => {
       store.dispatch({ type: "composer/draft-set", draft: "repair root" });

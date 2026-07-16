@@ -107,7 +107,6 @@ describe("pending request renderer decisions", () => {
     };
 
     render();
-    expect(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")?.getAttribute("aria-label")).toBeNull();
     actEvent(() => {
       changeInputValue(expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__user-input-other-text")), "Custom scope");
     });
@@ -268,7 +267,6 @@ describe("pending request renderer decisions", () => {
       );
 
       const inputElement = parent.querySelector<HTMLInputElement>(".codex-panel__user-input-text");
-      expect(inputElement?.getAttribute("aria-label")).toBeNull();
       expect(document.activeElement).toBe(inputElement);
     } finally {
       unmountUiRootInAct(parent);
@@ -413,7 +411,6 @@ describe("pending request renderer decisions", () => {
 
     expect(element.querySelector(".codex-panel__stream-item-role")?.textContent).toBe("Input");
     expect(element.querySelector(".codex-panel__stream-item-content")?.textContent).toBe("Input submitted for 1 question.");
-    expect(element.querySelector(".codex-panel__stream-item-content")?.classList.contains("markdown-rendered")).toBe(false);
     expect(renderMarkdown).not.toHaveBeenCalled();
     expect(element.textContent).not.toContain("Approval");
     expect(element.querySelector("details summary")?.textContent).toBe("Question: Scope");
@@ -532,7 +529,6 @@ describe("pending request renderer decisions", () => {
     const input = expectPresent(parent.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input"));
     const label = expectPresent(parent.querySelector<HTMLElement>(".codex-panel__mcp-elicitation-label"));
     expect(label.id).toContain("test-panel");
-    expect(label.tagName).toBe("LABEL");
     expect(label.getAttribute("for")).toBe(input.id);
     changeInputValue(input, "Updated");
     actEvent(() => {
