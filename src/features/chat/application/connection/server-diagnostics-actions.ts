@@ -6,6 +6,7 @@ import {
   replaceMcpServerStatusDiagnostics,
 } from "../../../../domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../domain/server/metadata";
+import { activeThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import type { ServerDiagnosticsTransport } from "./metadata-transport";
 
@@ -45,7 +46,7 @@ async function refreshServerDiagnostics(
 ): Promise<boolean> {
   const initialDiagnostics = currentPanelDiagnostics(host);
   const state = host.stateStore.getState();
-  const activeThreadId = state.activeThread.id;
+  const threadId = activeThreadId(state);
   const metadataSnapshot = host.appServerMetadataSnapshot();
   const cachedSkills =
     options.forceResourceProbes === true ? undefined : (metadataSnapshot?.availableSkills ?? state.connection.availableSkills);
@@ -54,7 +55,7 @@ async function refreshServerDiagnostics(
       ? undefined
       : (metadataSnapshot?.serverDiagnostics.probes.skills ?? state.connection.serverDiagnostics.probes.skills);
   const request = {
-    threadId: activeThreadId,
+    threadId,
     initialDiagnostics,
     forceResourceProbes: options.forceResourceProbes === true,
     appServerMetadataSnapshot: options.appServerMetadataSnapshot === true,
@@ -62,7 +63,7 @@ async function refreshServerDiagnostics(
     ...(cachedSkillsProbe !== undefined ? { cachedSkillsProbe } : {}),
   };
   const snapshot = await host.diagnosticsTransport.readServerDiagnostics(request);
-  if (!snapshot || !isCurrent() || host.stateStore.getState().activeThread.id !== activeThreadId) return false;
+  if (!snapshot || !isCurrent() || activeThreadId(host.stateStore.getState()) !== threadId) return false;
 
   let diagnostics = currentPanelDiagnostics(host);
   for (const probe of snapshot.resourceProbes) {

@@ -9,7 +9,12 @@ import {
   createChatInboundHandler,
 } from "../../../../../src/features/chat/app-server/inbound/handler";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import {
+  activeThreadState,
+  type ChatAction,
+  type ChatState,
+  chatReducer,
+} from "../../../../../src/features/chat/application/state/root-reducer";
 import type { ChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
 import { attachHookRunsToTurn } from "../../../../../src/features/chat/domain/thread-stream/updates";
@@ -1351,7 +1356,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/archived" }>);
 
-      expect(handler.currentState().activeThread.id).toBe("thread-active");
+      expect(activeThreadState(handler.currentState())?.id).toBe("thread-active");
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
         {
           type: "thread-archived",
@@ -1413,7 +1418,7 @@ describe("ChatInboundHandler", () => {
         params: { thread: appServerThread("thread-other", "/workspace/other") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
         {
           type: "thread-started",
@@ -1434,7 +1439,7 @@ describe("ChatInboundHandler", () => {
         params: { thread: appServerThread("thread-active", "/workspace/active") },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
       expect(applyThreadCatalogEvent).toHaveBeenCalledWith(
         {
           type: "thread-started",
@@ -1444,7 +1449,7 @@ describe("ChatInboundHandler", () => {
       );
     });
 
-    it("keeps ephemeral thread-started notifications out of the shared catalog", () => {
+    it("keeps ephemeral thread-started notifications out of the shared catalog and an empty panel", () => {
       const applyThreadCatalogEvent = vi.fn();
       const handler = handlerForState(chatStateFixture(), { applyThreadCatalogEvent });
 
@@ -1453,7 +1458,7 @@ describe("ChatInboundHandler", () => {
         params: { thread: { ...appServerThread("side", "/workspace/active"), ephemeral: true } },
       } satisfies Extract<ServerNotification, { method: "thread/started" }>);
 
-      expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(handler.currentState().panelThread).toEqual({ kind: "empty" });
       expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
     });
 
@@ -1775,7 +1780,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
       expect(handler.currentState().runtime.active.model).toBe("gpt-5.5");
       expect(handler.currentState().runtime.active.serviceTier).toBe("fast");
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("auto_review");
@@ -1822,7 +1827,7 @@ describe("ChatInboundHandler", () => {
         },
       } satisfies Extract<ServerNotification, { method: "thread/settings/updated" }>);
 
-      expect(handler.currentState().activeThread.cwd).toBe("/workspace/active");
+      expect(activeThreadState(handler.currentState())?.cwd).toBe("/workspace/active");
       expect(handler.currentState().runtime.active.model).toBe("gpt-active");
       expect(handler.currentState().runtime.active.serviceTier).toBe("flex");
       expect(handler.currentState().runtime.active.approvalsReviewer).toBe("user");
@@ -1885,7 +1890,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: null, goal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
-      expect(handler.currentState().activeThread.goal).toEqual(goal);
+      expect(activeThreadState(handler.currentState())?.goal).toEqual(goal);
       expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "set: Finish",
@@ -1950,7 +1955,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active" },
       } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
 
-      expect(handler.currentState().activeThread.goal).toBeNull();
+      expect(activeThreadState(handler.currentState())?.goal).toBeNull();
       expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
         kind: "goal",
         text: "cleared: Finish well",
@@ -1989,7 +1994,7 @@ describe("ChatInboundHandler", () => {
         params: { threadId: "thread-active", turnId: "turn-1", goal: completedGoal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
 
-      expect(handler.currentState().activeThread.goal).toEqual(completedGoal);
+      expect(activeThreadState(handler.currentState())?.goal).toEqual(completedGoal);
       expect(chatStateThreadStreamItems(handler.currentState())).toHaveLength(1);
       expect(chatStateThreadStreamItems(handler.currentState())[0]).toMatchObject({
         kind: "goal",
@@ -2023,7 +2028,7 @@ describe("ChatInboundHandler", () => {
         method: "thread/goal/updated",
         params: { threadId: "previous-thread", turnId: null, goal },
       } satisfies Extract<ServerNotification, { method: "thread/goal/updated" }>);
-      expect(noActiveState.activeThread.goal).toBeNull();
+      expect(activeThreadState(noActiveState)).toBeNull();
 
       let otherThreadState = chatStateFixture();
       otherThreadState = chatStateWith(otherThreadState, { activeThread: { id: "thread-active" } });
@@ -2035,7 +2040,7 @@ describe("ChatInboundHandler", () => {
         method: "thread/goal/cleared",
         params: { threadId: "previous-thread" },
       } satisfies Extract<ServerNotification, { method: "thread/goal/cleared" }>);
-      expect(expectPresent(otherThreadState.activeThread.goal).objective).toBe("Current");
+      expect(expectPresent(activeThreadState(otherThreadState)?.goal).objective).toBe("Current");
     });
   });
 

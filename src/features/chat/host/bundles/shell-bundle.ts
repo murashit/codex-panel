@@ -1,5 +1,6 @@
 import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
 import type { PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
+import { activeThreadId, activeThreadState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { HistoryController } from "../../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
@@ -68,12 +69,12 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     rename,
     navigation,
     openSideChat: () => {
-      const activeThreadId = stateStore.getState().activeThread.id;
-      if (!activeThreadId) return;
-      const thread = stateStore.getState().threadList.listedThreads.find((item) => item.id === activeThreadId);
-      void environment.plugin.workspace.openSideChat(activeThreadId, thread?.name ?? thread?.preview ?? null);
+      const threadId = activeThreadId(stateStore.getState());
+      if (!threadId) return;
+      const thread = stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
+      void environment.plugin.workspace.openSideChat(threadId, thread?.name ?? thread?.preview ?? null);
     },
-    activeThreadChatActionsDisabled: () => stateStore.getState().activeThread.provenance?.kind === "subagent",
+    activeThreadChatActionsDisabled: () => activeThreadState(stateStore.getState())?.provenance?.kind === "subagent",
   });
   const toolbarSurface: ChatPanelToolbarSurface = {
     connection: {

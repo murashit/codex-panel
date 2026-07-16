@@ -1,12 +1,13 @@
+import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { activeThreadRuntimeState, pendingRuntimeIntentState } from "../../domain/runtime/state";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
-import type { ChatState } from "../state/root-reducer";
+import { activeThreadState, type ChatState } from "../state/root-reducer";
 import { threadStreamItems } from "../state/thread-stream";
 
 interface RuntimeSnapshotInput {
   runtimeConfig: ChatState["connection"]["runtimeConfig"];
-  activeThread: Pick<ChatState["activeThread"], "id" | "tokenUsage">;
+  activeThread: { id: string | null; tokenUsage: ThreadTokenUsage | null };
   runtime: ChatState["runtime"];
   rateLimit: ChatState["connection"]["rateLimit"];
   hasThreadTurns: boolean;
@@ -33,9 +34,10 @@ export function runtimeSnapshotForChatSlices(input: RuntimeSnapshotInput): Runti
 }
 
 export function runtimeSnapshotForChatState(state: ChatState): RuntimeSnapshot {
+  const activeThread = activeThreadState(state);
   return runtimeSnapshotForChatSlices({
     runtimeConfig: state.connection.runtimeConfig,
-    activeThread: state.activeThread,
+    activeThread: { id: activeThread?.id ?? null, tokenUsage: activeThread?.tokenUsage ?? null },
     runtime: state.runtime,
     rateLimit: state.connection.rateLimit,
     hasThreadTurns: threadStreamItemsHaveThreadTurns(threadStreamItems(state.threadStream)),

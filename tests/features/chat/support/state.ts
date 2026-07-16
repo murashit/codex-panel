@@ -1,4 +1,9 @@
-import { type ChatState, createChatState } from "../../../../src/features/chat/application/state/root-reducer";
+import {
+  activeThreadState,
+  type ChatActiveThreadState,
+  type ChatState,
+  createChatState,
+} from "../../../../src/features/chat/application/state/root-reducer";
 
 interface RuntimePatch {
   active?: Partial<ChatState["runtime"]["active"]>;
@@ -8,8 +13,7 @@ interface RuntimePatch {
 interface ChatStateFixturePatch {
   connection?: Partial<ChatState["connection"]>;
   threadList?: Partial<ChatState["threadList"]>;
-  activeThread?: Partial<ChatState["activeThread"]>;
-  restoration?: ChatState["restoration"];
+  activeThread?: Partial<Omit<ChatActiveThreadState, "id">> & { id?: string | null };
   runtime?: RuntimePatch;
   turn?: Partial<ChatState["turn"]>;
   threadStream?: Partial<ChatState["threadStream"]>;
@@ -31,8 +35,7 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
     ...state,
     ...(patch.connection ? { connection: { ...state.connection, ...patch.connection } } : {}),
     ...(patch.threadList ? { threadList: { ...state.threadList, ...patch.threadList } } : {}),
-    ...(patch.activeThread ? { activeThread: { ...state.activeThread, ...patch.activeThread } } : {}),
-    ...(patch.restoration ? { restoration: patch.restoration } : {}),
+    ...(patch.activeThread ? { panelThread: panelThreadWithPatch(state, patch.activeThread) } : {}),
     ...(patch.runtime ? { runtime: runtimeWithPatch(state.runtime, patch.runtime) } : {}),
     ...(patch.turn ? { turn: { ...state.turn, ...patch.turn } } : {}),
     ...(patch.threadStream ? { threadStream: { ...state.threadStream, ...patch.threadStream } } : {}),
@@ -47,6 +50,27 @@ export function chatStateWith(state: ChatState, patch: ChatStateFixturePatch): C
           },
         }
       : {}),
+  };
+}
+
+function panelThreadWithPatch(state: ChatState, patch: NonNullable<ChatStateFixturePatch["activeThread"]>): ChatState["panelThread"] {
+  if (patch.id === null) {
+    return { kind: "empty" };
+  }
+  const current = activeThreadState(state);
+  const id = patch.id ?? current?.id;
+  if (!id) throw new Error("An active thread fixture patch requires a thread id.");
+  return {
+    kind: "active",
+    thread: {
+      id,
+      title: patch.title === undefined ? (current?.title ?? null) : patch.title,
+      cwd: patch.cwd === undefined ? (current?.cwd ?? null) : patch.cwd,
+      goal: patch.goal === undefined ? (current?.goal ?? null) : patch.goal,
+      tokenUsage: patch.tokenUsage === undefined ? (current?.tokenUsage ?? null) : patch.tokenUsage,
+      lifetime: patch.lifetime === undefined ? (current?.lifetime ?? null) : patch.lifetime,
+      provenance: patch.provenance === undefined ? (current?.provenance ?? null) : patch.provenance,
+    },
   };
 }
 

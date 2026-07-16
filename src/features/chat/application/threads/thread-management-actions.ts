@@ -1,7 +1,7 @@
 import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
-import type { ChatAction, ChatState } from "../state/root-reducer";
+import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatTurnBusy } from "../turns/turn-state";
@@ -60,7 +60,7 @@ export function createThreadManagementActions(host: ThreadManagementActionsHost)
 }
 
 async function compactActiveThread(host: ThreadManagementActionsHost): Promise<void> {
-  const threadId = threadManagementState(host).activeThread.id;
+  const threadId = activeThreadId(threadManagementState(host));
   if (!threadId) {
     host.addSystemMessage("No active thread to compact.");
     return;
@@ -108,12 +108,12 @@ async function forkThreadFromTurn(
   turnId: string | null,
   archiveSource: boolean,
 ): Promise<void> {
-  const activeThread = threadManagementState(host).activeThread;
-  if (activeThread.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
+  const activeThread = activeThreadState(threadManagementState(host));
+  if (activeThread?.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
     host.addSystemMessage("Side chats cannot be forked.");
     return;
   }
-  if (activeThread.id === threadId && activeThread.provenance?.kind === "subagent") {
+  if (activeThread?.id === threadId && activeThread.provenance?.kind === "subagent") {
     host.addSystemMessage("Agent threads cannot be forked.");
     return;
   }
@@ -177,12 +177,12 @@ async function renameThread(host: ThreadManagementActionsHost, threadId: string,
 }
 
 async function rollbackThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
-  const activeThread = threadManagementState(host).activeThread;
-  if (activeThread.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
+  const activeThread = activeThreadState(threadManagementState(host));
+  if (activeThread?.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
     host.addSystemMessage("Side chats cannot be rolled back.");
     return;
   }
-  if (activeThread.id === threadId && activeThread.provenance?.kind === "subagent") {
+  if (activeThread?.id === threadId && activeThread.provenance?.kind === "subagent") {
     host.addSystemMessage("Agent threads cannot be rolled back.");
     return;
   }
@@ -240,17 +240,17 @@ function threadManagementDispatch(host: ThreadManagementActionsHost, action: Cha
 function captureThreadManagementPanelScope(host: ThreadManagementActionsHost, targetThreadId: string): ThreadManagementPanelScope {
   return {
     targetThreadId,
-    initialActiveThreadId: threadManagementState(host).activeThread.id,
+    initialActiveThreadId: activeThreadId(threadManagementState(host)),
     initialTurnLifecycle: threadManagementState(host).turn.lifecycle,
   };
 }
 
 function threadManagementScopeStillTargetsPanel(host: ThreadManagementActionsHost, scope: ThreadManagementPanelScope): boolean {
   const state = threadManagementState(host);
-  return state.activeThread.id === scope.targetThreadId && state.turn.lifecycle === scope.initialTurnLifecycle;
+  return activeThreadId(state) === scope.targetThreadId && state.turn.lifecycle === scope.initialTurnLifecycle;
 }
 
 function threadManagementScopeStillTargetsOriginalPanel(host: ThreadManagementActionsHost, scope: ThreadManagementPanelScope): boolean {
   if (!scope.initialActiveThreadId) return true;
-  return scope.initialActiveThreadId === scope.targetThreadId && threadManagementState(host).activeThread.id === scope.targetThreadId;
+  return scope.initialActiveThreadId === scope.targetThreadId && activeThreadId(threadManagementState(host)) === scope.targetThreadId;
 }

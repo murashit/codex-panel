@@ -4,7 +4,7 @@ import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
 import { resumedThreadAction } from "../state/actions";
 import { pendingSubmissionMatches } from "../state/pending-submission";
-import type { ChatState } from "../state/root-reducer";
+import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadStartTransport } from "./thread-start-transport";
 
@@ -46,7 +46,14 @@ async function startThread(
     permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
   });
   if (!activation) return null;
-  if (options.preservePendingSubmissionId && !pendingSubmissionMatches(host.stateStore.getState(), options.preservePendingSubmissionId)) {
+  const current = host.stateStore.getState();
+  if (
+    options.preservePendingSubmissionId &&
+    !pendingSubmissionMatches(
+      { pendingSubmission: current.pendingSubmission, activeThreadId: activeThreadId(current) },
+      options.preservePendingSubmissionId,
+    )
+  ) {
     return null;
   }
 
@@ -60,7 +67,7 @@ async function startThread(
   const action = resumedThreadAction({
     response: patchedActivation,
     listedThreads: state.threadList.listedThreads,
-    preserveRequestedRuntimeSettings: requestState.activeThread.id === null,
+    preserveRequestedRuntimeSettings: activeThreadId(requestState) === null,
     ...(options.preservePendingSubmissionId ? { preservePendingSubmissionId: options.preservePendingSubmissionId } : {}),
   });
   host.stateStore.dispatch(action);

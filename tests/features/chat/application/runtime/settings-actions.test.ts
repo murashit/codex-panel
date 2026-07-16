@@ -8,7 +8,7 @@ import {
 import type { RuntimeSettingsTransport } from "../../../../../src/features/chat/application/runtime/settings-transport";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import type { ActiveThreadSettingsAppliedAction } from "../../../../../src/features/chat/application/state/actions";
-import type { ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, type ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -392,7 +392,7 @@ describe("createChatRuntimeSettingsActions", () => {
     await expect(actions.requestModel("gpt-5.5")).resolves.toBe(false);
 
     expect(transport.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-5.5" });
-    expect(store.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(store.getState())).toBeNull();
     expect(store.getState().runtime.active.model).toBeNull();
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
@@ -413,7 +413,7 @@ describe("createChatRuntimeSettingsActions", () => {
 
     await expect(actions.requestModel("gpt-5.5")).resolves.toBe(false);
 
-    expect(store.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(store.getState())).toBeNull();
     expect(store.getState().runtime.active.model).toBeNull();
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);

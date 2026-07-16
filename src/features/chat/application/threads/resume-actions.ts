@@ -1,5 +1,6 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { resumedThreadAction } from "../state/actions";
+import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import type { HistoryController } from "./history-controller";
@@ -82,7 +83,8 @@ function recoverResumedThreadTokenUsage(host: ResumeActionsHost, threadId: strin
     .then((tokenUsage) => {
       if (!tokenUsage || isStaleResume(host, resume)) return;
       const state = host.stateStore.getState();
-      if (state.activeThread.id !== threadId || state.activeThread.tokenUsage !== null) return;
+      const activeThread = activeThreadState(state);
+      if (!activeThread || activeThread.id !== threadId || activeThread.tokenUsage !== null) return;
       host.stateStore.dispatch({ type: "active-thread/token-usage-set", tokenUsage });
       host.refreshLiveState();
     })

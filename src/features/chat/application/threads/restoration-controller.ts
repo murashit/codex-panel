@@ -1,3 +1,4 @@
+import { awaitingResumeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 export interface RestorationControllerHost {
@@ -16,8 +17,8 @@ export class RestorationController {
   }
 
   async ensureLoaded(loadThread: RestoredThreadLoader): Promise<boolean> {
-    const restoredThread = this.host.stateStore.getState().restoration;
-    if (restoredThread.kind !== "thread") return true;
+    const restoredThread = awaitingResumeThreadState(this.host.stateStore.getState());
+    if (!restoredThread) return true;
     if (this.loading?.threadId === restoredThread.threadId) {
       await this.loading.promise;
       return this.restorationLoaded();
@@ -35,11 +36,10 @@ export class RestorationController {
   }
 
   isPending(threadId: string): boolean {
-    const restoration = this.host.stateStore.getState().restoration;
-    return restoration.kind === "thread" && restoration.threadId === threadId;
+    return awaitingResumeThreadState(this.host.stateStore.getState())?.threadId === threadId;
   }
 
   private restorationLoaded(): boolean {
-    return this.host.stateStore.getState().restoration.kind === "none";
+    return awaitingResumeThreadState(this.host.stateStore.getState()) === null;
   }
 }

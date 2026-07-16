@@ -3,7 +3,7 @@
 import { MarkdownRenderer } from "obsidian";
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { implementPlanTargetFromState } from "../../../../../src/features/chat/application/turns/plan-implementation";
+import { implementPlanTarget } from "../../../../../src/features/chat/application/turns/plan-implementation";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
 import { setCollaborationModeIntent } from "../../../../../src/features/chat/domain/runtime/intent";
 import type { ThreadStreamItem } from "../../../../../src/features/chat/domain/thread-stream/items";
@@ -799,7 +799,7 @@ describe("thread stream rendering and action menu", () => {
       dialogueState: "completed",
     } as const;
     const baseState = {
-      activeThread: { id: "thread" },
+      activeThread: { id: "thread", provenance: null },
       turn: { lifecycle: { kind: "idle" as const } },
       runtime: { pending: { collaborationMode: setCollaborationModeIntent("plan") } },
       threadStream: {
@@ -819,11 +819,11 @@ describe("thread stream rendering and action menu", () => {
       },
     };
 
-    expect(implementPlanTargetFromState(baseState)).toEqual({ itemId: secondPlan.id });
+    expect(implementPlanTarget(baseState)).toEqual({ itemId: secondPlan.id });
     expect(
-      implementPlanTargetFromState({ ...baseState, runtime: { pending: { collaborationMode: setCollaborationModeIntent("default") } } }),
+      implementPlanTarget({ ...baseState, runtime: { pending: { collaborationMode: setCollaborationModeIntent("default") } } }),
     ).toBeNull();
-    expect(implementPlanTargetFromState({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
+    expect(implementPlanTarget({ ...baseState, turn: { lifecycle: { kind: "running", turnId: "turn-2" } } })).toBeNull();
   });
 
   it("does not render copy actions for tool items", () => {

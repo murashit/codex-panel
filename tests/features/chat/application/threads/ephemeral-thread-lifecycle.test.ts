@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
+import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createEphemeralThreadLifecycle } from "../../../../../src/features/chat/application/threads/ephemeral-thread-lifecycle";
 import type { EphemeralThreadTransport } from "../../../../../src/features/chat/application/threads/ephemeral-thread-transport";
@@ -35,7 +35,7 @@ describe("ephemeral thread lifecycle", () => {
     await expect(lifecycle.open({ sourceThreadId: "source", sourceThreadTitle: "Source" })).resolves.toBe(true);
 
     expect(transport.forkEphemeralThread).toHaveBeenCalledWith("source");
-    expect(store.getState().activeThread).toMatchObject({
+    expect(activeThreadState(store.getState())).toMatchObject({
       id: "side",
       lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
     });
@@ -58,7 +58,7 @@ describe("ephemeral thread lifecycle", () => {
     await expect(lifecycle.prepareForPersistentNavigation()).resolves.toBe(true);
 
     expect(transport.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
-    expect(store.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(store.getState())).toBeNull();
   });
 
   it("interrupts a running side turn before close cleanup", async () => {
@@ -108,7 +108,7 @@ describe("ephemeral thread lifecycle", () => {
 
     await expect(opening).resolves.toBe(false);
     expect(transport.unsubscribeEphemeralThread).toHaveBeenCalledWith("side");
-    expect(store.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(store.getState())).toBeNull();
   });
 
   it("still unsubscribes the side chat when interrupting its running turn fails", async () => {
@@ -173,7 +173,7 @@ describe("ephemeral thread lifecycle", () => {
 
     await expect(lifecycle.prepareForPersistentNavigation()).resolves.toBe(false);
 
-    expect(store.getState().activeThread.id).toBe("side");
+    expect(activeThreadId(store.getState())).toBe("side");
     expect(addSystemMessage).toHaveBeenCalledWith("Could not discard the side chat. Try again before switching threads.");
   });
 

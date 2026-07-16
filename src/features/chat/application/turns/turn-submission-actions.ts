@@ -326,7 +326,12 @@ function isCurrentTurn(host: TurnSubmissionActionsHost, threadId: string, turnId
 }
 
 function pendingRequestIsCurrent(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {
-  return request.pendingSubmissionId ? pendingSubmissionMatches(host.stateStore.getState(), request.pendingSubmissionId) : true;
+  if (!request.pendingSubmissionId) return true;
+  const state = host.stateStore.getState();
+  return pendingSubmissionMatches(
+    { pendingSubmission: state.pendingSubmission, activeThreadId: submissionStateSnapshot(state).activeThreadId },
+    request.pendingSubmissionId,
+  );
 }
 
 function commitPendingRequest(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {

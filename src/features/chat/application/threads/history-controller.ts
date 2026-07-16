@@ -1,4 +1,4 @@
-import type { ChatAction, ChatState } from "../state/root-reducer";
+import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamItems } from "../state/thread-stream";
 import type { ThreadHistoryPage, ThreadHistoryTransport } from "./thread-loading-transport";
@@ -36,7 +36,7 @@ export class HistoryController {
     this.dispatch({ type: "thread-stream/history-loading-set", loading: false });
   }
 
-  async loadLatest(threadId = this.state.activeThread.id): Promise<void> {
+  async loadLatest(threadId = activeThreadId(this.state)): Promise<void> {
     if (!threadId) return;
     const load = this.startLoading(threadId, "latest");
     try {
@@ -53,7 +53,7 @@ export class HistoryController {
   }
 
   applyLatestPage(threadId: string, response: ThreadHistoryPage): boolean {
-    if (this.state.activeThread.id !== threadId) return false;
+    if (activeThreadId(this.state) !== threadId) return false;
     this.host.setThreadTurnPresence(response.hadTurns);
     this.host.showLatestPageAtBottom();
     this.dispatch({
@@ -66,8 +66,8 @@ export class HistoryController {
 
   async loadOlder(): Promise<void> {
     const state = this.state;
-    if (!state.activeThread.id || !state.threadStream.historyCursor || state.threadStream.loadingHistory) return;
-    const threadId = state.activeThread.id;
+    const threadId = activeThreadId(state);
+    if (!threadId || !state.threadStream.historyCursor || state.threadStream.loadingHistory) return;
     const cursor = state.threadStream.historyCursor;
     const load = this.startLoading(threadId, "older");
     try {
@@ -105,7 +105,7 @@ export class HistoryController {
   }
 
   private isStale(load: ActiveThreadHistoryLoad): boolean {
-    return this.lifecycle !== load || this.state.activeThread.id !== load.threadId;
+    return this.lifecycle !== load || activeThreadId(this.state) !== load.threadId;
   }
 }
 

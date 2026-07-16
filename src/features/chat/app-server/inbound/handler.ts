@@ -18,7 +18,7 @@ import type { TurnTranscriptSummary } from "../../../../domain/threads/transcrip
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
 import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
 import type { LocalIdSource } from "../../application/local-id-source";
-import type { ChatAction, ChatState } from "../../application/state/root-reducer";
+import { activeThreadId, type ChatAction, type ChatState } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import { activeTurnId } from "../../application/turns/turn-state";
 import {
@@ -120,7 +120,7 @@ function handleNotification(
 
 function handleServerRequest(context: ChatInboundHandlerContext, request: ServerRequest): void {
   const current = state(context);
-  const route = routeServerRequest(request, { activeThreadId: current.activeThread.id, activeTurnId: activeTurnId(current) });
+  const route = routeServerRequest(request, { activeThreadId: activeThreadId(current), activeTurnId: activeTurnId(current) });
   switch (route.kind) {
     case "approval":
       dispatch(context, { type: "request/approval-queued", approval: route.approval });

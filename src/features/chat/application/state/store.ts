@@ -40,8 +40,8 @@ function cloneChatState(state: ChatState): ChatState {
     threadList: {
       listedThreads: [...state.threadList.listedThreads],
     },
-    activeThread: { ...state.activeThread },
-    restoration: { ...state.restoration },
+    panelThread:
+      state.panelThread.kind === "active" ? { kind: "active", thread: { ...state.panelThread.thread } } : { ...state.panelThread },
     runtime: { ...state.runtime },
     turn: { lifecycle: state.turn.lifecycle },
     threadStream: cloneThreadStreamState(state.threadStream),

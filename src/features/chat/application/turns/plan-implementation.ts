@@ -1,6 +1,6 @@
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/selectors";
-import type { ChatActiveThreadState } from "../state/root-reducer";
+import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { type ChatThreadStreamState, threadStreamItems } from "../state/thread-stream";
 import { type ChatTurnState, chatTurnBusy } from "./turn-state";
@@ -14,15 +14,27 @@ export interface PlanImplementationHost {
   requestDefaultCollaborationModeForNextTurn(): void;
 }
 
-export function implementPlanTargetFromState(state: {
-  activeThread: Pick<ChatActiveThreadState, "id"> & { provenance?: ChatActiveThreadState["provenance"] };
+interface PlanImplementationState {
+  activeThread: Pick<ChatActiveThreadState, "id" | "provenance"> | null;
   turn: ChatTurnState;
   runtime: { pending: Pick<ChatRuntimeState["pending"], "collaborationMode"> };
   threadStream: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">;
-}): PlanImplementationTarget | null {
+}
+
+export function implementPlanTargetFromState(state: ChatState): PlanImplementationTarget | null {
+  return implementPlanTarget({
+    activeThread: activeThreadState(state),
+    turn: state.turn,
+    runtime: state.runtime,
+    threadStream: state.threadStream,
+  });
+}
+
+export function implementPlanTarget(state: PlanImplementationState): PlanImplementationTarget | null {
+  const { activeThread } = state;
   if (
-    !state.activeThread.id ||
-    state.activeThread.provenance?.kind === "subagent" ||
+    !activeThread ||
+    activeThread.provenance?.kind === "subagent" ||
     chatTurnBusy(state) ||
     state.runtime.pending.collaborationMode.kind !== "set" ||
     state.runtime.pending.collaborationMode.value !== "plan"
@@ -34,7 +46,7 @@ export function implementPlanTargetFromState(state: {
 
 export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
   if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId) return;
-  if (!(await host.ensureConnected()) || !host.stateStore.getState().activeThread.id) return;
+  if (!(await host.ensureConnected()) || !activeThreadId(host.stateStore.getState())) return;
 
   host.requestDefaultCollaborationModeForNextTurn();
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });

@@ -477,7 +477,7 @@ describe("chat panel surface projections", () => {
 
   it("projects goal editor and disclosure state before action wiring", () => {
     let state = chatStateFixture();
-    state = chatStateWith(state, { activeThread: { goal: goalFixture("thread-1") } });
+    state = chatStateWith(state, { activeThread: { id: "thread-1", goal: goalFixture("thread-1") } });
     state = chatStateWith(state, {
       ui: { goalEditor: { kind: "editing", threadId: "thread-1", objectiveDraft: "Draft goal", tokenBudgetDraft: 1234 } },
     });

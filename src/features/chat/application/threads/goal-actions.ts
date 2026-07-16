@@ -2,6 +2,7 @@ import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../..
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import type { GoalThreadStreamItem } from "../../domain/thread-stream/items";
 import type { LocalIdSource } from "../local-id-source";
+import { activeThreadId, activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "./goal-transport";
 
@@ -53,7 +54,7 @@ export function createThreadGoalSyncActions(host: ThreadGoalSyncHost): ThreadGoa
 
 export function createGoalActions(host: GoalActionsHost): GoalActions {
   return {
-    activeGoal: () => host.stateStore.getState().activeThread.goal,
+    activeGoal: () => activeThreadState(host.stateStore.getState())?.goal ?? null,
     syncThreadGoal: (threadId) => syncThreadGoal(host, threadId),
     saveObjective: (objective, tokenBudget) => saveObjective(host, objective, tokenBudget),
     setObjective: (threadId, objective, tokenBudget) => setObjective(host, threadId, objective, tokenBudget),
@@ -102,7 +103,7 @@ async function setNormalizedObjective(
   objective: NormalizedGoalObjective,
   tokenBudget: number | null,
 ): Promise<boolean> {
-  const current = host.stateStore.getState().activeThread.goal;
+  const current = activeThreadState(host.stateStore.getState())?.goal ?? null;
   const isNewGoal = current === null;
   const applied = await setGoal(host, threadId, {
     objective,
@@ -116,7 +117,7 @@ async function setNormalizedObjective(
 }
 
 async function saveObjective(host: GoalActionsHost, objective: string, tokenBudget: number | null): Promise<boolean> {
-  const plan = planGoalObjectiveSave(host.stateStore.getState().activeThread.id, objective, tokenBudget);
+  const plan = planGoalObjectiveSave(activeThreadId(host.stateStore.getState()), objective, tokenBudget);
   switch (plan.kind) {
     case "reject":
       host.addSystemMessage(plan.message);
@@ -161,8 +162,9 @@ function applyGoalIfActive(
   options: { reportChange: boolean },
 ): boolean {
   const state = host.stateStore.getState();
-  if (state.activeThread.id !== threadId) return false;
-  const item = options.reportChange ? goalChangeItem(host.localItemIds.next("goal"), state.activeThread.goal, goal) : null;
+  const activeThread = activeThreadState(state);
+  if (!activeThread || activeThread.id !== threadId) return false;
+  const item = options.reportChange ? goalChangeItem(host.localItemIds.next("goal"), activeThread.goal, goal) : null;
   host.stateStore.dispatch({ type: "active-thread/goal-set", goal });
   if (item) host.addGoalEvent(item);
   host.refreshLiveState();
@@ -171,7 +173,7 @@ function applyGoalIfActive(
 
 function startEditingCurrent(host: GoalActionsHost): void {
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
-  const goal = host.stateStore.getState().activeThread.goal;
+  const goal = activeThreadState(host.stateStore.getState())?.goal ?? null;
   startEditing(host, goal?.threadId ?? null, goal?.objective ?? "", goal?.tokenBudget ?? null);
 }
 
@@ -216,7 +218,7 @@ async function recordGoalUserMessage(host: GoalActionsHost, threadId: string, ob
 }
 
 function addThreadScopedSystemMessage(host: ThreadGoalSyncHost, threadId: string, text: string): void {
-  if (host.stateStore.getState().activeThread.id !== threadId) return;
+  if (activeThreadId(host.stateStore.getState()) !== threadId) return;
   host.addSystemMessage(text);
 }
 

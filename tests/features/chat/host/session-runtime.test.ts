@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StaleAppServerSharedQueryContextError } from "../../../../src/app-server/query/shared-queries";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
+import { activeThreadId } from "../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
 import { HistoryController } from "../../../../src/features/chat/application/threads/history-controller";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
@@ -175,7 +176,7 @@ describe("ChatPanelSessionRuntime actions", () => {
 
     await runtime.actions.startNewThread();
 
-    expect(stateStore.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(stateStore.getState().connection.statusText).toBe("New chat.");
     expect(focusComposer).toHaveBeenCalledOnce();
@@ -188,6 +189,17 @@ describe("ChatPanelSessionRuntime actions", () => {
     const focusComposer = vi.spyOn(ChatComposerController.prototype, "focusComposer").mockImplementation(() => undefined);
     const { runtime, stateStore } = sessionRuntimeFixture();
     stateStore.dispatch({
+      type: "turn/optimistic-started",
+      item: {
+        id: "local-user",
+        kind: "dialogue",
+        dialogueKind: "user",
+        role: "user",
+        text: "prompt",
+      },
+      pendingTurnStart: { anchorItemId: "local-user", promptSubmitHookItemIds: [] },
+    });
+    stateStore.dispatch({
       type: "turn/started",
       threadId: "thread-1",
       turnId: "turn-1",
@@ -195,7 +207,7 @@ describe("ChatPanelSessionRuntime actions", () => {
 
     await runtime.actions.startNewThread();
 
-    expect(stateStore.getState().activeThread.id).toBe("thread-1");
+    expect(activeThreadId(stateStore.getState())).toBe("thread-1");
     expect(focusComposer).not.toHaveBeenCalled();
   });
 

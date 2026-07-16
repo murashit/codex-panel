@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createActiveThreadIdentitySync } from "../../../../../src/features/chat/application/threads/active-thread-identity-sync";
 
@@ -48,7 +48,7 @@ describe("createActiveThreadIdentitySync", () => {
 
     sync.applyThreadArchiveToActiveIdentity("thread");
 
-    expect(stateStore.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
@@ -74,7 +74,7 @@ describe("createActiveThreadIdentitySync", () => {
 
     sync.applyThreadArchiveToActiveIdentity("other");
 
-    expect(stateStore.getState().activeThread.id).toBe("active");
+    expect(activeThreadId(stateStore.getState())).toBe("active");
     expect(host.invalidateThreadWork).not.toHaveBeenCalled();
     expect(host.resetThreadTurnPresence).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
@@ -86,9 +86,9 @@ describe("createActiveThreadIdentitySync", () => {
 
     sync.applyThreadArchiveToActiveIdentity("thread");
 
-    expect(stateStore.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(host.invalidateThreadWork).toHaveBeenCalledOnce();
-    expect(stateStore.getState().restoration).toEqual({ kind: "none" });
+    expect(stateStore.getState().panelThread.kind).toBe("empty");
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
   });
@@ -122,7 +122,7 @@ describe("createActiveThreadIdentitySync", () => {
 
     sync.applyThreadRenameToActiveIdentity("thread", "New");
 
-    expect(stateStore.getState().restoration).toEqual({ kind: "thread", threadId: "thread", fallbackTitle: "New" });
+    expect(stateStore.getState().panelThread).toEqual({ kind: "awaiting-resume", threadId: "thread", fallbackTitle: "New" });
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
   });
 

@@ -1,4 +1,4 @@
-import type { ChatConnectionPhase } from "../state/root-reducer";
+import { activeThreadId, type ChatConnectionPhase } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 const STATUS_RECONNECTING = "Reconnecting...";
@@ -20,7 +20,7 @@ export async function reconnectPanel(
   host: ChatReconnectActionsHost,
   target: { resumeThreadId: string | null; isCurrent?: () => boolean } | null = null,
 ): Promise<boolean> {
-  const threadId = target ? target.resumeThreadId : host.stateStore.getState().activeThread.id;
+  const threadId = target ? target.resumeThreadId : activeThreadId(host.stateStore.getState());
   const isCurrent = target?.isCurrent ?? (() => true);
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   host.invalidateConnectionWork();
@@ -36,7 +36,7 @@ export async function reconnectPanel(
   try {
     await host.resumeThread(threadId);
     if (!isCurrent()) return false;
-    return host.stateStore.getState().activeThread.id === threadId;
+    return activeThreadId(host.stateStore.getState()) === threadId;
   } catch (error) {
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return false;

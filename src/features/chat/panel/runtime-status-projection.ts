@@ -1,6 +1,6 @@
 import { runtimeConfigOrDefault } from "../../../domain/runtime/config";
 import { runtimeSnapshotForChatState } from "../application/runtime/snapshot";
-import type { ChatState } from "../application/state/root-reducer";
+import { activeThreadId, type ChatState } from "../application/state/root-reducer";
 import { collaborationModeLabel as formatCollaborationModeLabel } from "../domain/runtime/labels";
 import { resolveRuntimeControls } from "../domain/runtime/resolution";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
@@ -46,7 +46,7 @@ function statusDetails(input: ChatPanelRuntimeProjectionInput): ThreadStreamNoti
   const state = input.state();
   return noticeSectionsFromRows(
     buildStatusDetails({
-      activeThreadId: state.activeThread.id,
+      activeThreadId: activeThreadId(state),
       snapshot: runtimeSnapshot(state),
       nowMs: input.nowMs(),
     }),

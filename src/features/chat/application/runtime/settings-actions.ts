@@ -9,7 +9,7 @@ import {
   pendingRuntimeSettingsPatch as buildPendingRuntimeSettingsPatch,
   type PendingRuntimeSettingsPatch,
 } from "../../domain/runtime/thread-settings-patch";
-import type { ChatAction, ChatState } from "../state/root-reducer";
+import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import type { RuntimeSettingsTransport } from "./settings-transport";
 
@@ -82,7 +82,7 @@ async function applyPendingThreadSettings(host: RuntimeSettingsActionsHost): Pro
 }
 
 async function commitPendingThreadSettings(host: RuntimeSettingsActionsHost): Promise<RuntimeSettingsCommitResult> {
-  const threadId = state(host).activeThread.id;
+  const threadId = activeThreadId(state(host));
   if (!threadId) return { ok: true, collaborationModeApplied: true };
 
   const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
@@ -94,14 +94,14 @@ async function commitPendingThreadSettings(host: RuntimeSettingsActionsHost): Pr
     if (!(await host.runtimeTransport.updateThreadSettings(threadId, update))) {
       return { ok: false, collaborationModeApplied: false };
     }
-    if (state(host).activeThread.id !== threadId) return { ok: false, collaborationModeApplied: false };
+    if (activeThreadId(state(host)) !== threadId) return { ok: false, collaborationModeApplied: false };
     if (!runtimeSettingsPatchStillPending(currentPendingRuntimeSettingsPatch(host), update)) {
       return { ok: false, collaborationModeApplied: false };
     }
     dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
     return { ok: true, collaborationModeApplied };
   } catch (error) {
-    if (state(host).activeThread.id !== threadId) return { ok: false, collaborationModeApplied: false };
+    if (activeThreadId(state(host)) !== threadId) return { ok: false, collaborationModeApplied: false };
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return { ok: false, collaborationModeApplied: false };
   }
@@ -158,13 +158,13 @@ async function resetPermissionProfileToConfig(host: RuntimeSettingsActionsHost):
 }
 
 function permissionChangesBlocked(host: RuntimeSettingsActionsHost): boolean {
-  if (state(host).activeThread.lifetime?.kind !== "ephemeral") return false;
+  if (activeThreadState(state(host))?.lifetime?.kind !== "ephemeral") return false;
   host.addSystemMessage("Permission changes are unavailable in side chats.");
   return true;
 }
 
 function agentThreadSettingsBlocked(host: RuntimeSettingsActionsHost): boolean {
-  if (state(host).activeThread.provenance?.kind !== "subagent") return false;
+  if (activeThreadState(state(host))?.provenance?.kind !== "subagent") return false;
   host.addSystemMessage("Thread settings are unavailable in agent threads.");
   return true;
 }

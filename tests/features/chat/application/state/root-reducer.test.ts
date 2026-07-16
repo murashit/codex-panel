@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadState, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
@@ -87,13 +87,38 @@ describe("chatReducer", () => {
       fallbackTitle: "Restored title",
     });
 
-    expect(restored.restoration).toEqual({ kind: "thread", threadId: "restored-thread", fallbackTitle: "Restored title" });
-    expect(restored.activeThread.id).toBeNull();
+    expect(restored.panelThread).toEqual({
+      kind: "awaiting-resume",
+      threadId: "restored-thread",
+      fallbackTitle: "Restored title",
+    });
     expect(restored.connection.statusText).toBe("Thread ready to resume.");
     expectThreadScopeReset(restored, { items: [] });
 
     const disconnected = chatReducer(restored, { type: "connection/scoped-cleared" });
-    expect(disconnected.restoration).toEqual(restored.restoration);
+    expect(disconnected.panelThread).toEqual(restored.panelThread);
+  });
+
+  it("keeps active-only metadata out of the awaiting-resume phase", () => {
+    let state = chatReducer(chatStateFixture(), {
+      type: "panel/restored-thread-applied",
+      threadId: "restored-thread",
+      fallbackTitle: "Restored title",
+    });
+    const awaitingResume = state.panelThread;
+
+    state = chatReducer(state, { type: "active-thread/cwd-set", cwd: "/stale" });
+    const usage = {
+      total: { totalTokens: 1, inputTokens: 1, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0 },
+      last: { totalTokens: 1, inputTokens: 1, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0 },
+      modelContextWindow: 100,
+    };
+    state = chatReducer(state, { type: "active-thread/token-usage-set", tokenUsage: usage });
+    state = chatReducer(state, { type: "active-thread/goal-set", goal: goal("restored-thread") });
+    state = chatReducer(state, { type: "turn/started", threadId: "other-thread", turnId: "stale-turn" });
+
+    expect(state.panelThread).toEqual(awaitingResume);
+    expect(state.turn.lifecycle).toEqual({ kind: "idle" });
   });
 
   it("clears active turn and thread-scoped state", () => {
@@ -117,8 +142,7 @@ describe("chatReducer", () => {
 
     const next = chatReducer(pendingState, { type: "active-thread/cleared" });
 
-    expect(next.activeThread.id).toBeNull();
-    expect(next.activeThread.goal).toBeNull();
+    expect(next.panelThread).toEqual({ kind: "empty" });
     expect(next.runtime.active.model).toBeNull();
     expect(next.runtime.active.reasoningEffort).toBeNull();
     expect(next.runtime.active.serviceTier).toBeNull();
@@ -155,8 +179,7 @@ describe("chatReducer", () => {
       items: resumedItems,
     });
 
-    expect(next.activeThread.id).toBe("resumed-thread");
-    expect(next.activeThread.goal).toBeNull();
+    expect(activeThreadState(next)).toMatchObject({ id: "resumed-thread", goal: null });
     expect(next.runtime.active.collaborationMode).toBeNull();
     expect(next.runtime.pending.collaborationMode).toEqual({ kind: "unchanged" });
     expectThreadScopeReset(next, { items: resumedItems });
@@ -188,7 +211,7 @@ describe("chatReducer", () => {
       preserveRequestedRuntimeSettings: true,
     });
 
-    expect(next.activeThread.id).toBe("started-thread");
+    expect(activeThreadState(next)?.id).toBe("started-thread");
     expect(next.runtime.active.model).toBe("gpt-5");
     expect(next.runtime.active.reasoningEffort).toBe("medium");
     expect(next.runtime.active.serviceTier).toBe("fast");
@@ -635,7 +658,7 @@ describe("chatReducer", () => {
   });
 
   it("clears expanded goal objective state when the displayed goal identity changes", () => {
-    let state = chatStateFixture();
+    let state = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
     state = chatReducer(state, { type: "active-thread/goal-set", goal: goal("thread") });
     state = chatReducer(state, { type: "ui/disclosure-set", bucket: "goalObjectiveExpanded", id: "thread", open: true });
 
@@ -827,14 +850,14 @@ describe("chatReducer", () => {
     panelA.dispatch({ type: "active-thread/cleared" });
 
     expect(panelA.getState()).toMatchObject({
-      activeThread: { id: null },
+      panelThread: { kind: "empty" },
       composer: { draft: "" },
       requests: { pendingUserInputs: [] },
     });
     expect(panelA.getState().requests.userInputDrafts.size).toBe(0);
 
     expect(panelB.getState()).toMatchObject({
-      activeThread: { id: "thread-b" },
+      panelThread: { kind: "active", thread: { id: "thread-b" } },
       composer: { draft: "panel B draft" },
       requests: { pendingUserInputs: [expect.objectContaining({ requestId: 2 })] },
     });

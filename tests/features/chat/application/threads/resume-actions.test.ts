@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ThreadTokenUsage } from "../../../../../src/domain/runtime/metrics";
 import type { Thread as PanelThread } from "../../../../../src/domain/threads/model";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import type { HistoryController } from "../../../../../src/features/chat/application/threads/history-controller";
 import { createResumeActions, type ResumeActionsHost } from "../../../../../src/features/chat/application/threads/resume-actions";
@@ -75,7 +75,7 @@ describe("ResumeActions", () => {
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
     expect(host.syncThreadGoal).toHaveBeenCalledWith("thread");
-    expect(stateStore.getState().activeThread.id).toBe("thread");
+    expect(activeThreadId(stateStore.getState())).toBe("thread");
     expect(loadLatest).toHaveBeenCalledWith("thread");
     expect(host.resetThreadTurnPresence).toHaveBeenCalledWith(false);
     expect(host.notifyActiveThreadIdentityChanged).toHaveBeenCalledOnce();
@@ -98,7 +98,7 @@ describe("ResumeActions", () => {
     await actions.resumeThread("thread");
 
     expect(resumeThread).toHaveBeenCalledWith("thread");
-    expect(stateStore.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(loadLatest).not.toHaveBeenCalled();
     expect(host.syncThreadGoal).not.toHaveBeenCalled();
   });
@@ -148,11 +148,11 @@ describe("ResumeActions", () => {
 
     expect(recoverTokenUsageFromRollout).toHaveBeenCalledWith("/tmp/rollout.jsonl");
     expect(loadLatest).toHaveBeenCalledWith("thread");
-    expect(stateStore.getState().activeThread.tokenUsage).toBeNull();
+    expect(activeThreadState(stateStore.getState())?.tokenUsage).toBeNull();
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
 
-    expect(stateStore.getState().activeThread.tokenUsage).toMatchObject({ last: { inputTokens: 42 } });
+    expect(activeThreadState(stateStore.getState())?.tokenUsage).toMatchObject({ last: { inputTokens: 42 } });
   });
 
   it("ignores stale rollout token usage recovery", async () => {
@@ -181,8 +181,8 @@ describe("ResumeActions", () => {
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
 
-    expect(stateStore.getState().activeThread.id).toBe("other");
-    expect(stateStore.getState().activeThread.tokenUsage).toBeNull();
+    expect(activeThreadId(stateStore.getState())).toBe("other");
+    expect(activeThreadState(stateStore.getState())?.tokenUsage).toBeNull();
   });
 
   it("does not let late rollout token usage recovery overwrite live token usage", async () => {
@@ -196,7 +196,7 @@ describe("ResumeActions", () => {
 
     await recovery.resolveAndFlush(tokenUsageFixture(42));
 
-    expect(stateStore.getState().activeThread.tokenUsage).toMatchObject({ last: { inputTokens: 99 } });
+    expect(activeThreadState(stateStore.getState())?.tokenUsage).toMatchObject({ last: { inputTokens: 99 } });
   });
 
   it("ignores rollout token usage recovery failures", async () => {
@@ -207,7 +207,7 @@ describe("ResumeActions", () => {
     await actions.resumeThread("thread");
     await Promise.resolve();
 
-    expect(stateStore.getState().activeThread.tokenUsage).toBeNull();
+    expect(activeThreadState(stateStore.getState())?.tokenUsage).toBeNull();
     expect(host.addSystemMessage).not.toHaveBeenCalledWith("read failed");
   });
 });

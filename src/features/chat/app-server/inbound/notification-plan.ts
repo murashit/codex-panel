@@ -5,7 +5,7 @@ import { normalizeExplicitThreadName } from "../../../../domain/threads/model";
 import type { ThreadCatalogEvent } from "../../../threads/catalog/thread-catalog";
 import type { AppServerResourceEvent } from "../../application/connection/server-metadata-actions";
 import { activeThreadSettingsAppliedAction } from "../../application/state/actions";
-import type { ChatAction, ChatState } from "../../application/state/root-reducer";
+import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../../application/state/root-reducer";
 import { planTurnRuntimeEvents, type TurnRuntimeOutcome } from "../../application/turns/runtime-event-plan";
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import { type DiagnosticStatusNotification, routeServerNotification, type ThreadLifecycleNotification } from "./notification-routing";
@@ -40,7 +40,7 @@ export function planChatNotification(
   localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
   const route = routeServerNotification(notification, {
-    activeThreadId: state.activeThread.id,
+    activeThreadId: activeThreadId(state),
     activeTurnId: activeTurnIdForState(state),
   });
   switch (route.kind) {
@@ -73,7 +73,7 @@ function runtimeEventsPlan(
 }
 
 function chatNotificationEffectsFromTurnRuntimeOutcome(state: ChatState, outcome: TurnRuntimeOutcome): readonly ChatNotificationEffect[] {
-  if (state.activeThread.lifetime?.kind === "ephemeral") return [];
+  if (activeThreadState(state)?.lifetime?.kind === "ephemeral") return [];
   switch (outcome.type) {
     case "turn-started":
       return [
@@ -153,7 +153,7 @@ function planThreadLifecycle(
         },
       });
     case "thread/settings/updated":
-      if (state.activeThread.id !== notification.params.threadId) return EMPTY_PLAN;
+      if (activeThreadId(state) !== notification.params.threadId) return EMPTY_PLAN;
       return actionPlan(activeThreadSettingsAppliedAction(notification.params.threadSettings));
     case "thread/goal/updated":
       return threadGoalPlan(state, notification.params.threadId, notification.params.goal, localItemId);
@@ -176,7 +176,7 @@ function threadStartedPlan(
             event: { type: "thread-started", thread },
           },
         ];
-  if (!state.activeThread.id || state.activeThread.id === notification.params.thread.id) {
+  if (activeThreadId(state) === notification.params.thread.id) {
     return { actions: [{ type: "active-thread/cwd-set", cwd: notification.params.thread.cwd }], effects };
   }
   return { actions: [], effects };
@@ -188,9 +188,10 @@ function threadGoalPlan(
   goal: Extract<ThreadLifecycleNotification, { method: "thread/goal/updated" }>["params"]["goal"] | null,
   localItemId: LocalItemIdProvider,
 ): ChatNotificationPlan {
-  if (state.activeThread.id !== threadId) return EMPTY_PLAN;
+  const activeThread = activeThreadState(state);
+  if (!activeThread || activeThread.id !== threadId) return EMPTY_PLAN;
   const actions: ChatAction[] = [{ type: "active-thread/goal-set", goal }];
-  const item = goalChangeItem(localItemId("goal"), state.activeThread.goal, goal);
+  const item = goalChangeItem(localItemId("goal"), activeThread.goal, goal);
   if (item) actions.push({ type: "thread-stream/item-upserted", item });
   return { actions, effects: [] };
 }

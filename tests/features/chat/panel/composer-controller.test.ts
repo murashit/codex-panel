@@ -20,6 +20,7 @@ import { renderUiRoot, unmountUiRoot } from "../../../../src/shared/dom/preact-r
 import { deferred } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
 import { composerReadModelFromChatState, threadStreamReadModelFromChatState } from "../support/shell-read-model";
+import { chatStateFixture, chatStateWith } from "../support/state";
 
 installObsidianDomShims();
 
@@ -127,7 +128,7 @@ describe("ChatComposerController", () => {
   });
 
   it("keeps a pending web submission after a turn that completes during the fetch", () => {
-    const stateStore = createChatStateStore();
+    const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
     if (!pending) throw new Error("Expected pending web submission");
     const assistant: ThreadStreamItem = {

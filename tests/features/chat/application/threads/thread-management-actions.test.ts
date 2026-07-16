@@ -1,7 +1,7 @@
 import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
-
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { activeThreadId } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   createThreadManagementActions,
@@ -443,7 +443,7 @@ describe("thread management actions", () => {
     rollback.resolve(rollbackSnapshot());
     await pendingRollback;
 
-    expect(host.stateStore.getState().activeThread.id).toBe("other");
+    expect(activeThreadId(host.stateStore.getState())).toBe("other");
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
     expect(host.refreshAfterThreadMutation).not.toHaveBeenCalled();
@@ -580,7 +580,7 @@ function hostMock({
   threadTransport: transportOverrides = {},
 }: {
   items: ThreadStreamItem[];
-  activeThread?: Partial<ReturnType<typeof chatStateFixture>["activeThread"]>;
+  activeThread?: NonNullable<Parameters<typeof chatStateWith>[1]["activeThread"]>;
   operations?: Partial<ThreadOperationsMock>;
   threadTransport?: Partial<ThreadMutationTransportMock>;
 }): ThreadManagementActionsHostMock {

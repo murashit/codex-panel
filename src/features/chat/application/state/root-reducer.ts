@@ -106,7 +106,7 @@ interface ChatThreadListState {
 }
 
 export interface ChatActiveThreadState {
-  readonly id: string | null;
+  readonly id: string;
   readonly title?: string | null;
   readonly cwd: string | null;
   readonly goal: ThreadGoal | null;
@@ -115,9 +115,10 @@ export interface ChatActiveThreadState {
   readonly provenance: Thread["provenance"] | null;
 }
 
-export type ChatPanelRestorationState =
-  | { readonly kind: "none" }
-  | { readonly kind: "thread"; readonly threadId: string; readonly fallbackTitle: string | null };
+type ChatPanelThreadState =
+  | { readonly kind: "empty" }
+  | { readonly kind: "awaiting-resume"; readonly threadId: string; readonly fallbackTitle: string | null }
+  | { readonly kind: "active"; readonly thread: ChatActiveThreadState };
 
 type ActiveThreadLifetime =
   | { readonly kind: "persistent" }
@@ -133,8 +134,7 @@ interface ChatComposerState {
 interface ChatStateShape {
   connection: ChatConnectionState;
   threadList: ChatThreadListState;
-  activeThread: ChatActiveThreadState;
-  restoration: ChatPanelRestorationState;
+  panelThread: ChatPanelThreadState;
   runtime: ChatRuntimeState;
   turn: ChatTurnState;
   threadStream: ChatThreadStreamState;
@@ -265,8 +265,7 @@ export function createChatState(): ChatState {
   return {
     connection: initialConnectionState(),
     threadList: initialThreadListState(),
-    activeThread: initialActiveThreadState(),
-    restoration: initialPanelRestorationState(),
+    panelThread: initialPanelThreadState(),
     runtime: initialChatRuntimeState(),
     turn: initialTurnState(),
     threadStream: initialThreadStreamState(),
@@ -275,6 +274,22 @@ export function createChatState(): ChatState {
     composer: initialComposerState(),
     ui: initialUiState(),
   };
+}
+
+export function panelThreadId(state: ChatState): string | null {
+  return state.panelThread.kind === "awaiting-resume" ? state.panelThread.threadId : activeThreadId(state);
+}
+
+export function activeThreadId(state: ChatState): string | null {
+  return activeThreadState(state)?.id ?? null;
+}
+
+export function activeThreadState(state: ChatState): DeepReadonly<ChatActiveThreadState> | null {
+  return state.panelThread.kind === "active" ? state.panelThread.thread : null;
+}
+
+export function awaitingResumeThreadState(state: ChatState): Extract<ChatState["panelThread"], { kind: "awaiting-resume" }> | null {
+  return state.panelThread.kind === "awaiting-resume" ? state.panelThread : null;
 }
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -398,16 +413,18 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
       ...state.threadList,
       listedThreads: action.listedThreads ?? state.threadList.listedThreads,
     },
-    activeThread: {
-      id: action.thread.id,
-      title: (action.thread.name ?? action.thread.preview) || null,
-      cwd: action.cwd,
-      goal: null,
-      tokenUsage: null,
-      lifetime: action.lifetime ?? { kind: "persistent" },
-      provenance: action.thread.provenance,
+    panelThread: {
+      kind: "active",
+      thread: {
+        id: action.thread.id,
+        title: (action.thread.name ?? action.thread.preview) || null,
+        cwd: action.cwd,
+        goal: null,
+        tokenUsage: null,
+        lifetime: action.lifetime ?? { kind: "persistent" },
+        provenance: action.thread.provenance,
+      },
     },
-    restoration: initialPanelRestorationState(),
     runtime: {
       ...runtimeBase,
       active: {
@@ -438,10 +455,12 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
 }
 
 function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: ActiveThreadSettingsAppliedAction): ChatState {
+  const activeThread = activeThreadState(state);
+  if (!activeThread) return state;
   return patchChatState(state, {
-    activeThread: {
-      ...state.activeThread,
-      cwd: action.cwd,
+    panelThread: {
+      kind: "active",
+      thread: { ...activeThread, cwd: action.cwd },
     },
     runtime: {
       ...state.runtime,
@@ -468,12 +487,11 @@ function reduceActiveThreadSettingsAppliedTransition(state: ChatState, action: A
 }
 
 function reduceActiveThreadGoalSetTransition(state: ChatState, goal: ThreadGoal | null): ChatState {
+  const activeThread = activeThreadState(state);
+  if (!activeThread) return state;
   return patchChatState(state, {
-    activeThread: {
-      ...state.activeThread,
-      goal,
-    },
-    ui: maybeClearGoalObjectiveExpansion(state.ui, state.activeThread.goal, goal),
+    panelThread: { kind: "active", thread: { ...activeThread, goal } },
+    ui: maybeClearGoalObjectiveExpansion(state.ui, activeThread.goal, goal),
   });
 }
 
@@ -481,13 +499,13 @@ function reduceRestoredThreadAppliedTransition(state: ChatState, threadId: strin
   const cleared = clearThreadScopedState(state);
   return patchChatState(cleared, {
     connection: { ...cleared.connection, statusText: "Thread ready to resume." },
-    restoration: { kind: "thread", threadId, fallbackTitle },
+    panelThread: createAwaitingResumeThreadState(threadId, fallbackTitle),
   });
 }
 
 function reduceRestoredThreadRenamedTransition(state: ChatState, threadId: string, name: string | null): ChatState {
-  if (state.restoration.kind !== "thread" || state.restoration.threadId !== threadId) return state;
-  return patchChatState(state, { restoration: { ...state.restoration, fallbackTitle: name } });
+  if (state.panelThread.kind !== "awaiting-resume" || state.panelThread.threadId !== threadId) return state;
+  return patchChatState(state, { panelThread: { ...state.panelThread, fallbackTitle: name } });
 }
 
 function reduceViewStateClearedTransition(state: ChatState): ChatState {
@@ -497,9 +515,12 @@ function reduceViewStateClearedTransition(state: ChatState): ChatState {
 
 function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction): ChatState {
   const lifecycle = transitionChatTurnLifecycleState(state.turn.lifecycle, { type: "started", turnId: action.turnId });
+  if (lifecycle === state.turn.lifecycle) return state;
+  const activeThread =
+    activeThreadState(state) ?? (state.turn.lifecycle.kind === "starting" ? createActiveThreadState(action.threadId) : null);
+  if (!activeThread || activeThread.id !== action.threadId) return state;
   return patchChatState(state, {
-    activeThread: { ...state.activeThread, id: action.threadId },
-    restoration: initialPanelRestorationState(),
+    panelThread: { kind: "active", thread: activeThread },
     turn: { lifecycle },
     connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
     threadStream: action.items
@@ -595,8 +616,7 @@ function clearTurnScopedState(state: ChatState): ChatState {
 function clearThreadScopedState(state: ChatState): ChatState {
   return clearTurnScopedState(
     patchChatState(state, {
-      activeThread: initialActiveThreadState(),
-      restoration: initialPanelRestorationState(),
+      panelThread: initialPanelThreadState(),
       runtime: initialChatRuntimeState(),
       threadStream: initialThreadStreamState(),
       pendingSubmission: null,
@@ -608,7 +628,7 @@ function clearThreadScopedState(state: ChatState): ChatState {
 
 function clearConnectionScopedState(state: ChatState): ChatState {
   return patchChatState(clearTurnScopedState(state), {
-    activeThread: initialActiveThreadState(),
+    panelThread: state.panelThread.kind === "awaiting-resume" ? state.panelThread : initialPanelThreadState(),
     runtime: initialChatRuntimeState(),
     connection: {
       ...state.connection,
@@ -642,8 +662,7 @@ function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState 
   return patchChatState(state, {
     connection: reduceConnectionSlice(state.connection, action),
     threadList: reduceThreadListSlice(state.threadList, action),
-    activeThread: reduceActiveThreadSlice(state.activeThread, action),
-    restoration: state.restoration,
+    panelThread: reducePanelThreadSlice(state.panelThread, action),
     runtime: reduceRuntimeSlice(state.runtime, action),
     turn: state.turn,
     pendingSubmission: state.pendingSubmission,
@@ -679,12 +698,13 @@ function reduceThreadListSlice(state: ChatThreadListState, action: ChatSliceActi
   return patchObject(state, { listedThreads: action.threads });
 }
 
-function reduceActiveThreadSlice(state: ChatActiveThreadState, action: ChatSliceAction): ChatActiveThreadState {
+function reducePanelThreadSlice(state: ChatPanelThreadState, action: ChatSliceAction): ChatPanelThreadState {
+  if (state.kind !== "active") return state;
   switch (action.type) {
     case "active-thread/cwd-set":
-      return patchObject(state, { cwd: action.cwd });
+      return patchObject(state, { thread: patchObject(state.thread, { cwd: action.cwd }) });
     case "active-thread/token-usage-set":
-      return patchObject(state, { tokenUsage: action.tokenUsage });
+      return patchObject(state, { thread: patchObject(state.thread, { tokenUsage: action.tokenUsage }) });
     default:
       return state;
   }
@@ -769,19 +789,28 @@ function initialThreadListState(): ChatThreadListState {
   return { listedThreads: [] };
 }
 
-function initialActiveThreadState(): ChatActiveThreadState {
+function initialPanelThreadState(): ChatPanelThreadState {
+  return { kind: "empty" };
+}
+
+function createAwaitingResumeThreadState(threadId: string, fallbackTitle: string | null): ChatPanelThreadState {
   return {
-    id: null,
+    kind: "awaiting-resume",
+    threadId,
+    fallbackTitle,
+  };
+}
+
+function createActiveThreadState(id: string): ChatActiveThreadState {
+  return {
+    id,
+    title: null,
     cwd: null,
     goal: null,
     tokenUsage: null,
     lifetime: null,
     provenance: null,
   };
-}
-
-function initialPanelRestorationState(): ChatPanelRestorationState {
-  return { kind: "none" };
 }
 
 function initialTurnState(): ChatTurnState {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
+import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createGoalActions } from "../../../../../src/features/chat/application/threads/goal-actions";
 import type { ThreadGoalTransport } from "../../../../../src/features/chat/application/threads/goal-transport";
@@ -28,7 +28,7 @@ describe("createGoalActions", () => {
 
     await actions.syncThreadGoal("thread");
 
-    expect(stateStore.getState().activeThread.goal).toEqual(currentGoal);
+    expect(activeThreadState(stateStore.getState())?.goal).toEqual(currentGoal);
     expect(refreshLiveState).toHaveBeenCalledOnce();
   });
 
@@ -50,8 +50,8 @@ describe("createGoalActions", () => {
 
     await actions.syncThreadGoal("thread");
 
-    expect(stateStore.getState().activeThread.id).toBe("thread");
-    expect(stateStore.getState().activeThread.goal).toBeNull();
+    expect(activeThreadId(stateStore.getState())).toBe("thread");
+    expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
     expect(addSystemMessage).toHaveBeenCalledWith("Could not load thread goal: offline");
   });
 
@@ -90,7 +90,7 @@ describe("createGoalActions", () => {
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "updated: Updated", objective: "Updated" }));
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "paused: Updated", objective: "Updated" }));
     expect(addGoalEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: "goal", text: "cleared: Updated", objective: "Updated" }));
-    expect(stateStore.getState().activeThread.goal).toBeNull();
+    expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
   });
 
   it("does not report stale goal action failures after the active thread changes", async () => {
@@ -366,7 +366,7 @@ describe("createGoalActions", () => {
 
     await actions.syncThreadGoal("thread");
 
-    expect(stateStore.getState().activeThread.goal).toEqual(currentGoal);
+    expect(activeThreadState(stateStore.getState())?.goal).toEqual(currentGoal);
     expect(addSystemMessage).not.toHaveBeenCalled();
   });
 });

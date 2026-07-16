@@ -2,7 +2,13 @@ import type { AppServerClient } from "../../../app-server/connection/client";
 import { type AppServerQueryContext, appServerQueryContextMatches, appServerQueryContextRawEquals } from "../../../app-server/query/keys";
 import { pendingRequestCountsFromQueues } from "../../../domain/pending-requests/aggregate";
 import { threadMeaningfulTitle, threadWindowTitle } from "../../../domain/threads/title";
-import type { ChatPanelRestorationState, ChatState } from "../application/state/root-reducer";
+import {
+  activeThreadId,
+  activeThreadState,
+  awaitingResumeThreadState,
+  type ChatState,
+  panelThreadId,
+} from "../application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../application/state/store";
 import { ChatResumeWorkTracker } from "../application/threads/resume-work";
 import { renderChatPanelShell, unmountChatPanelShell } from "../panel/shell.dom";
@@ -33,14 +39,14 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   displayTitle(): string {
-    if (this.state.activeThread.lifetime?.kind === "ephemeral") {
+    if (activeThreadState(this.state)?.lifetime?.kind === "ephemeral") {
       return "Side chat";
     }
     return threadWindowTitle(this.panelThreadId(), this.state.threadList.listedThreads, this.restoredThreadTitle());
   }
 
   persistedState(): Record<string, unknown> {
-    const lifetime = this.state.activeThread.lifetime;
+    const lifetime = activeThreadState(this.state)?.lifetime;
     if (lifetime?.kind === "ephemeral") {
       return {
         version: 2,
@@ -80,7 +86,7 @@ export class ChatPanelSession implements ChatPanelHandle {
     const nextContext = this.currentAppServerContext();
     if (!appServerQueryContextRawEquals(this.observedAppServerContext, nextContext)) {
       this.observedAppServerContext = nextContext;
-      const replacement = this.pendingAppServerContextReplacement ?? this.captureAppServerContextReplacement(this.state.activeThread.id);
+      const replacement = this.pendingAppServerContextReplacement ?? this.captureAppServerContextReplacement(activeThreadId(this.state));
       void this.reconnectAfterAppServerContextChange(replacement);
       this.runtime.runtime.sharedState.applyCached();
     }
@@ -88,8 +94,8 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   prepareAppServerContextChange(): void {
-    const activeThreadId = this.pendingAppServerContextReplacement?.activeThreadId ?? this.state.activeThread.id;
-    this.captureAppServerContextReplacement(activeThreadId);
+    const threadId = this.pendingAppServerContextReplacement?.activeThreadId ?? activeThreadId(this.state);
+    this.captureAppServerContextReplacement(threadId);
     this.runtime.actions.prepareAppServerContextChange();
   }
 
@@ -180,7 +186,7 @@ export class ChatPanelSession implements ChatPanelHandle {
 
   async focusThread(threadId: string | null = null): Promise<void> {
     const restoredThread = this.restoredThread();
-    const restoredThreadId = restoredThread.kind === "thread" ? restoredThread.threadId : null;
+    const restoredThreadId = restoredThread?.threadId ?? null;
     if ((threadId && this.runtime.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
       await this.ensureRestoredThreadLoaded();
     }
@@ -282,26 +288,26 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   private activeThreadTitle(): string | null {
-    const threadId = this.state.activeThread.id;
-    if (!threadId) return null;
+    const activeThread = activeThreadState(this.state);
+    if (!activeThread) return null;
+    const threadId = activeThread.id;
     const thread = this.state.threadList.listedThreads.find((item) => item.id === threadId);
-    return thread ? threadMeaningfulTitle(thread) : (this.state.activeThread.title ?? null);
+    return thread ? threadMeaningfulTitle(thread) : (activeThread.title ?? null);
   }
 
   private restoredThreadTitle(): string | null {
     const restoredThread = this.restoredThread();
-    if (restoredThread.kind !== "thread") return null;
+    if (!restoredThread) return null;
     const listedThread = this.state.threadList.listedThreads.find((thread) => thread.id === restoredThread.threadId);
     return listedThread ? threadMeaningfulTitle(listedThread) : restoredThread.fallbackTitle;
   }
 
-  private restoredThread(): ChatPanelRestorationState {
-    return this.state.restoration;
+  private restoredThread(): ReturnType<typeof awaitingResumeThreadState> {
+    return awaitingResumeThreadState(this.state);
   }
 
   private panelThreadId(): string | null {
-    const restoredThread = this.restoredThread();
-    return restoredThread.kind === "thread" ? restoredThread.threadId : this.state.activeThread.id;
+    return panelThreadId(this.state);
   }
 
   private ensureRestoredThreadLoaded(): Promise<boolean> {

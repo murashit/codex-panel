@@ -1,3 +1,4 @@
+import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { chatTurnBusy } from "../turns/turn-state";
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
@@ -36,7 +37,7 @@ export function createThreadNavigationActions(host: ThreadNavigationActionsHost)
   return {
     async startNewThread(): Promise<void> {
       const state = host.stateStore.getState();
-      if (chatTurnBusy(state) && state.activeThread.provenance?.kind !== "subagent") return;
+      if (chatTurnBusy(state) && activeThreadState(state)?.provenance?.kind !== "subagent") return;
       if (host.prepareForPersistentNavigation && !(await host.prepareForPersistentNavigation())) return;
 
       host.identity.clearActiveThreadIdentity();

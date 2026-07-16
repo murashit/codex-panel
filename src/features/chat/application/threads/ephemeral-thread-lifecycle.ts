@@ -1,4 +1,5 @@
 import { ephemeralThreadActivatedAction } from "../state/actions";
+import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
 import type { EphemeralThreadTransport } from "./ephemeral-thread-transport";
@@ -30,8 +31,8 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
   let openGeneration = 0;
   const cleanupRequiredThreadIds = new Set<string>();
   const unsubscribeActiveEphemeralThread = async (): Promise<boolean> => {
-    const active = host.stateStore.getState().activeThread;
-    if (active.id && active.lifetime?.kind === "ephemeral") {
+    const active = activeThreadState(host.stateStore.getState());
+    if (active?.lifetime?.kind === "ephemeral") {
       return host.transport.unsubscribeEphemeralThread(active.id);
     }
     return true;
@@ -70,7 +71,7 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
 
     async prepareForPersistentNavigation(): Promise<boolean> {
       const state = host.stateStore.getState();
-      if (state.activeThread.lifetime?.kind !== "ephemeral") return true;
+      if (activeThreadState(state)?.lifetime?.kind !== "ephemeral") return true;
       if (chatTurnBusy(state)) {
         host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
         return false;
@@ -93,7 +94,8 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
       disposed = true;
       openGeneration += 1;
       const state = host.stateStore.getState();
-      const threadId = state.activeThread.lifetime?.kind === "ephemeral" ? state.activeThread.id : null;
+      const activeThread = activeThreadState(state);
+      const threadId = activeThread?.lifetime?.kind === "ephemeral" ? activeThread.id : null;
       const turnId = activeTurnId(state);
       if (threadId && turnId) {
         await settleWithin(host.interruptTurn(threadId, turnId), EPHEMERAL_INTERRUPT_DISPOSE_TIMEOUT_MS);

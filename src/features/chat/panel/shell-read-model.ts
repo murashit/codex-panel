@@ -1,7 +1,7 @@
 import { batch, computed, type ReadonlySignal, type Signal, signal } from "@preact/signals";
 import { explicitThreadName } from "../../../domain/threads/model";
 import { runtimeSnapshotForChatSlices, threadStreamItemsHaveThreadTurns } from "../application/runtime/snapshot";
-import type { ChatState } from "../application/state/root-reducer";
+import type { ChatActiveThreadState, ChatState } from "../application/state/root-reducer";
 import {
   type ThreadStreamRollbackCandidate,
   threadStreamActiveItems,
@@ -9,7 +9,7 @@ import {
   threadStreamRollbackCandidateFromItems,
   threadStreamStableItems,
 } from "../application/state/thread-stream";
-import { implementPlanTargetFromState } from "../application/turns/plan-implementation";
+import { implementPlanTarget } from "../application/turns/plan-implementation";
 import { activeTurnId, chatTurnBusy } from "../application/turns/turn-state";
 import type { RuntimeSnapshot } from "../domain/runtime/snapshot";
 import type { ThreadStreamItem } from "../domain/thread-stream/items";
@@ -30,7 +30,8 @@ interface ChatPanelShellReadModel {
 interface ChatPanelShellSignals {
   connection: Signal<ChatState["connection"]>;
   threadList: Signal<ChatState["threadList"]>;
-  activeThread: Signal<ChatState["activeThread"]>;
+  panelThread: Signal<ChatState["panelThread"]>;
+  activeThread: ReadonlySignal<ChatActiveThreadState | null>;
   runtime: Signal<ChatState["runtime"]>;
   turn: Signal<ChatState["turn"]>;
   threadStream: Signal<ChatState["threadStream"]>;
@@ -40,9 +41,9 @@ interface ChatPanelShellSignals {
   ui: Signal<ChatState["ui"]>;
   turnBusy: ReadonlySignal<boolean>;
   activeTurnId: ReadonlySignal<string | null>;
-  activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
-  activeThreadCwd: ReadonlySignal<ChatState["activeThread"]["cwd"]>;
-  activeThreadGoal: ReadonlySignal<ChatState["activeThread"]["goal"]>;
+  activeThreadId: ReadonlySignal<string | null>;
+  activeThreadCwd: ReadonlySignal<ChatActiveThreadState["cwd"]>;
+  activeThreadGoal: ReadonlySignal<ChatActiveThreadState["goal"]>;
   threadStreamItems: ReadonlySignal<readonly ThreadStreamItem[]>;
   threadStreamStableItems: ReadonlySignal<readonly ThreadStreamItem[]>;
   threadStreamActiveItems: ReadonlySignal<readonly ThreadStreamItem[]>;
@@ -73,7 +74,7 @@ interface ChatPanelToolbarDiagnosticState {
 }
 
 interface ChatPanelToolbarDebugState {
-  readonly activeThreadId: ChatState["activeThread"]["id"];
+  readonly activeThreadId: string | null;
   readonly connection: ChatPanelToolbarDebugConnectionState;
   readonly runtimeConfig: ChatState["connection"]["runtimeConfig"];
   readonly runtime: ChatState["runtime"];
@@ -82,7 +83,7 @@ interface ChatPanelToolbarDebugState {
 
 export interface ChatPanelToolbarReadModel {
   readonly threads: ReadonlySignal<ChatState["threadList"]["listedThreads"]>;
-  readonly activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
+  readonly activeThreadId: ReadonlySignal<string | null>;
   readonly activeThreadSubagent: ReadonlySignal<boolean>;
   readonly turnBusy: ReadonlySignal<boolean>;
   readonly runtimeSnapshot: ReadonlySignal<RuntimeSnapshot>;
@@ -96,7 +97,7 @@ export interface ChatPanelToolbarReadModel {
 // Goal read model
 
 export interface ChatPanelGoalReadModel {
-  readonly goal: ReadonlySignal<ChatState["activeThread"]["goal"]>;
+  readonly goal: ReadonlySignal<ChatActiveThreadState["goal"]>;
   readonly goalEditor: ReadonlySignal<ChatState["ui"]["goalEditor"]>;
   readonly goalObjectiveExpanded: ReadonlySignal<ChatState["ui"]["disclosures"]["goalObjectiveExpanded"]>;
 }
@@ -104,8 +105,8 @@ export interface ChatPanelGoalReadModel {
 // Thread stream read model
 
 export interface ChatPanelThreadStreamReadModel {
-  readonly activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
-  readonly activeThreadCwd: ReadonlySignal<ChatState["activeThread"]["cwd"]>;
+  readonly activeThreadId: ReadonlySignal<string | null>;
+  readonly activeThreadCwd: ReadonlySignal<ChatActiveThreadState["cwd"]>;
   readonly activeTurnId: ReadonlySignal<string | null>;
   readonly historyCursor: ReadonlySignal<ChatState["threadStream"]["historyCursor"]>;
   readonly loadingHistory: ReadonlySignal<ChatState["threadStream"]["loadingHistory"]>;
@@ -141,7 +142,7 @@ export interface ChatPanelComposerReadModel {
   readonly draft: ReadonlySignal<ChatState["composer"]["draft"]>;
   readonly suggestions: ReadonlySignal<ChatState["composer"]["suggestions"]>;
   readonly selectedSuggestionIndex: ReadonlySignal<ChatState["composer"]["suggestSelected"]>;
-  readonly activeThreadId: ReadonlySignal<ChatState["activeThread"]["id"]>;
+  readonly activeThreadId: ReadonlySignal<string | null>;
   readonly activeThreadSubagent: ReadonlySignal<boolean>;
   readonly webSubmissionPending: ReadonlySignal<boolean>;
   readonly webSubmissionCancellable: ReadonlySignal<boolean>;
@@ -153,7 +154,8 @@ export interface ChatPanelComposerReadModel {
 export function createChatPanelShellReadModelBinding(initialState: ChatState): ChatPanelShellReadModelBinding {
   const connection = signal(initialState.connection);
   const threadList = signal(initialState.threadList);
-  const activeThread = signal(initialState.activeThread);
+  const panelThread = signal(initialState.panelThread);
+  const activeThread = computed(() => (panelThread.value.kind === "active" ? panelThread.value.thread : null));
   const runtime = signal(initialState.runtime);
   const turn = signal(initialState.turn);
   const threadStream = signal(initialState.threadStream);
@@ -165,13 +167,14 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
   const canonicalStreamItems = computed(() => threadStreamItems(threadStream.value));
   const streamItems = computed(() => appendPendingSubmission(canonicalStreamItems.value, pendingSubmission.value));
   const hasThreadTurns = computed(() => threadStreamItemsHaveThreadTurns(canonicalStreamItems.value));
-  const activeThreadIdSignal = computed(() => activeThread.value.id);
-  const activeThreadCwd = computed(() => activeThread.value.cwd);
-  const activeThreadTokenUsage = computed(() => activeThread.value.tokenUsage);
-  const activeThreadGoal = computed(() => activeThread.value.goal);
+  const activeThreadIdSignal = computed(() => activeThread.value?.id ?? null);
+  const activeThreadCwd = computed(() => activeThread.value?.cwd ?? null);
+  const activeThreadTokenUsage = computed(() => activeThread.value?.tokenUsage ?? null);
+  const activeThreadGoal = computed(() => activeThread.value?.goal ?? null);
   const signals: ChatPanelShellSignals = {
     connection,
     threadList,
+    panelThread,
     activeThread,
     runtime,
     turn,
@@ -197,18 +200,18 @@ export function createChatPanelShellReadModelBinding(initialState: ChatState): C
         : threadStreamActiveItems(threadStream.value),
     ),
     threadStreamRollbackCandidate: computed(() =>
-      turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" || activeThread.value.provenance?.kind === "subagent"
+      turnBusy.value || activeThread.value?.lifetime?.kind === "ephemeral" || activeThread.value?.provenance?.kind === "subagent"
         ? null
         : threadStreamRollbackCandidateFromItems(canonicalStreamItems.value),
     ),
     threadStreamForkCandidates: computed(() =>
-      turnBusy.value || activeThread.value.lifetime?.kind === "ephemeral" || activeThread.value.provenance?.kind === "subagent"
+      turnBusy.value || activeThread.value?.lifetime?.kind === "ephemeral" || activeThread.value?.provenance?.kind === "subagent"
         ? []
         : forkCandidatesFromItems(canonicalStreamItems.value),
     ),
     threadStreamImplementPlanTarget: computed(() =>
-      implementPlanTargetFromState({
-        activeThread: { id: activeThreadIdSignal.value, provenance: activeThread.value.provenance },
+      implementPlanTarget({
+        activeThread: activeThread.value,
         turn: turn.value,
         runtime: { pending: { collaborationMode: runtime.value.pending.collaborationMode } },
         threadStream: threadStream.value,
@@ -255,7 +258,7 @@ function syncShellSignals(signals: ChatPanelShellSignals, nextState: ChatState):
   batch(() => {
     if (signals.connection.value !== nextState.connection) signals.connection.value = nextState.connection;
     if (signals.threadList.value !== nextState.threadList) signals.threadList.value = nextState.threadList;
-    if (signals.activeThread.value !== nextState.activeThread) signals.activeThread.value = nextState.activeThread;
+    if (signals.panelThread.value !== nextState.panelThread) signals.panelThread.value = nextState.panelThread;
     if (signals.runtime.value !== nextState.runtime) signals.runtime.value = nextState.runtime;
     if (signals.turn.value !== nextState.turn) signals.turn.value = nextState.turn;
     if (signals.threadStream.value !== nextState.threadStream) signals.threadStream.value = nextState.threadStream;
@@ -286,7 +289,7 @@ function toolbarReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanelT
   return {
     threads: computed(() => signals.threadList.value.listedThreads),
     activeThreadId: signals.activeThreadId,
-    activeThreadSubagent: computed(() => signals.activeThread.value.provenance?.kind === "subagent"),
+    activeThreadSubagent: computed(() => signals.activeThread.value?.provenance?.kind === "subagent"),
     turnBusy: signals.turnBusy,
     runtimeSnapshot: signals.toolbarRuntimeSnapshot,
     toolbarPanel: computed(() => signals.ui.value.toolbarPanel),
@@ -356,16 +359,16 @@ function composerReadModelFromSignals(signals: ChatPanelShellSignals): ChatPanel
       availableModels: computed(() => signals.connection.value.availableModels),
     },
     activeListedThreadName: computed(() => activeListedThreadName(signals)),
-    sideChatActive: computed(() => signals.activeThread.value.lifetime?.kind === "ephemeral"),
+    sideChatActive: computed(() => signals.activeThread.value?.lifetime?.kind === "ephemeral"),
     sideChatSourceTitle: computed(() => {
-      const lifetime = signals.activeThread.value.lifetime;
+      const lifetime = signals.activeThread.value?.lifetime;
       return lifetime?.kind === "ephemeral" ? lifetime.sourceThreadTitle : null;
     }),
     draft: computed(() => signals.composer.value.draft),
     suggestions: computed(() => signals.composer.value.suggestions),
     selectedSuggestionIndex: computed(() => signals.composer.value.suggestSelected),
     activeThreadId: signals.activeThreadId,
-    activeThreadSubagent: computed(() => signals.activeThread.value.provenance?.kind === "subagent"),
+    activeThreadSubagent: computed(() => signals.activeThread.value?.provenance?.kind === "subagent"),
     webSubmissionPending: signals.webSubmissionPending,
     webSubmissionCancellable: signals.webSubmissionCancellable,
     turnBusy: signals.turnBusy,

@@ -189,7 +189,11 @@ function beginPendingWebSubmission(
 }
 
 function pendingWebSubmissionIsCurrent(host: ComposerSubmitActionsHost, submissionId: string): boolean {
-  return cancellablePendingSubmissionMatches(host.stateStore.getState(), submissionId);
+  const state = host.stateStore.getState();
+  return cancellablePendingSubmissionMatches(
+    { pendingSubmission: state.pendingSubmission, activeThreadId: submissionStateSnapshot(state).activeThreadId },
+    submissionId,
+  );
 }
 
 function cancelPendingWebSubmission(host: ComposerSubmitActionsHost, id: string): void {

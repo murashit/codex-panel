@@ -1,3 +1,4 @@
+import { activeThreadId, awaitingResumeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 export interface ActiveThreadIdentitySyncHost {
@@ -36,14 +37,16 @@ function clearActiveThreadIdentity(host: ActiveThreadIdentitySyncHost): void {
 
 function applyThreadArchiveToActiveIdentity(host: ActiveThreadIdentitySyncHost, threadId: string): void {
   const state = host.stateStore.getState();
-  if (state.activeThread.id !== threadId && !(state.restoration.kind === "thread" && state.restoration.threadId === threadId)) return;
+  if (activeThreadId(state) !== threadId && awaitingResumeThreadState(state)?.threadId !== threadId) {
+    return;
+  }
   clearActiveThreadIdentity(host);
 }
 
 function applyThreadRenameToActiveIdentity(host: ActiveThreadIdentitySyncHost, threadId: string, name: string | null): void {
   const state = host.stateStore.getState();
-  const restoredThreadChanged = state.restoration.kind === "thread" && state.restoration.threadId === threadId;
-  const activeThreadChanged = state.activeThread.id === threadId;
+  const restoredThreadChanged = awaitingResumeThreadState(state)?.threadId === threadId;
+  const activeThreadChanged = activeThreadId(state) === threadId;
   if (!restoredThreadChanged && !activeThreadChanged) return;
   if (restoredThreadChanged) host.stateStore.dispatch({ type: "panel/restored-thread-renamed", threadId, name });
   host.notifyActiveThreadIdentityChanged();

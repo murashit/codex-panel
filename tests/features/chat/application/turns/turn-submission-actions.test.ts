@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { CodexInput } from "../../../../../src/domain/chat/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadId, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { RestorationController } from "../../../../../src/features/chat/application/threads/restoration-controller";
 import { optimisticTurnStart } from "../../../../../src/features/chat/application/turns/optimistic-turn-start";
@@ -223,7 +223,7 @@ describe("TurnSubmissionActions", () => {
     });
     await vi.waitFor(() => expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce());
 
-    expect(stateStore.getState().activeThread.id).toBe("thread");
+    expect(activeThreadId(stateStore.getState())).toBe("thread");
     expect(stateStore.getState().pendingSubmission).toMatchObject({
       id: pending.id,
       targetThreadId: "thread",
@@ -522,7 +522,7 @@ describe("TurnSubmissionActions", () => {
   it("applies reserved runtime settings after creating a thread and before starting the turn", async () => {
     const { host, startTurn, stateStore } = createHost();
     const applyPendingThreadSettings = vi.fn().mockImplementation(async () => {
-      expect(stateStore.getState().activeThread.id).toBe("thread");
+      expect(activeThreadId(stateStore.getState())).toBe("thread");
       return true;
     });
     host.applyPendingThreadSettings = applyPendingThreadSettings;

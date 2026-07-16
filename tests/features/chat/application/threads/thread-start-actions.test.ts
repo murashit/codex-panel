@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/actions";
+import { activeThreadId } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { createThreadStartActions } from "../../../../../src/features/chat/application/threads/thread-start-actions";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
@@ -148,7 +148,7 @@ describe("thread start actions", () => {
     started.resolve(activationFixture(threadFixture("delayed")));
 
     await expect(starting).resolves.toBeNull();
-    expect(stateStore.getState().activeThread.id).toBe("selected");
+    expect(activeThreadId(stateStore.getState())).toBe("selected");
     expect(recordStartedThread).not.toHaveBeenCalled();
   });
 
@@ -228,7 +228,7 @@ describe("thread start actions", () => {
     });
 
     await expect(actions.startThread("local preview")).resolves.toBeNull();
-    expect(stateStore.getState().activeThread.id).toBeNull();
+    expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(stateStore.getState().threadList.listedThreads).toEqual([]);
     expect(recordStartedThread).not.toHaveBeenCalled();
     expect(syncThreadGoal).not.toHaveBeenCalled();

@@ -18,17 +18,17 @@ export type PendingSubmissionAction =
 export function pendingSubmissionMatches(
   state: {
     readonly pendingSubmission: ChatPendingSubmissionState | null;
-    readonly activeThread: { readonly id: string | null };
+    readonly activeThreadId: string | null;
   },
   submissionId: string,
 ): boolean {
-  return state.pendingSubmission?.id === submissionId && state.pendingSubmission.targetThreadId === state.activeThread.id;
+  return state.pendingSubmission?.id === submissionId && state.pendingSubmission.targetThreadId === state.activeThreadId;
 }
 
 export function cancellablePendingSubmissionMatches(
   state: {
     readonly pendingSubmission: ChatPendingSubmissionState | null;
-    readonly activeThread: { readonly id: string | null };
+    readonly activeThreadId: string | null;
   },
   submissionId: string,
 ): boolean {

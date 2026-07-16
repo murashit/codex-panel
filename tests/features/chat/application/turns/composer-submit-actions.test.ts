@@ -6,6 +6,7 @@ import { createChatState } from "../../../../../src/features/chat/application/st
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { submitComposer } from "../../../../../src/features/chat/application/turns/composer-submit-actions";
 import { deferred } from "../../../../support/async";
+import { chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems } from "../../support/thread-stream";
 
 function thread(id: string): Thread {
@@ -24,10 +25,8 @@ function createHost(draft: string, options: { subagent?: boolean } = {}) {
   const initialState = createChatState();
   const stateStore = createChatStateStore(
     options.subagent
-      ? {
-          ...initialState,
+      ? chatStateWith(initialState, {
           activeThread: {
-            ...initialState.activeThread,
             id: "child",
             provenance: {
               kind: "subagent",
@@ -39,7 +38,7 @@ function createHost(draft: string, options: { subagent?: boolean } = {}) {
               agentRole: "explorer",
             },
           },
-        }
+        })
       : initialState,
   );
   const interruptTurn = vi.fn().mockResolvedValue({});

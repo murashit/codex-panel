@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { CodexInput } from "../../../../../src/domain/chat/input";
 import type { Thread } from "../../../../../src/domain/threads/model";
-import { createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
+import { activeThreadState, createChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
   executeSlashCommandWithState,
@@ -58,7 +58,7 @@ function createHost(overrides: SlashCommandExecutorHostOverrides = {}) {
       resetReasoningEffortToConfig: vi.fn(),
     },
     goals: {
-      activeGoal: vi.fn(() => stateStore.getState().activeThread.goal),
+      activeGoal: vi.fn(() => activeThreadState(stateStore.getState())?.goal ?? null),
       setObjective: vi.fn().mockResolvedValue(true),
       setStatus: vi.fn().mockResolvedValue(true),
       clear: vi.fn().mockResolvedValue(true),

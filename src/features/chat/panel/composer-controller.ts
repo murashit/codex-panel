@@ -27,7 +27,7 @@ import {
   type PreparedComposerInput,
   preparedUserInputWithWikiLinkMentionsSkillsAndContext,
 } from "../application/composer/wikilink-context";
-import type { ChatAction, ChatState } from "../application/state/root-reducer";
+import { activeThreadState, type ChatAction, type ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../ui/composer";
 import { syncComposerHeight } from "../ui/composer.dom";
@@ -253,9 +253,9 @@ export class ChatComposerController {
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
       {
-        activeThreadId: state.activeThread.id,
-        activeThreadEphemeral: state.activeThread.lifetime?.kind === "ephemeral",
-        activeThreadSubagent: state.activeThread.provenance?.kind === "subagent",
+        activeThreadId: activeThreadState(state)?.id ?? null,
+        activeThreadEphemeral: activeThreadState(state)?.lifetime?.kind === "ephemeral",
+        activeThreadSubagent: activeThreadState(state)?.provenance?.kind === "subagent",
         contextReferences: this.contextReferences(),
         dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: state.connection.availablePermissionProfiles,
@@ -306,7 +306,7 @@ export class ChatComposerController {
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
       {
-        activeThreadId: state.activeThread.id,
+        activeThreadId: activeThreadState(state)?.id ?? null,
         contextReferences: this.contextReferences(),
         dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: state.connection.availablePermissionProfiles,
