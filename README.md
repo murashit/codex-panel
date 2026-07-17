@@ -60,11 +60,11 @@ Threads can be archived as Markdown notes with a configurable folder, filename t
 
 ## Compatibility
 
-| Key                      | Version   | Policy                                                                                              |
-| ------------------------ | --------- | --------------------------------------------------------------------------------------------------- |
-| `manifest.minAppVersion` | `1.12.0`  | Minimum Obsidian desktop version declared for plugin loading.                                       |
-| `obsidian` API types     | `1.12.3`  | TypeScript API package used for compile-time checks; kept in the same minor as `manifest` baseline. |
-| `codex.testedCliVersion` | `0.144.4` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version.    |
+| Key                                    | Version   | Policy                                                                                              |
+| -------------------------------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `manifest.minAppVersion`               | `1.12.0`  | Minimum Obsidian desktop version declared for plugin loading.                                       |
+| `obsidian` API types                   | `1.12.3`  | TypeScript API package used for compile-time checks; kept in the same minor as `manifest` baseline. |
+| `codexAppServer.testedCliVersion`      | `0.144.4` | Exact CLI patch used to generate and verify bindings; compatibility is tracked by minor version.    |
 
 Codex Panel depends on the experimental `codex app-server` API.
 

@@ -86,7 +86,7 @@ export async function createApiBaselineReport(options = {}) {
   const initializeRequestAttestationDisabled = initializeCapabilities.requestAttestation === false;
 
   if (!codexReadmeSemver) {
-    fail("README.md Compatibility table must define `codex.testedCliVersion` as X.Y.Z.");
+    fail("README.md Compatibility table must define `codexAppServer.testedCliVersion` as X.Y.Z.");
   }
   if (!codexRecordedSemver || codexRecordedSemver.version !== codexRecordedVersion) {
     fail("src/app-server/connection/compatibility.json must declare codexAppServer.testedCliVersion as X.Y.Z.");
@@ -180,7 +180,7 @@ function readCompatibilityBaselines(readme) {
   const section = markdownSection(readme, "Compatibility");
   const table = readMarkdownTableValues(section);
   return {
-    codexTestedCliVersion: table.get("codex.testedCliVersion") ?? null,
+    codexTestedCliVersion: table.get("codexAppServer.testedCliVersion") ?? null,
     obsidianApiTypesVersion: table.get("obsidian") ?? null,
     obsidianMinAppVersion: table.get("manifest.minAppVersion") ?? null,
   };

@@ -206,7 +206,7 @@ async function apiBaselineFixture(options: { recordedCodexVersion: string; readm
       "",
       "| Key | Version | Notes |",
       "| --- | --- | --- |",
-      `| \`codex.testedCliVersion\` | \`${options.readmeCodexVersion}\` | Tested CLI. |`,
+      `| \`codexAppServer.testedCliVersion\` | \`${options.readmeCodexVersion}\` | Tested CLI. |`,
       "| `manifest.minAppVersion` | `1.12.0` | Minimum app version. |",
       "| `obsidian` API types | `1.12.3` | Compile-time API package. |",
     ].join("\n"),
