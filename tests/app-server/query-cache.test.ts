@@ -196,7 +196,8 @@ describe("AppServerQueryCache", () => {
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(64), rateLimitsByLimitId: null }),
     });
 
-    const metadata = await cache.refreshAppServerMetadata();
+    await cache.refreshAppServerMetadata();
+    const metadata = cache.appServerMetadataSnapshot();
 
     expect(metadata?.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
     expect(metadata?.availablePermissionProfiles.map((profile) => profile.id)).toEqual([":workspace"]);
@@ -205,7 +206,7 @@ describe("AppServerQueryCache", () => {
     expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-meta"]);
   });
 
-  it("publishes one derived metadata projection after a coordinated refresh", async () => {
+  it("publishes each metadata resource without waiting for unrelated refreshes", async () => {
     const skills = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
     const cache = cacheWithRequestHandlers({
       "config/read": vi.fn().mockResolvedValue({}),
@@ -215,20 +216,18 @@ describe("AppServerQueryCache", () => {
       "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
     });
     const listener = vi.fn();
-    const unsubscribe = cache.observeAppServerMetadataResult(listener, { emitCurrent: false });
+    const unsubscribe = cache.observeAppServerMetadataResources(listener, { emitCurrent: false });
 
     const refresh = cache.refreshAppServerMetadata();
     await flushMicrotasks();
-    expect(listener).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ id: "runtimeConfig", value: expect.any(Object) }));
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ id: "models", value: [] }));
+    expect(listener).not.toHaveBeenCalledWith(expect.objectContaining({ id: "skills", value: expect.any(Array) }));
 
     skills.resolve({ data: [{ skills: [catalogSkill("writer")] }] });
     await refresh;
-    await flushMicrotasks();
 
-    expect(listener).toHaveBeenCalledOnce();
-    expect(listener).toHaveBeenCalledWith(
-      expect.objectContaining({ value: expect.objectContaining({ availableSkills: [expect.objectContaining({ name: "writer" })] }) }),
-    );
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({ id: "skills", value: [expect.objectContaining({ name: "writer" })] }));
     unsubscribe();
   });
 
@@ -411,42 +410,6 @@ describe("AppServerQueryCache", () => {
     expect(snapshot?.availableSkills.map((skill) => skill.name)).toEqual(["new"]);
   });
 
-  it("does not emit a queued metadata projection after unsubscribe", async () => {
-    vi.useFakeTimers({ toFake: ["queueMicrotask"] });
-    try {
-      const cache = metadataCacheWithSuccessfulHandlers();
-      await cache.refreshAppServerMetadata();
-      const listener = vi.fn();
-      const unsubscribe = cache.observeAppServerMetadataResult(listener, { emitCurrent: false });
-
-      await cache.refreshSkills();
-      unsubscribe();
-      vi.runAllTicks();
-
-      expect(listener).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("does not emit a queued metadata projection after the cache is cleared", async () => {
-    vi.useFakeTimers({ toFake: ["queueMicrotask"] });
-    try {
-      const cache = metadataCacheWithSuccessfulHandlers();
-      await cache.refreshAppServerMetadata();
-      const listener = vi.fn();
-      cache.observeAppServerMetadataResult(listener, { emitCurrent: false });
-
-      await cache.refreshSkills();
-      cache.dispose();
-      vi.runAllTicks();
-
-      expect(listener).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("shares in-flight model fetches between metadata and models queries", async () => {
     const modelRefresh = deferred<{ data: CatalogModel[] }>();
     const listModels = vi.fn(() => modelRefresh.promise);
@@ -468,7 +431,7 @@ describe("AppServerQueryCache", () => {
     modelRefresh.resolve({ data: [catalogModel("gpt-shared")] });
 
     await expect(modelsPromise).resolves.toMatchObject([{ model: "gpt-shared" }]);
-    await expect(metadataPromise).resolves.toMatchObject({ serverDiagnostics: { probes: { models: { status: "ok" } } } });
+    await expect(metadataPromise).resolves.toBeUndefined();
     expect(listModels).toHaveBeenCalledOnce();
     expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-shared"]);
   });
@@ -487,7 +450,8 @@ describe("AppServerQueryCache", () => {
     });
     await cache.fetchModels();
 
-    const metadataSnapshot = await cache.refreshAppServerMetadata();
+    await cache.refreshAppServerMetadata();
+    const metadataSnapshot = cache.appServerMetadataSnapshot();
 
     expect(metadataSnapshot?.serverDiagnostics.probes.models.status).toBe("failed");
     expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-cached"]);
@@ -519,7 +483,8 @@ describe("AppServerQueryCache", () => {
     });
     await cache.refreshAppServerMetadata();
 
-    const refreshed = await cache.refreshAppServerMetadata();
+    await cache.refreshAppServerMetadata();
+    const refreshed = cache.appServerMetadataSnapshot();
 
     expect(cache.modelsSnapshot()?.map((model) => model.model)).toEqual(["gpt-cached"]);
     expect(refreshed?.availableSkills.map((skill) => skill.name)).toEqual(["cached-skill"]);
@@ -593,16 +558,6 @@ function cacheWithRequestHandlers(
     clientRunner: {
       runWithClient: async (_context, operation) => operation(requestClient as never),
     },
-  });
-}
-
-function metadataCacheWithSuccessfulHandlers(): AppServerQueryCache {
-  return cacheWithRequestHandlers({
-    "config/read": vi.fn().mockResolvedValue({}),
-    "model/list": vi.fn().mockResolvedValue({ data: [] }),
-    "skills/list": vi.fn().mockResolvedValue({ data: [{ skills: [] }] }),
-    "permissionProfile/list": vi.fn().mockResolvedValue({ data: [], nextCursor: null }),
-    "account/rateLimits/read": vi.fn().mockResolvedValue({ rateLimits: appServerRateLimit(0), rateLimitsByLimitId: null }),
   });
 }
 

@@ -3,7 +3,7 @@ import { Notice } from "obsidian";
 import type { AppServerClient, AppServerServerRequestResponder } from "../../../../app-server/connection/client";
 import { type ConnectionManager, StaleConnectionError } from "../../../../app-server/connection/connection-manager";
 import { isStaleAppServerResourceContextError } from "../../../../app-server/query/resource-store";
-import type { SharedServerMetadata } from "../../../../domain/server/metadata";
+import type { SharedServerMetadataResource } from "../../../../domain/server/metadata";
 import { type ChatInboundHandler, createChatInboundHandler } from "../../app-server/inbound/handler";
 import { type ChatConnectionActions, createChatConnectionActions } from "../../application/connection/connection-actions";
 import type { ServerDiagnosticsTransport } from "../../application/connection/metadata-transport";
@@ -50,7 +50,7 @@ export interface ChatPanelConnectionBundle {
   };
   inboundHandler: ChatInboundHandler;
   sharedStateActions: {
-    applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
+    applyAppServerMetadataResource: (resource: SharedServerMetadataResource) => void;
   };
   invalidateConnectionScope: () => void;
   refreshSharedThreads: () => Promise<void>;
@@ -261,8 +261,8 @@ export function createConnectionBundle(
     },
     inboundHandler,
     sharedStateActions: {
-      applyAppServerMetadata: (metadata) => {
-        serverMetadata.applyAppServerMetadata(metadata);
+      applyAppServerMetadataResource: (resource) => {
+        serverMetadata.applyAppServerMetadataResource(resource);
       },
     },
     invalidateConnectionScope: () => {

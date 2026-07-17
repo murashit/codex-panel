@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
-import type { RateLimitSnapshot } from "../../../../../src/domain/runtime/metrics";
 import {
   createServerDiagnostics,
   type DiagnosticProbeResult,
@@ -22,22 +21,23 @@ import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("server metadata actions", () => {
-  it("applies refreshed non-model app-server metadata", async () => {
+  it("leaves metadata publication to query observers after a refresh command", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const metadata = serverMetadataFixture({ availableSkills: [skillFixture("writer")] });
+    const refreshAppServerMetadata = vi.fn().mockResolvedValue(undefined);
     const actions = createServerMetadataActions({
       stateStore,
       ...metadataCacheHost(),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(metadata),
+      refreshAppServerMetadata,
       isStaleResourceContextError: () => false,
     });
 
     await actions.refreshAppServerMetadata();
 
-    expect(stateStore.getState().connection.availableSkills.map((skill) => skill.name)).toEqual(["writer"]);
+    expect(refreshAppServerMetadata).toHaveBeenCalledOnce();
+    expect(stateStore.getState().connection.availableSkills).toEqual([]);
   });
 
-  it("preserves panel-local tool diagnostics when applying shared metadata", async () => {
+  it("preserves panel-local tool diagnostics when applying a resource observation", () => {
     const localDiagnostics = diagnosticsWithToolInventory(
       upsertMcpServerDiagnostic(createServerDiagnostics(), {
         name: "github",
@@ -49,17 +49,17 @@ describe("server metadata actions", () => {
       toolInventory(),
     );
     const stateStore = createChatStateStore(chatStateFixture({ connection: { serverDiagnostics: localDiagnostics } }));
-    const metadata = serverMetadataFixture({
-      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("models", "1 model", 2)),
-    });
     const actions = createServerMetadataActions({
       stateStore,
       ...metadataCacheHost(),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(metadata),
       isStaleResourceContextError: () => false,
     });
 
-    await actions.refreshAppServerMetadata();
+    actions.applyAppServerMetadataResource({
+      id: "models",
+      value: undefined,
+      probe: diagnosticProbeOk("models", "1 model", 2),
+    });
 
     expect(stateStore.getState().connection.serverDiagnostics).toMatchObject({
       probes: { models: { status: "ok", summary: "1 model" } },
@@ -74,7 +74,7 @@ describe("server metadata actions", () => {
     const actions = createServerMetadataActions({
       stateStore,
       ...metadataCacheHost(cache),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
+      refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
       isStaleResourceContextError: () => false,
     });
 
@@ -99,7 +99,7 @@ describe("server metadata actions", () => {
       isStaleResourceContextError: (error) => error === stale,
     });
 
-    await expect(actions.refreshAppServerMetadata()).resolves.toBeNull();
+    await expect(actions.refreshAppServerMetadata()).resolves.toBeUndefined();
 
     expect(stateStore.getState().connection.availableModels).toEqual([]);
     expect(stateStore.getState().connection.runtimeConfig).toBeNull();
@@ -120,16 +120,12 @@ describe("server metadata actions", () => {
     expect(stateStore.getState().connection.availableSkills).toEqual([]);
   });
 
-  it("applies authoritative skills refreshed after a change event", async () => {
+  it("requests an authoritative skills refresh without publishing from the command", async () => {
     let state = chatStateFixture();
     const previousSkills = [skillFixture("writer")];
     state = chatStateWith(state, { connection: { availableSkills: previousSkills } });
     const stateStore = createChatStateStore(state);
-    const refreshed = serverMetadataFixture({
-      availableSkills: [skillFixture("editor")],
-      serverDiagnostics: diagnosticsWithProbe(createServerDiagnostics(), diagnosticProbeOk("skills", "1 skill", 1)),
-    });
-    const refreshSkills = vi.fn().mockResolvedValue(refreshed);
+    const refreshSkills = vi.fn().mockResolvedValue(undefined);
     const actions = createServerMetadataActions({
       stateStore,
       ...metadataCacheHost(),
@@ -139,21 +135,22 @@ describe("server metadata actions", () => {
     await actions.applyAppServerResourceEvent({ type: "skills-changed" });
 
     expect(refreshSkills).toHaveBeenCalledOnce();
-    expect(stateStore.getState().connection.availableSkills.map((skill) => skill.name)).toEqual(["editor"]);
+    expect(stateStore.getState().connection.availableSkills).toEqual(previousSkills);
   });
 
-  it("publishes refreshed rate limits from update notifications", async () => {
+  it("requests a rate-limit refresh without publishing from the command", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
-    const rateLimit = rateLimitFixture({ primary: { usedPercent: 64, windowDurationMins: 300, resetsAt: null } });
+    const refreshRateLimits = vi.fn().mockResolvedValue(undefined);
     const actions = createServerMetadataActions({
       stateStore,
       ...metadataCacheHost(),
-      refreshRateLimits: vi.fn().mockResolvedValue(serverMetadataFixture({ rateLimit })),
+      refreshRateLimits,
     });
 
     await actions.applyAppServerResourceEvent({ type: "rate-limits-updated" });
 
-    expect(stateStore.getState().connection.rateLimit).toMatchObject({ primary: { usedPercent: 64 } });
+    expect(refreshRateLimits).toHaveBeenCalledOnce();
+    expect(stateStore.getState().connection.rateLimit).toBeNull();
   });
 });
 
@@ -174,7 +171,6 @@ describe("server diagnostics actions", () => {
       ...metadataCache,
       refreshAppServerMetadata: vi.fn().mockImplementation(async () => {
         cache.current = refreshedMetadata;
-        return refreshedMetadata;
       }),
       isStaleResourceContextError: () => false,
     });
@@ -272,7 +268,7 @@ describe("server diagnostics actions", () => {
     const metadata = createServerMetadataActions({
       stateStore,
       ...metadataCache,
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
+      refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
       isStaleResourceContextError: () => false,
     });
     const diagnostics = createServerDiagnosticsActions({
@@ -410,18 +406,6 @@ function skillFixture(name: string): SkillMetadata {
   };
 }
 
-function rateLimitFixture(overrides: Partial<RateLimitSnapshot> = {}): RateLimitSnapshot {
-  return {
-    limitId: "codex",
-    limitName: "Codex",
-    primary: null,
-    secondary: null,
-    individualLimit: null,
-    rateLimitReachedType: null,
-    ...overrides,
-  };
-}
-
 function serverMetadataFixture(overrides: Partial<SharedServerMetadata> = {}): SharedServerMetadata {
   return {
     runtimeConfig: emptyRuntimeConfigSnapshot(),
@@ -435,16 +419,16 @@ function serverMetadataFixture(overrides: Partial<SharedServerMetadata> = {}): S
 
 function metadataCacheHost(cache: { current: SharedServerMetadata | null } = { current: null }): {
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
-  refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
-  refreshSkills: () => Promise<SharedServerMetadata | null>;
-  refreshRateLimits: () => Promise<SharedServerMetadata | null>;
+  refreshAppServerMetadata: () => Promise<void>;
+  refreshSkills: () => Promise<void>;
+  refreshRateLimits: () => Promise<void>;
   isStaleResourceContextError: (error: unknown) => boolean;
 } {
   return {
     appServerMetadataSnapshot: () => cache.current,
-    refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-    refreshSkills: vi.fn().mockResolvedValue(null),
-    refreshRateLimits: vi.fn().mockResolvedValue(null),
+    refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
+    refreshSkills: vi.fn().mockResolvedValue(undefined),
+    refreshRateLimits: vi.fn().mockResolvedValue(undefined),
     isStaleResourceContextError: () => false,
   };
 }

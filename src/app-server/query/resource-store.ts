@@ -1,5 +1,5 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
-import type { SharedServerMetadata } from "../../domain/server/metadata";
+import type { SharedServerMetadata, SharedServerMetadataResource } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 import { AppServerQueryCache, type AppServerQueryClientRunner } from "./cache";
 import {
@@ -142,21 +142,24 @@ export class AppServerResourceStore {
     return this.cache?.appServerMetadataSnapshot() ?? null;
   }
 
-  refreshAppServerMetadata(): Promise<SharedServerMetadata | null> {
+  refreshAppServerMetadata(): Promise<void> {
     return this.runForCurrentContext((cache) => cache.refreshAppServerMetadata());
   }
 
-  refreshSkills(): Promise<SharedServerMetadata | null> {
+  refreshSkills(): Promise<void> {
     return this.runForCurrentContext((cache) => cache.refreshSkills());
   }
 
-  refreshRateLimits(): Promise<SharedServerMetadata | null> {
+  refreshRateLimits(): Promise<void> {
     return this.runForCurrentContext((cache) => cache.refreshRateLimits());
   }
 
-  observeAppServerMetadataResult(listener: ObservedResultListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void {
+  observeAppServerMetadataResources(
+    listener: (resource: SharedServerMetadataResource) => void,
+    options?: { emitCurrent?: boolean },
+  ): () => void {
     return this.observeCurrentContext(
-      (cache, contextListener, observeOptions) => cache.observeAppServerMetadataResult(contextListener, observeOptions),
+      (cache, contextListener, observeOptions) => cache.observeAppServerMetadataResources(contextListener, observeOptions),
       listener,
       options,
     );

@@ -6,7 +6,7 @@ import type { ObservedResultListener } from "../../../app-server/query/observed-
 import type { ModelMetadata, ReasoningEffort } from "../../../domain/catalog/metadata";
 import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { PendingRequestCounts } from "../../../domain/pending-requests/aggregate";
-import type { SharedServerMetadata } from "../../../domain/server/metadata";
+import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
 import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import type {
@@ -60,10 +60,13 @@ type ChatThreadCatalog = ThreadCatalogActiveReader & ThreadCatalogEventSink & Th
 interface ChatAppServerQueries {
   contextLease(): AppServerContextLease;
   appServerMetadataSnapshot(): SharedServerMetadata | null;
-  refreshAppServerMetadata(): Promise<SharedServerMetadata | null>;
-  refreshSkills(): Promise<SharedServerMetadata | null>;
-  refreshRateLimits(): Promise<SharedServerMetadata | null>;
-  observeAppServerMetadataResult(listener: ObservedResultListener<SharedServerMetadata>, options?: { emitCurrent?: boolean }): () => void;
+  refreshAppServerMetadata(): Promise<void>;
+  refreshSkills(): Promise<void>;
+  refreshRateLimits(): Promise<void>;
+  observeAppServerMetadataResources(
+    listener: (resource: SharedServerMetadataResource) => void,
+    options?: { emitCurrent?: boolean },
+  ): () => void;
   modelsSnapshot(): readonly ModelMetadata[] | null;
   fetchModels(): Promise<readonly ModelMetadata[]>;
   refreshModels(): Promise<readonly ModelMetadata[]>;

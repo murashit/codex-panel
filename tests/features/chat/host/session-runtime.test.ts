@@ -169,7 +169,6 @@ describe("ChatPanelSessionRuntime actions", () => {
     vi.useFakeTimers();
     const unsubscribeThreads = vi.fn();
     const unsubscribeMetadata = vi.fn();
-    const unsubscribeModels = vi.fn();
     const refreshLiveState = vi.fn();
     const { runtime, stateStore, deferredTasks, threadStreamScrollBinding } = sessionRuntimeFixture({
       environment: {
@@ -177,8 +176,7 @@ describe("ChatPanelSessionRuntime actions", () => {
           workspace: { refreshThreadsViewLiveState: refreshLiveState },
           threadCatalog: { observeActive: vi.fn(() => unsubscribeThreads) },
           appServerQueries: {
-            observeAppServerMetadataResult: vi.fn(() => unsubscribeMetadata),
-            observeModelsResult: vi.fn(() => unsubscribeModels),
+            observeAppServerMetadataResources: vi.fn(() => unsubscribeMetadata),
           },
         },
       },
@@ -199,9 +197,7 @@ describe("ChatPanelSessionRuntime actions", () => {
 
     await runtime.dispose(unmount);
 
-    expect([unsubscribeThreads, unsubscribeMetadata, unsubscribeModels].every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(
-      true,
-    );
+    expect([unsubscribeThreads, unsubscribeMetadata].every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
     expect(runtime.composer.controller.hasFocus()).toBe(false);
     threadStreamScrollBinding.showLatest();
     expect(dispatchScrollCommand).not.toHaveBeenCalled();
@@ -341,13 +337,13 @@ describe("ChatPanelSessionRuntime actions", () => {
     return {
       contextLease: vi.fn(() => ({ context: { codexPath: "codex", vaultPath: "/vault" }, generation: 1 })),
       appServerMetadataSnapshot: vi.fn(() => null),
-      refreshAppServerMetadata: vi.fn().mockResolvedValue(null),
-      refreshSkills: vi.fn().mockResolvedValue(null),
-      refreshRateLimits: vi.fn().mockResolvedValue(null),
+      refreshAppServerMetadata: vi.fn().mockResolvedValue(undefined),
+      refreshSkills: vi.fn().mockResolvedValue(undefined),
+      refreshRateLimits: vi.fn().mockResolvedValue(undefined),
       modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn().mockResolvedValue([]),
       refreshModels: vi.fn().mockResolvedValue([]),
-      observeAppServerMetadataResult: vi.fn(() => () => undefined),
+      observeAppServerMetadataResources: vi.fn(() => () => undefined),
       observeModelsResult: vi.fn(() => () => undefined),
       ...overrides,
     };

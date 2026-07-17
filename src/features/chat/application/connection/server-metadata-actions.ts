@@ -1,10 +1,11 @@
 import {
   cloneServerDiagnostics,
   diagnosticsWithMetadataResourceProbes,
+  diagnosticsWithProbe,
   upsertMcpServerDiagnostic,
 } from "../../../../domain/server/diagnostics";
 import type { McpServerStartupStatus } from "../../../../domain/server/mcp-status";
-import type { SharedServerMetadata } from "../../../../domain/server/metadata";
+import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../../domain/server/metadata";
 import type { ChatStateStore } from "../state/store";
 
 export type AppServerResourceEvent =
@@ -15,22 +16,22 @@ export type AppServerResourceEvent =
 export interface ServerMetadataActionsHost {
   stateStore: ChatStateStore;
   appServerMetadataSnapshot: () => SharedServerMetadata | null;
-  refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
-  refreshSkills: () => Promise<SharedServerMetadata | null>;
-  refreshRateLimits: () => Promise<SharedServerMetadata | null>;
+  refreshAppServerMetadata: () => Promise<void>;
+  refreshSkills: () => Promise<void>;
+  refreshRateLimits: () => Promise<void>;
   isStaleResourceContextError: (error: unknown) => boolean;
 }
 
 export interface ServerMetadataActions {
-  applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
-  refreshAppServerMetadata: () => Promise<SharedServerMetadata | null>;
+  applyAppServerMetadataResource: (resource: SharedServerMetadataResource) => void;
+  refreshAppServerMetadata: () => Promise<void>;
   applyAppServerResourceEvent: (event: AppServerResourceEvent) => Promise<void>;
 }
 
 export function createServerMetadataActions(host: ServerMetadataActionsHost): ServerMetadataActions {
   return {
-    applyAppServerMetadata: (metadata) => {
-      applyAppServerMetadata(host, metadata);
+    applyAppServerMetadataResource: (resource) => {
+      applyAppServerMetadataResource(host, resource);
     },
     refreshAppServerMetadata: () => refreshAppServerMetadata(host),
     applyAppServerResourceEvent: async (event) => {
@@ -56,51 +57,63 @@ async function applyAppServerResourceEvent(host: ServerMetadataActionsHost, even
       if (event.name.length > 0) {
         applyMcpStartupStatusEvent(host, event.name, event.status, event.message);
       }
-      applyCurrentAppServerMetadataSnapshot(host);
       return;
   }
 }
 
-function applyAppServerMetadata(host: ServerMetadataActionsHost, metadata: SharedServerMetadata): void {
-  const serverDiagnostics = diagnosticsWithMetadataResourceProbes(
+function applyAppServerMetadataResource(host: ServerMetadataActionsHost, resource: SharedServerMetadataResource): void {
+  if (resource.id === "runtimeConfig") {
+    if (resource.value) host.stateStore.dispatch({ type: "connection/metadata-applied", runtimeConfig: resource.value });
+    return;
+  }
+  const serverDiagnostics = diagnosticsWithProbe(
     cloneServerDiagnostics(host.stateStore.getState().connection.serverDiagnostics),
-    metadata.serverDiagnostics,
+    resource.probe,
   );
-  host.stateStore.dispatch({
-    type: "connection/metadata-applied",
-    runtimeConfig: metadata.runtimeConfig,
-    availableSkills: metadata.availableSkills,
-    availablePermissionProfiles: metadata.availablePermissionProfiles,
-    rateLimit: metadata.rateLimit,
-    serverDiagnostics,
-  });
+  switch (resource.id) {
+    case "models":
+      host.stateStore.dispatch({
+        type: "connection/metadata-applied",
+        ...(resource.value ? { availableModels: resource.value } : {}),
+        serverDiagnostics,
+      });
+      return;
+    case "skills":
+      host.stateStore.dispatch({
+        type: "connection/metadata-applied",
+        ...(resource.value ? { availableSkills: resource.value } : {}),
+        serverDiagnostics,
+      });
+      return;
+    case "permissionProfiles":
+      host.stateStore.dispatch({
+        type: "connection/metadata-applied",
+        ...(resource.value ? { availablePermissionProfiles: resource.value } : {}),
+        serverDiagnostics,
+      });
+      return;
+    case "rateLimits":
+      host.stateStore.dispatch({
+        type: "connection/metadata-applied",
+        ...(resource.value !== undefined ? { rateLimit: resource.value } : {}),
+        serverDiagnostics,
+      });
+      return;
+  }
 }
 
-async function refreshAppServerMetadata(host: ServerMetadataActionsHost): Promise<SharedServerMetadata | null> {
-  let metadata: SharedServerMetadata | null;
+async function refreshAppServerMetadata(host: ServerMetadataActionsHost): Promise<void> {
   try {
-    metadata = await host.refreshAppServerMetadata();
+    await host.refreshAppServerMetadata();
   } catch (error) {
-    if (host.isStaleResourceContextError(error)) return null;
+    if (host.isStaleResourceContextError(error)) return;
     throw error;
   }
-  if (!metadata) return null;
-  applyAppServerMetadata(host, metadata);
-  return metadata;
 }
 
-function applyCurrentAppServerMetadataSnapshot(host: ServerMetadataActionsHost): void {
-  const metadata = host.appServerMetadataSnapshot();
-  if (metadata) applyAppServerMetadata(host, metadata);
-}
-
-async function refreshMetadataResource(
-  host: ServerMetadataActionsHost,
-  refresh: () => Promise<SharedServerMetadata | null>,
-): Promise<void> {
+async function refreshMetadataResource(host: ServerMetadataActionsHost, refresh: () => Promise<void>): Promise<void> {
   try {
-    const metadata = await refresh();
-    if (metadata) applyAppServerMetadata(host, metadata);
+    await refresh();
   } catch (error) {
     if (!host.isStaleResourceContextError(error)) throw error;
   }

@@ -7,8 +7,8 @@ import type { ThreadRecord } from "../../../../src/app-server/protocol/thread";
 import type { ObservedResult } from "../../../../src/app-server/query/observed-result";
 import type { ModelMetadata } from "../../../../src/domain/catalog/metadata";
 import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/config";
-import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
-import type { SharedServerMetadata } from "../../../../src/domain/server/metadata";
+import { createServerDiagnostics, diagnosticProbeOk } from "../../../../src/domain/server/diagnostics";
+import type { SharedServerMetadata, SharedServerMetadataResource } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
 import type { CodexChatHost } from "../../../../src/features/chat/host/contracts";
@@ -1476,7 +1476,7 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   let metadata = overrides.appServerMetadataSnapshot?.() ?? null;
   let models = overrides.modelsSnapshot?.() ?? null;
   const activeThreadResultListeners = new Set<(result: ObservedResult<readonly Thread[]>) => void>();
-  const metadataResultListeners = new Set<(result: ObservedResult<SharedServerMetadata>) => void>();
+  const metadataResourceListeners = new Set<(resource: SharedServerMetadataResource) => void>();
   const modelResultListeners = new Set<(result: ObservedResult<readonly ModelMetadata[]>) => void>();
   const settings = {
     ...DEFAULT_SETTINGS,
@@ -1487,7 +1487,27 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
   const vaultPath = overrides.vaultPath ?? "/vault";
   const applyMetadataToCache = (nextMetadata: SharedServerMetadata): SharedServerMetadata => {
     metadata = nextMetadata;
-    for (const listener of metadataResultListeners) listener(queryResult(nextMetadata));
+    const resources: SharedServerMetadataResource[] = [
+      { id: "runtimeConfig", value: nextMetadata.runtimeConfig ?? undefined },
+      {
+        id: "skills",
+        value: nextMetadata.availableSkills,
+        probe: nextMetadata.serverDiagnostics.probes.skills,
+      },
+      {
+        id: "permissionProfiles",
+        value: nextMetadata.availablePermissionProfiles,
+        probe: nextMetadata.serverDiagnostics.probes.permissionProfiles,
+      },
+      {
+        id: "rateLimits",
+        value: nextMetadata.rateLimit,
+        probe: nextMetadata.serverDiagnostics.probes.rateLimits,
+      },
+    ];
+    for (const listener of metadataResourceListeners) {
+      for (const resource of resources) listener(resource);
+    }
     return nextMetadata;
   };
   const loadAppServerMetadata = async (reloadSkills = false): Promise<SharedServerMetadata | null> => {
@@ -1507,6 +1527,12 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
     }
     if (!connectionStillCurrent()) return null;
     models = fetchedModels;
+    const modelsResource: SharedServerMetadataResource = {
+      id: "models",
+      value: fetchedModels,
+      probe: diagnosticProbeOk("models", `${String(fetchedModels.length)} models`, Date.now()),
+    };
+    for (const listener of metadataResourceListeners) listener(modelsResource);
     for (const listener of modelResultListeners) listener(queryResult(fetchedModels));
     const skillsResponse = (await client.request("skills/list", { cwds: [vaultPath], forceReload: reloadSkills })) as {
       data: { skills: { name: string; description?: string; path?: string; enabled?: boolean }[] }[];
@@ -1597,28 +1623,35 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
         overrides.refreshAppServerMetadata ??
         vi.fn(async () => {
           const nextMetadata = await loadAppServerMetadata();
-          return nextMetadata ? applyMetadataToCache(nextMetadata) : null;
+          if (nextMetadata) applyMetadataToCache(nextMetadata);
         }),
       refreshSkills:
         overrides.refreshSkills ??
         vi.fn(async () => {
           const nextMetadata = await loadAppServerMetadata(true);
-          return nextMetadata ? applyMetadataToCache(nextMetadata) : null;
+          if (nextMetadata) applyMetadataToCache(nextMetadata);
         }),
       refreshRateLimits:
         overrides.refreshRateLimits ??
         vi.fn(async () => {
           const nextMetadata = await loadAppServerMetadata();
-          return nextMetadata ? applyMetadataToCache(nextMetadata) : null;
+          if (nextMetadata) applyMetadataToCache(nextMetadata);
         }),
       modelsSnapshot: overrides.modelsSnapshot ?? vi.fn(() => models),
       fetchModels: overrides.fetchModels ?? vi.fn(async () => models ?? []),
       refreshModels: overrides.refreshModels ?? vi.fn(async () => models ?? []),
-      observeAppServerMetadataResult: (listener, options = {}) => {
-        metadataResultListeners.add(listener);
-        if ((options.emitCurrent ?? true) && metadata) listener(queryResult(metadata));
+      observeAppServerMetadataResources: (listener, options = {}) => {
+        metadataResourceListeners.add(listener);
+        if ((options.emitCurrent ?? true) && metadata) applyMetadataToCache(metadata);
+        if ((options.emitCurrent ?? true) && models) {
+          listener({
+            id: "models",
+            value: models,
+            probe: diagnosticProbeOk("models", `${String(models.length)} models`, Date.now()),
+          });
+        }
         return () => {
-          metadataResultListeners.delete(listener);
+          metadataResourceListeners.delete(listener);
         };
       },
       observeModelsResult: (listener, options = {}) => {

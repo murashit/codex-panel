@@ -134,13 +134,13 @@ function chatHostFixture(): CodexChatHost {
     appServerQueries: {
       contextLease: () => ({ context: { codexPath: settings.codexPath, vaultPath: "/vault" }, generation: 1 }),
       appServerMetadataSnapshot: vi.fn(() => null),
-      refreshAppServerMetadata: vi.fn(() => Promise.resolve(null)),
-      refreshSkills: vi.fn(() => Promise.resolve(null)),
-      refreshRateLimits: vi.fn(() => Promise.resolve(null)),
+      refreshAppServerMetadata: vi.fn(() => Promise.resolve()),
+      refreshSkills: vi.fn(() => Promise.resolve()),
+      refreshRateLimits: vi.fn(() => Promise.resolve()),
       modelsSnapshot: vi.fn(() => null),
       fetchModels: vi.fn(() => Promise.resolve([])),
       refreshModels: vi.fn(() => Promise.resolve([])),
-      observeAppServerMetadataResult: vi.fn(() => () => undefined),
+      observeAppServerMetadataResources: vi.fn(() => () => undefined),
       observeModelsResult: vi.fn(() => () => undefined),
     },
     threadCatalog: {

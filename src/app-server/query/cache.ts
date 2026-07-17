@@ -10,7 +10,7 @@ import {
   diagnosticProbeOk,
   diagnosticsWithProbe,
 } from "../../domain/server/diagnostics";
-import type { SharedServerMetadata } from "../../domain/server/metadata";
+import type { SharedServerMetadata, SharedServerMetadataResource } from "../../domain/server/metadata";
 import type { Thread } from "../../domain/threads/model";
 import type { AppServerClient } from "../connection/client";
 import type { AppServerClientAccessOptions } from "../connection/client-access";
@@ -32,7 +32,8 @@ import {
 } from "./keys";
 import { readPermissionProfileMetadataProbe, readRateLimitMetadataProbe, readSkillMetadataProbe } from "./metadata-probes";
 import type { ObservedResult, ObservedResultListener } from "./observed-result";
-import { cloneModelMetadata, cloneSharedServerMetadata, cloneThreads } from "./snapshots";
+import { cloneModelMetadata, cloneSharedServerMetadata, cloneSharedServerMetadataResource, cloneThreads } from "./snapshots";
+import { applyThreadListMutation, type ThreadListKind, type ThreadListMutation } from "./thread-list-mutation";
 
 const THREAD_LIST_STALE_TIME_MS = 10_000;
 const APP_SERVER_METADATA_STALE_TIME_MS = 10_000;
@@ -77,8 +78,6 @@ export class AppServerQueryCache {
   private activeThreadCursorKnown = false;
   private activeThreadCursor: string | null = null;
   private activeThreadRevision = 0;
-  private metadataRefreshCount = 0;
-  private readonly metadataProjectionListeners = new Set<() => void>();
   private readonly metadataResourceFetches = new Map<MetadataResourceKind, Set<Promise<void>>>();
   private readonly metadataNotificationRefreshes = new Map<MetadataNotificationResourceKind, MetadataNotificationRefresh>();
   private generation = 0;
@@ -97,8 +96,6 @@ export class AppServerQueryCache {
     this.activeThreadCursorKnown = false;
     this.activeThreadCursor = null;
     this.activeThreadRevision = 0;
-    this.metadataRefreshCount = 0;
-    this.metadataProjectionListeners.clear();
     this.metadataResourceFetches.clear();
     this.metadataNotificationRefreshes.clear();
     this.client.clear();
@@ -227,89 +224,103 @@ export class AppServerQueryCache {
     });
   }
 
-  observeAppServerMetadataResult(
-    listener: ObservedResultListener<SharedServerMetadata>,
+  observeAppServerMetadataResources(
+    listener: (resource: SharedServerMetadataResource) => void,
     options: { emitCurrent?: boolean } = {},
   ): () => void {
     this.assertUsable();
     const generation = this.generation;
-    const observers = [
-      new QueryObserver(this.client, { ...this.runtimeConfigQueryOptions(), enabled: false }),
-      new QueryObserver(this.client, { ...this.skillsQueryOptions(), enabled: false }),
-      new QueryObserver(this.client, { ...this.permissionProfilesQueryOptions(), enabled: false }),
-      new QueryObserver(this.client, { ...this.rateLimitsQueryOptions(), enabled: false }),
-      new QueryObserver(this.client, { ...this.modelsQueryOptions(), enabled: false }),
-    ];
-    let queued = false;
     let disposed = false;
-    const emit = (): void => {
-      queued = false;
-      if (disposed || generation !== this.generation) return;
-      const metadata = this.appServerMetadataSnapshot();
-      const runtimeState = this.client.getQueryState(appServerRuntimeConfigQueryKey(this.context));
-      listener({
-        value: metadata,
-        error: runtimeState?.error instanceof Error ? runtimeState.error : null,
-        isFetching: observers.some((observer) => observer.getCurrentResult().isFetching),
-      });
+    const emit = (resource: SharedServerMetadataResource): void => {
+      if (!disposed && generation === this.generation) listener(cloneSharedServerMetadataResource(resource));
     };
-    const schedule = (): void => {
-      if (disposed || generation !== this.generation) return;
-      if (this.metadataRefreshCount > 0 || queued) return;
-      queued = true;
-      queueMicrotask(emit);
+
+    const runtimeConfig = new QueryObserver(this.client, { ...this.runtimeConfigQueryOptions(), enabled: false });
+    const models = new QueryObserver(this.client, { ...this.modelsQueryOptions(), enabled: false });
+    const skills = new QueryObserver(this.client, { ...this.skillsQueryOptions(), enabled: false });
+    const permissionProfiles = new QueryObserver(this.client, { ...this.permissionProfilesQueryOptions(), enabled: false });
+    const rateLimits = new QueryObserver(this.client, { ...this.rateLimitsQueryOptions(), enabled: false });
+    const emitRuntimeConfig = (result: QueryObserverResult<RuntimeConfigSnapshot>, includeFetching = false): void => {
+      if (result.isFetching && !includeFetching) return;
+      emit({ id: "runtimeConfig", value: result.data ? cloneRuntimeConfigSnapshot(result.data) : undefined });
     };
-    this.metadataProjectionListeners.add(schedule);
-    const unsubscribers = observers.map((observer) => observer.subscribe(schedule));
-    if (options.emitCurrent ?? true) emit();
+    const emitModels = (result: QueryObserverResult<readonly ModelMetadata[]>, includeFetching = false): void => {
+      if (result.isFetching && !includeFetching) return;
+      emit({ id: "models", value: result.data ? cloneModelMetadata(result.data) : undefined, probe: this.modelsProbe() });
+    };
+    const emitSkills = (result: QueryObserverResult<MetadataResourceSnapshot<readonly SkillMetadata[]>>, includeFetching = false): void => {
+      if (result.isFetching && !includeFetching) return;
+      const state = this.metadataResourceState("skills");
+      emit({ id: "skills", value: state.value ?? undefined, probe: state.probe });
+    };
+    const emitPermissionProfiles = (
+      result: QueryObserverResult<MetadataResourceSnapshot<readonly RuntimePermissionProfileSummary[]>>,
+      includeFetching = false,
+    ): void => {
+      if (result.isFetching && !includeFetching) return;
+      const state = this.metadataResourceState("permissionProfiles");
+      emit({ id: "permissionProfiles", value: state.value ?? undefined, probe: state.probe });
+    };
+    const emitRateLimits = (
+      result: QueryObserverResult<MetadataResourceSnapshot<RateLimitSnapshot | null>>,
+      includeFetching = false,
+    ): void => {
+      if (result.isFetching && !includeFetching) return;
+      const state = this.metadataResourceState("rateLimits");
+      emit({ id: "rateLimits", value: state.value, probe: state.probe });
+    };
+    const unsubscribers = [
+      runtimeConfig.subscribe(emitRuntimeConfig),
+      models.subscribe(emitModels),
+      skills.subscribe(emitSkills),
+      permissionProfiles.subscribe(emitPermissionProfiles),
+      rateLimits.subscribe(emitRateLimits),
+    ];
+    if (options.emitCurrent ?? true) {
+      emitRuntimeConfig(runtimeConfig.getCurrentResult(), true);
+      emitModels(models.getCurrentResult(), true);
+      emitSkills(skills.getCurrentResult(), true);
+      emitPermissionProfiles(permissionProfiles.getCurrentResult(), true);
+      emitRateLimits(rateLimits.getCurrentResult(), true);
+    }
     return () => {
       disposed = true;
       for (const unsubscribe of unsubscribers) unsubscribe();
-      this.metadataProjectionListeners.delete(schedule);
     };
   }
 
-  async refreshAppServerMetadata(): Promise<SharedServerMetadata | null> {
+  async refreshAppServerMetadata(): Promise<void> {
     this.assertUsable();
-    if (!appServerQueryContextIsComplete(this.context)) return null;
-    return this.runMetadataRefresh(async () => {
-      const runtimeResult = this.fetchRuntimeConfig(true).then(
-        () => ({ ok: true as const }),
-        (error: unknown) => ({ ok: false as const, error }),
-      );
-      const [, runtime] = await Promise.all([
-        Promise.allSettled([
-          this.fetchMetadataResource("skills", true),
-          this.fetchMetadataResource("permissionProfiles", true),
-          this.fetchMetadataResource("rateLimits", true),
-          this.fetchModels({ force: true }),
-        ]),
-        runtimeResult,
-      ]);
-      this.assertUsable();
-      if (!runtime.ok) throw runtime.error;
-      return this.appServerMetadataSnapshot();
-    });
+    if (!appServerQueryContextIsComplete(this.context)) return;
+    const runtimeResult = this.fetchRuntimeConfig(true).then(
+      () => ({ ok: true as const }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
+    const [, runtime] = await Promise.all([
+      Promise.allSettled([
+        this.fetchMetadataResource("skills", true),
+        this.fetchMetadataResource("permissionProfiles", true),
+        this.fetchMetadataResource("rateLimits", true),
+        this.fetchModels({ force: true }),
+      ]),
+      runtimeResult,
+    ]);
+    this.assertUsable();
+    if (!runtime.ok) throw runtime.error;
   }
 
-  async refreshSkills(): Promise<SharedServerMetadata | null> {
+  async refreshSkills(): Promise<void> {
     this.assertUsable();
-    if (!appServerQueryContextIsComplete(this.context)) return null;
-    return this.runMetadataRefresh(async () => {
-      const current = await this.refreshMetadataResourceNotification("skills");
-      this.assertUsable();
-      return current ? this.appServerMetadataSnapshot() : null;
-    });
+    if (!appServerQueryContextIsComplete(this.context)) return;
+    await this.refreshMetadataResourceNotification("skills");
+    this.assertUsable();
   }
 
-  async refreshRateLimits(): Promise<SharedServerMetadata | null> {
+  async refreshRateLimits(): Promise<void> {
     this.assertUsable();
-    if (!appServerQueryContextIsComplete(this.context)) return null;
-    return this.runMetadataRefresh(async () => {
-      const current = await this.refreshMetadataResourceNotification("rateLimits");
-      this.assertUsable();
-      return current ? this.appServerMetadataSnapshot() : null;
-    });
+    if (!appServerQueryContextIsComplete(this.context)) return;
+    await this.refreshMetadataResourceNotification("rateLimits");
+    this.assertUsable();
   }
 
   modelsSnapshot(): readonly ModelMetadata[] | null {
@@ -455,12 +466,12 @@ export class AppServerQueryCache {
     return refresh;
   }
 
-  private refreshMetadataResourceNotification(resource: MetadataNotificationResourceKind): Promise<boolean> {
+  private refreshMetadataResourceNotification(resource: MetadataNotificationResourceKind): Promise<void> {
     const generation = this.generation;
     const current = this.metadataNotificationRefreshes.get(resource);
     if (current?.generation === generation) {
       current.dirty = true;
-      return current.promise.then(() => generation === this.generation);
+      return current.promise;
     }
 
     const activeFetches = [...(this.metadataResourceFetches.get(resource) ?? [])];
@@ -484,7 +495,7 @@ export class AppServerQueryCache {
       if (this.metadataNotificationRefreshes.get(resource) === refresh) this.metadataNotificationRefreshes.delete(resource);
     };
     void refresh.promise.then(cleanup, cleanup);
-    return refresh.promise.then(() => generation === this.generation);
+    return refresh.promise;
   }
 
   private metadataResourceState(resource: "skills"): { value: readonly SkillMetadata[] | null; probe: DiagnosticProbeResult };
@@ -516,19 +527,6 @@ export class AppServerQueryCache {
         ? diagnosticProbeOk("models", `${String(state.data.length)} models`, state.dataUpdatedAt)
         : createServerDiagnostics().probes.models)
     );
-  }
-
-  private async runMetadataRefresh<T>(operation: () => Promise<T>): Promise<T> {
-    const generation = this.generation;
-    this.metadataRefreshCount += 1;
-    try {
-      return await operation();
-    } finally {
-      if (generation === this.generation) {
-        this.metadataRefreshCount -= 1;
-        if (this.metadataRefreshCount === 0) for (const listener of this.metadataProjectionListeners) listener();
-      }
-    }
   }
 
   private modelsQueryOptions(): AppServerQueryOptions<readonly ModelMetadata[]> {

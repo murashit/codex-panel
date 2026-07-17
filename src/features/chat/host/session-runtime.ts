@@ -327,7 +327,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     stateStore,
     threadCatalog: environment.plugin.threadCatalog,
     appServerQueries: environment.plugin.appServerQueries,
-    applyAppServerMetadata: connectionBundle.sharedStateActions.applyAppServerMetadata,
+    applyAppServerMetadataResource: connectionBundle.sharedStateActions.applyAppServerMetadataResource,
     refreshTabHeader,
   });
 

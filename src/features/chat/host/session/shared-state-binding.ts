@@ -1,12 +1,9 @@
 import type { ObservedResult } from "../../../../app-server/query/observed-result";
-import type { ModelMetadata } from "../../../../domain/catalog/metadata";
-import type { SharedServerMetadata } from "../../../../domain/server/metadata";
+import type { SharedServerMetadataResource } from "../../../../domain/server/metadata";
 import type { Thread } from "../../../../domain/threads/model";
 import type { ChatStateStore } from "../../application/state/store";
 
 type ThreadObserver = (result: ObservedResult<readonly Thread[]>) => void;
-type MetadataObserver = (result: ObservedResult<SharedServerMetadata>) => void;
-type ModelsObserver = (result: ObservedResult<readonly ModelMetadata[]>) => void;
 
 interface SharedStateThreadCatalog {
   activeSnapshot(): readonly Thread[] | null;
@@ -14,10 +11,10 @@ interface SharedStateThreadCatalog {
 }
 
 interface SharedStateAppServerQueries {
-  appServerMetadataSnapshot(): SharedServerMetadata | null;
-  modelsSnapshot(): readonly ModelMetadata[] | null;
-  observeAppServerMetadataResult(observer: MetadataObserver, options?: { emitCurrent?: boolean }): () => void;
-  observeModelsResult(observer: ModelsObserver, options?: { emitCurrent?: boolean }): () => void;
+  observeAppServerMetadataResources(
+    observer: (resource: SharedServerMetadataResource) => void,
+    options?: { emitCurrent?: boolean },
+  ): () => void;
 }
 
 export interface ChatPanelSharedStateBinding {
@@ -30,13 +27,13 @@ export interface ChatPanelSharedStateBindingOptions {
   stateStore: ChatStateStore;
   threadCatalog: SharedStateThreadCatalog;
   appServerQueries: SharedStateAppServerQueries;
-  applyAppServerMetadata: (metadata: SharedServerMetadata) => void;
+  applyAppServerMetadataResource: (resource: SharedServerMetadataResource) => void;
   refreshTabHeader: () => void;
 }
 
 export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateBindingOptions): ChatPanelSharedStateBinding {
   const unsubscribers: (() => void)[] = [];
-  const { stateStore, threadCatalog, appServerQueries, applyAppServerMetadata, refreshTabHeader } = options;
+  const { stateStore, threadCatalog, appServerQueries, applyAppServerMetadataResource, refreshTabHeader } = options;
 
   const receiveThreads = (threads: readonly Thread[]): void => {
     stateStore.dispatch({ type: "thread-list/applied", threads });
@@ -46,20 +43,6 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
     const observedThreads = result.value;
     if (observedThreads) receiveThreads(observedThreads);
   };
-  const receiveAppServerMetadata = (metadata: SharedServerMetadata): void => {
-    applyAppServerMetadata(metadata);
-  };
-  const receiveAppServerMetadataResult = (result: ObservedResult<SharedServerMetadata>): void => {
-    const observedMetadata = result.value;
-    if (observedMetadata) receiveAppServerMetadata(observedMetadata);
-  };
-  const receiveModels = (models: readonly ModelMetadata[]): void => {
-    stateStore.dispatch({ type: "connection/metadata-applied", availableModels: models });
-  };
-  const receiveModelsResult = (result: ObservedResult<readonly ModelMetadata[]>): void => {
-    const observedModels = result.value;
-    if (observedModels) receiveModels(observedModels);
-  };
   const unsubscribe = (): void => {
     while (unsubscribers.length > 0) {
       unsubscribers.pop()?.();
@@ -68,10 +51,6 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
   const applyCached = (): void => {
     const threads = threadCatalog.activeSnapshot();
     if (threads) stateStore.dispatch({ type: "thread-list/applied", threads });
-    const metadata = appServerQueries.appServerMetadataSnapshot();
-    if (metadata) applyAppServerMetadata(metadata);
-    const models = appServerQueries.modelsSnapshot();
-    if (models) receiveModels(models);
   };
 
   return {
@@ -81,8 +60,7 @@ export function createChatPanelSharedStateBinding(options: ChatPanelSharedStateB
       applyCached();
       unsubscribers.push(
         threadCatalog.observeActive(receiveThreadResult, { emitCurrent: false }),
-        appServerQueries.observeAppServerMetadataResult(receiveAppServerMetadataResult, { emitCurrent: false }),
-        appServerQueries.observeModelsResult(receiveModelsResult, { emitCurrent: false }),
+        appServerQueries.observeAppServerMetadataResources(applyAppServerMetadataResource),
       );
     },
     unsubscribe,

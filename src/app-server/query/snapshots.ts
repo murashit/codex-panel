@@ -1,7 +1,7 @@
 import type { ModelMetadata } from "../../domain/catalog/metadata";
 import { cloneRuntimeConfigSnapshot } from "../../domain/runtime/config";
 import type { RateLimitSnapshot } from "../../domain/runtime/metrics";
-import type { SharedServerMetadata } from "../../domain/server/metadata";
+import type { SharedServerMetadata, SharedServerMetadataResource } from "../../domain/server/metadata";
 import { cloneToolInventorySnapshot } from "../../domain/server/tool-inventory";
 import type { Thread } from "../../domain/threads/model";
 
@@ -32,6 +32,40 @@ export function cloneSharedServerMetadata(metadata: SharedServerMetadata): Share
       toolInventory: metadata.serverDiagnostics.toolInventory ? cloneToolInventorySnapshot(metadata.serverDiagnostics.toolInventory) : null,
     },
   };
+}
+
+export function cloneSharedServerMetadataResource(resource: SharedServerMetadataResource): SharedServerMetadataResource {
+  switch (resource.id) {
+    case "runtimeConfig":
+      return {
+        id: resource.id,
+        value: resource.value ? cloneRuntimeConfigSnapshot(resource.value) : undefined,
+      };
+    case "models":
+      return {
+        id: resource.id,
+        value: resource.value ? cloneModelMetadata(resource.value) : undefined,
+        probe: { ...resource.probe },
+      };
+    case "skills":
+      return {
+        id: resource.id,
+        value: resource.value?.map((skill) => ({ ...skill })),
+        probe: { ...resource.probe },
+      };
+    case "permissionProfiles":
+      return {
+        id: resource.id,
+        value: resource.value?.map((profile) => ({ ...profile })),
+        probe: { ...resource.probe },
+      };
+    case "rateLimits":
+      return {
+        id: resource.id,
+        value: resource.value ? cloneRateLimitSnapshot(resource.value) : resource.value,
+        probe: { ...resource.probe },
+      };
+  }
 }
 
 function cloneRateLimitSnapshot(snapshot: RateLimitSnapshot): RateLimitSnapshot {
