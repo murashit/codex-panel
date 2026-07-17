@@ -542,7 +542,7 @@ describe("ChatComposerController", () => {
     expect(controller.captureInputSnapshot().attachments).toEqual([]);
   });
 
-  it("does not insert a saved attachment after the composer selection changes", async () => {
+  it("keeps a pending attachment at its placeholder while the draft is edited", async () => {
     const saved = deferred<ComposerAttachment[]>();
     const { controller, parent, renderShell } = composerControllerFixture({
       controller: {
@@ -554,12 +554,13 @@ describe("ChatComposerController", () => {
     composer(parent).setSelectionRange(6, 6);
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
 
-    composer(parent).setSelectionRange(0, 0);
+    setTextAreaValue(composer(parent), `edited ${composer(parent).value}`);
+    composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
     saved.resolve([attachmentFixture("first")]);
     await flushComposerAttachment();
 
-    expect(composer(parent).value).toBe("before after");
-    expect(controller.captureInputSnapshot().attachments).toEqual([]);
+    expect(composer(parent).value).toBe("edited before\n![[Codex Attachments/first.png]]\n after");
+    expect(controller.captureInputSnapshot().attachments).toEqual([attachmentFixture("first")]);
   });
 
   it("inserts multiple transfers that began at the same draft anchor", async () => {
@@ -587,8 +588,8 @@ describe("ChatComposerController", () => {
     first.resolve([attachmentFixture("first")]);
     await flushComposerAttachment();
 
-    expect(composer(parent).value).toBe("note\n![[Codex Attachments/second.png]]\n![[Codex Attachments/first.png]]");
-    expect(controller.captureInputSnapshot().attachments.map((attachment) => attachment.name)).toEqual(["second", "first"]);
+    expect(composer(parent).value).toBe("note\n![[Codex Attachments/first.png]]\n![[Codex Attachments/second.png]]");
+    expect(controller.captureInputSnapshot().attachments.map((attachment) => attachment.name)).toEqual(["first", "second"]);
   });
 
   it("preserves pasted image attachments when connection exit restores a cancellable web draft", async () => {
@@ -708,7 +709,7 @@ describe("ChatComposerController", () => {
     expect(dataTransfer.dropEffect).toBe("copy");
   });
 
-  it("waits for pending attachment saves before submitting", async () => {
+  it("keeps the composer editable but requires a new Send after attachment saves settle", async () => {
     const stateStore = createChatStateStore();
     const parent = document.createElement("div");
     const attachment: ComposerAttachment = {
@@ -757,6 +758,10 @@ describe("ChatComposerController", () => {
 
     renderShell();
     composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+    expect(sendButton?.disabled).toBe(true);
+    expect(composer(parent).readOnly).toBe(false);
+    expect(composer(parent).value).toContain("Saving attachment…");
     composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
 
     expect(attachmentHandler.saveFiles).toHaveBeenCalledOnce();
@@ -768,7 +773,178 @@ describe("ChatComposerController", () => {
     await flushComposerAttachment();
 
     expect(composer(parent).value).toBe("![[Codex Attachments/diagram.png]]");
+    expect(parent.querySelector<HTMLButtonElement>(".codex-panel__send")?.disabled).toBe(false);
+    expect(submit).not.toHaveBeenCalled();
+
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
     expect(submit).toHaveBeenCalledOnce();
+  });
+
+  it("removes a failed attachment placeholder without submitting the draft", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const submit = vi.fn();
+    const onAttachmentError = vi.fn();
+    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        onAttachmentError,
+      },
+      renderActions: { submit },
+    });
+    renderShell();
+    controller.setDraft("Keep this draft");
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    composer(parent).dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" }));
+
+    saved.reject(new Error("Attachment save failed."));
+    await flushComposerAttachment();
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("Keep this draft");
+    expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]);
+    expect(onAttachmentError).toHaveBeenCalledWith("Attachment save failed.");
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("restores selected draft text and caret when attachment saving fails", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    controller.setDraft("keep selected text");
+    renderShell();
+    composer(parent).setSelectionRange(5, 13);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    composer(parent).setSelectionRange(0, 0);
+
+    saved.reject(new Error("Attachment save failed."));
+    await flushComposerAttachment();
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("keep selected text");
+    expect(composer(parent).selectionStart).toBe(0);
+    expect(composer(parent).selectionEnd).toBe(0);
+  });
+
+  it("settles an attachment after its placeholder label is edited", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    controller.setDraft("Keep this draft");
+    renderShell();
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    controller.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
+    composer(parent).setSelectionRange(0, 0);
+
+    saved.resolve([
+      {
+        kind: "image",
+        name: "diagram",
+        path: "Codex Attachments/diagram.png",
+        marker: "![[Codex Attachments/diagram.png]]",
+      },
+    ]);
+    await flushComposerAttachment();
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("Keep this draft\n![[Codex Attachments/diagram.png]]");
+    expect(composer(parent).value).not.toContain("codex-panel-pending-attachment:");
+    expect(composer(parent).selectionStart).toBe(0);
+  });
+
+  it("removes an edited attachment placeholder when saving fails", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    controller.setDraft("Keep this draft");
+    renderShell();
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    controller.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
+
+    saved.reject(new Error("Attachment save failed."));
+    await flushComposerAttachment();
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("Keep this draft");
+    expect(composer(parent).value).not.toContain("codex-panel-pending-attachment:");
+  });
+
+  it("restores selected text without synthetic separators after the placeholder label is edited", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    controller.setDraft("keep selected text");
+    renderShell();
+    composer(parent).setSelectionRange(5, 13);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    controller.setDraft(composer(parent).value.replace("Saving attachment…", "Uploading…"));
+    composer(parent).setSelectionRange(0, 0);
+
+    saved.reject(new Error("Attachment save failed."));
+    await flushComposerAttachment();
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("keep selected text");
+    expect(composer(parent).selectionStart).toBe(0);
+  });
+
+  it("allows an interrupt after a pending attachment placeholder is removed", () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const submit = vi.fn();
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+        canInterrupt: () => true,
+      },
+      renderActions: { submit },
+    });
+    renderShell();
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    controller.setDraft("");
+
+    const sendButton = parent.querySelector<HTMLButtonElement>(".codex-panel__send");
+    expect(sendButton?.getAttribute("aria-label")).toBe("Interrupt");
+    expect(sendButton?.disabled).toBe(false);
+    sendButton?.click();
+
+    expect(submit).toHaveBeenCalledOnce();
+  });
+
+  it("does not reinsert a saved attachment after the user removes its placeholder", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const attachment: ComposerAttachment = {
+      kind: "image",
+      name: "diagram",
+      path: "Codex Attachments/diagram.png",
+      marker: "![[Codex Attachments/diagram.png]]",
+    };
+    const { controller, parent, renderShell, stateStore } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    renderShell();
+    controller.setDraft("Keep this draft");
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "diagram.png", { type: "image/png" })]));
+    controller.setDraft("Keep this edited draft");
+
+    saved.resolve([attachment]);
+    await flushComposerAttachment();
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("Keep this edited draft");
+    expect(stateStore.getState().composer.pendingAttachmentSaveIds).toEqual([]);
   });
 
   it("does not submit or apply saved attachments after disposal", async () => {

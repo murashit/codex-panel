@@ -4,12 +4,12 @@ import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { IconButton } from "../../../shared/obsidian/components.obsidian";
 import {
   type ComposerMetaPickerState,
+  type ComposerTextSelection,
   closeComposerMetaPickerOnOutsidePointer,
   composerMetaPickerState,
   observeComposerMetaStatusOverflow,
   preserveComposerSelection,
   renderComposerMetaIcon,
-  restoreComposerCursor,
   restoreComposerSelection,
   scrollComposerSuggestionIntoView,
   syncComposerHeight,
@@ -25,9 +25,8 @@ export interface ComposerSuggestion {
   suffixOnInsert?: string;
 }
 
-export interface ComposerPendingSelection {
+export interface ComposerPendingSelection extends ComposerTextSelection {
   value: string;
-  cursor: number;
 }
 
 export interface ComposerMetaViewModel {
@@ -89,6 +88,7 @@ export interface ComposerShellProps {
   busy: boolean;
   canInterrupt: boolean;
   submissionDisabled: boolean;
+  sendDisabled: boolean;
   webSubmissionCancellable: boolean;
   normalPlaceholder: string;
   meta: ComposerMetaViewModel;
@@ -106,6 +106,7 @@ export function ComposerShell({
   busy,
   canInterrupt,
   submissionDisabled,
+  sendDisabled,
   webSubmissionCancellable,
   normalPlaceholder,
   meta,
@@ -148,10 +149,10 @@ export function ComposerShell({
   });
   useLayoutEffect(() => {
     if (!pendingSelection) return;
-    if (pendingSelection.value === draft) restoreComposerCursor(composerRef.current, pendingSelection.cursor);
+    if (pendingSelection.value === draft) restoreComposerSelection(composerRef.current, pendingSelection);
     onPendingSelectionApplied?.();
   }, [draft, pendingSelection, onPendingSelectionApplied]);
-  const sendMode = composerSendMode(busy, canInterrupt, draft, submissionDisabled, webSubmissionCancellable);
+  const sendMode = composerSendMode(busy, canInterrupt, draft, submissionDisabled, sendDisabled, webSubmissionCancellable);
   const composerLocked = submissionDisabled;
   const normalizedSelectedSuggestionIndex = suggestions.length === 0 ? 0 : Math.min(selectedSuggestionIndex, suggestions.length - 1);
   const selectedSuggestionId = suggestions.length > 0 ? composerSuggestionOptionId(viewId, normalizedSelectedSuggestionIndex) : undefined;
@@ -479,6 +480,7 @@ function composerSendMode(
   canInterrupt: boolean,
   draft: string,
   submissionDisabled: boolean,
+  sendDisabled: boolean,
   webSubmissionCancellable: boolean,
 ): ComposerSendMode {
   if (webSubmissionCancellable) {
@@ -497,7 +499,7 @@ function composerSendMode(
     icon: interruptMode ? "square" : canSteer ? "corner-down-right" : "send",
     label: interruptMode ? "Interrupt" : canSteer ? "Steer" : "Send",
     className: interruptMode ? "is-interrupt" : canSteer ? "is-steer" : "",
-    disabled: submissionDisabled || (busy && !canInterrupt),
+    disabled: submissionDisabled || (sendDisabled && !interruptMode) || (busy && !canInterrupt),
     canInterrupt,
   };
 }

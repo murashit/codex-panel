@@ -14,6 +14,10 @@ export interface ComposerElementRangeInsertion {
   end: number;
 }
 
+export interface ComposerElementSelection extends ComposerElementRangeInsertion {
+  direction: "forward" | "backward" | "none";
+}
+
 export function focusComposer(composer: HTMLTextAreaElement | null, options: { preventScroll?: boolean } = {}): void {
   composer?.focus(options);
 }
@@ -46,6 +50,16 @@ export function composerRangeInsertionSource(composer: HTMLTextAreaElement | nul
     value: composer.value,
     start: composer.selectionStart,
     end: composer.selectionEnd,
+  };
+}
+
+export function composerSelectionSource(composer: HTMLTextAreaElement | null): ComposerElementSelection | null {
+  if (!composer) return null;
+  return {
+    value: composer.value,
+    start: composer.selectionStart,
+    end: composer.selectionEnd,
+    direction: composer.selectionDirection,
   };
 }
 

@@ -292,6 +292,7 @@ function shellParts(
             busy: false,
             canInterrupt: false,
             submissionDisabled: false,
+            sendDisabled: false,
             webSubmissionCancellable: false,
             normalPlaceholder: "Ask Codex...",
             suggestions: [],

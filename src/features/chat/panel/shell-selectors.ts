@@ -58,6 +58,7 @@ export interface ChatPanelComposerModel {
   readonly sideChatActive: boolean;
   readonly sideChatSourceTitle: string | null;
   readonly draft: ChatState["composer"]["draft"];
+  readonly attachmentSavePending: boolean;
   readonly suggestions: ChatState["composer"]["suggestions"];
   readonly selectedSuggestionIndex: ChatState["composer"]["suggestSelected"];
   readonly activeThreadId: string | null;
@@ -135,6 +136,7 @@ export function selectChatPanelComposer(state: ChatState): ChatPanelComposerMode
     sideChatActive: lifetime?.kind === "ephemeral",
     sideChatSourceTitle: lifetime?.kind === "ephemeral" ? lifetime.sourceThreadTitle : null,
     draft: state.composer.draft,
+    attachmentSavePending: state.composer.pendingAttachmentSaveIds.length > 0,
     suggestions: state.composer.suggestions,
     selectedSuggestionIndex: state.composer.suggestSelected,
     activeThreadId,

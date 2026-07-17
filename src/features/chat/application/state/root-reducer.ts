@@ -131,6 +131,7 @@ type ActiveThreadLifetime =
 
 interface ChatComposerState {
   readonly draft: string;
+  readonly pendingAttachmentSaveIds: readonly number[];
   readonly suggestSelected: number;
   readonly suggestions: readonly ComposerSuggestion[];
   readonly suggestionsDismissedSignature: string | null;
@@ -208,6 +209,16 @@ type TurnAction =
   | TurnStartFailedAction;
 
 type ComposerAction =
+  | {
+      type: "composer/attachment-save-started";
+      saveId: number;
+      draft: string;
+    }
+  | {
+      type: "composer/attachment-save-settled";
+      saveId: number;
+      draft?: string;
+    }
   | {
       type: "composer/draft-set";
       draft: string;
@@ -788,6 +799,18 @@ function reduceRuntimeSlice(state: ChatRuntimeState, action: ChatSliceAction): C
 
 function reduceComposerSlice(state: ChatComposerState, action: ChatSliceAction): ChatComposerState {
   switch (action.type) {
+    case "composer/attachment-save-started":
+      return patchObject(state, {
+        draft: action.draft,
+        pendingAttachmentSaveIds: [...state.pendingAttachmentSaveIds, action.saveId],
+        suggestions: [],
+        suggestSelected: 0,
+      });
+    case "composer/attachment-save-settled":
+      return patchObject(state, {
+        ...(action.draft === undefined ? {} : { draft: action.draft }),
+        pendingAttachmentSaveIds: state.pendingAttachmentSaveIds.filter((saveId) => saveId !== action.saveId),
+      });
     case "composer/draft-set":
       return patchObject(state, {
         draft: action.draft,
@@ -878,6 +901,7 @@ function initialRequestState(): ChatRequestState {
 function initialComposerState(): ChatComposerState {
   return {
     draft: "",
+    pendingAttachmentSaveIds: [],
     suggestSelected: 0,
     suggestions: [],
     suggestionsDismissedSignature: null,
