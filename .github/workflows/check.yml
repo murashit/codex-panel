@@ -21,6 +21,29 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Detect compatibility changes
+        id: compatibility
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+            .github/workflows/check.yml \
+            README.md \
+            manifest.json \
+            package.json \
+            package-lock.json \
+            scripts/api-baseline.mjs \
+            scripts/app-server-compatibility.mjs \
+            scripts/generate-app-server-types.mjs \
+            src/app-server/connection/compatibility.json \
+            src/generated/app-server \
+            versions.json; then
+            echo "required=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "required=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
@@ -31,12 +54,15 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Install recorded Codex CLI
+        if: steps.compatibility.outputs.required == 'true'
         run: npm install --global "@openai/codex@$(node scripts/app-server-compatibility.mjs --tested-cli-version)"
 
       - name: Check API baselines
+        if: steps.compatibility.outputs.required == 'true'
         run: npm run api:baseline
 
       - name: Check generated app-server bindings
+        if: steps.compatibility.outputs.required == 'true'
         run: npm run generate:app-server-types:check
 
       - name: Check pull request commit messages
