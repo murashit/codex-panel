@@ -44,27 +44,25 @@ Runtime UI composition is Preact-owned. Preact components should render the pane
 
 Obsidian and app-server boundaries stay outside Preact components. External lifecycles, app-server connections, editor/workspace APIs, and rendering bridges belong in boundary modules.
 
-Chat-visible state belongs in the chat state store and named reducer actions. Components should project that state through narrow selector-backed snapshots rather than mirror it into another reactive store.
+Chat-visible state should have one authoritative owner. Components should consume narrow projections of that state rather than mirror it into another reactive store.
 
-Each shared app-server resource should have one authoritative query record. Derived metadata may report status but must not duplicate its snapshot.
+Each shared app-server resource should likewise have one authoritative query record. UI subscriptions should stay narrow enough that unrelated updates do not disturb independent panel regions.
 
-Each top-level panel region should subscribe to a narrow selector-backed store projection. Region selectors should retain stable snapshots across unrelated state changes so streaming updates do not rerender the toolbar, goal, or composer unnecessarily.
-
-Imperative DOM bridges are allowed when an external API, host lifecycle, hit-test, focus/selection operation, or measurement problem requires an `HTMLElement`. They should remain narrow boundary adapters, not a second UI composition system inside Preact-owned surfaces.
+Imperative UI bridges are allowed only where the host platform requires them. They should remain narrow boundary adapters, not a second UI composition system inside Preact-owned surfaces.
 
 ## Interaction Principles
 
 Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex working surface with independent connection, thread, turn state, composer, and pending requests.
 
-Long-running actions should follow one explicit lifecycle: capture intent, prepare dependencies, invoke the external effect, then publish or reconcile the result. Capture a logical panel or workspace target lease at the user-intent boundary, revalidate it immediately before starting an effect, and require it again for panel-local publication. Transport outcomes should distinguish effects that never started from effects that completed after their app-server context became stale.
+Long-running actions must preserve the user intent that started them. Panel-local results may affect a panel only while that intent still owns its target; Codex facts completed in the current app-server context remain shared truth even if the initiating panel has moved on.
 
-Do not discard shared Codex facts merely because the initiating panel is stale. A created, forked, restored, deleted, or rolled-back thread may still require catalog publication or refresh even when its old panel must not change. Serialize conflicting mutations by semantic owner—such as thread, hook catalog, or panel target—and coalesce only where the operation defines safe replacement semantics. Thread-owned mutation coordinators must be shared across panel sessions because multiple leaves can display the same thread; panel revision remains a publication-freshness check, not an ownership key. Read reconciliation that can overlap a mutation needs the same owner generation so an older snapshot or error cannot publish after a newer write. Avoid a plugin-wide mutex; composer selections, pending requests, turn streams, and other feature-specific state still need their own anchors and state machines.
+Coordinate conflicting work at the narrowest shared semantic owner. Independent panels should not block one another, and stale reads or writes must not overwrite newer shared state. Coalesce work only when replacement is part of the operation's meaning.
 
-Workspace foreground publication is the narrow global exception: reveal and focus operations across all leaves share one latest-intent reconciler so an older leaf cannot reclaim focus after a newer selection. Manual Obsidian active-leaf changes participate in the same intent sequence; coordinator-owned reveal events are recognized separately so they do not cancel themselves. App-server effects, target adoption, and panel reconciliation must remain outside that global arbitration and proceed under their leaf-owned leases; a stalled old leaf must never block a newer foreground intent. A late stale reveal re-publishes the latest target instead of serializing long-running work. Panel-local asynchronous actions may focus the composer only while their view is foreground, while an accepted workspace publication can explicitly authorize focus after reveal. Cleanup created by adopting a target—such as leaving a running subagent—becomes a durable obligation at adoption time and must not depend on later history loading or on the originating navigation action remaining current.
+Foreground reveal and focus are the narrow workspace-wide exception: the latest user intent wins without serializing unrelated panel or app-server work. Cleanup obligations created by a committed state transition must survive the UI action that initiated them.
 
 Subagent threads opened from agent activity remain persistent and restorable but stay outside ordinary thread history. Treat their panels as read-only conversation surfaces while preserving their parent and agent provenance for future specialized behavior.
 
-Mode-derived restrictions for the active panel thread belong to one pure operation policy. Actions and UI projections must use that policy instead of independently interpreting panel phase, side-chat lifetime, or subagent provenance. Keep connection state, turn busy state, and operations targeting another listed thread in their owning workflows.
+Mode-derived restrictions for the active panel thread must remain consistent across actions and UI. Keep connection state, turn busy state, and operations targeting another listed thread in their owning workflows.
 
 Thread history and other app-server resources should follow app-server semantics. Panel-side views are read models over app-server snapshots and lifecycle events; stale or partial refreshes must not overwrite newer state. Obsidian integrations such as archive note export are convenience views, not replacements for Codex history.
 
@@ -84,6 +82,6 @@ Tests should protect user expectations, app-server/panel responsibility boundari
 
 Prefer tests for visible behavior and state-transition invariants across panels, threads, requests, streams, and display fallbacks.
 
-Avoid tests that freeze incidental implementation details such as exact DOM nesting, render counts, node reuse, helper decomposition, or no-op array updates unless those details directly protect a user-visible invariant.
+Avoid tests that freeze incidental implementation details unless those details directly protect a user-visible invariant.
 
 Panel tests may define how received structured values are displayed, retained, or normalized. They should not redefine Codex-owned runtime policy, model lists, sandbox behavior, approval policy, or thread history semantics.
