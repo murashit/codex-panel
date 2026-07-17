@@ -13,6 +13,7 @@ import {
   createAppServerContextLease,
 } from "./keys";
 import type { ObservedResultListener } from "./observed-result";
+import type { ThreadListMutation } from "./thread-list-mutation";
 
 export interface AppServerResourceStoreOptions {
   cacheFactory?: (context: AppServerQueryContextIdentity) => AppServerQueryCache;
@@ -120,6 +121,10 @@ export class AppServerResourceStore {
 
   refreshArchivedThreads(): Promise<readonly Thread[]> {
     return this.runForCurrentContext((cache) => cache.refreshArchivedThreads());
+  }
+
+  applyThreadListMutations(mutations: readonly ThreadListMutation[]): void {
+    this.currentCache().applyThreadListMutations(mutations);
   }
 
   observeActiveThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void {

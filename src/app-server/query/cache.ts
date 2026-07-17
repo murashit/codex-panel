@@ -55,7 +55,6 @@ interface AppServerQueryOptions<T> {
   readonly staleTime: number;
 }
 
-type ThreadListKind = "active" | "archived";
 interface MetadataResourceSnapshot<T> {
   readonly value: T;
   readonly probe: DiagnosticProbeResult;
@@ -78,6 +77,7 @@ export class AppServerQueryCache {
   private activeThreadCursorKnown = false;
   private activeThreadCursor: string | null = null;
   private activeThreadRevision = 0;
+  private readonly threadListEpochs: Record<ThreadListKind, number> = { active: 0, archived: 0 };
   private readonly metadataResourceFetches = new Map<MetadataResourceKind, Set<Promise<void>>>();
   private readonly metadataNotificationRefreshes = new Map<MetadataNotificationResourceKind, MetadataNotificationRefresh>();
   private generation = 0;
@@ -96,6 +96,8 @@ export class AppServerQueryCache {
     this.activeThreadCursorKnown = false;
     this.activeThreadCursor = null;
     this.activeThreadRevision = 0;
+    this.threadListEpochs.active = 0;
+    this.threadListEpochs.archived = 0;
     this.metadataResourceFetches.clear();
     this.metadataNotificationRefreshes.clear();
     this.client.clear();
@@ -177,6 +179,30 @@ export class AppServerQueryCache {
 
   async refreshArchivedThreads(): Promise<readonly Thread[]> {
     return this.fetchArchivedThreads({ force: true });
+  }
+
+  applyThreadListMutations(mutations: readonly ThreadListMutation[]): void {
+    this.assertUsable();
+    if (!appServerQueryContextIsComplete(this.context) || mutations.length === 0) return;
+    for (const kind of ["active", "archived"] as const) {
+      const relevant = mutations.filter((mutation) => mutation.list === kind);
+      if (relevant.length === 0) continue;
+
+      const key = this.threadListQueryKey(kind);
+      const before = this.threadListSnapshot(kind);
+      const wasFetching = this.client.getQueryState(key)?.fetchStatus === "fetching";
+      this.threadListEpochs[kind] += 1;
+      const after = relevant.reduce<readonly Thread[] | null>(applyThreadListMutation, before);
+      if (after) this.storeThreadList(kind, after);
+
+      const partialSnapshotCreated = before === null && after !== null;
+      const refreshRequested = relevant.some((mutation) => mutation.kind === "refresh");
+      if (before !== null || wasFetching || partialSnapshotCreated || refreshRequested) {
+        void this.fetchThreadList(kind, { force: true }).catch(() => {
+          // Query observers retain refresh failures while the event projection remains last-known-good state.
+        });
+      }
+    }
   }
 
   private threadListSnapshot(kind: ThreadListKind): readonly Thread[] | null {
@@ -357,13 +383,21 @@ export class AppServerQueryCache {
       queryKey: this.threadListQueryKey(kind),
       queryFn: async (): Promise<readonly Thread[]> => {
         if (kind === "active") {
-          const revision = this.activeThreadRevision;
-          const page = await this.runWithClient((client) => readThreadPage(client, this.context.vaultPath, { archived: false }));
-          if (this.activeThreadRevision !== revision) return this.activeThreadsSnapshot() ?? [];
-          this.rememberActiveThreadCursor(page.nextCursor);
-          return cloneThreads(page.threads);
+          for (;;) {
+            const epoch = this.threadListEpochs.active;
+            const revision = this.activeThreadRevision;
+            const page = await this.runWithClient((client) => readThreadPage(client, this.context.vaultPath, { archived: false }));
+            if (this.threadListEpochs.active !== epoch) continue;
+            if (this.activeThreadRevision !== revision) return this.activeThreadsSnapshot() ?? [];
+            this.rememberActiveThreadCursor(page.nextCursor);
+            return cloneThreads(page.threads);
+          }
         }
-        return cloneThreads(await this.runWithClient((client) => listThreads(client, this.context.vaultPath, { archived: true })));
+        for (;;) {
+          const epoch = this.threadListEpochs.archived;
+          const threads = await this.runWithClient((client) => listThreads(client, this.context.vaultPath, { archived: true }));
+          if (this.threadListEpochs.archived === epoch) return cloneThreads(threads);
+        }
       },
       staleTime: THREAD_LIST_STALE_TIME_MS,
     };

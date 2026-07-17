@@ -97,7 +97,6 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     this.selectionRewriteController = null;
     this.panels.reset();
     this.appServerResourceStore.reset();
-    this.threadCatalog.clear();
   }
 
   activeWorkspaceLeafChanged(leaf: Parameters<WorkspacePanelCoordinator["activeLeafChanged"]>[0]): void {

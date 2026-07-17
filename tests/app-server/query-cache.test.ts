@@ -4,6 +4,7 @@ import { AppServerQueryCache } from "../../src/app-server/query/cache";
 import type { AppServerQueryContext, AppServerQueryContextIdentity } from "../../src/app-server/query/keys";
 import type { RateLimitSnapshot } from "../../src/domain/runtime/metrics";
 import type { RuntimePermissionProfileSummary } from "../../src/domain/runtime/permissions";
+import type { Thread } from "../../src/domain/threads/model";
 
 describe("AppServerQueryCache", () => {
   it("garbage-collects inactive query records", async () => {
@@ -124,6 +125,33 @@ describe("AppServerQueryCache", () => {
     expect(cache.hasMoreActiveThreads()).toBe(true);
   });
 
+  it("rejects only a thread read started before an event and accepts the following server value", async () => {
+    const staleRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const postEventRead = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: null }>();
+    const listThreads = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [{ ...thread("target"), name: "initial" }], nextCursor: null })
+      .mockImplementationOnce(() => staleRead.promise)
+      .mockImplementationOnce(() => postEventRead.promise);
+    const cache = cacheWithRequestHandlers({ "thread/list": listThreads });
+    await cache.refreshActiveThreads();
+
+    const refresh = cache.refreshActiveThreads();
+    await flushMicrotasks();
+    cache.applyThreadListMutations([{ kind: "update", list: "active", threadId: "target", changes: { name: "from-event" } }]);
+
+    expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
+    staleRead.resolve({ data: [{ ...thread("target"), name: "stale" }], nextCursor: null });
+    await vi.waitFor(() => expect(listThreads).toHaveBeenCalledTimes(3));
+    expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("from-event");
+
+    postEventRead.resolve({ data: [{ ...thread("target"), name: "authoritative" }], nextCursor: null });
+    await refresh;
+
+    expect(cache.activeThreadsSnapshot()?.[0]?.name).toBe("authoritative");
+    expect(listThreads).toHaveBeenCalledTimes(3);
+  });
+
   it("retries a full active-thread inventory when a first-page refresh wins the race", async () => {
     const oldInventory = deferred<{ data: ReturnType<typeof thread>[]; nextCursor: string | null }>();
     const listThreads = vi
@@ -228,6 +256,48 @@ describe("AppServerQueryCache", () => {
     await refresh;
 
     expect(listener).toHaveBeenCalledWith(expect.objectContaining({ id: "skills", value: [expect.objectContaining({ name: "writer" })] }));
+    unsubscribe();
+  });
+
+  it("publishes metadata resources only after a retry settles", async () => {
+    const retry = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const nextRetry = deferred<{ data: { skills: CatalogSkillMetadata[] }[] }>();
+    const listSkills = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("skills offline"))
+      .mockImplementationOnce(() => retry.promise)
+      .mockImplementationOnce(() => nextRetry.promise);
+    const cache = cacheWithRequestHandlers({ "skills/list": listSkills });
+    await cache.refreshSkills();
+    const listener = vi.fn();
+    const unsubscribe = cache.observeAppServerMetadataResources(listener, { emitCurrent: false });
+
+    const refresh = cache.refreshSkills();
+    await flushMicrotasks();
+
+    expect(listener).not.toHaveBeenCalled();
+    retry.resolve({ data: [{ skills: [catalogSkill("writer")] }] });
+    await refresh;
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith({
+      id: "skills",
+      value: [expect.objectContaining({ name: "writer" })],
+      probe: expect.objectContaining({ id: "skills", status: "ok" }),
+    });
+
+    const nextRefresh = cache.refreshSkills();
+    await flushMicrotasks();
+    expect(listener).toHaveBeenCalledOnce();
+    nextRetry.resolve({ data: [{ skills: [catalogSkill("editor")] }] });
+    await nextRefresh;
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenLastCalledWith({
+      id: "skills",
+      value: [expect.objectContaining({ name: "editor" })],
+      probe: expect.objectContaining({ id: "skills", status: "ok" }),
+    });
     unsubscribe();
   });
 
@@ -601,7 +671,7 @@ function appServerRateLimit(usedPercent: number): RateLimitSnapshot {
   };
 }
 
-function thread(id: string, archived = false) {
+function thread(id: string, archived = false): Thread {
   return {
     id,
     preview: "",
