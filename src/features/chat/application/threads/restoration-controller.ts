@@ -1,4 +1,9 @@
-import { awaitingResumeThreadState } from "../state/root-reducer";
+import { activeThreadId, awaitingResumeThreadState } from "../state/root-reducer";
+import {
+  capturePanelTargetLease,
+  type PanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 
 export interface RestorationControllerHost {
@@ -8,7 +13,7 @@ export interface RestorationControllerHost {
 export type RestoredThreadLoader = (threadId: string) => Promise<void>;
 
 export class RestorationController {
-  private loading: { threadId: string; promise: Promise<void> } | null = null;
+  private loading: { threadId: string; panelTarget: PanelTargetLease; promise: Promise<void> } | null = null;
 
   constructor(private readonly host: RestorationControllerHost) {}
 
@@ -19,27 +24,29 @@ export class RestorationController {
   async ensureLoaded(loadThread: RestoredThreadLoader): Promise<boolean> {
     const restoredThread = awaitingResumeThreadState(this.host.stateStore.getState());
     if (!restoredThread) return true;
-    if (this.loading?.threadId === restoredThread.threadId) {
-      await this.loading.promise;
-      return this.restorationLoaded();
+    const activeLoading = this.loading;
+    if (activeLoading?.threadId === restoredThread.threadId) {
+      await activeLoading.promise;
+      return this.restorationLoaded(activeLoading.panelTarget, restoredThread.threadId);
     }
 
     const threadId = restoredThread.threadId;
-    const loading = { threadId, promise: loadThread(threadId) };
+    const loading = { threadId, panelTarget: capturePanelTargetLease(this.host.stateStore.getState()), promise: loadThread(threadId) };
     this.loading = loading;
     try {
       await loading.promise;
     } finally {
       if (this.loading === loading) this.loading = null;
     }
-    return this.restorationLoaded();
+    return this.restorationLoaded(loading.panelTarget, threadId);
   }
 
   isPending(threadId: string): boolean {
     return awaitingResumeThreadState(this.host.stateStore.getState())?.threadId === threadId;
   }
 
-  private restorationLoaded(): boolean {
-    return awaitingResumeThreadState(this.host.stateStore.getState()) === null;
+  private restorationLoaded(panelTarget: PanelTargetLease, threadId: string): boolean {
+    const state = this.host.stateStore.getState();
+    return panelTargetLeaseIsCurrent(state, panelTarget) && activeThreadId(state) === threadId;
   }
 }

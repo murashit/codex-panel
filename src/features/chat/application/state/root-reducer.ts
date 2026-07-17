@@ -140,6 +140,7 @@ interface ChatStateShape {
   connection: ChatConnectionState;
   threadList: ChatThreadListState;
   panelThread: ChatPanelThreadState;
+  panelTargetRevision: number;
   runtime: ChatRuntimeState;
   turn: ChatTurnState;
   threadStream: ChatThreadStreamState;
@@ -271,6 +272,7 @@ export function createChatState(): ChatState {
     connection: initialConnectionState(),
     threadList: initialThreadListState(),
     panelThread: initialPanelThreadState(),
+    panelTargetRevision: 0,
     runtime: initialChatRuntimeState(),
     turn: initialTurnState(),
     threadStream: initialThreadStreamState(),
@@ -339,7 +341,13 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
     case "connection/context-replaced":
       return clearConnectionContextState(state);
     case "active-thread/cleared":
-      return clearThreadScopedState(state);
+      if (
+        action.expectedPanelTargetRevision !== undefined &&
+        action.expectedPanelTargetRevision !== state.panelTargetRevision
+      ) {
+        return state;
+      }
+      return clearThreadScopedState(state, { invalidatePanelTarget: true });
     case "active-thread/resumed":
       return reduceActiveThreadResumedTransition(state, action);
     case "active-thread/settings-applied":
@@ -412,8 +420,16 @@ function adoptPendingSteerItem(state: ChatThreadStreamState, item: ThreadStreamD
 }
 
 function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThreadResumedAction): ChatState {
+  if (
+    action.expectedPanelTargetRevision !== undefined &&
+    action.expectedPanelTargetRevision !== state.panelTargetRevision
+  ) {
+    return state;
+  }
   const runtimeBase = action.preserveRequestedRuntimeSettings ? state.runtime : initialChatRuntimeState();
   const turnScopedState = clearTurnScopedState(state);
+  const nextPanelTargetRevision =
+    panelThreadId(state) === action.thread.id ? state.panelTargetRevision : state.panelTargetRevision + 1;
   return patchChatState(turnScopedState, {
     connection: {
       ...state.connection,
@@ -435,6 +451,7 @@ function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThr
         provenance: action.thread.provenance,
       },
     },
+    panelTargetRevision: nextPanelTargetRevision,
     runtime: {
       ...runtimeBase,
       active: {
@@ -506,7 +523,7 @@ function reduceActiveThreadGoalSetTransition(state: ChatState, goal: ThreadGoal 
 }
 
 function reduceRestoredThreadAppliedTransition(state: ChatState, threadId: string, fallbackTitle: string | null): ChatState {
-  const cleared = clearThreadScopedState(state);
+  const cleared = clearThreadScopedState(state, { invalidatePanelTarget: true });
   return patchChatState(cleared, {
     connection: { ...cleared.connection, statusText: "Thread ready to resume." },
     panelThread: createAwaitingResumeThreadState(threadId, fallbackTitle),
@@ -519,7 +536,7 @@ function reduceRestoredThreadRenamedTransition(state: ChatState, threadId: strin
 }
 
 function reduceViewStateClearedTransition(state: ChatState): ChatState {
-  const cleared = clearThreadScopedState(state);
+  const cleared = clearThreadScopedState(state, { invalidatePanelTarget: true });
   return patchChatState(cleared, { connection: { ...cleared.connection, statusText: "Idle" } });
 }
 
@@ -531,6 +548,8 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
   if (!activeThread || activeThread.id !== action.threadId) return state;
   return patchChatState(state, {
     panelThread: { kind: "active", thread: activeThread },
+    panelTargetRevision:
+      panelThreadId(state) === action.threadId ? state.panelTargetRevision : state.panelTargetRevision + 1,
     turn: { lifecycle },
     connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
     threadStream: action.items
@@ -623,10 +642,17 @@ function clearTurnScopedState(state: ChatState): ChatState {
   });
 }
 
-function clearThreadScopedState(state: ChatState): ChatState {
+function clearThreadScopedState(
+  state: ChatState,
+  options: { invalidatePanelTarget?: boolean } = {},
+): ChatState {
   return clearTurnScopedState(
     patchChatState(state, {
       panelThread: initialPanelThreadState(),
+      panelTargetRevision:
+        options.invalidatePanelTarget || panelThreadId(state) !== null
+          ? state.panelTargetRevision + 1
+          : state.panelTargetRevision,
       runtime: initialChatRuntimeState(),
       threadStream: initialThreadStreamState(),
       pendingSubmission: null,
@@ -639,8 +665,13 @@ function clearThreadScopedState(state: ChatState): ChatState {
 function clearConnectionScopedState(state: ChatState): ChatState {
   const cleared = clearTurnScopedState(state);
   const ephemeralExpired = state.panelThread.kind === "active" && state.panelThread.thread.lifetime?.kind === "ephemeral";
+  const nextPanelThread = panelThreadAfterConnectionExit(state.panelThread);
   return patchChatState(cleared, {
-    panelThread: panelThreadAfterConnectionExit(state.panelThread),
+    panelThread: nextPanelThread,
+    panelTargetRevision:
+      panelThreadIdForState(nextPanelThread) === panelThreadId(state)
+        ? state.panelTargetRevision
+        : state.panelTargetRevision + 1,
     runtime: initialChatRuntimeState(),
     connection: {
       ...state.connection,
@@ -659,6 +690,7 @@ function clearConnectionContextState(state: ChatState): ChatState {
   const cleared = clearConnectionScopedState(state);
   return patchChatState(cleared, {
     panelThread: initialPanelThreadState(),
+    panelTargetRevision: state.panelTargetRevision + 1,
     connection: {
       ...cleared.connection,
       runtimeConfig: null,
@@ -680,11 +712,17 @@ function panelThreadAfterConnectionExit(panelThread: ChatPanelThreadState): Chat
   return createAwaitingResumeThreadState(panelThread.thread.id, panelThread.thread.title ?? null, panelThread.thread.provenance);
 }
 
+function panelThreadIdForState(panelThread: ChatPanelThreadState): string | null {
+  if (panelThread.kind === "awaiting-resume") return panelThread.threadId;
+  return panelThread.kind === "active" ? panelThread.thread.id : null;
+}
+
 function reduceChatSlices(state: ChatState, action: ChatSliceAction): ChatState {
   return patchChatState(state, {
     connection: reduceConnectionSlice(state.connection, action),
     threadList: reduceThreadListSlice(state.threadList, action),
     panelThread: reducePanelThreadSlice(state.panelThread, action),
+    panelTargetRevision: state.panelTargetRevision,
     runtime: reduceRuntimeSlice(state.runtime, action),
     turn: state.turn,
     pendingSubmission: state.pendingSubmission,

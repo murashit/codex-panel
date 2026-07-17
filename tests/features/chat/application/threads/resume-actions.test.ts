@@ -38,15 +38,16 @@ function activation(threadId: string, overrides: Partial<ThreadResumeSnapshot> =
 
 function createActions(response: ThreadResumeSnapshot | null = activation("thread"), overrides: Partial<ResumeActionsHost> = {}) {
   const stateStore = createChatStateStore(createChatState());
-  const resumeThread = vi.fn<ThreadResumeTransport["resumeThread"]>().mockResolvedValue(response);
+  const resumeThread = vi
+    .fn<ThreadResumeTransport["resumeThread"]>()
+    .mockResolvedValue(response ? { kind: "completed-current", value: response } : { kind: "not-started" });
   const loadLatest = vi.fn().mockResolvedValue(undefined);
   const applyLatestPage = vi.fn();
   const invalidateHistory = vi.fn();
-  const host = {
+  const host: ResumeActionsHost & { systemItem: (text: string) => ThreadStreamItem } = {
     stateStore,
     resumeWork: new ChatResumeWorkTracker(),
     history: { loadLatest, applyLatestPage, invalidate: invalidateHistory } as unknown as HistoryController,
-    resumeTransport: { resumeThread },
     closing: () => false,
     systemItem: (text: string) => ({ id: "system", kind: "system" as const, role: "system" as const, text }),
     resetThreadTurnPresence: vi.fn(),
@@ -55,6 +56,7 @@ function createActions(response: ThreadResumeSnapshot | null = activation("threa
     refreshLiveState: vi.fn(),
     syncThreadGoal: vi.fn().mockResolvedValue(undefined),
     ...overrides,
+    resumeTransport: overrides.resumeTransport ?? { ensureConnected: vi.fn().mockResolvedValue(true), resumeThread },
   };
   return {
     actions: createResumeActions(host),
@@ -101,6 +103,30 @@ describe("ResumeActions", () => {
     expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(loadLatest).not.toHaveBeenCalled();
     expect(host.syncThreadGoal).not.toHaveBeenCalled();
+  });
+
+  it("does not invoke an older resume after a newer intent wins during connection", async () => {
+    const firstConnection = deferred<boolean>();
+    const resumeThread = vi
+      .fn<ThreadResumeTransport["resumeThread"]>()
+      .mockImplementation(async (threadId) => ({
+        kind: "completed-current",
+        value: activation(threadId),
+      }));
+    const ensureConnected = vi.fn().mockReturnValueOnce(firstConnection.promise).mockResolvedValue(true);
+    const { actions, stateStore } = createActions(undefined, {
+      resumeTransport: { ensureConnected, resumeThread },
+    });
+
+    const firstResume = actions.resumeThread("first");
+    await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
+    await expect(actions.resumeThread("second")).resolves.toBe(true);
+    await firstConnection.resolveAndFlush(true);
+    await expect(firstResume).resolves.toBe(false);
+
+    expect(resumeThread).toHaveBeenCalledOnce();
+    expect(resumeThread).toHaveBeenCalledWith("second");
+    expect(activeThreadId(stateStore.getState())).toBe("second");
   });
 
   it("refreshes live state after resumed history and goal sync finish", async () => {

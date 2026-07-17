@@ -6,6 +6,11 @@ import { activePanelOperationDecision } from "../panel-operation-policy";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import {
+  capturePanelTargetLease,
+  type PanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../state/panel-target";
+import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
   localUserDialogueItemFromInput,
@@ -76,16 +81,17 @@ async function sendTurnText(
   request: TurnSubmissionRequest,
 ): Promise<boolean> {
   const { text, inputSnapshot, codexInputOverride, referencedThread } = request;
+  let panelTarget = capturePanelTargetLease(host.stateStore.getState());
   const prepared = codexInputOverride
     ? { text, input: codexInputOverride }
     : inputSnapshot
       ? host.prepareInput(text, inputSnapshot)
       : { text, input: codexTextInput(text) };
-  if (!pendingRequestIsCurrent(host, request)) return false;
+  if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
   if (!(await host.turnTransport.ensureConnected())) return false;
-  if (!pendingRequestIsCurrent(host, request)) return false;
+  if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
   if (!(await host.ensureRestoredThreadLoaded())) return false;
-  if (!pendingRequestIsCurrent(host, request)) return false;
+  if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
 
   const operationDecision = activePanelOperationDecision(host.stateStore.getState(), "submit");
   if (operationDecision.kind === "blocked") {
@@ -111,7 +117,8 @@ async function sendTurnText(
           if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
           return false;
         }
-        if (!pendingRequestIsCurrent(host, request)) return false;
+        panelTarget = capturePanelTargetLease(host.stateStore.getState());
+        if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
         break;
       case "start-turn":
         break;
@@ -127,7 +134,10 @@ async function sendTurnText(
       if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
       return false;
     }
-    if (!pendingRequestIsCurrent(host, request) || submissionStateSnapshot(host.stateStore.getState()).activeThreadId !== activeThreadId) {
+    if (
+      !submissionScopeIsCurrent(host, request, panelTarget) ||
+      submissionStateSnapshot(host.stateStore.getState()).activeThreadId !== activeThreadId
+    ) {
       return false;
     }
 
@@ -190,7 +200,7 @@ async function sendTurnText(
     return true;
   } catch (error) {
     const failedState = submissionStateSnapshot(host.stateStore.getState());
-    const currentBeforeAdoption = !optimisticItemId && pendingRequestIsCurrent(host, request);
+    const currentBeforeAdoption = !optimisticItemId && submissionScopeIsCurrent(host, request, panelTarget);
     const currentAfterAdoption =
       optimisticItemId !== null &&
       failedState.activeThreadId === expectedThreadId &&
@@ -336,6 +346,14 @@ function pendingRequestIsCurrent(host: TurnSubmissionActionsHost, request: TurnS
     { pendingSubmission: state.pendingSubmission, activeThreadId: submissionStateSnapshot(state).activeThreadId },
     request.pendingSubmissionId,
   );
+}
+
+function submissionScopeIsCurrent(
+  host: TurnSubmissionActionsHost,
+  request: TurnSubmissionRequest,
+  panelTarget: PanelTargetLease,
+): boolean {
+  return pendingRequestIsCurrent(host, request) && panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget);
 }
 
 function commitPendingRequest(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest): boolean {

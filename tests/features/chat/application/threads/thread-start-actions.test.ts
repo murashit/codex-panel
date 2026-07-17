@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/config";
 import type { ThreadActivationSnapshot } from "../../../../../src/domain/threads/activation";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { runtimeSnapshotForChatState } from "../../../../../src/features/chat/application/runtime/snapshot";
 import { resumedThreadAction } from "../../../../../src/features/chat/application/state/actions";
 import { activeThreadId } from "../../../../../src/features/chat/application/state/root-reducer";
@@ -25,7 +26,7 @@ describe("thread start actions", () => {
 
     const actions = createThreadStartActions({
       stateStore,
-      threadStartTransport: { startThread: vi.fn().mockResolvedValue(activationFixture(started)) },
+      threadStartTransport: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       recordStartedThread,
       syncThreadGoal,
@@ -47,10 +48,12 @@ describe("thread start actions", () => {
     stateStore.dispatch({ type: "runtime/approvals-reviewer-requested", approvalsReviewer: "auto_review" });
     stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
     const startThread = vi.fn().mockResolvedValue(
-      activationFixture(threadFixture("started"), {
-        model: "gpt-5",
-        serviceTier: "fast",
-      }),
+      completedActivation(
+        activationFixture(threadFixture("started"), {
+          model: "gpt-5",
+          serviceTier: "fast",
+        }),
+      ),
     );
 
     const actions = createThreadStartActions({
@@ -81,7 +84,9 @@ describe("thread start actions", () => {
     const syncThreadGoal = vi.fn();
     const actions = createThreadStartActions({
       stateStore,
-      threadStartTransport: { startThread: vi.fn().mockResolvedValue(activationFixture(threadFixture("started"))) },
+      threadStartTransport: {
+        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
+      },
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       recordStartedThread: vi.fn(),
       syncThreadGoal,
@@ -108,7 +113,9 @@ describe("thread start actions", () => {
     });
     const actions = createThreadStartActions({
       stateStore,
-      threadStartTransport: { startThread: vi.fn().mockResolvedValue(activationFixture(threadFixture("started"))) },
+      threadStartTransport: {
+        startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started")))),
+      },
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       recordStartedThread: vi.fn(),
       syncThreadGoal: vi.fn(),
@@ -133,7 +140,7 @@ describe("thread start actions", () => {
         phase: "cancellable",
       },
     });
-    const started = deferred<ThreadActivationSnapshot | null>();
+    const started = deferred<EffectOutcome<ThreadActivationSnapshot>>();
     const recordStartedThread = vi.fn();
     const actions = createThreadStartActions({
       stateStore,
@@ -145,18 +152,20 @@ describe("thread start actions", () => {
 
     const starting = actions.startThread(pending.text, { preservePendingSubmissionId: pending.id });
     stateStore.dispatch(resumedThreadAction({ response: activationFixture(threadFixture("selected")) }));
-    started.resolve(activationFixture(threadFixture("delayed")));
+    started.resolve(completedActivation(activationFixture(threadFixture("delayed"))));
 
-    await expect(starting).resolves.toBeNull();
+    await expect(starting).resolves.toEqual({ kind: "created-not-activated", threadId: "delayed" });
     expect(activeThreadId(stateStore.getState())).toBe("selected");
-    expect(recordStartedThread).not.toHaveBeenCalled();
+    expect(recordStartedThread).toHaveBeenCalledWith(threadFixture("delayed", { preview: pending.text }));
   });
 
   it("starts threads with service tier from explicit effective config", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { connection: { runtimeConfig: { ...emptyRuntimeConfigSnapshot(), serviceTier: "flex" } } });
     const stateStore = createChatStateStore(state);
-    const startThread = vi.fn().mockResolvedValue(activationFixture(threadFixture("started"), { serviceTier: "flex" }));
+    const startThread = vi
+      .fn()
+      .mockResolvedValue(completedActivation(activationFixture(threadFixture("started"), { serviceTier: "flex" })));
     const actions = createThreadStartActions({
       stateStore,
       threadStartTransport: { startThread },
@@ -184,7 +193,7 @@ describe("thread start actions", () => {
       },
     });
     const stateStore = createChatStateStore(state);
-    const startThread = vi.fn().mockResolvedValue(activationFixture(threadFixture("started")));
+    const startThread = vi.fn().mockResolvedValue(completedActivation(activationFixture(threadFixture("started"))));
     const actions = createThreadStartActions({
       stateStore,
       threadStartTransport: { startThread },
@@ -204,7 +213,7 @@ describe("thread start actions", () => {
     const recordStartedThread = vi.fn();
     const actions = createThreadStartActions({
       stateStore,
-      threadStartTransport: { startThread: vi.fn().mockResolvedValue(activationFixture(started)) },
+      threadStartTransport: { startThread: vi.fn().mockResolvedValue(completedActivation(activationFixture(started))) },
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       recordStartedThread,
       syncThreadGoal: vi.fn(),
@@ -221,13 +230,13 @@ describe("thread start actions", () => {
     const syncThreadGoal = vi.fn();
     const actions = createThreadStartActions({
       stateStore,
-      threadStartTransport: { startThread: vi.fn().mockResolvedValue(null) },
+      threadStartTransport: { startThread: vi.fn().mockResolvedValue({ kind: "not-started" }) },
       runtimeSnapshotForState: runtimeSnapshotForChatState,
       recordStartedThread,
       syncThreadGoal,
     });
 
-    await expect(actions.startThread("local preview")).resolves.toBeNull();
+    await expect(actions.startThread("local preview")).resolves.toEqual({ kind: "not-started" });
     expect(activeThreadId(stateStore.getState())).toBeNull();
     expect(stateStore.getState().threadList.listedThreads).toEqual([]);
     expect(recordStartedThread).not.toHaveBeenCalled();
@@ -265,4 +274,8 @@ function activationFixture(thread: Thread, overrides: Partial<ThreadActivationSn
     permissionProfileKnown: false,
     ...overrides,
   };
+}
+
+function completedActivation(value: ThreadActivationSnapshot): EffectOutcome<ThreadActivationSnapshot> {
+  return { kind: "completed-current", value };
 }

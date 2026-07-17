@@ -60,6 +60,7 @@ function createHost(overrides: Partial<ChatReconnectActionsHost> = {}) {
         serviceTier: null,
         approvalsReviewer: null,
       });
+      return true;
     }),
     addSystemMessage: vi.fn(),
     ...overrides,

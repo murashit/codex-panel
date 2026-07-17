@@ -1,5 +1,7 @@
 import { ephemeralThreadActivatedAction } from "../state/actions";
+import { effectCompletedInCurrentContext } from "../effect-outcome";
 import { activeThreadState } from "../state/root-reducer";
+import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { activeTurnId, chatTurnBusy } from "../turns/turn-state";
 import type { EphemeralThreadTransport } from "./ephemeral-thread-transport";
@@ -41,16 +43,19 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
   return {
     async open(input): Promise<boolean> {
       const generation = ++openGeneration;
+      const panelTarget = capturePanelTargetLease(host.stateStore.getState());
       if (!(await host.ensureConnected())) return false;
-      const result = await host.transport.forkEphemeralThread(input.sourceThreadId);
-      if (!result) return false;
+      if (disposed || generation !== openGeneration || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
+      const effect = await host.transport.forkEphemeralThread(input.sourceThreadId);
+      if (!effectCompletedInCurrentContext(effect)) return false;
+      const result = effect.value;
       if (result.kind === "cleanup-required") {
         cleanupRequiredThreadIds.add(result.threadId);
         host.addSystemMessage("Could not prepare the side chat. Cleanup will be retried when this view closes.");
         return false;
       }
       const snapshot = result;
-      if (disposed || generation !== openGeneration) {
+      if (disposed || generation !== openGeneration || !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) {
         try {
           await host.transport.unsubscribeEphemeralThread(snapshot.activation.thread.id);
         } catch {
@@ -63,29 +68,36 @@ export function createEphemeralThreadLifecycle(host: EphemeralThreadLifecycleHos
           response: snapshot.activation,
           sourceThreadId: input.sourceThreadId,
           sourceThreadTitle: input.sourceThreadTitle,
+          expectedPanelTargetRevision: panelTarget.revision,
         }),
       );
+      if (activeThreadState(host.stateStore.getState())?.id !== snapshot.activation.thread.id) return false;
       host.notifyActiveThreadIdentityChanged();
       return true;
     },
 
     async prepareForPersistentNavigation(): Promise<boolean> {
       const state = host.stateStore.getState();
-      if (activeThreadState(state)?.lifetime?.kind !== "ephemeral") return true;
+      const active = activeThreadState(state);
+      if (active?.lifetime?.kind !== "ephemeral") return true;
+      const panelTarget = capturePanelTargetLease(state);
       if (chatTurnBusy(state)) {
         host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
         return false;
       }
       try {
         if (!(await unsubscribeActiveEphemeralThread())) {
+          if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
           host.addSystemMessage("Could not discard the side chat. Try again before switching threads.");
           return false;
         }
       } catch (error) {
+        if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
         host.addSystemMessage(error instanceof Error ? error.message : String(error));
         return false;
       }
-      host.stateStore.dispatch({ type: "active-thread/cleared" });
+      if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) return false;
+      host.stateStore.dispatch({ type: "active-thread/cleared", expectedPanelTargetRevision: panelTarget.revision });
       host.notifyActiveThreadIdentityChanged();
       return true;
     },

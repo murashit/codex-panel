@@ -2,15 +2,18 @@ import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
 import type { RuntimeSnapshot } from "../../domain/runtime/snapshot";
 import { permissionProfileRequestForThreadStart, serviceTierRequestForThreadStart } from "../../domain/runtime/thread-settings-patch";
+import { effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
+import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import { activeThreadId, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadStartTransport } from "./thread-start-transport";
 
-interface StartedThreadSummary {
-  threadId: string;
-}
+export type ThreadStartOutcome =
+  | { readonly kind: "not-started" }
+  | { readonly kind: "created-activated"; readonly threadId: string }
+  | { readonly kind: "created-not-activated"; readonly threadId: string };
 
 export interface ThreadStartActionsHost {
   stateStore: ChatStateStore;
@@ -24,7 +27,7 @@ export interface ThreadStartActions {
   startThread: (
     preview?: string,
     options?: { syncGoal?: boolean; preservePendingSubmissionId?: string },
-  ) => Promise<StartedThreadSummary | null>;
+  ) => Promise<ThreadStartOutcome>;
 }
 
 export function createThreadStartActions(host: ThreadStartActionsHost): ThreadStartActions {
@@ -37,15 +40,27 @@ async function startThread(
   host: ThreadStartActionsHost,
   preview?: string,
   options: { syncGoal?: boolean; preservePendingSubmissionId?: string } = {},
-): Promise<StartedThreadSummary | null> {
+): Promise<ThreadStartOutcome> {
   const requestState = host.stateStore.getState();
+  const panelTarget = capturePanelTargetLease(requestState);
   const runtimeSnapshot = host.runtimeSnapshotForState(requestState);
   const runtimeConfig = runtimeConfigOrDefault(requestState.connection.runtimeConfig);
-  const activation = await host.threadStartTransport.startThread({
+  const effect = await host.threadStartTransport.startThread({
     serviceTier: serviceTierRequestForThreadStart(runtimeSnapshot, runtimeConfig),
     permissions: permissionProfileRequestForThreadStart(runtimeSnapshot, runtimeConfig),
   });
-  if (!activation) return null;
+  if (!effectCompleted(effect)) return { kind: "not-started" };
+  const activation = effect.value;
+  if (!effectCompletedInCurrentContext(effect)) {
+    return { kind: "created-not-activated", threadId: activation.thread.id };
+  }
+  const fallbackPreview = preview?.trim();
+  const thread =
+    activation.thread.preview.trim().length > 0 || !fallbackPreview
+      ? activation.thread
+      : { ...activation.thread, preview: fallbackPreview };
+  const patchedActivation = thread === activation.thread ? activation : { ...activation, thread };
+  host.recordStartedThread(thread);
   const current = host.stateStore.getState();
   if (
     options.preservePendingSubmissionId &&
@@ -54,24 +69,24 @@ async function startThread(
       options.preservePendingSubmissionId,
     )
   ) {
-    return null;
+    return { kind: "created-not-activated", threadId: activation.thread.id };
+  }
+  if (!panelTargetLeaseIsCurrent(current, panelTarget)) {
+    return { kind: "created-not-activated", threadId: activation.thread.id };
   }
 
   const state = host.stateStore.getState();
-  const fallbackPreview = preview?.trim();
-  const thread =
-    activation.thread.preview.trim().length > 0 || !fallbackPreview
-      ? activation.thread
-      : { ...activation.thread, preview: fallbackPreview };
-  const patchedActivation = thread === activation.thread ? activation : { ...activation, thread };
   const action = resumedThreadAction({
     response: patchedActivation,
     listedThreads: state.threadList.listedThreads,
     preserveRequestedRuntimeSettings: activeThreadId(requestState) === null,
+    expectedPanelTargetRevision: panelTarget.revision,
     ...(options.preservePendingSubmissionId ? { preservePendingSubmissionId: options.preservePendingSubmissionId } : {}),
   });
-  host.stateStore.dispatch(action);
-  host.recordStartedThread(action.thread);
+  const applied = host.stateStore.dispatch(action);
+  if (activeThreadId(applied) !== action.thread.id) {
+    return { kind: "created-not-activated", threadId: action.thread.id };
+  }
   if (options.syncGoal ?? true) host.syncThreadGoal(action.thread.id);
-  return { threadId: action.thread.id };
+  return { kind: "created-activated", threadId: action.thread.id };
 }

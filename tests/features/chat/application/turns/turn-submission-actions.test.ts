@@ -151,6 +151,32 @@ describe("TurnSubmissionActions", () => {
     expect(startTurn).not.toHaveBeenCalled();
   });
 
+  it("does not submit to an old thread after the panel changes during connection", async () => {
+    const connection = deferred<boolean>();
+    const ensureConnected = vi.fn(() => connection.promise);
+    const { host, startTurn, stateStore } = createHost({
+      turnTransport: {
+        ensureConnected,
+        startTurn: vi.fn().mockResolvedValue({ turnId: "turn" }),
+        steerTurn: vi.fn().mockResolvedValue(true),
+        interruptTurn: vi.fn().mockResolvedValue(true),
+      },
+    });
+    resumeThread(stateStore, undefined, "first");
+    const actions = createTurnSubmissionActions(host);
+
+    const submitting = actions.sendTurnText({ text: "hello" });
+    await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
+    resumeThread(stateStore, undefined, "second");
+    connection.resolve(true);
+
+    await expect(submitting).resolves.toBe(false);
+    expect(startTurn).not.toHaveBeenCalled();
+    expect(host.applyPendingThreadSettings).not.toHaveBeenCalled();
+    expect(host.setDraft).not.toHaveBeenCalled();
+    expect(activeThreadId(stateStore.getState())).toBe("second");
+  });
+
   it("blocks direct turn submission after a restored thread resolves to a subagent", async () => {
     const { host, startTurn, stateStore } = createHost({
       ensureRestoredThreadLoaded: vi.fn().mockImplementation(async () => {
@@ -158,6 +184,7 @@ describe("TurnSubmissionActions", () => {
         return true;
       }),
     });
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "child", fallbackTitle: "Agent" });
     const actions = createTurnSubmissionActions(host);
 
     await expect(actions.sendTurnText({ text: "hello" })).resolves.toBe(false);

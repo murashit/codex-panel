@@ -2,8 +2,14 @@ import type { ThreadGoal, ThreadGoalStatus, ThreadGoalUpdate } from "../../../..
 import { goalChangeItem } from "../../domain/thread-stream/factories/goal-items";
 import type { GoalThreadStreamItem } from "../../domain/thread-stream/items";
 import type { LocalIdSource } from "../local-id-source";
+import { effectCompletedInCurrentContext } from "../effect-outcome";
 import { activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId, activeThreadState } from "../state/root-reducer";
+import {
+  capturePanelTargetLease,
+  type PanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "./goal-transport";
 
@@ -81,12 +87,13 @@ export function createGoalActions(host: GoalActionsHost): GoalActions {
 }
 
 async function syncThreadGoal(host: ThreadGoalSyncHost, threadId: string): Promise<void> {
+  const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   try {
     const goal = await host.goalTransport.readThreadGoal(threadId);
     if (goal === undefined) return;
-    applyGoalIfActive(host, threadId, goal, { reportChange: false });
+    applyGoalIfActive(host, threadId, goal, { reportChange: false, panelTarget });
   } catch (error) {
-    addThreadScopedSystemMessage(host, threadId, `Could not load thread goal: ${errorMessage(error)}`);
+    addThreadScopedSystemMessage(host, threadId, `Could not load thread goal: ${errorMessage(error)}`, panelTarget);
   }
 }
 
@@ -138,24 +145,28 @@ function setGoalStatus(host: GoalActionsHost, threadId: string, status: ThreadGo
 
 async function clearGoal(host: GoalActionsHost, threadId: string): Promise<boolean> {
   if (!(await prepareGoalMutation(host)) || !goalMutationTargetsActiveThread(host, threadId)) return false;
+  const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   try {
-    if (!(await host.goalTransport.clearThreadGoal(threadId))) return false;
-    applyGoalIfActive(host, threadId, null, { reportChange: true });
-    return true;
+    if (!(await host.goalTransport.ensureConnected()) || !goalMutationScopeIsCurrent(host, threadId, panelTarget)) return false;
+    const effect = await host.goalTransport.clearThreadGoal(threadId);
+    if (!effectCompletedInCurrentContext(effect)) return false;
+    return applyGoalIfActive(host, threadId, null, { reportChange: true, panelTarget });
   } catch (error) {
-    addThreadScopedSystemMessage(host, threadId, errorMessage(error));
+    addThreadScopedSystemMessage(host, threadId, errorMessage(error), panelTarget);
     return false;
   }
 }
 
 async function setGoal(host: GoalActionsHost, threadId: string, params: ThreadGoalUpdate): Promise<boolean> {
   if (!(await prepareGoalMutation(host)) || !goalMutationTargetsActiveThread(host, threadId)) return false;
+  const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   try {
-    const goal = await host.goalTransport.setThreadGoal(threadId, params);
-    if (goal === undefined) return false;
-    return applyGoalIfActive(host, threadId, goal, { reportChange: true });
+    if (!(await host.goalTransport.ensureConnected()) || !goalMutationScopeIsCurrent(host, threadId, panelTarget)) return false;
+    const effect = await host.goalTransport.setThreadGoal(threadId, params);
+    if (!effectCompletedInCurrentContext(effect)) return false;
+    return applyGoalIfActive(host, threadId, effect.value, { reportChange: true, panelTarget });
   } catch (error) {
-    addThreadScopedSystemMessage(host, threadId, errorMessage(error));
+    addThreadScopedSystemMessage(host, threadId, errorMessage(error), panelTarget);
     return false;
   }
 }
@@ -164,9 +175,10 @@ function applyGoalIfActive(
   host: ThreadGoalSyncHost,
   threadId: string,
   goal: ThreadGoal | null,
-  options: { reportChange: boolean },
+  options: { reportChange: boolean; panelTarget?: PanelTargetLease },
 ): boolean {
   const state = host.stateStore.getState();
+  if (options.panelTarget && !panelTargetLeaseIsCurrent(state, options.panelTarget)) return false;
   const activeThread = activeThreadState(state);
   if (!activeThread || activeThread.id !== threadId) return false;
   const item = options.reportChange ? goalChangeItem(host.localItemIds.next("goal"), activeThread.goal, goal) : null;
@@ -254,9 +266,19 @@ async function recordGoalUserMessage(host: GoalActionsHost, threadId: string, ob
   }
 }
 
-function addThreadScopedSystemMessage(host: ThreadGoalSyncHost, threadId: string, text: string): void {
-  if (activeThreadId(host.stateStore.getState()) !== threadId) return;
+function addThreadScopedSystemMessage(
+  host: ThreadGoalSyncHost,
+  threadId: string,
+  text: string,
+  panelTarget?: PanelTargetLease,
+): void {
+  const state = host.stateStore.getState();
+  if ((panelTarget && !panelTargetLeaseIsCurrent(state, panelTarget)) || activeThreadId(state) !== threadId) return;
   host.addSystemMessage(text);
+}
+
+function goalMutationScopeIsCurrent(host: GoalActionsHost, threadId: string, panelTarget: PanelTargetLease): boolean {
+  return panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) && goalMutationTargetsActiveThread(host, threadId);
 }
 
 function errorMessage(error: unknown): string {

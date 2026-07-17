@@ -1,8 +1,14 @@
 import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
+import { effectCompletedInCurrentContext } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
+import {
+  capturePanelTargetLease,
+  type PanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatTurnBusy } from "../turns/turn-state";
@@ -46,6 +52,7 @@ interface ThreadManagementPanelScope {
   targetThreadId: string;
   initialActiveThreadId: string | null;
   initialTurnLifecycle: ChatState["turn"]["lifecycle"];
+  panelTarget: PanelTargetLease;
 }
 
 export function createThreadManagementActions(host: ThreadManagementActionsHost): ThreadManagementActions {
@@ -73,11 +80,15 @@ async function compactThread(host: ThreadManagementActionsHost, threadId: string
   if (activePanelOperationBlocked(host, threadId, "compact")) return;
   const scope = captureThreadManagementPanelScope(host, threadId);
   try {
-    if (!(await host.threadTransport.compactThread(threadId))) return;
+    if (!(await host.threadTransport.ensureConnected())) return;
+    if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
+    const effect = await host.threadTransport.compactThread(threadId);
+    if (!effectCompletedInCurrentContext(effect)) return;
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(STATUS_COMPACTION_REQUESTED);
     host.setStatus(STATUS_COMPACTION_REQUESTED);
   } catch (error) {
+    if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
 }
@@ -125,8 +136,11 @@ async function forkThreadFromTurn(
 
   try {
     const sourceName = inheritedForkThreadName(threadId, threadManagementState(host).threadList.listedThreads);
-    const forkedThread = turnId ? await host.threadTransport.forkThread(threadId, turnId) : await host.threadTransport.forkThread(threadId);
-    if (!forkedThread) return;
+    if (!(await host.threadTransport.ensureConnected())) return;
+    if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
+    const effect = turnId ? await host.threadTransport.forkThread(threadId, turnId) : await host.threadTransport.forkThread(threadId);
+    if (!effectCompletedInCurrentContext(effect)) return;
+    const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
     host.recordForkedThread(forkedThread);
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
@@ -134,6 +148,7 @@ async function forkThreadFromTurn(
       try {
         if (!(await host.operations.renameThread(forkedThreadId, sourceName))) return;
       } catch (error) {
+        if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
         const message = error instanceof Error ? error.message : String(error);
         host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
       }
@@ -143,6 +158,7 @@ async function forkThreadFromTurn(
       try {
         await host.openThreadInCurrentPanel(forkedThreadId);
       } catch (error) {
+        if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
         const message = error instanceof Error ? error.message : String(error);
         host.addSystemMessage(`Archived thread ${threadId}, but could not open forked thread ${forkedThreadId}: ${message}`);
       }
@@ -151,10 +167,12 @@ async function forkThreadFromTurn(
     try {
       await host.openThreadInNewView(forkedThreadId);
     } catch (error) {
+      if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
       const message = error instanceof Error ? error.message : String(error);
       host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not open it in a new panel: ${message}`);
     }
   } catch (error) {
+    if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
   }
 }
@@ -186,8 +204,11 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
 
   try {
     host.setStatus(STATUS_ROLLBACK_STARTING);
-    const snapshot = await host.threadTransport.rollbackThread(threadId);
-    if (!snapshot) return;
+    if (!(await host.threadTransport.ensureConnected())) return;
+    if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
+    const effect = await host.threadTransport.rollbackThread(threadId);
+    if (!effectCompletedInCurrentContext(effect)) return;
+    const snapshot = effect.value;
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     threadManagementDispatch(
       host,
@@ -196,6 +217,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
         cwd: snapshot.cwd,
         runtime: activeThreadRuntimeState(threadManagementState(host).runtime),
         listedThreads: threadManagementState(host).threadList.listedThreads,
+        expectedPanelTargetRevision: scope.panelTarget.revision,
       }),
     );
     threadManagementDispatch(host, {
@@ -210,6 +232,7 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     host.notifyActiveThreadIdentityChanged();
     await host.refreshAfterThreadMutation();
   } catch (error) {
+    if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     host.setStatus(STATUS_ROLLBACK_FAILED);
   }
@@ -237,15 +260,22 @@ function captureThreadManagementPanelScope(host: ThreadManagementActionsHost, ta
     targetThreadId,
     initialActiveThreadId: activeThreadId(threadManagementState(host)),
     initialTurnLifecycle: threadManagementState(host).turn.lifecycle,
+    panelTarget: capturePanelTargetLease(threadManagementState(host)),
   };
 }
 
 function threadManagementScopeStillTargetsPanel(host: ThreadManagementActionsHost, scope: ThreadManagementPanelScope): boolean {
   const state = threadManagementState(host);
-  return activeThreadId(state) === scope.targetThreadId && state.turn.lifecycle === scope.initialTurnLifecycle;
+  return (
+    panelTargetLeaseIsCurrent(state, scope.panelTarget) &&
+    activeThreadId(state) === scope.targetThreadId &&
+    state.turn.lifecycle === scope.initialTurnLifecycle
+  );
 }
 
 function threadManagementScopeStillTargetsOriginalPanel(host: ThreadManagementActionsHost, scope: ThreadManagementPanelScope): boolean {
+  const state = threadManagementState(host);
+  if (!panelTargetLeaseIsCurrent(state, scope.panelTarget)) return false;
   if (!scope.initialActiveThreadId) return true;
-  return scope.initialActiveThreadId === scope.targetThreadId && activeThreadId(threadManagementState(host)) === scope.targetThreadId;
+  return scope.initialActiveThreadId === scope.targetThreadId && activeThreadId(state) === scope.targetThreadId;
 }

@@ -20,6 +20,7 @@ interface ResumedThreadActionParams {
   preserveRequestedRuntimeSettings?: boolean;
   serviceTierKnown?: boolean;
   preservePendingSubmissionId?: string;
+  expectedPanelTargetRevision?: number;
 }
 
 interface ResumedThreadFromActiveRuntimeParams {
@@ -41,6 +42,7 @@ interface ResumedThreadFromActiveRuntimeParams {
   >;
   listedThreads?: readonly Thread[];
   items?: readonly ThreadStreamItem[];
+  expectedPanelTargetRevision?: number;
 }
 
 export interface ActiveThreadResumedAction extends RuntimePermissionState, RuntimePermissionKnownState {
@@ -57,6 +59,7 @@ export interface ActiveThreadResumedAction extends RuntimePermissionState, Runti
   listedThreads?: readonly Thread[];
   preserveRequestedRuntimeSettings?: boolean;
   preservePendingSubmissionId?: string;
+  expectedPanelTargetRevision?: number;
   lifetime?:
     | { readonly kind: "persistent" }
     | { readonly kind: "ephemeral"; readonly sourceThreadId: string; readonly sourceThreadTitle: string | null };
@@ -100,6 +103,7 @@ export interface ClearLocalTurnAction {
 
 export interface ClearActiveThreadAction {
   type: "active-thread/cleared";
+  expectedPanelTargetRevision?: number;
 }
 
 export interface ThreadListAppliedAction {
@@ -151,6 +155,9 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
     serviceTierKnown: params.runtime.serviceTierKnown,
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
     ...(params.items ? { items: params.items } : {}),
+    ...(params.expectedPanelTargetRevision === undefined
+      ? {}
+      : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
   });
 }
 
@@ -177,6 +184,9 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
       : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
     ...(params.preservePendingSubmissionId ? { preservePendingSubmissionId: params.preservePendingSubmissionId } : {}),
+    ...(params.expectedPanelTargetRevision === undefined
+      ? {}
+      : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
   };
 }
 

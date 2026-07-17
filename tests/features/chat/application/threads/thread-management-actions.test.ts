@@ -1,6 +1,7 @@
 import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { activeThreadId } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import {
@@ -18,6 +19,7 @@ import { chatStateFixture, chatStateWith } from "../../support/state";
 import { chatStateThreadStreamItems, withChatStateThreadStreamItems } from "../../support/thread-stream";
 
 interface ThreadMutationTransportMock {
+  ensureConnected: Mock<ThreadMutationTransport["ensureConnected"]>;
   compactThread: Mock<ThreadMutationTransport["compactThread"]>;
   forkThread: Mock<ThreadMutationTransport["forkThread"]>;
   rollbackThread: Mock<ThreadMutationTransport["rollbackThread"]>;
@@ -66,6 +68,38 @@ describe("thread management actions", () => {
     await threadManagementActions(host).compactThread("side-thread");
 
     expect(host.threadTransport.compactThread).toHaveBeenCalledWith("side-thread");
+  });
+
+  it("does not compact an old panel target after connection completes", async () => {
+    const connection = deferred<boolean>();
+    const host = hostMock({
+      items: [],
+      activeThread: { id: "source" },
+      threadTransport: { ensureConnected: vi.fn(() => connection.promise) },
+    });
+    const compacting = threadManagementActions(host).compactThread("source");
+    await waitForAsyncWork(() => expect(host.threadTransport.ensureConnected).toHaveBeenCalledOnce());
+
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: panelThread("other"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    connection.resolve(true);
+    await compacting;
+
+    expect(host.threadTransport.compactThread).not.toHaveBeenCalled();
+    expect(activeThreadId(host.stateStore.getState())).toBe("other");
   });
 
   it("does not fork an ephemeral side chat", async () => {
@@ -172,7 +206,7 @@ describe("thread management actions", () => {
   });
 
   it("does not report compaction completion after the panel switches threads", async () => {
-    const compact = deferred<boolean>();
+    const compact = deferred<EffectOutcome<void>>();
     const host = hostMock({ items: [] });
     host.threadTransport.compactThread.mockReturnValue(compact.promise);
     host.stateStore.dispatch({
@@ -211,7 +245,7 @@ describe("thread management actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    compact.resolve(true);
+    compact.resolve(completedCurrent(undefined));
     await pendingCompact;
 
     expect(host.addSystemMessage).not.toHaveBeenCalledWith("Compaction requested.");
@@ -222,7 +256,7 @@ describe("thread management actions", () => {
     const host = hostMock({
       items: [],
       threadTransport: {
-        compactThread: vi.fn<ThreadMutationTransport["compactThread"]>().mockResolvedValue(false),
+        compactThread: vi.fn<ThreadMutationTransport["compactThread"]>().mockResolvedValue({ kind: "not-started" }),
       },
     });
     const controller = threadManagementActions(host);
@@ -332,7 +366,7 @@ describe("thread management actions", () => {
   });
 
   it("does not archive or replace the panel from stale fork responses", async () => {
-    const fork = deferred<Thread | null>();
+    const fork = deferred<EffectOutcome<Thread>>();
     const host = hostMock({ items: turnItems() });
     host.threadTransport.forkThread.mockReturnValue(fork.promise);
     host.stateStore.dispatch({
@@ -375,7 +409,7 @@ describe("thread management actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    fork.resolve(panelThread("forked"));
+    fork.resolve(completedCurrent(panelThread("forked")));
     await pendingFork;
 
     expect(host.operations.archiveThread).not.toHaveBeenCalled();
@@ -387,7 +421,7 @@ describe("thread management actions", () => {
     const host = hostMock({
       items: turnItems(),
       threadTransport: {
-        forkThread: vi.fn<ThreadMutationTransport["forkThread"]>().mockResolvedValue(null),
+        forkThread: vi.fn<ThreadMutationTransport["forkThread"]>().mockResolvedValue({ kind: "not-started" }),
       },
     });
     const controller = threadManagementActions(host);
@@ -475,7 +509,7 @@ describe("thread management actions", () => {
   });
 
   it("ignores stale rollback responses after the panel switches threads", async () => {
-    const rollback = deferred<ThreadRollbackSnapshot | null>();
+    const rollback = deferred<EffectOutcome<ThreadRollbackSnapshot>>();
     const host = hostMock({ items: turnItems() });
     host.threadTransport.rollbackThread.mockReturnValue(rollback.promise);
     host.stateStore.dispatch({
@@ -520,7 +554,7 @@ describe("thread management actions", () => {
       serviceTier: null,
       approvalsReviewer: null,
     });
-    rollback.resolve(rollbackSnapshot());
+    rollback.resolve(completedCurrent(rollbackSnapshot()));
     await pendingRollback;
 
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
@@ -530,7 +564,7 @@ describe("thread management actions", () => {
   });
 
   it("ignores rollback responses after a new turn starts in the same thread", async () => {
-    const rollback = deferred<ThreadRollbackSnapshot | null>();
+    const rollback = deferred<EffectOutcome<ThreadRollbackSnapshot>>();
     const host = hostMock({ items: turnItems() });
     host.threadTransport.rollbackThread.mockReturnValue(rollback.promise);
     host.stateStore.dispatch({
@@ -554,7 +588,7 @@ describe("thread management actions", () => {
     const pendingRollback = controller.rollbackThread("source");
     await waitForAsyncWork(() => expect(host.threadTransport.rollbackThread).toHaveBeenCalledOnce());
     host.stateStore.dispatch({ type: "turn/started", threadId: "source", turnId: "new-turn" });
-    rollback.resolve(rollbackSnapshot());
+    rollback.resolve(completedCurrent(rollbackSnapshot()));
     await pendingRollback;
 
     expect(host.stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
@@ -565,7 +599,7 @@ describe("thread management actions", () => {
     const host = hostMock({
       items: turnItems(),
       threadTransport: {
-        rollbackThread: vi.fn<ThreadMutationTransport["rollbackThread"]>().mockResolvedValue(null),
+        rollbackThread: vi.fn<ThreadMutationTransport["rollbackThread"]>().mockResolvedValue({ kind: "not-started" }),
       },
     });
     host.stateStore.dispatch({
@@ -668,9 +702,10 @@ function hostMock({
   if (activeThread) state = chatStateWith(state, { activeThread });
   const stateStore = createChatStateStore(state);
   const threadTransport: ThreadMutationTransportMock = {
-    compactThread: vi.fn<ThreadMutationTransport["compactThread"]>().mockResolvedValue(true),
-    forkThread: vi.fn<ThreadMutationTransport["forkThread"]>().mockResolvedValue(panelThread("forked")),
-    rollbackThread: vi.fn<ThreadMutationTransport["rollbackThread"]>().mockResolvedValue(rollbackSnapshot()),
+    ensureConnected: vi.fn<ThreadMutationTransport["ensureConnected"]>().mockResolvedValue(true),
+    compactThread: vi.fn<ThreadMutationTransport["compactThread"]>().mockResolvedValue(completedCurrent(undefined)),
+    forkThread: vi.fn<ThreadMutationTransport["forkThread"]>().mockResolvedValue(completedCurrent(panelThread("forked"))),
+    rollbackThread: vi.fn<ThreadMutationTransport["rollbackThread"]>().mockResolvedValue(completedCurrent(rollbackSnapshot())),
     ...transportOverrides,
   };
   const operations: ThreadOperationsMock = {
@@ -719,4 +754,8 @@ function callOrder(fn: Mock): number {
   const order = fn.mock.invocationCallOrder[0];
   if (order === undefined) throw new Error("Expected function to be called.");
   return order;
+}
+
+function completedCurrent<T>(value: T): EffectOutcome<T> {
+  return { kind: "completed-current", value };
 }

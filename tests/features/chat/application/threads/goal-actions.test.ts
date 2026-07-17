@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
+import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
@@ -63,8 +64,8 @@ describe("createGoalActions", () => {
     const updated = goal({ objective: "Updated", tokenBudget: 250 });
     const paused = goal({ objective: "Updated", status: "paused", tokenBudget: 250 });
     const goalTransport = goalTransportFixture({
-      setThreadGoal: vi.fn().mockResolvedValueOnce(updated).mockResolvedValueOnce(paused),
-      clearThreadGoal: vi.fn().mockResolvedValue(true),
+      setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(updated)).mockResolvedValueOnce(completedCurrent(paused)),
+      clearThreadGoal: vi.fn().mockResolvedValue(completedCurrent(undefined)),
     });
     const { setThreadGoal, clearThreadGoal } = goalTransport;
     const addSystemMessage = vi.fn();
@@ -141,7 +142,7 @@ describe("createGoalActions", () => {
     });
 
     const pending = actions.setStatus("thread", "paused");
-    await Promise.resolve();
+    await vi.waitFor(() => expect(goalTransport.setThreadGoal).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
     update.reject(new Error("offline"));
     await pending;
@@ -168,7 +169,7 @@ describe("createGoalActions", () => {
     });
 
     const pending = actions.clear("thread");
-    await Promise.resolve();
+    await vi.waitFor(() => expect(goalTransport.clearThreadGoal).toHaveBeenCalledOnce());
     stateStore.dispatch({ type: "active-thread/cleared" });
     clear.reject(new Error("offline"));
     await pending;
@@ -199,11 +200,38 @@ describe("createGoalActions", () => {
     expect(goalTransport.clearThreadGoal).not.toHaveBeenCalled();
   });
 
+  it("does not set a goal on an old panel target after connection completes", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    const stateStore = createChatStateStore(state);
+    const connection = deferred<boolean>();
+    const goalTransport = goalTransportFixture({ ensureConnected: vi.fn(() => connection.promise) });
+    const addSystemMessage = vi.fn();
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    const pending = actions.setObjective("thread", "Finish", null);
+    await vi.waitFor(() => expect(goalTransport.ensureConnected).toHaveBeenCalledOnce());
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    connection.resolve(true);
+
+    await expect(pending).resolves.toBe(false);
+    expect(goalTransport.setThreadGoal).not.toHaveBeenCalled();
+    expect(addSystemMessage).not.toHaveBeenCalled();
+  });
+
   it("reports goal creation as a structured goal event", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
-    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal()) });
+    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal())) });
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
     const actions = createGoalActions({
@@ -234,7 +262,7 @@ describe("createGoalActions", () => {
   it("starts a thread before saving a new goal objective when no thread is active", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const savedGoal = goal({ threadId: "thread-new", objective: "Plan release" });
-    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(savedGoal) });
+    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(savedGoal)) });
     const { setThreadGoal } = goalTransport;
     const startThread = vi.fn().mockImplementation(async () => {
       stateStore.dispatch({
@@ -308,7 +336,7 @@ describe("createGoalActions", () => {
     const stateStore = createChatStateStore(chatStateFixture());
     stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "restored", fallbackTitle: "Restored" });
     const goalTransport = goalTransportFixture({
-      setThreadGoal: vi.fn().mockResolvedValue(goal({ threadId: "restored", objective: "Resume work" })),
+      setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal({ threadId: "restored", objective: "Resume work" }))),
     });
     const startThread = vi.fn().mockResolvedValue({ threadId: "new-thread" });
     const ensureRestoredThreadLoaded = vi.fn(async () => {
@@ -386,7 +414,7 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const goalTransport = goalTransportFixture({
-      setThreadGoal: vi.fn().mockResolvedValueOnce(goal()),
+      setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal())),
       recordThreadGoalUserMessage: vi.fn().mockRejectedValue(new Error("offline")),
     });
     const addSystemMessage = vi.fn();
@@ -410,7 +438,7 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     const stateStore = createChatStateStore(state);
     const goalTransport = goalTransportFixture({
-      setThreadGoal: vi.fn().mockResolvedValueOnce(goal()),
+      setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal())),
       recordThreadGoalUserMessage: vi.fn().mockImplementation(async () => {
         stateStore.dispatch({ type: "active-thread/cleared" });
         throw new Error("offline");
@@ -437,7 +465,9 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { activeThread: { goal: goal() } });
     const stateStore = createChatStateStore(state);
-    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal({ objective: "Updated" })) });
+    const goalTransport = goalTransportFixture({
+      setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal({ objective: "Updated" }))),
+    });
     const addGoalEvent = vi.fn();
     const actions = createGoalActions({
       stateStore,
@@ -460,7 +490,7 @@ describe("createGoalActions", () => {
     state = chatStateWith(state, { activeThread: { id: "thread" } });
     state = chatStateWith(state, { activeThread: { goal: goal({ status: "paused" }) } });
     const stateStore = createChatStateStore(state);
-    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(goal()) });
+    const goalTransport = goalTransportFixture({ setThreadGoal: vi.fn().mockResolvedValueOnce(completedCurrent(goal())) });
     const addSystemMessage = vi.fn();
     const addGoalEvent = vi.fn();
     const actions = createGoalActions({
@@ -520,10 +550,14 @@ function goal(overrides: Partial<ThreadGoal> = {}): ThreadGoal {
 function goalTransportFixture(overrides: Partial<ThreadGoalTransport> = {}): ThreadGoalTransport {
   return {
     readThreadGoal: vi.fn().mockResolvedValue(null),
-    setThreadGoal: vi.fn().mockResolvedValue(goal()),
-    clearThreadGoal: vi.fn().mockResolvedValue(true),
+    setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal())),
+    clearThreadGoal: vi.fn().mockResolvedValue(completedCurrent(undefined)),
     recordThreadGoalUserMessage: vi.fn().mockResolvedValue(true),
     ensureConnected: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
+}
+
+function completedCurrent<T>(value: T): EffectOutcome<T> {
+  return { kind: "completed-current", value };
 }

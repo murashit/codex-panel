@@ -1,6 +1,12 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
+import { effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
 import { activeThreadState } from "../state/root-reducer";
+import {
+  capturePanelTargetLease,
+  type PanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import type { HistoryController } from "./history-controller";
@@ -23,65 +29,85 @@ export interface ResumeActionsHost {
 }
 
 export interface ResumeActions {
-  resumeThread(threadId: string): Promise<void>;
+  resumeThread(threadId: string, intent?: ActiveChatResume): Promise<boolean>;
 }
 
 export function createResumeActions(host: ResumeActionsHost): ResumeActions {
   return {
-    resumeThread: (threadId) => resumeThread(host, threadId),
+    resumeThread: (threadId, intent) => resumeThread(host, threadId, intent),
   };
 }
 
-async function resumeThread(host: ResumeActionsHost, threadId: string): Promise<void> {
+async function resumeThread(host: ResumeActionsHost, threadId: string, intent?: ActiveChatResume): Promise<boolean> {
   if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
     host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
-    return;
+    return false;
   }
-  const resume = host.resumeWork.begin(threadId);
+  const resume = intent ?? host.resumeWork.begin(threadId);
+  if (resume.threadId !== threadId || host.resumeWork.isStale(resume)) return false;
+  const initialPanelTarget = capturePanelTargetLease(host.stateStore.getState());
   host.history.invalidate();
 
   try {
-    const response = await host.resumeTransport.resumeThread(threadId);
-    if (!response) return;
-    if (isStaleResume(host, resume)) return;
-    applyResumedThread(host, response);
-    recoverResumedThreadTokenUsage(host, response.activation.thread.id, response.rolloutPath, resume);
-    if (response.initialHistoryPage) {
-      host.history.applyLatestPage(response.activation.thread.id, response.initialHistoryPage);
+    if (!(await host.resumeTransport.ensureConnected())) return false;
+    if (isStaleResume(host, resume, initialPanelTarget)) return false;
+    const effect = await host.resumeTransport.resumeThread(threadId);
+    if (!effectCompletedInCurrentContext(effect)) return false;
+    if (isStaleResume(host, resume, initialPanelTarget)) return false;
+    const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);
+    if (!adoptedPanelTarget) return false;
+    recoverResumedThreadTokenUsage(host, effect.value.activation.thread.id, effect.value.rolloutPath, resume, adoptedPanelTarget);
+    if (effect.value.initialHistoryPage) {
+      host.history.applyLatestPage(effect.value.activation.thread.id, effect.value.initialHistoryPage);
     } else {
-      await host.history.loadLatest(response.activation.thread.id);
+      await host.history.loadLatest(effect.value.activation.thread.id);
     }
-    if (isStaleResume(host, resume)) return;
-    await host.syncThreadGoal(response.activation.thread.id);
-    if (isStaleResume(host, resume)) return;
+    if (isStaleResume(host, resume, adoptedPanelTarget)) return false;
+    await host.syncThreadGoal(effect.value.activation.thread.id);
+    if (isStaleResume(host, resume, adoptedPanelTarget)) return false;
     const renderFallbackMessage = threadStreamIsEmpty(host.stateStore.getState().threadStream);
     if (renderFallbackMessage) {
-      host.addSystemMessage(`Resumed thread ${response.activation.thread.id}`);
+      host.addSystemMessage(`Resumed thread ${effect.value.activation.thread.id}`);
     }
     host.refreshLiveState();
+    return true;
   } catch (error) {
-    if (isStaleResume(host, resume)) return;
+    if (isStaleResume(host, resume, initialPanelTarget)) return false;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    return false;
   }
 }
 
-function applyResumedThread(host: ResumeActionsHost, response: ThreadResumeSnapshot): void {
-  host.stateStore.dispatch(
+function applyResumedThread(
+  host: ResumeActionsHost,
+  response: ThreadResumeSnapshot,
+  expectedPanelTargetRevision: number,
+): PanelTargetLease | null {
+  const state = host.stateStore.dispatch(
     resumedThreadAction({
       response: response.activation,
       listedThreads: host.stateStore.getState().threadList.listedThreads,
+      expectedPanelTargetRevision,
     }),
   );
+  if (activeThreadState(state)?.id !== response.activation.thread.id) return null;
   host.resetThreadTurnPresence(false);
   host.notifyActiveThreadIdentityChanged();
+  return capturePanelTargetLease(state);
 }
 
-function recoverResumedThreadTokenUsage(host: ResumeActionsHost, threadId: string, path: string | null, resume: ActiveChatResume): void {
+function recoverResumedThreadTokenUsage(
+  host: ResumeActionsHost,
+  threadId: string,
+  path: string | null,
+  resume: ActiveChatResume,
+  panelTarget: PanelTargetLease,
+): void {
   if (!path || !host.recoverTokenUsageFromRollout) return;
   void host
     .recoverTokenUsageFromRollout(path)
     .then((tokenUsage) => {
-      if (!tokenUsage || isStaleResume(host, resume)) return;
+      if (!tokenUsage || isStaleResume(host, resume, panelTarget)) return;
       const state = host.stateStore.getState();
       const activeThread = activeThreadState(state);
       if (!activeThread || activeThread.id !== threadId || activeThread.tokenUsage !== null) return;
@@ -91,6 +117,10 @@ function recoverResumedThreadTokenUsage(host: ResumeActionsHost, threadId: strin
     .catch(() => undefined);
 }
 
-function isStaleResume(host: ResumeActionsHost, resume: ActiveChatResume): boolean {
-  return host.resumeWork.isStale(resume) || host.closing();
+function isStaleResume(host: ResumeActionsHost, resume: ActiveChatResume, panelTarget?: PanelTargetLease): boolean {
+  return (
+    host.resumeWork.isStale(resume) ||
+    host.closing() ||
+    Boolean(panelTarget && !panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget))
+  );
 }

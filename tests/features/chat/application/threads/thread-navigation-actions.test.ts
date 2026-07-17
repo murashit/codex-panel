@@ -11,6 +11,8 @@ import {
   createThreadNavigationActions,
   type ThreadNavigationActionsHost,
 } from "../../../../../src/features/chat/application/threads/thread-navigation-actions";
+import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
+import { deferred } from "../../../../support/async";
 
 function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagent = false): void {
   stateStore.dispatch({
@@ -53,7 +55,8 @@ function createActionsHarness(overrides: Partial<ThreadNavigationActionsHost> = 
     } as unknown as ActiveThreadIdentitySync,
     closeForThreadSelection: vi.fn(),
     focusThreadInOpenView: vi.fn().mockResolvedValue(false),
-    resumeThread: vi.fn().mockResolvedValue(undefined),
+    resumeThread: vi.fn().mockResolvedValue(true),
+    resumeWork: new ChatResumeWorkTracker(),
     addSystemMessage: vi.fn(),
     focusComposer: vi.fn(),
     navigation: navigationMock(),
@@ -149,7 +152,24 @@ describe("ThreadNavigationActions", () => {
     await actions.selectThread("thread");
 
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
-    expect(host.resumeThread).toHaveBeenCalledWith("thread");
+    expect(host.resumeThread).toHaveBeenCalledWith("thread", expect.objectContaining({ threadId: "thread" }));
+  });
+
+  it("does not resume an older selection after a newer selection wins during view lookup", async () => {
+    const firstLookup = deferred<boolean>();
+    const focusThreadInOpenView = vi.fn((threadId: string) =>
+      threadId === "first" ? firstLookup.promise : Promise.resolve(false),
+    );
+    const { actions, host } = createActionsHarness({ focusThreadInOpenView });
+
+    const firstSelection = actions.selectThread("first");
+    await vi.waitFor(() => expect(focusThreadInOpenView).toHaveBeenCalledWith("first"));
+    await actions.selectThread("second");
+    firstLookup.resolve(false);
+    await firstSelection;
+
+    expect(host.resumeThread).toHaveBeenCalledOnce();
+    expect(host.resumeThread).toHaveBeenCalledWith("second", expect.objectContaining({ threadId: "second" }));
   });
 
   it("allows switching away from a running subagent after unsubscribe preparation", async () => {
@@ -163,7 +183,7 @@ describe("ThreadNavigationActions", () => {
 
     expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith("other");
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
-    expect(host.resumeThread).toHaveBeenCalledWith("other");
+    expect(host.resumeThread).toHaveBeenCalledWith("other", expect.objectContaining({ threadId: "other" }));
     expectCallBefore(host.resumeThread as ReturnType<typeof vi.fn>, navigation.completePersistentNavigation);
   });
 
@@ -188,7 +208,7 @@ describe("ThreadNavigationActions", () => {
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
-    expect(host.resumeThread).toHaveBeenCalledWith("thread");
+    expect(host.resumeThread).toHaveBeenCalledWith("thread", expect.objectContaining({ threadId: "thread" }));
   });
 
   it("ignores toolbar selection while another thread is busy", async () => {

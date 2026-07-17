@@ -153,7 +153,7 @@ describe("ChatPanelSessionRuntime actions", () => {
     });
     vi.spyOn(runtime.connection.actions, "ensureConnected").mockResolvedValue(undefined);
     vi.spyOn(runtime.connection.manager, "isConnected").mockReturnValue(true);
-    const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue(undefined);
+    const resumeThread = vi.spyOn(runtime.thread.resume, "resumeThread").mockResolvedValue(true);
 
     runtime.shell.parts.toolbar.actions.status.connect();
 

@@ -51,8 +51,10 @@ describe("chat app-server transports", () => {
       serviceTier: "priority",
       permissions: ":workspace",
     });
-    expect(snapshot?.thread.id).toBe("thread");
-    expect(snapshot?.cwd).toBe("/vault");
+    expect(snapshot).toMatchObject({
+      kind: "completed-current",
+      value: { thread: { id: "thread" }, cwd: "/vault" },
+    });
   });
 
   it("drops stale thread start responses after the current client changes", async () => {
@@ -69,7 +71,10 @@ describe("chat app-server transports", () => {
     currentClient = secondClient;
     start.resolve(threadStartResponse("thread"));
 
-    await expect(starting).resolves.toBeNull();
+    await expect(starting).resolves.toMatchObject({
+      kind: "completed-stale",
+      value: { thread: { id: "thread" } },
+    });
   });
 
   it("starts turns with the session vault path and returns chat-owned turn ids", async () => {
@@ -165,7 +170,7 @@ describe("chat app-server transports", () => {
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadMutation;
 
-    await expect(transport.compactThread("thread")).resolves.toBe(true);
+    await expect(transport.compactThread("thread")).resolves.toEqual({ kind: "completed-current", value: undefined });
 
     expect(request).toHaveBeenCalledWith("thread/compact/start", { threadId: "thread" });
   });
@@ -178,10 +183,13 @@ describe("chat app-server transports", () => {
       connectedClient: vi.fn().mockResolvedValue(client),
     }).threadMutation;
 
-    const thread = await transport.forkThread("source");
+    const outcome = await transport.forkThread("source");
 
     expect(request).toHaveBeenCalledWith("thread/fork", { threadId: "source", cwd: "/vault", excludeTurns: true });
-    expect(thread).toMatchObject({ id: "forked", preview: "Preview", archived: false });
+    expect(outcome).toMatchObject({
+      kind: "completed-current",
+      value: { id: "forked", preview: "Preview", archived: false },
+    });
   });
 
   it("drops stale fork transport responses after the current client changes", async () => {
@@ -198,7 +206,10 @@ describe("chat app-server transports", () => {
     currentClient = secondClient;
     fork.resolve({ thread: threadRecord("forked") });
 
-    await expect(forking).resolves.toBeNull();
+    await expect(forking).resolves.toMatchObject({
+      kind: "completed-stale",
+      value: { id: "forked" },
+    });
   });
 
   it("projects rollback turns into thread stream items", async () => {
@@ -212,9 +223,14 @@ describe("chat app-server transports", () => {
     const snapshot = await transport.rollbackThread("thread");
 
     expect(request).toHaveBeenCalledWith("thread/rollback", { threadId: "thread", numTurns: 1 });
-    expect(snapshot?.thread.id).toBe("thread");
-    expect(snapshot?.cwd).toBe("/vault");
-    expect(snapshot?.items).toEqual([expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })]);
+    expect(snapshot).toMatchObject({
+      kind: "completed-current",
+      value: {
+        thread: { id: "thread" },
+        cwd: "/vault",
+        items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
+      },
+    });
   });
 
   it("reads thread history pages as thread stream items", async () => {
@@ -289,13 +305,17 @@ describe("chat app-server transports", () => {
       excludeTurns: true,
       initialTurnsPage: { limit: 20, sortDirection: "desc", itemsView: "full" },
     });
-    expect(snapshot?.activation.thread.id).toBe("thread");
-    expect(snapshot?.activation.cwd).toBe("/vault");
-    expect(snapshot?.rolloutPath).toBe("/tmp/rollout.jsonl");
-    expect(snapshot?.initialHistoryPage).toMatchObject({
-      nextCursor: "older",
-      hadTurns: true,
-      items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
+    expect(snapshot).toMatchObject({
+      kind: "completed-current",
+      value: {
+        activation: { thread: { id: "thread" }, cwd: "/vault" },
+        rolloutPath: "/tmp/rollout.jsonl",
+        initialHistoryPage: {
+          nextCursor: "older",
+          hadTurns: true,
+          items: [expect.objectContaining({ kind: "dialogue", role: "user", text: "prompt" })],
+        },
+      },
     });
   });
 
@@ -313,7 +333,10 @@ describe("chat app-server transports", () => {
     currentClient = secondClient;
     resume.resolve(threadResumeResponse("thread"));
 
-    await expect(resuming).resolves.toBeNull();
+    await expect(resuming).resolves.toMatchObject({
+      kind: "completed-stale",
+      value: { activation: { thread: { id: "thread" } } },
+    });
   });
 
   it("returns no resume snapshot when no connected client is available", async () => {
@@ -322,7 +345,7 @@ describe("chat app-server transports", () => {
       connectedClient: vi.fn().mockResolvedValue(null),
     }).threadResume;
 
-    await expect(transport.resumeThread("thread")).resolves.toBeNull();
+    await expect(transport.resumeThread("thread")).resolves.toEqual({ kind: "not-started" });
   });
 
   it("unsubscribes a panel from a persistent thread without interrupting its turn", async () => {

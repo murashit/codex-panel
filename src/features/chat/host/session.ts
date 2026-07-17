@@ -178,9 +178,10 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async openThread(threadId: string): Promise<void> {
+    const intent = this.resumeWork.begin(threadId);
     const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
-    if (!preparation) return;
-    await this.runtime.thread.resume.resumeThread(threadId);
+    if (!preparation || !this.resumeWork.isCurrent(intent)) return;
+    if (!(await this.runtime.thread.resume.resumeThread(threadId, intent)) || !this.resumeWork.isCurrent(intent)) return;
     await this.runtime.thread.navigation.completePersistentNavigation(preparation);
     this.focusComposer();
   }
@@ -309,7 +310,9 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   private ensureRestoredThreadLoaded(): Promise<boolean> {
-    return this.runtime.thread.restoration.ensureLoaded((threadId) => this.runtime.thread.resume.resumeThread(threadId));
+    return this.runtime.thread.restoration.ensureLoaded(async (threadId) => {
+      await this.runtime.thread.resume.resumeThread(threadId);
+    });
   }
 
   private createSessionRuntime(): ChatPanelSessionRuntime {

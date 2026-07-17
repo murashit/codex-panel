@@ -4,6 +4,10 @@ import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { activeThreadState, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
+import {
+  capturePanelTargetLease,
+  panelTargetLeaseIsCurrent,
+} from "../../../../../src/features/chat/application/state/panel-target";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";
@@ -242,6 +246,30 @@ describe("chatReducer", () => {
 
     const disconnected = chatReducer(restored, { type: "connection/scoped-cleared" });
     expect(disconnected.panelThread).toEqual(restored.panelThread);
+  });
+
+  it("invalidates an old panel lease even when navigation returns to the same thread", () => {
+    let state = chatReducer(chatStateFixture(), resumedThreadAction("first"));
+    const oldLease = capturePanelTargetLease(state);
+
+    state = chatReducer(state, resumedThreadAction("second"));
+    state = chatReducer(state, resumedThreadAction("first"));
+
+    expect(panelTargetLeaseIsCurrent(state, oldLease)).toBe(false);
+    expect(state.panelTargetRevision).toBeGreaterThan(oldLease.revision);
+  });
+
+  it("preserves a panel lease when an awaited thread becomes active", () => {
+    let state = chatReducer(chatStateFixture(), {
+      type: "panel/restored-thread-applied",
+      threadId: "restored",
+      fallbackTitle: "Restored",
+    });
+    const lease = capturePanelTargetLease(state);
+
+    state = chatReducer(state, resumedThreadAction("restored"));
+
+    expect(panelTargetLeaseIsCurrent(state, lease)).toBe(true);
   });
 
   it("keeps active-only metadata out of the awaiting-resume phase", () => {
@@ -812,5 +840,23 @@ function thread(id: string): Thread {
     name: null,
     archived: false,
     provenance: { kind: "interactive" },
+  };
+}
+
+function resumedThreadAction(threadId: string) {
+  return {
+    type: "active-thread/resumed" as const,
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: thread(threadId),
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
   };
 }

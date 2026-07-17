@@ -21,6 +21,7 @@ import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/serv
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
 import type { RuntimeSettingsTransport } from "../../application/runtime/settings-transport";
+import type { EffectOutcome } from "../../application/effect-outcome";
 import type { EphemeralThreadTransport } from "../../application/threads/ephemeral-thread-transport";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../../application/threads/goal-transport";
 import type {
@@ -93,7 +94,7 @@ export function createChatConnectedSessionTransports(host: ChatAppServerTranspor
 function createChatThreadStartTransport(host: ChatCurrentAppServerTransportHost): ThreadStartTransport {
   return {
     startThread: (request) =>
-      withCurrentChatAppServerClient(host, async (client) => {
+      runCurrentChatAppServerEffect(host, async (client) => {
         const response = await startThread(client, {
           cwd: host.vaultPath,
           serviceTier: request.serviceTier,
@@ -155,24 +156,23 @@ function createChatThreadHistoryTransport(host: CurrentChatAppServerClientHost):
 
 function createChatThreadResumeTransport(host: ChatAppServerTransportHost): ThreadResumeTransport {
   return {
-    resumeThread: (threadId): Promise<ThreadResumeSnapshot | null> =>
-      withConnectedChatAppServerClient(host, (client) => resumeChatThread(client, threadId, host.vaultPath)),
+    ensureConnected: async () => (await host.connectedClient()) !== null,
+    resumeThread: (threadId): Promise<EffectOutcome<ThreadResumeSnapshot>> =>
+      runCurrentChatAppServerEffect(host, (client) => resumeChatThread(client, threadId, host.vaultPath)),
   };
 }
 
 function createChatThreadMutationTransport(host: ChatAppServerTransportHost): ThreadMutationTransport {
   return {
-    compactThread: async (threadId) => {
-      const result = await withConnectedChatAppServerClient(host, async (client) => {
+    ensureConnected: async () => (await host.connectedClient()) !== null,
+    compactThread: (threadId) =>
+      runCurrentChatAppServerEffect(host, async (client) => {
         await compactThread(client, threadId);
-        return true;
-      });
-      return result ?? false;
-    },
+      }),
     forkThread: (threadId, lastTurnId = null) =>
-      withConnectedChatAppServerClient(host, (client) => forkThread(client, threadId, host.vaultPath, lastTurnId)),
+      runCurrentChatAppServerEffect(host, (client) => forkThread(client, threadId, host.vaultPath, lastTurnId)),
     rollbackThread: (threadId) =>
-      withConnectedChatAppServerClient(host, async (client): Promise<ThreadRollbackSnapshot> => {
+      runCurrentChatAppServerEffect(host, async (client): Promise<ThreadRollbackSnapshot> => {
         const snapshot = await rollbackThread(client, threadId);
         return {
           thread: snapshot.thread,
@@ -186,7 +186,7 @@ function createChatThreadMutationTransport(host: ChatAppServerTransportHost): Th
 function createChatEphemeralThreadTransport(host: ChatAppServerTransportHost): EphemeralThreadTransport {
   return {
     forkEphemeralThread: (sourceThreadId) =>
-      withConnectedChatAppServerClient(host, async (client) => {
+      runCurrentChatAppServerEffect(host, async (client) => {
         try {
           const snapshot = await forkEphemeralThread(client, sourceThreadId, host.vaultPath);
           return { kind: "ready" as const, ...snapshot };
@@ -230,18 +230,12 @@ function createChatThreadGoalTransport(host: ConnectedChatAppServerClientHost): 
     ensureConnected: async () => (await host.connectedClient()) !== null,
     readThreadGoal: (threadId) => readThreadGoalFromCurrentClient(host, threadId),
     setThreadGoal: async (threadId, params) => {
-      const client = await host.connectedClient();
-      if (!client) return undefined;
-      const goal = await setThreadGoal(client, threadId, params);
-      return chatAppServerClientIsStale(host, client) ? undefined : goal;
+      return runCurrentChatAppServerEffect(host, (client) => setThreadGoal(client, threadId, params));
     },
-    clearThreadGoal: async (threadId) => {
-      const result = await withConnectedChatAppServerClient(host, async (client) => {
+    clearThreadGoal: (threadId) =>
+      runCurrentChatAppServerEffect(host, async (client) => {
         await clearThreadGoal(client, threadId);
-        return true;
-      });
-      return result ?? false;
-    },
+      }),
     recordThreadGoalUserMessage: async (threadId, objective) => {
       const result = await withCurrentChatAppServerClient(host, async (client) => {
         await recordThreadGoalUserMessage(client, threadId, objective);
@@ -256,14 +250,18 @@ function chatAppServerClientIsStale(host: CurrentChatAppServerClientHost, client
   return host.currentClient() !== client;
 }
 
-async function withConnectedChatAppServerClient<T>(
-  host: ConnectedChatAppServerClientHost,
+function runCurrentChatAppServerEffect<T>(
+  host: CurrentChatAppServerClientHost,
   operation: (client: AppServerClient) => Promise<T>,
-): Promise<T | null> {
-  const client = await host.connectedClient();
-  if (!client) return null;
-  const result = await operation(client);
-  return chatAppServerClientIsStale(host, client) ? null : result;
+): Promise<EffectOutcome<T>> {
+  const client = host.currentClient();
+  if (!client) return Promise.resolve({ kind: "not-started" });
+  const effect = operation(client);
+  return effect.then((value) =>
+    chatAppServerClientIsStale(host, client)
+      ? { kind: "completed-stale", value }
+      : { kind: "completed-current", value },
+  );
 }
 
 async function withCurrentChatAppServerClient<T>(

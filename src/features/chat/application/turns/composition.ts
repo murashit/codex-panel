@@ -7,6 +7,7 @@ import type { ChatRuntimeSettingsActions } from "../runtime/settings-actions";
 import type { ChatStateStore } from "../state/store";
 import type { GoalActions } from "../threads/goal-actions";
 import type { ThreadManagementActions } from "../threads/thread-management-actions";
+import type { ThreadStartOutcome } from "../threads/thread-start-actions";
 import { type ComposerSubmitActions, type ComposerSubmitActionsHost, submitComposer } from "./composer-submit-actions";
 import { implementPlan, type PlanImplementationHost } from "./plan-implementation";
 import type { ThreadReferenceInput, WebUrlInput } from "./slash-command-execution";
@@ -66,7 +67,7 @@ interface TurnWorkflowThreadStarter {
   startThread: (
     preview?: string,
     options?: { syncGoal?: boolean; preservePendingSubmissionId?: string },
-  ) => Promise<{ threadId: string } | null>;
+  ) => Promise<ThreadStartOutcome>;
 }
 
 interface PlanImplementation {
@@ -97,7 +98,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     localItemIds,
     turnTransport,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
-    startThread: async (preview, options) => (await refs.threadStarter.startThread(preview, options)) !== null,
+    startThread: async (preview, options) => (await refs.threadStarter.startThread(preview, options)).kind === "created-activated",
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     resetThreadTurnPresence: thread.resetTurnPresence,
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
@@ -180,6 +181,6 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
 }
 
 async function startThreadForGoal(starter: TurnWorkflowThreadStarter, objective: string): Promise<string | null> {
-  const response = await starter.startThread(objective, { syncGoal: false });
-  return response?.threadId ?? null;
+  const outcome = await starter.startThread(objective, { syncGoal: false });
+  return outcome.kind === "created-activated" ? outcome.threadId : null;
 }

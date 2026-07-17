@@ -1,11 +1,11 @@
-export type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; threadId: string };
+export type ChatResumeLifecycleState = { kind: "idle" } | { kind: "resuming"; threadId: string | null };
 export type ActiveChatResume = Extract<ChatResumeLifecycleState, { kind: "resuming" }>;
 type ChatResumeLifecycleEvent = { type: "started"; resume: ActiveChatResume } | { type: "invalidated" };
 
 export class ChatResumeWorkTracker {
   private state: ChatResumeLifecycleState = { kind: "idle" };
 
-  begin(threadId: string): ActiveChatResume {
+  begin(threadId: string | null): ActiveChatResume {
     const resume: ActiveChatResume = { kind: "resuming", threadId };
     this.state = transitionChatResumeLifecycle(this.state, { type: "started", resume });
     return resume;
@@ -17,6 +17,10 @@ export class ChatResumeWorkTracker {
 
   isStale(resume: ActiveChatResume): boolean {
     return this.state !== resume;
+  }
+
+  isCurrent(resume: ActiveChatResume): boolean {
+    return this.state === resume;
   }
 }
 

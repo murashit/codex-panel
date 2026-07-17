@@ -217,10 +217,15 @@ export function createThreadLifecycleBundle(
     stateStore: host.stateStore,
     goalTransport: appServer.threadGoal,
     localItemIds,
-    startThread: (preview, options) => threadStart.startThread(preview, options),
+    startThread: async (preview, options) => {
+      const outcome = await threadStart.startThread(preview, options);
+      return outcome.kind === "created-activated" ? { threadId: outcome.threadId } : null;
+    },
     ensureRestoredThreadLoaded: async () => {
       if (!sessionLifecycle) return false;
-      return sessionLifecycle.restoration.ensureLoaded((threadId) => sessionLifecycle?.resume.resumeThread(threadId) ?? Promise.resolve());
+      return sessionLifecycle.restoration.ensureLoaded(async (threadId) => {
+        await sessionLifecycle?.resume.resumeThread(threadId);
+      });
     },
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
@@ -281,7 +286,9 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
       composerController.setDraft(text, { focus: true });
     },
     openThreadInNewView: (threadId) => environment.plugin.workspace.openThreadInNewView(threadId),
-    openThreadInCurrentPanel: (threadId) => lifecycle.resume.resumeThread(threadId),
+    openThreadInCurrentPanel: async (threadId) => {
+      await lifecycle.resume.resumeThread(threadId);
+    },
     notifyActiveThreadIdentityChanged,
     refreshAfterThreadMutation: async () => {
       await refreshActiveThreads();
@@ -302,7 +309,8 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
       toolbarPanelActions.closeForThreadSelection();
     },
     focusThreadInOpenView: (threadId) => environment.plugin.workspace.focusThreadInOpenView(threadId),
-    resumeThread: (threadId) => lifecycle.resume.resumeThread(threadId),
+    resumeThread: (threadId, intent) => lifecycle.resume.resumeThread(threadId, intent),
+    resumeWork: host.resumeWork,
     addSystemMessage: status.addSystemMessage,
     focusComposer: () => {
       composerController.focusComposer();

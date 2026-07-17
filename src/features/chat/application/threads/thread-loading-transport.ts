@@ -1,5 +1,6 @@
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { EffectOutcome } from "../effect-outcome";
 
 export interface ThreadHistoryPage {
   items: ThreadStreamItem[];
@@ -18,5 +19,6 @@ export interface ThreadResumeSnapshot {
 }
 
 export interface ThreadResumeTransport {
-  resumeThread(threadId: string): Promise<ThreadResumeSnapshot | null>;
+  ensureConnected(): Promise<boolean>;
+  resumeThread(threadId: string): Promise<EffectOutcome<ThreadResumeSnapshot>>;
 }

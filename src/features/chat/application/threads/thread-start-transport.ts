@@ -1,5 +1,6 @@
 import type { RuntimeServiceTierRequest, RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
+import type { EffectOutcome } from "../effect-outcome";
 
 interface ThreadStartRequest {
   serviceTier?: RuntimeServiceTierRequest;
@@ -7,5 +8,5 @@ interface ThreadStartRequest {
 }
 
 export interface ThreadStartTransport {
-  startThread(request: ThreadStartRequest): Promise<ThreadActivationSnapshot | null>;
+  startThread(request: ThreadStartRequest): Promise<EffectOutcome<ThreadActivationSnapshot>>;
 }

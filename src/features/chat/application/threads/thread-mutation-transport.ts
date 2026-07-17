@@ -1,5 +1,6 @@
 import type { Thread } from "../../../../domain/threads/model";
 import type { ThreadStreamItem } from "../../domain/thread-stream/items";
+import type { EffectOutcome } from "../effect-outcome";
 
 export interface ThreadRollbackSnapshot {
   thread: Thread;
@@ -8,7 +9,8 @@ export interface ThreadRollbackSnapshot {
 }
 
 export interface ThreadMutationTransport {
-  compactThread(threadId: string): Promise<boolean>;
-  forkThread(threadId: string, lastTurnId?: string | null): Promise<Thread | null>;
-  rollbackThread(threadId: string): Promise<ThreadRollbackSnapshot | null>;
+  ensureConnected(): Promise<boolean>;
+  compactThread(threadId: string): Promise<EffectOutcome<void>>;
+  forkThread(threadId: string, lastTurnId?: string | null): Promise<EffectOutcome<Thread>>;
+  rollbackThread(threadId: string): Promise<EffectOutcome<ThreadRollbackSnapshot>>;
 }
