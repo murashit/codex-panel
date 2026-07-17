@@ -458,17 +458,51 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" });
 
     const secondRequest = actions.requestModel("gpt-new");
+    expect(transport.updateThreadSettings).toHaveBeenCalledTimes(1);
+
+    firstUpdate.resolve();
+    await expect(firstRequest).resolves.toBe(false);
     expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" });
 
     secondUpdate.resolve();
     await expect(secondRequest).resolves.toBe(true);
     expect(store.getState().runtime.active.model).toBe("gpt-new");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(messages).toEqual([]);
+  });
 
-    firstUpdate.resolve();
-    await expect(firstRequest).resolves.toBe(false);
-    expect(store.getState().runtime.active.model).toBe("gpt-new");
+  it("coalesces a different-field intent behind the active settings update", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    const store = createChatStateStore(state);
+    const modelUpdate = deferred(true);
+    const effortUpdate = deferred(true);
+    const transport = settingsTransportFixture({
+      updateThreadSettings: vi
+        .fn()
+        .mockImplementationOnce(() => modelUpdate.promise)
+        .mockImplementationOnce(() => effortUpdate.promise),
+    });
+    const messages: string[] = [];
+    const actions = runtimeActionsFixture(store, transport, messages);
+
+    const modelRequest = actions.requestModel("gpt-5.5");
+    expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-5.5" });
+
+    const effortRequest = actions.requestReasoningEffort("high");
+    expect(transport.updateThreadSettings).toHaveBeenCalledTimes(1);
+
+    modelUpdate.resolve();
+    await expect(modelRequest).resolves.toBe(true);
+    expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { effort: "high" });
+    expect(store.getState().runtime.active.model).toBe("gpt-5.5");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
+
+    effortUpdate.resolve();
+    await expect(effortRequest).resolves.toBe(true);
+    expect(store.getState().runtime.active.reasoningEffort).toBe("high");
+    expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
   });
 
