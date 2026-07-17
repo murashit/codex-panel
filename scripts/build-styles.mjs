@@ -21,6 +21,7 @@ export async function buildStyles() {
 }
 
 export async function renderStyles() {
+  const { version } = JSON.parse(await readFile("package.json", "utf8"));
   const parts = [];
 
   const sourceFiles = await readStyleOrder();
@@ -29,7 +30,7 @@ export async function renderStyles() {
     parts.push(content.trimEnd());
   }
 
-  return `${parts.join("\n\n")}\n`;
+  return `/* Codex Panel v${version} */\n\n${parts.join("\n\n")}\n`;
 }
 
 async function readStyleOrder() {
