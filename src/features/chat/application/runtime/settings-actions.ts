@@ -14,11 +14,6 @@ import { type ActivePanelOperation, activePanelOperationDecision } from "../pane
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
-import {
-  createRuntimeSettingsCommitCoordinator,
-  type RuntimeSettingsCommitCoordinator,
-  type RuntimeSettingsCommitTarget,
-} from "./runtime-settings-commit-coordinator";
 import type { RuntimeSettingsTransport } from "./settings-transport";
 
 interface RuntimeSettingsCommitResult {
@@ -38,7 +33,12 @@ export interface RuntimeSettingsActionsHost {
 }
 
 interface RuntimeSettingsActionsContext extends RuntimeSettingsActionsHost {
-  runtimeSettingsCommits: RuntimeSettingsCommitCoordinator;
+  threadCommits: KeyedOperationQueue<string>;
+}
+
+interface RuntimeSettingsCommandScope {
+  readonly threadId: string;
+  readonly panelTargetRevision: number;
 }
 
 export interface ChatRuntimeSettingsActions {
@@ -67,30 +67,7 @@ export function createChatRuntimeSettingsActions(
   host: RuntimeSettingsActionsHost,
   threadCommits: KeyedOperationQueue<string> = createKeyedOperationQueue(),
 ): ChatRuntimeSettingsActions {
-  const runtimeSettingsCommits = createRuntimeSettingsCommitCoordinator(
-    {
-      scopeIsCurrent: (scope) => {
-        const currentState = state(host);
-        return (
-          activeThreadId(currentState) === scope.threadId &&
-          panelTargetLeaseIsCurrent(currentState, {
-            revision: scope.panelTargetRevision,
-            target: { kind: "thread", threadId: scope.threadId },
-          })
-        );
-      },
-      pendingPatch: () => currentPendingRuntimeSettingsPatch(host),
-      updateThreadSettings: (threadId, update) => host.runtimeTransport.updateThreadSettings(threadId, update),
-      commitPatch: (update) => {
-        dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
-      },
-      reportError: (error) => {
-        host.addSystemMessage(error instanceof Error ? error.message : String(error));
-      },
-    },
-    threadCommits,
-  );
-  const context: RuntimeSettingsActionsContext = { ...host, runtimeSettingsCommits };
+  const context: RuntimeSettingsActionsContext = { ...host, threadCommits };
   return {
     applyPendingThreadSettings: () => applyPendingThreadSettings(context),
     requestModel: (model) => requestModel(context, model),
@@ -137,9 +114,76 @@ async function commitPendingThreadSettings(
   if (Object.keys(update).length === 0) return { ok: true, collaborationModeApplied };
 
   if (activePanelOperationBlocked(host, "thread-settings")) return { ok: false, collaborationModeApplied: false };
-  const target = runtimeSettingsCommitTarget(update, fields);
-  const ok = await host.runtimeSettingsCommits.commit({ threadId, panelTargetRevision: panelTarget.revision }, target);
+  const scope = { threadId, panelTargetRevision: panelTarget.revision };
+  const ok = fields
+    ? await commitRuntimeSettingsFields(host, scope, pickRuntimeSettingsFields(update, fields))
+    : await settleRuntimeSettings(host, scope);
   return { ok, collaborationModeApplied: ok && collaborationModeApplied };
+}
+
+function commitRuntimeSettingsFields(
+  host: RuntimeSettingsActionsContext,
+  scope: RuntimeSettingsCommandScope,
+  update: RuntimeSettingsPatch,
+): Promise<boolean> {
+  if (patchEmpty(update)) return Promise.resolve(true);
+  const command = { ...update };
+  return host.threadCommits.run(scope.threadId, async () => {
+    if (!runtimeSettingsScopeIsCurrent(host, scope)) return false;
+    if (!patchEqual(matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command), command)) return false;
+
+    const updated = await updateRuntimeSettings(host, scope, command);
+    if (!updated || !runtimeSettingsScopeIsCurrent(host, scope)) return false;
+
+    const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), command);
+    if (!patchEmpty(committed)) commitRuntimeSettingsPatch(host, committed);
+    return patchEqual(committed, command);
+  });
+}
+
+function settleRuntimeSettings(host: RuntimeSettingsActionsContext, scope: RuntimeSettingsCommandScope): Promise<boolean> {
+  return host.threadCommits.run(scope.threadId, async () => {
+    while (runtimeSettingsScopeIsCurrent(host, scope)) {
+      const update = currentPendingRuntimeSettingsPatch(host);
+      if (patchEmpty(update)) return true;
+
+      if (!(await updateRuntimeSettings(host, scope, update)) || !runtimeSettingsScopeIsCurrent(host, scope)) return false;
+
+      const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), update);
+      if (!patchEmpty(committed)) commitRuntimeSettingsPatch(host, committed);
+    }
+    return false;
+  });
+}
+
+async function updateRuntimeSettings(
+  host: RuntimeSettingsActionsContext,
+  scope: RuntimeSettingsCommandScope,
+  update: RuntimeSettingsPatch,
+): Promise<boolean> {
+  try {
+    return await host.runtimeTransport.updateThreadSettings(scope.threadId, update);
+  } catch (error) {
+    if (runtimeSettingsScopeIsCurrent(host, scope)) {
+      host.addSystemMessage(error instanceof Error ? error.message : String(error));
+    }
+    return false;
+  }
+}
+
+function runtimeSettingsScopeIsCurrent(host: RuntimeSettingsActionsHost, scope: RuntimeSettingsCommandScope): boolean {
+  const currentState = state(host);
+  return (
+    activeThreadId(currentState) === scope.threadId &&
+    panelTargetLeaseIsCurrent(currentState, {
+      revision: scope.panelTargetRevision,
+      target: { kind: "thread", threadId: scope.threadId },
+    })
+  );
+}
+
+function commitRuntimeSettingsPatch(host: RuntimeSettingsActionsHost, update: RuntimeSettingsPatch): void {
+  dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
 }
 
 async function requestModel(host: RuntimeSettingsActionsContext, model: string): Promise<boolean> {
@@ -289,16 +333,59 @@ function currentPendingRuntimeSettingsPatch(host: RuntimeSettingsActionsHost): R
   return buildPendingRuntimeSettingsPatch(snapshot, config).update;
 }
 
-function runtimeSettingsCommitTarget(
-  update: RuntimeSettingsPatch,
-  fields: readonly (keyof RuntimeSettingsPatch)[] | undefined,
-): RuntimeSettingsCommitTarget {
-  if (!fields) return { kind: "settle" };
+function pickRuntimeSettingsFields(update: RuntimeSettingsPatch, fields: readonly (keyof RuntimeSettingsPatch)[]): RuntimeSettingsPatch {
   const targetedUpdate: RuntimeSettingsPatch = {};
   for (const key of fields) {
     if (key in update) Object.assign(targetedUpdate, { [key]: update[key] });
   }
-  return Object.keys(targetedUpdate).length === 0 ? { kind: "settle" } : { kind: "fields", update: targetedUpdate };
+  return targetedUpdate;
+}
+
+function matchingPendingPatch(current: RuntimeSettingsPatch, sent: RuntimeSettingsPatch): RuntimeSettingsPatch {
+  const matching: RuntimeSettingsPatch = {};
+  for (const key of patchKeys(sent)) {
+    if (key in current && threadSettingsValueEqual(current[key], sent[key])) {
+      Object.assign(matching, { [key]: sent[key] });
+    }
+  }
+  return matching;
+}
+
+function patchEqual(left: RuntimeSettingsPatch, right: RuntimeSettingsPatch): boolean {
+  const leftKeys = patchKeys(left);
+  const rightKeys = patchKeys(right);
+  return leftKeys.length === rightKeys.length && leftKeys.every((key) => key in right && threadSettingsValueEqual(left[key], right[key]));
+}
+
+function patchEmpty(patch: RuntimeSettingsPatch): boolean {
+  return patchKeys(patch).length === 0;
+}
+
+function patchKeys(patch: RuntimeSettingsPatch): (keyof RuntimeSettingsPatch)[] {
+  return Object.keys(patch) as (keyof RuntimeSettingsPatch)[];
+}
+
+function threadSettingsValueEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => threadSettingsValueEqual(value, right[index]))
+    );
+  }
+  if (!isPlainRecord(left) || !isPlainRecord(right)) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => Object.hasOwn(right, key) && threadSettingsValueEqual(left[key], right[key]))
+  );
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
 }
 
 function runtimeProjection(host: RuntimeSettingsActionsHost): {
