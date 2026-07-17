@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AppServerClient } from "../../src/app-server/connection/client";
-import type { CatalogHookMetadata } from "../../src/app-server/protocol/catalog";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ObservedResult } from "../../src/app-server/query/observed-result";
@@ -116,103 +114,92 @@ describe("SettingsDynamicSectionsController", () => {
     expect(display).not.toHaveBeenCalled();
   });
 
-  it("ignores stale hook reload results after a newer dynamic operation completes", async () => {
-    const staleHooks = deferred<{
-      data: { cwd: string; hooks: CatalogHookMetadata[]; warnings: string[]; errors: unknown[] }[];
-    }>();
-    const initialClient = settingsClient({
-      hooks: [hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" })],
-    });
-    const trustClient = settingsRequestClient({
-      "config/batchWrite": vi.fn().mockResolvedValue({}),
-    });
-    const staleClient = settingsClient();
-    staleClient.requestHandlers["hooks/list"]?.mockReturnValue(staleHooks.promise);
-    const newerClient = settingsClient({
-      hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
-    });
-    useShortLivedClients(initialClient, trustClient, staleClient, newerClient);
+  it("reloads hooks after the settings view is hidden and shown again", async () => {
+    const firstHooks = deferred<unknown>();
+    const firstClient = settingsClient();
+    firstClient.requestHandlers["hooks/list"] = vi.fn(() => firstHooks.promise);
+    const secondClient = settingsClient({ hooks: [hook({ key: "hook-after-reopen" })] });
+    useShortLivedClients(firstClient, secondClient);
     const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
 
-    await controller.refreshDynamicSections();
-    const initialHook = controller.snapshot().hooks[0];
-    if (!initialHook) throw new Error("Expected initial hook to load");
-    const staleReload = controller.trustHook(initialHook);
+    controller.activate();
+    controller.maybeAutoLoadDynamicSections();
     await flushPromises();
-    await controller.refreshDynamicSections();
+    controller.dispose();
+    firstHooks.resolve({ data: [{ cwd: "/vault", hooks: [], warnings: [], errors: [] }] });
+    await flushPromises();
 
-    expect(controller.snapshot().hooks.map((hook) => hook.currentHash)).toEqual(["newhash"]);
+    controller.activate();
+    controller.maybeAutoLoadDynamicSections();
+    await flushPromises();
 
-    staleHooks.resolve({
-      data: [{ cwd: "/vault", hooks: [hook({ key: "hook-old", command: "old hook", currentHash: "oldhash" })], warnings: [], errors: [] }],
-    });
-    await staleReload;
-
-    expect(controller.snapshot().hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
+    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-after-reopen" })]);
+    expect(firstClient.requestHandlers["hooks/list"]).toHaveBeenCalledOnce();
+    expect(secondClient.requestHandlers["hooks/list"]).toHaveBeenCalledOnce();
   });
 
-  it("keeps full refresh models and archived threads current when hook operations overlap", async () => {
-    const models = deferred<readonly ModelMetadata[]>();
-    const fullRefreshClient = settingsClient({
-      hooks: [hook({ key: "hook-full", command: "full refresh hook", currentHash: "fullhash" })],
-    });
-    const trustClient = settingsRequestClient({
-      "config/batchWrite": vi.fn().mockResolvedValue({}),
-    });
-    const hookReloadClient = settingsClient({
-      hooks: [hook({ key: "hook-new", command: "new hook", currentHash: "newhash" })],
-    });
-    useShortLivedClients(fullRefreshClient, trustClient, hookReloadClient);
-    const refreshModels = vi.fn().mockReturnValue(models.promise);
-    const refreshArchived = vi.fn().mockResolvedValue([panelThread({ id: "thread-full", preview: "Full archived", archived: true })]);
-    const controller = new SettingsDynamicSectionsController(settingsTabHost({ refreshModels, refreshArchived }), {
-      display: vi.fn(),
-      notify: vi.fn(),
-    });
+  it("settles a pending hook mutation after the settings view is hidden and shown again", async () => {
+    const write = deferred<unknown>();
+    const client = settingsClient({ hooks: [hook({ key: "hook-after-write", trustStatus: "trusted" })] });
+    client.requestHandlers["config/batchWrite"] = vi.fn(() => write.promise);
+    useShortLivedClients(client);
+    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
 
-    const fullRefresh = controller.refreshDynamicSections();
+    controller.activate();
+    const mutation = controller.trustHook(hook({ key: "hook-after-write", trustStatus: "untrusted" }));
     await flushPromises();
-    await controller.trustHook(hook({ key: "hook-initial", command: "initial hook", currentHash: "initialhash" }));
+    controller.dispose();
+    controller.activate();
+    controller.maybeAutoLoadDynamicSections();
 
-    models.resolve(modelMetadataFromCatalogModels([model("gpt-refreshed")]));
-    await fullRefresh;
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
 
-    const snapshot = controller.snapshot();
-    expect(snapshot.models.map((item) => item.model)).toEqual(["gpt-refreshed"]);
-    expect(snapshot.modelsLifecycle.kind).toBe("loaded");
-    expect(snapshot.archivedThreads.map((thread) => thread.preview)).toEqual(["Full archived"]);
-    expect(snapshot.archivedThreadsLifecycle.kind).toBe("loaded");
-    expect(snapshot.hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
+    write.resolve({});
+    await mutation;
+
+    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-after-write", trustStatus: "trusted" })]);
+    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "loaded", status: "Trusted hook definition." });
   });
 
-  it("reconciles an earlier successful hook mutation when the latest queued mutation fails", async () => {
-    const trustWrite = deferred<unknown>();
-    const trustClient = settingsRequestClient({
-      "config/batchWrite": vi.fn(() => trustWrite.promise),
+  it("reloads authoritative hooks on the same client after a mutation", async () => {
+    const client = settingsClient({
+      hooks: [hook({ key: "hook-trusted", currentHash: "trusted-hash", trustStatus: "trusted" })],
     });
-    const toggleClient = settingsRequestClient({
-      "config/batchWrite": vi.fn().mockRejectedValue(new Error("toggle failed")),
-    });
-    const reconciledClient = settingsClient({
-      hooks: [hook({ key: "hook-trusted", command: "trusted hook", currentHash: "trustedhash", trustStatus: "trusted" })],
-    });
-    useShortLivedClients(trustClient, toggleClient, reconciledClient);
+    useShortLivedClients(client);
+    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify: vi.fn() });
+
+    await controller.trustHook(hook({ key: "hook-trusted", currentHash: "untrusted-hash", trustStatus: "untrusted" }));
+
+    expect(client.request.mock.calls.map(([method]) => method)).toEqual(["config/batchWrite", "hooks/list"]);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-trusted", currentHash: "trusted-hash" })]);
+    expect(controller.snapshot().hooksLifecycle).toEqual({ kind: "loaded", status: "Trusted hook definition." });
+  });
+
+  it("does not publish an old-context hook mutation over a replacement-context refresh", async () => {
+    const oldWrite = deferred<unknown>();
+    const oldClient = settingsClient({ hooks: [hook({ key: "hook-old-context" })] });
+    oldClient.requestHandlers["config/batchWrite"] = vi.fn(() => oldWrite.promise);
+    const newClient = settingsClient({ hooks: [hook({ key: "hook-new-context" })] });
+    useShortLivedClients(oldClient, newClient);
+    const host = settingsTabHost();
     const notify = vi.fn();
-    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify });
-    const target = hook({ key: "hook-trusted", command: "trusted hook", currentHash: "trustedhash" });
+    const controller = new SettingsDynamicSectionsController(host, { display: vi.fn(), notify });
+    controller.activate();
 
-    const trust = controller.trustHook(target);
-    const toggle = controller.setHookEnabled(target, false);
+    const oldMutation = controller.trustHook(hook({ key: "hook-old-context", trustStatus: "untrusted" }));
     await flushPromises();
-    trustWrite.resolve({});
-    await Promise.all([trust, toggle]);
+    await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
+    controller.resetDynamicSectionContext();
+    await controller.refreshDynamicSections();
 
-    expect(controller.snapshot().hooks.map((item) => item.currentHash)).toEqual(["trustedhash"]);
-    expect(controller.snapshot().hooksLifecycle).toEqual({
-      kind: "failed",
-      status: "Could not update hook: toggle failed",
-    });
-    expect(notify).toHaveBeenCalledWith("Could not update Codex hook.");
+    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
+
+    oldWrite.resolve({});
+    await oldMutation;
+
+    expect(controller.snapshot().hooks).toEqual([expect.objectContaining({ key: "hook-new-context" })]);
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it("publishes stale-view archived restore facts without replacing a newer section result", async () => {
@@ -317,55 +304,50 @@ describe("SettingsDynamicSectionsController", () => {
     expect(display).not.toHaveBeenCalled();
   });
 
-  it("serializes hook mutations before starting the next short-lived client operation", async () => {
-    const firstWrite = deferred<unknown>();
-    const firstRequest = vi.fn(() => firstWrite.promise);
-    const secondRequest = vi.fn().mockResolvedValue({});
-    const firstClient = settingsRequestClient({
-      "config/batchWrite": firstRequest,
+  it("does not publish archived mutation facts after its app-server context is replaced", async () => {
+    const restoreResult = deferred<{ thread: ThreadRecord }>();
+    const restoreClient = settingsRequestClient({
+      "thread/unarchive": vi.fn(() => restoreResult.promise),
     });
-    const secondClient = settingsRequestClient({
-      "config/batchWrite": secondRequest,
-    });
-    useShortLivedClients(firstClient, secondClient);
-    const dynamicData = settingsTabHost().dynamicData;
+    const applyThreadCatalogEvent = vi.fn();
+    useShortLivedClients(restoreClient);
+    const host = settingsTabHost({ applyThreadCatalogEvent });
+    const controller = new SettingsDynamicSectionsController(host, { display: vi.fn(), notify: vi.fn() });
 
-    const trust = dynamicData.trustHook(hook({ key: "hook-first" }));
-    const toggle = dynamicData.setHookEnabled(hook({ key: "hook-second" }), false);
-    await flushPromises();
-
-    expect(firstRequest).toHaveBeenCalledOnce();
-    expect(secondRequest).not.toHaveBeenCalled();
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
-
-    firstWrite.resolve({});
-    await trust;
-    await toggle;
-
-    expect(secondRequest).toHaveBeenCalledOnce();
-    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("does not start a settings mutation after client acquisition crosses a context replacement", async () => {
-    const acquisition = deferred<void>();
-    const client = settingsRequestClient({
-      "config/batchWrite": vi.fn().mockResolvedValue({}),
-    });
-    withShortLivedAppServerClientMock.mockImplementationOnce(
-      async (_codexPath: string, _vaultPath: string, operation: (acquiredClient: AppServerClient) => Promise<unknown>) => {
-        await acquisition.promise;
-        return operation(client);
-      },
-    );
-    const host = settingsTabHost();
-
-    const trust = host.dynamicData.trustHook(hook({ key: "hook-old-context" }));
+    const restore = controller.restoreArchivedThread("thread-old");
     await flushPromises();
     await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
-    acquisition.resolve(undefined);
+    restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored after replacement" }) });
+    await restore;
 
-    await expect(trust).rejects.toBeInstanceOf(StaleSettingsDynamicDataContextError);
-    expect(client.request).not.toHaveBeenCalled();
+    expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+  });
+
+  it("starts a replacement-context archived mutation while old work is still pending", async () => {
+    const oldRestore = deferred<{ thread: ThreadRecord }>();
+    const oldClient = settingsRequestClient({
+      "thread/unarchive": vi.fn(() => oldRestore.promise),
+    });
+    const newClient = settingsRequestClient({
+      "thread/unarchive": vi.fn().mockResolvedValue({
+        thread: appServerThread({ id: "thread-shared", preview: "New context" }),
+      }),
+    });
+    useShortLivedClients(oldClient, newClient);
+    const host = settingsTabHost();
+
+    const staleMutation = host.dynamicData.restoreArchivedThread("thread-shared");
+    await flushPromises();
+    await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
+    const currentMutation = host.dynamicData.restoreArchivedThread("thread-shared");
+
+    await expect(currentMutation).resolves.toMatchObject({ id: "thread-shared", preview: "New context" });
+    expect(newClient.requestHandlers["thread/unarchive"]).toHaveBeenCalledOnce();
+
+    oldRestore.resolve({
+      thread: appServerThread({ id: "thread-shared", preview: "Old context" }),
+    });
+    await expect(staleMutation).rejects.toBeInstanceOf(StaleSettingsDynamicDataContextError);
   });
 
   it("records restored archived threads in the active catalog", async () => {

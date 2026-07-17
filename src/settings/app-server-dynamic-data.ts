@@ -4,9 +4,9 @@ import type { ObservedResultListener } from "../app-server/query/observed-result
 import { isStaleAppServerResourceContextError } from "../app-server/query/resource-store";
 import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-server/services/catalog";
 import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
-import type { ModelMetadata } from "../domain/catalog/metadata";
+import type { HookItem, ModelMetadata } from "../domain/catalog/metadata";
 import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../features/threads/catalog/thread-catalog";
-import { createKeyedOperationQueue, type KeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
+import { createKeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
 import { type SettingsDynamicDataAccess, type SettingsHookCatalog, StaleSettingsDynamicDataContextError } from "./dynamic-data";
 
 interface SettingsAppServerQueries {
@@ -27,22 +27,26 @@ export interface SettingsAppServerDynamicDataOptions {
 }
 
 export function createSettingsAppServerDynamicData(options: SettingsAppServerDynamicDataOptions): SettingsDynamicDataAccess {
-  const hookMutations = createKeyedOperationQueue<"hooks">();
   const archivedThreadMutations = createKeyedOperationQueue<string>();
   const withSettingsConnection = <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> =>
     options.clientAccess.withClient(operation, {
       serverRequests: { kind: "reject", message: "Codex Panel settings does not handle server requests." },
     });
-  const withSettingsMutationConnection = <T>(contextKey: string, operation: (client: AppServerClient) => Promise<T>): Promise<T> =>
-    withSettingsConnection((client) => {
-      if (options.appServerQueries.contextKey() !== contextKey) throw new StaleSettingsDynamicDataContextError();
-      return operation(client);
-    });
-  const runMutation = <K, T>(queue: KeyedOperationQueue<K>, key: K, contextKey: string, operation: () => Promise<T>): Promise<T> =>
-    queue.run(key, () =>
+  const runArchivedThreadMutation = <T>(threadId: string, operation: () => Promise<T>): Promise<T> => {
+    const contextKey = options.appServerQueries.contextKey();
+    return archivedThreadMutations.run(archivedThreadMutationKey(contextKey, threadId), () =>
       mapStaleContextError(async () => {
         if (options.appServerQueries.contextKey() !== contextKey) throw new StaleSettingsDynamicDataContextError();
         return operation();
+      }),
+    );
+  };
+  const loadHooks = (client: AppServerClient): Promise<SettingsHookCatalog> => loadSettingsHookCatalog(client, options.vaultPath);
+  const mutateHook = (hook: HookItem, mutation: (client: AppServerClient, hook: HookItem) => Promise<void>): Promise<SettingsHookCatalog> =>
+    mapStaleContextError(() =>
+      withSettingsConnection(async (client) => {
+        await mutation(client, hook);
+        return loadHooks(client);
       }),
     );
 
@@ -54,44 +58,34 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
     archivedThreadsSnapshot: () => options.threadCatalog.archivedSnapshot(),
     observeArchivedThreadsResult: (listener, observeOptions) => options.threadCatalog.observeArchived(listener, observeOptions),
     refreshArchivedThreads: () => mapStaleContextError(() => options.threadCatalog.refreshArchived()),
-    loadHooks: () => withSettingsConnection((client) => loadSettingsHookCatalog(client, options.vaultPath)),
-    trustHook: (hook) => {
-      const contextKey = options.appServerQueries.contextKey();
-      return runMutation(hookMutations, "hooks", contextKey, () =>
-        withSettingsMutationConnection(contextKey, (client) => trustHookItem(client, hook)),
-      );
-    },
-    setHookEnabled: (hook, enabled) => {
-      const contextKey = options.appServerQueries.contextKey();
-      return runMutation(hookMutations, "hooks", contextKey, () =>
-        withSettingsMutationConnection(contextKey, (client) => setHookItemEnabled(client, hook, enabled)),
-      );
-    },
-    restoreArchivedThread: (threadId) => {
-      const contextKey = options.appServerQueries.contextKey();
-      return runMutation(archivedThreadMutations, threadId, contextKey, async () => {
-        const thread = await withSettingsMutationConnection(contextKey, (client) => restoreArchivedThreadOnAppServer(client, threadId));
+    refreshHooks: () => mapStaleContextError(() => withSettingsConnection(loadHooks)),
+    trustHook: (hook) => mutateHook(hook, trustHookItem),
+    setHookEnabled: (hook, enabled) => mutateHook(hook, (client, item) => setHookItemEnabled(client, item, enabled)),
+    restoreArchivedThread: (threadId) =>
+      runArchivedThreadMutation(threadId, async () => {
+        const thread = await withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
         options.threadCatalog.apply({ type: "thread-restored", thread });
         return thread;
-      });
-    },
-    deleteArchivedThread: (threadId) => {
-      const contextKey = options.appServerQueries.contextKey();
-      return runMutation(archivedThreadMutations, threadId, contextKey, async () => {
-        await withSettingsMutationConnection(contextKey, (client) => deleteThread(client, threadId));
+      }),
+    deleteArchivedThread: (threadId) =>
+      runArchivedThreadMutation(threadId, async () => {
+        await withSettingsConnection((client) => deleteThread(client, threadId));
         options.threadCatalog.apply({ type: "thread-deleted", threadId });
-      });
-    },
+      }),
   };
 }
 
-async function loadSettingsHookCatalog(client: AppServerClient, cwd: string): Promise<SettingsHookCatalog> {
-  const hooks = await listHookCatalog(client, cwd);
-  const hookCount = hooks.hooks.length;
+async function loadSettingsHookCatalog(client: AppServerClient, vaultPath: string): Promise<SettingsHookCatalog> {
+  const catalog = await listHookCatalog(client, vaultPath);
+  const hookCount = catalog.hooks.length;
   return {
-    ...hooks,
+    ...catalog,
     status: `Loaded ${String(hookCount)} hook${hookCount === 1 ? "" : "s"}.`,
   };
+}
+
+function archivedThreadMutationKey(contextKey: string, threadId: string): string {
+  return `${contextKey}\u0000${threadId}`;
 }
 
 async function mapStaleContextError<T>(operation: () => Promise<T>): Promise<T> {

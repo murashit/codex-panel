@@ -4,6 +4,7 @@ import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { AppServerClientAccessOptions } from "../../src/app-server/connection/client-access";
 import type { CatalogHookMetadata, CatalogModel } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
+import { StaleAppServerResourceContextError } from "../../src/app-server/query/resource-store";
 import type { ModelMetadata, ReasoningEffort } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
 import type { ThreadCatalogEvent } from "../../src/features/threads/catalog/thread-catalog";
@@ -226,16 +227,29 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     observeArchived: options.observeArchived ?? vi.fn(() => () => undefined),
     apply: options.applyThreadCatalogEvent ?? vi.fn(),
   };
+  const clientAccess = {
+    withClient: async <T>(operation: (client: AppServerClient) => Promise<T>, clientOptions?: AppServerClientAccessOptions): Promise<T> => {
+      const contextKey = appServerQueries.contextKey();
+      const result = (await currentShortLivedClientMock()(
+        settings.codexPath,
+        "/vault",
+        async (client) => {
+          if (appServerQueries.contextKey() !== contextKey) throw new StaleAppServerResourceContextError();
+          return operation(client);
+        },
+        clientOptions,
+      )) as T;
+      if (appServerQueries.contextKey() !== contextKey) throw new StaleAppServerResourceContextError();
+      return result;
+    },
+  };
   return {
     settings,
     dynamicData:
       options.dynamicData ??
       createSettingsAppServerDynamicData({
         vaultPath: "/vault",
-        clientAccess: {
-          withClient: <T>(operation: (client: AppServerClient) => Promise<T>, clientOptions?: AppServerClientAccessOptions) =>
-            currentShortLivedClientMock()(settings.codexPath, "/vault", operation, clientOptions) as Promise<T>,
-        },
+        clientAccess,
         appServerQueries,
         threadCatalog,
       }),

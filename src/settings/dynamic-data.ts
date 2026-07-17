@@ -17,9 +17,9 @@ export interface SettingsDynamicDataAccess {
   archivedThreadsSnapshot(): readonly Thread[] | null;
   observeArchivedThreadsResult(listener: ObservedResultListener<readonly Thread[]>, options?: { emitCurrent?: boolean }): () => void;
   refreshArchivedThreads(): Promise<readonly Thread[]>;
-  loadHooks(): Promise<SettingsHookCatalog>;
-  trustHook(hook: HookItem): Promise<void>;
-  setHookEnabled(hook: HookItem, enabled: boolean): Promise<void>;
+  refreshHooks(): Promise<SettingsHookCatalog>;
+  trustHook(hook: HookItem): Promise<SettingsHookCatalog>;
+  setHookEnabled(hook: HookItem, enabled: boolean): Promise<SettingsHookCatalog>;
   restoreArchivedThread(threadId: string): Promise<Thread>;
   deleteArchivedThread(threadId: string): Promise<void>;
 }
