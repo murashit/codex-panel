@@ -13,7 +13,7 @@ export function HelperSettingsSection({ state }: { state: HelperSettingsState })
     <SettingsGroup className="codex-panel-settings__section codex-panel-settings__helper-section">
       <SettingsHeading name="Panel helpers" />
       <SettingsItems>
-        <ModelEffortSetting
+        <ModelEffortControl
           name="Automatic thread naming"
           desc="Model and effort used when Codex Panel generates thread names."
           modelValue={state.threadNamingModel}
@@ -22,7 +22,7 @@ export function HelperSettingsSection({ state }: { state: HelperSettingsState })
           onModelChange={state.onThreadNamingModelChange}
           onEffortChange={state.onThreadNamingEffortChange}
         />
-        <ModelEffortSetting
+        <ModelEffortControl
           name="Selection rewrite"
           desc="Model and effort used by Rewrite selection."
           modelValue={state.rewriteSelectionModel}
@@ -37,7 +37,7 @@ export function HelperSettingsSection({ state }: { state: HelperSettingsState })
   );
 }
 
-function ModelEffortSetting({
+export function ModelEffortControl({
   name,
   desc,
   modelValue,
@@ -45,6 +45,7 @@ function ModelEffortSetting({
   models,
   onModelChange,
   onEffortChange,
+  controlsOnly = false,
 }: {
   name: string;
   desc: string;
@@ -53,10 +54,11 @@ function ModelEffortSetting({
   models: readonly ModelMetadata[];
   onModelChange: (value: string | null) => void;
   onEffortChange: (value: ReasoningEffort | null) => void;
+  controlsOnly?: boolean;
 }): UiNode {
   const efforts = reasoningEffortsForSelectedModel(models, modelValue);
-  return (
-    <SettingRow name={name} desc={desc}>
+  const controls = (
+    <>
       <ObsidianDropdown
         value={modelValue ?? CODEX_DEFAULT_VALUE}
         onChange={(value) => {
@@ -71,6 +73,13 @@ function ModelEffortSetting({
         }}
         options={reasoningEffortSelectOptions(efforts, effortValue)}
       />
+    </>
+  );
+  return controlsOnly ? (
+    controls
+  ) : (
+    <SettingRow name={name} desc={desc}>
+      {controls}
     </SettingRow>
   );
 }

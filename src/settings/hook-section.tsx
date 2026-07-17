@@ -9,13 +9,17 @@ export function HookSection({ state }: { state: HookSectionState }): UiNode {
   return (
     <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__hook-section">
       <SettingsHeading dynamic name="Codex hooks" />
-      {state.contentAvailable ? (
-        <Hooks state={state} />
-      ) : !state.loading && state.status ? (
-        <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
-      ) : null}
+      <HooksContent state={state} />
     </SettingsGroup>
   );
+}
+
+export function HooksContent({ state }: { state: HookSectionState }): UiNode {
+  return state.contentAvailable ? (
+    <Hooks state={state} />
+  ) : !state.loading && state.status ? (
+    <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
+  ) : null;
 }
 
 function Hooks({ state }: { state: HookSectionState }): UiNode {

@@ -18,14 +18,18 @@ export function ArchivedThreadSection({ state }: { state: ArchivedThreadSectionS
       </SettingsGroup>
       <SettingsGroup className="codex-panel-settings__dynamic-section codex-panel-settings__archived-threads-section">
         <SettingsHeading dynamic name="Archived threads" />
-        {state.contentAvailable ? (
-          <ArchivedThreadList state={state} />
-        ) : !state.loading && state.status ? (
-          <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
-        ) : null}
+        <ArchivedThreadsContent state={state} />
       </SettingsGroup>
     </>
   );
+}
+
+export function ArchivedThreadsContent({ state }: { state: ArchivedThreadSectionState }): UiNode {
+  return state.contentAvailable ? (
+    <ArchivedThreadList state={state} />
+  ) : !state.loading && state.status ? (
+    <p className="setting-item-description codex-panel-settings__dynamic-section-status">{state.status}</p>
+  ) : null;
 }
 
 function ArchiveExportSettings({ state }: { state: ArchivedThreadSectionState }): UiNode {

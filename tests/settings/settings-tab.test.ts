@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
+import { Setting } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
+import type { DeclarativeSettingDefinition, DeclarativeSettingDefinitionItem } from "../../src/settings/declarative-settings.compat";
 import type { CodexPanelSettingTabHost } from "../../src/settings/host";
 import { DEFAULT_SETTINGS } from "../../src/settings/model";
 import { CodexPanelSettingTab } from "../../src/settings/tab.obsidian";
@@ -38,6 +40,108 @@ describe("settings tab", () => {
   beforeEach(() => {
     withShortLivedAppServerClientMock.mockReset();
     notices.length = 0;
+  });
+
+  it("exposes every persistent setting to Obsidian 1.13 search without loading dynamic data", () => {
+    const tab = newSettingsTab();
+
+    const definitions = tab.getSettingDefinitions();
+
+    expect(withShortLivedAppServerClientMock).not.toHaveBeenCalled();
+    expect(declarativeDefinitionNames(definitions)).toEqual([
+      "Codex details",
+      "Codex executable",
+      "Show chat toolbar",
+      "Panel helpers",
+      "Automatic thread naming",
+      "Selection rewrite",
+      "Composer",
+      "Send shortcut",
+      "Scroll conversation from composer line edges",
+      "Reference active file on send",
+      "Attachment folder",
+      "Thread archiving",
+      "Save note by default",
+      "Saved note folder",
+      "Saved note filename",
+      "Saved note tags",
+      "Archived threads",
+      "Archived threads content",
+      "Codex hooks",
+      "Codex hooks content",
+    ]);
+    expect(declarativeDefinitionByName(definitions, "Codex details")?.searchable).toBe(false);
+  });
+
+  it("routes declarative controls through the existing settings publication boundary", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const refreshOpenViews = vi.fn();
+    const tab = newSettingsTab({ saveSettings, refreshOpenViews });
+
+    expect(tab.getControlValue("showToolbar")).toBe(true);
+    await tab.setControlValue("showToolbar", false);
+
+    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(refreshOpenViews).toHaveBeenCalledOnce();
+    expect(tab.getControlValue("showToolbar")).toBe(false);
+  });
+
+  it("starts dynamic loading from declarative rendering instead of definition indexing", async () => {
+    const client = settingsClient();
+    useShortLivedClients(client);
+    const tab = newSettingsTab();
+    const header = declarativeDefinitionByName(tab.getSettingDefinitions(), "Codex details");
+    if (!header?.render) throw new Error("Missing declarative Codex details renderer");
+    const container = document.createElement("div");
+
+    header.render(new Setting(container), {} as never);
+    expect(withShortLivedAppServerClientMock).not.toHaveBeenCalled();
+
+    await flushPromises();
+
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+    expect(container.querySelector("button")?.ariaLabel).toBe("Refresh Codex details");
+  });
+
+  it("preserves an active declarative text island while dynamic sections refresh", async () => {
+    const client = settingsClient();
+    useShortLivedClients(client);
+    const tab = newSettingsTab();
+    const executable = declarativeDefinitionByName(tab.getSettingDefinitions(), "Codex executable");
+    if (!executable?.render) throw new Error("Missing declarative Codex executable renderer");
+    const container = document.createElement("div");
+
+    executable.render(new Setting(container), {} as never);
+    const input = container.querySelector("input");
+    if (!input) throw new Error("Missing declarative Codex executable input");
+    input.focus();
+    input.value = "/draft/codex";
+
+    await flushPromises();
+
+    expect(container.querySelector("input")).toBe(input);
+    expect(input.value).toBe("/draft/codex");
+  });
+
+  it("rolls back a declarative text island after publication fails", async () => {
+    const client = settingsClient();
+    useShortLivedClients(client);
+    const tab = newSettingsTab({ saveSettings: vi.fn().mockRejectedValue(new Error("disk full")) });
+    const executable = declarativeDefinitionByName(tab.getSettingDefinitions(), "Codex executable");
+    if (!executable?.render) throw new Error("Missing declarative Codex executable renderer");
+    const container = document.createElement("div");
+
+    executable.render(new Setting(container), {} as never);
+    const input = container.querySelector("input");
+    if (!input) throw new Error("Missing declarative Codex executable input");
+    input.value = "/failed/codex";
+    input.dispatchEvent(new Event("blur"));
+
+    await flushPromises();
+
+    expect(container.querySelector("input")).not.toBe(input);
+    expect(container.querySelector("input")?.value).toBe(DEFAULT_SETTINGS.codexPath);
+    expect(notices).toContain("Failed to save Codex Panel settings: disk full");
   });
 
   it("auto-loads dynamic sections once and keeps one global refresh button", async () => {
@@ -656,6 +760,30 @@ describe("settings tab", () => {
 
 function newSettingsTab(options: SettingsTabHostOptions = {}): CodexPanelSettingTab {
   return new CodexPanelSettingTab({} as never, {} as never, settingsTabHost(options));
+}
+
+function declarativeDefinitionNames(definitions: DeclarativeSettingDefinitionItem[]): string[] {
+  return definitions.flatMap((definition) => {
+    if ("type" in definition) {
+      return [...(definition.heading ? [definition.heading] : []), ...declarativeDefinitionNames(definition.items ?? [])];
+    }
+    return [definition.name];
+  });
+}
+
+function declarativeDefinitionByName(
+  definitions: DeclarativeSettingDefinitionItem[],
+  name: string,
+): DeclarativeSettingDefinition | undefined {
+  for (const definition of definitions) {
+    if ("type" in definition) {
+      const nested = declarativeDefinitionByName(definition.items ?? [], name);
+      if (nested) return nested;
+    } else if (definition.name === name) {
+      return definition;
+    }
+  }
+  return undefined;
 }
 
 function settingNames(tab: CodexPanelSettingTab): string[] {
