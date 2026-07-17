@@ -55,7 +55,7 @@ function composerControllerFixture(
 ): {
   controller: ChatComposerController;
   parent: HTMLElement;
-  renderShell: ReturnType<typeof vi.fn>;
+  renderShell: () => void;
   stateStore: ChatStateStore;
 } {
   const stateStore = options.stateStore ?? createChatStateStore();
@@ -437,6 +437,79 @@ describe("ChatComposerController", () => {
       { type: "mention", name: "diagram", path: "Codex Attachments/diagram.png" },
       { type: "localImage", path: "Codex Attachments/diagram.png" },
     ]);
+  });
+
+  it("does not insert a saved attachment into a later thread or draft", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread-first" } }));
+    const { controller, parent, renderShell } = composerControllerFixture({
+      stateStore,
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    renderShell();
+    controller.setDraft("first draft");
+    composer(parent).setSelectionRange(5, 5);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
+
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    controller.setDraft("later draft");
+    composer(parent).setSelectionRange(2, 2);
+    saved.resolve([attachmentFixture("first")]);
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("later draft");
+    expect(controller.captureInputSnapshot().attachments).toEqual([]);
+  });
+
+  it("does not insert a saved attachment after the composer selection changes", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    renderShell();
+    controller.setDraft("before after");
+    composer(parent).setSelectionRange(6, 6);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
+
+    composer(parent).setSelectionRange(0, 0);
+    saved.resolve([attachmentFixture("first")]);
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("before after");
+    expect(controller.captureInputSnapshot().attachments).toEqual([]);
+  });
+
+  it("inserts multiple transfers that began at the same draft anchor", async () => {
+    const first = deferred<ComposerAttachment[]>();
+    const second = deferred<ComposerAttachment[]>();
+    let call = 0;
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: {
+        attachmentHandler: {
+          saveFiles: vi.fn(() => {
+            call += 1;
+            return call === 1 ? first.promise : second.promise;
+          }),
+        },
+      },
+    });
+    renderShell();
+    controller.setDraft("note");
+    composer(parent).setSelectionRange(4, 4);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "second.png", { type: "image/png" })]));
+
+    second.resolve([attachmentFixture("second")]);
+    await flushComposerAttachment();
+    first.resolve([attachmentFixture("first")]);
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("note\n![[Codex Attachments/second.png]]\n![[Codex Attachments/first.png]]");
+    expect(controller.captureInputSnapshot().attachments.map((attachment) => attachment.name)).toEqual(["second", "first"]);
   });
 
   it("preserves pasted image attachments when connection exit restores a cancellable web draft", async () => {
@@ -1157,6 +1230,15 @@ function transferEvent(type: "paste" | "drop", key: "clipboardData" | "dataTrans
     value: { files },
   });
   return event;
+}
+
+function attachmentFixture(name: string): ComposerAttachment {
+  return {
+    kind: "image",
+    name,
+    path: `Codex Attachments/${name}.png`,
+    marker: `![[Codex Attachments/${name}.png]]`,
+  };
 }
 
 async function flushComposerAttachment(): Promise<void> {

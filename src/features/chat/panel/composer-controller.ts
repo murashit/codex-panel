@@ -1,6 +1,11 @@
 import { isComposerSendKey, type SendShortcut } from "../../../domain/input/send-shortcut";
 import { OwnerLifetime } from "../../../shared/runtime/owner-lifetime";
 import {
+  type AttachmentInsertionAnchor,
+  attachmentInsertionAnchorAfterInsertion,
+  attachmentInsertionAnchorMatches,
+} from "../application/composer/attachment-insertion-anchor";
+import {
   type ComposerAttachment,
   type ComposerAttachmentHandler,
   codexInputWithComposerAttachments,
@@ -29,7 +34,7 @@ import {
   preparedUserInputWithWikiLinkMentionsSkillsAndContext,
 } from "../application/composer/wikilink-context";
 import { activePanelOperationDecision } from "../application/panel-operation-policy";
-import { activeThreadState, type ChatAction, type ChatState } from "../application/state/root-reducer";
+import { activeThreadState, type ChatAction, type ChatState, panelThreadId } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../ui/composer";
 import { syncComposerHeight } from "../ui/composer.dom";
@@ -79,6 +84,7 @@ export class ChatComposerController {
   private composer: HTMLTextAreaElement | null = null;
   private attachments: ComposerAttachment[] = [];
   private pendingAttachmentTransfers = new Set<Promise<void>>();
+  private pendingAttachmentInsertions = new Set<PendingAttachmentInsertion>();
   private submitAfterAttachmentTransfersActive = false;
   private activeNoteContextSnapshots: ActiveNoteContextReference[] = [];
   private selectionContextSnapshots: SelectionContextReference[] = [];
@@ -346,39 +352,74 @@ export class ChatComposerController {
     const handler = this.options.attachmentHandler;
     if (!handler) return;
 
-    const transfer = this.saveTransferredFiles(handler, files);
+    const pendingInsertion = this.pendingAttachmentInsertion();
+    const transfer = this.saveTransferredFiles(handler, files, pendingInsertion);
     this.pendingAttachmentTransfers.add(transfer);
     void transfer.finally(() => {
       this.pendingAttachmentTransfers.delete(transfer);
+      pendingInsertion.transferCount -= 1;
+      if (pendingInsertion.transferCount === 0) this.pendingAttachmentInsertions.delete(pendingInsertion);
     });
   }
 
-  private async saveTransferredFiles(handler: ComposerAttachmentHandler, files: readonly File[]): Promise<void> {
+  private async saveTransferredFiles(
+    handler: ComposerAttachmentHandler,
+    files: readonly File[],
+    pendingInsertion: PendingAttachmentInsertion,
+  ): Promise<void> {
     const lifetime = this.lifetime.signal();
     if (!this.lifetime.isCurrent(lifetime)) return;
     try {
       const attachments = await handler.saveFiles(files);
       if (!this.lifetime.isCurrent(lifetime)) return;
       if (attachments.length === 0) return;
-      this.attachments = [...this.attachments, ...attachments];
-      this.insertAttachmentMarkers(attachments);
+      this.insertAttachmentMarkers(attachments, pendingInsertion);
     } catch (error) {
       if (!this.lifetime.isCurrent(lifetime)) return;
       this.options.onAttachmentError?.(error instanceof Error ? error.message : String(error));
     }
   }
 
-  private insertAttachmentMarkers(attachments: readonly ComposerAttachment[]): void {
+  private pendingAttachmentInsertion(): PendingAttachmentInsertion {
+    const anchor = this.attachmentInsertionAnchor();
+    const pendingInsertion = [...this.pendingAttachmentInsertions].find((pending) =>
+      attachmentInsertionAnchorMatches(pending.anchor, anchor),
+    );
+    if (pendingInsertion) {
+      pendingInsertion.transferCount += 1;
+      return pendingInsertion;
+    }
+    const next = { anchor, transferCount: 1 };
+    this.pendingAttachmentInsertions.add(next);
+    return next;
+  }
+
+  private attachmentInsertionAnchor(): AttachmentInsertionAnchor {
+    const draft = this.state.composer.draft;
+    const source = composerRangeInsertionSource(this.composer);
+    const selection = source && source.value === draft ? source : null;
+    return {
+      threadId: panelThreadId(this.state),
+      draft,
+      start: selection?.start ?? draft.length,
+      end: selection?.end ?? draft.length,
+    };
+  }
+
+  private insertAttachmentMarkers(attachments: readonly ComposerAttachment[], pendingInsertion: PendingAttachmentInsertion): void {
     const markers = attachments.map((attachment) => attachment.marker);
     if (markers.length === 0) return;
 
-    const fallbackSource = {
-      value: this.state.composer.draft,
-      start: this.state.composer.draft.length,
-      end: this.state.composer.draft.length,
-    };
-    const source = composerRangeInsertionSource(this.composer) ?? fallbackSource;
-    const insertion = applyAttachmentMarkerInsertion(source.value, source.start, source.end, markers);
+    const current = this.attachmentInsertionAnchor();
+    if (!attachmentInsertionAnchorMatches(pendingInsertion.anchor, current)) return;
+    const insertion = applyAttachmentMarkerInsertion(
+      pendingInsertion.anchor.draft,
+      pendingInsertion.anchor.start,
+      pendingInsertion.anchor.end,
+      markers,
+    );
+    pendingInsertion.anchor = attachmentInsertionAnchorAfterInsertion(pendingInsertion.anchor, insertion);
+    this.attachments = [...this.attachments, ...attachments];
     this.pruneAttachments(insertion.value);
     this.pruneActiveNoteContextSnapshots(insertion.value);
     this.pruneSelectionContextSnapshots(insertion.value);
@@ -543,6 +584,11 @@ export class ChatComposerController {
       },
     };
   }
+}
+
+interface PendingAttachmentInsertion {
+  anchor: AttachmentInsertionAnchor;
+  transferCount: number;
 }
 
 function applyAttachmentMarkerInsertion(
