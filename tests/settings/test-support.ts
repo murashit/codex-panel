@@ -214,6 +214,7 @@ export function settingsTabHost(options: SettingsTabHostOptions = {}): CodexPane
     sendShortcut: options.sendShortcut ?? "enter",
   };
   const appServerQueries = {
+    contextKey: () => settings.codexPath,
     modelsSnapshot: vi.fn(() => options.modelsSnapshot ?? []),
     fetchModels: options.fetchModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),
     refreshModels: options.refreshModels ?? vi.fn().mockResolvedValue(options.modelsSnapshot ?? []),

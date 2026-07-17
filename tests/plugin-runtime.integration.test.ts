@@ -228,6 +228,28 @@ describe("CodexPanelPlugin runtime integration", () => {
     await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
   });
 
+  it("does not start a short-lived operation when its app-server context changes while connecting", async () => {
+    const clientReady = deferred<void>();
+    const shortLivedClient = { request: vi.fn().mockResolvedValue({}) };
+    withShortLivedAppServerClientMock.mockImplementation(
+      (_codexPath: string, _vaultPath: string, operation: (client: typeof shortLivedClient) => Promise<unknown>) =>
+        clientReady.promise.then(() => operation(shortLivedClient)),
+    );
+    const plugin = await pluginWithLeaves([]);
+    await publishCodexPath(plugin, "codex-a");
+    const callback = vi.fn(() => Promise.resolve("unused"));
+
+    const operation = plugin.runtime.withClient(callback, {
+      serverRequests: { kind: "reject", message: "test" },
+    });
+    await publishCodexPath(plugin, "codex-b");
+    clientReady.resolve();
+
+    await expect(operation).rejects.toThrow("Codex app-server resource context changed while loading.");
+    expect(callback).not.toHaveBeenCalled();
+    expect(shortLivedClient.request).not.toHaveBeenCalled();
+  });
+
   it("publishes a persisted context and its new resource lease atomically", async () => {
     const plugin = await pluginWithLeaves([]);
     const firstLease = plugin.runtime.appServerContextLease();

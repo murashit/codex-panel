@@ -335,11 +335,27 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     if (!appServerQueryContextIsComplete(context)) {
       throw new Error("Codex app-server query context is incomplete.");
     }
-    const result = await this.runWithContextClient(context, operation, options);
-    if (!appServerQueryContextIdentityMatches(this.appServerResourceStore.contextIdentity(), context)) {
-      throw new StaleAppServerResourceContextError();
-    }
+    this.assertCurrentAppServerContext(context);
+    const result = await this.runWithContextClient(
+      context,
+      (client) => {
+        this.assertCurrentAppServerContext(context);
+        return operation(client);
+      },
+      options,
+    );
+    this.assertCurrentAppServerContext(context);
     return result;
+  }
+
+  private assertCurrentAppServerContext(context: AppServerQueryContextIdentity): void {
+    let current = false;
+    try {
+      current = appServerQueryContextIdentityMatches(this.appServerResourceStore.contextIdentity(), context);
+    } catch {
+      // A reset resource store has no current app-server context.
+    }
+    if (!current) throw new StaleAppServerResourceContextError();
   }
 
   private runWithContextClient<T>(

@@ -275,9 +275,7 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not restore archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not restore archived Codex thread.",
       operation: async (operationToken) => {
-        const restoredThread = await this.host.dynamicData.restoreArchivedThread(threadId, {
-          shouldPublish: () => !this.isStaleArchivedThreadsOperation(operationToken),
-        });
+        const restoredThread = await this.host.dynamicData.restoreArchivedThread(threadId);
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
         this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(`Restored "${threadArchiveDisplayTitle(restoredThread)}".`);
@@ -294,9 +292,7 @@ export class SettingsDynamicSectionsController {
       failureStatus: (error) => `Could not delete archived thread: ${errorMessage(error)}`,
       failureNotice: "Could not delete archived Codex thread.",
       operation: async (operationToken) => {
-        await this.host.dynamicData.deleteArchivedThread(threadId, {
-          shouldPublish: () => !this.isStaleArchivedThreadsOperation(operationToken),
-        });
+        await this.host.dynamicData.deleteArchivedThread(threadId);
         if (this.isStaleArchivedThreadsOperation(operationToken)) return;
         this.archivedThreads = this.archivedThreads.filter((thread) => thread.id !== threadId);
         this.archivedThreadsLifecycle = settingsDynamicSectionLoaded(`Deleted "${title}".`);
@@ -365,7 +361,7 @@ export class SettingsDynamicSectionsController {
     try {
       await options.operation(operationToken);
     } catch (error) {
-      if (stale()) return;
+      if (stale() || isStaleSettingsDynamicDataContextError(error)) return;
       setLifecycle(settingsDynamicSectionFailed(options.failureStatus(error)));
       this.callbacks.notify(options.failureNotice);
     } finally {

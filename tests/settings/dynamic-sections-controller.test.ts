@@ -183,7 +183,7 @@ describe("SettingsDynamicSectionsController", () => {
     expect(snapshot.hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
   });
 
-  it("ignores stale archived restore results after a newer dynamic operation completes", async () => {
+  it("publishes stale-view archived restore facts without replacing a newer section result", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
     const applyThreadCatalogEvent = vi.fn();
     const initialClient = settingsClient();
@@ -211,8 +211,107 @@ describe("SettingsDynamicSectionsController", () => {
     staleRestore.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
     await restore;
 
-    expect(applyThreadCatalogEvent).not.toHaveBeenCalled();
+    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      type: "thread-restored",
+      thread: expect.objectContaining({ id: "thread-old", preview: "Restored old", archived: false }),
+    });
     expect(controller.snapshot().archivedThreads.map((thread) => thread.preview)).toEqual(["New archived"]);
+  });
+
+  it("serializes conflicting archived mutations and publishes their facts in order", async () => {
+    const restoreResult = deferred<{ thread: ThreadRecord }>();
+    const deleteResult = deferred<unknown>();
+    const restoreRequest = vi.fn(() => restoreResult.promise);
+    const deleteRequest = vi.fn(() => deleteResult.promise);
+    const restoreClient = settingsRequestClient({
+      "thread/unarchive": restoreRequest,
+    });
+    const deleteClient = settingsRequestClient({
+      "thread/delete": deleteRequest,
+    });
+    const applyThreadCatalogEvent = vi.fn();
+    useShortLivedClients(restoreClient, deleteClient);
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadCatalogEvent }), {
+      display: vi.fn(),
+      notify: vi.fn(),
+    });
+
+    const restore = controller.restoreArchivedThread("thread-old");
+    const deletion = controller.deleteArchivedThread("thread-old");
+    await flushPromises();
+
+    expect(restoreRequest).toHaveBeenCalledOnce();
+    expect(deleteRequest).not.toHaveBeenCalled();
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+
+    restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored old" }) });
+    await flushPromises();
+
+    expect(deleteRequest).toHaveBeenCalledOnce();
+    expect(applyThreadCatalogEvent).toHaveBeenCalledTimes(1);
+
+    deleteResult.resolve({});
+    await Promise.all([restore, deletion]);
+
+    expect(applyThreadCatalogEvent.mock.calls.map(([event]) => event.type)).toEqual(["thread-restored", "thread-deleted"]);
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("publishes a completed archived mutation after the settings view is disposed", async () => {
+    const restoreResult = deferred<{ thread: ThreadRecord }>();
+    const restoreClient = settingsRequestClient({
+      "thread/unarchive": vi.fn(() => restoreResult.promise),
+    });
+    const applyThreadCatalogEvent = vi.fn();
+    const display = vi.fn();
+    useShortLivedClients(restoreClient);
+    const controller = new SettingsDynamicSectionsController(settingsTabHost({ applyThreadCatalogEvent }), {
+      display,
+      notify: vi.fn(),
+    });
+
+    const restore = controller.restoreArchivedThread("thread-old");
+    await flushPromises();
+    controller.dispose();
+    display.mockClear();
+
+    restoreResult.resolve({ thread: appServerThread({ id: "thread-old", preview: "Restored after close" }) });
+    await restore;
+
+    expect(applyThreadCatalogEvent).toHaveBeenCalledWith({
+      type: "thread-restored",
+      thread: expect.objectContaining({ id: "thread-old", preview: "Restored after close", archived: false }),
+    });
+    expect(display).not.toHaveBeenCalled();
+  });
+
+  it("serializes hook mutations before starting the next short-lived client operation", async () => {
+    const firstWrite = deferred<unknown>();
+    const firstRequest = vi.fn(() => firstWrite.promise);
+    const secondRequest = vi.fn().mockResolvedValue({});
+    const firstClient = settingsRequestClient({
+      "config/batchWrite": firstRequest,
+    });
+    const secondClient = settingsRequestClient({
+      "config/batchWrite": secondRequest,
+    });
+    useShortLivedClients(firstClient, secondClient);
+    const dynamicData = settingsTabHost().dynamicData;
+
+    const trust = dynamicData.trustHook(hook({ key: "hook-first" }));
+    const toggle = dynamicData.setHookEnabled(hook({ key: "hook-second" }), false);
+    await flushPromises();
+
+    expect(firstRequest).toHaveBeenCalledOnce();
+    expect(secondRequest).not.toHaveBeenCalled();
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledOnce();
+
+    firstWrite.resolve({});
+    await trust;
+    await toggle;
+
+    expect(secondRequest).toHaveBeenCalledOnce();
+    expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
   });
 
   it("records restored archived threads in the active catalog", async () => {

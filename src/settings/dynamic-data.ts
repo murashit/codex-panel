@@ -9,10 +9,6 @@ export interface SettingsHookCatalog {
   status: string;
 }
 
-interface SettingsDynamicDataMutationOptions {
-  shouldPublish?: () => boolean;
-}
-
 export interface SettingsDynamicDataAccess {
   modelsSnapshot(): readonly ModelMetadata[] | null;
   observeModelsResult(listener: ObservedResultListener<readonly ModelMetadata[]>, options?: { emitCurrent?: boolean }): () => void;
@@ -24,8 +20,8 @@ export interface SettingsDynamicDataAccess {
   loadHooks(): Promise<SettingsHookCatalog>;
   trustHook(hook: HookItem): Promise<void>;
   setHookEnabled(hook: HookItem, enabled: boolean): Promise<void>;
-  restoreArchivedThread(threadId: string, options?: SettingsDynamicDataMutationOptions): Promise<Thread>;
-  deleteArchivedThread(threadId: string, options?: SettingsDynamicDataMutationOptions): Promise<void>;
+  restoreArchivedThread(threadId: string): Promise<Thread>;
+  deleteArchivedThread(threadId: string): Promise<void>;
 }
 
 export class StaleSettingsDynamicDataContextError extends Error {
