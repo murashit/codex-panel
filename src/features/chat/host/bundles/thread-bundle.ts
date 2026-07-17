@@ -211,11 +211,16 @@ export function createThreadLifecycleBundle(
 ): ChatPanelThreadLifecycleBundle {
   const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, refreshLiveState, notifyActiveThreadIdentityChanged } =
     input;
+  let sessionLifecycle: ChatPanelThreadLifecycle | null = null;
   const goals = createGoalActions({
     stateStore: host.stateStore,
     goalTransport: appServer.threadGoal,
     localItemIds,
     startThread: (preview, options) => threadStart.startThread(preview, options),
+    ensureRestoredThreadLoaded: async () => {
+      if (!sessionLifecycle) return false;
+      return sessionLifecycle.restoration.ensureLoaded((threadId) => sessionLifecycle?.resume.resumeThread(threadId) ?? Promise.resolve());
+    },
     addSystemMessage: (text) => {
       status.addSystemMessage(text);
     },
@@ -243,6 +248,7 @@ export function createThreadLifecycleBundle(
     refreshLiveState,
     notifyActiveThreadIdentityChanged,
   });
+  sessionLifecycle = lifecycle;
   const { identity, restoration, resume } = lifecycle;
 
   return {

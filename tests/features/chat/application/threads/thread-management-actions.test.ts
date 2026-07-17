@@ -54,6 +54,20 @@ type ThreadManagementActionsHostMock = Omit<
 };
 
 describe("thread management actions", () => {
+  it("allows direct compaction of an active side chat", async () => {
+    const host = hostMock({
+      items: [],
+      activeThread: {
+        id: "side-thread",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+    });
+
+    await threadManagementActions(host).compactThread("side-thread");
+
+    expect(host.threadTransport.compactThread).toHaveBeenCalledWith("side-thread");
+  });
+
   it("does not fork an ephemeral side chat", async () => {
     const host = hostMock({
       items: [],

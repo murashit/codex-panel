@@ -93,6 +93,35 @@ describe("createGoalActions", () => {
     expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
   });
 
+  it("blocks goal mutations in side chats before calling app-server", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      activeThread: {
+        id: "side",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+    });
+    const stateStore = createChatStateStore(state);
+    const goalTransport = goalTransportFixture();
+    const addSystemMessage = vi.fn();
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread: vi.fn().mockResolvedValue({ threadId: "side" }),
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await expect(actions.setObjective("side", "Ship", null)).resolves.toBe(false);
+    await expect(actions.clear("side")).resolves.toBe(false);
+
+    expect(goalTransport.setThreadGoal).not.toHaveBeenCalled();
+    expect(goalTransport.clearThreadGoal).not.toHaveBeenCalled();
+    expect(addSystemMessage).toHaveBeenCalledWith("Goals are unavailable in side chats.");
+  });
+
   it("does not report stale goal action failures after the active thread changes", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -145,6 +174,29 @@ describe("createGoalActions", () => {
     await pending;
 
     expect(addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not clear a stale goal when the active thread changes during the policy guard", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { activeThread: { goal: goal() } });
+    const stateStore = createChatStateStore(state);
+    const goalTransport = goalTransportFixture();
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    const pending = actions.clear("thread");
+    stateStore.dispatch({ type: "active-thread/cleared" });
+
+    await expect(pending).resolves.toBe(false);
+    expect(goalTransport.clearThreadGoal).not.toHaveBeenCalled();
   });
 
   it("reports goal creation as a structured goal event", async () => {
@@ -225,6 +277,86 @@ describe("createGoalActions", () => {
     expect(startThread).toHaveBeenCalledWith("Plan release", { syncGoal: false });
     expect(setThreadGoal).toHaveBeenCalledWith("thread-new", { objective: "Plan release", status: "active", tokenBudget: null });
     expect(goalTransport.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread-new", "Plan release");
+  });
+
+  it("does not start a goal thread when the empty panel changes during connection", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const connection = deferred<boolean>();
+    const goalTransport = goalTransportFixture({ ensureConnected: vi.fn(() => connection.promise) });
+    const startThread = vi.fn().mockResolvedValue({ threadId: "thread-new" });
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread,
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    const pending = actions.saveObjective("Plan release", null);
+    await vi.waitFor(() => expect(goalTransport.ensureConnected).toHaveBeenCalledOnce());
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "restored", fallbackTitle: "Restored" });
+    connection.resolve(true);
+
+    await expect(pending).resolves.toBe(false);
+    expect(startThread).not.toHaveBeenCalled();
+    expect(goalTransport.setThreadGoal).not.toHaveBeenCalled();
+  });
+
+  it("loads an awaiting restored thread before saving its goal", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "restored", fallbackTitle: "Restored" });
+    const goalTransport = goalTransportFixture({
+      setThreadGoal: vi.fn().mockResolvedValue(goal({ threadId: "restored", objective: "Resume work" })),
+    });
+    const startThread = vi.fn().mockResolvedValue({ threadId: "new-thread" });
+    const ensureRestoredThreadLoaded = vi.fn(async () => {
+      stateStore.dispatch({
+        type: "active-thread/resumed",
+        approvalPolicyKnown: true,
+        sandboxPolicyKnown: true,
+        permissionProfileKnown: true,
+        approvalPolicy: null,
+        sandboxPolicy: null,
+        activePermissionProfile: null,
+        thread: {
+          id: "restored",
+          preview: "Restored",
+          createdAt: 1,
+          updatedAt: 1,
+          name: null,
+          archived: false,
+          provenance: { kind: "interactive" },
+        },
+        cwd: "/vault",
+        model: null,
+        reasoningEffort: null,
+        serviceTier: null,
+        approvalsReviewer: null,
+      });
+      return true;
+    });
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread,
+      ensureRestoredThreadLoaded,
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await expect(actions.saveObjective("Resume work", null)).resolves.toBe(true);
+
+    expect(ensureRestoredThreadLoaded).toHaveBeenCalledOnce();
+    expect(startThread).not.toHaveBeenCalled();
+    expect(goalTransport.setThreadGoal).toHaveBeenCalledWith("restored", {
+      objective: "Resume work",
+      status: "active",
+      tokenBudget: null,
+    });
   });
 
   it("rejects empty goal objective saves before connecting or starting a thread", async () => {

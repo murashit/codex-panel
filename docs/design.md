@@ -58,6 +58,8 @@ Multiple panels are separate Obsidian leaves. Treat each panel as its own Codex 
 
 Subagent threads opened from agent activity remain persistent and restorable but stay outside ordinary thread history. Treat their panels as read-only conversation surfaces while preserving their parent and agent provenance for future specialized behavior.
 
+Mode-derived restrictions for the active panel thread belong to one pure operation policy. Actions and UI projections must use that policy instead of independently interpreting panel phase, side-chat lifetime, or subagent provenance. Keep connection state, turn busy state, and operations targeting another listed thread in their owning workflows.
+
 Thread history and other app-server resources should follow app-server semantics. Panel-side views are read models over app-server snapshots and lifecycle events; stale or partial refreshes must not overwrite newer state. Obsidian integrations such as archive note export are convenience views, not replacements for Codex history.
 
 Routine thread lists should load a bounded recent set and paginate older threads on demand instead of eagerly fetching complete inventories.

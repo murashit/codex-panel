@@ -148,12 +148,11 @@ function threadStreamStateProjection(
   };
   const workspaceRoot = model.activeThreadCwd ?? context.vaultPath;
   const turnBusy = chatTurnBusy(model.turn);
-  const actionCandidatesAllowed =
-    !turnBusy && model.activeThreadLifetime?.kind !== "ephemeral" && model.activeThreadProvenance?.kind !== "subagent";
-  const rollbackCandidate = actionCandidatesAllowed ? threadStreamRollbackCandidateFromItems(canonicalItems) : null;
-  const forkCandidates = actionCandidatesAllowed ? forkCandidatesFromItems(canonicalItems) : [];
+  const rollbackCandidate = !turnBusy && model.rollbackAllowed ? threadStreamRollbackCandidateFromItems(canonicalItems) : null;
+  const forkCandidates = !turnBusy && model.forkAllowed ? forkCandidatesFromItems(canonicalItems) : [];
   const planTarget = implementPlanTarget({
-    activeThread: model.activeThreadId ? { id: model.activeThreadId, provenance: model.activeThreadProvenance } : null,
+    activeThread: model.activeThreadId ? { id: model.activeThreadId } : null,
+    modeAllowed: model.planImplementationAllowed,
     turn: model.turn,
     runtime: { pending: { collaborationMode: model.runtimeCollaborationMode } },
     threadStream: model.threadStream,

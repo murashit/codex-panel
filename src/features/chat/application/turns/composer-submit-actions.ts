@@ -2,6 +2,7 @@ import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import { type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
 import { parseSlashCommand } from "../composer/suggestions";
 import type { LocalIdSource } from "../local-id-source";
+import { activePanelOperationDecision } from "../panel-operation-policy";
 import { cancellablePendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import { parseWebCommandArgs, type SlashCommandExecutionResult } from "./slash-command-execution";
@@ -61,10 +62,12 @@ export async function submitComposer(host: ComposerSubmitActionsHost): Promise<v
   const originalDraft = host.composer.draft;
   const draft = originalDraft.trim();
   if (host.ensureRestoredThreadLoaded && !(await host.ensureRestoredThreadLoaded())) return;
-  const state = submissionStateSnapshot(host.stateStore.getState());
+  const chatState = host.stateStore.getState();
+  const state = submissionStateSnapshot(chatState);
   if (host.stateStore.getState().pendingSubmission) return;
-  if (state.activeThreadSubagent) {
-    host.status.addSystemMessage("Messages and slash commands are unavailable in agent threads. Start a new chat to continue.");
+  const operationDecision = activePanelOperationDecision(chatState, "submit");
+  if (operationDecision.kind === "blocked") {
+    host.status.addSystemMessage(operationDecision.message);
     return;
   }
   if (state.busy && state.activeThreadId && state.activeTurnId && draft.length === 0) {

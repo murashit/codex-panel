@@ -114,6 +114,26 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(messages).toEqual(["Permission changes are unavailable in side chats.", "Permission changes are unavailable in side chats."]);
   });
 
+  it("keeps an empty settings commit harmless in a side chat while blocking a real settings mutation", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      activeThread: {
+        id: "side",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+    });
+    const store = createChatStateStore(state);
+    const transport = settingsTransportFixture();
+    const messages: string[] = [];
+    const actions = runtimeActionsFixture(store, transport, messages);
+
+    await expect(actions.applyPendingThreadSettings()).resolves.toBe(true);
+    await expect(actions.requestModel("gpt-5.5")).resolves.toBe(false);
+
+    expect(transport.updateThreadSettings).not.toHaveBeenCalled();
+    expect(messages).toEqual(["Thread settings are unavailable in side chats."]);
+  });
+
   it("blocks all thread setting changes for subagent threads", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {

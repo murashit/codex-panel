@@ -1,5 +1,6 @@
 import type { ChatRuntimeState } from "../../domain/runtime/state";
 import { latestImplementablePlanTargetFromItems, type PlanImplementationTarget } from "../../domain/thread-stream/selectors";
+import { activePanelOperationDecision } from "../panel-operation-policy";
 import { activeThreadId, activeThreadState, type ChatActiveThreadState, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { type ChatThreadStreamState, threadStreamItems } from "../state/thread-stream";
@@ -15,7 +16,8 @@ export interface PlanImplementationHost {
 }
 
 interface PlanImplementationState {
-  activeThread: Pick<ChatActiveThreadState, "id" | "provenance"> | null;
+  activeThread: Pick<ChatActiveThreadState, "id"> | null;
+  modeAllowed: boolean;
   turn: ChatTurnState;
   runtime: { pending: Pick<ChatRuntimeState["pending"], "collaborationMode"> };
   threadStream: Pick<ChatThreadStreamState, "stableItems" | "activeSegment">;
@@ -24,6 +26,7 @@ interface PlanImplementationState {
 export function implementPlanTargetFromState(state: ChatState): PlanImplementationTarget | null {
   return implementPlanTarget({
     activeThread: activeThreadState(state),
+    modeAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
     turn: state.turn,
     runtime: state.runtime,
     threadStream: state.threadStream,
@@ -34,7 +37,7 @@ export function implementPlanTarget(state: PlanImplementationState): PlanImpleme
   const { activeThread } = state;
   if (
     !activeThread ||
-    activeThread.provenance?.kind === "subagent" ||
+    !state.modeAllowed ||
     chatTurnBusy(state) ||
     state.runtime.pending.collaborationMode.kind !== "set" ||
     state.runtime.pending.collaborationMode.value !== "plan"
@@ -46,7 +49,8 @@ export function implementPlanTarget(state: PlanImplementationState): PlanImpleme
 
 export async function implementPlan(host: PlanImplementationHost, itemId: string): Promise<void> {
   if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId) return;
-  if (!(await host.ensureConnected()) || !activeThreadId(host.stateStore.getState())) return;
+  if (!(await host.ensureConnected())) return;
+  if (itemId !== implementPlanTargetFromState(host.stateStore.getState())?.itemId || !activeThreadId(host.stateStore.getState())) return;
 
   host.requestDefaultCollaborationModeForNextTurn();
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });

@@ -120,9 +120,7 @@ describe("submitComposer", () => {
 
     expect(execute).not.toHaveBeenCalled();
     expect(sendTurnText).not.toHaveBeenCalled();
-    expect(host.status.addSystemMessage).toHaveBeenCalledWith(
-      "Messages and slash commands are unavailable in agent threads. Start a new chat to continue.",
-    );
+    expect(host.status.addSystemMessage).toHaveBeenCalledWith("Messages are unavailable in agent threads. Start a new chat to continue.");
   });
 
   it("sends plain drafts as turn text", async () => {

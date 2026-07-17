@@ -1,4 +1,5 @@
 import { explicitThreadName } from "../../../domain/threads/model";
+import { activePanelOperationDecision } from "../application/panel-operation-policy";
 import { threadStreamItemsHaveThreadTurns } from "../application/runtime/snapshot";
 import { activeThreadState, type ChatActiveThreadState, type ChatState, panelThreadProvenance } from "../application/state/root-reducer";
 import { threadStreamItems } from "../application/state/thread-stream";
@@ -10,6 +11,9 @@ export interface ChatPanelToolbarModel {
   readonly threads: ChatState["threadList"]["listedThreads"];
   readonly activeThreadId: string | null;
   readonly activeThreadSubagent: boolean;
+  readonly sideChatStartDisabled: boolean;
+  readonly compactDisabled: boolean;
+  readonly goalMutationDisabled: boolean;
   readonly activeThreadTokenUsage: ChatActiveThreadState["tokenUsage"];
   readonly turnBusy: boolean;
   readonly connection: ChatState["connection"];
@@ -21,6 +25,7 @@ export interface ChatPanelToolbarModel {
 
 export interface ChatPanelGoalModel {
   readonly goal: ChatActiveThreadState["goal"];
+  readonly goalMutationsAllowed: boolean;
   readonly goalEditor: ChatState["ui"]["goalEditor"];
   readonly goalObjectiveExpanded: ChatState["ui"]["disclosures"]["goalObjectiveExpanded"];
 }
@@ -28,8 +33,9 @@ export interface ChatPanelGoalModel {
 export interface ChatPanelThreadStreamModel {
   readonly activeThreadId: string | null;
   readonly activeThreadCwd: ChatActiveThreadState["cwd"];
-  readonly activeThreadLifetime: ChatActiveThreadState["lifetime"];
-  readonly activeThreadProvenance: ChatActiveThreadState["provenance"];
+  readonly forkAllowed: boolean;
+  readonly rollbackAllowed: boolean;
+  readonly planImplementationAllowed: boolean;
   readonly turn: ChatState["turn"];
   readonly runtimeCollaborationMode: ChatState["runtime"]["pending"]["collaborationMode"];
   readonly threadStream: ChatState["threadStream"];
@@ -57,6 +63,7 @@ export interface ChatPanelComposerModel {
   readonly activeThreadId: string | null;
   readonly activeThreadTokenUsage: ChatActiveThreadState["tokenUsage"];
   readonly activeThreadSubagent: boolean;
+  readonly submissionBlockedByPanelPolicy: boolean;
   readonly webSubmissionPending: boolean;
   readonly webSubmissionCancellable: boolean;
   readonly turnBusy: boolean;
@@ -71,6 +78,9 @@ export function selectChatPanelToolbar(state: ChatState): ChatPanelToolbarModel 
     threads: state.threadList.listedThreads,
     activeThreadId: activeThread?.id ?? null,
     activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
+    sideChatStartDisabled: activePanelOperationDecision(state, "start-side-chat").kind !== "allowed",
+    compactDisabled: activePanelOperationDecision(state, "compact").kind !== "allowed",
+    goalMutationDisabled: activePanelOperationDecision(state, "goal-mutation").kind === "blocked",
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
     turnBusy: chatTurnBusy(state),
     connection: state.connection,
@@ -84,6 +94,7 @@ export function selectChatPanelToolbar(state: ChatState): ChatPanelToolbarModel 
 export function selectChatPanelGoal(state: ChatState): ChatPanelGoalModel {
   return {
     goal: activeThreadState(state)?.goal ?? null,
+    goalMutationsAllowed: activePanelOperationDecision(state, "goal-mutation").kind === "allowed",
     goalEditor: state.ui.goalEditor,
     goalObjectiveExpanded: state.ui.disclosures.goalObjectiveExpanded,
   };
@@ -94,8 +105,9 @@ export function selectChatPanelThreadStream(state: ChatState): ChatPanelThreadSt
   return {
     activeThreadId: activeThread?.id ?? null,
     activeThreadCwd: activeThread?.cwd ?? null,
-    activeThreadLifetime: activeThread?.lifetime ?? null,
-    activeThreadProvenance: panelThreadProvenance(state),
+    forkAllowed: activePanelOperationDecision(state, "fork").kind === "allowed",
+    rollbackAllowed: activePanelOperationDecision(state, "rollback").kind === "allowed",
+    planImplementationAllowed: activePanelOperationDecision(state, "implement-plan").kind === "allowed",
     turn: state.turn,
     runtimeCollaborationMode: state.runtime.pending.collaborationMode,
     threadStream: state.threadStream,
@@ -128,6 +140,7 @@ export function selectChatPanelComposer(state: ChatState): ChatPanelComposerMode
     activeThreadId,
     activeThreadTokenUsage: activeThread?.tokenUsage ?? null,
     activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
+    submissionBlockedByPanelPolicy: activePanelOperationDecision(state, "submit").kind === "blocked",
     webSubmissionPending: state.pendingSubmission !== null,
     webSubmissionCancellable: state.pendingSubmission?.phase === "cancellable",
     turnBusy: chatTurnBusy(state),

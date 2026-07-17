@@ -2,6 +2,7 @@ import { type CodexInput, codexTextInput } from "../../../../domain/chat/input";
 import type { ReferencedThreadMetadata } from "../../../../domain/threads/reference";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { LocalIdSource } from "../local-id-source";
+import { activePanelOperationDecision } from "../panel-operation-policy";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
 import {
@@ -85,6 +86,12 @@ async function sendTurnText(
   if (!pendingRequestIsCurrent(host, request)) return false;
   if (!(await host.ensureRestoredThreadLoaded())) return false;
   if (!pendingRequestIsCurrent(host, request)) return false;
+
+  const operationDecision = activePanelOperationDecision(host.stateStore.getState(), "submit");
+  if (operationDecision.kind === "blocked") {
+    host.addSystemMessage(operationDecision.message);
+    return false;
+  }
 
   const initialState = submissionStateSnapshot(host.stateStore.getState());
   const plan = planTurnSubmission(initialState);
@@ -204,9 +211,6 @@ async function sendTurnText(
 }
 
 function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
-  if (state.activeThreadSubagent) {
-    return { kind: "blocked", message: "Messages are unavailable in agent threads. Start a new chat to continue." };
-  }
   if (state.busy) {
     return state.activeThreadId && state.activeTurnId
       ? { kind: "steer", threadId: state.activeThreadId, turnId: state.activeTurnId }

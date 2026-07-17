@@ -1,3 +1,5 @@
+import { type ActivePanelOperation, activePanelOperationDecisionForFacts } from "../panel-operation-policy";
+
 type SlashCommandArgsKind =
   | "none"
   | "optionalThread"
@@ -33,7 +35,6 @@ export interface SlashCommandDefinitionShape {
   argsKind: SlashCommandArgsKind;
   surface: SlashCommandSurface;
   detail: string;
-  sideChatAvailable?: false;
   subcommands?: readonly SlashCommandSubcommandDefinition[];
 }
 
@@ -79,7 +80,6 @@ export const SLASH_COMMANDS = [
     argsKind: "none",
     surface: "panelAction",
     detail: "Fork the active Codex thread.",
-    sideChatAvailable: false,
   },
   {
     command: "/btw",
@@ -87,7 +87,6 @@ export const SLASH_COMMANDS = [
     argsKind: "none",
     surface: "panelAction",
     detail: "Open a temporary side chat.",
-    sideChatAvailable: false,
   },
   {
     command: "/rollback",
@@ -95,7 +94,6 @@ export const SLASH_COMMANDS = [
     argsKind: "none",
     surface: "panelAction",
     detail: "Roll back the latest turn and restore its prompt.",
-    sideChatAvailable: false,
   },
   { command: "/compact", usage: "/compact", argsKind: "none", surface: "panelAction", detail: "Compact the current thread context." },
   {
@@ -220,8 +218,61 @@ export function slashCommandRequiresConnection(command: SlashCommandName): boole
 }
 
 export function slashCommandAvailableInSideChat(command: SlashCommandName): boolean {
-  const definition = slashCommandDefinition(command);
-  return !("sideChatAvailable" in definition);
+  const operation = activePanelOperationForSlashCommandSuggestion(command);
+  return (
+    !operation ||
+    activePanelOperationDecisionForFacts({ phase: "active", lifetime: "ephemeral", provenance: "interactive" }, operation).kind ===
+      "allowed"
+  );
+}
+
+/** Maps a parsed command to the active-panel operation it performs, if any. */
+export function activePanelOperationForSlashCommand(command: SlashCommandName, args: string): ActivePanelOperation | null {
+  switch (command) {
+    case "goal":
+      return args.trim() ? "goal-mutation" : "goal-read";
+    case "compact":
+      return "compact";
+    case "fork":
+      return "fork";
+    case "rollback":
+      return "rollback";
+    case "btw":
+      return "start-side-chat";
+    case "fast":
+    case "auto-review":
+    case "plan":
+      return "thread-settings";
+    case "permissions":
+      return args ? "permission-settings" : null;
+    case "model":
+    case "reasoning":
+      return args ? "thread-settings" : null;
+    case "status":
+    case "doctor":
+    case "tools":
+    case "help":
+      return null;
+    default:
+      return "submit";
+  }
+}
+
+/** Maps a slash-completion to its mode-derived operation without assuming arguments. */
+export function activePanelOperationForSlashCommandSuggestion(command: SlashCommandName): ActivePanelOperation | null {
+  switch (command) {
+    case "goal":
+    case "compact":
+    case "fork":
+    case "rollback":
+    case "btw":
+    case "fast":
+    case "auto-review":
+    case "plan":
+      return activePanelOperationForSlashCommand(command, "");
+    default:
+      return null;
+  }
 }
 
 export function slashCommandDefinition(command: SlashCommandName): SlashCommandDefinition {

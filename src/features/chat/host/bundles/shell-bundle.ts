@@ -1,6 +1,7 @@
 import type { ConnectionManager } from "../../../../app-server/connection/connection-manager";
+import { activePanelOperationDecision } from "../../application/panel-operation-policy";
 import type { PendingRequestActions } from "../../application/pending-requests/pending-request-actions";
-import { activeThreadId, panelThreadProvenance } from "../../application/state/root-reducer";
+import { activeThreadId } from "../../application/state/root-reducer";
 import type { ChatStateStore } from "../../application/state/store";
 import type { HistoryController } from "../../application/threads/history-controller";
 import type { ThreadRenameEditorActions } from "../../application/threads/rename-editor-actions";
@@ -69,12 +70,16 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     rename,
     navigation,
     openSideChat: () => {
-      const threadId = activeThreadId(stateStore.getState());
+      const state = stateStore.getState();
+      if (activePanelOperationDecision(state, "start-side-chat").kind !== "allowed") return;
+      const threadId = activeThreadId(state);
       if (!threadId) return;
-      const thread = stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
+      const thread = state.threadList.listedThreads.find((item) => item.id === threadId);
       void environment.plugin.workspace.openSideChat(threadId, thread?.name ?? thread?.preview ?? null);
     },
-    activeThreadChatActionsDisabled: () => panelThreadProvenance(stateStore.getState())?.kind === "subagent",
+    canStartSideChat: () => activePanelOperationDecision(stateStore.getState(), "start-side-chat").kind === "allowed",
+    canCompact: () => activePanelOperationDecision(stateStore.getState(), "compact").kind === "allowed",
+    canMutateGoal: () => activePanelOperationDecision(stateStore.getState(), "goal-mutation").kind !== "blocked",
   });
   const toolbarSurface: ChatPanelToolbarSurface = {
     connection: {

@@ -15,7 +15,6 @@ import {
 function context(overrides: Partial<SlashCommandExecutionContext> = {}): SlashCommandExecutionContext {
   return {
     activeThreadId: "thread-1",
-    activeThreadEphemeral: false,
     listedThreads: [thread({ id: "thread-1", name: "Current" })],
     startNewThread: vi.fn().mockResolvedValue(undefined),
     startThreadForGoal: vi.fn().mockResolvedValue("thread-new"),
@@ -299,15 +298,6 @@ describe("slash commands", () => {
     expect(ctx.threadActions.forkThread).toHaveBeenCalledWith("active-thread");
   });
 
-  it("does not fork a side chat", async () => {
-    const ctx = context({ activeThreadId: "side-thread", activeThreadEphemeral: true });
-
-    await executeSlashCommand("fork", "", ctx);
-
-    expect(ctx.threadActions.forkThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be forked.");
-  });
-
   it("opens a side chat from the active thread", async () => {
     const openSideChat = vi.fn().mockResolvedValue(undefined);
     const ctx = context({ activeThreadId: "active-thread", openSideChat });
@@ -317,31 +307,12 @@ describe("slash commands", () => {
     expect(openSideChat).toHaveBeenCalledWith("active-thread");
   });
 
-  it("does not open a nested side chat", async () => {
-    const openSideChat = vi.fn().mockResolvedValue(undefined);
-    const ctx = context({ activeThreadId: "side-thread", activeThreadEphemeral: true, openSideChat });
-
-    await executeSlashCommand("btw", "", ctx);
-
-    expect(openSideChat).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be started from another side chat.");
-  });
-
   it("rolls back the active thread for /rollback", async () => {
     const ctx = context({ activeThreadId: "active-thread" });
 
     await executeSlashCommand("rollback", "", ctx);
 
     expect(ctx.threadActions.rollbackThread).toHaveBeenCalledWith("active-thread");
-  });
-
-  it("does not roll back a side chat", async () => {
-    const ctx = context({ activeThreadId: "side-thread", activeThreadEphemeral: true });
-
-    await executeSlashCommand("rollback", "", ctx);
-
-    expect(ctx.threadActions.rollbackThread).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Side chats cannot be rolled back.");
   });
 
   it("rejects /rollback without an active thread", async () => {
@@ -599,18 +570,6 @@ describe("slash commands", () => {
     expect(ctx.runtimeSettings.resetPermissionProfileToConfig).toHaveBeenCalledOnce();
     expect(ctx.runtimeSettings.requestPermissionProfile).not.toHaveBeenCalled();
     expect(ctx.addSystemMessage).toHaveBeenCalledWith("Permission profile reset to default for subsequent turns.");
-  });
-
-  it("blocks permission profile changes in side chats while preserving permission status", async () => {
-    const ctx = context({ activeThreadEphemeral: true });
-
-    await executeSlashCommand("permissions", ":workspace", ctx);
-    await executeSlashCommand("permissions", "", ctx);
-
-    expect(ctx.runtimeSettings.requestPermissionProfile).not.toHaveBeenCalled();
-    expect(ctx.runtimeSettings.resetPermissionProfileToConfig).not.toHaveBeenCalled();
-    expect(ctx.addSystemMessage).toHaveBeenCalledWith("Permission changes are unavailable in side chats.");
-    expect(ctx.addStructuredSystemMessage).toHaveBeenCalledWith("Permissions & Approvals", ctx.permissionDetails());
   });
 
   it.each(["reset", "clear", "off"])("treats permission profile alias-like value %s as a profile id", async (profile) => {

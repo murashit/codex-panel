@@ -110,6 +110,25 @@ function resumeSubagentThread(stateStore: ReturnType<typeof createChatStateStore
   });
 }
 
+function resumeSideChat(stateStore: ReturnType<typeof createChatStateStore>) {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: thread("side"),
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+    lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+  });
+}
+
 describe("TurnSubmissionActions", () => {
   it("aborts when restoration changes target while hydration is pending", async () => {
     const { host, startTurn, stateStore } = createHost();
@@ -145,6 +164,18 @@ describe("TurnSubmissionActions", () => {
 
     expect(startTurn).not.toHaveBeenCalled();
     expect(host.addSystemMessage).toHaveBeenCalledWith("Messages are unavailable in agent threads. Start a new chat to continue.");
+  });
+
+  it("starts a side-chat turn when no pending runtime setting needs transport", async () => {
+    const { host, startTurn, stateStore } = createHost();
+    resumeSideChat(stateStore);
+    const actions = createTurnSubmissionActions(host);
+
+    await expect(actions.sendTurnText({ text: "hello" })).resolves.toBe(true);
+
+    expect(host.applyPendingThreadSettings).toHaveBeenCalledOnce();
+    expect(startTurn).toHaveBeenCalledWith(expect.objectContaining({ threadId: "side", input: textInput("hello") }));
+    expect(host.addSystemMessage).not.toHaveBeenCalled();
   });
 
   it("starts a thread when needed and acknowledges the optimistic turn", async () => {

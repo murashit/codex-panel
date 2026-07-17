@@ -15,6 +15,7 @@ import {
 } from "../application/composer/context-references";
 import type { ComposerInputSnapshot } from "../application/composer/input-snapshot";
 import type { NoteCandidateProvider } from "../application/composer/note-context";
+import { activePanelOperationForSlashCommandSuggestion } from "../application/composer/slash-commands";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -27,7 +28,8 @@ import {
   type PreparedComposerInput,
   preparedUserInputWithWikiLinkMentionsSkillsAndContext,
 } from "../application/composer/wikilink-context";
-import { activeThreadState, type ChatAction, type ChatState, panelThreadProvenance } from "../application/state/root-reducer";
+import { activePanelOperationDecision } from "../application/panel-operation-policy";
+import { activeThreadState, type ChatAction, type ChatState } from "../application/state/root-reducer";
 import type { ChatStateStore } from "../application/state/store";
 import type { ComposerCallbacks, ComposerPendingSelection, ComposerShellProps } from "../ui/composer";
 import { syncComposerHeight } from "../ui/composer.dom";
@@ -107,7 +109,7 @@ export class ChatComposerController {
       draft: model.draft,
       busy: model.turnBusy,
       canInterrupt: this.options.canInterrupt(model),
-      submissionDisabled: model.activeThreadSubagent || model.webSubmissionPending,
+      submissionDisabled: model.submissionBlockedByPanelPolicy || model.webSubmissionPending,
       webSubmissionCancellable: model.webSubmissionCancellable,
       normalPlaceholder: projection.placeholder,
       suggestions: model.suggestions,
@@ -287,7 +289,6 @@ export class ChatComposerController {
   }
 
   private activeSuggestions(beforeCursor: string, state: ChatState): readonly ComposerSuggestion[] {
-    const activeThread = activeThreadState(state);
     return activeComposerSuggestions(
       beforeCursor,
       this.noteCandidates(),
@@ -296,9 +297,12 @@ export class ChatComposerController {
       state.connection.availableModels,
       this.options.currentModelForSuggestions(),
       {
-        activeThreadId: activeThread?.id ?? null,
-        activeThreadEphemeral: activeThread?.lifetime?.kind === "ephemeral",
-        activeThreadSubagent: panelThreadProvenance(state)?.kind === "subagent",
+        activeThreadId: activeThreadState(state)?.id ?? null,
+        slashCommandAvailable: (command) => {
+          if (activePanelOperationDecision(state, "submit").kind === "blocked") return false;
+          const operation = activePanelOperationForSlashCommandSuggestion(command);
+          return !operation || activePanelOperationDecision(state, operation).kind === "allowed";
+        },
         contextReferences: this.contextReferences(),
         dailyNoteReferences: () => this.options.noteCandidateProvider.dailyNoteReferences(this.options.sourcePath()),
         permissionProfiles: state.connection.availablePermissionProfiles,

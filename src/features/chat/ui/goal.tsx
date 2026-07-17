@@ -24,6 +24,7 @@ export interface GoalPanelActions {
 
 export interface GoalPanelOptions {
   sendShortcut: SendShortcut;
+  readOnly?: boolean;
 }
 
 export interface GoalPanelEditorState {
@@ -58,7 +59,7 @@ export function GoalPanel({
   const resetObjective = goal?.objective ?? "";
   const resetStatus = goal?.status ?? null;
   const resetTokenBudget = goal?.tokenBudget ?? null;
-  const editing = editor.editing;
+  const editing = editor.editing && !options.readOnly;
   const objective = editor.objectiveDraft;
   const tokenBudget = editor.tokenBudgetDraft;
   const objectiveExpanded = display.objectiveExpanded;
@@ -114,7 +115,7 @@ export function GoalPanel({
         <div className="codex-panel__goal-role">
           <span>Goal</span>
           <div className="codex-panel__goal-actions">
-            {goal && !editing ? (
+            {goal && !editing && !options.readOnly ? (
               <IconButton
                 icon="pencil"
                 label="Edit goal"
@@ -122,7 +123,7 @@ export function GoalPanel({
                 onClick={actions.onStartEditing}
               />
             ) : null}
-            {goal && !terminal && !editing && goal.status === "active" ? (
+            {goal && !terminal && !editing && !options.readOnly && goal.status === "active" ? (
               <IconButton
                 icon="pause"
                 label="Pause goal"
@@ -130,7 +131,7 @@ export function GoalPanel({
                 onClick={actions.onPause}
               />
             ) : null}
-            {goal && !terminal && !editing && goal.status === "paused" ? (
+            {goal && !terminal && !editing && !options.readOnly && goal.status === "paused" ? (
               <IconButton
                 icon="play"
                 label="Resume goal"
@@ -138,7 +139,7 @@ export function GoalPanel({
                 onClick={actions.onResume}
               />
             ) : null}
-            {goal && !editing ? (
+            {goal && !editing && !options.readOnly ? (
               <IconButton
                 icon="x"
                 label="Clear goal"

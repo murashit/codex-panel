@@ -101,6 +101,7 @@ function chatPanelGoalViewModel(
     },
     options: {
       sendShortcut: surface.sendShortcut(),
+      readOnly: !model.goalMutationsAllowed,
     },
     editor: projection.editor,
     display: projection.display,

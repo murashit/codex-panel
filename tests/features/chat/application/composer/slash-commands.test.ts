@@ -38,6 +38,6 @@ describe("slash command catalog", () => {
       SLASH_COMMANDS.filter((definition) => !slashCommandAvailableInSideChat(definition.command.slice(1) as SlashCommandName)).map(
         (item) => item.command,
       ),
-    ).toEqual(["/fork", "/btw", "/rollback"]);
+    ).toEqual(["/fork", "/btw", "/rollback", "/auto-review", "/fast", "/plan", "/goal"]);
   });
 });

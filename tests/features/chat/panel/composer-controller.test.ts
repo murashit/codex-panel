@@ -230,7 +230,7 @@ describe("ChatComposerController", () => {
     composer(parent).dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(stateStore.getState().composer.suggestions.map((suggestion) => suggestion.replacement)).not.toContain("/fork");
-    expect(stateStore.getState().composer.suggestions.map((suggestion) => suggestion.replacement)).toContain("/fast");
+    expect(stateStore.getState().composer.suggestions.map((suggestion) => suggestion.replacement)).not.toContain("/fast");
   });
 
   it("keeps a disconnected subagent composer read-only without slash suggestions", () => {

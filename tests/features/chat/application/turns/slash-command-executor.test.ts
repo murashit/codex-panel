@@ -119,6 +119,103 @@ describe("executeSlashCommandWithState", () => {
     expect(host.goals.setObjective).toHaveBeenCalledWith("thread-new", "Ship this", null);
   });
 
+  it("rejects a directly typed goal command in a side chat before it reaches the goal transport", async () => {
+    const { host, stateStore } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: thread("side", "Side chat"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+      lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+    });
+
+    await expect(executeSlashCommandWithState(host, "goal", "")).rejects.toThrow("Goals are unavailable in side chats.");
+    await expect(executeSlashCommandWithState(host, "goal", "set Ship this")).rejects.toThrow("Goals are unavailable in side chats.");
+
+    expect(host.goals.setObjective).not.toHaveBeenCalled();
+  });
+
+  it("allows directly typed goal display in a persistent subagent panel", async () => {
+    const { host, stateStore } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: {
+        ...thread("child", "Child"),
+        provenance: {
+          kind: "subagent",
+          subagentKind: "thread-spawn",
+          parentThreadId: "parent",
+          sessionId: "session",
+          depth: 1,
+          agentNickname: "Scout",
+          agentRole: "explorer",
+        },
+      },
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    stateStore.dispatch({
+      type: "active-thread/goal-set",
+      goal: {
+        threadId: "child",
+        objective: "Inspect",
+        status: "active",
+        tokenBudget: null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    });
+
+    await expect(executeSlashCommandWithState(host, "goal", "")).resolves.toBeUndefined();
+
+    expect(host.addStructuredSystemMessage).toHaveBeenCalledWith("Thread goal", expect.any(Array));
+    expect(host.goals.setObjective).not.toHaveBeenCalled();
+  });
+
+  it("keeps directly typed compact available in a side chat", async () => {
+    const { compactThread, host, stateStore } = createHost();
+    stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: thread("side", "Side chat"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+      lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+    });
+
+    await executeSlashCommandWithState(host, "compact", "");
+
+    expect(compactThread).toHaveBeenCalledWith("side");
+  });
+
   it("runs reconnect even when there is no current app-server client", async () => {
     const { host } = createHost({ connectionAvailable: () => false });
 

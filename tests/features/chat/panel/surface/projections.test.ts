@@ -93,6 +93,56 @@ describe("chat panel surface projections", () => {
     expect(JSON.stringify(projection.blocks)).not.toContain('"rollback":true');
   });
 
+  it("keeps compact available but hides goal mutation behind the side-chat policy", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      activeThread: {
+        id: "side",
+        lifetime: { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" },
+      },
+      ui: { toolbarPanel: "chat-actions" },
+    });
+    const parent = renderWithShellModels(state, (models) =>
+      h(ChatPanelToolbar, {
+        model: models.toolbar,
+        stateStore: createChatStateStore(state),
+        surface: toolbarSurfaceFixture(),
+        actions: toolbarActionsFixture(),
+      }),
+    );
+
+    const items = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")];
+    expect(items.map((item) => [item.textContent, item.classList.contains("is-disabled")])).toEqual([
+      ["Start new chat", false],
+      ["Start side chat", true],
+      ["Compact context", false],
+      ["Set goal...", true],
+    ]);
+    unmountUiRoot(parent);
+  });
+
+  it("keeps Set goal enabled while a restored thread still needs hydration", () => {
+    const store = createChatStateStore(chatStateFixture());
+    store.dispatch({ type: "panel/restored-thread-applied", threadId: "restored", fallbackTitle: "Restored" });
+    store.dispatch({ type: "ui/panel-set", panel: "chat-actions" });
+    const restored = store.getState();
+    const parent = renderWithShellModels(restored, (models) =>
+      h(ChatPanelToolbar, {
+        model: models.toolbar,
+        stateStore: store,
+        surface: toolbarSurfaceFixture(),
+        actions: toolbarActionsFixture(),
+      }),
+    );
+
+    const goalAction = [...parent.querySelectorAll<HTMLElement>(".codex-panel__chat-actions-panel-item")].find(
+      (item) => item.textContent === "Set goal...",
+    );
+    expect(goalAction?.classList.contains("is-disabled")).toBe(false);
+    expect(selectChatPanelGoal(restored).goalMutationsAllowed).toBe(false);
+    unmountUiRoot(parent);
+  });
+
   it("builds toolbar rows from immutable chat state snapshots", () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread-1" } });
@@ -446,6 +496,32 @@ describe("chat panel surface projections", () => {
     expect(clears).toEqual(["thread-rendered"]);
     unmountUiRoot(parent);
     unmountUiRoot(resumeParent);
+  });
+
+  it("renders persistent subagent goals without mutation controls", () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, {
+      activeThread: {
+        id: "child",
+        goal: goalFixture("child"),
+        provenance: {
+          kind: "subagent",
+          subagentKind: "thread-spawn",
+          parentThreadId: "parent",
+          sessionId: "session",
+          depth: 1,
+          agentNickname: "Scout",
+          agentRole: "explorer",
+        },
+      },
+    });
+
+    const parent = renderWithShellModels(state, (models) => h(ChatPanelGoal, { model: models.goal, surface: goalSurfaceFixture() }));
+
+    expect(parent.querySelector('[aria-label="Edit goal"]')).toBeNull();
+    expect(parent.querySelector('[aria-label="Pause goal"]')).toBeNull();
+    expect(parent.querySelector('[aria-label="Clear goal"]')).toBeNull();
+    unmountUiRoot(parent);
   });
 
   it("builds composer meta from one captured chat state", () => {

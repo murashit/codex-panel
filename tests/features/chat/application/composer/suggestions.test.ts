@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ModelMetadata, ReasoningEffort, SkillMetadata } from "../../../../../src/domain/catalog/metadata";
 import type { Thread } from "../../../../../src/domain/threads/model";
 import { emptyComposerContextReferences } from "../../../../../src/features/chat/application/composer/context-references";
+import { slashCommandAvailableInSideChat } from "../../../../../src/features/chat/application/composer/slash-commands";
 import {
   activeComposerSuggestions,
   applyComposerSuggestionInsertion,
@@ -282,17 +283,17 @@ describe("composer suggestions", () => {
   });
 
   it("omits unavailable thread mutations from side-chat slash suggestions", () => {
-    const options = { activeThreadEphemeral: true };
+    const options = { slashCommandAvailable: slashCommandAvailableInSideChat };
 
     expect(suggestionReplacements(activeComposerSuggestions("/f", notes, [], [], [], null, options))).not.toContain("/fork");
     expect(suggestionReplacements(activeComposerSuggestions("/r", notes, [], [], [], null, options))).not.toContain("/rollback");
     expect(suggestionReplacements(activeComposerSuggestions("/b", notes, [], [], [], null, options))).not.toContain("/btw");
     expect(suggestionReplacements(activeComposerSuggestions("/c", notes, [], [], [], null, options))).toContain("/compact");
-    expect(suggestionReplacements(activeComposerSuggestions("/g", notes, [], [], [], null, options))).toContain("/goal");
+    expect(suggestionReplacements(activeComposerSuggestions("/g", notes, [], [], [], null, options))).not.toContain("/goal");
   });
 
   it("omits slash suggestions from subagent threads", () => {
-    const options = { activeThreadSubagent: true };
+    const options = { slashCommandAvailable: () => false };
     expect(activeComposerSuggestions("/", notes, [], [], [], null, options)).toEqual([]);
     expect(activeComposerSuggestions("/permissions ", notes, [], [], [], null, options)).toEqual([]);
     expect(activeComposerSuggestions("/resume ", notes, [], [], [], null, options)).toEqual([]);

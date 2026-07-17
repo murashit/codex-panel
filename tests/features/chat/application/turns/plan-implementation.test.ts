@@ -27,7 +27,13 @@ const streamingPlanItem = (id: string): ThreadStreamItem => ({
   dialogueState: "streaming",
 });
 
-function resumeThread(stateStore: ChatStateStore, items: readonly ThreadStreamItem[]): void {
+function resumeThread(
+  stateStore: ChatStateStore,
+  items: readonly ThreadStreamItem[],
+  lifetime: { kind: "persistent" } | { kind: "ephemeral"; sourceThreadId: string; sourceThreadTitle: string | null } = {
+    kind: "persistent",
+  },
+): void {
   stateStore.dispatch({
     type: "active-thread/resumed",
     approvalPolicyKnown: true,
@@ -43,6 +49,7 @@ function resumeThread(stateStore: ChatStateStore, items: readonly ThreadStreamIt
     serviceTier: null,
     approvalsReviewer: null,
     items,
+    lifetime,
   });
   stateStore.dispatch({ type: "runtime/requested-collaboration-mode-set", collaborationMode: "plan" });
 }
@@ -97,6 +104,19 @@ describe("implementPlan", () => {
     resumeThread(stateStore, [completed, streaming]);
 
     expect(implementPlanTargetFromState(stateStore.getState())).toEqual({ itemId: completed.id });
+  });
+
+  it("does not offer or send plan implementation from a side chat", async () => {
+    const { host, ensureConnected, sendTurnText, stateStore } = createPlanImplementationHost();
+    const plan = planItem("plan");
+    resumeThread(stateStore, [plan], { kind: "ephemeral", sourceThreadId: "source", sourceThreadTitle: "Source" });
+
+    expect(implementPlanTargetFromState(stateStore.getState())).toBeNull();
+
+    await implementPlan(host, plan.id);
+
+    expect(ensureConnected).not.toHaveBeenCalled();
+    expect(sendTurnText).not.toHaveBeenCalled();
   });
 
   it("switches out of plan mode and submits the implementation prompt", async () => {

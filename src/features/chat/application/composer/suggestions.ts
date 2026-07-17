@@ -19,13 +19,7 @@ import {
   selectionContextReferenceMarker,
 } from "./context-references";
 import type { DailyNoteReferenceCandidate } from "./daily-note-references";
-import {
-  isSlashCommandName,
-  SLASH_COMMANDS,
-  type SlashCommandName,
-  slashCommandAvailableInSideChat,
-  slashCommandSubcommands,
-} from "./slash-commands";
+import { isSlashCommandName, SLASH_COMMANDS, type SlashCommandName, slashCommandSubcommands } from "./slash-commands";
 
 export interface ComposerSuggestion {
   display: string;
@@ -41,8 +35,7 @@ export interface ComposerSuggestion {
 
 export interface ComposerSuggestionOptions {
   activeThreadId?: string | null;
-  activeThreadEphemeral?: boolean;
-  activeThreadSubagent?: boolean;
+  slashCommandAvailable?: (command: SlashCommandName) => boolean;
   contextReferences?: ComposerContextReferences;
   dailyNoteReferences?: readonly DailyNoteReferenceCandidate[] | (() => readonly DailyNoteReferenceCandidate[]);
   permissionProfiles?: readonly RuntimePermissionProfileSummary[];
@@ -121,14 +114,16 @@ export function activeComposerSuggestions(
   currentModel: string | null = null,
   options: ComposerSuggestionOptions = {},
 ): ComposerSuggestion[] {
-  const slashSuggestions = options.activeThreadSubagent
-    ? null
-    : (activeSlashSubcommandSuggestions(beforeCursor) ??
-      activeThreadCommandSuggestions(beforeCursor, threads, options.activeThreadId ?? null) ??
-      modelOverrideSuggestions(beforeCursor, models) ??
-      reasoningEffortOverrideSuggestions(beforeCursor, models, currentModel) ??
-      permissionProfileOverrideSuggestions(beforeCursor, options.permissionProfiles ?? []) ??
-      activeSlashCommandSuggestions(beforeCursor, options.activeThreadEphemeral ?? false, false));
+  const slashCommandAvailable = options.slashCommandAvailable ?? (() => true);
+  const slashSuggestions = slashSuggestionsForActivePanel(
+    beforeCursor,
+    threads,
+    models,
+    currentModel,
+    options.activeThreadId ?? null,
+    options.permissionProfiles ?? [],
+    slashCommandAvailable,
+  );
   return (
     activeWikiLinkSuggestions(beforeCursor, notes) ??
     activeContextReferenceSuggestions(beforeCursor, options.contextReferences, options.dailyNoteReferences) ??
@@ -136,6 +131,27 @@ export function activeComposerSuggestions(
     slashSuggestions ??
     activeSkillSuggestions(beforeCursor, skills) ??
     []
+  );
+}
+
+function slashSuggestionsForActivePanel(
+  beforeCursor: string,
+  threads: readonly Thread[],
+  models: readonly ModelMetadata[],
+  currentModel: string | null,
+  activeThreadId: string | null,
+  permissionProfiles: readonly RuntimePermissionProfileSummary[],
+  slashCommandAvailable: (command: SlashCommandName) => boolean,
+): ComposerSuggestion[] | null {
+  const command = /^\/([A-Za-z-]+)/.exec(beforeCursor)?.[1];
+  if (command && isSlashCommandName(command) && !slashCommandAvailable(command)) return [];
+  return (
+    activeSlashSubcommandSuggestions(beforeCursor, slashCommandAvailable) ??
+    activeThreadCommandSuggestions(beforeCursor, threads, activeThreadId) ??
+    modelOverrideSuggestions(beforeCursor, models) ??
+    reasoningEffortOverrideSuggestions(beforeCursor, models, currentModel) ??
+    permissionProfileOverrideSuggestions(beforeCursor, permissionProfiles) ??
+    activeSlashCommandSuggestions(beforeCursor, slashCommandAvailable)
   );
 }
 
@@ -405,8 +421,7 @@ function compareWikiLinkSuggestionTiebreakers(a: NoteCandidateMatch, b: NoteCand
 
 function activeSlashCommandSuggestions(
   beforeCursor: string,
-  activeThreadEphemeral: boolean,
-  activeThreadSubagent: boolean,
+  slashCommandAvailable: (command: SlashCommandName) => boolean,
 ): ComposerSuggestion[] | null {
   const match = /^(\/[A-Za-z-]*)$/.exec(beforeCursor);
   if (match?.index === undefined) return null;
@@ -414,13 +429,10 @@ function activeSlashCommandSuggestions(
   const rawQuery = match[1];
   if (rawQuery === undefined) return null;
   const query = rawQuery.toLowerCase();
-  if (activeThreadSubagent) return [];
   if (SLASH_COMMANDS.some((item) => item.command.toLowerCase() === query)) return null;
   const start = match.index + match[0].lastIndexOf("/");
   return SLASH_COMMANDS.filter(
-    (item) =>
-      item.command.toLowerCase().startsWith(query) &&
-      (!activeThreadEphemeral || slashCommandAvailableInSideChat(item.command.slice(1) as SlashCommandName)),
+    (item) => item.command.toLowerCase().startsWith(query) && slashCommandAvailable(item.command.slice(1) as SlashCommandName),
   )
     .slice(0, 8)
     .map((item) => ({
@@ -432,13 +444,17 @@ function activeSlashCommandSuggestions(
     }));
 }
 
-function activeSlashSubcommandSuggestions(beforeCursor: string): ComposerSuggestion[] | null {
+function activeSlashSubcommandSuggestions(
+  beforeCursor: string,
+  slashCommandAvailable: (command: SlashCommandName) => boolean,
+): ComposerSuggestion[] | null {
   const match = /^\/([A-Za-z-]+)\s+([A-Za-z-]{0,120})$/.exec(beforeCursor);
   if (!match) return null;
 
   const command = match[1];
   const rawQuery = match[2];
   if (!command || !isSlashCommandName(command) || rawQuery === undefined) return null;
+  if (!slashCommandAvailable(command)) return [];
 
   const query = rawQuery.toLowerCase();
   const subcommands = slashCommandSubcommands(command);

@@ -1,7 +1,8 @@
 import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
+import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
-import { activeThreadId, activeThreadState, type ChatAction, type ChatState } from "../state/root-reducer";
+import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatTurnBusy } from "../turns/turn-state";
@@ -69,6 +70,7 @@ async function compactActiveThread(host: ThreadManagementActionsHost): Promise<v
 }
 
 async function compactThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
+  if (activePanelOperationBlocked(host, threadId, "compact")) return;
   const scope = captureThreadManagementPanelScope(host, threadId);
   try {
     if (!(await host.threadTransport.compactThread(threadId))) return;
@@ -108,15 +110,7 @@ async function forkThreadFromTurn(
   turnId: string | null,
   archiveSource: boolean,
 ): Promise<void> {
-  const activeThread = activeThreadState(threadManagementState(host));
-  if (activeThread?.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
-    host.addSystemMessage("Side chats cannot be forked.");
-    return;
-  }
-  if (activeThread?.id === threadId && activeThread.provenance?.kind === "subagent") {
-    host.addSystemMessage("Agent threads cannot be forked.");
-    return;
-  }
+  if (activePanelOperationBlocked(host, threadId, "fork")) return;
   if (chatTurnBusy(threadManagementState(host))) {
     host.addSystemMessage("Finish or interrupt the current turn before forking threads.");
     return;
@@ -177,15 +171,7 @@ async function renameThread(host: ThreadManagementActionsHost, threadId: string,
 }
 
 async function rollbackThread(host: ThreadManagementActionsHost, threadId: string): Promise<void> {
-  const activeThread = activeThreadState(threadManagementState(host));
-  if (activeThread?.id === threadId && activeThread.lifetime?.kind === "ephemeral") {
-    host.addSystemMessage("Side chats cannot be rolled back.");
-    return;
-  }
-  if (activeThread?.id === threadId && activeThread.provenance?.kind === "subagent") {
-    host.addSystemMessage("Agent threads cannot be rolled back.");
-    return;
-  }
+  if (activePanelOperationBlocked(host, threadId, "rollback")) return;
   if (chatTurnBusy(threadManagementState(host))) {
     host.addSystemMessage("Interrupt the current turn before rolling back.");
     return;
@@ -227,6 +213,15 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     host.setStatus(STATUS_ROLLBACK_FAILED);
   }
+}
+
+function activePanelOperationBlocked(host: ThreadManagementActionsHost, threadId: string, operation: ActivePanelOperation): boolean {
+  const state = threadManagementState(host);
+  if (activeThreadId(state) !== threadId) return false;
+  const decision = activePanelOperationDecision(state, operation);
+  if (decision.kind !== "blocked") return false;
+  host.addSystemMessage(decision.message);
+  return true;
 }
 
 function threadManagementState(host: ThreadManagementActionsHost): ChatState {

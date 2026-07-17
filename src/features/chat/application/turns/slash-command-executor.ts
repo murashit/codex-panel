@@ -4,7 +4,8 @@ import { runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { Thread } from "../../../../domain/threads/model";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
-import { type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
+import { activePanelOperationForSlashCommand, type SlashCommandName, slashCommandRequiresConnection } from "../composer/slash-commands";
+import { activePanelOperationDecision } from "../panel-operation-policy";
 import { runtimeSnapshotForChatState } from "../runtime/snapshot";
 import type { ChatStateStore } from "../state/store";
 import {
@@ -31,15 +32,17 @@ export async function executeSlashCommandWithState(
   inputSnapshot?: ComposerInputSnapshot,
   isWebImportCurrent?: () => boolean,
 ): Promise<SlashCommandExecutionResult | undefined> {
-  const state = submissionStateSnapshot(host.stateStore.getState());
-  if (state.activeThreadSubagent) {
-    throw new Error("Slash commands are unavailable in agent threads. Start a new chat to continue.");
+  const chatState = host.stateStore.getState();
+  const operation = activePanelOperationForSlashCommand(command, args);
+  if (operation) {
+    const decision = activePanelOperationDecision(chatState, operation);
+    if (decision.kind === "blocked") throw new Error(decision.message);
   }
+  const state = submissionStateSnapshot(chatState);
   if (!host.connectionAvailable() && slashCommandRequiresConnection(command)) return;
   return runSlashCommand(command, args, {
     ...host,
     activeThreadId: state.activeThreadId,
-    activeThreadEphemeral: state.activeThreadEphemeral,
     listedThreads: state.listedThreads,
     referThread: host.referThread,
     readWebUrl: host.readWebUrl,
