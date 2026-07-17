@@ -65,6 +65,11 @@ describe("persistent navigation lifecycle", () => {
 
     await vi.waitFor(() => expect(subscriptions.unsubscribeThread).toHaveBeenCalledOnce());
     expect(addSystemMessage).toHaveBeenCalledWith("Could not unsubscribe from the previous subagent.");
+    await Promise.resolve();
+
+    await lifecycle.prepareForPersistentNavigation("other");
+
+    await vi.waitFor(() => expect(subscriptions.unsubscribeThread).toHaveBeenCalledTimes(2));
   });
 
   it("does not unsubscribe when the target is the already active subagent", async () => {

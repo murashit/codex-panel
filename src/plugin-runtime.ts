@@ -32,6 +32,7 @@ import { CodexThreadsView } from "./features/threads-view/view.obsidian";
 import { persistedTurnDiffViewState, type TurnDiffViewState } from "./features/turn-diff/model";
 import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
 import { createSettingsAppServerDynamicData } from "./settings/app-server-dynamic-data";
+import type { SettingsDynamicDataAccess } from "./settings/dynamic-data";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import type { CodexPanelSettings } from "./settings/model";
 import { createKeyedOperationQueue } from "./shared/runtime/keyed-operation-queue";
@@ -56,9 +57,10 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   });
   private readonly panels: WorkspacePanelCoordinator;
   private readonly threadCatalog: ThreadCatalog;
+  private readonly settingsDynamicData: SettingsDynamicDataAccess;
   private readonly threadNameMutations = createThreadNameMutationCoordinator();
-  private threadGoalOperations = createThreadGoalOperationCoordinator();
-  private runtimeSettingsCommitQueue = createKeyedOperationQueue<string>();
+  private readonly threadGoalOperations = createThreadGoalOperationCoordinator();
+  private readonly runtimeSettingsCommitQueue = createKeyedOperationQueue<string>();
   private selectionRewriteController: SelectionRewriteCommandController | null = null;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
@@ -73,6 +75,12 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       onEventApplied: (event) => {
         this.applyThreadCatalogSurfaceEvent(event);
       },
+    });
+    this.settingsDynamicData = createSettingsAppServerDynamicData({
+      vaultPath: options.settingsRef.vaultPath,
+      clientAccess: this,
+      appServerQueries: this.appServerResourceStore,
+      threadCatalog: this.threadCatalog,
     });
   }
 
@@ -90,8 +98,6 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     this.panels.reset();
     this.appServerResourceStore.reset();
     this.threadCatalog.clear();
-    this.threadGoalOperations = createThreadGoalOperationCoordinator();
-    this.runtimeSettingsCommitQueue = createKeyedOperationQueue();
   }
 
   activeWorkspaceLeafChanged(leaf: Parameters<WorkspacePanelCoordinator["activeLeafChanged"]>[0]): void {
@@ -219,12 +225,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   settingTabHost(): CodexPanelSettingTabHost {
     return {
       settings: this.options.settingsRef.settings,
-      dynamicData: createSettingsAppServerDynamicData({
-        vaultPath: this.options.settingsRef.vaultPath,
-        clientAccess: this,
-        appServerQueries: this.appServerResourceStore,
-        threadCatalog: this.threadCatalog,
-      }),
+      dynamicData: this.settingsDynamicData,
       publishSettings: (settings) => this.publishSettings(settings),
     };
   }
@@ -248,7 +249,9 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     const appServerContextReplaced = previousSettings.codexPath !== settings.codexPath;
     if (appServerContextReplaced) this.prepareAppServerContextChange();
     Object.assign(this.options.settingsRef.settings, settings);
-    if (appServerContextReplaced) this.appServerResourceStore.replaceContext(this.configuredAppServerContext());
+    if (appServerContextReplaced) {
+      this.appServerResourceStore.replaceContext(this.configuredAppServerContext());
+    }
     if (appServerContextReplaced || previousSettings.showToolbar !== settings.showToolbar) this.refreshOpenViews();
     return { appServerContextReplaced };
   }

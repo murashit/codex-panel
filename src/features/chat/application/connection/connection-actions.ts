@@ -23,6 +23,7 @@ export interface ChatConnectionDiagnosticsActions {
 export interface ChatConnectionActionsHost {
   stateStore: ChatStateStore;
   connection: ChatConnectionAdapter;
+  canConnect: () => boolean;
   metadata: ChatConnectionMetadataActions;
   diagnostics: ChatConnectionDiagnosticsActions;
   invalidateThreadWork: () => void;
@@ -72,6 +73,7 @@ export function createChatConnectionActions(host: ChatConnectionActionsHost): Ch
   const isStale = (candidateGeneration: number): boolean => candidateGeneration !== generation;
   const actions: ChatConnectionActions = {
     ensureConnected: async () => {
+      if (!host.canConnect()) return;
       if (activeConnection) return activeConnection.promise;
       if (host.connection.isConnected()) return;
 

@@ -110,6 +110,42 @@ describe("createGoalActions", () => {
     expect(addSystemMessage).not.toHaveBeenCalledWith("Could not load thread goal: old read failed");
   });
 
+  it("keeps an in-flight goal read valid when a mutation fails", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Initial" }) } });
+    const stateStore = createChatStateStore(state);
+    const read = deferred<ThreadGoal | null>();
+    const goalTransport = goalTransportFixture({
+      readThreadGoal: vi.fn(() => read.promise),
+      setThreadGoal: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+    const goalOperations = createThreadGoalOperationCoordinator();
+    const host = {
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    };
+    const sync = createThreadGoalSyncActions(host, goalOperations);
+    const actions = createGoalActions(
+      {
+        ...host,
+        startThread: vi.fn().mockResolvedValue({ kind: "created-activated" as const, threadId: "thread" }),
+      },
+      goalOperations,
+    );
+
+    const reading = sync.syncThreadGoal("thread");
+    await vi.waitFor(() => expect(goalTransport.readThreadGoal).toHaveBeenCalledOnce());
+    await expect(actions.setObjective("thread", "Attempted", null)).resolves.toBe(false);
+    read.resolve(goal({ objective: "Authoritative" }));
+    await reading;
+
+    expect(activeThreadState(stateStore.getState())?.goal?.objective).toBe("Authoritative");
+  });
+
   it("reports goal sync failures without clearing the active thread", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });
@@ -675,6 +711,31 @@ describe("createGoalActions", () => {
     await actions.setObjective("thread", "Finish", null);
 
     expect(addSystemMessage).not.toHaveBeenCalled();
+  });
+
+  it("records a committed new goal even when its panel target changes before publication", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    const stateStore = createChatStateStore(state);
+    const goalTransport = goalTransportFixture({
+      setThreadGoal: vi.fn().mockImplementation(async () => {
+        stateStore.dispatch({ type: "active-thread/cleared" });
+        return completedCurrent(goal());
+      }),
+    });
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await expect(actions.setObjective("thread", "Finish", null)).resolves.toBe(false);
+
+    expect(goalTransport.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread", "Finish");
   });
 
   it("does not inject a goal user history message when editing an existing goal", async () => {

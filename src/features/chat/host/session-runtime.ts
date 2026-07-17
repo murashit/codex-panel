@@ -147,14 +147,16 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     status,
     refreshLiveState,
   });
+  const invalidateThreadWork = (): void => {
+    threadFoundation.invalidateThreadWork();
+  };
   const connectionBundle = createConnectionBundle(
     {
       environment,
       stateStore,
+      canConnect: () => !host.getClosing(),
       deferredTasks: host.deferredTasks,
-      invalidateThreadWork: () => {
-        threadFoundation.invalidateThreadWork();
-      },
+      invalidateThreadWork,
       deferLiveStateRefresh,
       refreshTabHeader,
       refreshLiveState,
@@ -176,7 +178,9 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     vaultPath: resourceContext().vaultPath,
     currentClient,
     connectedClient: async () => {
+      if (host.getClosing()) return null;
       await connectionActions.ensureConnected();
+      if (host.getClosing()) return null;
       return currentClient();
     },
   });
@@ -243,7 +247,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
       connectionActions.invalidate();
     },
     invalidateThreadWork: () => {
-      threadFoundation.invalidateThreadWork();
+      invalidateThreadWork();
     },
     clearDeferredDiagnostics: () => {
       host.deferredTasks.clearDiagnostics();
@@ -270,7 +274,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
   const reconnectForUser = host.reconnect ?? reconnect;
   const prepareAppServerContextChange = (): void => {
     connectionActions.invalidate();
-    threadFoundation.invalidateThreadWork();
+    invalidateThreadWork();
     threadLifecycle.rename.invalidate();
     threadLifecycle.restoration.invalidate();
     host.deferredTasks.clearDiagnostics();
@@ -345,7 +349,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     shell,
     actions: {
       invalidateThreadWork: () => {
-        threadFoundation.invalidateThreadWork();
+        invalidateThreadWork();
         threadLifecycle.restoration.invalidate();
       },
       prepareAppServerContextChange,

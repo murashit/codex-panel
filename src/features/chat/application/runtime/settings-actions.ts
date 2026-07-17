@@ -141,19 +141,22 @@ function commitRuntimeSettingsFields(
   });
 }
 
-function settleRuntimeSettings(host: RuntimeSettingsActionsContext, scope: RuntimeSettingsCommandScope): Promise<boolean> {
-  return host.threadCommits.run(scope.threadId, async () => {
-    while (runtimeSettingsScopeIsCurrent(host, scope)) {
+async function settleRuntimeSettings(host: RuntimeSettingsActionsContext, scope: RuntimeSettingsCommandScope): Promise<boolean> {
+  while (runtimeSettingsScopeIsCurrent(host, scope)) {
+    const result = await host.threadCommits.run(scope.threadId, async (): Promise<"continue" | "failed" | "settled"> => {
+      if (!runtimeSettingsScopeIsCurrent(host, scope)) return "failed";
       const update = currentPendingRuntimeSettingsPatch(host);
-      if (patchEmpty(update)) return true;
+      if (patchEmpty(update)) return "settled";
 
-      if (!(await updateRuntimeSettings(host, scope, update)) || !runtimeSettingsScopeIsCurrent(host, scope)) return false;
+      if (!(await updateRuntimeSettings(host, scope, update)) || !runtimeSettingsScopeIsCurrent(host, scope)) return "failed";
 
       const committed = matchingPendingPatch(currentPendingRuntimeSettingsPatch(host), update);
       if (!patchEmpty(committed)) commitRuntimeSettingsPatch(host, committed);
-    }
-    return false;
-  });
+      return patchEmpty(currentPendingRuntimeSettingsPatch(host)) ? "settled" : "continue";
+    });
+    if (result !== "continue") return result === "settled";
+  }
+  return false;
 }
 
 async function updateRuntimeSettings(

@@ -12,7 +12,7 @@ import { createChatState } from "../../../../../src/features/chat/application/st
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { deferred } from "../../../../support/async";
 
-function createActionsHarness({ connected = false } = {}) {
+function createActionsHarness({ connected = false, canConnect = true } = {}) {
   const stateStore = createChatStateStore(createChatState());
   let isConnected = connected;
   const connect = vi.fn().mockImplementation(async () => {
@@ -34,6 +34,7 @@ function createActionsHarness({ connected = false } = {}) {
   const host: ChatConnectionActionsHost = {
     stateStore,
     connection,
+    canConnect: () => canConnect,
     metadata,
     diagnostics,
     invalidateThreadWork: vi.fn(),
@@ -64,6 +65,14 @@ function createActionsHarness({ connected = false } = {}) {
 }
 
 describe("ChatConnectionActions", () => {
+  it("does not acquire a connection after its owner starts closing", async () => {
+    const { actions, connect } = createActionsHarness({ canConnect: false });
+
+    await actions.ensureConnected();
+
+    expect(connect).not.toHaveBeenCalled();
+  });
+
   it("coalesces concurrent connection attempts inside the actions boundary", async () => {
     const { actions, connect, setConnected } = createActionsHarness();
     const pending = deferred<Awaited<ReturnType<ChatConnectionAdapter["connect"]>>>();

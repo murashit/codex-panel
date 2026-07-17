@@ -617,6 +617,46 @@ describe("createChatRuntimeSettingsActions", () => {
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
   });
 
+  it("re-enters the shared FIFO before settling settings requested during turn submission", async () => {
+    const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
+    const firstStore = createChatStateStore(panelState);
+    const secondStore = createChatStateStore(panelState);
+    const firstUpdate = deferred(true);
+    const order: string[] = [];
+    let serverModel: string | null = null;
+    const firstTransport = settingsTransportFixture({
+      updateThreadSettings: vi.fn((_threadId, update) => {
+        order.push(`A:${update.model}`);
+        serverModel = update.model ?? null;
+        return update.model === "a1" ? firstUpdate.promise : Promise.resolve(true);
+      }),
+    });
+    const secondTransport = settingsTransportFixture({
+      updateThreadSettings: vi.fn((_threadId, update) => {
+        order.push(`B:${update.model}`);
+        serverModel = update.model ?? null;
+        return Promise.resolve(true);
+      }),
+    });
+    const threadCommits = createKeyedOperationQueue<string>();
+    const firstActions = runtimeActionsFixture(firstStore, firstTransport, [], threadCommits);
+    const secondActions = runtimeActionsFixture(secondStore, secondTransport, [], threadCommits);
+
+    firstStore.dispatch({ type: "runtime/model-requested", model: "a1" });
+    const settled = firstActions.applyPendingThreadSettings();
+    await vi.waitFor(() => expect(firstTransport.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "a1" }));
+    const b = secondActions.requestModel("b");
+    const a2 = firstActions.requestModel("a2");
+
+    firstUpdate.resolve();
+
+    await expect(b).resolves.toBe(true);
+    await expect(a2).resolves.toBe(true);
+    await expect(settled).resolves.toBe(true);
+    expect(order).toEqual(["A:a1", "B:b", "A:a2"]);
+    expect(serverModel).toBe("a2");
+  });
+
   it("serializes a different-field intent behind the active settings update", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, { activeThread: { id: "thread" } });

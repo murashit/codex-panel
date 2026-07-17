@@ -35,6 +35,7 @@ interface ChatPanelConnectionBundleInput {
 interface ChatPanelConnectionBundleHost {
   environment: ChatPanelEnvironment;
   stateStore: ChatStateStore;
+  canConnect: () => boolean;
   deferredTasks: ChatViewDeferredTasks;
   invalidateThreadWork: () => void;
   deferLiveStateRefresh: () => void;
@@ -187,6 +188,7 @@ export function createConnectionBundle(
   };
   const connectionActions = createChatConnectionActions({
     ...connectionExitHost,
+    canConnect: host.canConnect,
     connection: {
       connect: () =>
         connection.connect({

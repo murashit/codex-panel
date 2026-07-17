@@ -34,7 +34,7 @@ export interface ThreadGoalOperationCoordinator {
   readonly goalMutations: KeyedOperationQueue<string>;
   captureReadRevision(threadId: string): number;
   readRevisionIsCurrent(threadId: string, revision: number): boolean;
-  invalidateReads(threadId: string): void;
+  markMutationCommitted(threadId: string): void;
 }
 
 export interface ThreadGoalSyncActions {
@@ -61,15 +61,26 @@ type GoalObjectiveSavePlan =
 
 type NormalizedGoalObjective = string & { readonly __brand: "NormalizedGoalObjective" };
 
+interface GoalMutationScope {
+  readonly panelTarget: PanelTargetLease;
+}
+
+interface GoalMutationOutcome {
+  readonly committed: boolean;
+  readonly presented: boolean;
+}
+
 const EMPTY_GOAL_OBJECTIVE_MESSAGE = "Goal objective cannot be empty.";
+const GOAL_MUTATION_NOT_COMMITTED: GoalMutationOutcome = { committed: false, presented: false };
 
 export function createThreadGoalOperationCoordinator(): ThreadGoalOperationCoordinator {
   const readRevisions = new Map<string, number>();
+  const goalMutations = createKeyedOperationQueue<string>();
   return {
-    goalMutations: createKeyedOperationQueue(),
+    goalMutations,
     captureReadRevision: (threadId) => readRevisions.get(threadId) ?? 0,
     readRevisionIsCurrent: (threadId, revision) => (readRevisions.get(threadId) ?? 0) === revision,
-    invalidateReads: (threadId) => {
+    markMutationCommitted: (threadId) => {
       readRevisions.set(threadId, (readRevisions.get(threadId) ?? 0) + 1);
     },
   };
@@ -94,12 +105,11 @@ export function createGoalActions(
     syncThreadGoal: (threadId) => syncThreadGoal(host, threadId, goalOperations),
     saveObjective: (objective, tokenBudget) => saveObjective(context, objective, tokenBudget),
     setObjective: (threadId, objective, tokenBudget) =>
-      enqueueGoalMutation(context, threadId, (panelTarget) => setObjective(context, threadId, objective, tokenBudget, panelTarget)),
-    setStatus: (threadId, status) =>
-      enqueueGoalMutation(context, threadId, (panelTarget) => setGoalStatus(context, threadId, status, panelTarget)),
-    clear: (threadId) => enqueueGoalMutation(context, threadId, (panelTarget) => clearGoal(context, threadId, panelTarget)),
+      enqueueGoalMutation(context, threadId, (scope) => setObjective(context, threadId, objective, tokenBudget, scope)),
+    setStatus: (threadId, status) => enqueueGoalMutation(context, threadId, (scope) => setGoalStatus(context, threadId, status, scope)),
+    clear: (threadId) => enqueueGoalMutation(context, threadId, (scope) => clearGoal(context, threadId, scope)),
     startEditingCurrent: () => {
-      void startEditingCurrent(host);
+      void startEditingCurrent(context);
     },
     startEditing: (threadId, objective, tokenBudget) => {
       startEditing(host, threadId, objective, tokenBudget);
@@ -130,30 +140,30 @@ async function syncThreadGoal(host: ThreadGoalSyncHost, threadId: string, goalOp
 }
 
 async function setObjective(
-  host: GoalActionsHost,
+  host: GoalActionsContext,
   threadId: string,
   objective: string,
   tokenBudget: number | null,
-  panelTarget?: PanelTargetLease,
+  scope: GoalMutationScope,
 ): Promise<boolean> {
   const normalized = normalizedGoalObjective(objective);
   if (!normalized) {
     host.addSystemMessage(EMPTY_GOAL_OBJECTIVE_MESSAGE);
     return false;
   }
-  return setNormalizedObjective(host, threadId, normalized, tokenBudget, panelTarget);
+  return setNormalizedObjective(host, threadId, normalized, tokenBudget, scope);
 }
 
 async function setNormalizedObjective(
-  host: GoalActionsHost,
+  host: GoalActionsContext,
   threadId: string,
   objective: NormalizedGoalObjective,
   tokenBudget: number | null,
-  panelTarget?: PanelTargetLease,
+  scope: GoalMutationScope,
 ): Promise<boolean> {
   const current = activeThreadState(host.stateStore.getState())?.goal ?? null;
   const isNewGoal = current === null;
-  const applied = await setGoal(
+  const outcome = await setGoal(
     host,
     threadId,
     {
@@ -161,12 +171,12 @@ async function setNormalizedObjective(
       status: current?.status ?? "active",
       tokenBudget,
     },
-    panelTarget,
+    scope,
   );
-  if (applied && isNewGoal) {
-    await recordGoalUserMessage(host, threadId, objective, panelTarget);
+  if (outcome.committed && isNewGoal) {
+    await recordGoalUserMessage(host, threadId, objective, scope);
   }
-  return applied;
+  return outcome.presented;
 }
 
 async function saveObjective(host: GoalActionsContext, objective: string, tokenBudget: number | null): Promise<boolean> {
@@ -177,53 +187,56 @@ async function saveObjective(host: GoalActionsContext, objective: string, tokenB
       host.addSystemMessage(plan.message);
       return false;
     case "save-existing":
-      return enqueueGoalMutation(host, plan.threadId, (panelTarget) =>
-        setNormalizedObjective(host, plan.threadId, plan.objective, plan.tokenBudget, panelTarget),
+      return enqueueGoalMutation(host, plan.threadId, (scope) =>
+        setNormalizedObjective(host, plan.threadId, plan.objective, plan.tokenBudget, scope),
       );
     case "start-thread-and-save":
       return startThreadAndSaveObjective(host, plan);
   }
 }
 
-function setGoalStatus(
-  host: GoalActionsHost,
+async function setGoalStatus(
+  host: GoalActionsContext,
   threadId: string,
   status: ThreadGoalStatus,
-  panelTarget?: PanelTargetLease,
+  scope: GoalMutationScope,
 ): Promise<boolean> {
-  return setGoal(host, threadId, { status }, panelTarget);
+  return (await setGoal(host, threadId, { status }, scope)).presented;
 }
 
-async function clearGoal(host: GoalActionsHost, threadId: string, expectedPanelTarget?: PanelTargetLease): Promise<boolean> {
-  if (!(await prepareGoalMutation(host)) || !goalMutationTargetsActiveThread(host, threadId)) return false;
-  const panelTarget = expectedPanelTarget ?? capturePanelTargetLease(host.stateStore.getState());
+async function clearGoal(host: GoalActionsContext, threadId: string, scope: GoalMutationScope): Promise<boolean> {
   try {
-    if (!(await host.goalTransport.ensureConnected()) || !goalMutationScopeIsCurrent(host, threadId, panelTarget)) return false;
+    if (!(await host.goalTransport.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId, scope)) return false;
     const effect = await host.goalTransport.clearThreadGoal(threadId);
     if (!effectCompletedInCurrentContext(effect)) return false;
-    return applyGoalIfActive(host, threadId, null, { reportChange: true, panelTarget });
+    host.goalOperations.markMutationCommitted(threadId);
+    return applyGoalIfActive(host, threadId, null, { reportChange: true, panelTarget: scope.panelTarget });
   } catch (error) {
-    addThreadScopedSystemMessage(host, threadId, errorMessage(error), panelTarget);
+    addThreadScopedSystemMessage(host, threadId, errorMessage(error), scope.panelTarget);
     return false;
   }
 }
 
 async function setGoal(
-  host: GoalActionsHost,
+  host: GoalActionsContext,
   threadId: string,
   params: ThreadGoalUpdate,
-  expectedPanelTarget?: PanelTargetLease,
-): Promise<boolean> {
-  if (!(await prepareGoalMutation(host)) || !goalMutationTargetsActiveThread(host, threadId)) return false;
-  const panelTarget = expectedPanelTarget ?? capturePanelTargetLease(host.stateStore.getState());
+  scope: GoalMutationScope,
+): Promise<GoalMutationOutcome> {
   try {
-    if (!(await host.goalTransport.ensureConnected()) || !goalMutationScopeIsCurrent(host, threadId, panelTarget)) return false;
+    if (!(await host.goalTransport.ensureConnected()) || !goalMutationAdmissionIsCurrent(host, threadId, scope)) {
+      return GOAL_MUTATION_NOT_COMMITTED;
+    }
     const effect = await host.goalTransport.setThreadGoal(threadId, params);
-    if (!effectCompletedInCurrentContext(effect)) return false;
-    return applyGoalIfActive(host, threadId, effect.value, { reportChange: true, panelTarget });
+    if (!effectCompletedInCurrentContext(effect)) return GOAL_MUTATION_NOT_COMMITTED;
+    host.goalOperations.markMutationCommitted(threadId);
+    return {
+      committed: true,
+      presented: applyGoalIfActive(host, threadId, effect.value, { reportChange: true, panelTarget: scope.panelTarget }),
+    };
   } catch (error) {
-    addThreadScopedSystemMessage(host, threadId, errorMessage(error), panelTarget);
-    return false;
+    addThreadScopedSystemMessage(host, threadId, errorMessage(error), scope.panelTarget);
+    return GOAL_MUTATION_NOT_COMMITTED;
   }
 }
 
@@ -244,14 +257,14 @@ function applyGoalIfActive(
   return true;
 }
 
-async function startEditingCurrent(host: GoalActionsHost): Promise<void> {
-  if (!(await prepareGoalMutation(host)) || !goalMutationAllowedNow(host)) return;
+async function startEditingCurrent(host: GoalActionsContext): Promise<void> {
+  if (!(await prepareGoalMutation(host))) return;
   host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
   const goal = activeThreadState(host.stateStore.getState())?.goal ?? null;
   startEditing(host, goal?.threadId ?? null, goal?.objective ?? "", goal?.tokenBudget ?? null);
 }
 
-async function prepareGoalMutation(host: GoalActionsHost): Promise<boolean> {
+async function prepareGoalMutation(host: GoalActionsContext): Promise<boolean> {
   const decision = activePanelOperationDecision(host.stateStore.getState(), "goal-mutation");
   if (decision.kind === "allowed") return true;
   if (decision.kind === "blocked") {
@@ -263,10 +276,6 @@ async function prepareGoalMutation(host: GoalActionsHost): Promise<boolean> {
   if (resumedDecision.kind === "allowed") return true;
   if (resumedDecision.kind === "blocked") host.addSystemMessage(resumedDecision.message);
   return false;
-}
-
-function goalMutationTargetsActiveThread(host: GoalActionsHost, threadId: string): boolean {
-  return activeThreadId(host.stateStore.getState()) === threadId && goalMutationAllowedNow(host);
 }
 
 function goalMutationAllowedNow(host: GoalActionsHost): boolean {
@@ -294,12 +303,13 @@ function normalizedGoalObjective(objective: string): NormalizedGoalObjective | n
 }
 
 async function startThreadAndSaveObjective(
-  host: GoalActionsHost,
+  host: GoalActionsContext,
   plan: Extract<GoalObjectiveSavePlan, { kind: "start-thread-and-save" }>,
 ): Promise<boolean> {
+  const panelTarget = capturePanelTargetLease(host.stateStore.getState());
   try {
     if (!(await host.goalTransport.ensureConnected())) return false;
-    if (!emptyPanelCanStartGoalThread(host)) return false;
+    if (!panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) || !emptyPanelCanStartGoalThread(host)) return false;
     const outcome = await host.startThread(plan.objective, { syncGoal: false });
     if (outcome.kind === "created-not-activated") {
       host.addSystemMessage(
@@ -307,11 +317,12 @@ async function startThreadAndSaveObjective(
       );
       return false;
     }
-    return outcome.kind === "created-activated"
-      ? await setNormalizedObjective(host, outcome.threadId, plan.objective, plan.tokenBudget)
-      : false;
+    if (outcome.kind !== "created-activated") return false;
+    return await enqueueGoalMutation(host, outcome.threadId, (scope) =>
+      setNormalizedObjective(host, outcome.threadId, plan.objective, plan.tokenBudget, scope),
+    );
   } catch (error) {
-    host.addSystemMessage(errorMessage(error));
+    if (panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget)) host.addSystemMessage(errorMessage(error));
     return false;
   }
 }
@@ -322,15 +333,15 @@ function emptyPanelCanStartGoalThread(host: GoalActionsHost): boolean {
 }
 
 async function recordGoalUserMessage(
-  host: GoalActionsHost,
+  host: GoalActionsContext,
   threadId: string,
   objective: string,
-  panelTarget?: PanelTargetLease,
+  scope: GoalMutationScope,
 ): Promise<void> {
   try {
     await host.goalTransport.recordThreadGoalUserMessage(threadId, objective);
   } catch (error) {
-    addThreadScopedSystemMessage(host, threadId, `Could not record goal message: ${errorMessage(error)}`, panelTarget);
+    addThreadScopedSystemMessage(host, threadId, `Could not record goal message: ${errorMessage(error)}`, scope.panelTarget);
   }
 }
 
@@ -340,24 +351,27 @@ function addThreadScopedSystemMessage(host: ThreadGoalSyncHost, threadId: string
   host.addSystemMessage(text);
 }
 
-function goalMutationScopeIsCurrent(host: GoalActionsHost, threadId: string, panelTarget: PanelTargetLease): boolean {
-  return panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget) && goalMutationTargetsActiveThread(host, threadId);
+function goalMutationPresentationIsCurrent(host: GoalActionsContext, threadId: string, scope: GoalMutationScope): boolean {
+  return (
+    panelTargetLeaseIsCurrent(host.stateStore.getState(), scope.panelTarget) && activeThreadId(host.stateStore.getState()) === threadId
+  );
+}
+
+function goalMutationAdmissionIsCurrent(host: GoalActionsContext, threadId: string, scope: GoalMutationScope): boolean {
+  return goalMutationPresentationIsCurrent(host, threadId, scope) && goalMutationAllowedNow(host);
 }
 
 function enqueueGoalMutation(
   host: GoalActionsContext,
   threadId: string,
-  operation: (panelTarget: PanelTargetLease) => Promise<boolean>,
+  operation: (scope: GoalMutationScope) => Promise<boolean>,
 ): Promise<boolean> {
-  const panelTarget = capturePanelTargetLease(host.stateStore.getState());
-  host.goalOperations.invalidateReads(threadId);
+  const scope = {
+    panelTarget: capturePanelTargetLease(host.stateStore.getState()),
+  };
   return host.goalOperations.goalMutations.run(threadId, async () => {
-    try {
-      if (!goalMutationScopeIsCurrent(host, threadId, panelTarget)) return false;
-      return await operation(panelTarget);
-    } finally {
-      host.goalOperations.invalidateReads(threadId);
-    }
+    if (!goalMutationAdmissionIsCurrent(host, threadId, scope)) return false;
+    return operation(scope);
   });
 }
 
