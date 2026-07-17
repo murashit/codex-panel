@@ -24,7 +24,6 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
   let activeThreadHadTurns = false;
   let generation = 0;
   const attemptedThreadIds = new Set<string>();
-  const inFlightThreadIds = new Set<string>();
 
   const thread = (threadId: string): Thread | undefined =>
     host.stateStore.getState().threadList.listedThreads.find((item) => item.id === threadId);
@@ -44,8 +43,6 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
       });
     } catch {
       // Auto-title is best-effort metadata. Leave the thread preview untouched on failure.
-    } finally {
-      if (operationGeneration === generation) inFlightThreadIds.delete(threadId);
     }
   };
 
@@ -54,7 +51,6 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
       generation += 1;
       activeThreadHadTurns = false;
       attemptedThreadIds.clear();
-      inFlightThreadIds.clear();
     },
 
     resetThreadTurnPresence(hadTurns) {
@@ -67,12 +63,11 @@ export function createAutoTitleCoordinator(host: AutoTitleCoordinatorHost): Auto
 
       if (hadTurnsBeforeThisCompletion) return;
       if (threadHasTitle(threadId)) return;
-      if (attemptedThreadIds.has(threadId) || inFlightThreadIds.has(threadId)) return;
+      if (attemptedThreadIds.has(threadId)) return;
       const context = host.completedTurnTitleContext(turnId, completedTurnTranscriptSummary);
       if (!context) return;
 
       attemptedThreadIds.add(threadId);
-      inFlightThreadIds.add(threadId);
       void generateAndSetTitle(threadId, context, generation);
     },
   };
