@@ -645,6 +645,39 @@ describe("ChatInboundHandler", () => {
   });
 
   describe("interactive server requests", () => {
+    it("keeps matching requests actionable while a subagent is active", () => {
+      const state = chatStateFixture({
+        activeThread: {
+          id: "thread-active",
+          provenance: {
+            kind: "subagent",
+            subagentKind: "thread-spawn",
+            parentThreadId: "parent",
+            sessionId: "session",
+            depth: 1,
+            agentNickname: "Scout",
+            agentRole: "explorer",
+          },
+        },
+        turn: { lifecycle: { kind: "running", turnId: "turn-active" } },
+      });
+      const handler = handlerForState(state);
+
+      handler.handleServerRequest({
+        id: 41,
+        method: "item/tool/requestUserInput",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          itemId: "input-1",
+          questions: [{ id: "scope", header: "Scope", question: "What should I do?", isOther: false, isSecret: false, options: null }],
+          autoResolutionMs: null,
+        },
+      });
+
+      expect(handler.currentState().requests.pendingUserInputs).toHaveLength(1);
+    });
+
     it("queues and resolves requestUserInput server requests", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, {

@@ -2,6 +2,7 @@ import { activeThreadState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import { chatTurnBusy } from "../turns/turn-state";
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
+import type { PersistentNavigationLifecycle } from "./persistent-navigation-lifecycle";
 import { canSwitchToThread } from "./thread-switching";
 
 export interface ThreadNavigationActionsHost {
@@ -12,7 +13,7 @@ export interface ThreadNavigationActionsHost {
   resumeThread: (threadId: string) => Promise<void>;
   addSystemMessage: (text: string) => void;
   focusComposer: () => void;
-  prepareForPersistentNavigation?: () => Promise<boolean>;
+  navigation: PersistentNavigationLifecycle;
 }
 
 export interface ThreadNavigationActions {
@@ -28,17 +29,19 @@ export function createThreadNavigationActions(host: ThreadNavigationActionsHost)
       return;
     }
 
-    if (host.prepareForPersistentNavigation && !(await host.prepareForPersistentNavigation())) return;
     host.closeForThreadSelection();
     if (await host.focusThreadInOpenView(threadId)) return;
+    const preparation = await host.navigation.prepareForPersistentNavigation(threadId);
+    if (!preparation) return;
     await host.resumeThread(threadId);
+    await host.navigation.completePersistentNavigation(preparation);
   };
 
   return {
     async startNewThread(): Promise<void> {
       const state = host.stateStore.getState();
       if (chatTurnBusy(state) && activeThreadState(state)?.provenance?.kind !== "subagent") return;
-      if (host.prepareForPersistentNavigation && !(await host.prepareForPersistentNavigation())) return;
+      if (!(await host.navigation.prepareForPersistentNavigation(null))) return;
 
       host.identity.clearActiveThreadIdentity();
       host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
@@ -48,7 +51,6 @@ export function createThreadNavigationActions(host: ThreadNavigationActionsHost)
     selectThread,
     async selectThreadFromToolbar(threadId) {
       if (!canSwitchToThread(host.stateStore.getState(), threadId)) return;
-
       host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
       await selectThread(threadId);
     },

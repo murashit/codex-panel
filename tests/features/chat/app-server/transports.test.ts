@@ -325,6 +325,20 @@ describe("chat app-server transports", () => {
     await expect(transport.resumeThread("thread")).resolves.toBeNull();
   });
 
+  it("unsubscribes a panel from a persistent thread without interrupting its turn", async () => {
+    const request = vi.fn().mockResolvedValue({ status: "unsubscribed" });
+    const client = { request } as unknown as AppServerClient;
+    const transport = createTestGateway({
+      currentClient: () => client,
+      connectedClient: vi.fn().mockResolvedValue(client),
+    }).threadSubscription;
+
+    await expect(transport.unsubscribeThread("child")).resolves.toBe(true);
+
+    expect(request).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "child" }, { timeoutMs: 5_000 });
+    expect(request).not.toHaveBeenCalledWith("turn/interrupt", expect.anything());
+  });
+
   it("distinguishes absent goals from unavailable goal clients", async () => {
     const client = { request: vi.fn().mockResolvedValue({ goal: null }) } as unknown as AppServerClient;
     const transport = createTestGateway({

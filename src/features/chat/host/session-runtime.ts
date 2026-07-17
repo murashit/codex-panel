@@ -9,6 +9,10 @@ import type { ChatAction, ChatConnectionPhase } from "../application/state/root-
 import type { ChatStateStore } from "../application/state/store";
 import type { ActiveThreadIdentitySync } from "../application/threads/active-thread-identity-sync";
 import { createEphemeralThreadLifecycle, type EphemeralThreadLifecycle } from "../application/threads/ephemeral-thread-lifecycle";
+import {
+  createPersistentNavigationLifecycle,
+  type PersistentNavigationLifecycle,
+} from "../application/threads/persistent-navigation-lifecycle";
 import type { RestorationController } from "../application/threads/restoration-controller";
 import type { ResumeActions } from "../application/threads/resume-actions";
 import type { ChatResumeWorkTracker } from "../application/threads/resume-work";
@@ -37,6 +41,7 @@ interface ChatPanelSessionRuntimeParts {
     restoration: RestorationController;
     identity: ActiveThreadIdentitySync;
     ephemeral: EphemeralThreadLifecycle;
+    navigation: PersistentNavigationLifecycle;
   };
   composer: {
     controller: ChatComposerController;
@@ -216,6 +221,12 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     notifyActiveThreadIdentityChanged,
     interruptTurn: (threadId, turnId) => appServer.turn.interruptTurn(threadId, turnId),
   });
+  const navigation = createPersistentNavigationLifecycle({
+    stateStore,
+    ephemeral,
+    subscriptions: appServer.threadSubscription,
+    addSystemMessage: status.addSystemMessage,
+  });
   const threadActions = createThreadActionBundle(host, {
     appServer,
     status,
@@ -224,7 +235,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     lifecycle: threadLifecycle,
     refreshActiveThreads,
     notifyActiveThreadIdentityChanged,
-    prepareForPersistentNavigation: () => ephemeral.prepareForPersistentNavigation(),
+    navigation,
   });
   const reconnectHost = {
     stateStore,
@@ -326,6 +337,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
       restoration: threadLifecycle.restoration,
       identity: threadLifecycle.identity,
       ephemeral,
+      navigation,
     },
     composer: {
       controller: composerController,

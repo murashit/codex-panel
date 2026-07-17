@@ -897,6 +897,88 @@ describe("CodexChatView connection lifecycle", () => {
     expect(requestSaveLayout).toHaveBeenCalledTimes(1);
   });
 
+  it("resumes another persistent thread before unsubscribing a running subagent", async () => {
+    const client = connectedClient({
+      "thread/resume": vi.fn((params: unknown) => {
+        const threadId = (params as { threadId: string }).threadId;
+        return Promise.resolve(
+          threadId === "child"
+            ? resumedThread(threadId, { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" })
+            : resumedThread(threadId),
+        );
+      }),
+      "thread/unsubscribe": vi.fn().mockResolvedValue({ status: "unsubscribed" }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.surface.openThread("child");
+    connectionMock.state.onNotification?.({
+      method: "turn/started",
+      params: {
+        threadId: "child",
+        turn: {
+          id: "turn-child",
+          status: "inProgress",
+          startedAt: 1,
+          completedAt: null,
+          durationMs: null,
+          error: null,
+          itemsView: "full",
+          items: [],
+        },
+      },
+    } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+
+    await view.surface.openThread("other");
+
+    const unsubscribeCall = client.request.mock.calls.findIndex(([method]) => method === "thread/unsubscribe");
+    const otherResumeCall = client.request.mock.calls.findIndex(
+      ([method, params]) => method === "thread/resume" && (params as { threadId: string }).threadId === "other",
+    );
+    expect(unsubscribeCall).toBeGreaterThanOrEqual(0);
+    expect(unsubscribeCall).toBeGreaterThan(otherResumeCall);
+    expect(client.request).not.toHaveBeenCalledWith("turn/interrupt", expect.anything());
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "other" });
+  });
+
+  it("keeps a running subagent subscribed when openThread cannot resume the target", async () => {
+    const client = connectedClient({
+      "thread/resume": vi.fn((params: unknown) => {
+        const threadId = (params as { threadId: string }).threadId;
+        return Promise.resolve(
+          threadId === "child" ? resumedThread(threadId, { parentThreadId: "parent", threadSource: "subAgentThreadSpawn" }) : null,
+        );
+      }),
+      "thread/unsubscribe": vi.fn().mockResolvedValue({ status: "unsubscribed" }),
+    });
+    connectionMock.state.client = client;
+    const view = await chatView();
+
+    await view.surface.openThread("child");
+    connectionMock.state.onNotification?.({
+      method: "turn/started",
+      params: {
+        threadId: "child",
+        turn: {
+          id: "turn-child",
+          status: "inProgress",
+          startedAt: 1,
+          completedAt: null,
+          durationMs: null,
+          error: null,
+          itemsView: "full",
+          items: [],
+        },
+      },
+    } satisfies Extract<ServerNotification, { method: "turn/started" }>);
+
+    await view.surface.openThread("other");
+
+    expect(requestMethods(client).filter((method) => method === "thread/unsubscribe")).toEqual([]);
+    expect(view.surface.openPanelSnapshot()).toMatchObject({ threadId: "child", turnLifecycle: { kind: "running", turnId: "turn-child" } });
+  });
+
   it("resets to an unstarted empty chat without starting a thread", async () => {
     const requestSaveLayout = vi.fn();
     const client = connectedClient();
@@ -1209,7 +1291,7 @@ function startedThread(threadId: string) {
   };
 }
 
-function resumedThread(threadId: string) {
+function resumedThread(threadId: string, threadOverrides: Record<string, unknown> = {}) {
   return {
     thread: {
       id: threadId,
@@ -1217,6 +1299,7 @@ function resumedThread(threadId: string) {
       preview: "Restored thread",
       cwd: "/vault",
       cliVersion: "0.0.0",
+      ...threadOverrides,
     },
     cwd: "/vault",
     model: null,

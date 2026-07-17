@@ -31,6 +31,7 @@ import type {
 } from "../../application/threads/thread-loading-transport";
 import type { ThreadMutationTransport, ThreadRollbackSnapshot } from "../../application/threads/thread-mutation-transport";
 import type { ThreadStartTransport } from "../../application/threads/thread-start-transport";
+import type { ThreadSubscriptionTransport } from "../../application/threads/thread-subscription-transport";
 import type { ChatTurnTransport } from "../../application/turns/turn-transport";
 import { threadStreamItemsFromTurns } from "../mappers/thread-stream/turn-items";
 
@@ -65,6 +66,7 @@ export interface ChatConnectedSessionTransports {
   readonly threadResume: ThreadResumeTransport;
   readonly threadMutation: ThreadMutationTransport;
   readonly threadEphemeral: EphemeralThreadTransport;
+  readonly threadSubscription: ThreadSubscriptionTransport;
   readonly threadGoal: ThreadGoalTransport;
 }
 
@@ -83,6 +85,7 @@ export function createChatConnectedSessionTransports(host: ChatAppServerTranspor
     threadResume: createChatThreadResumeTransport(host),
     threadMutation: createChatThreadMutationTransport(host),
     threadEphemeral: createChatEphemeralThreadTransport(host),
+    threadSubscription: createChatThreadSubscriptionTransport(host),
     threadGoal: createChatThreadGoalTransport(host),
   };
 }
@@ -195,6 +198,18 @@ function createChatEphemeralThreadTransport(host: ChatAppServerTransportHost): E
         }
       }),
     unsubscribeEphemeralThread: async (threadId) => {
+      const result = await withCurrentChatAppServerClient(host, async (client) => {
+        await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
+        return true;
+      });
+      return result ?? false;
+    },
+  };
+}
+
+function createChatThreadSubscriptionTransport(host: ChatAppServerTransportHost): ThreadSubscriptionTransport {
+  return {
+    unsubscribeThread: async (threadId) => {
       const result = await withCurrentChatAppServerClient(host, async (client) => {
         await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
         return true;

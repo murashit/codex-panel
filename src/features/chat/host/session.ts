@@ -178,8 +178,10 @@ export class ChatPanelSession implements ChatPanelHandle {
   }
 
   async openThread(threadId: string): Promise<void> {
-    if (!(await this.runtime.thread.ephemeral.prepareForPersistentNavigation())) return;
+    const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
+    if (!preparation) return;
     await this.runtime.thread.resume.resumeThread(threadId);
+    await this.runtime.thread.navigation.completePersistentNavigation(preparation);
     this.focusComposer();
   }
 

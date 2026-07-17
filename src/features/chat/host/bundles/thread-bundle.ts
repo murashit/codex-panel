@@ -13,6 +13,7 @@ import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from ".
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
 import { createGoalActions, createThreadGoalSyncActions } from "../../application/threads/goal-actions";
 import { HistoryController } from "../../application/threads/history-controller";
+import type { PersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import {
   activeThreadRenameTitleContext,
   createThreadRenameEditorActions,
@@ -100,7 +101,7 @@ interface ChatPanelThreadActionInput {
   lifecycle: ChatPanelThreadLifecycleBundle;
   refreshActiveThreads: () => Promise<void>;
   notifyActiveThreadIdentityChanged: () => void;
-  prepareForPersistentNavigation: () => Promise<boolean>;
+  navigation: PersistentNavigationLifecycle;
 }
 
 interface ChatPanelThreadActionBundle {
@@ -306,7 +307,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
     focusComposer: () => {
       composerController.focusComposer();
     },
-    prepareForPersistentNavigation: input.prepareForPersistentNavigation,
+    navigation: input.navigation,
   });
   return { actions, toolbarPanelActions, navigation };
 }
