@@ -100,6 +100,7 @@ describe("ChatPanelShell", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
 

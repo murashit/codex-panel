@@ -1,6 +1,6 @@
-import { panelThreadId, type ChatState } from "./root-reducer";
+import { type ChatState, panelThreadId } from "./root-reducer";
 
-export type PanelTarget = { readonly kind: "empty" } | { readonly kind: "thread"; readonly threadId: string };
+type PanelTarget = { readonly kind: "empty" } | { readonly kind: "thread"; readonly threadId: string };
 
 export interface PanelTargetLease {
   readonly revision: number;
@@ -19,4 +19,10 @@ export function panelTargetLeaseIsCurrent(state: ChatState, lease: PanelTargetLe
   if (state.panelTargetRevision !== lease.revision) return false;
   const threadId = panelThreadId(state);
   return lease.target.kind === "empty" ? threadId === null : threadId === lease.target.threadId;
+}
+
+export function panelTargetLeasesMatch(left: PanelTargetLease, right: PanelTargetLease): boolean {
+  if (left.revision !== right.revision) return false;
+  if (left.target.kind === "empty") return right.target.kind === "empty";
+  return right.target.kind === "thread" && left.target.threadId === right.target.threadId;
 }

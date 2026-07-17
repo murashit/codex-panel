@@ -1,12 +1,8 @@
 import type { ThreadTokenUsage } from "../../../../domain/runtime/metrics";
 import { effectCompletedInCurrentContext } from "../effect-outcome";
 import { resumedThreadAction } from "../state/actions";
+import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadState } from "../state/root-reducer";
-import {
-  capturePanelTargetLease,
-  type PanelTargetLease,
-  panelTargetLeaseIsCurrent,
-} from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamIsEmpty } from "../state/thread-stream";
 import type { HistoryController } from "./history-controller";
@@ -29,16 +25,25 @@ export interface ResumeActionsHost {
 }
 
 export interface ResumeActions {
-  resumeThread(threadId: string, intent?: ActiveChatResume): Promise<boolean>;
+  resumeThread(threadId: string, intent?: ActiveChatResume, options?: ResumeThreadOptions): Promise<boolean>;
+}
+
+export interface ResumeThreadOptions {
+  onAdopted?: () => void;
 }
 
 export function createResumeActions(host: ResumeActionsHost): ResumeActions {
   return {
-    resumeThread: (threadId, intent) => resumeThread(host, threadId, intent),
+    resumeThread: (threadId, intent, options) => resumeThread(host, threadId, intent, options),
   };
 }
 
-async function resumeThread(host: ResumeActionsHost, threadId: string, intent?: ActiveChatResume): Promise<boolean> {
+async function resumeThread(
+  host: ResumeActionsHost,
+  threadId: string,
+  intent?: ActiveChatResume,
+  options?: ResumeThreadOptions,
+): Promise<boolean> {
   if (!canSwitchToThread(host.stateStore.getState(), threadId)) {
     host.addSystemMessage("Finish or interrupt the current turn before switching threads.");
     return false;
@@ -46,6 +51,7 @@ async function resumeThread(host: ResumeActionsHost, threadId: string, intent?: 
   const resume = intent ?? host.resumeWork.begin(threadId);
   if (resume.threadId !== threadId || host.resumeWork.isStale(resume)) return false;
   const initialPanelTarget = capturePanelTargetLease(host.stateStore.getState());
+  let currentPanelTarget = initialPanelTarget;
   host.history.invalidate();
 
   try {
@@ -56,6 +62,8 @@ async function resumeThread(host: ResumeActionsHost, threadId: string, intent?: 
     if (isStaleResume(host, resume, initialPanelTarget)) return false;
     const adoptedPanelTarget = applyResumedThread(host, effect.value, initialPanelTarget.revision);
     if (!adoptedPanelTarget) return false;
+    currentPanelTarget = adoptedPanelTarget;
+    options?.onAdopted?.();
     recoverResumedThreadTokenUsage(host, effect.value.activation.thread.id, effect.value.rolloutPath, resume, adoptedPanelTarget);
     if (effect.value.initialHistoryPage) {
       host.history.applyLatestPage(effect.value.activation.thread.id, effect.value.initialHistoryPage);
@@ -72,7 +80,7 @@ async function resumeThread(host: ResumeActionsHost, threadId: string, intent?: 
     host.refreshLiveState();
     return true;
   } catch (error) {
-    if (isStaleResume(host, resume, initialPanelTarget)) return false;
+    if (isStaleResume(host, resume, currentPanelTarget)) return false;
     host.addSystemMessage(error instanceof Error ? error.message : String(error));
     return false;
   }

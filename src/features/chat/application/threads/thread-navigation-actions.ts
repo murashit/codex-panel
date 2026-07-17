@@ -3,6 +3,7 @@ import type { ChatStateStore } from "../state/store";
 import { chatTurnBusy } from "../turns/turn-state";
 import type { ActiveThreadIdentitySync } from "./active-thread-identity-sync";
 import type { PersistentNavigationLifecycle } from "./persistent-navigation-lifecycle";
+import type { ResumeThreadOptions } from "./resume-actions";
 import type { ActiveChatResume, ChatResumeWorkTracker } from "./resume-work";
 import { canSwitchToThread } from "./thread-switching";
 
@@ -11,7 +12,7 @@ export interface ThreadNavigationActionsHost {
   identity: ActiveThreadIdentitySync;
   closeForThreadSelection: () => void;
   focusThreadInOpenView: (threadId: string) => Promise<boolean>;
-  resumeThread: (threadId: string, intent: ActiveChatResume) => Promise<boolean>;
+  resumeThread: (threadId: string, intent: ActiveChatResume, options?: ResumeThreadOptions) => Promise<boolean>;
   resumeWork: ChatResumeWorkTracker;
   addSystemMessage: (text: string) => void;
   focusComposer: () => void;
@@ -19,7 +20,7 @@ export interface ThreadNavigationActionsHost {
 }
 
 export interface ThreadNavigationActions {
-  startNewThread(): Promise<void>;
+  startNewThread(options?: { focus?: boolean }): Promise<void>;
   selectThread(threadId: string): Promise<void>;
   selectThreadFromToolbar(threadId: string): Promise<void>;
 }
@@ -37,21 +38,30 @@ export function createThreadNavigationActions(host: ThreadNavigationActionsHost)
     if (!host.resumeWork.isCurrent(intent)) return;
     const preparation = await host.navigation.prepareForPersistentNavigation(threadId);
     if (!preparation || !host.resumeWork.isCurrent(intent)) return;
-    if (!(await host.resumeThread(threadId, intent)) || !host.resumeWork.isCurrent(intent)) return;
-    await host.navigation.completePersistentNavigation(preparation);
+    if (
+      !(await host.resumeThread(threadId, intent, {
+        onAdopted: () => {
+          host.navigation.commitPersistentNavigation(preparation);
+        },
+      })) ||
+      !host.resumeWork.isCurrent(intent)
+    )
+      return;
   };
 
   return {
-    async startNewThread(): Promise<void> {
+    async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
       const state = host.stateStore.getState();
       if (chatTurnBusy(state) && activeThreadState(state)?.provenance?.kind !== "subagent") return;
       const intent = host.resumeWork.begin(null);
-      if (!(await host.navigation.prepareForPersistentNavigation(null)) || !host.resumeWork.isCurrent(intent)) return;
+      const preparation = await host.navigation.prepareForPersistentNavigation(null);
+      if (!preparation || !host.resumeWork.isCurrent(intent)) return;
 
       host.identity.clearActiveThreadIdentity();
+      host.navigation.commitPersistentNavigation(preparation);
       host.stateStore.dispatch({ type: "ui/panel-set", panel: null });
       host.stateStore.dispatch({ type: "connection/status-set", statusText: "New chat." });
-      host.focusComposer();
+      if (options.focus !== false) host.focusComposer();
     },
     selectThread,
     async selectThreadFromToolbar(threadId) {

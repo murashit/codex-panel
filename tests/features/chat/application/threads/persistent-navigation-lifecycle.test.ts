@@ -17,42 +17,54 @@ describe("persistent navigation lifecycle", () => {
 
     const preparation = await lifecycle.prepareForPersistentNavigation("other");
 
-    expect(preparation).toEqual({ kind: "unsubscribe-after-resume", threadId: "child", targetThreadId: "other" });
+    expect(preparation).toEqual({ kind: "unsubscribe-on-adoption", threadId: "child" });
     expect(subscriptions.unsubscribeThread).not.toHaveBeenCalled();
     expect(ephemeral.prepareForPersistentNavigation).not.toHaveBeenCalled();
     expect(store.getState().panelThread).toMatchObject({ kind: "active", thread: { id: "child" } });
     resumeInteractiveThread(store, "other");
 
     if (!preparation) throw new Error("Expected navigation preparation.");
-    await lifecycle.completePersistentNavigation(preparation);
+    lifecycle.commitPersistentNavigation(preparation);
 
-    expect(subscriptions.unsubscribeThread).toHaveBeenCalledWith("child");
+    await vi.waitFor(() => expect(subscriptions.unsubscribeThread).toHaveBeenCalledWith("child"));
   });
 
-  it("keeps the subagent subscribed when target resume does not replace it", async () => {
+  it("keeps the subagent subscribed until target adoption commits the preparation", async () => {
     const store = runningSubagentStore();
     const subscriptions = subscriptionTransport();
     const lifecycle = createLifecycle({ stateStore: store, subscriptions });
 
     const preparation = await lifecycle.prepareForPersistentNavigation("other");
     if (!preparation) throw new Error("Expected navigation preparation.");
-    await lifecycle.completePersistentNavigation(preparation);
-
     expect(subscriptions.unsubscribeThread).not.toHaveBeenCalled();
     expect(store.getState().panelThread).toMatchObject({ kind: "active", thread: { id: "child" } });
   });
 
-  it("blocks clearing a running subagent when pre-unsubscribe fails", async () => {
+  it("defers running subagent cleanup until the blank target is adopted", async () => {
+    const store = runningSubagentStore();
+    const subscriptions = subscriptionTransport(false);
+    const lifecycle = createLifecycle({ stateStore: store, subscriptions });
+
+    const preparation = await lifecycle.prepareForPersistentNavigation(null);
+
+    expect(preparation).toEqual({ kind: "unsubscribe-on-adoption", threadId: "child" });
+    expect(subscriptions.unsubscribeThread).not.toHaveBeenCalled();
+    expect(store.getState().panelThread).toMatchObject({ kind: "active", thread: { id: "child" } });
+  });
+
+  it("retries a failed unsubscribe obligation on the next navigation", async () => {
     const store = runningSubagentStore();
     const subscriptions = subscriptionTransport();
     vi.mocked(subscriptions.unsubscribeThread).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     const addSystemMessage = vi.fn();
     const lifecycle = createLifecycle({ stateStore: store, subscriptions, addSystemMessage });
+    const preparation = await lifecycle.prepareForPersistentNavigation("other");
+    if (!preparation) throw new Error("Expected navigation preparation.");
 
-    await expect(lifecycle.prepareForPersistentNavigation(null)).resolves.toBeNull();
+    lifecycle.commitPersistentNavigation(preparation);
 
-    expect(store.getState().panelThread).toMatchObject({ kind: "active", thread: { id: "child" } });
-    expect(addSystemMessage).toHaveBeenCalledWith("Could not leave the running subagent. Try again before navigating.");
+    await vi.waitFor(() => expect(subscriptions.unsubscribeThread).toHaveBeenCalledOnce());
+    expect(addSystemMessage).toHaveBeenCalledWith("Could not unsubscribe from the previous subagent.");
   });
 
   it("does not unsubscribe when the target is the already active subagent", async () => {

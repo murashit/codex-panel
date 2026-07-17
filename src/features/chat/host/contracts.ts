@@ -8,6 +8,7 @@ import type { SendShortcut } from "../../../domain/input/send-shortcut";
 import type { PendingRequestCounts } from "../../../domain/pending-requests/aggregate";
 import type { SharedServerMetadata } from "../../../domain/server/metadata";
 import type { ArchiveExportSettings } from "../../../domain/threads/archive-markdown";
+import type { KeyedOperationQueue } from "../../../shared/runtime/keyed-operation-queue";
 import type {
   ThreadCatalogActiveReader,
   ThreadCatalogConnectionEventSink,
@@ -16,6 +17,7 @@ import type {
 import type { ArchiveExportDestination } from "../../threads/workflows/archive-export";
 import type { ThreadNameMutationCoordinator } from "../../threads/workflows/thread-name-mutation-coordinator";
 import type { TurnDiffViewState } from "../../turn-diff/model";
+import type { ThreadGoalOperationCoordinator } from "../application/threads/goal-actions";
 
 export interface CodexChatHost {
   readonly settingsRef: ChatPanelSettingsRef;
@@ -23,6 +25,8 @@ export interface CodexChatHost {
   readonly appServerQueries: ChatAppServerQueries;
   readonly threadCatalog: ChatThreadCatalog;
   readonly threadNameMutations: ThreadNameMutationCoordinator;
+  readonly threadGoalOperations: ThreadGoalOperationCoordinator;
+  readonly runtimeSettingsCommitQueue: KeyedOperationQueue<string>;
 }
 
 interface ChatPanelSettingsRef {
@@ -75,6 +79,7 @@ export interface ChatPanelEnvironment {
     registerPointerDown: (handler: (event: PointerEvent) => void) => void;
     archiveDestination: () => ArchiveExportDestination;
     requestWorkspaceLayoutSave: () => void;
+    isForeground: () => boolean;
   };
   plugin: CodexChatHost;
   view: {
@@ -105,15 +110,22 @@ export interface ChatWorkspacePanelSnapshot {
   connected: boolean;
 }
 
+interface ChatWorkspacePanelOperationOptions {
+  focus?: boolean;
+}
+
 export interface ChatWorkspacePanelSurface {
   openPanelSnapshot(): ChatWorkspacePanelSnapshot;
-  openThread(threadId: string): Promise<void>;
-  focusThread(threadId?: string | null): Promise<void>;
+  openThread(threadId: string, options?: ChatWorkspacePanelOperationOptions): Promise<void>;
+  focusThread(threadId?: string | null, options?: ChatWorkspacePanelOperationOptions): Promise<void>;
   hydrateRestoredThread(): Promise<void>;
-  focusComposer(): void;
+  focusComposer(options?: { force?: boolean }): void;
   connect(): Promise<void>;
-  startNewThread(): Promise<void>;
-  openSideChat(input: { sourceThreadId: string; sourceThreadTitle: string | null }): Promise<boolean>;
+  startNewThread(options?: ChatWorkspacePanelOperationOptions): Promise<void>;
+  openSideChat(
+    input: { sourceThreadId: string; sourceThreadTitle: string | null },
+    options?: ChatWorkspacePanelOperationOptions,
+  ): Promise<boolean>;
 }
 
 export interface ChatSharedThreadSurface {

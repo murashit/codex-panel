@@ -6,12 +6,12 @@ import type { ThreadSubscriptionTransport } from "./thread-subscription-transpor
 
 export interface PersistentNavigationLifecycle {
   prepareForPersistentNavigation(targetThreadId: string | null): Promise<PersistentNavigationPreparation | null>;
-  completePersistentNavigation(preparation: PersistentNavigationPreparation): Promise<void>;
+  commitPersistentNavigation(preparation: PersistentNavigationPreparation): void;
 }
 
 export type PersistentNavigationPreparation =
   | { readonly kind: "ready" }
-  | { readonly kind: "unsubscribe-after-resume"; readonly threadId: string; readonly targetThreadId: string };
+  | { readonly kind: "unsubscribe-on-adoption"; readonly threadId: string };
 
 interface PersistentNavigationLifecycleHost {
   stateStore: ChatStateStore;
@@ -21,8 +21,34 @@ interface PersistentNavigationLifecycleHost {
 }
 
 export function createPersistentNavigationLifecycle(host: PersistentNavigationLifecycleHost): PersistentNavigationLifecycle {
+  const pendingUnsubscribes = new Set<string>();
+  const unsubscribeAttempts = new Map<string, Promise<void>>();
+
+  const attemptPendingUnsubscribe = (threadId: string): void => {
+    if (!pendingUnsubscribes.has(threadId) || unsubscribeAttempts.has(threadId)) return;
+    const attempt = (async (): Promise<void> => {
+      try {
+        if (await host.subscriptions.unsubscribeThread(threadId)) {
+          pendingUnsubscribes.delete(threadId);
+          return;
+        }
+        host.addSystemMessage("Could not unsubscribe from the previous subagent.");
+      } catch (error) {
+        host.addSystemMessage(error instanceof Error ? error.message : "Could not unsubscribe from the previous subagent.");
+      }
+    })().finally(() => {
+      unsubscribeAttempts.delete(threadId);
+    });
+    unsubscribeAttempts.set(threadId, attempt);
+  };
+
+  const retryPendingUnsubscribes = (): void => {
+    for (const threadId of pendingUnsubscribes) attemptPendingUnsubscribe(threadId);
+  };
+
   return {
     async prepareForPersistentNavigation(targetThreadId): Promise<PersistentNavigationPreparation | null> {
+      retryPendingUnsubscribes();
       const state = host.stateStore.getState();
       const active = activeThreadState(state);
       if (!active || active.id === targetThreadId) return { kind: "ready" };
@@ -31,29 +57,13 @@ export function createPersistentNavigationLifecycle(host: PersistentNavigationLi
         return (await host.ephemeral.prepareForPersistentNavigation()) ? { kind: "ready" } : null;
       }
       if (active.provenance?.kind !== "subagent" || !chatTurnBusy(state)) return { kind: "ready" };
-      if (targetThreadId !== null) {
-        return { kind: "unsubscribe-after-resume", threadId: active.id, targetThreadId };
-      }
-
-      try {
-        if (await host.subscriptions.unsubscribeThread(active.id)) return { kind: "ready" };
-        host.addSystemMessage("Could not leave the running subagent. Try again before navigating.");
-      } catch (error) {
-        host.addSystemMessage(error instanceof Error ? error.message : String(error));
-      }
-      return null;
+      return { kind: "unsubscribe-on-adoption", threadId: active.id };
     },
 
-    async completePersistentNavigation(preparation): Promise<void> {
-      if (preparation.kind !== "unsubscribe-after-resume") return;
-      if (activeThreadState(host.stateStore.getState())?.id !== preparation.targetThreadId) return;
-      try {
-        if (!(await host.subscriptions.unsubscribeThread(preparation.threadId))) {
-          host.addSystemMessage("Could not unsubscribe from the previous subagent.");
-        }
-      } catch (error) {
-        host.addSystemMessage(error instanceof Error ? error.message : String(error));
-      }
+    commitPersistentNavigation(preparation): void {
+      if (preparation.kind !== "unsubscribe-on-adoption") return;
+      pendingUnsubscribes.add(preparation.threadId);
+      attemptPendingUnsubscribe(preparation.threadId);
     },
   };
 }

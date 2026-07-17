@@ -3,8 +3,12 @@ import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { EffectOutcome } from "../../../../../src/features/chat/application/effect-outcome";
 import { createLocalIdSource } from "../../../../../src/features/chat/application/local-id-source";
 import { activeThreadId, activeThreadState } from "../../../../../src/features/chat/application/state/root-reducer";
-import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
-import { createGoalActions } from "../../../../../src/features/chat/application/threads/goal-actions";
+import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
+import {
+  createGoalActions,
+  createThreadGoalOperationCoordinator,
+  createThreadGoalSyncActions,
+} from "../../../../../src/features/chat/application/threads/goal-actions";
 import type { ThreadGoalTransport } from "../../../../../src/features/chat/application/threads/goal-transport";
 import { deferred } from "../../../../support/async";
 import { chatStateFixture, chatStateWith } from "../../support/state";
@@ -21,7 +25,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
       refreshLiveState,
@@ -31,6 +35,79 @@ describe("createGoalActions", () => {
 
     expect(activeThreadState(stateStore.getState())?.goal).toEqual(currentGoal);
     expect(refreshLiveState).toHaveBeenCalledOnce();
+  });
+
+  it("does not publish an old goal read after a shared mutation completes", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Initial" }) } });
+    const stateStore = createChatStateStore(state);
+    const oldRead = deferred<ThreadGoal | null>();
+    const goalTransport = goalTransportFixture({
+      readThreadGoal: vi.fn(() => oldRead.promise),
+      setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal({ objective: "Latest" }))),
+    });
+    const host = {
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    };
+    const goalOperations = createThreadGoalOperationCoordinator();
+    const sync = createThreadGoalSyncActions(host, goalOperations);
+    const actions = createGoalActions(
+      {
+        ...host,
+        startThread: vi.fn().mockResolvedValue({ kind: "created-activated" as const, threadId: "thread" }),
+      },
+      goalOperations,
+    );
+
+    const reading = sync.syncThreadGoal("thread");
+    await vi.waitFor(() => expect(goalTransport.readThreadGoal).toHaveBeenCalledOnce());
+    await expect(actions.setObjective("thread", "Latest", null)).resolves.toBe(true);
+    oldRead.resolve(goal({ objective: "Old" }));
+    await reading;
+
+    expect(activeThreadState(stateStore.getState())?.goal?.objective).toBe("Latest");
+  });
+
+  it("does not report an old goal read failure after a shared mutation completes", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread", goal: goal({ objective: "Initial" }) } });
+    const stateStore = createChatStateStore(state);
+    const oldRead = deferred<ThreadGoal | null>();
+    const goalTransport = goalTransportFixture({
+      readThreadGoal: vi.fn(() => oldRead.promise),
+      setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal({ objective: "Latest" }))),
+    });
+    const addSystemMessage = vi.fn();
+    const host = {
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    };
+    const goalOperations = createThreadGoalOperationCoordinator();
+    const sync = createThreadGoalSyncActions(host, goalOperations);
+    const actions = createGoalActions(
+      {
+        ...host,
+        startThread: vi.fn().mockResolvedValue({ kind: "created-activated" as const, threadId: "thread" }),
+      },
+      goalOperations,
+    );
+
+    const reading = sync.syncThreadGoal("thread");
+    await vi.waitFor(() => expect(goalTransport.readThreadGoal).toHaveBeenCalledOnce());
+    await expect(actions.setObjective("thread", "Latest", null)).resolves.toBe(true);
+    oldRead.reject(new Error("old read failed"));
+    await reading;
+
+    expect(addSystemMessage).not.toHaveBeenCalledWith("Could not load thread goal: old read failed");
   });
 
   it("reports goal sync failures without clearing the active thread", async () => {
@@ -43,7 +120,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -74,7 +151,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
       refreshLiveState: vi.fn(),
@@ -94,6 +171,124 @@ describe("createGoalActions", () => {
     expect(activeThreadState(stateStore.getState())?.goal).toBeNull();
   });
 
+  it("serializes goal mutations for the same thread", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    state = chatStateWith(state, { activeThread: { goal: goal() } });
+    const stateStore = createChatStateStore(state);
+    const firstUpdate = deferred<EffectOutcome<ThreadGoal>>();
+    const goalTransport = goalTransportFixture({
+      setThreadGoal: vi
+        .fn()
+        .mockReturnValueOnce(firstUpdate.promise)
+        .mockResolvedValueOnce(completedCurrent(goal({ objective: "Updated", status: "paused" }))),
+    });
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    const objectiveUpdate = actions.setObjective("thread", "Updated", null);
+    await vi.waitFor(() => expect(goalTransport.setThreadGoal).toHaveBeenCalledOnce());
+    const statusUpdate = actions.setStatus("thread", "paused");
+    await Promise.resolve();
+    expect(goalTransport.setThreadGoal).toHaveBeenCalledOnce();
+
+    firstUpdate.resolve(completedCurrent(goal({ objective: "Updated" })));
+    await expect(objectiveUpdate).resolves.toBe(true);
+    await expect(statusUpdate).resolves.toBe(true);
+
+    expect(goalTransport.setThreadGoal).toHaveBeenNthCalledWith(1, "thread", {
+      objective: "Updated",
+      status: "active",
+      tokenBudget: null,
+    });
+    expect(goalTransport.setThreadGoal).toHaveBeenNthCalledWith(2, "thread", { status: "paused" });
+    expect(activeThreadState(stateStore.getState())?.goal).toMatchObject({ objective: "Updated", status: "paused" });
+  });
+
+  it("serializes goal mutations for a thread across an A to B to A panel revision", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread-a", goal: goal({ threadId: "thread-a" }) } });
+    const stateStore = createChatStateStore(state);
+    const firstUpdate = deferred<EffectOutcome<ThreadGoal>>();
+    const goalTransport = goalTransportFixture({
+      setThreadGoal: vi
+        .fn()
+        .mockReturnValueOnce(firstUpdate.promise)
+        .mockResolvedValueOnce(completedCurrent(goal({ threadId: "thread-a", objective: "Latest", status: "paused" }))),
+    });
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread-a" }),
+      addSystemMessage: vi.fn(),
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    const oldUpdate = actions.setObjective("thread-a", "Old", null);
+    await vi.waitFor(() => expect(goalTransport.setThreadGoal).toHaveBeenCalledOnce());
+    resumeInteractiveThread(stateStore, "thread-b");
+    resumeInteractiveThread(stateStore, "thread-a");
+    const latestUpdate = actions.setStatus("thread-a", "paused");
+    await Promise.resolve();
+    expect(goalTransport.setThreadGoal).toHaveBeenCalledOnce();
+
+    firstUpdate.resolve(completedCurrent(goal({ threadId: "thread-a", objective: "Old" })));
+    await expect(oldUpdate).resolves.toBe(false);
+    await expect(latestUpdate).resolves.toBe(true);
+    expect(goalTransport.setThreadGoal).toHaveBeenNthCalledWith(2, "thread-a", { status: "paused" });
+  });
+
+  it("serializes goal mutations for the same thread across panel sessions", async () => {
+    const panelState = chatStateWith(chatStateFixture(), {
+      activeThread: { id: "thread", goal: goal({ objective: "Initial" }) },
+    });
+    const firstStore = createChatStateStore(panelState);
+    const secondStore = createChatStateStore(panelState);
+    const firstUpdate = deferred<EffectOutcome<ThreadGoal>>();
+    const firstTransport = goalTransportFixture({ setThreadGoal: vi.fn(() => firstUpdate.promise) });
+    const secondTransport = goalTransportFixture({
+      setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal({ objective: "Latest" }))),
+    });
+    const goalOperations = createThreadGoalOperationCoordinator();
+    const createPanelActions = (stateStore: ChatStateStore, goalTransport: ThreadGoalTransport) =>
+      createGoalActions(
+        {
+          stateStore,
+          goalTransport,
+          localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+          startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
+          addSystemMessage: vi.fn(),
+          addGoalEvent: vi.fn(),
+          refreshLiveState: vi.fn(),
+        },
+        goalOperations,
+      );
+    const firstActions = createPanelActions(firstStore, firstTransport);
+    const secondActions = createPanelActions(secondStore, secondTransport);
+
+    const firstMutation = firstActions.setObjective("thread", "Old", null);
+    await vi.waitFor(() => expect(firstTransport.setThreadGoal).toHaveBeenCalledOnce());
+    const secondMutation = secondActions.setObjective("thread", "Latest", null);
+    await Promise.resolve();
+    expect(secondTransport.setThreadGoal).not.toHaveBeenCalled();
+
+    firstUpdate.resolve(completedCurrent(goal({ objective: "Old" })));
+    await expect(firstMutation).resolves.toBe(true);
+    await vi.waitFor(() =>
+      expect(secondTransport.setThreadGoal).toHaveBeenCalledWith("thread", expect.objectContaining({ objective: "Latest" })),
+    );
+    await expect(secondMutation).resolves.toBe(true);
+  });
+
   it("blocks goal mutations in side chats before calling app-server", async () => {
     let state = chatStateFixture();
     state = chatStateWith(state, {
@@ -109,7 +304,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "side" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "side" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -135,7 +330,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -162,7 +357,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -187,7 +382,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -211,7 +406,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -238,7 +433,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
       refreshLiveState: vi.fn(),
@@ -288,7 +483,7 @@ describe("createGoalActions", () => {
         serviceTier: null,
         approvalsReviewer: null,
       });
-      return { threadId: "thread-new" };
+      return { kind: "created-activated" as const, threadId: "thread-new" };
     });
     const actions = createGoalActions({
       stateStore,
@@ -307,11 +502,33 @@ describe("createGoalActions", () => {
     expect(goalTransport.recordThreadGoalUserMessage).toHaveBeenCalledWith("thread-new", "Plan release");
   });
 
+  it("does not save a goal through a thread that was created but not activated", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const goalTransport = goalTransportFixture();
+    const addSystemMessage = vi.fn();
+    const actions = createGoalActions({
+      stateStore,
+      goalTransport,
+      localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-not-activated", threadId: "thread-new" }),
+      addSystemMessage,
+      addGoalEvent: vi.fn(),
+      refreshLiveState: vi.fn(),
+    });
+
+    await expect(actions.saveObjective("Plan release", null)).resolves.toBe(false);
+
+    expect(goalTransport.setThreadGoal).not.toHaveBeenCalled();
+    expect(addSystemMessage).toHaveBeenCalledWith(
+      "Created thread thread-new, but the connection changed before it could be opened. Resume it from history before setting its goal.",
+    );
+  });
+
   it("does not start a goal thread when the empty panel changes during connection", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const connection = deferred<boolean>();
     const goalTransport = goalTransportFixture({ ensureConnected: vi.fn(() => connection.promise) });
-    const startThread = vi.fn().mockResolvedValue({ threadId: "thread-new" });
+    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread-new" });
     const actions = createGoalActions({
       stateStore,
       goalTransport,
@@ -338,7 +555,7 @@ describe("createGoalActions", () => {
     const goalTransport = goalTransportFixture({
       setThreadGoal: vi.fn().mockResolvedValue(completedCurrent(goal({ threadId: "restored", objective: "Resume work" }))),
     });
-    const startThread = vi.fn().mockResolvedValue({ threadId: "new-thread" });
+    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "new-thread" });
     const ensureRestoredThreadLoaded = vi.fn(async () => {
       stateStore.dispatch({
         type: "active-thread/resumed",
@@ -390,7 +607,7 @@ describe("createGoalActions", () => {
   it("rejects empty goal objective saves before connecting or starting a thread", async () => {
     const stateStore = createChatStateStore(chatStateFixture());
     const goalTransport = goalTransportFixture();
-    const startThread = vi.fn().mockResolvedValue({ threadId: "thread" });
+    const startThread = vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" });
     const addSystemMessage = vi.fn();
     const actions = createGoalActions({
       stateStore,
@@ -422,7 +639,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -449,7 +666,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -473,7 +690,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage: vi.fn(),
       addGoalEvent,
       refreshLiveState: vi.fn(),
@@ -497,7 +714,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent,
       refreshLiveState: vi.fn(),
@@ -520,7 +737,7 @@ describe("createGoalActions", () => {
       stateStore,
       goalTransport,
       localItemIds: createLocalIdSource({ nowMs: () => 1, seed: "goal" }),
-      startThread: vi.fn().mockResolvedValue({ threadId: "thread" }),
+      startThread: vi.fn().mockResolvedValue({ kind: "created-activated", threadId: "thread" }),
       addSystemMessage,
       addGoalEvent: vi.fn(),
       refreshLiveState: vi.fn(),
@@ -556,6 +773,32 @@ function goalTransportFixture(overrides: Partial<ThreadGoalTransport> = {}): Thr
     ensureConnected: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
+}
+
+function resumeInteractiveThread(stateStore: ChatStateStore, threadId: string): void {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: {
+      id: threadId,
+      name: null,
+      preview: threadId,
+      archived: false,
+      createdAt: 1,
+      updatedAt: 1,
+      provenance: { kind: "interactive" },
+    },
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
 }
 
 function completedCurrent<T>(value: T): EffectOutcome<T> {

@@ -11,6 +11,7 @@ import type { ActiveThreadSettingsAppliedAction } from "../../../../../src/featu
 import { activeThreadId, type ChatState } from "../../../../../src/features/chat/application/state/root-reducer";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { setCollaborationModeIntent, setRuntimeIntentValue } from "../../../../../src/features/chat/domain/runtime/intent";
+import { createKeyedOperationQueue, type KeyedOperationQueue } from "../../../../../src/shared/runtime/keyed-operation-queue";
 import { chatStateFixture, chatStateWith } from "../../support/state";
 
 describe("createChatRuntimeSettingsActions", () => {
@@ -455,20 +456,75 @@ describe("createChatRuntimeSettingsActions", () => {
     const actions = runtimeActionsFixture(store, transport, messages);
 
     const firstRequest = actions.requestModel("gpt-old");
-    expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" });
+    await vi.waitFor(() => expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" }));
 
     const secondRequest = actions.requestModel("gpt-new");
     expect(transport.updateThreadSettings).toHaveBeenCalledTimes(1);
 
     firstUpdate.resolve();
     await expect(firstRequest).resolves.toBe(false);
-    expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" });
+    await vi.waitFor(() => expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" }));
 
     secondUpdate.resolve();
     await expect(secondRequest).resolves.toBe(true);
     expect(store.getState().runtime.active.model).toBe("gpt-new");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(messages).toEqual([]);
+  });
+
+  it("does not reuse an old settings drain after the panel leaves and returns to the same thread", async () => {
+    let state = chatStateFixture();
+    state = chatStateWith(state, { activeThread: { id: "thread" } });
+    const store = createChatStateStore(state);
+    const oldUpdate = deferred(true);
+    const currentUpdate = deferred(true);
+    const transport = settingsTransportFixture({
+      updateThreadSettings: vi
+        .fn()
+        .mockImplementationOnce(() => oldUpdate.promise)
+        .mockImplementationOnce(() => currentUpdate.promise),
+    });
+    const messages: string[] = [];
+    const actions = runtimeActionsFixture(store, transport, messages);
+
+    const oldRequest = actions.requestModel("gpt-old");
+    await vi.waitFor(() => expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-old" }));
+
+    resumeThread(store, "other");
+    resumeThread(store, "thread");
+    const currentRequest = actions.requestModel("gpt-new");
+
+    expect(transport.updateThreadSettings).toHaveBeenCalledOnce();
+    oldUpdate.resolve();
+    await expect(oldRequest).resolves.toBe(false);
+    await vi.waitFor(() => expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { model: "gpt-new" }));
+    currentUpdate.resolve();
+    await expect(currentRequest).resolves.toBe(true);
+    expect(store.getState().runtime.active.model).toBe("gpt-new");
+    expect(messages).toEqual([]);
+  });
+
+  it("serializes runtime settings commits for the same thread across panel sessions", async () => {
+    const panelState = chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } });
+    const firstStore = createChatStateStore(panelState);
+    const secondStore = createChatStateStore(panelState);
+    const firstUpdate = deferred(true);
+    const firstTransport = settingsTransportFixture({ updateThreadSettings: vi.fn(() => firstUpdate.promise) });
+    const secondTransport = settingsTransportFixture();
+    const threadCommits = createKeyedOperationQueue<string>();
+    const firstActions = runtimeActionsFixture(firstStore, firstTransport, [], threadCommits);
+    const secondActions = runtimeActionsFixture(secondStore, secondTransport, [], threadCommits);
+
+    const firstMutation = firstActions.requestModel("gpt-old");
+    await vi.waitFor(() => expect(firstTransport.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-old" }));
+    const secondMutation = secondActions.requestModel("gpt-latest");
+    await Promise.resolve();
+    expect(secondTransport.updateThreadSettings).not.toHaveBeenCalled();
+
+    firstUpdate.resolve();
+    await expect(firstMutation).resolves.toBe(true);
+    await vi.waitFor(() => expect(secondTransport.updateThreadSettings).toHaveBeenCalledWith("thread", { model: "gpt-latest" }));
+    await expect(secondMutation).resolves.toBe(true);
   });
 
   it("coalesces a different-field intent behind the active settings update", async () => {
@@ -487,14 +543,14 @@ describe("createChatRuntimeSettingsActions", () => {
     const actions = runtimeActionsFixture(store, transport, messages);
 
     const modelRequest = actions.requestModel("gpt-5.5");
-    expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-5.5" });
+    await vi.waitFor(() => expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(1, "thread", { model: "gpt-5.5" }));
 
     const effortRequest = actions.requestReasoningEffort("high");
     expect(transport.updateThreadSettings).toHaveBeenCalledTimes(1);
 
     modelUpdate.resolve();
     await expect(modelRequest).resolves.toBe(true);
-    expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { effort: "high" });
+    await vi.waitFor(() => expect(transport.updateThreadSettings).toHaveBeenNthCalledWith(2, "thread", { effort: "high" }));
     expect(store.getState().runtime.active.model).toBe("gpt-5.5");
     expect(store.getState().runtime.pending.model).toEqual({ kind: "unchanged" });
     expect(store.getState().runtime.pending.reasoningEffort).toEqual({ kind: "set", value: "high" });
@@ -544,14 +600,18 @@ function runtimeActionsFixture(
   store: ReturnType<typeof createChatStateStore>,
   transport: RuntimeSettingsTransport,
   messages: string[],
+  threadCommits?: KeyedOperationQueue<string>,
 ): ChatRuntimeSettingsActions {
-  return createChatRuntimeSettingsActions({
-    stateStore: store,
-    runtimeTransport: transport,
-    runtimeSnapshotForState: runtimeSnapshotFixture,
-    collaborationModeLabel: () => "Plan",
-    addSystemMessage: (text) => messages.push(text),
-  });
+  return createChatRuntimeSettingsActions(
+    {
+      stateStore: store,
+      runtimeTransport: transport,
+      runtimeSnapshotForState: runtimeSnapshotFixture,
+      collaborationModeLabel: () => "Plan",
+      addSystemMessage: (text) => messages.push(text),
+    },
+    threadCommits,
+  );
 }
 
 function settingsTransportFixture(overrides: Partial<RuntimeSettingsTransport> = {}): RuntimeSettingsTransport {
@@ -599,6 +659,32 @@ function threadSettings(
     sandboxPolicy: null,
     activePermissionProfile: null,
   };
+}
+
+function resumeThread(store: ReturnType<typeof createChatStateStore>, threadId: string): void {
+  store.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: {
+      id: threadId,
+      preview: "",
+      name: null,
+      archived: false,
+      createdAt: 1,
+      updatedAt: 1,
+      provenance: { kind: "interactive" },
+    },
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
 }
 
 function deferred<T>(initialValue: T): { promise: Promise<T>; resolve: (value?: T) => void } {

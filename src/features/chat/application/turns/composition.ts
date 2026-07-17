@@ -64,10 +64,7 @@ export interface TurnWorkflowRefs {
 }
 
 interface TurnWorkflowThreadStarter {
-  startThread: (
-    preview?: string,
-    options?: { syncGoal?: boolean; preservePendingSubmissionId?: string },
-  ) => Promise<ThreadStartOutcome>;
+  startThread: (preview?: string, options?: { syncGoal?: boolean; preservePendingSubmissionId?: string }) => Promise<ThreadStartOutcome>;
 }
 
 interface PlanImplementation {
@@ -98,7 +95,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     localItemIds,
     turnTransport,
     ensureRestoredThreadLoaded: thread.ensureRestoredThreadLoaded,
-    startThread: async (preview, options) => (await refs.threadStarter.startThread(preview, options)).kind === "created-activated",
+    startThread: (preview, options) => refs.threadStarter.startThread(preview, options),
     notifyActiveThreadIdentityChanged: thread.notifyIdentityChanged,
     resetThreadTurnPresence: thread.resetTurnPresence,
     applyPendingThreadSettings: () => refs.runtimeSettings.applyPendingThreadSettings(),
@@ -113,7 +110,7 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
     referThread,
     readWebUrl,
     startNewThread: thread.startNewThread,
-    startThreadForGoal: (objective) => startThreadForGoal(refs.threadStarter, objective),
+    startThreadForGoal: (objective) => startThreadForGoal(refs.threadStarter, objective, status.addSystemMessage),
     resumeThread: thread.selectThread,
     threadActions: refs.threadActions,
     reconnect: refs.reconnectPanel,
@@ -180,7 +177,17 @@ export function createTurnWorkflowActions(context: TurnWorkflowContext, refs: Tu
   };
 }
 
-async function startThreadForGoal(starter: TurnWorkflowThreadStarter, objective: string): Promise<string | null> {
+async function startThreadForGoal(
+  starter: TurnWorkflowThreadStarter,
+  objective: string,
+  addSystemMessage: (message: string) => void,
+): Promise<string | null> {
   const outcome = await starter.startThread(objective, { syncGoal: false });
+  if (outcome.kind === "created-not-activated") {
+    addSystemMessage(
+      `Created thread ${outcome.threadId}, but the connection changed before it could be opened. Resume it from history before setting its goal.`,
+    );
+    return null;
+  }
   return outcome.kind === "created-activated" ? outcome.threadId : null;
 }

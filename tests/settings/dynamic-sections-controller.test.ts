@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { AppServerClient } from "../../src/app-server/connection/client";
 import type { CatalogHookMetadata } from "../../src/app-server/protocol/catalog";
 import { modelMetadataFromCatalogModels } from "../../src/app-server/protocol/catalog";
 import type { ThreadRecord } from "../../src/app-server/protocol/thread";
 import type { ObservedResult } from "../../src/app-server/query/observed-result";
 import type { ModelMetadata } from "../../src/domain/catalog/metadata";
 import type { Thread } from "../../src/domain/threads/model";
+import { StaleSettingsDynamicDataContextError } from "../../src/settings/dynamic-data";
 import { SettingsDynamicSectionsController, type SettingsDynamicSectionsSnapshot } from "../../src/settings/dynamic-sections-controller";
 import { deferred } from "../support/async";
 import {
@@ -183,6 +185,36 @@ describe("SettingsDynamicSectionsController", () => {
     expect(snapshot.hooks.map((item) => item.currentHash)).toEqual(["newhash"]);
   });
 
+  it("reconciles an earlier successful hook mutation when the latest queued mutation fails", async () => {
+    const trustWrite = deferred<unknown>();
+    const trustClient = settingsRequestClient({
+      "config/batchWrite": vi.fn(() => trustWrite.promise),
+    });
+    const toggleClient = settingsRequestClient({
+      "config/batchWrite": vi.fn().mockRejectedValue(new Error("toggle failed")),
+    });
+    const reconciledClient = settingsClient({
+      hooks: [hook({ key: "hook-trusted", command: "trusted hook", currentHash: "trustedhash", trustStatus: "trusted" })],
+    });
+    useShortLivedClients(trustClient, toggleClient, reconciledClient);
+    const notify = vi.fn();
+    const controller = new SettingsDynamicSectionsController(settingsTabHost(), { display: vi.fn(), notify });
+    const target = hook({ key: "hook-trusted", command: "trusted hook", currentHash: "trustedhash" });
+
+    const trust = controller.trustHook(target);
+    const toggle = controller.setHookEnabled(target, false);
+    await flushPromises();
+    trustWrite.resolve({});
+    await Promise.all([trust, toggle]);
+
+    expect(controller.snapshot().hooks.map((item) => item.currentHash)).toEqual(["trustedhash"]);
+    expect(controller.snapshot().hooksLifecycle).toEqual({
+      kind: "failed",
+      status: "Could not update hook: toggle failed",
+    });
+    expect(notify).toHaveBeenCalledWith("Could not update Codex hook.");
+  });
+
   it("publishes stale-view archived restore facts without replacing a newer section result", async () => {
     const staleRestore = deferred<{ thread: ThreadRecord }>();
     const applyThreadCatalogEvent = vi.fn();
@@ -312,6 +344,28 @@ describe("SettingsDynamicSectionsController", () => {
 
     expect(secondRequest).toHaveBeenCalledOnce();
     expect(withShortLivedAppServerClientMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not start a settings mutation after client acquisition crosses a context replacement", async () => {
+    const acquisition = deferred<void>();
+    const client = settingsRequestClient({
+      "config/batchWrite": vi.fn().mockResolvedValue({}),
+    });
+    withShortLivedAppServerClientMock.mockImplementationOnce(
+      async (_codexPath: string, _vaultPath: string, operation: (acquiredClient: AppServerClient) => Promise<unknown>) => {
+        await acquisition.promise;
+        return operation(client);
+      },
+    );
+    const host = settingsTabHost();
+
+    const trust = host.dynamicData.trustHook(hook({ key: "hook-old-context" }));
+    await flushPromises();
+    await host.publishSettings({ ...host.settings, codexPath: "/opt/codex-next" });
+    acquisition.resolve(undefined);
+
+    await expect(trust).rejects.toBeInstanceOf(StaleSettingsDynamicDataContextError);
+    expect(client.request).not.toHaveBeenCalled();
   });
 
   it("records restored archived threads in the active catalog", async () => {

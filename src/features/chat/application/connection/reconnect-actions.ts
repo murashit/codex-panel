@@ -1,5 +1,5 @@
-import { activeThreadId, activeThreadState, type ChatConnectionPhase, panelThreadId } from "../state/root-reducer";
 import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
+import { activeThreadId, activeThreadState, type ChatConnectionPhase, panelThreadId } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 
 const STATUS_RECONNECTING = "Reconnecting...";

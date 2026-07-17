@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StaleAppServerResourceContextError } from "../../../../src/app-server/query/resource-store";
 import type { Thread } from "../../../../src/domain/threads/model";
 import { type ChatStateStore, createChatStateStore } from "../../../../src/features/chat/application/state/store";
+import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
 import { ChatResumeWorkTracker } from "../../../../src/features/chat/application/threads/resume-work";
 import type { ChatPanelEnvironment } from "../../../../src/features/chat/host/contracts";
 import { createChatViewDeferredTasks } from "../../../../src/features/chat/host/session/deferred-work";
@@ -12,6 +13,7 @@ import { ChatPanelSessionRuntime } from "../../../../src/features/chat/host/sess
 import { createChatThreadStreamScrollBinding } from "../../../../src/features/chat/panel/thread-stream-scroll-binding";
 import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
 import { chatPanelSettingsAccess } from "../support/settings";
@@ -288,6 +290,7 @@ describe("ChatPanelSessionRuntime actions", () => {
         registerPointerDown: vi.fn(),
         archiveDestination: vi.fn(),
         requestWorkspaceLayoutSave: vi.fn(),
+        isForeground: vi.fn(() => true),
         ...overrides.obsidian,
       },
       plugin: {
@@ -306,6 +309,8 @@ describe("ChatPanelSessionRuntime actions", () => {
         appServerQueries,
         threadCatalog,
         threadNameMutations: createThreadNameMutationCoordinator(),
+        threadGoalOperations: createThreadGoalOperationCoordinator(),
+        runtimeSettingsCommitQueue: createKeyedOperationQueue(),
       },
       view: {
         panelRoot: () => panelRoot,

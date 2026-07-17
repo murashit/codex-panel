@@ -27,6 +27,7 @@ export class CodexChatView extends ItemView {
         requestWorkspaceLayoutSave: () => {
           void this.app.workspace.requestSaveLayout();
         },
+        isForeground: () => this.app.workspace.getActiveViewOfType(CodexChatView) === this,
       },
       plugin,
       view: {

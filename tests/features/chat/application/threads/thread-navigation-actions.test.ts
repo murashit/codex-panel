@@ -7,11 +7,12 @@ import type {
   PersistentNavigationLifecycle,
   PersistentNavigationPreparation,
 } from "../../../../../src/features/chat/application/threads/persistent-navigation-lifecycle";
+import { createPersistentNavigationLifecycle } from "../../../../../src/features/chat/application/threads/persistent-navigation-lifecycle";
+import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import {
   createThreadNavigationActions,
   type ThreadNavigationActionsHost,
 } from "../../../../../src/features/chat/application/threads/thread-navigation-actions";
-import { ChatResumeWorkTracker } from "../../../../../src/features/chat/application/threads/resume-work";
 import { deferred } from "../../../../support/async";
 
 function resumeThreadState(stateStore: ChatStateStore, threadId: string, subagent = false): void {
@@ -73,6 +74,7 @@ describe("ThreadNavigationActions", () => {
     await actions.startNewThread();
 
     expect(host.identity.clearActiveThreadIdentity).toHaveBeenCalledOnce();
+    expect(host.navigation.commitPersistentNavigation).toHaveBeenCalledWith({ kind: "ready" });
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(stateStore.getState().connection.statusText).toBe("New chat.");
     expect(host.focusComposer).toHaveBeenCalledOnce();
@@ -118,6 +120,24 @@ describe("ThreadNavigationActions", () => {
     expect(host.focusComposer).not.toHaveBeenCalled();
   });
 
+  it("does not commit subagent cleanup when a blank-target intent is superseded before adoption", async () => {
+    const prepared = deferred<PersistentNavigationPreparation | null>();
+    const navigation = navigationMock();
+    navigation.prepareForPersistentNavigation.mockReturnValue(prepared.promise);
+    const { actions, host, stateStore } = createActionsHarness({ navigation });
+    resumeThreadState(stateStore, "child", true);
+    stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
+
+    const startingNew = actions.startNewThread();
+    await vi.waitFor(() => expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith(null));
+    host.resumeWork.begin("child");
+    prepared.resolve({ kind: "unsubscribe-on-adoption", threadId: "child" });
+    await startingNew;
+
+    expect(host.identity.clearActiveThreadIdentity).not.toHaveBeenCalled();
+    expect(navigation.commitPersistentNavigation).not.toHaveBeenCalled();
+  });
+
   it("focuses an already open thread without resuming it", async () => {
     const { actions, host } = createActionsHarness({
       focusThreadInOpenView: vi.fn().mockResolvedValue(true),
@@ -152,14 +172,16 @@ describe("ThreadNavigationActions", () => {
     await actions.selectThread("thread");
 
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
-    expect(host.resumeThread).toHaveBeenCalledWith("thread", expect.objectContaining({ threadId: "thread" }));
+    expect(host.resumeThread).toHaveBeenCalledWith(
+      "thread",
+      expect.objectContaining({ threadId: "thread" }),
+      expect.objectContaining({ onAdopted: expect.any(Function) }),
+    );
   });
 
   it("does not resume an older selection after a newer selection wins during view lookup", async () => {
     const firstLookup = deferred<boolean>();
-    const focusThreadInOpenView = vi.fn((threadId: string) =>
-      threadId === "first" ? firstLookup.promise : Promise.resolve(false),
-    );
+    const focusThreadInOpenView = vi.fn((threadId: string) => (threadId === "first" ? firstLookup.promise : Promise.resolve(false)));
     const { actions, host } = createActionsHarness({ focusThreadInOpenView });
 
     const firstSelection = actions.selectThread("first");
@@ -169,13 +191,21 @@ describe("ThreadNavigationActions", () => {
     await firstSelection;
 
     expect(host.resumeThread).toHaveBeenCalledOnce();
-    expect(host.resumeThread).toHaveBeenCalledWith("second", expect.objectContaining({ threadId: "second" }));
+    expect(host.resumeThread).toHaveBeenCalledWith(
+      "second",
+      expect.objectContaining({ threadId: "second" }),
+      expect.objectContaining({ onAdopted: expect.any(Function) }),
+    );
   });
 
   it("allows switching away from a running subagent after unsubscribe preparation", async () => {
-    const preparation = { kind: "unsubscribe-after-resume", threadId: "child", targetThreadId: "other" } as const;
+    const preparation = { kind: "unsubscribe-on-adoption", threadId: "child" } as const;
     const navigation = navigationMock(preparation);
-    const { actions, host, stateStore } = createActionsHarness({ navigation });
+    const resumeThread = vi.fn(async (_threadId, _intent, options) => {
+      options?.onAdopted?.();
+      return true;
+    });
+    const { actions, host, stateStore } = createActionsHarness({ navigation, resumeThread });
     resumeThreadState(stateStore, "child", true);
     stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
 
@@ -183,8 +213,45 @@ describe("ThreadNavigationActions", () => {
 
     expect(navigation.prepareForPersistentNavigation).toHaveBeenCalledWith("other");
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
-    expect(host.resumeThread).toHaveBeenCalledWith("other", expect.objectContaining({ threadId: "other" }));
-    expectCallBefore(host.resumeThread as ReturnType<typeof vi.fn>, navigation.completePersistentNavigation);
+    expect(host.resumeThread).toHaveBeenCalledWith(
+      "other",
+      expect.objectContaining({ threadId: "other" }),
+      expect.objectContaining({ onAdopted: expect.any(Function) }),
+    );
+    expect(navigation.commitPersistentNavigation).toHaveBeenCalledWith(preparation);
+  });
+
+  it("keeps the old subagent cleanup committed when a newer selection arrives during resumed history", async () => {
+    const stateStore = createChatStateStore(createChatState());
+    resumeThreadState(stateStore, "child", true);
+    stateStore.dispatch({ type: "turn/started", threadId: "child", turnId: "turn" });
+    const unsubscribeThread = vi.fn().mockResolvedValue(true);
+    const navigation = createPersistentNavigationLifecycle({
+      stateStore,
+      subscriptions: { unsubscribeThread },
+      ephemeral: {
+        open: vi.fn(),
+        prepareForPersistentNavigation: vi.fn().mockResolvedValue(true),
+        dispose: vi.fn().mockResolvedValue(undefined),
+      },
+      addSystemMessage: vi.fn(),
+    });
+    const history = deferred<void>();
+    const resumeThread = vi.fn(async (threadId, _intent, options) => {
+      resumeThreadState(stateStore, threadId);
+      options?.onAdopted?.();
+      if (threadId === "first") await history.promise;
+      return true;
+    });
+    const { actions } = createActionsHarness({ stateStore, navigation, resumeThread });
+
+    const firstSelection = actions.selectThread("first");
+    await vi.waitFor(() => expect(unsubscribeThread).toHaveBeenCalledWith("child"));
+    await actions.selectThread("second");
+    history.resolve(undefined);
+    await firstSelection;
+
+    expect(unsubscribeThread).toHaveBeenCalledOnce();
   });
 
   it("blocks switching away while a turn is running", async () => {
@@ -208,7 +275,11 @@ describe("ThreadNavigationActions", () => {
 
     expect(stateStore.getState().ui.toolbarPanel).toBeNull();
     expect(host.closeForThreadSelection).toHaveBeenCalledOnce();
-    expect(host.resumeThread).toHaveBeenCalledWith("thread", expect.objectContaining({ threadId: "thread" }));
+    expect(host.resumeThread).toHaveBeenCalledWith(
+      "thread",
+      expect.objectContaining({ threadId: "thread" }),
+      expect.objectContaining({ onAdopted: expect.any(Function) }),
+    );
   });
 
   it("ignores toolbar selection while another thread is busy", async () => {
@@ -235,10 +306,10 @@ function expectCallBefore(first: ReturnType<typeof vi.fn>, second: ReturnType<ty
 
 function navigationMock(preparation: PersistentNavigationPreparation | null = { kind: "ready" }): PersistentNavigationLifecycle & {
   prepareForPersistentNavigation: ReturnType<typeof vi.fn>;
-  completePersistentNavigation: ReturnType<typeof vi.fn>;
+  commitPersistentNavigation: ReturnType<typeof vi.fn>;
 } {
   return {
     prepareForPersistentNavigation: vi.fn().mockResolvedValue(preparation),
-    completePersistentNavigation: vi.fn().mockResolvedValue(undefined),
+    commitPersistentNavigation: vi.fn((_preparation: PersistentNavigationPreparation): void => undefined),
   };
 }

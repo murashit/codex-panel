@@ -417,9 +417,78 @@ describe("thread management actions", () => {
     expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
 
+  it("does not archive the source when the panel changes during fork naming", async () => {
+    const rename = deferred<boolean>();
+    const host = hostMock({
+      items: turnItems(),
+      activeThread: { id: "source" },
+      operations: { renameThread: vi.fn(() => rename.promise) },
+    });
+    host.stateStore.dispatch({
+      type: "thread-list/applied",
+      threads: [{ ...panelThread("source"), name: "Source name" }],
+    });
+
+    const pendingFork = threadManagementActions(host).forkThreadFromTurn("source", null, true);
+    await waitForAsyncWork(() => expect(host.operations.renameThread).toHaveBeenCalledWith("forked", "Source name"));
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: panelThread("other"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    rename.resolve(true);
+    await pendingFork;
+
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
+    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
+  });
+
+  it("does not replace a newer panel after fork source archiving completes", async () => {
+    const archive = deferred<boolean>();
+    const host = hostMock({
+      items: turnItems(),
+      activeThread: { id: "source" },
+      operations: { archiveThread: vi.fn(() => archive.promise) },
+    });
+
+    const pendingFork = threadManagementActions(host).forkThreadFromTurn("source", null, true);
+    await waitForAsyncWork(() => expect(host.operations.archiveThread).toHaveBeenCalledWith("source", {}));
+    host.stateStore.dispatch({
+      type: "active-thread/resumed",
+      approvalPolicyKnown: true,
+      sandboxPolicyKnown: true,
+      permissionProfileKnown: true,
+      approvalPolicy: null,
+      sandboxPolicy: null,
+      activePermissionProfile: null,
+      thread: panelThread("other"),
+      cwd: "/vault",
+      model: null,
+      reasoningEffort: null,
+      serviceTier: null,
+      approvalsReviewer: null,
+    });
+    archive.resolve(true);
+    await pendingFork;
+
+    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
+    expect(activeThreadId(host.stateStore.getState())).toBe("other");
+  });
+
   it("does not open or record fork responses when the transport has no result", async () => {
     const host = hostMock({
       items: turnItems(),
+      activeThread: { id: "source" },
       threadTransport: {
         forkThread: vi.fn<ThreadMutationTransport["forkThread"]>().mockResolvedValue({ kind: "not-started" }),
       },
@@ -431,6 +500,25 @@ describe("thread management actions", () => {
     expect(host.recordForkedThread).not.toHaveBeenCalled();
     expect(host.openThreadInNewView).not.toHaveBeenCalled();
     expect(host.operations.archiveThread).not.toHaveBeenCalled();
+  });
+
+  it("records a fork that completed before its app-server context became stale", async () => {
+    const host = hostMock({
+      items: turnItems(),
+      threadTransport: {
+        forkThread: vi
+          .fn<ThreadMutationTransport["forkThread"]>()
+          .mockResolvedValue({ kind: "completed-stale", value: panelThread("forked") }),
+      },
+    });
+    const controller = threadManagementActions(host);
+
+    await controller.forkThreadFromTurn("source", null, true);
+
+    expect(host.recordForkedThread).toHaveBeenCalledWith(panelThread("forked"));
+    expect(host.operations.renameThread).not.toHaveBeenCalled();
+    expect(host.operations.archiveThread).not.toHaveBeenCalled();
+    expect(host.openThreadInCurrentPanel).not.toHaveBeenCalled();
   });
 
   it("delegates thread rename requests", async () => {
@@ -560,7 +648,7 @@ describe("thread management actions", () => {
     expect(activeThreadId(host.stateStore.getState())).toBe("other");
     expect(host.setComposerText).not.toHaveBeenCalled();
     expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
-    expect(host.refreshAfterThreadMutation).not.toHaveBeenCalled();
+    expect(host.refreshAfterThreadMutation).toHaveBeenCalledOnce();
   });
 
   it("ignores rollback responses after a new turn starts in the same thread", async () => {
@@ -593,6 +681,26 @@ describe("thread management actions", () => {
 
     expect(host.stateStore.getState().turn.lifecycle).toEqual({ kind: "running", turnId: "new-turn" });
     expect(host.setComposerText).not.toHaveBeenCalled();
+    expect(host.refreshAfterThreadMutation).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes shared thread facts when rollback completes in a stale app-server context", async () => {
+    const host = hostMock({
+      items: turnItems(),
+      activeThread: { id: "source" },
+      threadTransport: {
+        rollbackThread: vi
+          .fn<ThreadMutationTransport["rollbackThread"]>()
+          .mockResolvedValue({ kind: "completed-stale", value: rollbackSnapshot() }),
+      },
+    });
+    const controller = threadManagementActions(host);
+
+    await controller.rollbackThread("source");
+
+    expect(host.refreshAfterThreadMutation).toHaveBeenCalledOnce();
+    expect(host.setComposerText).not.toHaveBeenCalled();
+    expect(host.notifyActiveThreadIdentityChanged).not.toHaveBeenCalled();
   });
 
   it("ignores rollback when the transport has no result", async () => {

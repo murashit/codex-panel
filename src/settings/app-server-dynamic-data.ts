@@ -6,6 +6,7 @@ import { listHookCatalog, setHookItemEnabled, trustHookItem } from "../app-serve
 import { deleteThread, restoreArchivedThread as restoreArchivedThreadOnAppServer } from "../app-server/services/threads";
 import type { ModelMetadata } from "../domain/catalog/metadata";
 import type { ThreadCatalogArchivedReader, ThreadCatalogEventSink } from "../features/threads/catalog/thread-catalog";
+import { createKeyedOperationQueue, type KeyedOperationQueue } from "../shared/runtime/keyed-operation-queue";
 import { type SettingsDynamicDataAccess, type SettingsHookCatalog, StaleSettingsDynamicDataContextError } from "./dynamic-data";
 
 interface SettingsAppServerQueries {
@@ -26,13 +27,18 @@ export interface SettingsAppServerDynamicDataOptions {
 }
 
 export function createSettingsAppServerDynamicData(options: SettingsAppServerDynamicDataOptions): SettingsDynamicDataAccess {
-  const hookMutations = createSettingsMutationQueue<"hooks">();
-  const archivedThreadMutations = createSettingsMutationQueue<string>();
+  const hookMutations = createKeyedOperationQueue<"hooks">();
+  const archivedThreadMutations = createKeyedOperationQueue<string>();
   const withSettingsConnection = <T>(operation: (client: AppServerClient) => Promise<T>): Promise<T> =>
     options.clientAccess.withClient(operation, {
       serverRequests: { kind: "reject", message: "Codex Panel settings does not handle server requests." },
     });
-  const runMutation = <K, T>(queue: SettingsMutationQueue<K>, key: K, contextKey: string, operation: () => Promise<T>): Promise<T> =>
+  const withSettingsMutationConnection = <T>(contextKey: string, operation: (client: AppServerClient) => Promise<T>): Promise<T> =>
+    withSettingsConnection((client) => {
+      if (options.appServerQueries.contextKey() !== contextKey) throw new StaleSettingsDynamicDataContextError();
+      return operation(client);
+    });
+  const runMutation = <K, T>(queue: KeyedOperationQueue<K>, key: K, contextKey: string, operation: () => Promise<T>): Promise<T> =>
     queue.run(key, () =>
       mapStaleContextError(async () => {
         if (options.appServerQueries.contextKey() !== contextKey) throw new StaleSettingsDynamicDataContextError();
@@ -51,18 +57,20 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
     loadHooks: () => withSettingsConnection((client) => loadSettingsHookCatalog(client, options.vaultPath)),
     trustHook: (hook) => {
       const contextKey = options.appServerQueries.contextKey();
-      return runMutation(hookMutations, "hooks", contextKey, () => withSettingsConnection((client) => trustHookItem(client, hook)));
+      return runMutation(hookMutations, "hooks", contextKey, () =>
+        withSettingsMutationConnection(contextKey, (client) => trustHookItem(client, hook)),
+      );
     },
     setHookEnabled: (hook, enabled) => {
       const contextKey = options.appServerQueries.contextKey();
       return runMutation(hookMutations, "hooks", contextKey, () =>
-        withSettingsConnection((client) => setHookItemEnabled(client, hook, enabled)),
+        withSettingsMutationConnection(contextKey, (client) => setHookItemEnabled(client, hook, enabled)),
       );
     },
     restoreArchivedThread: (threadId) => {
       const contextKey = options.appServerQueries.contextKey();
       return runMutation(archivedThreadMutations, threadId, contextKey, async () => {
-        const thread = await withSettingsConnection((client) => restoreArchivedThreadOnAppServer(client, threadId));
+        const thread = await withSettingsMutationConnection(contextKey, (client) => restoreArchivedThreadOnAppServer(client, threadId));
         options.threadCatalog.apply({ type: "thread-restored", thread });
         return thread;
       });
@@ -70,32 +78,9 @@ export function createSettingsAppServerDynamicData(options: SettingsAppServerDyn
     deleteArchivedThread: (threadId) => {
       const contextKey = options.appServerQueries.contextKey();
       return runMutation(archivedThreadMutations, threadId, contextKey, async () => {
-        await withSettingsConnection((client) => deleteThread(client, threadId));
+        await withSettingsMutationConnection(contextKey, (client) => deleteThread(client, threadId));
         options.threadCatalog.apply({ type: "thread-deleted", threadId });
       });
-    },
-  };
-}
-
-interface SettingsMutationQueue<K> {
-  run<T>(key: K, operation: () => Promise<T>): Promise<T>;
-}
-
-function createSettingsMutationQueue<K>(): SettingsMutationQueue<K> {
-  const pendingByKey = new Map<K, Promise<void>>();
-  return {
-    run(key, operation) {
-      const previous = pendingByKey.get(key) ?? Promise.resolve();
-      const result = previous.then(operation);
-      const pending = result.then(
-        () => undefined,
-        () => undefined,
-      );
-      pendingByKey.set(key, pending);
-      void pending.then(() => {
-        if (pendingByKey.get(key) === pending) pendingByKey.delete(key);
-      });
-      return result;
     },
   };
 }

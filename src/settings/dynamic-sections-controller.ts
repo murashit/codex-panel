@@ -37,6 +37,10 @@ export class SettingsDynamicSectionsController {
   private modelsOperationToken = 0;
   private hooksOperationToken = 0;
   private archivedThreadsOperationToken = 0;
+  private pendingHookMutations = 0;
+  private hookReconcileRevision = 0;
+  private reconciledHookRevision = 0;
+  private hookReconcileDrain: Promise<void> | null = null;
 
   private archivedThreads: Thread[] = [];
   private archivedThreadsLoaded = false;
@@ -239,33 +243,45 @@ export class SettingsDynamicSectionsController {
   }
 
   async trustHook(hook: HookItem): Promise<void> {
-    await this.runDynamicSectionOperation({
-      section: "hooks",
-      loadingStatus: "Loading hooks...",
-      failureStatus: (error) => `Could not trust hook: ${errorMessage(error)}`,
-      failureNotice: "Could not trust Codex hook.",
-      operation: async (operationToken) => {
-        await this.host.dynamicData.trustHook(hook);
-        if (this.isStaleHooksOperation(operationToken)) return;
-        this.hooksLifecycle = settingsDynamicSectionLoaded("Trusted hook definition.");
-        await this.loadHooks();
-      },
-    });
+    this.pendingHookMutations += 1;
+    try {
+      await this.runDynamicSectionOperation({
+        section: "hooks",
+        loadingStatus: "Loading hooks...",
+        failureStatus: (error) => `Could not trust hook: ${errorMessage(error)}`,
+        failureNotice: "Could not trust Codex hook.",
+        operation: async (operationToken) => {
+          await this.host.dynamicData.trustHook(hook);
+          this.requestHookReconciliation();
+          if (this.isStaleHooksOperation(operationToken)) return;
+          this.hooksLifecycle = settingsDynamicSectionLoaded("Trusted hook definition.");
+        },
+      });
+    } finally {
+      this.pendingHookMutations -= 1;
+      await this.drainHookReconciliation();
+    }
   }
 
   async setHookEnabled(hook: HookItem, enabled: boolean): Promise<void> {
-    await this.runDynamicSectionOperation({
-      section: "hooks",
-      loadingStatus: "Loading hooks...",
-      failureStatus: (error) => `Could not update hook: ${errorMessage(error)}`,
-      failureNotice: "Could not update Codex hook.",
-      operation: async (operationToken) => {
-        await this.host.dynamicData.setHookEnabled(hook, enabled);
-        if (this.isStaleHooksOperation(operationToken)) return;
-        this.hooksLifecycle = settingsDynamicSectionLoaded(enabled ? "Enabled hook." : "Disabled hook.");
-        await this.loadHooks();
-      },
-    });
+    this.pendingHookMutations += 1;
+    try {
+      await this.runDynamicSectionOperation({
+        section: "hooks",
+        loadingStatus: "Loading hooks...",
+        failureStatus: (error) => `Could not update hook: ${errorMessage(error)}`,
+        failureNotice: "Could not update Codex hook.",
+        operation: async (operationToken) => {
+          await this.host.dynamicData.setHookEnabled(hook, enabled);
+          this.requestHookReconciliation();
+          if (this.isStaleHooksOperation(operationToken)) return;
+          this.hooksLifecycle = settingsDynamicSectionLoaded(enabled ? "Enabled hook." : "Disabled hook.");
+        },
+      });
+    } finally {
+      this.pendingHookMutations -= 1;
+      await this.drainHookReconciliation();
+    }
   }
 
   async restoreArchivedThread(threadId: string): Promise<void> {
@@ -317,22 +333,50 @@ export class SettingsDynamicSectionsController {
     return !effort || this.effortOptions(this.host.settings.rewriteSelectionModel).includes(effort);
   }
 
-  private async loadHooks(): Promise<void> {
-    await this.runDynamicSectionOperation({
-      section: "hooks",
-      loadingStatus: "Loading hooks...",
-      failureStatus: (error) => `Could not load hooks: ${errorMessage(error)}`,
-      failureNotice: "Could not load Codex hooks.",
-      operation: async (operationToken) => {
-        const hooks = await this.host.dynamicData.loadHooks();
-        if (this.isStaleHooksOperation(operationToken)) return;
-        this.hooks = [...hooks.hooks];
-        this.hookWarnings = [...hooks.warnings];
-        this.hookErrors = [...hooks.errors];
-        this.hooksLoaded = true;
-        this.hooksLifecycle = settingsDynamicSectionLoaded(hooks.status);
-      },
+  private requestHookReconciliation(): void {
+    this.hookReconcileRevision += 1;
+  }
+
+  private drainHookReconciliation(): Promise<void> {
+    if (this.hookMutationIsPending() || this.reconciledHookRevision === this.hookReconcileRevision) {
+      return Promise.resolve();
+    }
+    if (this.hookReconcileDrain) return this.hookReconcileDrain;
+    const lifetime = this.lifetime.signal();
+    const drain = (async (): Promise<void> => {
+      while (
+        !this.hookMutationIsPending() &&
+        this.reconciledHookRevision !== this.hookReconcileRevision &&
+        this.lifetime.isCurrent(lifetime)
+      ) {
+        const reconcileRevision = this.hookReconcileRevision;
+        const operationToken = this.hooksOperationToken;
+        try {
+          const hooks = await this.host.dynamicData.loadHooks();
+          if (!this.lifetime.isCurrent(lifetime)) return;
+          if (this.hookMutationIsPending() || this.isStaleHooksOperation(operationToken)) continue;
+          this.hooks = [...hooks.hooks];
+          this.hookWarnings = [...hooks.warnings];
+          this.hookErrors = [...hooks.errors];
+          this.hooksLoaded = true;
+          this.reconciledHookRevision = reconcileRevision;
+          this.callbacks.display();
+        } catch (error) {
+          if (isStaleSettingsDynamicDataContextError(error) || !this.lifetime.isCurrent(lifetime)) return;
+          if (this.hookMutationIsPending() || this.isStaleHooksOperation(operationToken)) continue;
+          this.callbacks.notify(`Could not reconcile Codex hooks: ${errorMessage(error)}`);
+          return;
+        }
+      }
+    })().finally(() => {
+      if (this.hookReconcileDrain === drain) this.hookReconcileDrain = null;
     });
+    this.hookReconcileDrain = drain;
+    return drain;
+  }
+
+  private hookMutationIsPending(): boolean {
+    return this.pendingHookMutations > 0;
   }
 
   private async runDynamicSectionOperation(options: {

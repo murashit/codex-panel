@@ -94,6 +94,25 @@ describe("ResumeActions", () => {
     expect(loadLatest).not.toHaveBeenCalled();
   });
 
+  it("commits target adoption before waiting for history hydration", async () => {
+    const history = deferred<void>();
+    const onAdopted = vi.fn();
+    const { actions, loadLatest } = createActions(undefined, {
+      history: {
+        loadLatest: vi.fn(() => history.promise),
+        applyLatestPage: vi.fn(),
+        invalidate: vi.fn(),
+      } as unknown as HistoryController,
+    });
+
+    const resuming = actions.resumeThread("thread", undefined, { onAdopted });
+    await vi.waitFor(() => expect(onAdopted).toHaveBeenCalledOnce());
+
+    expect(loadLatest).not.toHaveBeenCalled();
+    history.resolveAndFlush(undefined);
+    await expect(resuming).resolves.toBe(true);
+  });
+
   it("does not change active thread when the resume transport has no snapshot", async () => {
     const { actions, host, loadLatest, resumeThread, stateStore } = createActions(null);
 
@@ -107,12 +126,10 @@ describe("ResumeActions", () => {
 
   it("does not invoke an older resume after a newer intent wins during connection", async () => {
     const firstConnection = deferred<boolean>();
-    const resumeThread = vi
-      .fn<ThreadResumeTransport["resumeThread"]>()
-      .mockImplementation(async (threadId) => ({
-        kind: "completed-current",
-        value: activation(threadId),
-      }));
+    const resumeThread = vi.fn<ThreadResumeTransport["resumeThread"]>().mockImplementation(async (threadId) => ({
+      kind: "completed-current",
+      value: activation(threadId),
+    }));
     const ensureConnected = vi.fn().mockReturnValueOnce(firstConnection.promise).mockResolvedValue(true);
     const { actions, stateStore } = createActions(undefined, {
       resumeTransport: { ensureConnected, resumeThread },

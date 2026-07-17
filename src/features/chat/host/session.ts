@@ -177,30 +177,37 @@ export class ChatPanelSession implements ChatPanelHandle {
     };
   }
 
-  async openThread(threadId: string): Promise<void> {
+  async openThread(threadId: string, options: { focus?: boolean } = {}): Promise<void> {
     const intent = this.resumeWork.begin(threadId);
     const preparation = await this.runtime.thread.navigation.prepareForPersistentNavigation(threadId);
     if (!preparation || !this.resumeWork.isCurrent(intent)) return;
-    if (!(await this.runtime.thread.resume.resumeThread(threadId, intent)) || !this.resumeWork.isCurrent(intent)) return;
-    await this.runtime.thread.navigation.completePersistentNavigation(preparation);
-    this.focusComposer();
+    if (
+      !(await this.runtime.thread.resume.resumeThread(threadId, intent, {
+        onAdopted: () => {
+          this.runtime.thread.navigation.commitPersistentNavigation(preparation);
+        },
+      })) ||
+      !this.resumeWork.isCurrent(intent)
+    )
+      return;
+    if (options.focus !== false) this.focusComposer();
   }
 
-  async focusThread(threadId: string | null = null): Promise<void> {
+  async focusThread(threadId: string | null = null, options: { focus?: boolean } = {}): Promise<void> {
     const restoredThread = this.restoredThread();
     const restoredThreadId = restoredThread?.threadId ?? null;
     if ((threadId && this.runtime.thread.restoration.isPending(threadId)) || (!threadId && restoredThreadId)) {
       await this.ensureRestoredThreadLoaded();
     }
-    this.focusComposer();
+    if (options.focus !== false) this.focusComposer();
   }
 
   async hydrateRestoredThread(): Promise<void> {
     await this.ensureRestoredThreadLoaded();
   }
 
-  focusComposer(): void {
-    this.runtime.composer.controller.focusComposer();
+  focusComposer(options: { force?: boolean } = {}): void {
+    this.runtime.composer.controller.focusComposer(options);
   }
 
   applyThreadArchived(threadId: string): void {
@@ -239,14 +246,17 @@ export class ChatPanelSession implements ChatPanelHandle {
     await this.runtime.connection.actions.ensureConnected();
   }
 
-  async startNewThread(): Promise<void> {
-    await this.runtime.actions.startNewThread();
+  async startNewThread(options: { focus?: boolean } = {}): Promise<void> {
+    await this.runtime.actions.startNewThread(options);
   }
 
-  async openSideChat(input: { sourceThreadId: string; sourceThreadTitle: string | null }): Promise<boolean> {
+  async openSideChat(
+    input: { sourceThreadId: string; sourceThreadTitle: string | null },
+    options: { focus?: boolean } = {},
+  ): Promise<boolean> {
     const opened = await this.runtime.thread.ephemeral.open(input);
     if (!opened) return false;
-    this.focusComposer();
+    if (options.focus !== false) this.focusComposer();
     return true;
   }
 

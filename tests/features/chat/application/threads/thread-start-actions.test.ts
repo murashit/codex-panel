@@ -242,6 +242,29 @@ describe("thread start actions", () => {
     expect(recordStartedThread).not.toHaveBeenCalled();
     expect(syncThreadGoal).not.toHaveBeenCalled();
   });
+
+  it("records a thread that was created before its app-server context became stale", async () => {
+    const stateStore = createChatStateStore(chatStateFixture());
+    const created = activationFixture(threadFixture("created"));
+    const recordStartedThread = vi.fn();
+    const actions = createThreadStartActions({
+      stateStore,
+      threadStartTransport: {
+        startThread: vi.fn().mockResolvedValue({ kind: "completed-stale", value: created }),
+      },
+      runtimeSnapshotForState: runtimeSnapshotForChatState,
+      recordStartedThread,
+      syncThreadGoal: vi.fn(),
+    });
+
+    await expect(actions.startThread("draft preview")).resolves.toEqual({
+      kind: "created-not-activated",
+      threadId: "created",
+    });
+
+    expect(recordStartedThread).toHaveBeenCalledWith(threadFixture("created", { preview: "draft preview" }));
+    expect(activeThreadId(stateStore.getState())).toBeNull();
+  });
 });
 
 function threadFixture(id: string, overrides: Partial<Thread> = {}): Thread {

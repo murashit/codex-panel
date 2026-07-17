@@ -1,4 +1,5 @@
 import type { CodexInput } from "../../../../domain/chat/input";
+import type { EffectOutcome } from "../effect-outcome";
 
 interface ChatTurnStartRequest {
   threadId: string;
@@ -19,7 +20,7 @@ interface ChatTurnSteerRequest {
 
 export interface ChatTurnTransport {
   ensureConnected(): Promise<boolean>;
-  startTurn(request: ChatTurnStartRequest): Promise<ChatTurnStartResult | null>;
-  steerTurn(request: ChatTurnSteerRequest): Promise<boolean>;
+  startTurn(request: ChatTurnStartRequest): Promise<EffectOutcome<ChatTurnStartResult>>;
+  steerTurn(request: ChatTurnSteerRequest): Promise<EffectOutcome<void>>;
   interruptTurn(threadId: string, turnId: string): Promise<boolean>;
 }

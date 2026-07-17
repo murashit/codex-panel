@@ -1,4 +1,5 @@
 export interface AttachmentInsertionAnchor {
+  readonly panelTargetRevision: number;
   readonly threadId: string | null;
   readonly draft: string;
   readonly start: number;
@@ -7,9 +8,18 @@ export interface AttachmentInsertionAnchor {
 
 export function attachmentInsertionAnchorMatches(
   anchor: AttachmentInsertionAnchor,
-  target: AttachmentInsertionAnchor | { threadId: string | null; draft: string; selection: { start: number; end: number } | null },
+  target:
+    | AttachmentInsertionAnchor
+    | {
+        panelTargetRevision: number;
+        threadId: string | null;
+        draft: string;
+        selection: { start: number; end: number } | null;
+      },
 ): boolean {
-  if (anchor.threadId !== target.threadId || anchor.draft !== target.draft) return false;
+  if (anchor.panelTargetRevision !== target.panelTargetRevision || anchor.threadId !== target.threadId || anchor.draft !== target.draft) {
+    return false;
+  }
   if (!("selection" in target)) return anchor.start === target.start && anchor.end === target.end;
   return target.selection === null || (anchor.start === target.selection.start && anchor.end === target.selection.end);
 }

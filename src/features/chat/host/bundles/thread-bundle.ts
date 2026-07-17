@@ -11,7 +11,11 @@ import type { ChatStateStore } from "../../application/state/store";
 import { threadStreamItems } from "../../application/state/thread-stream";
 import { type ActiveThreadIdentitySync, createActiveThreadIdentitySync } from "../../application/threads/active-thread-identity-sync";
 import { type AutoTitleCoordinator, createAutoTitleCoordinator } from "../../application/threads/auto-title-coordinator";
-import { createGoalActions, createThreadGoalSyncActions } from "../../application/threads/goal-actions";
+import {
+  createGoalActions,
+  createThreadGoalSyncActions,
+  type ThreadGoalOperationCoordinator,
+} from "../../application/threads/goal-actions";
 import { HistoryController } from "../../application/threads/history-controller";
 import type { PersistentNavigationLifecycle } from "../../application/threads/persistent-navigation-lifecycle";
 import {
@@ -69,6 +73,7 @@ interface ChatPanelThreadFoundation {
   autoTitleCoordinator: AutoTitleCoordinator;
   history: HistoryController;
   goalSync: ChatPanelGoalSyncActions;
+  goalOperations: ThreadGoalOperationCoordinator;
   threadOperations: ThreadOperations;
   invalidateThreadWork(): void;
 }
@@ -183,24 +188,29 @@ export function createThreadFoundation(host: ChatPanelThreadHost, input: ChatPan
     titleService.invalidate();
     autoTitleCoordinator.invalidate();
   };
-  const goalSync = createThreadGoalSyncActions({
-    stateStore,
-    goalTransport: appServer.threadGoalRead,
-    localItemIds,
-    addSystemMessage: (text) => {
-      status.addSystemMessage(text);
+  const goalOperations = environment.plugin.threadGoalOperations;
+  const goalSync = createThreadGoalSyncActions(
+    {
+      stateStore,
+      goalTransport: appServer.threadGoalRead,
+      localItemIds,
+      addSystemMessage: (text) => {
+        status.addSystemMessage(text);
+      },
+      addGoalEvent: (item) => {
+        stateStore.dispatch({ type: "thread-stream/item-upserted", item });
+      },
+      refreshLiveState,
     },
-    addGoalEvent: (item) => {
-      stateStore.dispatch({ type: "thread-stream/item-upserted", item });
-    },
-    refreshLiveState,
-  });
+    goalOperations,
+  );
 
   return {
     titleService,
     autoTitleCoordinator,
     history,
     goalSync,
+    goalOperations,
     threadOperations,
     invalidateThreadWork,
   };
@@ -213,28 +223,28 @@ export function createThreadLifecycleBundle(
   const { appServer, localItemIds, ensureConnected, status, threadStart, foundation, refreshLiveState, notifyActiveThreadIdentityChanged } =
     input;
   let sessionLifecycle: ChatPanelThreadLifecycle | null = null;
-  const goals = createGoalActions({
-    stateStore: host.stateStore,
-    goalTransport: appServer.threadGoal,
-    localItemIds,
-    startThread: async (preview, options) => {
-      const outcome = await threadStart.startThread(preview, options);
-      return outcome.kind === "created-activated" ? { threadId: outcome.threadId } : null;
+  const goals = createGoalActions(
+    {
+      stateStore: host.stateStore,
+      goalTransport: appServer.threadGoal,
+      localItemIds,
+      startThread: (preview, options) => threadStart.startThread(preview, options),
+      ensureRestoredThreadLoaded: async () => {
+        if (!sessionLifecycle) return false;
+        return sessionLifecycle.restoration.ensureLoaded(async (threadId) => {
+          await sessionLifecycle?.resume.resumeThread(threadId);
+        });
+      },
+      addSystemMessage: (text) => {
+        status.addSystemMessage(text);
+      },
+      addGoalEvent: (item) => {
+        host.stateStore.dispatch({ type: "thread-stream/item-upserted", item });
+      },
+      refreshLiveState,
     },
-    ensureRestoredThreadLoaded: async () => {
-      if (!sessionLifecycle) return false;
-      return sessionLifecycle.restoration.ensureLoaded(async (threadId) => {
-        await sessionLifecycle?.resume.resumeThread(threadId);
-      });
-    },
-    addSystemMessage: (text) => {
-      status.addSystemMessage(text);
-    },
-    addGoalEvent: (item) => {
-      host.stateStore.dispatch({ type: "thread-stream/item-upserted", item });
-    },
-    refreshLiveState,
-  });
+    foundation.goalOperations,
+  );
   const rename = createThreadRenameEditorActions({
     stateStore: host.stateStore,
     ensureConnected,
@@ -309,7 +319,7 @@ export function createThreadActionBundle(host: ChatPanelThreadHost, input: ChatP
       toolbarPanelActions.closeForThreadSelection();
     },
     focusThreadInOpenView: (threadId) => environment.plugin.workspace.focusThreadInOpenView(threadId),
-    resumeThread: (threadId, intent) => lifecycle.resume.resumeThread(threadId, intent),
+    resumeThread: (threadId, intent, options) => lifecycle.resume.resumeThread(threadId, intent, options),
     resumeWork: host.resumeWork,
     addSystemMessage: status.addSystemMessage,
     focusComposer: () => {

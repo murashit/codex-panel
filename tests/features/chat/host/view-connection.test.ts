@@ -10,10 +10,12 @@ import { emptyRuntimeConfigSnapshot } from "../../../../src/domain/runtime/confi
 import { createServerDiagnostics } from "../../../../src/domain/server/diagnostics";
 import type { SharedServerMetadata } from "../../../../src/domain/server/metadata";
 import type { Thread } from "../../../../src/domain/threads/model";
+import { createThreadGoalOperationCoordinator } from "../../../../src/features/chat/application/threads/goal-actions";
 import type { CodexChatHost } from "../../../../src/features/chat/host/contracts";
 import type { ThreadCatalogEvent } from "../../../../src/features/threads/catalog/thread-catalog";
 import { createThreadNameMutationCoordinator } from "../../../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../../../src/settings/model";
+import { createKeyedOperationQueue } from "../../../../src/shared/runtime/keyed-operation-queue";
 import { notices } from "../../../mocks/obsidian";
 import { deferred, waitForAsyncWork } from "../../../support/async";
 import { installObsidianDomShims } from "../../../support/dom";
@@ -1575,6 +1577,8 @@ function chatHost(overrides: ChatHostFixtureOverrides = {}): TestCodexChatHost {
       emitActiveThreads();
     },
     threadNameMutations: overrides.threadNameMutations ?? createThreadNameMutationCoordinator(),
+    threadGoalOperations: createThreadGoalOperationCoordinator(),
+    runtimeSettingsCommitQueue: createKeyedOperationQueue(),
     settingsRef: {
       settings: chatPanelSettingsAccess(settings),
       vaultPath,
@@ -1702,6 +1706,7 @@ async function chatView(options: { host?: CodexChatHost; requestSaveLayout?: () 
     } as never,
     host,
   );
+  (view.app.workspace.getActiveViewOfType as ReturnType<typeof vi.fn>).mockReturnValue(view);
   const tracked: TrackedView = { view, opened: false };
   const onOpen = view.onOpen.bind(view);
   const onClose = view.onClose.bind(view);

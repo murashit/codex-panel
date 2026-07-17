@@ -341,10 +341,7 @@ function reduceChatTransition(state: ChatState, action: ChatTransitionAction): C
     case "connection/context-replaced":
       return clearConnectionContextState(state);
     case "active-thread/cleared":
-      if (
-        action.expectedPanelTargetRevision !== undefined &&
-        action.expectedPanelTargetRevision !== state.panelTargetRevision
-      ) {
+      if (action.expectedPanelTargetRevision !== undefined && action.expectedPanelTargetRevision !== state.panelTargetRevision) {
         return state;
       }
       return clearThreadScopedState(state, { invalidatePanelTarget: true });
@@ -420,16 +417,12 @@ function adoptPendingSteerItem(state: ChatThreadStreamState, item: ThreadStreamD
 }
 
 function reduceActiveThreadResumedTransition(state: ChatState, action: ActiveThreadResumedAction): ChatState {
-  if (
-    action.expectedPanelTargetRevision !== undefined &&
-    action.expectedPanelTargetRevision !== state.panelTargetRevision
-  ) {
+  if (action.expectedPanelTargetRevision !== undefined && action.expectedPanelTargetRevision !== state.panelTargetRevision) {
     return state;
   }
   const runtimeBase = action.preserveRequestedRuntimeSettings ? state.runtime : initialChatRuntimeState();
   const turnScopedState = clearTurnScopedState(state);
-  const nextPanelTargetRevision =
-    panelThreadId(state) === action.thread.id ? state.panelTargetRevision : state.panelTargetRevision + 1;
+  const nextPanelTargetRevision = panelThreadId(state) === action.thread.id ? state.panelTargetRevision : state.panelTargetRevision + 1;
   return patchChatState(turnScopedState, {
     connection: {
       ...state.connection,
@@ -548,8 +541,7 @@ function reduceTurnStartedTransition(state: ChatState, action: TurnStartedAction
   if (!activeThread || activeThread.id !== action.threadId) return state;
   return patchChatState(state, {
     panelThread: { kind: "active", thread: activeThread },
-    panelTargetRevision:
-      panelThreadId(state) === action.threadId ? state.panelTargetRevision : state.panelTargetRevision + 1,
+    panelTargetRevision: panelThreadId(state) === action.threadId ? state.panelTargetRevision : state.panelTargetRevision + 1,
     turn: { lifecycle },
     connection: { ...state.connection, statusText: STATUS_TURN_RUNNING },
     threadStream: action.items
@@ -642,17 +634,12 @@ function clearTurnScopedState(state: ChatState): ChatState {
   });
 }
 
-function clearThreadScopedState(
-  state: ChatState,
-  options: { invalidatePanelTarget?: boolean } = {},
-): ChatState {
+function clearThreadScopedState(state: ChatState, options: { invalidatePanelTarget?: boolean } = {}): ChatState {
   return clearTurnScopedState(
     patchChatState(state, {
       panelThread: initialPanelThreadState(),
       panelTargetRevision:
-        options.invalidatePanelTarget || panelThreadId(state) !== null
-          ? state.panelTargetRevision + 1
-          : state.panelTargetRevision,
+        options.invalidatePanelTarget || panelThreadId(state) !== null ? state.panelTargetRevision + 1 : state.panelTargetRevision,
       runtime: initialChatRuntimeState(),
       threadStream: initialThreadStreamState(),
       pendingSubmission: null,
@@ -669,9 +656,7 @@ function clearConnectionScopedState(state: ChatState): ChatState {
   return patchChatState(cleared, {
     panelThread: nextPanelThread,
     panelTargetRevision:
-      panelThreadIdForState(nextPanelThread) === panelThreadId(state)
-        ? state.panelTargetRevision
-        : state.panelTargetRevision + 1,
+      panelThreadIdForState(nextPanelThread) === panelThreadId(state) ? state.panelTargetRevision : state.panelTargetRevision + 1,
     runtime: initialChatRuntimeState(),
     connection: {
       ...state.connection,

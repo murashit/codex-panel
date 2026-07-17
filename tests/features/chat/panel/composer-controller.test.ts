@@ -48,6 +48,32 @@ function trackComposerControllerTestCleanup(cleanup: () => void): void {
   composerControllerTestCleanups.push(cleanup);
 }
 
+function resumeComposerThread(stateStore: ChatStateStore, threadId: string): void {
+  stateStore.dispatch({
+    type: "active-thread/resumed",
+    approvalPolicyKnown: true,
+    sandboxPolicyKnown: true,
+    permissionProfileKnown: true,
+    approvalPolicy: null,
+    sandboxPolicy: null,
+    activePermissionProfile: null,
+    thread: {
+      id: threadId,
+      preview: "",
+      name: null,
+      archived: false,
+      createdAt: 1,
+      updatedAt: 1,
+      provenance: { kind: "interactive" },
+    },
+    cwd: "/vault",
+    model: null,
+    reasoningEffort: null,
+    serviceTier: null,
+    approvalsReviewer: null,
+  });
+}
+
 type ComposerControllerOptions = ConstructorParameters<typeof ChatComposerController>[0];
 
 function composerControllerFixture(
@@ -77,6 +103,7 @@ function composerControllerFixture(
     toggleFast: vi.fn(),
     onDraftChange: vi.fn(),
     onHeightChange: vi.fn(),
+    canFocus: () => true,
     ...options.controller,
     stateStore,
   });
@@ -86,6 +113,30 @@ function composerControllerFixture(
 }
 
 describe("ChatComposerController", () => {
+  it("focuses only while its panel is foreground unless workspace publication forces it", () => {
+    let foreground = false;
+    const { controller, parent, renderShell } = composerControllerFixture({
+      controller: { canFocus: () => foreground },
+    });
+    document.body.append(parent);
+    trackComposerControllerTestCleanup(() => parent.remove());
+    renderShell();
+    const composer = parent.querySelector("textarea");
+    if (!(composer instanceof HTMLTextAreaElement)) throw new Error("Expected composer textarea.");
+
+    controller.focusComposer();
+    expect(document.activeElement).not.toBe(composer);
+    controller.setDraft("restored", { focus: true });
+    expect(document.activeElement).not.toBe(composer);
+
+    controller.focusComposer({ force: true });
+    expect(document.activeElement).toBe(composer);
+    composer.blur();
+    foreground = true;
+    controller.focusComposer();
+    expect(document.activeElement).toBe(composer);
+  });
+
   it("locks composer input while exposing a pending web import to the send control", () => {
     const { controller, stateStore } = composerControllerFixture();
     const pending = pendingWebSubmissionItem("local-web", "https://example.com", "summarize");
@@ -198,6 +249,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     controllerRef.current = controller;
@@ -362,6 +414,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
@@ -422,6 +475,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
@@ -460,6 +514,31 @@ describe("ChatComposerController", () => {
     await flushComposerAttachment();
 
     expect(composer(parent).value).toBe("later draft");
+    expect(controller.captureInputSnapshot().attachments).toEqual([]);
+  });
+
+  it("does not insert a saved attachment after leaving and returning to the same thread state", async () => {
+    const saved = deferred<ComposerAttachment[]>();
+    const stateStore = createChatStateStore(chatStateWith(chatStateFixture(), { activeThread: { id: "thread" } }));
+    const { controller, parent, renderShell } = composerControllerFixture({
+      stateStore,
+      controller: {
+        attachmentHandler: { saveFiles: vi.fn(() => saved.promise) },
+      },
+    });
+    renderShell();
+    controller.setDraft("same draft");
+    composer(parent).setSelectionRange(4, 4);
+    composer(parent).dispatchEvent(transferEvent("paste", "clipboardData", [new File(["image"], "first.png", { type: "image/png" })]));
+
+    stateStore.dispatch({ type: "active-thread/cleared" });
+    resumeComposerThread(stateStore, "thread");
+    controller.setDraft("same draft");
+    composer(parent).setSelectionRange(4, 4);
+    saved.resolve([attachmentFixture("first")]);
+    await flushComposerAttachment();
+
+    expect(composer(parent).value).toBe("same draft");
     expect(controller.captureInputSnapshot().attachments).toEqual([]);
   });
 
@@ -548,6 +627,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
@@ -609,6 +689,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     const dataTransfer = {
@@ -669,6 +750,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
@@ -715,6 +797,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
 
@@ -774,6 +857,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
@@ -819,6 +903,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
@@ -870,6 +955,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
 
@@ -928,6 +1014,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
@@ -1002,6 +1089,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));
@@ -1050,6 +1138,7 @@ describe("ChatComposerController", () => {
       toggleAutoReview: vi.fn(),
       toggleFast: vi.fn(),
       onDraftChange: vi.fn(),
+      canFocus: () => true,
       onHeightChange: vi.fn(),
     });
     trackComposerControllerTestCleanup(stateStore.subscribe(renderShell));

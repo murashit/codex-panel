@@ -48,6 +48,28 @@ describe("RestorationController", () => {
     await expect(loading).resolves.toBe(false);
     expect(controller.isPending("second")).toBe(true);
   });
+
+  it("starts a fresh load when the same thread returns after another target", async () => {
+    const first = deferred<undefined>();
+    const second = deferred<undefined>();
+    const loadThread = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const { controller, stateStore } = restoredThreadControllerFixture();
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: null });
+    const firstLoading = controller.ensureLoaded(loadThread);
+
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "other", fallbackTitle: null });
+    stateStore.dispatch({ type: "panel/restored-thread-applied", threadId: "thread", fallbackTitle: null });
+    const secondLoading = controller.ensureLoaded(loadThread);
+
+    expect(loadThread).toHaveBeenCalledTimes(2);
+    first.resolve(undefined);
+    await expect(firstLoading).resolves.toBe(false);
+    second.resolve(undefined);
+    await expect(secondLoading).resolves.toBe(false);
+  });
 });
 
 function restoredThreadControllerFixture() {

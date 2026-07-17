@@ -3,11 +3,8 @@ import { emptyRuntimeConfigSnapshot } from "../../../../../src/domain/runtime/co
 import { createServerDiagnostics, diagnosticProbeOk, diagnosticsWithProbe } from "../../../../../src/domain/server/diagnostics";
 import type { ThreadGoal } from "../../../../../src/domain/threads/goal";
 import type { Thread } from "../../../../../src/domain/threads/model";
+import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../../../../../src/features/chat/application/state/panel-target";
 import { activeThreadState, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
-import {
-  capturePanelTargetLease,
-  panelTargetLeaseIsCurrent,
-} from "../../../../../src/features/chat/application/state/panel-target";
 import { createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { threadStreamItems } from "../../../../../src/features/chat/application/state/thread-stream";
 import { activeTurnId, chatTurnBusy, pendingTurnStart } from "../../../../../src/features/chat/application/turns/turn-state";

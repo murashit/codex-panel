@@ -32,7 +32,7 @@ export default class CodexPanelPlugin extends Plugin {
     this.registerView(VIEW_TYPE_CODEX_THREADS, (leaf) => new CodexThreadsView(leaf, this.runtime.threadsHost()));
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", (leaf) => {
-        this.runtime.reconcileWorkspacePanels(leaf);
+        this.runtime.activeWorkspaceLeafChanged(leaf);
       }),
     );
 

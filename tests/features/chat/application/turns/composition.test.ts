@@ -57,7 +57,7 @@ describe("createTurnWorkflowActions", () => {
     const stateStore = createChatStateStore(createChatState());
     const plan = planItem("plan");
     resumeThread(stateStore, [plan]);
-    const startTurn = vi.fn().mockResolvedValue({ turnId: "turn" });
+    const startTurn = vi.fn().mockResolvedValue({ kind: "completed-current" as const, value: { turnId: "turn" } });
     const composerSnapshot: ComposerInputSnapshot = {
       sourcePath: "notes/Alpha.md",
       availableSkills: [],
@@ -85,7 +85,7 @@ describe("createTurnWorkflowActions", () => {
         turnTransport: {
           ensureConnected: vi.fn().mockResolvedValue(true),
           startTurn,
-          steerTurn: vi.fn().mockResolvedValue(true),
+          steerTurn: vi.fn().mockResolvedValue({ kind: "completed-current" as const, value: undefined }),
           interruptTurn: vi.fn().mockResolvedValue(true),
         },
         referThread: vi.fn(),

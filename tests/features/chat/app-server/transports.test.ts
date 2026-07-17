@@ -91,7 +91,7 @@ describe("chat app-server transports", () => {
         input: textInput("hello"),
         clientUserMessageId: "local-user",
       }),
-    ).resolves.toEqual({ turnId: "turn-1" });
+    ).resolves.toEqual({ kind: "completed-current", value: { turnId: "turn-1" } });
 
     expect(request).toHaveBeenCalledWith("turn/start", {
       threadId: "thread",
@@ -159,7 +159,29 @@ describe("chat app-server transports", () => {
     currentClient = secondClient;
     start.resolve({ turn: { id: "turn-1" } });
 
-    await expect(starting).resolves.toBeNull();
+    await expect(starting).resolves.toEqual({ kind: "completed-stale", value: { turnId: "turn-1" } });
+  });
+
+  it("preserves a completed stale steer as an external effect fact", async () => {
+    const steer = deferred<unknown>();
+    const firstClient = { request: vi.fn().mockReturnValue(steer.promise) } as unknown as AppServerClient;
+    const secondClient = {} as unknown as AppServerClient;
+    let currentClient = firstClient;
+    const transport = createTestGateway({
+      currentClient: () => currentClient,
+      connectedClient: vi.fn().mockResolvedValue(firstClient),
+    }).turn;
+
+    const steering = transport.steerTurn({
+      threadId: "thread",
+      turnId: "turn",
+      input: textInput("follow up"),
+      clientUserMessageId: "local-user",
+    });
+    currentClient = secondClient;
+    steer.resolve({});
+
+    await expect(steering).resolves.toEqual({ kind: "completed-stale", value: undefined });
   });
 
   it("compacts threads through a connected app-server client", async () => {
@@ -346,6 +368,50 @@ describe("chat app-server transports", () => {
     }).threadResume;
 
     await expect(transport.resumeThread("thread")).resolves.toEqual({ kind: "not-started" });
+  });
+
+  it("cleans up a stale ephemeral fork through the client that created it", async () => {
+    const injected = deferred<unknown>();
+    const firstRequest = vi.fn((method: string) => {
+      switch (method) {
+        case "thread/read":
+          return Promise.resolve({ thread: threadRecord("source") });
+        case "config/read":
+          return Promise.resolve({ config: { developer_instructions: null } });
+        case "thread/fork":
+          return Promise.resolve(
+            threadStartResponse("side", {
+              thread: threadRecord("side", [], { ephemeral: true }) as AppServerThreadStartResponse["thread"],
+            }),
+          );
+        case "thread/inject_items":
+          return injected.promise;
+        case "thread/unsubscribe":
+          return Promise.resolve({ status: "unsubscribed" });
+        default:
+          throw new Error(`Unexpected request: ${method}`);
+      }
+    });
+    const firstClient = { request: firstRequest } as unknown as AppServerClient;
+    const secondRequest = vi.fn();
+    const secondClient = { request: secondRequest } as unknown as AppServerClient;
+    let currentClient = firstClient;
+    const transport = createTestGateway({
+      currentClient: () => currentClient,
+      connectedClient: vi.fn().mockResolvedValue(firstClient),
+    }).threadEphemeral;
+
+    const forking = transport.forkEphemeralThread("source");
+    await vi.waitFor(() => expect(firstRequest).toHaveBeenCalledWith("thread/inject_items", expect.anything()));
+    currentClient = secondClient;
+    injected.resolve({});
+
+    await expect(forking).resolves.toMatchObject({
+      kind: "completed-stale",
+      value: { kind: "ready", activation: { thread: { id: "side" } } },
+    });
+    expect(firstRequest).toHaveBeenCalledWith("thread/unsubscribe", { threadId: "side" }, { timeoutMs: 5_000 });
+    expect(secondRequest).not.toHaveBeenCalled();
   });
 
   it("unsubscribes a panel from a persistent thread without interrupting its turn", async () => {

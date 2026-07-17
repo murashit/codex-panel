@@ -8,6 +8,7 @@ import {
   executeSlashCommandWithState,
   type SlashCommandExecutorHost,
 } from "../../../../../src/features/chat/application/turns/slash-command-executor";
+import { deferred } from "../../../../support/async";
 
 const textInput = (text: string): CodexInput => [{ type: "text", text }];
 
@@ -222,6 +223,21 @@ describe("executeSlashCommandWithState", () => {
     await executeSlashCommandWithState(host, "reconnect", "");
 
     expect(host.reconnect).toHaveBeenCalledOnce();
+  });
+
+  it("does not publish async slash output after its initiating target becomes stale", async () => {
+    const details = deferred<[]>();
+    const toolInventoryDetails = vi.fn(() => details.promise);
+    const { host } = createHost({ toolInventoryDetails });
+    let current = true;
+
+    const executing = executeSlashCommandWithState(host, "tools", "", undefined, () => current);
+    await vi.waitFor(() => expect(toolInventoryDetails).toHaveBeenCalledOnce());
+    current = false;
+    details.resolve([]);
+    await executing;
+
+    expect(host.addStructuredSystemMessage).not.toHaveBeenCalled();
   });
 
   it("does not reference threads without a captured input snapshot", async () => {

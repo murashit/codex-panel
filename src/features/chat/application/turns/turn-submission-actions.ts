@@ -3,13 +3,10 @@ import type { ReferencedThreadMetadata } from "../../../../domain/threads/refere
 import type { ComposerInputSnapshot } from "../composer/input-snapshot";
 import type { LocalIdSource } from "../local-id-source";
 import { activePanelOperationDecision } from "../panel-operation-policy";
+import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { pendingSubmissionMatches } from "../state/pending-submission";
 import type { ChatStateStore } from "../state/store";
-import {
-  capturePanelTargetLease,
-  type PanelTargetLease,
-  panelTargetLeaseIsCurrent,
-} from "../state/panel-target";
+import type { ThreadStartOutcome } from "../threads/thread-start-actions";
 import {
   acknowledgeOptimisticTurnStart,
   cleanupFailedTurnStart,
@@ -28,7 +25,7 @@ export interface TurnSubmissionActionsHost {
   localItemIds: LocalIdSource;
   turnTransport: ChatTurnTransport;
   ensureRestoredThreadLoaded: () => Promise<boolean>;
-  startThread: (preview?: string, options?: { preservePendingSubmissionId?: string }) => Promise<boolean>;
+  startThread: (preview?: string, options?: { preservePendingSubmissionId?: string }) => Promise<ThreadStartOutcome>;
   notifyActiveThreadIdentityChanged: () => void;
   resetThreadTurnPresence: (hadTurns: boolean) => void;
   applyPendingThreadSettings: () => Promise<boolean>;
@@ -113,9 +110,19 @@ async function sendTurnText(
         return await steerCurrentTurn(host, localItemIds, plan, text, prepared, request, referencedThread);
       case "start-thread-then-turn":
         if (!commitPendingRequest(host, request)) return false;
-        if (!(await startThreadForTurn(host, prepared.text, request.pendingSubmissionId))) {
-          if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
-          return false;
+        {
+          const started = await startThreadForTurn(host, prepared.text, request.pendingSubmissionId);
+          if (started.kind === "not-started") {
+            if (failPendingRequest(host, request)) restoreSubmittedDraft(host, text, request);
+            return false;
+          }
+          if (started.kind === "created-not-activated") {
+            failPendingRequest(host, request);
+            host.addSystemMessage(
+              `Created thread ${started.threadId}, but the connection changed before it could be opened. Select it from history to continue.`,
+            );
+            return true;
+          }
         }
         panelTarget = capturePanelTargetLease(host.stateStore.getState());
         if (!submissionScopeIsCurrent(host, request, panelTarget)) return false;
@@ -158,12 +165,12 @@ async function sendTurnText(
     });
     clearDraftForSubmission(host, request);
 
-    const response = await host.turnTransport.startTurn({
+    const outcome = await host.turnTransport.startTurn({
       threadId: activeThreadId,
       input: prepared.input,
       clientUserMessageId,
     });
-    if (!response) {
+    if (outcome.kind === "not-started") {
       const failedState = submissionStateSnapshot(host.stateStore.getState());
       if (failedState.activeThreadId !== activeThreadId || failedState.pendingTurnStart?.anchorItemId !== optimisticItemId) return false;
       const items = cleanupFailedTurnStart({
@@ -175,6 +182,8 @@ async function sendTurnText(
       restoreSubmittedDraft(host, text, request);
       return false;
     }
+    if (outcome.kind === "completed-stale") return true;
+    const response = outcome.value;
     const acknowledgedState = submissionStateSnapshot(host.stateStore.getState());
     const pendingStart = acknowledgedState.pendingTurnStart;
     if (
@@ -229,14 +238,18 @@ function planTurnSubmission(state: TurnSubmissionSnapshot): TurnSubmissionPlan {
   return state.activeThreadId ? { kind: "start-turn", threadId: state.activeThreadId } : { kind: "start-thread-then-turn" };
 }
 
-async function startThreadForTurn(host: TurnSubmissionActionsHost, text: string, pendingSubmissionId?: string): Promise<boolean> {
+async function startThreadForTurn(
+  host: TurnSubmissionActionsHost,
+  text: string,
+  pendingSubmissionId?: string,
+): Promise<ThreadStartOutcome> {
   const started = pendingSubmissionId
     ? await host.startThread(text, { preservePendingSubmissionId: pendingSubmissionId })
     : await host.startThread(text);
-  if (!started) return false;
+  if (started.kind !== "created-activated") return started;
   host.notifyActiveThreadIdentityChanged();
   host.resetThreadTurnPresence(false);
-  return true;
+  return started;
 }
 
 async function steerCurrentTurn(
@@ -254,19 +267,20 @@ async function steerCurrentTurn(
   clearDraftForSubmission(host, request, { clearSuggestions: true });
 
   try {
-    const steered = await host.turnTransport.steerTurn({
+    const outcome = await host.turnTransport.steerTurn({
       threadId: plan.threadId,
       turnId: plan.turnId,
       input: prepared.input,
       clientUserMessageId: localSteerId,
     });
-    if (!steered) {
+    if (outcome.kind === "not-started") {
       if (pendingRequestIsCurrent(host, request)) {
         failPendingRequest(host, request);
         restoreSubmittedDraft(host, text, request, { focus: true });
       }
       return false;
     }
+    if (outcome.kind === "completed-stale") return true;
     const currentTurn = isCurrentTurn(host, plan.threadId, plan.turnId);
     if (!pendingRequestIsCurrent(host, request) || (!currentTurn && !request.pendingSubmissionId)) return true;
     prunePreservedComposerContext(host, request, { clearSuggestions: true });
@@ -348,11 +362,7 @@ function pendingRequestIsCurrent(host: TurnSubmissionActionsHost, request: TurnS
   );
 }
 
-function submissionScopeIsCurrent(
-  host: TurnSubmissionActionsHost,
-  request: TurnSubmissionRequest,
-  panelTarget: PanelTargetLease,
-): boolean {
+function submissionScopeIsCurrent(host: TurnSubmissionActionsHost, request: TurnSubmissionRequest, panelTarget: PanelTargetLease): boolean {
   return pendingRequestIsCurrent(host, request) && panelTargetLeaseIsCurrent(host.stateStore.getState(), panelTarget);
 }
 

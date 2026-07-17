@@ -155,9 +155,7 @@ export function resumedThreadActionFromActiveRuntime(params: ResumedThreadFromAc
     serviceTierKnown: params.runtime.serviceTierKnown,
     ...(params.listedThreads ? { listedThreads: params.listedThreads } : {}),
     ...(params.items ? { items: params.items } : {}),
-    ...(params.expectedPanelTargetRevision === undefined
-      ? {}
-      : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
+    ...(params.expectedPanelTargetRevision === undefined ? {} : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
   });
 }
 
@@ -184,9 +182,7 @@ export function resumedThreadAction(params: ResumedThreadActionParams): ActiveTh
       : {}),
     ...(params.preserveRequestedRuntimeSettings ? { preserveRequestedRuntimeSettings: true } : {}),
     ...(params.preservePendingSubmissionId ? { preservePendingSubmissionId: params.preservePendingSubmissionId } : {}),
-    ...(params.expectedPanelTargetRevision === undefined
-      ? {}
-      : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
+    ...(params.expectedPanelTargetRevision === undefined ? {} : { expectedPanelTargetRevision: params.expectedPanelTargetRevision }),
   };
 }
 

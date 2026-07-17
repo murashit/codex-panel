@@ -30,7 +30,7 @@ export async function executeSlashCommandWithState(
   command: SlashCommandName,
   args: string,
   inputSnapshot?: ComposerInputSnapshot,
-  isWebImportCurrent?: () => boolean,
+  isCurrent: () => boolean = () => true,
 ): Promise<SlashCommandExecutionResult | undefined> {
   const chatState = host.stateStore.getState();
   const operation = activePanelOperationForSlashCommand(command, args);
@@ -42,12 +42,18 @@ export async function executeSlashCommandWithState(
   if (!host.connectionAvailable() && slashCommandRequiresConnection(command)) return;
   return runSlashCommand(command, args, {
     ...host,
+    addSystemMessage: (text) => {
+      if (isCurrent()) host.addSystemMessage(text);
+    },
+    addStructuredSystemMessage: (text, details) => {
+      if (isCurrent()) host.addStructuredSystemMessage(text, details);
+    },
     activeThreadId: state.activeThreadId,
     listedThreads: state.listedThreads,
     referThread: host.referThread,
     readWebUrl: host.readWebUrl,
     ...(inputSnapshot !== undefined ? { inputSnapshot } : {}),
-    ...(isWebImportCurrent ? { isWebImportCurrent } : {}),
+    isWebImportCurrent: isCurrent,
     supportedReasoningEfforts: () => supportedReasoningEfforts(host.stateStore.getState()),
   });
 }

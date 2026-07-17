@@ -1,6 +1,7 @@
 import type { ReasoningEffort } from "../../../../domain/catalog/metadata";
 import { type RuntimeConfigSnapshot, runtimeConfigOrDefault } from "../../../../domain/runtime/config";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
+import { createKeyedOperationQueue, type KeyedOperationQueue } from "../../../../shared/runtime/keyed-operation-queue";
 import { type CollaborationModeSelection, nextCollaborationMode, type RequestedFastMode } from "../../domain/runtime/intent";
 import { modelOverrideMessage, reasoningEffortOverrideMessage } from "../../domain/runtime/labels";
 import { resolveRuntimeControls } from "../../domain/runtime/resolution";
@@ -10,6 +11,7 @@ import {
   type PendingRuntimeSettingsPatch,
 } from "../../domain/runtime/thread-settings-patch";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
+import { capturePanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
 import type { ChatStateStore } from "../state/store";
 import {
@@ -61,18 +63,33 @@ export interface ChatRuntimeSettingsActions {
   toggleAutoReview: () => Promise<void>;
 }
 
-export function createChatRuntimeSettingsActions(host: RuntimeSettingsActionsHost): ChatRuntimeSettingsActions {
-  const runtimeSettingsCommits = createRuntimeSettingsCommitCoordinator({
-    activeThreadId: () => activeThreadId(state(host)),
-    pendingPatch: () => currentPendingRuntimeSettingsPatch(host),
-    updateThreadSettings: (threadId, update) => host.runtimeTransport.updateThreadSettings(threadId, update),
-    commitPatch: (update) => {
-      dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
+export function createChatRuntimeSettingsActions(
+  host: RuntimeSettingsActionsHost,
+  threadCommits: KeyedOperationQueue<string> = createKeyedOperationQueue(),
+): ChatRuntimeSettingsActions {
+  const runtimeSettingsCommits = createRuntimeSettingsCommitCoordinator(
+    {
+      scopeIsCurrent: (scope) => {
+        const currentState = state(host);
+        return (
+          activeThreadId(currentState) === scope.threadId &&
+          panelTargetLeaseIsCurrent(currentState, {
+            revision: scope.panelTargetRevision,
+            target: { kind: "thread", threadId: scope.threadId },
+          })
+        );
+      },
+      pendingPatch: () => currentPendingRuntimeSettingsPatch(host),
+      updateThreadSettings: (threadId, update) => host.runtimeTransport.updateThreadSettings(threadId, update),
+      commitPatch: (update) => {
+        dispatch(host, { type: "runtime/pending-thread-settings-committed", update });
+      },
+      reportError: (error) => {
+        host.addSystemMessage(error instanceof Error ? error.message : String(error));
+      },
     },
-    reportError: (error) => {
-      host.addSystemMessage(error instanceof Error ? error.message : String(error));
-    },
-  });
+    threadCommits,
+  );
   const context: RuntimeSettingsActionsContext = { ...host, runtimeSettingsCommits };
   return {
     applyPendingThreadSettings: () => applyPendingThreadSettings(context),
@@ -112,6 +129,7 @@ async function commitPendingThreadSettings(
 ): Promise<RuntimeSettingsCommitResult> {
   const threadId = activeThreadId(state(host));
   if (!threadId) return { ok: true, collaborationModeApplied: true };
+  const panelTarget = capturePanelTargetLease(state(host));
 
   const { update, collaborationModeWarning } = pendingRuntimeSettingsPatch(host);
   if (collaborationModeWarning) reportCollaborationModeWarning(host, collaborationModeWarning);
@@ -120,7 +138,7 @@ async function commitPendingThreadSettings(
 
   if (activePanelOperationBlocked(host, "thread-settings")) return { ok: false, collaborationModeApplied: false };
   const target = runtimeSettingsCommitTarget(update, fields);
-  const ok = await host.runtimeSettingsCommits.commit(threadId, target);
+  const ok = await host.runtimeSettingsCommits.commit({ threadId, panelTargetRevision: panelTarget.revision }, target);
   return { ok, collaborationModeApplied: ok && collaborationModeApplied };
 }
 

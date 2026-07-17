@@ -20,9 +20,9 @@ import {
 import { interruptTurn, startTurn, steerTurn } from "../../../../app-server/services/turns";
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
 import type { ThreadTurnsPage } from "../../../../domain/threads/history";
-import type { RuntimeSettingsTransport } from "../../application/runtime/settings-transport";
 import type { EffectOutcome } from "../../application/effect-outcome";
-import type { EphemeralThreadTransport } from "../../application/threads/ephemeral-thread-transport";
+import type { RuntimeSettingsTransport } from "../../application/runtime/settings-transport";
+import type { EphemeralThreadForkResult, EphemeralThreadTransport } from "../../application/threads/ephemeral-thread-transport";
 import type { ThreadGoalReadTransport, ThreadGoalTransport } from "../../application/threads/goal-transport";
 import type {
   ThreadHistoryPage,
@@ -109,7 +109,7 @@ function createChatTurnTransport(host: ChatAppServerTransportHost): ChatTurnTran
   return {
     ensureConnected: async () => (await host.connectedClient()) !== null,
     startTurn: (request) =>
-      withCurrentChatAppServerClient(host, async (client) => {
+      runCurrentChatAppServerEffect(host, async (client) => {
         const response = await startTurn(client, {
           threadId: request.threadId,
           cwd: host.vaultPath,
@@ -118,13 +118,10 @@ function createChatTurnTransport(host: ChatAppServerTransportHost): ChatTurnTran
         });
         return { turnId: response.turn.id };
       }),
-    steerTurn: async (request) => {
-      const steered = await withCurrentChatAppServerClient(host, async (client) => {
+    steerTurn: (request) =>
+      runCurrentChatAppServerEffect(host, async (client) => {
         await steerTurn(client, request.threadId, request.turnId, request.input, request.clientUserMessageId);
-        return true;
-      });
-      return steered ?? false;
-    },
+      }),
     interruptTurn: async (threadId, turnId) => {
       const interrupted = await withCurrentChatAppServerClient(host, async (client) => {
         await interruptTurn(client, threadId, turnId);
@@ -185,18 +182,19 @@ function createChatThreadMutationTransport(host: ChatAppServerTransportHost): Th
 
 function createChatEphemeralThreadTransport(host: ChatAppServerTransportHost): EphemeralThreadTransport {
   return {
-    forkEphemeralThread: (sourceThreadId) =>
-      runCurrentChatAppServerEffect(host, async (client) => {
-        try {
-          const snapshot = await forkEphemeralThread(client, sourceThreadId, host.vaultPath);
-          return { kind: "ready" as const, ...snapshot };
-        } catch (error) {
-          if (error instanceof EphemeralThreadCleanupRequiredError) {
-            return { kind: "cleanup-required" as const, threadId: error.threadId };
-          }
-          throw error;
-        }
-      }),
+    forkEphemeralThread: async (sourceThreadId) => {
+      const client = host.currentClient();
+      if (!client) return { kind: "not-started" };
+      const value = await forkEphemeralThreadResult(client, sourceThreadId, host.vaultPath);
+      if (!chatAppServerClientIsStale(host, client)) return { kind: "completed-current", value };
+      const threadId = value.kind === "ready" ? value.activation.thread.id : value.threadId;
+      try {
+        await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
+      } catch {
+        // The superseded connection remains the only valid cleanup context.
+      }
+      return { kind: "completed-stale", value };
+    },
     unsubscribeEphemeralThread: async (threadId) => {
       const result = await withCurrentChatAppServerClient(host, async (client) => {
         await unsubscribeThread(client, threadId, { timeoutMs: 5_000 });
@@ -205,6 +203,22 @@ function createChatEphemeralThreadTransport(host: ChatAppServerTransportHost): E
       return result ?? false;
     },
   };
+}
+
+async function forkEphemeralThreadResult(
+  client: AppServerRequestClient,
+  sourceThreadId: string,
+  vaultPath: string,
+): Promise<EphemeralThreadForkResult> {
+  try {
+    const snapshot = await forkEphemeralThread(client, sourceThreadId, vaultPath);
+    return { kind: "ready", ...snapshot };
+  } catch (error) {
+    if (error instanceof EphemeralThreadCleanupRequiredError) {
+      return { kind: "cleanup-required", threadId: error.threadId };
+    }
+    throw error;
+  }
 }
 
 function createChatThreadSubscriptionTransport(host: ChatAppServerTransportHost): ThreadSubscriptionTransport {
@@ -258,9 +272,7 @@ function runCurrentChatAppServerEffect<T>(
   if (!client) return Promise.resolve({ kind: "not-started" });
   const effect = operation(client);
   return effect.then((value) =>
-    chatAppServerClientIsStale(host, client)
-      ? { kind: "completed-stale", value }
-      : { kind: "completed-current", value },
+    chatAppServerClientIsStale(host, client) ? { kind: "completed-stale", value } : { kind: "completed-current", value },
   );
 }
 

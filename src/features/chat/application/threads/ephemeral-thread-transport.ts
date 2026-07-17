@@ -1,7 +1,7 @@
 import type { ThreadActivationSnapshot } from "../../../../domain/threads/activation";
 import type { EffectOutcome } from "../effect-outcome";
 
-type EphemeralThreadForkResult =
+export type EphemeralThreadForkResult =
   | { kind: "ready"; activation: ThreadActivationSnapshot; sourceThreadId: string }
   | { kind: "cleanup-required"; threadId: string };
 

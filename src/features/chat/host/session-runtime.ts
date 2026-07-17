@@ -53,7 +53,7 @@ interface ChatPanelSessionRuntimeParts {
     reconnect(): Promise<void>;
     reconnectAfterAppServerContextChange(threadId: string | null, isCurrent: () => boolean): Promise<boolean>;
     refreshSharedThreads(): Promise<void>;
-    startNewThread(): Promise<void>;
+    startNewThread(options?: { focus?: boolean }): Promise<void>;
   };
   runtime: {
     sharedState: ChatPanelSharedStateBinding;
@@ -352,7 +352,7 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
       reconnect,
       reconnectAfterAppServerContextChange,
       refreshSharedThreads,
-      startNewThread: () => threadActions.navigation.startNewThread(),
+      startNewThread: (options) => threadActions.navigation.startNewThread(options),
     },
     runtime: {
       sharedState,

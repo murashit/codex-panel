@@ -72,6 +72,7 @@ export interface ChatComposerControllerOptions {
   toggleFast: () => void;
   onDraftChange: () => void;
   onHeightChange: () => void;
+  canFocus: () => boolean;
   onAttachmentError?: (message: string) => void;
 }
 
@@ -149,10 +150,11 @@ export class ChatComposerController {
       ...(options.clearSuggestions === undefined ? {} : { clearSuggestions: options.clearSuggestions }),
     });
     this.options.onDraftChange();
-    if (options.focus) focusComposer(this.composer);
+    if (options.focus && this.options.canFocus()) focusComposer(this.composer);
   }
 
-  focusComposer(): void {
+  focusComposer(options: { force?: boolean } = {}): void {
+    if (options.force !== true && !this.options.canFocus()) return;
     focusComposer(this.composer, { preventScroll: true });
   }
 
@@ -399,6 +401,7 @@ export class ChatComposerController {
     const source = composerRangeInsertionSource(this.composer);
     const selection = source && source.value === draft ? source : null;
     return {
+      panelTargetRevision: this.state.panelTargetRevision,
       threadId: panelThreadId(this.state),
       draft,
       start: selection?.start ?? draft.length,

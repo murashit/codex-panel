@@ -147,7 +147,7 @@ describe("submitComposer", () => {
 
     expect(setDraft).not.toHaveBeenCalled();
     expect(ensureConnected).toHaveBeenCalledOnce();
-    expect(execute).toHaveBeenCalledWith("clear", "hello", inputSnapshot);
+    expect(execute).toHaveBeenCalledWith("clear", "hello", inputSnapshot, expect.any(Function));
     expect(showLatest).toHaveBeenCalledOnce();
     expect(sendTurnText).toHaveBeenCalledWith({
       text: "hello",
@@ -398,6 +398,22 @@ describe("submitComposer", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("does not execute an old slash intent after leaving and returning during connection", async () => {
+    const { host, ensureConnected, execute, stateStore } = createHost("/clear");
+    const connection = deferred<boolean>();
+    ensureConnected.mockImplementation(() => connection.promise);
+    resumeActiveThread(stateStore, "first");
+
+    const submitting = submitComposer(host);
+    await vi.waitFor(() => expect(ensureConnected).toHaveBeenCalledOnce());
+    resumeActiveThread(stateStore, "other");
+    resumeActiveThread(stateStore, "first");
+    connection.resolve(true);
+    await submitting;
+
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("rolls back a pending web message when connection setup fails", async () => {
     const { host, ensureConnected, execute, setDraft, stateStore } = createHost("/web https://example.com summarize");
     ensureConnected.mockResolvedValue(false);
@@ -420,7 +436,7 @@ describe("submitComposer", () => {
 
     expect(ensureConnected).not.toHaveBeenCalled();
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(execute).toHaveBeenCalledWith("reconnect", "", expect.any(Object));
+    expect(execute).toHaveBeenCalledWith("reconnect", "", expect.any(Object), expect.any(Function));
   });
 
   it("executes compact without a connected client preflight", async () => {
@@ -430,7 +446,7 @@ describe("submitComposer", () => {
 
     expect(ensureConnected).not.toHaveBeenCalled();
     expect(setDraft).toHaveBeenCalledWith("", { clearSuggestions: true });
-    expect(execute).toHaveBeenCalledWith("compact", "", expect.any(Object));
+    expect(execute).toHaveBeenCalledWith("compact", "", expect.any(Object), expect.any(Function));
   });
 
   it("restores slash command composer drafts from command results", async () => {

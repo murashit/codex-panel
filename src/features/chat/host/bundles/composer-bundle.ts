@@ -62,6 +62,7 @@ export function createChatComposerController(
       environment.plugin.workspace.refreshThreadsViewLiveState();
     },
     onHeightChange: () => undefined,
+    canFocus: environment.obsidian.isForeground,
     onAttachmentError: (message) => {
       new Notice(message);
     },

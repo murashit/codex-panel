@@ -1,14 +1,10 @@
 import { inheritedForkThreadName, type Thread } from "../../../../domain/threads/model";
 import { activeThreadRuntimeState } from "../../domain/runtime/state";
-import { effectCompletedInCurrentContext } from "../effect-outcome";
+import { effectCompleted, effectCompletedInCurrentContext } from "../effect-outcome";
 import { type ActivePanelOperation, activePanelOperationDecision } from "../panel-operation-policy";
 import { resumedThreadActionFromActiveRuntime } from "../state/actions";
+import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent } from "../state/panel-target";
 import { activeThreadId, type ChatAction, type ChatState } from "../state/root-reducer";
-import {
-  capturePanelTargetLease,
-  type PanelTargetLease,
-  panelTargetLeaseIsCurrent,
-} from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 import { threadStreamRollbackCandidate, threadStreamTurnsAfterTurnId } from "../state/thread-stream";
 import { chatTurnBusy } from "../turns/turn-state";
@@ -139,10 +135,11 @@ async function forkThreadFromTurn(
     if (!(await host.threadTransport.ensureConnected())) return;
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     const effect = turnId ? await host.threadTransport.forkThread(threadId, turnId) : await host.threadTransport.forkThread(threadId);
-    if (!effectCompletedInCurrentContext(effect)) return;
+    if (!effectCompleted(effect)) return;
     const forkedThread = effect.value;
     const forkedThreadId = forkedThread.id;
     host.recordForkedThread(forkedThread);
+    if (!effectCompletedInCurrentContext(effect)) return;
     if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     if (sourceName) {
       try {
@@ -152,9 +149,11 @@ async function forkThreadFromTurn(
         const message = error instanceof Error ? error.message : String(error);
         host.addSystemMessage(`Forked thread ${forkedThreadId}, but could not copy the source thread name: ${message}`);
       }
+      if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
     }
     if (archiveSource) {
       if (!(await archiveThreadFromPanel(host, threadId))) return;
+      if (!threadManagementScopeStillTargetsOriginalPanel(host, scope)) return;
       try {
         await host.openThreadInCurrentPanel(forkedThreadId);
       } catch (error) {
@@ -207,9 +206,16 @@ async function rollbackThread(host: ThreadManagementActionsHost, threadId: strin
     if (!(await host.threadTransport.ensureConnected())) return;
     if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
     const effect = await host.threadTransport.rollbackThread(threadId);
-    if (!effectCompletedInCurrentContext(effect)) return;
+    if (!effectCompleted(effect)) return;
+    if (!effectCompletedInCurrentContext(effect)) {
+      await host.refreshAfterThreadMutation();
+      return;
+    }
     const snapshot = effect.value;
-    if (!threadManagementScopeStillTargetsPanel(host, scope)) return;
+    if (!threadManagementScopeStillTargetsPanel(host, scope)) {
+      await host.refreshAfterThreadMutation();
+      return;
+    }
     threadManagementDispatch(
       host,
       resumedThreadActionFromActiveRuntime({

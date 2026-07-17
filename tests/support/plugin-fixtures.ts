@@ -5,11 +5,13 @@ import { vi } from "vitest";
 
 import { VIEW_TYPE_CODEX_PANEL, VIEW_TYPE_CODEX_THREADS } from "../../src/constants";
 import type { Thread } from "../../src/domain/threads/model";
+import { createThreadGoalOperationCoordinator } from "../../src/features/chat/application/threads/goal-actions";
 import type { CodexChatHost } from "../../src/features/chat/host/contracts";
 import type { CodexChatView } from "../../src/features/chat/host/view.obsidian";
 import { createThreadNameMutationCoordinator } from "../../src/features/threads/workflows/thread-name-mutation-coordinator";
 import type CodexPanelPlugin from "../../src/main";
 import { type CodexPanelSettings, DEFAULT_SETTINGS } from "../../src/settings/model";
+import { createKeyedOperationQueue } from "../../src/shared/runtime/keyed-operation-queue";
 import { chatPanelSettingsAccess } from "../features/chat/support/settings";
 
 export async function pluginWithLeaves(leaves: TestLeaf[], options: { threadsLeaves?: TestLeaf[] } = {}): Promise<CodexPanelPlugin> {
@@ -27,6 +29,7 @@ export async function pluginWithLeaves(leaves: TestLeaf[], options: { threadsLea
         }),
         revealLeaf: vi.fn().mockResolvedValue(undefined),
         getRightLeaf: vi.fn(() => null),
+        createLeafInParent: vi.fn(() => null),
         getMostRecentLeaf: vi.fn(() => null),
         getActiveViewOfType: vi.fn(() => null),
         ensureSideLeaf: vi.fn(() => Promise.reject(new Error("Unexpected ensureSideLeaf call."))),
@@ -73,7 +76,7 @@ export function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf
   const containerEl = document.createElement("div");
   containerEl.createDiv();
   containerEl.createDiv();
-  return new CodexChatViewCtor(
+  const view = new CodexChatViewCtor(
     {
       ...leaf,
       app: {
@@ -103,12 +106,20 @@ export function chatView(CodexChatViewCtor: typeof CodexChatView, leaf: TestLeaf
     } as never,
     chatHostFixture(),
   );
+  const workspace = view.app.workspace as unknown as {
+    getActiveViewOfType?: ReturnType<typeof vi.fn>;
+  };
+  workspace.getActiveViewOfType ??= vi.fn();
+  workspace.getActiveViewOfType.mockReturnValue(view);
+  return view;
 }
 
 function chatHostFixture(): CodexChatHost {
   const settings: CodexPanelSettings = { ...DEFAULT_SETTINGS, codexPath: "codex", sendShortcut: "enter" };
   return {
     threadNameMutations: createThreadNameMutationCoordinator(),
+    threadGoalOperations: createThreadGoalOperationCoordinator(),
+    runtimeSettingsCommitQueue: createKeyedOperationQueue(),
     settingsRef: {
       settings: chatPanelSettingsAccess(settings),
       vaultPath: "/vault",

@@ -33,15 +33,18 @@ export function createRuntimeBundle(
   },
 ): ChatPanelRuntimeBundle {
   return {
-    settings: createChatRuntimeSettingsActions({
-      stateStore: host.stateStore,
-      runtimeTransport: input.appServer.runtimeSettings,
-      runtimeSnapshotForState: runtimeSnapshotForChatState,
-      collaborationModeLabel: () => collaborationModeLabel(host.stateStore),
-      addSystemMessage: (text) => {
-        input.status.addSystemMessage(text);
+    settings: createChatRuntimeSettingsActions(
+      {
+        stateStore: host.stateStore,
+        runtimeTransport: input.appServer.runtimeSettings,
+        runtimeSnapshotForState: runtimeSnapshotForChatState,
+        collaborationModeLabel: () => collaborationModeLabel(host.stateStore),
+        addSystemMessage: (text) => {
+          input.status.addSystemMessage(text);
+        },
       },
-    }),
+      host.environment.plugin.runtimeSettingsCommitQueue,
+    ),
     projection: createChatPanelRuntimeProjection({
       state: () => host.stateStore.getState(),
       connected: () => input.connection.isConnected(),

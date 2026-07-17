@@ -12,6 +12,7 @@ import {
 import { AppServerResourceStore, StaleAppServerResourceContextError } from "./app-server/query/resource-store";
 import { VIEW_TYPE_CODEX_THREADS, VIEW_TYPE_CODEX_TURN_DIFF } from "./constants";
 import { hasPendingRequests } from "./domain/pending-requests/aggregate";
+import { createThreadGoalOperationCoordinator } from "./features/chat/application/threads/goal-actions";
 import type {
   ChatPanelClientSurface,
   ChatPanelSettingsAccess,
@@ -33,6 +34,7 @@ import { CodexTurnDiffView } from "./features/turn-diff/view.obsidian";
 import { createSettingsAppServerDynamicData } from "./settings/app-server-dynamic-data";
 import type { CodexPanelSettingTabHost } from "./settings/host";
 import type { CodexPanelSettings } from "./settings/model";
+import { createKeyedOperationQueue } from "./shared/runtime/keyed-operation-queue";
 import { WorkspacePanelCoordinator } from "./workspace/panel-coordinator";
 
 interface CodexPanelRuntimeSettingsRef {
@@ -55,6 +57,8 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   private readonly panels: WorkspacePanelCoordinator;
   private readonly threadCatalog: ThreadCatalog;
   private readonly threadNameMutations = createThreadNameMutationCoordinator();
+  private threadGoalOperations = createThreadGoalOperationCoordinator();
+  private runtimeSettingsCommitQueue = createKeyedOperationQueue<string>();
   private selectionRewriteController: SelectionRewriteCommandController | null = null;
 
   constructor(private readonly options: CodexPanelRuntimeOptions) {
@@ -86,10 +90,12 @@ export class CodexPanelRuntime implements AppServerClientAccess {
     this.panels.reset();
     this.appServerResourceStore.reset();
     this.threadCatalog.clear();
+    this.threadGoalOperations = createThreadGoalOperationCoordinator();
+    this.runtimeSettingsCommitQueue = createKeyedOperationQueue();
   }
 
-  reconcileWorkspacePanels(leaf: Parameters<WorkspacePanelCoordinator["reconcileWorkspacePanels"]>[0]): void {
-    this.panels.reconcileWorkspacePanels(leaf);
+  activeWorkspaceLeafChanged(leaf: Parameters<WorkspacePanelCoordinator["activeLeafChanged"]>[0]): void {
+    this.panels.activeLeafChanged(leaf);
   }
 
   activatePanel(): Promise<unknown> {
@@ -101,9 +107,7 @@ export class CodexPanelRuntime implements AppServerClientAccess {
   }
 
   async startNewChat(): Promise<void> {
-    const view = await this.panels.activateView();
-    const surface: ChatWorkspacePanelSurface = view.surface;
-    await surface.startNewThread();
+    await this.panels.startNewChat();
   }
 
   openThreadPicker(): void {
@@ -150,6 +154,8 @@ export class CodexPanelRuntime implements AppServerClientAccess {
       appServerQueries: this.appServerResourceStore,
       threadCatalog: this.threadCatalog,
       threadNameMutations: this.threadNameMutations,
+      threadGoalOperations: this.threadGoalOperations,
+      runtimeSettingsCommitQueue: this.runtimeSettingsCommitQueue,
     };
   }
 

@@ -1,9 +1,5 @@
+import { capturePanelTargetLease, type PanelTargetLease, panelTargetLeaseIsCurrent, panelTargetLeasesMatch } from "../state/panel-target";
 import { activeThreadId, awaitingResumeThreadState } from "../state/root-reducer";
-import {
-  capturePanelTargetLease,
-  type PanelTargetLease,
-  panelTargetLeaseIsCurrent,
-} from "../state/panel-target";
 import type { ChatStateStore } from "../state/store";
 
 export interface RestorationControllerHost {
@@ -24,14 +20,15 @@ export class RestorationController {
   async ensureLoaded(loadThread: RestoredThreadLoader): Promise<boolean> {
     const restoredThread = awaitingResumeThreadState(this.host.stateStore.getState());
     if (!restoredThread) return true;
+    const panelTarget = capturePanelTargetLease(this.host.stateStore.getState());
     const activeLoading = this.loading;
-    if (activeLoading?.threadId === restoredThread.threadId) {
+    if (activeLoading?.threadId === restoredThread.threadId && panelTargetLeasesMatch(activeLoading.panelTarget, panelTarget)) {
       await activeLoading.promise;
       return this.restorationLoaded(activeLoading.panelTarget, restoredThread.threadId);
     }
 
     const threadId = restoredThread.threadId;
-    const loading = { threadId, panelTarget: capturePanelTargetLease(this.host.stateStore.getState()), promise: loadThread(threadId) };
+    const loading = { threadId, panelTarget, promise: loadThread(threadId) };
     this.loading = loading;
     try {
       await loading.promise;

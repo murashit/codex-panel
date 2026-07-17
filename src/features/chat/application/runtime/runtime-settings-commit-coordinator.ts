@@ -1,9 +1,15 @@
 import type { RuntimeSettingsPatch } from "../../../../domain/runtime/thread-settings";
+import { createKeyedOperationQueue, type KeyedOperationQueue } from "../../../../shared/runtime/keyed-operation-queue";
 
 export type RuntimeSettingsCommitTarget = { readonly kind: "settle" } | { readonly kind: "fields"; readonly update: RuntimeSettingsPatch };
 
+interface RuntimeSettingsCommitScope {
+  readonly threadId: string;
+  readonly panelTargetRevision: number;
+}
+
 export interface RuntimeSettingsCommitCoordinatorHost {
-  activeThreadId: () => string | null;
+  scopeIsCurrent: (scope: RuntimeSettingsCommitScope) => boolean;
   pendingPatch: () => RuntimeSettingsPatch;
   updateThreadSettings: (threadId: string, update: RuntimeSettingsPatch) => Promise<boolean>;
   commitPatch: (update: RuntimeSettingsPatch) => void;
@@ -11,7 +17,7 @@ export interface RuntimeSettingsCommitCoordinatorHost {
 }
 
 export interface RuntimeSettingsCommitCoordinator {
-  commit: (threadId: string, target: RuntimeSettingsCommitTarget) => Promise<boolean>;
+  commit: (scope: RuntimeSettingsCommitScope, target: RuntimeSettingsCommitTarget) => Promise<boolean>;
 }
 
 interface PendingCommit {
@@ -25,15 +31,23 @@ interface ThreadCommitDrain {
   readonly pending: PendingCommit[];
 }
 
-export function createRuntimeSettingsCommitCoordinator(host: RuntimeSettingsCommitCoordinatorHost): RuntimeSettingsCommitCoordinator {
-  const drains = new Map<string, ThreadCommitDrain>();
+export function createRuntimeSettingsCommitCoordinator(
+  host: RuntimeSettingsCommitCoordinatorHost,
+  threadCommits: KeyedOperationQueue<string> = createKeyedOperationQueue(),
+): RuntimeSettingsCommitCoordinator {
+  const drainsByThread = new Map<string, Map<number, ThreadCommitDrain>>();
 
   return {
-    commit: (threadId, target) => {
-      let drain = drains.get(threadId);
+    commit: (scope, target) => {
+      let threadDrains = drainsByThread.get(scope.threadId);
+      if (!threadDrains) {
+        threadDrains = new Map();
+        drainsByThread.set(scope.threadId, threadDrains);
+      }
+      let drain = threadDrains.get(scope.panelTargetRevision);
       if (!drain) {
         drain = { revision: 0, pending: [] };
-        drains.set(threadId, drain);
+        threadDrains.set(scope.panelTargetRevision, drain);
       }
       drain.revision += 1;
       const result = new Promise<boolean>((resolve) => {
@@ -43,7 +57,17 @@ export function createRuntimeSettingsCommitCoordinator(host: RuntimeSettingsComm
           resolve,
         });
       });
-      if (drain.pending.length === 1) void runThreadCommitDrain(host, threadId, drain, drains);
+      if (drain.pending.length === 1) {
+        const scheduledDrain = drain;
+        void threadCommits
+          .run(scope.threadId, () => runThreadCommitDrain(host, scope, scheduledDrain))
+          .finally(() => {
+            if (threadDrains.get(scope.panelTargetRevision) === scheduledDrain) {
+              threadDrains.delete(scope.panelTargetRevision);
+              if (threadDrains.size === 0) drainsByThread.delete(scope.threadId);
+            }
+          });
+      }
       return result;
     },
   };
@@ -51,60 +75,55 @@ export function createRuntimeSettingsCommitCoordinator(host: RuntimeSettingsComm
 
 async function runThreadCommitDrain(
   host: RuntimeSettingsCommitCoordinatorHost,
-  threadId: string,
+  scope: RuntimeSettingsCommitScope,
   drain: ThreadCommitDrain,
-  drains: Map<string, ThreadCommitDrain>,
 ): Promise<void> {
-  try {
-    while (drain.pending.length > 0) {
-      if (host.activeThreadId() !== threadId) {
-        resolveAll(drain, false);
-        return;
-      }
-
-      const update = host.pendingPatch();
-      if (patchEmpty(update)) {
-        resolveSettledCommits(drain);
-        return;
-      }
-
-      const sentRevision = drain.revision;
-      let updated: boolean;
-      try {
-        updated = await host.updateThreadSettings(threadId, update);
-      } catch (error) {
-        if (host.activeThreadId() === threadId) host.reportError(error);
-        resolveAll(drain, false);
-        return;
-      }
-
-      if (host.activeThreadId() !== threadId) {
-        resolveAll(drain, false);
-        return;
-      }
-      if (!updated) {
-        resolveAll(drain, false);
-        return;
-      }
-
-      const committed = matchingPendingPatch(host.pendingPatch(), update);
-      if (!patchEmpty(committed)) host.commitPatch(committed);
-      resolveFieldCommits(drain, committed, host.pendingPatch());
-
-      if (drain.pending.length === 0) return;
-      if (patchEmpty(host.pendingPatch())) {
-        resolveSettledCommits(drain);
-        return;
-      }
-      if (drain.revision !== sentRevision || drain.pending.some((pending) => pending.kind === "settle")) {
-        continue;
-      }
-
+  while (drain.pending.length > 0) {
+    if (!host.scopeIsCurrent(scope)) {
       resolveAll(drain, false);
       return;
     }
-  } finally {
-    if (drains.get(threadId) === drain) drains.delete(threadId);
+
+    const update = host.pendingPatch();
+    if (patchEmpty(update)) {
+      resolveSettledCommits(drain);
+      return;
+    }
+
+    const sentRevision = drain.revision;
+    let updated: boolean;
+    try {
+      updated = await host.updateThreadSettings(scope.threadId, update);
+    } catch (error) {
+      if (host.scopeIsCurrent(scope)) host.reportError(error);
+      resolveAll(drain, false);
+      return;
+    }
+
+    if (!host.scopeIsCurrent(scope)) {
+      resolveAll(drain, false);
+      return;
+    }
+    if (!updated) {
+      resolveAll(drain, false);
+      return;
+    }
+
+    const committed = matchingPendingPatch(host.pendingPatch(), update);
+    if (!patchEmpty(committed)) host.commitPatch(committed);
+    resolveFieldCommits(drain, committed, host.pendingPatch());
+
+    if (drain.pending.length === 0) return;
+    if (patchEmpty(host.pendingPatch())) {
+      resolveSettledCommits(drain);
+      return;
+    }
+    if (drain.revision !== sentRevision || drain.pending.some((pending) => pending.kind === "settle")) {
+      continue;
+    }
+
+    resolveAll(drain, false);
+    return;
   }
 }
 

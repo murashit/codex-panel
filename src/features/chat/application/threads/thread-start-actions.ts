@@ -24,10 +24,7 @@ export interface ThreadStartActionsHost {
 }
 
 export interface ThreadStartActions {
-  startThread: (
-    preview?: string,
-    options?: { syncGoal?: boolean; preservePendingSubmissionId?: string },
-  ) => Promise<ThreadStartOutcome>;
+  startThread: (preview?: string, options?: { syncGoal?: boolean; preservePendingSubmissionId?: string }) => Promise<ThreadStartOutcome>;
 }
 
 export function createThreadStartActions(host: ThreadStartActionsHost): ThreadStartActions {
@@ -51,9 +48,6 @@ async function startThread(
   });
   if (!effectCompleted(effect)) return { kind: "not-started" };
   const activation = effect.value;
-  if (!effectCompletedInCurrentContext(effect)) {
-    return { kind: "created-not-activated", threadId: activation.thread.id };
-  }
   const fallbackPreview = preview?.trim();
   const thread =
     activation.thread.preview.trim().length > 0 || !fallbackPreview
@@ -61,6 +55,9 @@ async function startThread(
       : { ...activation.thread, preview: fallbackPreview };
   const patchedActivation = thread === activation.thread ? activation : { ...activation, thread };
   host.recordStartedThread(thread);
+  if (!effectCompletedInCurrentContext(effect)) {
+    return { kind: "created-not-activated", threadId: activation.thread.id };
+  }
   const current = host.stateStore.getState();
   if (
     options.preservePendingSubmissionId &&
