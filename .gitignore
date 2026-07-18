@@ -1,4 +1,5 @@
 node_modules/
+.stryker-tmp/
 .jj/
 .codex/
 main.js
@@ -8,4 +9,5 @@ data.json
 .DS_Store
 dist/
 coverage/
+reports/
 tmp/
