@@ -67,7 +67,7 @@ export function createMcpElicitationResultItem(
     ...definedProp("turnId", elicitation.params.turnId ?? undefined),
     provenance: { source: "localUser", channel: "response", interaction: "userInputResponse", sourceId: String(elicitation.requestId) },
     executionState: accepted ? "completed" : "failed",
-    questions: mcpElicitationResultQuestions(elicitation, accepted ? content : null),
+    questions: mcpElicitationResultQuestions(elicitation, accepted, accepted ? content : null),
   };
 }
 
@@ -98,6 +98,7 @@ function mcpElicitationResultText(elicitation: PendingMcpElicitation, action: Mc
 
 function mcpElicitationResultQuestions(
   elicitation: PendingMcpElicitation,
+  accepted: boolean,
   content: Record<string, McpElicitationContentValue> | null,
 ): readonly ThreadStreamUserInputQuestionResult[] {
   if (elicitation.params.mode === "url") {
@@ -106,7 +107,7 @@ function mcpElicitationResultQuestions(
         id: "url",
         header: "URL",
         question: elicitation.params.message,
-        ...(content ? { answer: elicitation.params.url } : {}),
+        ...(accepted ? { answer: elicitation.params.url } : {}),
       },
     ];
   }

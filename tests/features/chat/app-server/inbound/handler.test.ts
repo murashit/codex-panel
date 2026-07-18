@@ -807,6 +807,37 @@ describe("ChatInboundHandler", () => {
       });
     });
 
+    it("records the accepted URL in the MCP elicitation result item", () => {
+      const state = chatStateFixture();
+      const respondToServerRequest = vi.fn(() => true);
+      const handler = handlerForState(state, { respondToServerRequest });
+
+      handler.handleServerRequest({
+        id: 46,
+        method: "mcpServer/elicitation/request",
+        params: {
+          threadId: "thread-active",
+          turnId: "turn-active",
+          serverName: "github",
+          mode: "url",
+          _meta: null,
+          message: "Confirm in browser",
+          url: "https://example.com/confirm",
+          elicitationId: "elicit-1",
+        },
+      });
+
+      handler.resolveMcpElicitation(46, "accept");
+
+      expect(respondToServerRequest).toHaveBeenCalledWith(46, { action: "accept", content: null, _meta: null });
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).toMatchObject({
+        kind: "userInputResult",
+        text: "MCP request from github accepted.",
+        executionState: "completed",
+        questions: [{ id: "url", answer: "https://example.com/confirm" }],
+      });
+    });
+
     it("declines MCP elicitation URL server requests", () => {
       const state = chatStateFixture();
       const respondToServerRequest = vi.fn(() => true);
@@ -835,7 +866,9 @@ describe("ChatInboundHandler", () => {
         kind: "userInputResult",
         text: "MCP request from github declined.",
         executionState: "failed",
+        questions: [{ id: "url" }],
       });
+      expect(chatStateThreadStreamItems(handler.currentState()).at(-1)).not.toHaveProperty("questions.0.answer");
     });
 
     it("ignores missing requestUserInput ids", () => {
