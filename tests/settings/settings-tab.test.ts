@@ -73,17 +73,101 @@ describe("settings tab", () => {
     expect(declarativeDefinitionByName(definitions, "Codex details")?.searchable).toBe(false);
   });
 
-  it("routes declarative controls through the existing settings publication boundary", async () => {
+  it("routes every declarative control through the existing settings publication boundary", async () => {
     const saveSettings = vi.fn().mockResolvedValue(undefined);
     const refreshOpenViews = vi.fn();
     const tab = newSettingsTab({ saveSettings, refreshOpenViews });
 
-    expect(tab.getControlValue("showToolbar")).toBe(true);
-    await tab.setControlValue("showToolbar", false);
+    const changes = [
+      ["showToolbar", false],
+      ["sendShortcut", "mod-enter"],
+      ["scrollThreadFromComposerEdges", true],
+      ["referenceActiveNoteOnSend", true],
+      ["archiveExportEnabled", true],
+    ] as const;
+    for (const [key, value] of changes) {
+      await tab.setControlValue(key, value);
+      expect(tab.getControlValue(key)).toBe(value);
+      expect(saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ [key]: value }));
+    }
 
-    expect(saveSettings).toHaveBeenCalledOnce();
+    expect(saveSettings).toHaveBeenCalledTimes(changes.length);
     expect(refreshOpenViews).toHaveBeenCalledOnce();
-    expect(tab.getControlValue("showToolbar")).toBe(false);
+  });
+
+  it("ignores invalid declarative control values and rejects unknown keys", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    const tab = newSettingsTab({ saveSettings });
+
+    await tab.setControlValue("showToolbar", "false");
+    await tab.setControlValue("sendShortcut", "invalid");
+    await tab.setControlValue("scrollThreadFromComposerEdges", null);
+    await tab.setControlValue("referenceActiveNoteOnSend", 1);
+    await tab.setControlValue("archiveExportEnabled", undefined);
+
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(tab.getControlValue("unknown")).toBeUndefined();
+    await expect(tab.setControlValue("unknown", true)).rejects.toThrow("Unknown declarative setting key: unknown");
+  });
+
+  it("publishes model and effort changes from a representative declarative helper renderer", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    useShortLivedClients(settingsClient());
+    const tab = newSettingsTab({
+      saveSettings,
+      modelsSnapshot: modelMetadataFromCatalogModels([model("gpt-5.5", false, false, ["extreme"])]),
+    });
+    const helper = declarativeDefinitionByName(tab.getSettingDefinitions(), "Automatic thread naming");
+    const container = renderDeclarativeDefinition(helper, "Automatic thread naming");
+
+    const modelSelect = container.querySelectorAll("select")[0];
+    if (!modelSelect) throw new Error("Missing declarative helper model dropdown");
+    modelSelect.value = "gpt-5.5";
+    modelSelect.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    const effortSelect = container.querySelectorAll("select")[1];
+    if (!effortSelect) throw new Error("Missing declarative helper effort dropdown");
+    effortSelect.value = "extreme";
+    effortSelect.dispatchEvent(new Event("change"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenNthCalledWith(1, expect.objectContaining({ threadNamingModel: "gpt-5.5" }));
+    expect(saveSettings).toHaveBeenNthCalledWith(2, expect.objectContaining({ threadNamingEffort: "extreme" }));
+  });
+
+  it("normalizes and publishes a representative declarative archive text field", async () => {
+    const saveSettings = vi.fn().mockResolvedValue(undefined);
+    useShortLivedClients(settingsClient());
+    const tab = newSettingsTab({ saveSettings });
+    const filename = declarativeDefinitionByName(tab.getSettingDefinitions(), "Saved note filename");
+    const container = renderDeclarativeDefinition(filename, "Saved note filename");
+    const input = container.querySelector("input");
+    if (!input) throw new Error("Missing declarative archive filename input");
+
+    input.value = "  {{date}} {{title}}.md  ";
+    input.dispatchEvent(new Event("blur"));
+    await flushPromises();
+
+    expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ archiveExportFilenameTemplate: "{{date}} {{title}}.md" }));
+    expect(input.value).toBe("{{date}} {{title}}.md");
+  });
+
+  it("restores a thread through the declarative archived-section callback", async () => {
+    const client = settingsClient();
+    useShortLivedClients(client);
+    const tab = newSettingsTab({
+      archivedSnapshot: [panelThread({ id: "thread-archived", preview: "Archived thread", archived: true })],
+    });
+    const archived = declarativeDefinitionByName(tab.getSettingDefinitions(), "Archived threads content");
+    const container = renderDeclarativeDefinition(archived, "Archived threads content");
+    const restore = container.querySelector<HTMLElement>('[aria-label="Restore thread"]');
+    if (!restore) throw new Error("Missing declarative archived-thread restore action");
+
+    restore.click();
+    await flushPromises();
+
+    expect(client.request).toHaveBeenCalledWith("thread/unarchive", { threadId: "thread-archived" });
   });
 
   it("starts dynamic loading from declarative rendering instead of definition indexing", async () => {
@@ -784,6 +868,13 @@ function declarativeDefinitionByName(
     }
   }
   return undefined;
+}
+
+function renderDeclarativeDefinition(definition: DeclarativeSettingDefinition | undefined, name: string): HTMLDivElement {
+  if (!definition?.render) throw new Error(`Missing declarative ${name} renderer`);
+  const container = document.createElement("div");
+  definition.render(new Setting(container), {} as never);
+  return container;
 }
 
 function settingNames(tab: CodexPanelSettingTab): string[] {
