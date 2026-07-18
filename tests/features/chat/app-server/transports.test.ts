@@ -623,6 +623,55 @@ describe("chat app-server transports", () => {
     expect(withShortLived).toHaveBeenCalledWith("/second/codex", "/vault", expect.any(Function), expect.any(Object));
     withShortLived.mockRestore();
   });
+
+  it("rejects current-client operations while disconnected", async () => {
+    const operation = vi.fn();
+    const gateway = createTestGateway({ currentClient: () => null });
+
+    await expect(gateway.clientAccess.withClient(operation)).rejects.toThrow("Codex app-server is not connected.");
+    expect(operation).not.toHaveBeenCalled();
+    expect(gateway.connectionAvailable()).toBe(false);
+  });
+
+  it("rejects current-client results when the connection changes during the operation", async () => {
+    const result = deferred<string>();
+    const firstClient = {} as AppServerClient;
+    const secondClient = {} as AppServerClient;
+    let currentClient = firstClient;
+    const gateway = createTestGateway({ currentClient: () => currentClient });
+
+    const running = gateway.clientAccess.withClient(() => result.promise);
+    currentClient = secondClient;
+    result.resolve("stale");
+
+    await expect(running).rejects.toThrow("Codex app-server connection changed while running the operation.");
+  });
+
+  it("reads files from the current client with request options", async () => {
+    const request = vi.fn().mockResolvedValue({ dataBase64: "ZmlsZQ==" });
+    const client = { request } as unknown as AppServerClient;
+    const gateway = createTestGateway({ currentClient: () => client });
+
+    await expect(gateway.readFileBase64("/tmp/rollout.jsonl", { timeoutMs: 2_000 })).resolves.toBe("ZmlsZQ==");
+    expect(request).toHaveBeenCalledWith("fs/readFile", { path: "/tmp/rollout.jsonl" }, { timeoutMs: 2_000 });
+  });
+
+  it("returns no file data while disconnected or when the connection changes during the read", async () => {
+    const disconnected = createTestGateway({ currentClient: () => null });
+    await expect(disconnected.readFileBase64("/tmp/rollout.jsonl")).resolves.toBeNull();
+
+    const read = deferred<{ dataBase64: string }>();
+    const firstClient = { request: vi.fn().mockReturnValue(read.promise) } as unknown as AppServerClient;
+    const secondClient = {} as AppServerClient;
+    let currentClient = firstClient;
+    const gateway = createTestGateway({ currentClient: () => currentClient });
+
+    const reading = gateway.readFileBase64("/tmp/rollout.jsonl");
+    currentClient = secondClient;
+    read.resolve({ dataBase64: "c3RhbGU=" });
+
+    await expect(reading).resolves.toBeNull();
+  });
 });
 
 type AppServerThreadStartResponse = ClientResponseByMethod["thread/start"];
