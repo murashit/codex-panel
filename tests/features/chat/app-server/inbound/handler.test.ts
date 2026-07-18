@@ -1030,6 +1030,73 @@ describe("ChatInboundHandler", () => {
       ]);
     });
 
+    it.each([
+      {
+        name: "approval response",
+        actions: { respondToServerRequest: vi.fn(() => false) },
+        exercise(handler: TestChatInboundHandler) {
+          handler.handleServerRequest(expectPresent(supportedApprovalRequests()[2]));
+          handler.resolveApproval(12, "decline");
+        },
+        expectedMessages: ["Could not send approval response because Codex app-server is not connected."],
+        pending(handler: TestChatInboundHandler) {
+          return handler.currentState().requests.approvals.length;
+        },
+      },
+      {
+        name: "user-input cancellation",
+        actions: { rejectServerRequest: vi.fn(() => false) },
+        exercise(handler: TestChatInboundHandler) {
+          handler.handleServerRequest(userInputRequest(56));
+          handler.cancelUserInput(56);
+        },
+        expectedMessages: ["Could not cancel user input because Codex app-server is not connected."],
+        pending(handler: TestChatInboundHandler) {
+          return handler.currentState().requests.pendingUserInputs.length;
+        },
+      },
+      {
+        name: "MCP response",
+        actions: { respondToServerRequest: vi.fn(() => false) },
+        exercise(handler: TestChatInboundHandler) {
+          handler.handleServerRequest(mcpElicitationRequest(57));
+          handler.resolveMcpElicitation(57, "cancel");
+        },
+        expectedMessages: ["Could not send MCP request response because Codex app-server is not connected."],
+        pending(handler: TestChatInboundHandler) {
+          return handler.currentState().requests.pendingMcpElicitations.length;
+        },
+      },
+      {
+        name: "current-time response",
+        actions: { respondToServerRequest: vi.fn(() => false) },
+        exercise(handler: TestChatInboundHandler) {
+          handler.handleServerRequest(currentTimeRequest(58, "thread"));
+        },
+        expectedMessages: ["Could not send current time because Codex app-server is not connected."],
+        pending: null,
+      },
+      {
+        name: "unsupported-request rejection",
+        actions: { rejectServerRequest: vi.fn(() => false) },
+        exercise(handler: TestChatInboundHandler) {
+          handler.handleServerRequest(unsupportedToolCallRequest(59));
+        },
+        expectedMessages: [
+          "Rejected unsupported app-server request: item/tool/call",
+          "Could not reject app-server request because Codex app-server is not connected.",
+        ],
+        pending: null,
+      },
+    ])("reports failed $name delivery without resolving pending actions", ({ actions, exercise, expectedMessages, pending }) => {
+      const handler = handlerForState(chatStateFixture(), actions);
+
+      exercise(handler);
+
+      if (pending) expect(pending(handler)).toBe(1);
+      expect(chatStateThreadStreamItems(handler.currentState()).map((item) => ("text" in item ? item.text : ""))).toEqual(expectedMessages);
+    });
+
     it("clears pending request state when app-server resolves a request", () => {
       let state = chatStateFixture();
       state = chatStateWith(state, { activeThread: { id: "thread-active" } });
@@ -2068,6 +2135,14 @@ function currentTimeRequest(id: number, threadId: string): ServerRequest {
     id,
     method: "currentTime/read",
     params: { threadId },
+  };
+}
+
+function unsupportedToolCallRequest(id: number): ServerRequest {
+  return {
+    id,
+    method: "item/tool/call",
+    params: { threadId: "thread", turnId: "turn", callId: "call", namespace: null, tool: "tool", arguments: {} },
   };
 }
 

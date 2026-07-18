@@ -604,6 +604,107 @@ describe("pending request renderer decisions", () => {
     unmountUiRootInAct(parent);
   });
 
+  it("keeps mixed MCP form fields wired to their drafts and supports declining the request", () => {
+    const parent = document.createElement("div");
+    const resolveMcpElicitation = vi.fn();
+    const setMcpElicitationDraft = vi.fn();
+    const elicitation = pendingMcpElicitationSnapshot({
+      requestId: 54,
+      params: {
+        threadId: "thread",
+        turnId: null,
+        serverName: "github",
+        mode: "form",
+        message: "Configure the issue",
+        meta: null,
+        fields: [
+          { id: "notify", title: "Notify", description: null, type: "boolean", required: false, defaultValue: false },
+          {
+            id: "priority",
+            title: "Priority",
+            description: null,
+            type: "single-select",
+            required: true,
+            options: [
+              { value: "low", label: "Low" },
+              { value: "high", label: "High" },
+            ],
+            defaultValue: "low",
+          },
+          { id: "estimate", title: "Estimate", description: null, type: "number", required: false, defaultValue: 1.5 },
+          { id: "note", title: "Note", description: null, type: "string", required: false, defaultValue: "" },
+        ],
+      },
+    });
+
+    renderThreadStreamBlocksInAct(
+      parent,
+      threadStreamBlocks({
+        items: [
+          { id: "a1", kind: "dialogue", role: "assistant", text: "Done", dialogueKind: "assistantResponse", dialogueState: "completed" },
+        ],
+        pendingRequests: pendingRequestContext({
+          signature: "mcp:54",
+          snapshot: emptyPendingRequestBlockSnapshot({ pendingMcpElicitations: [elicitation] }),
+          actions: pendingRequestActions({ resolveMcpElicitation, setMcpElicitationDraft }),
+        }),
+      }),
+    );
+
+    const fields = [...parent.querySelectorAll<HTMLElement>(".codex-panel__mcp-elicitation-field")];
+    actEvent(() => {
+      expectPresent(fields[0]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-checkbox")).click();
+      expectPresent(fields[1]?.querySelectorAll<HTMLInputElement>(".codex-panel__mcp-elicitation-radio").item(1)).click();
+      changeInputValue(expectPresent(fields[2]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "3.5");
+      changeInputValue(expectPresent(fields[3]?.querySelector<HTMLInputElement>(".codex-panel__mcp-elicitation-input")), "Ship today");
+      expectPresent(
+        [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__pending-request-button")].find(
+          (button) => button.textContent === "Decline",
+        ),
+      ).click();
+    });
+
+    expect(setMcpElicitationDraft.mock.calls).toEqual([
+      ["54:mcp:notify", "true"],
+      ["54:mcp:priority", "high"],
+      ["54:mcp:estimate", "3.5"],
+      ["54:mcp:note", "Ship today"],
+    ]);
+    expect(resolveMcpElicitation).toHaveBeenCalledWith(54, "decline");
+    unmountUiRootInAct(parent);
+  });
+
+  it("routes user-input cancellation and approval detail expansion from the shared request block", () => {
+    const parent = document.createElement("div");
+    const cancelUserInput = vi.fn();
+    const setApprovalDetailsExpanded = vi.fn();
+    const approval = pendingApproval();
+    const input = pendingUserInput();
+
+    renderPendingRequestNode(
+      parent,
+      [approval],
+      [input],
+      { values: new Map() },
+      new Set(),
+      pendingRequestActions({ cancelUserInput, setApprovalDetailsExpanded }),
+    );
+
+    const details = expectPresent(parent.querySelector<HTMLDetailsElement>(".codex-panel__approval-details"));
+    actEvent(() => {
+      details.open = true;
+      details.dispatchEvent(new Event("toggle", { bubbles: true }));
+      expectPresent(
+        [...parent.querySelectorAll<HTMLButtonElement>(".codex-panel__user-input .codex-panel__pending-request-button")].find(
+          (button) => button.textContent === "Cancel",
+        ),
+      ).click();
+    });
+
+    expect(setApprovalDetailsExpanded).toHaveBeenCalledWith(approval.requestId, true);
+    expect(cancelUserInput).toHaveBeenCalledWith(input.requestId);
+  });
+
   it("does not consume pending request autofocus while building thread stream blocks", () => {
     const consumeAutoFocus = vi.fn(() => true);
 
