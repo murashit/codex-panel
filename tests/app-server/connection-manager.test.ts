@@ -152,6 +152,28 @@ describe("ConnectionManager", () => {
     expect(onNotification).toHaveBeenCalledWith(notification, { codexPath: "/bin/codex-a", cwd: "/vault", generation: 0 });
   });
 
+  it("transitions to disconnected and reports the captured context when a connected client exits", async () => {
+    let transport!: SilentTransport;
+    const onExit = vi.fn();
+    const manager = new ConnectionManager(
+      () => "/bin/codex",
+      "/vault",
+      TEST_INITIALIZE_PARAMS,
+      testClientFactory({ onTransport: (next) => (transport = next) }),
+      () => 4,
+    );
+    const connecting = manager.connect({ ...silentConnectionHandlers(), onExit });
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } });
+    await connecting;
+
+    transport.emitExit();
+
+    expect(manager.currentClient()).toBeNull();
+    expect(manager.currentConnectionContext()).toBeNull();
+    expect(onExit).toHaveBeenCalledOnce();
+    expect(onExit).toHaveBeenCalledWith({ codexPath: "/bin/codex", cwd: "/vault", generation: 4 });
+  });
+
   it("does not reuse a connected client across generations of the same raw context", async () => {
     let contextGeneration = 1;
     const transports: SilentTransport[] = [];

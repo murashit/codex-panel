@@ -22,6 +22,7 @@ const TEST_INITIALIZE_PARAMS: InitializeParams = {
 class FakeTransport implements AppServerTransport {
   readonly sent: RpcOutboundMessage[] = [];
   running = false;
+  sendError: Error | null = null;
 
   constructor(private readonly handlers: AppServerTransportHandlers) {}
 
@@ -30,6 +31,7 @@ class FakeTransport implements AppServerTransport {
   }
 
   send(message: RpcOutboundMessage): void {
+    if (this.sendError) throw this.sendError;
     this.sent.push(message);
   }
 
@@ -43,6 +45,14 @@ class FakeTransport implements AppServerTransport {
 
   emitLine(message: unknown): void {
     this.handlers.onLine(JSON.stringify(message));
+  }
+
+  emitRawLine(line: string): void {
+    this.handlers.onLine(line);
+  }
+
+  emitLog(message: string): void {
+    this.handlers.onLog(message);
   }
 
   emitExit(code: number | null = 0, signal: NodeJS.Signals | null = null): void {
@@ -244,7 +254,31 @@ describe("AppServerClient", () => {
     expect(logs.every((message) => message.startsWith("Invalid app-server JSON-RPC message:"))).toBe(true);
   });
 
-  it("contains inbound handler failures at the JSON-RPC boundary", async () => {
+  it("logs invalid raw JSON without throwing from the transport callback", async () => {
+    const logs: string[] = [];
+    let transport!: FakeTransport;
+    const client = createTestClient({
+      handlers: {
+        onNotification: () => undefined,
+        onServerRequest: () => undefined,
+        onLog: (message) => logs.push(message),
+        onExit: () => undefined,
+      },
+      transportFactory: (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    });
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    expect(() => transport.emitRawLine("{not JSON")).not.toThrow();
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toContain("Invalid app-server JSON");
+  });
+
+  it("contains notification handler failures at the JSON-RPC boundary", async () => {
     const logs: string[] = [];
     let transport!: FakeTransport;
     const client = createTestClient({
@@ -267,6 +301,35 @@ describe("AppServerClient", () => {
 
     expect(() => transport.emitLine({ method: "warning", params: { message: "careful" } })).not.toThrow();
     expect(logs).toEqual(["App-server notification handler failed: notification failed"]);
+  });
+
+  it("contains server-request handler failures and sends an internal-error response", async () => {
+    const logs: string[] = [];
+    let transport!: FakeTransport;
+    const client = createTestClient({
+      handlers: {
+        onNotification: () => undefined,
+        onServerRequest: () => {
+          throw new Error("request failed");
+        },
+        onLog: (message) => logs.push(message),
+        onExit: () => undefined,
+      },
+      transportFactory: (handlers) => {
+        transport = new FakeTransport(handlers);
+        return transport;
+      },
+    });
+    const connecting = client.connect();
+    transport.emitLine({ id: 1, result: { codexHome: "/tmp/codex" } satisfies Partial<InitializeResponse> });
+    await connecting;
+
+    expect(() => transport.emitLine({ id: 12, method: "currentTime/read", params: { threadId: "thread" } })).not.toThrow();
+    expect(logs).toEqual(["App-server request handler failed: request failed"]);
+    expect(latestSent(transport)).toEqual({
+      id: 12,
+      error: { code: -32603, message: "Codex Panel failed to handle the app-server request." },
+    });
   });
 
   it("rejects known server requests with malformed required params", async () => {
@@ -510,11 +573,13 @@ describe("AppServerClient", () => {
     const transports: FakeTransport[] = [];
     const onExit = vi.fn();
     const onNotification = vi.fn();
+    const onServerRequest = vi.fn();
+    const onLog = vi.fn();
     const client = createTestClient({
       handlers: {
         onNotification,
-        onServerRequest: () => undefined,
-        onLog: () => undefined,
+        onServerRequest,
+        onLog,
         onExit,
       },
       transportFactory: (handlers) => {
@@ -535,11 +600,15 @@ describe("AppServerClient", () => {
     await secondConnect;
 
     transports[0]?.emitLine({ method: "warning", params: { message: "stale" } });
+    transports[0]?.emitLine({ id: 9, method: "currentTime/read", params: { threadId: "stale" } });
+    transports[0]?.emitLog("stale log");
     transports[0]?.emitError(new Error("stale failure"));
     transports[0]?.emitExit(1);
 
     expect(client.isConnected()).toBe(true);
     expect(onNotification).not.toHaveBeenCalled();
+    expect(onServerRequest).not.toHaveBeenCalled();
+    expect(onLog).not.toHaveBeenCalled();
     expect(onExit).not.toHaveBeenCalled();
   });
 
@@ -606,6 +675,20 @@ describe("AppServerClient", () => {
     expect(logs).toEqual([]);
   });
 
+  it("does not leave a delayed timeout after a synchronous transport send failure", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("window", {
+      clearTimeout,
+      setTimeout,
+    });
+    const { client, transport } = await connectedClient();
+    transport.sendError = new Error("write failed");
+
+    expect(() => listModels(client)).toThrow("write failed");
+
+    await vi.advanceTimersByTimeAsync(500);
+  });
+
   it("bounds timed-out response suppression when responses never arrive", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", {
@@ -666,5 +749,14 @@ describe("AppServerClient", () => {
       method: "model/list",
       message: "Method not found",
     });
+  });
+
+  it("rejects malformed RPC error responses without constructing an RPC error", async () => {
+    const { client, transport } = await connectedClient();
+
+    const listing = listModels(client);
+    transport.emitLine({ id: 2, error: { code: "invalid", message: 42 } });
+
+    await expect(listing).rejects.toThrow("Codex app-server returned an invalid error response for model/list.");
   });
 });
