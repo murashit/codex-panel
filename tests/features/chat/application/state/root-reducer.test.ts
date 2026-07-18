@@ -58,6 +58,141 @@ describe("chatReducer", () => {
     expect(cleared.composer.draft).toBe("");
   });
 
+  it.each([
+    {
+      label: "commit",
+      phase: "cancellable",
+      action: { type: "web-submission/committed", submissionId: "older-web" },
+    },
+    {
+      label: "cancel",
+      phase: "cancellable",
+      action: { type: "web-submission/cancelled", submissionId: "older-web" },
+    },
+    {
+      label: "fail",
+      phase: "committed",
+      action: { type: "web-submission/failed", submissionId: "older-web" },
+    },
+    {
+      label: "adopt",
+      phase: "committed",
+      action: {
+        type: "web-submission/steer-adopted",
+        submissionId: "older-web",
+        item: pendingWebSubmission("adopted-web").item,
+      },
+    },
+  ] as const)("ignores a stale $label callback after a newer web submission is pending", ({ phase, action }) => {
+    let state = chatReducer(chatStateFixture(), {
+      type: "web-submission/pending",
+      submission: pendingWebSubmission("older-web"),
+    });
+    state = chatReducer(state, {
+      type: "web-submission/pending",
+      submission: pendingWebSubmission("newer-web", phase),
+    });
+
+    expect(chatReducer(state, action)).toBe(state);
+  });
+
+  it.each([
+    {
+      label: "commit an already committed submission",
+      phase: "committed",
+      action: { type: "web-submission/committed", submissionId: "current-web" },
+    },
+    {
+      label: "cancel a committed submission",
+      phase: "committed",
+      action: { type: "web-submission/cancelled", submissionId: "current-web" },
+    },
+    {
+      label: "fail a cancellable submission",
+      phase: "cancellable",
+      action: { type: "web-submission/failed", submissionId: "current-web" },
+    },
+    {
+      label: "adopt a cancellable steer",
+      phase: "cancellable",
+      action: {
+        type: "web-submission/steer-adopted",
+        submissionId: "current-web",
+        item: pendingWebSubmission("adopted-web").item,
+      },
+    },
+  ] as const)("refuses to $label", ({ phase, action }) => {
+    const state = chatReducer(chatStateFixture(), {
+      type: "web-submission/pending",
+      submission: pendingWebSubmission("current-web", phase),
+    });
+
+    expect(chatReducer(state, action)).toBe(state);
+  });
+
+  it("adopts steer metadata only onto the matching user dialogue", () => {
+    const assistantWithMatchingClientId = {
+      id: "assistant",
+      kind: "dialogue",
+      dialogueKind: "assistantResponse",
+      role: "assistant",
+      text: "assistant",
+      dialogueState: "completed",
+      clientId: "local-steer",
+    } satisfies ThreadStreamItem;
+    const mismatchedUser = {
+      id: "mismatched-user",
+      kind: "dialogue",
+      dialogueKind: "user",
+      role: "user",
+      text: "other",
+      clientId: "other-client",
+    } satisfies ThreadStreamItem;
+    const matchingUser = {
+      id: "matching-user",
+      kind: "dialogue",
+      dialogueKind: "user",
+      role: "user",
+      text: "steer",
+      clientId: "local-steer",
+    } satisfies ThreadStreamItem;
+    let state = withChatStateThreadStreamItems(chatStateFixture(), [assistantWithMatchingClientId, mismatchedUser, matchingUser]);
+    state = chatReducer(state, {
+      type: "web-submission/pending",
+      submission: pendingWebSubmission("current-web", "committed"),
+    });
+    const adoptedItem = {
+      ...pendingWebSubmission("adopted-web").item,
+      clientId: "local-steer",
+      contextAttachments: [{ label: "Web page", detail: "https://example.com/" }],
+      referencedFiles: [{ name: "Note.md", path: "/vault/Note.md" }],
+      referencedThread: {
+        threadId: "referenced-thread",
+        title: "Referenced",
+        includedTurns: 1,
+        turnLimit: 20,
+      },
+    };
+
+    const next = chatReducer(state, {
+      type: "web-submission/steer-adopted",
+      submissionId: "current-web",
+      item: adoptedItem,
+    });
+
+    expect(next.pendingSubmission).toBeNull();
+    expect(chatStateThreadStreamItems(next)).toEqual([
+      assistantWithMatchingClientId,
+      mismatchedUser,
+      {
+        ...matchingUser,
+        contextAttachments: adoptedItem.contextAttachments,
+        referencedFiles: adoptedItem.referencedFiles,
+        referencedThread: adoptedItem.referencedThread,
+      },
+    ]);
+  });
+
   it("preserves last-known-good shared resources and their probes across a same-context disconnect", () => {
     let serverDiagnostics = createServerDiagnostics();
     serverDiagnostics = diagnosticsWithProbe(serverDiagnostics, diagnosticProbeOk("models", "1 model", 1));
@@ -267,6 +402,56 @@ describe("chatReducer", () => {
     state = chatReducer(state, resumedThreadAction("restored"));
 
     expect(panelTargetLeaseIsCurrent(state, lease)).toBe(true);
+  });
+
+  it("ignores stale clear and resume transitions after the panel target changes", () => {
+    let state = chatReducer(chatStateFixture(), resumedThreadAction("first"));
+    const staleRevision = state.panelTargetRevision;
+    state = chatReducer(state, resumedThreadAction("newer"));
+
+    const staleClear = chatReducer(state, {
+      type: "active-thread/cleared",
+      expectedPanelTargetRevision: staleRevision,
+    });
+    const staleResume = chatReducer(state, {
+      ...resumedThreadAction("stale-resume"),
+      expectedPanelTargetRevision: staleRevision,
+    });
+
+    expect(staleClear).toBe(state);
+    expect(staleResume).toBe(state);
+    expect(activeThreadState(state)?.id).toBe("newer");
+  });
+
+  it("applies clear and resume transitions with the current panel target revision", () => {
+    const state = chatReducer(chatStateFixture(), resumedThreadAction("current"));
+    const currentRevision = state.panelTargetRevision;
+
+    const cleared = chatReducer(state, {
+      type: "active-thread/cleared",
+      expectedPanelTargetRevision: currentRevision,
+    });
+    const resumed = chatReducer(state, {
+      ...resumedThreadAction("next"),
+      expectedPanelTargetRevision: currentRevision,
+    });
+
+    expect(cleared.panelThread).toEqual({ kind: "empty" });
+    expect(cleared.panelTargetRevision).toBeGreaterThan(currentRevision);
+    expect(activeThreadState(resumed)?.id).toBe("next");
+    expect(resumed.panelTargetRevision).toBeGreaterThan(currentRevision);
+  });
+
+  it("invalidates the panel target when clearing an already empty thread scope", () => {
+    const state = chatStateFixture();
+
+    const cleared = chatReducer(state, {
+      type: "active-thread/cleared",
+      expectedPanelTargetRevision: state.panelTargetRevision,
+    });
+
+    expect(cleared.panelThread).toEqual({ kind: "empty" });
+    expect(cleared.panelTargetRevision).toBe(state.panelTargetRevision + 1);
   });
 
   it("keeps active-only metadata out of the awaiting-resume phase", () => {
@@ -715,6 +900,21 @@ describe("chatReducer", () => {
 
 function dialogueItem(id: string): ThreadStreamItem {
   return { id, kind: "dialogue", role: "assistant", text: id, dialogueKind: "assistantResponse", dialogueState: "completed" };
+}
+
+function pendingWebSubmission(
+  id: string,
+  phase: NonNullable<ChatState["pendingSubmission"]>["phase"] = "cancellable",
+): NonNullable<ChatState["pendingSubmission"]> {
+  const item = pendingWebSubmissionItem(id, "https://example.com", "summarize");
+  if (!item) throw new Error("Expected pending web submission");
+  return {
+    id,
+    item,
+    targetThreadId: null,
+    originalDraft: `/web ${item.text}`,
+    phase,
+  };
 }
 
 function threadScopedResidue(options: { threadId?: string; turnId?: string; draft?: string; itemId?: string } = {}): ChatState {
