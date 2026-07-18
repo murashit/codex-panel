@@ -8,7 +8,7 @@ import type { ThreadRenameEditorActions } from "../../application/threads/rename
 import type { ChatComposerController } from "../../panel/composer-controller";
 import type { ChatPanelShellParts } from "../../panel/shell.dom";
 import type { ChatPanelGoalSurface } from "../../panel/surface/goal-projection";
-import { ThreadStreamPresenter } from "../../panel/surface/thread-stream-presenter";
+import { createChatThreadStreamSurfaceContext } from "../../panel/surface/thread-stream-surface.obsidian";
 import type { ChatPanelToolbarSurface } from "../../panel/surface/toolbar-projection";
 import type { ChatThreadStreamScrollBinding } from "../../panel/thread-stream-scroll-binding";
 import { createToolbarUiActions, type ToolbarPanelActions } from "../../panel/toolbar-actions";
@@ -42,7 +42,6 @@ interface ChatPanelShellBundleInput {
 export interface ChatPanelShellBundle {
   parts: ChatPanelShellParts;
   closeToolbarPanelOnOutsidePointer(event: PointerEvent): void;
-  dispose(): void;
 }
 
 export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPanelShellBundleInput): ChatPanelShellBundle {
@@ -98,27 +97,13 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
     sendShortcut: () => environment.plugin.settingsRef.settings.sendShortcut(),
     actions: goals,
   };
-  const threadStreamPresenter = new ThreadStreamPresenter({
+  const threadStreamContext = createChatThreadStreamSurfaceContext({
     panelId: environment.obsidian.viewId,
-    obsidian: {
-      app: environment.obsidian.app,
-      owner: environment.obsidian.owner,
-    },
-    state: {
-      store: stateStore,
-    },
-    workspace: {
-      vaultPath: environment.plugin.settingsRef.vaultPath,
-    },
-    scroll: {
-      portBinding: host.threadStreamScrollBinding,
-      dispose: () => {
-        host.threadStreamScrollBinding.dispose();
-      },
-    },
-    history: {
-      loadOlderTurns: () => void history.loadOlder(),
-    },
+    app: environment.obsidian.app,
+    owner: environment.obsidian.owner,
+    stateStore,
+    vaultPath: environment.plugin.settingsRef.vaultPath,
+    loadOlderTurns: () => void history.loadOlder(),
     actions: {
       rollbackThread: (threadId) => void threadActions.rollbackThread(threadId),
       forkThreadFromTurn: (threadId, turnId, archiveSource) => void threadActions.forkThreadFromTurn(threadId, turnId, archiveSource),
@@ -137,7 +122,10 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
       actions: toolbarActions,
     },
     goal: goalSurface,
-    threadStream: threadStreamPresenter,
+    threadStream: {
+      context: threadStreamContext,
+      scrollPortBinding: host.threadStreamScrollBinding,
+    },
     composer: {
       presenter: composerController,
       actions: {
@@ -153,9 +141,6 @@ export function createShellBundle(host: ChatPanelShellBundleHost, input: ChatPan
         hit: toolbarOutsidePointerHit(event, environment.view.panelRoot(), environment.view.viewWindow()),
         renameEditing: rename.isEditing(),
       });
-    },
-    dispose: () => {
-      threadStreamPresenter.dispose();
     },
   };
 }

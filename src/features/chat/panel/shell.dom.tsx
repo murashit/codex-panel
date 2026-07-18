@@ -3,12 +3,14 @@ import { useMemo } from "preact/hooks";
 import { listenDomEvent } from "../../../shared/dom/events.dom";
 import { renderUiRoot, unmountUiRoot } from "../../../shared/dom/preact-root.dom";
 import type { ChatStateStore } from "../application/state/store";
+import type { ThreadStreamScrollPortBinding } from "../ui/thread-stream/flow-scroll.measure";
+import { ThreadStreamViewport } from "../ui/thread-stream/stream-blocks";
 import type { ToolbarActions } from "../ui/toolbar";
 import { useChatSelector } from "./chat-state-selector";
 import { selectChatPanelComposer, selectChatPanelGoal, selectChatPanelThreadStream, selectChatPanelToolbar } from "./shell-selectors";
 import { ChatPanelComposer, type ChatPanelComposerActions, type ChatPanelComposerPresenter } from "./surface/composer-projection";
 import { ChatPanelGoal, type ChatPanelGoalSurface } from "./surface/goal-projection";
-import { ChatPanelThreadStream, type ChatPanelThreadStreamPresenter } from "./surface/thread-stream-presenter";
+import { type ChatThreadStreamSurfaceContext, threadStreamSurfaceProjectionFromModel } from "./surface/thread-stream-projection";
 import { ChatPanelToolbar, type ChatPanelToolbarSurface } from "./surface/toolbar-projection";
 
 export interface ChatPanelShellParts {
@@ -17,7 +19,10 @@ export interface ChatPanelShellParts {
     actions: ToolbarActions;
   };
   goal: ChatPanelGoalSurface;
-  threadStream: ChatPanelThreadStreamPresenter;
+  threadStream: {
+    context: ChatThreadStreamSurfaceContext;
+    scrollPortBinding: ThreadStreamScrollPortBinding;
+  };
   composer: {
     presenter: ChatPanelComposerPresenter;
     actions: ChatPanelComposerActions;
@@ -106,7 +111,7 @@ function ChatPanelShell({ stateStore, showToolbar, parts }: ChatPanelShellProps)
         <div className="codex-panel__region codex-panel__region--goal" data-codex-panel-shell-region="goal">
           <ChatPanelGoalRegion stateStore={stateStore} surface={parts.goal} />
         </div>
-        <ChatPanelThreadStreamRegion stateStore={stateStore} presenter={parts.threadStream} />
+        <ChatPanelThreadStreamRegion stateStore={stateStore} surface={parts.threadStream} />
         <div className="codex-panel__region codex-panel__region--composer" data-codex-panel-shell-region="composer">
           <ChatPanelComposerRegion stateStore={stateStore} presenter={parts.composer.presenter} actions={parts.composer.actions} />
         </div>
@@ -138,13 +143,25 @@ function ChatPanelGoalRegion({ stateStore, surface }: { stateStore: ChatStateSto
 
 function ChatPanelThreadStreamRegion({
   stateStore,
-  presenter,
+  surface,
 }: {
   stateStore: ChatStateStore;
-  presenter: ChatPanelThreadStreamPresenter;
+  surface: ChatPanelShellParts["threadStream"];
 }): UiNode {
   const model = useChatSelector(stateStore, selectChatPanelThreadStream);
-  return useMemo(() => <ChatPanelThreadStream model={model} presenter={presenter} />, [model, presenter]);
+  return useMemo(() => {
+    const projection = threadStreamSurfaceProjectionFromModel(model, surface.context);
+    return (
+      <ThreadStreamViewport
+        state={{
+          blocks: projection.blocks,
+          context: projection.context,
+          scrollPortBinding: surface.scrollPortBinding,
+        }}
+        rootAttributes={{ "data-codex-panel-shell-region": "thread-stream" }}
+      />
+    );
+  }, [model, surface]);
 }
 
 function ChatPanelComposerRegion({

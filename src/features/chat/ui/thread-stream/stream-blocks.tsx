@@ -12,7 +12,7 @@ import { pendingRequestBlockNode } from "./pending-request-block";
 import { agentRunSummaryNode, statusNode } from "./status";
 import { textNode } from "./text";
 
-export interface ThreadStreamViewportState {
+interface ThreadStreamViewportState {
   blocks: readonly ThreadStreamViewBlock[];
   context: ThreadStreamContext;
   scrollPortBinding: ThreadStreamScrollPortBinding;

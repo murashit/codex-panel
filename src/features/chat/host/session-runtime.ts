@@ -104,6 +104,7 @@ export class ChatPanelSessionRuntime {
     this.runtime.sharedState.unsubscribe();
     await this.thread.ephemeral.dispose();
     this.disposeOwnedResources();
+    this.host.threadStreamScrollBinding.dispose();
     unmount();
     this.connection.manager.disconnect();
   }
@@ -344,7 +345,6 @@ function composeChatPanelSessionRuntime(host: ChatPanelSessionRuntimeHost): Chat
     },
     disposeOwnedResources: () => {
       connectionBundle.invalidateConnectionScope();
-      shell.dispose();
       composerController.dispose();
     },
   };

@@ -7,11 +7,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type ChatAction, type ChatState, chatReducer } from "../../../../../src/features/chat/application/state/root-reducer";
 import { type ChatStateStore, createChatStateStore } from "../../../../../src/features/chat/application/state/store";
 import { pendingWebSubmissionItem } from "../../../../../src/features/chat/application/turns/web-submission";
-import { ThreadStreamPresenter } from "../../../../../src/features/chat/panel/surface/thread-stream-presenter";
 import {
   type ChatThreadStreamSurfaceContext,
   threadStreamSurfaceProjectionFromModel,
 } from "../../../../../src/features/chat/panel/surface/thread-stream-projection";
+import { createChatThreadStreamSurfaceContext } from "../../../../../src/features/chat/panel/surface/thread-stream-surface.obsidian";
 import {
   type ChatThreadStreamScrollBinding,
   createChatThreadStreamScrollBinding,
@@ -28,11 +28,26 @@ import { installThreadStreamViewportMetrics, pendingApproval } from "../../ui/th
 
 installObsidianDomShims();
 
-function renderThreadStreamPresenter(parent: HTMLElement, presenter: ThreadStreamPresenter, state: ChatState): void {
-  renderUiRoot(parent, h(ThreadStreamViewport, { state: presenter.renderState(threadStreamModelFromChatState(state)) }));
+function renderThreadStreamSurface(
+  parent: HTMLElement,
+  context: ChatThreadStreamSurfaceContext,
+  scrollPortBinding: ChatThreadStreamScrollBinding,
+  state: ChatState,
+): void {
+  const projection = threadStreamSurfaceProjectionFromModel(threadStreamModelFromChatState(state), context);
+  renderUiRoot(
+    parent,
+    h(ThreadStreamViewport, {
+      state: {
+        blocks: projection.blocks,
+        context: projection.context,
+        scrollPortBinding,
+      },
+    }),
+  );
 }
 
-describe("ThreadStreamPresenter scroll pinning", () => {
+describe("thread stream surface", () => {
   beforeEach(() => {
     notices.length = 0;
   });
@@ -94,6 +109,16 @@ describe("ThreadStreamPresenter scroll pinning", () => {
     context.onDisclosureToggle("textDetails", "message:details", true);
 
     expect(store.getState().ui.disclosures.textDetails.has("message:details")).toBe(true);
+  });
+
+  it("binds reducer-owned disclosure and fork menu actions in the surface factory", () => {
+    const { context, stateStore } = threadStreamSurface();
+
+    context.setDisclosureOpen("activityGroups", "turn-1", true);
+    context.setForkMenuItem("message-1");
+
+    expect(stateStore.getState().ui.disclosures.activityGroups.has("turn-1")).toBe(true);
+    expect(stateStore.getState().ui.threadStreamActionMenu.forkMenuItemId).toBe("message-1");
   });
 
   it("projects pending requests from the captured thread stream state", () => {
@@ -281,9 +306,9 @@ describe("ThreadStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter, scrollPortBinding } = threadStreamPresenter(state);
+    const { context, scrollPortBinding } = threadStreamSurface(state);
 
-    renderThreadStreamPresenter(parent, presenter, state);
+    renderThreadStreamSurface(parent, context, scrollPortBinding, state);
     const viewport = threadStreamViewport(parent);
     installThreadStreamViewportMetrics(viewport, { clientHeight: 100, scrollHeight: 1000 });
     viewport.scrollTop = 100;
@@ -309,8 +334,8 @@ describe("ThreadStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter, scrollPortBinding } = threadStreamPresenter(state);
-    renderThreadStreamPresenter(parent, presenter, state);
+    const { context, scrollPortBinding } = threadStreamSurface(state);
+    renderThreadStreamSurface(parent, context, scrollPortBinding, state);
     const viewport = threadStreamViewport(parent);
     let scrollTop = 0;
     let layoutSettled = false;
@@ -362,9 +387,9 @@ describe("ThreadStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter, scrollPortBinding } = threadStreamPresenter(state, vi.fn(), "/vault");
+    const { context, scrollPortBinding } = threadStreamSurface(state, vi.fn(), "/vault");
 
-    renderThreadStreamPresenter(parent, presenter, state);
+    renderThreadStreamSurface(parent, context, scrollPortBinding, state);
     const viewport = threadStreamViewport(parent);
     installThreadStreamViewportMetrics(viewport, { clientHeight: 100, scrollHeight: 1000 });
     scrollPortBinding.showLatest();
@@ -388,11 +413,11 @@ describe("ThreadStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter } = threadStreamPresenter(state);
+    const { context, scrollPortBinding } = threadStreamSurface(state);
 
     const viewport = parent.createDiv({ cls: "codex-panel__thread-stream" });
     installThreadStreamViewportMetrics(viewport);
-    renderThreadStreamPresenter(viewport, presenter, state);
+    renderThreadStreamSurface(viewport, context, scrollPortBinding, state);
     await settleThreadStreamRender(viewport);
 
     Object.defineProperty(viewport, "scrollHeight", { value: 1000, configurable: true });
@@ -411,7 +436,7 @@ describe("ThreadStreamPresenter scroll pinning", () => {
         dialogueState: "completed",
       },
     ]);
-    renderThreadStreamPresenter(viewport, presenter, state);
+    renderThreadStreamSurface(viewport, context, scrollPortBinding, state);
     await settleThreadStreamRender(viewport);
 
     expect(viewport.scrollTop).toBe(100);
@@ -432,13 +457,13 @@ describe("ThreadStreamPresenter scroll pinning", () => {
       },
     ]);
     const parent = document.createElement("div");
-    const { presenter } = threadStreamPresenter(state);
+    const { context, scrollPortBinding } = threadStreamSurface(state);
 
     const viewport = parent.createDiv({ cls: "codex-panel__thread-stream" });
     Object.defineProperty(viewport, "scrollHeight", { value: 1000, configurable: true });
     installThreadStreamViewportMetrics(viewport, { clientHeight: 100 });
     viewport.scrollTop = 920;
-    renderThreadStreamPresenter(viewport, presenter, state);
+    renderThreadStreamSurface(viewport, context, scrollPortBinding, state);
 
     viewport.scrollTop = 100;
     viewport.dispatchEvent(new Event("scroll"));
@@ -567,49 +592,37 @@ async function renderedTag(
   };
 }
 
-interface TestThreadStreamPresenter {
-  presenter: ThreadStreamPresenter;
+interface TestThreadStreamSurface {
+  context: ChatThreadStreamSurfaceContext;
   scrollPortBinding: ChatThreadStreamScrollBinding;
+  stateStore: ChatStateStore;
 }
 
-function threadStreamPresenter(
+function threadStreamSurface(
   state = chatStateFixture(),
   openLinkText = vi.fn(),
   vaultPath = "/vault",
   vaultFiles: string[] = [],
-): TestThreadStreamPresenter {
+): TestThreadStreamSurface {
   const files = new Map(vaultFiles.map((path) => [path, tFile(path)]));
   const scrollPortBinding = createChatThreadStreamScrollBinding();
-  const presenter = new ThreadStreamPresenter({
+  const stateStore = testStoreForState(state);
+  const context = createChatThreadStreamSurfaceContext({
     panelId: "test-panel",
-    obsidian: {
-      app: {
-        workspace: {
-          getActiveFile: vi.fn(() => null),
-          openLinkText,
-        },
-        vault: {
-          configDir: "vault-config",
-          getAbstractFileByPath: (path: string) => files.get(path) ?? null,
-        },
-      } as never,
-      owner: {} as never,
-    },
-    state: {
-      store: testStoreForState(state),
-    },
-    workspace: {
-      vaultPath,
-    },
-    scroll: {
-      portBinding: scrollPortBinding,
-      dispose: () => {
-        scrollPortBinding.dispose();
+    app: {
+      workspace: {
+        getActiveFile: vi.fn(() => null),
+        openLinkText,
       },
-    },
-    history: {
-      loadOlderTurns: vi.fn(),
-    },
+      vault: {
+        configDir: "vault-config",
+        getAbstractFileByPath: (path: string) => files.get(path) ?? null,
+      },
+    } as never,
+    owner: {} as never,
+    stateStore,
+    vaultPath,
+    loadOlderTurns: vi.fn(),
     actions: {
       rollbackThread: vi.fn(),
       forkThreadFromTurn: vi.fn(),
@@ -629,7 +642,7 @@ function threadStreamPresenter(
       consumePendingAutoFocus: () => false,
     },
   });
-  return { presenter, scrollPortBinding };
+  return { context, scrollPortBinding, stateStore };
 }
 
 function testStoreForState(state: ChatState): ChatStateStore {

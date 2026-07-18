@@ -8,9 +8,9 @@ import { createChatStateStore } from "../../../../src/features/chat/application/
 import type { ThreadManagementActions } from "../../../../src/features/chat/application/threads/thread-management-actions";
 import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell.dom";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
+import type { ChatThreadStreamSurfaceContext } from "../../../../src/features/chat/panel/surface/thread-stream-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
 import { createToolbarPanelActions, type ToolbarPanelActions } from "../../../../src/features/chat/panel/toolbar-actions";
-import type { ThreadStreamContext } from "../../../../src/features/chat/ui/thread-stream/context";
 import type { ThreadStreamScrollPortBinding } from "../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../support/dom";
 
@@ -110,11 +110,8 @@ function shellParts(store: ReturnType<typeof createChatStateStore>, toolbarPanel
     },
     goal: surface.goal,
     threadStream: {
-      renderState: () => ({
-        blocks: [],
-        context: testThreadStreamContext,
-        scrollPortBinding: noOpThreadStreamScrollPortBinding,
-      }),
+      context: testThreadStreamContext,
+      scrollPortBinding: noOpThreadStreamScrollPortBinding,
     },
     composer: {
       presenter: {
@@ -196,20 +193,33 @@ const noOpThreadStreamScrollPortBinding: ThreadStreamScrollPortBinding = {
   mountScrollPort: () => () => undefined,
 };
 
-const testThreadStreamContext: ThreadStreamContext = {
-  activeThreadId: "thread",
-  workspaceRoot: "/vault",
+const testThreadStreamContext: ChatThreadStreamSurfaceContext = {
+  panelId: "test-panel",
+  vaultPath: "/vault",
+  setDisclosureOpen: vi.fn(),
+  setForkMenuItem: vi.fn(),
   loadOlderTurns: () => undefined,
-  disclosures: {
-    details: new Set(),
-    activityGroups: new Set(),
-    textDetails: new Set(),
-    userDialogueExpanded: new Set(),
-    approvalDetails: new Set(),
-  },
-  forkMenuItemId: null,
   renderObsidianMarkdown: () => undefined,
   renderStreamMarkdown: () => undefined,
+  copyDialogueText: () => undefined,
+  actions: {
+    rollbackThread: vi.fn(),
+    forkThreadFromTurn: vi.fn(),
+    implementPlan: vi.fn(),
+    openThreadInNewView: vi.fn(),
+    openTurnDiff: vi.fn(),
+  },
+  requests: {
+    pendingActions: () => ({
+      resolveApproval: vi.fn(),
+      resolveUserInput: vi.fn(),
+      cancelUserInput: vi.fn(),
+      resolveMcpElicitation: vi.fn(),
+      setUserInputDraft: vi.fn(),
+      setMcpElicitationDraft: vi.fn(),
+    }),
+    consumePendingAutoFocus: () => false,
+  },
 };
 
 function threadFixture(id: string, name: string): Thread {

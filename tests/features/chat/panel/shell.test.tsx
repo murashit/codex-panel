@@ -9,9 +9,8 @@ import { ChatComposerController } from "../../../../src/features/chat/panel/comp
 import { type ChatPanelShellParts, renderChatPanelShell, unmountChatPanelShell } from "../../../../src/features/chat/panel/shell.dom";
 import type { ChatPanelComposerModel } from "../../../../src/features/chat/panel/shell-selectors";
 import type { ChatPanelGoalSurface } from "../../../../src/features/chat/panel/surface/goal-projection";
+import type { ChatThreadStreamSurfaceContext } from "../../../../src/features/chat/panel/surface/thread-stream-projection";
 import type { ChatPanelToolbarSurface } from "../../../../src/features/chat/panel/surface/toolbar-projection";
-import { threadStreamViewBlocks } from "../../../../src/features/chat/presentation/thread-stream/view-model";
-import type { ThreadStreamContext } from "../../../../src/features/chat/ui/thread-stream/context";
 import type { ThreadStreamScrollPortBinding } from "../../../../src/features/chat/ui/thread-stream/flow-scroll.measure";
 import { installObsidianDomShims } from "../../../support/dom";
 
@@ -266,20 +265,8 @@ function shellParts(
     },
     goal: surface.goal,
     threadStream: {
-      renderState: (model) => {
-        void model.activeThreadCwd;
-        return {
-          blocks: threadStreamViewBlocks({
-            activeThreadId: model.activeThreadId,
-            activeTurnId: null,
-            historyCursor: model.threadStream.historyCursor,
-            loadingHistory: model.threadStream.loadingHistory,
-            items: model.threadStream.stableItems,
-          }),
-          context: testThreadStreamContext,
-          scrollPortBinding: noOpThreadStreamScrollPortBinding,
-        };
-      },
+      context: testThreadStreamContext,
+      scrollPortBinding: noOpThreadStreamScrollPortBinding,
     },
     composer: {
       presenter: {
@@ -392,20 +379,33 @@ function composerProjectionFixture(_model: ChatPanelComposerModel) {
   };
 }
 
-const testThreadStreamContext: ThreadStreamContext = {
-  activeThreadId: "thread",
-  workspaceRoot: "/vault",
+const testThreadStreamContext: ChatThreadStreamSurfaceContext = {
+  panelId: "test-panel",
+  vaultPath: "/vault",
+  setDisclosureOpen: vi.fn(),
+  setForkMenuItem: vi.fn(),
   loadOlderTurns: () => undefined,
-  disclosures: {
-    details: new Set(),
-    activityGroups: new Set(),
-    textDetails: new Set(),
-    userDialogueExpanded: new Set(),
-    approvalDetails: new Set(),
-  },
-  forkMenuItemId: null,
   renderObsidianMarkdown: () => undefined,
   renderStreamMarkdown: () => undefined,
+  copyDialogueText: () => undefined,
+  actions: {
+    rollbackThread: vi.fn(),
+    forkThreadFromTurn: vi.fn(),
+    implementPlan: vi.fn(),
+    openThreadInNewView: vi.fn(),
+    openTurnDiff: vi.fn(),
+  },
+  requests: {
+    pendingActions: () => ({
+      resolveApproval: vi.fn(),
+      resolveUserInput: vi.fn(),
+      cancelUserInput: vi.fn(),
+      resolveMcpElicitation: vi.fn(),
+      setUserInputDraft: vi.fn(),
+      setMcpElicitationDraft: vi.fn(),
+    }),
+    consumePendingAutoFocus: () => false,
+  },
 };
 
 function surfaceFixture(options: { toolbarConnected?: () => boolean; goalSendShortcut?: () => "enter" | "mod-enter" } = {}): {

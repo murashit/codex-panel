@@ -27,7 +27,7 @@ import { type ThreadStreamViewBlock, threadStreamViewBlocks } from "../../presen
 import type { ThreadStreamContext, ThreadStreamDisclosureBucket, ThreadStreamDisclosureState } from "../../ui/thread-stream/context";
 import type { ChatPanelThreadStreamModel } from "../shell-selectors";
 
-interface ChatThreadStreamActions {
+export interface ChatThreadStreamActions {
   rollbackThread: (threadId: string) => void;
   forkThreadFromTurn: (threadId: string, turnId: string, archiveSource: boolean) => void;
   implementPlan: (itemId: string) => void;
@@ -35,7 +35,7 @@ interface ChatThreadStreamActions {
   openTurnDiff: (state: TurnDiffViewState) => void;
 }
 
-interface ChatThreadStreamRequests {
+export interface ChatThreadStreamRequests {
   pendingActions: () => PendingRequestBlockActions;
   consumePendingAutoFocus: () => boolean;
 }
